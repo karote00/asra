@@ -15,9 +15,7 @@ const ToolButton = () => {
   const primaryTool = usePrimaryTool()
 
   const handleReset = useCallback(() => {
-    void resetData().catch((error: unknown) => {
-      console.error('[toolbar.reset] Failed:', error)
-    })
+    resetData()
   }, [])
 
   const handleSwitchToSelectTool = useCallback(() => {
@@ -39,29 +37,40 @@ const ToolButton = () => {
   return (
     <div className="flex items-center gap-1">
       <button
-        className="tool-btn mr-2"
-        onClick={handleReset}
+        aria-label="Reset document"
+        className="tool-btn"
         data-testid="reset-button"
-        title="Reset"
+        onClick={handleReset}
+        title="Reset document"
+        type="button"
       >
         <svg
-          width="16"
+          aria-hidden="true"
+          fill="none"
           height="16"
           viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+          width="16"
         >
-          <path d="M2.5 2.5v4h4" />
-          <path d="M2.75 9.5a5.25 5.25 0 1 0 1.18-3.75L2.5 6.5" />
+          <path
+            d="M3.5 5.5A5 5 0 1 1 3 9"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeWidth="1.5"
+          />
+          <path
+            d="M3.5 2.5v3h3"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.5"
+          />
         </svg>
       </button>
-
-      {/* Separator */}
-      <div className="w-px h-5 bg-[#333] mx-1" />
-
+      <div
+        aria-hidden="true"
+        className="mx-1 h-5 w-px bg-[#4a4a4a]"
+        data-testid="reset-separator"
+      />
       <button
         className={`tool-btn ${primaryTool === PrimaryToolType.SELECT ? 'active' : ''}`}
         onClick={handleSwitchToSelectTool}

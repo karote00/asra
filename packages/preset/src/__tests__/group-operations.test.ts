@@ -185,7 +185,63 @@ describe('official Preset Group operation planning', () => {
 })
 
 describe('official Preset Group geometry adapters', () => {
-  it('projects an initial geometry update through every nested Group before canonical apply', () => {
+  it('returns a child-only geometry update without reading Group state', () => {
+    const childIds = Array.from(
+      { length: 7075 },
+      (_, index) => `child-${index + 1}`
+    )
+    const snapshot = {
+      workspaceId: 'workspace',
+      elements: {
+        workspace: {
+          id: 'workspace',
+          type: EntityTypes.WORKSPACE,
+          parentId: '',
+          children: ['group-1']
+        },
+        'group-1': {
+          id: 'group-1',
+          type: EntityTypes.GROUP,
+          parentId: 'workspace',
+          children: childIds
+        },
+        ...Object.fromEntries(
+          childIds.map((elementId) => [
+            elementId,
+            {
+              id: elementId,
+              type: EntityTypes.RECTANGLE,
+              parentId: 'group-1'
+            }
+          ])
+        )
+      }
+    } as unknown as SceneTreeRawData
+    const core = {
+      sceneTreeSaveData: vi.fn(() => snapshot),
+      getElementComputedData: vi.fn(),
+      updateElementProperties: vi.fn()
+    }
+
+    expect(
+      projectGroupGeometryPropertyUpdates(core, [
+        {
+          elementId: childIds[0],
+          values: { x: 35, y: 20, width: 50 }
+        }
+      ])
+    ).toEqual([
+      {
+        elementId: childIds[0],
+        values: { x: 35, y: 20, width: 50 }
+      }
+    ])
+    expect(core.sceneTreeSaveData).not.toHaveBeenCalled()
+    expect(core.getElementComputedData).not.toHaveBeenCalled()
+    expect(core.updateElementProperties).not.toHaveBeenCalled()
+  })
+
+  it('projects an explicit Group geometry update through nested Group owners before canonical apply', () => {
     const snapshot = createSnapshot()
     snapshot.elements.outer.children = ['nested-group']
     snapshot.elements['nested-group'].children = ['nested-leaf', 'first']
@@ -206,29 +262,33 @@ describe('official Preset Group geometry adapters', () => {
       updateElementProperties: vi.fn()
     }
 
-    const request = projectGroupGeometryPropertyUpdates(core, [
-      {
-        elementId: 'nested-leaf',
-        values: { x: 35, y: 20, width: 50 }
-      }
-    ])
+    const request = projectGroupGeometryPropertyUpdates(
+      core,
+      [
+        {
+          elementId: 'nested-group',
+          values: { width: 50 }
+        }
+      ],
+      ['nested-group']
+    )
 
     expect(request).toEqual([
       {
-        elementId: 'nested-leaf',
-        values: { x: 0, y: 10, width: 50 }
+        elementId: 'nested-group',
+        values: { x: 0, y: 0, width: 90, height: 30 }
       },
       {
-        elementId: 'nested-group',
-        values: { x: 0, y: 0, width: 65, height: 35 }
+        elementId: 'nested-leaf',
+        values: { x: 0, y: 5 }
       },
       {
         elementId: 'first',
-        values: { x: 45, y: 0 }
+        values: { x: 70, y: 0 }
       },
       {
         elementId: 'outer',
-        values: { x: 155, y: 90, width: 65, height: 35 }
+        values: { x: 130, y: 90, width: 90, height: 30 }
       }
     ])
     expect(new Set(request.map(({ elementId }) => elementId)).size).toBe(
@@ -276,11 +336,15 @@ describe('official Preset Group geometry adapters', () => {
       ])
     ).toThrow(/unique element ids/i)
     expect(() =>
-      projectGroupGeometryPropertyUpdates(core, [
-        { elementId: 'first', values: { x: 5 } },
-        { elementId: 'missing', values: { width: 20 } }
-      ])
-    ).toThrow(/missing/i)
+      projectGroupGeometryPropertyUpdates(
+        core,
+        [
+          { elementId: 'first', values: { x: 5 } },
+          { elementId: 'missing', values: { width: 20 } }
+        ],
+        ['missing']
+      )
+    ).toThrow(/not an official Group/i)
     expect(core.updateElementProperties).not.toHaveBeenCalled()
   })
 

@@ -52,13 +52,6 @@ interface VectorComputedData {
   networks?: Record<string, VectorNetwork>
 }
 
-interface GroupComputedData {
-  x?: number
-  y?: number
-  width?: number
-  height?: number
-}
-
 interface SelectionOverlayRenderLayerDeps
   extends Pick<PresetDependencies, 'render' | 'sceneTree' | 'systemContext'> {
   getSelection: (type: string) => ElementSelectionReader | undefined
@@ -147,11 +140,6 @@ const getElementType = (
   elementId: string
 ) => deps.sceneTree.getElementById(elementId)?.get('type')
 
-const isFiniteTransform = (matrix: GeometryTransformMatrix) =>
-  [matrix.a, matrix.b, matrix.c, matrix.d, matrix.tx, matrix.ty].every(
-    Number.isFinite
-  )
-
 const getGroupBoundsCorners = (
   deps: Pick<PresetDependencies, 'sceneTree'>,
   elementId: string,
@@ -162,24 +150,25 @@ const getGroupBoundsCorners = (
     return null
   }
 
-  const computed = sceneElement.getAllComputedData() as GroupComputedData
-  const { x, y, width, height } = computed
+  const bounds = element.getBounds()
+  const { x, y, width, height } = bounds
   if (
     ![x, y, width, height].every(Number.isFinite) ||
+    typeof x !== 'number' ||
+    typeof y !== 'number' ||
     typeof width !== 'number' ||
     typeof height !== 'number' ||
     width <= 0 ||
-    height <= 0 ||
-    !isFiniteTransform(element.worldTransform)
+    height <= 0
   ) {
     return null
   }
 
   return [
-    transformGeometryPoint(element.worldTransform, { x: 0, y: 0 }),
-    transformGeometryPoint(element.worldTransform, { x: width, y: 0 }),
-    transformGeometryPoint(element.worldTransform, { x: width, y: height }),
-    transformGeometryPoint(element.worldTransform, { x: 0, y: height })
+    { x, y },
+    { x: x + width, y },
+    { x: x + width, y: y + height },
+    { x, y: y + height }
   ]
 }
 

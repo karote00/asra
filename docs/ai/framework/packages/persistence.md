@@ -2,12 +2,14 @@
 
 ## Responsibility
 
-Define replaceable document persistence providers and synchronous save/load
-transformation hooks used by Core.
+Define read-only document load sources, replaceable persistence providers, and
+synchronous serialization/load transformation hooks.
 
 ## Owns
 
-- the `IPersistenceProvider` contract: `save`, `load`, and `clear`;
+- the `DocumentLoadSource` contract: `name` and untrusted `load`;
+- the `IPersistenceProvider` contract, which extends `DocumentLoadSource` with
+  `save` and `clear` for explicit non-Core owners;
 - `SaveHook` and `LoadHook` types;
 - browser `IndexedDbPersistence` and `LocalStoragePersistence`, plus the
   process-local `MemoryPersistence` reference provider;
@@ -25,12 +27,12 @@ transformation hooks used by Core.
 
 - `load()` returns untrusted `unknown | null`; Core and registered app load
   hooks establish eligibility before package-owner validation and apply.
-- `SaveHook` receives and returns `CoreRawData` synchronously before provider
-  I/O.
+- `SaveHook` receives and returns detached `CoreRawData` synchronously during
+  explicit `core.save()` serialization; Core performs no provider I/O.
 - `LoadHook` synchronously transforms untrusted input and must return a
   versioned document. App-owned migrations belong in this hook chain.
-- Provider failure is reported by the Core persistence lifecycle and does not
-  redefine whether the preceding runtime transaction committed.
+- Provider writers are not scheduled by Core transaction settlement and their
+  failure cannot redefine whether a runtime transaction committed.
 - `IndexedDbPersistence` stores structured-clone documents under an
   app-selected key, defaults to `FILE`, and accepts an injected `IDBFactory`
   for isolated runtimes and tests. It is the capacity-appropriate offline

@@ -329,13 +329,16 @@ test('app resolves canvas target and create parent from canonical parent scopes'
   )
   assert.match(
     text,
-    /Preset normalizeGroupsForElements.*drag geometry.*Group bounds/i
+    /Create drag geometry writes only the created child.*does not normalize ancestor Groups or rebase siblings/i
   )
   assert.match(
     text,
-    /every accepted discrete child geometry mutation or completed continuous pointer gesture.*before the same outer transaction commits.*deepest affected Group first/i
+    /every accepted child-only discrete geometry mutation or completed continuous pointer gesture.*explicit targets.*does not invoke Preset Group normalization/i
   )
-  assert.match(text, /App does not derive or cache Group bounds/i)
+  assert.match(
+    text,
+    /child-only pointer-move samples and gesture finalization bypass Group normalization.*proportional to explicit targets/i
+  )
   assert.match(text, /app-owned Group origin arithmetic/i)
   assert.match(text, /legacy firstFrame fallback/i)
   assert.match(text, /raw hit fallback/i)
@@ -355,19 +358,38 @@ test('app resolves canvas target and create parent from canonical parent scopes'
   )
 })
 
-test('Preset selection overlay projects canonical Group hover and selection bounds', () => {
-  const text = contractText(step('project-group-hover-selection-overlay'))
+test('Preset projects selected Group read-only bounds and the ordinary overlay', () => {
+  const owner = step('project-group-hover-selection-overlay')
+  const text = contractText(owner)
 
   assert.match(text, /existing registered selection overlay layer/i)
   assert.match(text, /canonical element selection.*hovered element id/i)
-  assert.match(text, /official Group computed.*x.*y.*width.*height/i)
+  assert.match(
+    text,
+    /current descendant content bounds once.*selection UI-context recompute.*without writing them to the Group/i
+  )
+  assert.match(text, /engine-neutral Group presentation bounds/i)
   assert.match(text, /current identity-safe Render world transform/i)
   assert.match(text, /selected Group.*selection box/i)
   assert.match(text, /hovered unselected Group.*hover box/i)
   assert.match(text, /nested Group.*world transform/i)
+  assert.match(
+    text,
+    /creates no transaction.*History entry.*shared publication.*persistence change/i
+  )
   assert.match(text, /second overlay layer.*Group-specific mutable state/i)
   assert.match(text, /canvas hit area/i)
   assert.match(text, /Pixi/i)
+  assert.ok(
+    owner.outputs.includes(
+      'artifact:selected-group-read-only-property-context'
+    )
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'packages/preset/src/subscriptions/data-channel.ts'
+    )
+  )
 })
 
 test('Core derives zoom-fit bounds from canonical world coordinates', () => {
@@ -379,6 +401,10 @@ test('Core derives zoom-fit bounds from canonical world coordinates', () => {
   assert.match(text, /workspace root/i)
   assert.match(text, /nested container offsets/i)
   assert.match(text, /world-space scene bounds/i)
+  assert.match(
+    text,
+    /invisible Group contributes canonical x and y.*width and height snapshot is not unioned/i
+  )
   assert.match(text, /Group before and after.*exactly equivalent/i)
   assert.match(text, /missing parent.*cycle.*non-finite/i)
   assert.match(text, /app-specific.*Render.*fallback/i)
@@ -444,8 +470,9 @@ test('acceptance contracts cover every product family and Definition of Done', (
     /Without selection and without Meta\/Ctrl.*workspace direct-child target/i,
     /With selection and without Meta\/Ctrl.*exact selected parentId scope.*different parent is invalid/i,
     /With Meta\/Ctrl.*first non-Group raw hit.*hover, selection, and pointer-down move/i,
-    /nested child pointer move.*Preset.*gesture transaction commits.*every affected Group bounds cache deepest first.*without a visible jump/i,
-    /Selected and hovered official Groups.*canonical computed bounds/i,
+    /nested child property, create-drag, or pointer-move mutation.*explicit targets.*without ancestor Group normalization.*Group-sized publication/i,
+    /selected official Group.*read-only descendant content bounds.*without canonical mutation.*persistence changes/i,
+    /Selected and hovered official Groups.*engine-neutral presentation bounds/i,
     /Cmd\+1.*Group before and after.*world-space scene bounds/i,
     /One command is one undo entry and one grouped publication/i,
     /Accepted remote Group changes.*without selection takeover/i,

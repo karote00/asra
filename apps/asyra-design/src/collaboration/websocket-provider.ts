@@ -17,7 +17,8 @@ import {
 import {
   CollaborationMessageTypes,
   type CollaborationRequestInput,
-  type CollaborationRequestMessage
+  type CollaborationRequestMessage,
+  type DocumentSessionBootstrap
 } from './protocol'
 import type {
   CollaborationTransportWorkerLike,
@@ -28,11 +29,26 @@ import type {
 type Subscriber<T> = (value: T) => void
 type PublicationConsumer = (publication: SharedPublication) => Promise<void>
 
-interface PendingRequest {
-  readonly kind: 'control' | 'publication'
+export interface DocumentSourcePublicationAcceptance {
+  readonly publicationId: string
+  readonly sequence: number
+}
+
+interface PendingControlRequest {
+  readonly kind: 'control'
   resolve(value: unknown): void
   reject(error: unknown): void
 }
+
+interface PendingPublicationRequest {
+  readonly kind: 'publication'
+  readonly publication: SharedPublication
+  readonly consumeAcceptedSource: PublicationConsumer
+  resolve(value: DocumentSourcePublicationAcceptance): void
+  reject(error: unknown): void
+}
+
+type PendingRequest = PendingControlRequest | PendingPublicationRequest
 
 interface PendingConnection {
   readonly generation: number
@@ -55,6 +71,14 @@ interface ActivePublicationDelivery {
   readonly deliveryId: string
   readonly generation: number
   readonly publication: SharedPublication
+  readonly sequence: number
+  state: 'awaiting-consumer' | 'applying'
+}
+
+interface SequencedSourceAcceptance {
+  readonly acceptance: DocumentSourcePublicationAcceptance
+  readonly generation: number
+  readonly pending: PendingPublicationRequest
   state: 'awaiting-consumer' | 'applying'
 }
 
@@ -109,6 +133,10 @@ export class CollaborationWebSocketProvider implements Provider {
   private transportWorkerListeners: TransportWorkerListeners | null = null
   private connectPromise: Promise<void> | null = null
   private pendingConnection: PendingConnection | null = null
+  private documentSessionBootstrap: DocumentSessionBootstrap | null = null
+  private documentBootstrapCompleted = false
+  private appliedDocumentSequence: number | null = null
+  private bootstrapCompletionPromise: Promise<void> | null = null
   private disconnectPromise: Promise<void> | null = null
   private pendingDisconnect: PendingDisconnect | null = null
   private readonly pendingRequests = new Map<string, PendingRequest>()
@@ -116,6 +144,11 @@ export class CollaborationWebSocketProvider implements Provider {
   private readonly publicationCapacityWaiters: PublicationCapacityWaiter[] = []
   private publicationConsumer: PublicationConsumer | null = null
   private activePublicationDelivery: ActivePublicationDelivery | null = null
+  private deferredPublicationDelivery: Extract<
+    CollaborationTransportWorkerResponse,
+    { type: 'publication-delivery' }
+  > | null = null
+  private sourcePublicationAcceptance: SequencedSourceAcceptance | null = null
   private suppressedAppFailureGeneration: number | null = null
   private readonly statusSubscribers = new Set<Subscriber<ProviderStatus>>()
   private readonly awarenessSubscribers = new Set<
@@ -138,13 +171,70 @@ export class CollaborationWebSocketProvider implements Provider {
         ) as unknown as CollaborationTransportWorkerLike)
   }
 
-  connect(): Promise<void> {
+  async connect(): Promise<void> {
+    await this.openDocumentSession()
+    await this.completeDocumentBootstrap()
+  }
+
+  async openDocumentSession(): Promise<DocumentSessionBootstrap> {
+    await this.connectTransport()
+    if (!this.documentSessionBootstrap) {
+      throw new ProviderFailure(
+        'connection-failed',
+        '[collaboration] document-session bootstrap is unavailable'
+      )
+    }
+    return this.documentSessionBootstrap
+  }
+
+  completeDocumentBootstrap(): Promise<void> {
+    this.requireConnected()
+    if (this.documentBootstrapCompleted) return Promise.resolve()
+    if (this.bootstrapCompletionPromise) return this.bootstrapCompletionPromise
+    const bootstrap = this.documentSessionBootstrap
+    if (!bootstrap) {
+      return Promise.reject(
+        new ProviderFailure(
+          'connection-failed',
+          '[collaboration] document-session bootstrap is unavailable'
+        )
+      )
+    }
+    this.appliedDocumentSequence = bootstrap.headSequence
+    const completion = this.request(
+      {
+        type: CollaborationMessageTypes.BOOTSTRAP_CONSUMED,
+        headSequence: bootstrap.headSequence
+      },
+      this.connectionGeneration
+    )
+      .then(() => {
+        this.documentBootstrapCompleted = true
+      })
+      .catch((error) => {
+        this.appliedDocumentSequence = null
+        throw error
+      })
+      .finally(() => {
+        if (this.bootstrapCompletionPromise === completion) {
+          this.bootstrapCompletionPromise = null
+        }
+      })
+    this.bootstrapCompletionPromise = completion
+    return completion
+  }
+
+  private connectTransport(): Promise<void> {
     this.requireUsable()
     if (this.status === 'connected') return Promise.resolve()
     if (this.connectPromise) return this.connectPromise
 
     const generation = ++this.connectionGeneration
     this.suppressedAppFailureGeneration = null
+    this.documentSessionBootstrap = null
+    this.documentBootstrapCompleted = false
+    this.appliedDocumentSequence = null
+    this.bootstrapCompletionPromise = null
     this.setStatus('connecting')
 
     try {
@@ -208,6 +298,10 @@ export class CollaborationWebSocketProvider implements Provider {
       generation
     )
     this.rejectPending(failure)
+    this.documentSessionBootstrap = null
+    this.documentBootstrapCompleted = false
+    this.appliedDocumentSequence = null
+    this.bootstrapCompletionPromise = null
     this.setStatus('disconnected')
 
     if (!worker || this.transportWorkerGeneration !== generation) {
@@ -248,6 +342,10 @@ export class CollaborationWebSocketProvider implements Provider {
     this.setStatus('disposed')
     this.rejectPendingConnection(disposedFailure, generation)
     this.rejectPending(disposedFailure)
+    this.documentSessionBootstrap = null
+    this.documentBootstrapCompleted = false
+    this.appliedDocumentSequence = null
+    this.bootstrapCompletionPromise = null
     this.resolvePendingDisconnect(generation)
 
     if (this.transportWorker && this.transportWorkerGeneration === generation) {
@@ -277,10 +375,18 @@ export class CollaborationWebSocketProvider implements Provider {
   }
 
   async sendPublication(publication: SharedPublication): Promise<void> {
+    await this.sendPublicationWithAcceptance(publication, async () => undefined)
+  }
+
+  async sendPublicationWithAcceptance(
+    publication: SharedPublication,
+    consumeAcceptedSource: PublicationConsumer
+  ): Promise<DocumentSourcePublicationAcceptance> {
+    this.requireDocumentSessionLive()
     const generation = this.connectionGeneration
     await this.acquirePublicationCapacity(generation)
     try {
-      await measureBrowserDragAsyncPhase(
+      return await measureBrowserDragAsyncPhase(
         'collaboration:outbound-send-to-acceptance',
         () =>
           this.request(
@@ -288,8 +394,9 @@ export class CollaborationWebSocketProvider implements Provider {
               type: CollaborationMessageTypes.SEND_PUBLICATION,
               publication
             },
-            generation
-          )
+            generation,
+            consumeAcceptedSource
+          ) as Promise<DocumentSourcePublicationAcceptance>
       )
     } catch (error) {
       if (!this.transportWorker || this.status !== 'connected') {
@@ -297,6 +404,10 @@ export class CollaborationWebSocketProvider implements Provider {
       }
       throw error
     }
+  }
+
+  getAppliedDocumentSequence(): number | null {
+    return this.appliedDocumentSequence
   }
 
   onPublication(consume: PublicationConsumer): () => void {
@@ -316,6 +427,7 @@ export class CollaborationWebSocketProvider implements Provider {
   }
 
   async sendAwareness(message: ProviderAwarenessMessage): Promise<void> {
+    this.requireDocumentSessionLive()
     if (message.actorId !== this.identity.actorId) {
       const failure = new ProviderFailure(
         'invalid-awareness-actor',
@@ -349,7 +461,8 @@ export class CollaborationWebSocketProvider implements Provider {
 
   private request(
     input: CollaborationRequestInput,
-    generation: number
+    generation: number,
+    consumeAcceptedSource?: PublicationConsumer
   ): Promise<unknown> {
     this.requireConnectedGeneration(generation)
     const requestId = `${this.identity.actorId}:${++this.requestSequence}`
@@ -363,11 +476,23 @@ export class CollaborationWebSocketProvider implements Provider {
         : 'control'
 
     return new Promise((resolve, reject) => {
-      this.pendingRequests.set(requestId, {
-        kind,
-        resolve,
-        reject
-      })
+      const pending: PendingRequest =
+        kind === 'publication' &&
+        message.type === CollaborationMessageTypes.SEND_PUBLICATION
+          ? {
+              kind,
+              publication: message.publication,
+              consumeAcceptedSource:
+                consumeAcceptedSource ?? (async () => undefined),
+              resolve: resolve as PendingPublicationRequest['resolve'],
+              reject
+            }
+          : {
+              kind: 'control',
+              resolve,
+              reject
+            }
+      this.pendingRequests.set(requestId, pending)
       try {
         this.postToTransportWorker({
           type: 'send-request',
@@ -478,6 +603,7 @@ export class CollaborationWebSocketProvider implements Provider {
     this.transportWorkerGeneration = 0
     this.transportWorkerListeners = null
     this.activePublicationDelivery = null
+    this.deferredPublicationDelivery = null
     if (worker && listeners) {
       worker.removeEventListener('message', listeners.onMessage)
       worker.removeEventListener('error', listeners.onFailure)
@@ -528,6 +654,7 @@ export class CollaborationWebSocketProvider implements Provider {
       }
       this.pendingConnection = null
       this.connectPromise = null
+      this.documentSessionBootstrap = response.bootstrap
       this.setStatus('connected')
       pending.resolve()
       return
@@ -536,7 +663,27 @@ export class CollaborationWebSocketProvider implements Provider {
       const pending = this.pendingRequests.get(response.requestId)
       if (!pending) return
       this.pendingRequests.delete(response.requestId)
-      pending.resolve(undefined)
+      if (pending.kind === 'control') {
+        pending.resolve(undefined)
+        return
+      }
+      const sequence = response.acceptedSequences?.[0]
+      if (!Number.isSafeInteger(sequence) || Number(sequence) <= 0) {
+        pending.reject(
+          new ProviderFailure(
+            'acknowledgement-failed',
+            '[collaboration] source publication acceptance sequence is invalid',
+            undefined,
+            pending.publication.publicationId
+          )
+        )
+        return
+      }
+      this.acceptSourcePublication(
+        pending,
+        Number(sequence),
+        response.generation
+      )
       return
     }
     if (response.type === 'request-rejected') {
@@ -580,7 +727,51 @@ export class CollaborationWebSocketProvider implements Provider {
       { type: 'publication-delivery' }
     >
   ): void {
-    if (this.activePublicationDelivery) {
+    if (this.appliedDocumentSequence === null) {
+      this.failTransportWorker(
+        new ProviderFailure(
+          'transport-failed',
+          '[collaboration] live document sequence is not contiguous',
+          undefined,
+          response.publication.publicationId
+        ),
+        response.generation
+      )
+      return
+    }
+    const expectedSequence = this.appliedDocumentSequence + 1
+    if (
+      response.sequence > expectedSequence &&
+      this.canAwaitEarlierSourceSequence()
+    ) {
+      if (this.deferredPublicationDelivery) {
+        this.failTransportWorker(
+          new ProviderFailure(
+            'transport-failed',
+            '[collaboration] transport worker released overlapping deferred publication deliveries',
+            undefined,
+            response.publication.publicationId
+          ),
+          response.generation
+        )
+        return
+      }
+      this.deferredPublicationDelivery = response
+      return
+    }
+    if (response.sequence !== expectedSequence) {
+      this.failTransportWorker(
+        new ProviderFailure(
+          'transport-failed',
+          '[collaboration] live document sequence is not contiguous',
+          undefined,
+          response.publication.publicationId
+        ),
+        response.generation
+      )
+      return
+    }
+    if (this.activePublicationDelivery || this.sourcePublicationAcceptance) {
       this.failTransportWorker(
         new ProviderFailure(
           'transport-failed',
@@ -592,10 +783,20 @@ export class CollaborationWebSocketProvider implements Provider {
       )
       return
     }
+    this.startPublicationDelivery(response)
+  }
+
+  private startPublicationDelivery(
+    response: Extract<
+      CollaborationTransportWorkerResponse,
+      { type: 'publication-delivery' }
+    >
+  ): void {
     this.activePublicationDelivery = {
       deliveryId: response.deliveryId,
       generation: response.generation,
       publication: response.publication,
+      sequence: response.sequence,
       state: 'awaiting-consumer'
     }
     this.consumeActivePublication()
@@ -624,6 +825,7 @@ export class CollaborationWebSocketProvider implements Provider {
     ) {
       return
     }
+    this.appliedDocumentSequence = delivery.sequence
     this.activePublicationDelivery = null
     try {
       this.postToTransportWorker({
@@ -642,7 +844,9 @@ export class CollaborationWebSocketProvider implements Provider {
         ),
         delivery.generation
       )
+      return
     }
+    this.consumeNextDocumentSequence()
   }
 
   private failPublicationDelivery(
@@ -824,12 +1028,122 @@ export class CollaborationWebSocketProvider implements Provider {
     this.requireConnected()
   }
 
+  private requireDocumentSessionLive(): void {
+    this.requireConnected()
+    if (this.documentBootstrapCompleted) return
+    const failure = new ProviderFailure(
+      'not-connected',
+      '[collaboration] document bootstrap has not completed'
+    )
+    this.emit(this.failureSubscribers, failure)
+    throw failure
+  }
+
   private rejectPending(failure: ProviderFailure): void {
     const waiters = this.publicationCapacityWaiters.splice(0)
     this.publicationCapacityReserved = false
     waiters.forEach(({ reject }) => reject(failure))
     this.pendingRequests.forEach(({ reject }) => reject(failure))
     this.pendingRequests.clear()
+    const sourceAcceptance = this.sourcePublicationAcceptance
+    this.sourcePublicationAcceptance = null
+    sourceAcceptance?.pending.reject(failure)
+    this.deferredPublicationDelivery = null
+  }
+
+  private acceptSourcePublication(
+    pending: PendingPublicationRequest,
+    sequence: number,
+    generation: number
+  ): void {
+    const acceptance = Object.freeze({
+      publicationId: pending.publication.publicationId,
+      sequence
+    })
+    const appliedSequence = this.appliedDocumentSequence
+    if (appliedSequence !== null && sequence <= appliedSequence) {
+      pending.resolve(acceptance)
+      this.consumeNextDocumentSequence()
+      return
+    }
+    if (this.sourcePublicationAcceptance) {
+      const failure = new ProviderFailure(
+        'transport-failed',
+        '[collaboration] source publication acceptance overlapped',
+        undefined,
+        pending.publication.publicationId
+      )
+      pending.reject(failure)
+      this.failTransportWorker(failure, generation)
+      return
+    }
+    this.sourcePublicationAcceptance = {
+      acceptance,
+      generation,
+      pending,
+      state: 'awaiting-consumer'
+    }
+    this.consumeNextDocumentSequence()
+  }
+
+  private consumeNextDocumentSequence(): void {
+    if (
+      this.appliedDocumentSequence === null ||
+      this.activePublicationDelivery
+    ) {
+      return
+    }
+    const source = this.sourcePublicationAcceptance
+    if (source?.state === 'applying') return
+    const expectedSequence = this.appliedDocumentSequence + 1
+    if (source?.acceptance.sequence === expectedSequence) {
+      source.state = 'applying'
+      void Promise.resolve()
+        .then(() =>
+          source.pending.consumeAcceptedSource(source.pending.publication)
+        )
+        .then(
+          () => {
+            if (
+              this.sourcePublicationAcceptance !== source ||
+              source.generation !== this.connectionGeneration
+            ) {
+              return
+            }
+            this.appliedDocumentSequence = source.acceptance.sequence
+            this.sourcePublicationAcceptance = null
+            source.pending.resolve(source.acceptance)
+            this.consumeNextDocumentSequence()
+          },
+          (error: unknown) => {
+            if (this.sourcePublicationAcceptance !== source) return
+            this.sourcePublicationAcceptance = null
+            source.pending.reject(error)
+            this.failTransportWorker(
+              new ProviderFailure(
+                'transport-failed',
+                '[collaboration] accepted source publication apply failed',
+                error,
+                source.pending.publication.publicationId
+              ),
+              source.generation
+            )
+          }
+        )
+      return
+    }
+    const deferred = this.deferredPublicationDelivery
+    if (deferred?.sequence === expectedSequence) {
+      this.deferredPublicationDelivery = null
+      this.startPublicationDelivery(deferred)
+    }
+  }
+
+  private canAwaitEarlierSourceSequence(): boolean {
+    if (this.sourcePublicationAcceptance) return true
+    return [...this.pendingRequests.values()].some(
+      ({ kind }) => kind === 'publication'
+    )
   }
 
   private setStatus(status: ProviderStatus): void {

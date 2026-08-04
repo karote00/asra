@@ -16,14 +16,10 @@ interface ElementGeometry {
 const getFiniteGeometry = (
   element: ElementInstanceTypes
 ): ElementGeometry | null => {
-  const computed = element.getAllComputedData?.() as
-    | Partial<ComputedAttrs>
-    | undefined
-  if (!computed) {
-    return null
-  }
-
-  const { x, y, width, height } = computed
+  const x = element.computed.get('x') as ComputedAttrs['x']
+  const y = element.computed.get('y') as ComputedAttrs['y']
+  const width = element.computed.get('width') as ComputedAttrs['width']
+  const height = element.computed.get('height') as ComputedAttrs['height']
   if (
     typeof x !== 'number' ||
     !Number.isFinite(x) ||
@@ -38,6 +34,22 @@ const getFiniteGeometry = (
   }
 
   return { x, y, width, height }
+}
+
+const getFinitePosition = (
+  element: ElementInstanceTypes
+): Pick<ElementGeometry, 'x' | 'y'> | null => {
+  const x = element.computed.get('x') as ComputedAttrs['x']
+  const y = element.computed.get('y') as ComputedAttrs['y']
+  if (
+    typeof x !== 'number' ||
+    !Number.isFinite(x) ||
+    typeof y !== 'number' ||
+    !Number.isFinite(y)
+  ) {
+    return null
+  }
+  return { x, y }
 }
 
 const getWorldPosition = (
@@ -71,13 +83,13 @@ const getWorldPosition = (
       return null
     }
 
-    const parentGeometry = getFiniteGeometry(parent)
-    if (!parentGeometry) {
+    const parentPosition = getFinitePosition(parent)
+    if (!parentPosition) {
       return null
     }
 
-    x += parentGeometry.x
-    y += parentGeometry.y
+    x += parentPosition.x
+    y += parentPosition.y
     if (!Number.isFinite(x) || !Number.isFinite(y)) {
       return null
     }
@@ -119,6 +131,10 @@ export const getAllElementsWorldBounds = (
       if (elementId !== workspaceId) {
         return null
       }
+      continue
+    }
+
+    if (element.get('type') === EntityTypes.GROUP) {
       continue
     }
 

@@ -30,6 +30,7 @@ import {
   measureBrowserDragPhase
 } from '@asyra/utils'
 import { isNonBlankString } from './wire-values'
+import type { DocumentSessionBootstrap } from './protocol'
 
 type RunRemoteTransaction = (mutate: () => void) => void
 type RemoteCanonicalElementRemoval = Extract<
@@ -1202,6 +1203,76 @@ const createRemoteApplySteps = (
   return Object.freeze(changes)
 }
 
+const canonicalChangesFromOrganizedPublication = (
+  organization: OrganizedRemotePublication,
+  restore: ClassifiedRemoteRestore | undefined
+): readonly CanonicalChange[] =>
+  restore
+    ? Object.freeze([
+        Object.freeze({
+          kind: 'subtree-restore' as const,
+          sceneSnapshot: restore.sceneSnapshot,
+          propsSnapshot: restore.propsSnapshot
+        })
+      ])
+    : createRemoteApplySteps(organization)
+
+export const decodeDocumentPublication = (
+  publication: SharedPublication
+): readonly CanonicalChange[] => {
+  const organization = organizeRemotePublication(publication)
+  return canonicalChangesFromOrganizedPublication(
+    organization,
+    classifyRemoteRestore(organization)
+  )
+}
+
+export interface ApplyDocumentSessionBootstrapTailOptions {
+  readonly bootstrap: DocumentSessionBootstrap
+  readonly applyPublication: (
+    publication: SharedPublication
+  ) => void | Promise<void>
+}
+
+export const applyDocumentSessionBootstrapTail = async ({
+  bootstrap,
+  applyPublication
+}: ApplyDocumentSessionBootstrapTailOptions): Promise<number> => {
+  const { durableSequence, headSequence, pendingTail } = bootstrap
+  if (
+    !Number.isSafeInteger(durableSequence) ||
+    durableSequence < 0 ||
+    !Number.isSafeInteger(headSequence) ||
+    headSequence < durableSequence ||
+    !Array.isArray(pendingTail) ||
+    pendingTail.length !== headSequence - durableSequence
+  ) {
+    throw new Error(
+      '[collaboration] document bootstrap sequence range is invalid'
+    )
+  }
+
+  const publicationIds = new Set<string>()
+  pendingTail.forEach(({ sequence, publication, fromActorId }, index) => {
+    if (
+      sequence !== durableSequence + index + 1 ||
+      !isNonBlankString(fromActorId) ||
+      publicationIds.has(publication.publicationId)
+    ) {
+      throw new Error(
+        '[collaboration] document bootstrap tail is gapped or duplicated'
+      )
+    }
+    publicationIds.add(publication.publicationId)
+    decodeDocumentPublication(publication)
+  })
+
+  for (const { publication } of pendingTail) {
+    await applyPublication(publication)
+  }
+  return headSequence
+}
+
 export const createPublicationProcessor =
   ({
     runRemoteTransaction,
@@ -1255,13 +1326,10 @@ export const createPublicationProcessor =
         throw new Error('[collaboration] invalid subtree restore publication')
       }
       if (acceptedRestore) {
-        const canonicalChanges = Object.freeze([
-          Object.freeze({
-            kind: 'subtree-restore' as const,
-            sceneSnapshot: acceptedRestore.sceneSnapshot,
-            propsSnapshot: acceptedRestore.propsSnapshot
-          })
-        ])
+        const canonicalChanges = canonicalChangesFromOrganizedPublication(
+          acceptedOrganization,
+          acceptedRestore
+        )
         measureBrowserDragPhase('collaboration:remote-transaction-apply', () =>
           runCanonicalTransaction(() => applyCanonicalChanges(canonicalChanges))
         )
@@ -1269,7 +1337,11 @@ export const createPublicationProcessor =
       }
       const canonicalChanges = measureBrowserDragPhase(
         'collaboration:remote-canonical-batch-derive',
-        () => createRemoteApplySteps(acceptedOrganization)
+        () =>
+          canonicalChangesFromOrganizedPublication(
+            acceptedOrganization,
+            acceptedRestore
+          )
       )
       canonicalChanges.forEach((change) => {
         if (change.kind !== 'element-creation') {

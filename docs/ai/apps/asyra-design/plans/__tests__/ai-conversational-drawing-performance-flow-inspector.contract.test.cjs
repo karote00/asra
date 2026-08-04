@@ -1847,13 +1847,13 @@ test('documents use the formal database boundary while remote apply stays nonper
   assert.match(text, /remote publication.*zero persistence/i)
   assert.match(
     text,
-    /resetData.*fresh.*empty document.*persist.*same file-scoped provider/i
+    /resetData.*crdt-7076-sample.*empty document.*file-scoped demo browser key.*page reload/i
   )
   assert.match(
     text,
     /request-time Agent transport.*separate.*document persistence/i
   )
-  assert.match(text, /no IndexedDB.*localStorage/i)
+  assert.match(text, /no ordinary-document IndexedDB or localStorage/i)
   assert.match(text, /fake database success/)
   assert.match(text, /future App developer.*database server/i)
   ;[
@@ -1925,7 +1925,7 @@ test('documents use the formal database boundary while remote apply stays nonper
   )
   assert.match(
     feature,
-    /Scenario: Reset persists a fresh empty demo document[\s\S]*resetData[\s\S]*Core\.load[\s\S]*file-scoped provider[\s\S]*local reset/i
+    /Scenario: Reset restarts only the deployed 7076 demo[\s\S]*resetData[\s\S]*file-scoped demo browser key[\s\S]*page reload[\s\S]*no Core mutation[\s\S]*ordinary socket fileId/i
   )
   assert.match(
     feature,

@@ -27,6 +27,7 @@ export const CollaborationMessageTypes = {
   SEND_AWARENESS: 'send-awareness',
   FRAME_CONSUMED: 'frame-consumed',
   PEER_APPLIED: 'peer-applied',
+  BOOTSTRAP_CONSUMED: 'bootstrap-consumed',
   SOURCE_FRAME_ADMITTED: 'source-frame-admitted',
   READY: 'ready',
   RESPONSE: 'response',
@@ -76,12 +77,19 @@ export interface PeerAppliedRequest {
   readonly fromActorId: string
 }
 
+export interface BootstrapConsumedRequest {
+  readonly type: typeof CollaborationMessageTypes.BOOTSTRAP_CONSUMED
+  readonly requestId: string
+  readonly headSequence: number
+}
+
 export type CollaborationRequestMessage =
   | SendPublicationRequest
   | SendPublicationsRequest
   | SendAwarenessRequest
   | FrameConsumedRequest
   | PeerAppliedRequest
+  | BootstrapConsumedRequest
 
 type WithoutRequestId<T> = T extends CollaborationRequestMessage
   ? Omit<T, 'requestId'>
@@ -101,12 +109,27 @@ export interface CollaborationFailurePayload {
 
 export interface ReadyMessage {
   readonly type: typeof CollaborationMessageTypes.READY
+  readonly bootstrap: DocumentSessionBootstrap
+}
+
+export interface DocumentSessionBootstrapPublication {
+  readonly sequence: number
+  readonly publication: SharedPublication
+  readonly fromActorId: string
+}
+
+export interface DocumentSessionBootstrap {
+  readonly checkpoint: unknown
+  readonly durableSequence: number
+  readonly headSequence: number
+  readonly pendingTail: readonly DocumentSessionBootstrapPublication[]
 }
 
 export interface SuccessfulResponseMessage {
   readonly type: typeof CollaborationMessageTypes.RESPONSE
   readonly requestId: string
   readonly ok: true
+  readonly acceptedSequences?: readonly number[]
 }
 
 export interface FailedResponseMessage {
@@ -127,13 +150,15 @@ export interface SourceFrameAdmittedMessage {
 export interface PublicationMessage {
   readonly type: typeof CollaborationMessageTypes.PUBLICATION
   readonly publication: SharedPublication
-  readonly fromActorId?: string
+  readonly fromActorId: string
+  readonly sequence: number
 }
 
 export interface PublicationsMessage {
   readonly type: typeof CollaborationMessageTypes.PUBLICATIONS
   readonly publications: readonly SharedPublication[]
-  readonly fromActorId?: string
+  readonly fromActorId: string
+  readonly sequences: readonly number[]
 }
 
 export type AwarenessMessage = Readonly<
@@ -185,6 +210,19 @@ const sharedPublicationOrigins = new Set<SharedPublication['origin']>([
 
 const isPositiveInteger = (value: unknown): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value > 0
+
+const isNonNegativeSafeInteger = (value: unknown): value is number =>
+  Number.isSafeInteger(value) && Number(value) >= 0
+
+const isContiguousPositiveIntegerArray = (
+  value: unknown
+): value is readonly number[] =>
+  Array.isArray(value) &&
+  value.length > 0 &&
+  value.every(
+    (item, index) =>
+      isPositiveInteger(item) && (index === 0 || item === value[index - 1] + 1)
+  )
 
 const areJsonTransportValuesEqual = (
   left: unknown,
@@ -483,12 +521,12 @@ export const isJsonTransportValue = (value: unknown): boolean =>
 const PUBLICATION_FRAME_MAGIC = new Uint8Array([
   0x41, 0x53, 0x59, 0x52, 0x41, 0x50
 ])
-const PUBLICATION_FRAME_FIXED_HEADER_BYTES = 44
+const PUBLICATION_FRAME_FIXED_HEADER_BYTES = 52
 const PUBLICATION_FRAME_DEFAULT_SOFT_TARGET_BYTES = 1024 * 1024
 export const PUBLICATION_FRAME_INBOUND_WINDOW_BYTES = 2 * 1024 * 1024
 export const PUBLICATION_FRAME_VERSION_OFFSET =
   PUBLICATION_FRAME_MAGIC.byteLength
-export const PUBLICATION_FRAME_VERSION = 1
+export const PUBLICATION_FRAME_VERSION = 2
 
 const publicationFrameKinds = {
   [CollaborationMessageTypes.SEND_PUBLICATION]: 1,
@@ -515,6 +553,7 @@ export interface PublicationFrameHeader {
   readonly publicationCount: number
   readonly chunkIndex: number
   readonly chunkCount: number
+  readonly sequence: number
   readonly payloadByteLength: number
   readonly frameByteLength: number
   readonly frameId: string
@@ -658,7 +697,8 @@ const publicationFrameId = (
   fromActorId: string | undefined,
   publicationId: string,
   publicationIndex: number,
-  chunkIndex: number
+  chunkIndex: number,
+  sequence: number
 ): string => {
   let identityKind = 'anonymous'
   if (requestId !== undefined) {
@@ -675,7 +715,8 @@ const publicationFrameId = (
     lengthPrefixed(identity),
     lengthPrefixed(publicationId),
     publicationIndex,
-    chunkIndex
+    chunkIndex,
+    sequence
   ].join('|')
 }
 
@@ -709,6 +750,7 @@ const buildPublicationFrame = (
   view.setUint32(32, requestIdBytes.byteLength, true)
   view.setUint32(36, publicationIdBytes.byteLength, true)
   view.setUint32(40, fromActorIdBytes.byteLength, true)
+  view.setBigUint64(44, BigInt(header.sequence), true)
   let offset = PUBLICATION_FRAME_FIXED_HEADER_BYTES
   bytes.set(requestIdBytes, offset)
   offset += requestIdBytes.byteLength
@@ -758,6 +800,11 @@ const inspectPublicationFrame = (
   const requestIdByteLength = view.getUint32(32, true)
   const publicationIdByteLength = view.getUint32(36, true)
   const fromActorIdByteLength = view.getUint32(40, true)
+  const sequenceBigInt = view.getBigUint64(44, true)
+  if (sequenceBigInt > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new TypeError('[collaboration] invalid publication sequence')
+  }
+  const sequence = Number(sequenceBigInt)
   const expectedHeaderByteLength =
     PUBLICATION_FRAME_FIXED_HEADER_BYTES +
     requestIdByteLength +
@@ -803,7 +850,9 @@ const inspectPublicationFrame = (
     !isNonBlankString(publicationId) ||
     (clientFrame && !isNonBlankString(requestId)) ||
     (!clientFrame && requestId.length > 0) ||
-    (fromActorId.length > 0 && !isNonBlankString(fromActorId))
+    (clientFrame
+      ? fromActorId.length !== 0 || sequence !== 0
+      : !isNonBlankString(fromActorId) || !isPositiveInteger(sequence))
   ) {
     throw new TypeError('[collaboration] invalid publication frame identity')
   }
@@ -817,6 +866,7 @@ const inspectPublicationFrame = (
     publicationCount,
     chunkIndex,
     chunkCount,
+    sequence,
     payloadByteLength,
     frameByteLength: bytes.byteLength,
     frameId: publicationFrameId(
@@ -825,7 +875,8 @@ const inspectPublicationFrame = (
       fromActorId || undefined,
       publicationId,
       publicationIndex,
-      chunkIndex
+      chunkIndex,
+      sequence
     ),
     payloadOffset: headerByteLength
   }
@@ -856,31 +907,36 @@ const publicationMessageParts = (
   readonly requestId?: string
   readonly fromActorId?: string
   readonly publications: readonly SharedPublication[]
+  readonly sequences: readonly number[]
 } => {
   switch (message.type) {
     case CollaborationMessageTypes.SEND_PUBLICATION:
       return {
         messageType: message.type,
         requestId: message.requestId,
-        publications: [message.publication]
+        publications: [message.publication],
+        sequences: [0]
       }
     case CollaborationMessageTypes.SEND_PUBLICATIONS:
       return {
         messageType: message.type,
         requestId: message.requestId,
-        publications: message.publications
+        publications: message.publications,
+        sequences: message.publications.map(() => 0)
       }
     case CollaborationMessageTypes.PUBLICATION:
       return {
         messageType: message.type,
-        ...(message.fromActorId ? { fromActorId: message.fromActorId } : {}),
-        publications: [message.publication]
+        fromActorId: message.fromActorId,
+        publications: [message.publication],
+        sequences: [message.sequence]
       }
     case CollaborationMessageTypes.PUBLICATIONS:
       return {
         messageType: message.type,
-        ...(message.fromActorId ? { fromActorId: message.fromActorId } : {}),
-        publications: message.publications
+        fromActorId: message.fromActorId,
+        publications: message.publications,
+        sequences: message.sequences
       }
   }
 }
@@ -1051,13 +1107,21 @@ export const encodePublicationMessageFrames = (
   message: PublicationFrameMessage,
   options: EncodePublicationMessageFramesOptions = {}
 ): readonly ArrayBuffer[] => {
-  const { messageType, requestId, fromActorId, publications } =
+  const { messageType, requestId, fromActorId, publications, sequences } =
     publicationMessageParts(message)
   if (
     publications.length === 0 ||
     !publications.every((publication) => isSharedPublication(publication))
   ) {
     throw new TypeError('[collaboration] invalid shared publication')
+  }
+  if (
+    sequences.length !== publications.length ||
+    sequences.some((sequence) =>
+      requestId ? sequence !== 0 : !isPositiveInteger(sequence)
+    )
+  ) {
+    throw new TypeError('[collaboration] invalid publication sequence')
   }
   const publicationIds = new Set<string>()
   for (const publication of publications) {
@@ -1092,7 +1156,8 @@ export const encodePublicationMessageFrames = (
           publicationIndex,
           publicationCount: publications.length,
           chunkIndex,
-          chunkCount: payloads.length
+          chunkCount: payloads.length,
+          sequence: sequences[publicationIndex] as number
         },
         payload
       )
@@ -1359,6 +1424,7 @@ const decodePublicationFromParts = (
         header.publicationIndex !== first.header.publicationIndex ||
         header.publicationCount !== first.header.publicationCount ||
         header.chunkCount !== first.header.chunkCount ||
+        header.sequence !== first.header.sequence ||
         header.chunkIndex !== chunkIndex
     )
   ) {
@@ -1417,6 +1483,7 @@ export const decodePublicationMessageFrames = (
     throw new TypeError('[collaboration] inconsistent publication frames')
   }
   const publications: SharedPublication[] = []
+  const sequences: number[] = []
   let cursor = 0
   for (
     let publicationIndex = 0;
@@ -1437,12 +1504,14 @@ export const decodePublicationMessageFrames = (
           header.publicationIndex !== publicationIndex ||
           header.publicationId !== publicationHeader.publicationId ||
           header.chunkCount !== publicationHeader.chunkCount ||
+          header.sequence !== publicationHeader.sequence ||
           header.chunkIndex !== chunkIndex
       )
     ) {
       throw new TypeError('[collaboration] missing publication frame chunks')
     }
     publications.push(decodePublicationFromParts(publicationFrames).publication)
+    sequences.push(publicationHeader.sequence)
     cursor += publicationFrames.length
   }
   if (cursor !== decoded.length) {
@@ -1481,17 +1550,15 @@ export const decodePublicationMessageFrames = (
       return {
         type: first.header.messageType,
         publication: publications[0] as SharedPublication,
-        ...(first.header.fromActorId
-          ? { fromActorId: first.header.fromActorId }
-          : {})
+        fromActorId: first.header.fromActorId as string,
+        sequence: sequences[0] as number
       }
     case CollaborationMessageTypes.PUBLICATIONS:
       return {
         type: first.header.messageType,
         publications,
-        ...(first.header.fromActorId
-          ? { fromActorId: first.header.fromActorId }
-          : {})
+        fromActorId: first.header.fromActorId as string,
+        sequences
       }
   }
 }
@@ -1507,6 +1574,7 @@ const collaborationControlMessageTypes = new Set<string>([
   CollaborationMessageTypes.SEND_AWARENESS,
   CollaborationMessageTypes.FRAME_CONSUMED,
   CollaborationMessageTypes.PEER_APPLIED,
+  CollaborationMessageTypes.BOOTSTRAP_CONSUMED,
   CollaborationMessageTypes.SOURCE_FRAME_ADMITTED,
   CollaborationMessageTypes.READY,
   CollaborationMessageTypes.RESPONSE,
@@ -1631,6 +1699,46 @@ const isNonEmptyPublicationArray = (
   value.length > 0 &&
   value.every((publication) => isSharedPublication(publication))
 
+const parseDocumentSessionBootstrap = (
+  value: unknown
+): DocumentSessionBootstrap | undefined => {
+  if (
+    !isRecord(value) ||
+    !Object.prototype.hasOwnProperty.call(value, 'checkpoint') ||
+    value.checkpoint == null ||
+    !isNonNegativeSafeInteger(value.durableSequence) ||
+    !isNonNegativeSafeInteger(value.headSequence) ||
+    value.headSequence < value.durableSequence ||
+    !Array.isArray(value.pendingTail) ||
+    value.pendingTail.length !== value.headSequence - value.durableSequence
+  ) {
+    return
+  }
+  const pendingTail: DocumentSessionBootstrapPublication[] = []
+  for (let index = 0; index < value.pendingTail.length; index += 1) {
+    const item = value.pendingTail[index]
+    if (
+      !isRecord(item) ||
+      item.sequence !== value.durableSequence + index + 1 ||
+      !isSharedPublication(item.publication) ||
+      !isNonBlankString(item.fromActorId)
+    ) {
+      return
+    }
+    pendingTail.push({
+      sequence: item.sequence,
+      publication: item.publication,
+      fromActorId: item.fromActorId
+    })
+  }
+  return {
+    checkpoint: value.checkpoint,
+    durableSequence: value.durableSequence,
+    headSequence: value.headSequence,
+    pendingTail
+  }
+}
+
 export const parseCollaborationClientMessage = (
   value: unknown
 ): CollaborationClientMessage | undefined => {
@@ -1697,6 +1805,15 @@ export const parseCollaborationClientMessage = (
             fromActorId: value.fromActorId
           }
         : undefined
+    case CollaborationMessageTypes.BOOTSTRAP_CONSUMED:
+      return isNonBlankString(value.requestId) &&
+        isNonNegativeSafeInteger(value.headSequence)
+        ? {
+            type: value.type,
+            requestId: value.requestId,
+            headSequence: value.headSequence
+          }
+        : undefined
   }
 }
 
@@ -1711,14 +1828,30 @@ export const parseCollaborationServerMessage = (
     return
   }
   switch (value.type) {
-    case CollaborationMessageTypes.READY:
-      return { type: value.type }
+    case CollaborationMessageTypes.READY: {
+      const bootstrap = parseDocumentSessionBootstrap(value.bootstrap)
+      return bootstrap ? { type: value.type, bootstrap } : undefined
+    }
     case CollaborationMessageTypes.RESPONSE:
       if (!isNonBlankString(value.requestId) || typeof value.ok !== 'boolean') {
         return
       }
       if (value.ok) {
-        return { type: value.type, requestId: value.requestId, ok: true }
+        const acceptedSequences = value.acceptedSequences
+        if (
+          Object.prototype.hasOwnProperty.call(value, 'acceptedSequences') &&
+          !isContiguousPositiveIntegerArray(acceptedSequences)
+        ) {
+          return
+        }
+        return {
+          type: value.type,
+          requestId: value.requestId,
+          ok: true,
+          ...(isContiguousPositiveIntegerArray(acceptedSequences)
+            ? { acceptedSequences }
+            : {})
+        }
       }
       if (!isFailurePayload(value.error)) {
         return
@@ -1744,20 +1877,25 @@ export const parseCollaborationServerMessage = (
         : undefined
     case CollaborationMessageTypes.PUBLICATION:
       return isSharedPublication(value.publication) &&
-        isOptionalNonBlankString(value.fromActorId)
+        isNonBlankString(value.fromActorId) &&
+        isPositiveInteger(value.sequence)
         ? {
             type: value.type,
             publication: value.publication,
-            ...(value.fromActorId ? { fromActorId: value.fromActorId } : {})
+            fromActorId: value.fromActorId,
+            sequence: value.sequence
           }
         : undefined
     case CollaborationMessageTypes.PUBLICATIONS:
       return isNonEmptyPublicationArray(value.publications) &&
-        isOptionalNonBlankString(value.fromActorId)
+        isNonBlankString(value.fromActorId) &&
+        isContiguousPositiveIntegerArray(value.sequences) &&
+        value.sequences.length === value.publications.length
         ? {
             type: value.type,
             publications: value.publications,
-            ...(value.fromActorId ? { fromActorId: value.fromActorId } : {})
+            fromActorId: value.fromActorId,
+            sequences: value.sequences
           }
         : undefined
     case CollaborationMessageTypes.AWARENESS:

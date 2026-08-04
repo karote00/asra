@@ -130,16 +130,17 @@ test('Asyra Design keeps frontend startup, live transport, and local persistence
   assert.match(appReadme, /http:\/\/localhost:3000\/\?fileId=/)
   assert.match(appReadme, /required non-empty `fileId`/i)
   assert.match(appReadme, /always starts Collaboration/i)
-  assert.match(appReadme, /browser-local IndexedDB document/i)
+  assert.doesNotMatch(appReadme, /browser-local IndexedDB document/i)
+  assert.match(appReadme, /IndexedDB recovery outbox/i)
+  assert.match(appReadme, /browser never writes a materialized document/i)
   assert.match(
     appReadme,
-    /Manual actions, Agent actions, Undo, Redo, accepted remote publications,[\s\S]*Reset persist through one serialized provider queue/i
+    /Factory publication, socket sequence,\s+three-second persistence window, and backend materialization path/i
   )
   assert.match(
     appReadme,
-    /This reference persistence replaces no\s+production database/i
+    /socket server reads and\s+writes checkpoints only through `DOCUMENT_PERSISTENCE_BACKEND_URL`/i
   )
-  assert.doesNotMatch(appReadme, /no client persistence provider/i)
 })
 
 test('CI, E2E, and release validation own their bounded integration gates', () => {

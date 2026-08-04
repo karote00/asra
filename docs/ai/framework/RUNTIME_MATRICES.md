@@ -17,7 +17,9 @@ Use these matrices for deterministic ownership and flow decisions.
 - derived UI state owner: `@asyra/ui-context` (optional)
 - transaction boundary depth/rollback-only owner: `@asyra/reactive-events`
 - reversible journal/validation/history/shared-settlement owner: `@asyra/factory`
-- commit persistence acknowledgement owner: injected `@asyra/core` + provider
+- commit persistence acknowledgement owner: none in Core; apps compose any
+  transport acceptance or durable acknowledgement separately from runtime
+  commit
 - optional collaboration publication transport and Awareness composition owner:
   `@asyra/collaboration`
 - optional AI intent-to-action orchestration owner:
@@ -27,6 +29,28 @@ Use these matrices for deterministic ownership and flow decisions.
   and conflict owner: app/server
 - canonical remote mutation owner: the app callback and selected state owners,
   inside one app-owned Factory remote transaction
+
+### Asyra Design socket-authoritative document session
+
+- checkpoint migration/validation/apply owner: `@asyra/core`
+- explicit document serialization owner: `@asyra/core`; serialization is not
+  transaction persistence or durable acknowledgement
+- client document-change artifact owner: existing `@asyra/factory`
+  `SharedPublication`
+- document handshake, sequencing, live fan-out, fixed-window queue, retry, and
+  durable-watermark owner: App socket server
+- ordered publication decoding/materialization and checkpoint owner: App
+  backend
+- browser canonical document persistence-write owner: none
+- unaccepted-publication recovery owner: Asyra Design collaboration lifecycle
+  plus its App-owned native IndexedDB outbox; the outbox stores no materialized
+  document or private History
+- disconnected canonical editing owner: the ordinary App/Factory/state-owner
+  path remains active, while the App outbox retains resulting document
+  publications until socket acceptance
+- reconnect cadence and connection/sync notification owner: Asyra Design
+  collaboration lifecycle; fixed `30000 ms` retry and transition-only toast
+  policy
 
 ## Mutation Boundary Matrix
 
@@ -112,7 +136,9 @@ Intent path:
 5. APIs mutate authoritative framework state in a transaction boundary
 6. Factory validates commit or reverses the rollbackable journal
 7. render/ui-context and other projections react to state
-8. committed outcomes enter Core's serial persistence queue
+8. Factory settles eligible canonical document changes as immutable
+   `SharedPublication` values; any App transport acceptance or durability flow
+   remains separate from Core and runtime commit
 
 State-application path:
 
@@ -145,6 +171,19 @@ Load-specific ordering:
 4. Core returns each complete owner-issued one-shot artifact to its package
    apply facade without validator replay
 5. Core emits detached diagnostics observations
+
+Asyra Design socket-authoritative ordering:
+
+1. the App opens one socket session for the required document and Actor
+2. the socket fixes a checkpoint, durable/head sequences, and exact pending tail
+3. Core runs the ordinary canonical checkpoint load
+4. the App remote processor applies the tail through the head sequence
+5. the document becomes editable and live delivery begins at the next sequence
+6. Factory emits the existing immutable document `SharedPublication`
+7. the socket assigns one document sequence, fans out live, and enqueues it
+8. the first dirty item starts one fixed three-second flush deadline
+9. the backend applies one contiguous ordered batch and acknowledges the highest
+   durable sequence
 
 ## Compatibility Matrix
 

@@ -191,7 +191,12 @@ export async function getCoreDocumentDigest(
     const data = await (
       await import('../src/testing/runtime-access')
     ).core.save()
-    const bytes = new TextEncoder().encode(JSON.stringify(data))
+    const documentState = {
+      version: data.version,
+      sceneTree: data.sceneTree,
+      props: data.props
+    }
+    const bytes = new TextEncoder().encode(JSON.stringify(documentState))
     const digest = await crypto.subtle.digest('SHA-256', bytes)
     return {
       byteLength: bytes.byteLength,
@@ -209,7 +214,9 @@ export async function getPersistedDocumentDigest(
   return page.evaluate(
     async ({ requestedFileId }) => {
       const response = await fetch(
-        `/api/documents/${encodeURIComponent(requestedFileId)}`,
+        `/api/documents/${encodeURIComponent(
+          requestedFileId
+        )}/bootstrap-checkpoint`,
         {
           credentials: 'same-origin',
           headers: { accept: 'application/json' }
@@ -220,11 +227,21 @@ export async function getPersistedDocumentDigest(
           `Document database load failed with status ${String(response.status)}`
         )
       }
-      const payload = (await response.json()) as { document?: unknown }
-      if (payload.document === undefined || payload.document === null) {
+      const payload = (await response.json()) as { checkpoint?: unknown }
+      if (payload.checkpoint === undefined || payload.checkpoint === null) {
         return null
       }
-      const bytes = new TextEncoder().encode(JSON.stringify(payload.document))
+      const checkpoint = payload.checkpoint as {
+        version?: unknown
+        sceneTree?: unknown
+        props?: unknown
+      }
+      const documentState = {
+        version: checkpoint.version,
+        sceneTree: checkpoint.sceneTree,
+        props: checkpoint.props
+      }
+      const bytes = new TextEncoder().encode(JSON.stringify(documentState))
       const digest = await crypto.subtle.digest('SHA-256', bytes)
       return {
         byteLength: bytes.byteLength,

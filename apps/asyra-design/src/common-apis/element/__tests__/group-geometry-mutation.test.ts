@@ -45,6 +45,20 @@ vi.mock('../../../contexts', () => {
       height: 40
     })
   }
+  const group = {
+    get: (key: string) => {
+      if (key === 'type') {
+        return 'group'
+      }
+      return undefined
+    },
+    getAllComputedData: () => ({
+      x: 10,
+      y: 20,
+      width: 30,
+      height: 40
+    })
+  }
 
   return {
     default: {
@@ -64,9 +78,15 @@ vi.mock('../../../contexts', () => {
     },
     sceneTree: {
       currentWorkspace: undefined,
-      getElementById: vi.fn((elementId: string) =>
-        elementId === 'rect-1' ? element : undefined
-      ),
+      getElementById: vi.fn((elementId: string) => {
+        if (elementId === 'rect-1') {
+          return element
+        }
+        if (elementId === 'group-1') {
+          return group
+        }
+        return undefined
+      }),
       workspace: 'workspace'
     }
   }
@@ -111,7 +131,7 @@ describe('Group geometry mutation handoff', () => {
     expect(mocks.toGlobal).toHaveBeenCalledTimes(4)
   })
 
-  it('normalizes affected ancestor Groups through explicit gesture finalization', () => {
+  it('keeps explicit hierarchy-operation Group normalization available', () => {
     const options = { sharedDelivery: 'immediate' } as const
 
     elementApis.normalizeGroupGeometryForElements(['rect-1'], options)
@@ -123,35 +143,46 @@ describe('Group geometry mutation handoff', () => {
     )
   })
 
-  it('submits the target and projected Group geometry through one Core request', () => {
+  it('submits child geometry directly without Group projection', () => {
     const options = { undoable: true } as const
-    mocks.projectGroupGeometryPropertyUpdates.mockReturnValue([
-      { elementId: 'rect-1', values: { width: 45, x: 0 } },
-      {
-        elementId: 'group-1',
-        values: { x: 30, y: 20, width: 45, height: 40 }
-      }
-    ])
 
     updateElementProperties(['rect-1'], { width: 45 }, options)
 
-    expect(mocks.projectGroupGeometryPropertyUpdates).toHaveBeenCalledWith(
-      expect.anything(),
-      [{ elementId: 'rect-1', values: { width: 45 } }]
-    )
+    expect(mocks.projectGroupGeometryPropertyUpdates).not.toHaveBeenCalled()
     expect(mocks.updateElementProperties).toHaveBeenCalledOnce()
     expect(mocks.updateElementProperties).toHaveBeenCalledWith(
-      [
-        { elementId: 'rect-1', values: { width: 45, x: 0 } },
-        {
-          elementId: 'group-1',
-          values: { x: 30, y: 20, width: 45, height: 40 }
-        }
-      ],
+      [{ elementId: 'rect-1', values: { width: 45 } }],
       options
     )
     expect(mocks.normalizeGroupsForElements).not.toHaveBeenCalled()
     expect(mocks.runTransaction).toHaveBeenCalledOnce()
+  })
+
+  it('projects geometry only when an explicit target is an official Group', () => {
+    const options = { undoable: true } as const
+    mocks.projectGroupGeometryPropertyUpdates.mockReturnValue([
+      {
+        elementId: 'group-1',
+        values: { x: 10, y: 20, width: 45, height: 40 }
+      }
+    ])
+
+    updateElementProperties(['group-1'], { width: 45 }, options)
+
+    expect(mocks.projectGroupGeometryPropertyUpdates).toHaveBeenCalledWith(
+      expect.anything(),
+      [{ elementId: 'group-1', values: { width: 45 } }],
+      ['group-1']
+    )
+    expect(mocks.updateElementProperties).toHaveBeenCalledWith(
+      [
+        {
+          elementId: 'group-1',
+          values: { x: 10, y: 20, width: 45, height: 40 }
+        }
+      ],
+      options
+    )
   })
 
   it('submits a non-geometry property request unchanged through one Core call', () => {
@@ -162,20 +193,17 @@ describe('Group geometry mutation handoff', () => {
       undefined
     )
     expect(mocks.updateElementProperties).toHaveBeenCalledOnce()
+    expect(mocks.projectGroupGeometryPropertyUpdates).not.toHaveBeenCalled()
     expect(mocks.normalizeGroupsForElements).not.toHaveBeenCalled()
   })
 
-  it('does not call Core when Group projection rejects the request', () => {
+  it('does not call Core when explicit Group projection rejects the request', () => {
     mocks.projectGroupGeometryPropertyUpdates.mockImplementationOnce(() => {
       throw new Error('invalid later geometry target')
     })
 
     expect(() =>
-      updateElementProperties(
-        ['rect-1', 'missing'],
-        { width: 45 },
-        { undoable: true }
-      )
+      updateElementProperties(['group-1'], { width: 45 }, { undoable: true })
     ).toThrow(/invalid later geometry target/i)
     expect(mocks.updateElementProperties).not.toHaveBeenCalled()
   })

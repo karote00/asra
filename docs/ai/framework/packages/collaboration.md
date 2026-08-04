@@ -68,6 +68,14 @@ outcome, retains no replay copy, and reconnect observes only future Factory
 publications. A failed active send reports `send-failed` and never
 retroactively rolls back an already committed local Factory transaction.
 
+An app that requires disconnected editing or restart recovery must compose its
+own publication outbox outside this package. That owner may durably retain the
+same immutable Factory publication before live delivery, retransmit the same
+publication identity, and remove it after app-defined socket acceptance.
+Materialized document snapshots, private History, reconnect cadence,
+notifications, conflict policy, and acknowledgement meaning remain app/server
+contracts.
+
 The outbound and inbound paths are independent: a slow Provider send does not
 block an inbound app callback. The Provider owns exclusive inbound delivery and
 does not treat a publication as applied until the callback Promise settles.
@@ -160,7 +168,8 @@ The package has no:
 - collaboration update persistence or TTL cleanup.
 
 Apps and backends remain free to compose these product-specific capabilities
-outside Collaboration.
+outside Collaboration. Such composition does not change the package's own
+`skipped`/`send-failed`, no-history, or live-only reconnect semantics.
 
 ## Awareness
 
@@ -214,14 +223,26 @@ App-supplied Factory composition remains explicit.
 
 ## Reference App
 
-Asyra Design supplies a real WebSocket Provider and memory-only reference
-server. `fileId` is its public URL identity and maps to document/room identity.
-The app owns supported Scene Tree/Props delivery validation and applies each
-accepted publication through one Factory remote transaction.
+Asyra Design supplies a real WebSocket Provider, socket sequencer, App-owned
+IndexedDB recovery outbox, and materializing backend. `fileId` is its public
+URL identity and maps to document/room identity. The App owns supported Scene
+Tree/Props delivery validation and applies each accepted publication through
+one Factory remote transaction.
 
-The reference server is public and memory-only. It has no authentication,
-permission database, durable snapshot, or missed-publication recovery. Those
-remain production app/backend responsibilities.
+The repository server has no authentication or permission database. It reads
+and writes checkpoints through the configured App backend, sequences accepted
+publications, retains the not-yet-durable in-memory tail, and flushes one fixed
+three-second ordered batch. The public frontend deployment does not deploy
+those services; it remains locally editable and reports the disconnected
+transition once.
+
+This App composition does not move persistence policy into the generic
+package: Collaboration still transports the existing `SharedPublication` and
+Awareness only. Checkpoint/tail handshake, outbox recovery, sequencing,
+batching, and durability are Asyra Design boundaries.
+
+Target authority:
+`../../apps/asyra-design/specs/socket-authoritative-document-session.md`.
 
 ## Validation
 

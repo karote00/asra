@@ -197,11 +197,24 @@ Render projection. Preset also exports the ID-driven Group adapters defined by
   element geometry values. They never include Vector point/control/segment/
   network record patches.
 - `deriveGroupBounds(...)` and `normalizeGroupsForElements(...)` provide the
-  one direct-child canonical rectangle-union/bounds path, deepest affected
-  Group first.
-- Group `x`, `y`, `width`, and `height` are the persisted derived cache of
-  direct-child canonical geometry; accepted geometry changes update that cache
-  in the same transaction instead of recalculating it per frame.
+  one direct-child rectangle-union path. Explicit Group/Ungroup and
+  identity-preserving reparent operations may apply the result deepest-first
+  inside their transaction.
+- Group `x` and `y` are canonical container translation. Group `width` and
+  `height` are operation-produced snapshots retained for document
+  compatibility; descendant-only geometry changes do not refresh those
+  fields, rebase siblings, or walk ancestor Groups.
+- A consumer that needs the current Group content bounds derives them
+  read-only from current descendants or the current engine-neutral
+  presentation projection. That projection does not write canonical data,
+  create History, publish changes, or participate in persistence.
+- Direct geometry updates normalize only when the explicit mutation target is
+  an official Group and that operation's contract requires normalization.
+  Selecting or hovering a Group remains read-only.
+- `projectGroupGeometryPropertyUpdates(core, updates,
+  explicitGroupElementIds)` receives the caller-resolved official Group target
+  ids explicitly. An empty Group-id list returns the updates unchanged without
+  reading Scene Tree or computed data.
 - Preset owns 2D coordinate normalization and direct-child Group bounds for the
   registered canonical `x`/`y`/`width`/`height` contract. Rotation, scale, or
   skew may participate only after the component, persistence, and Render

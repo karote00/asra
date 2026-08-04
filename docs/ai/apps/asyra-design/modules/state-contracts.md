@@ -141,6 +141,11 @@ This file defines app-level state keys, owners, and primary consumers.
 
   - source: aggregate registration over selected elements
   - consumers: property panel inputs
+  - when the single selected element is an official Group, Preset substitutes
+    current descendant content bounds during the read-only selection
+    UI-context recompute; it does not write those values to Core
+  - child-only mutations while another element is selected do not derive,
+    write, publish, or persist Group aggregate values
 
 - `fills`
 
@@ -240,8 +245,11 @@ This file defines app-level state keys, owners, and primary consumers.
 - `x`, `y`, `width`, `height`, `rotation`, and affine Render inputs
 
   - canonical owner: ordinary element property components
-  - whole-element move, dimension, rotation, scale, skew, Group normalization,
-    and reparent operations update only element/hierarchy values
+  - whole-element move, dimension, rotation, scale, skew, explicit
+    Group/Ungroup normalization, and reparent operations update only
+    element/hierarchy values
+  - child-only geometry writes never add ancestor Group or sibling property
+    updates
   - these operations never patch, clone, translate, or rebase `points`,
     `segments`, or `networks`
   - Render retains derived engine-local geometry across transform-only deltas;

@@ -542,16 +542,16 @@ Feature: Conversational AI drawing performance
     And the session should be classified as two-Actor CRDT processing
     And a missing or empty fileId should not open a document session
 
-  Scenario: Reset persists a fresh empty demo document
-    Given RenderApp startup and resetData use the same App-owned fresh empty-document factory
+  Scenario: Reset restarts only the deployed 7076 demo
+    Given the required fileId is crdt-7076-sample
+    And resetData uses the App-owned fresh empty-document factory
     When resetData is invoked
-    Then it should call Core.load exactly once with a fresh empty canonical document
-    And Core.load should be the sole FILE_LOAD_COMPLETE publisher
-    And Render readiness should not synthesize another file-load-complete event
-    And it should persist that empty document through the same file-scoped provider
-    And it should perform no localStorage migration or old-format compatibility
-    And it should perform no URL parsing or page reload
-    But it should remain a local reset and create no Factory action or CRDT clear publication
+    Then it should store the empty document under the file-scoped demo browser key
+    And it should force a page reload only after that write succeeds
+    And the reloaded demo should read the stored empty document before the checked-in sample asset
+    But resetData should create no Core mutation, Factory action, Undo entry, socket publication, or backend persistence request
+    And an ordinary socket fileId should not use this demo Reset path
+    And the formal App should remove this temporary Reset utility
 
   Scenario: Actor A requests the checked-in 7076 backend sample after Send
     Given the required URL is "/?fileId=crdt-7076-sample"

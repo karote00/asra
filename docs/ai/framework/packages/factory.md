@@ -296,6 +296,27 @@ Collaboration contracts are:
 - `collaboration.md`
 - `../plans/completed/network-collaboration-transport-plan.md`
 
+### Asyra Design socket-authoritative persistence consumer
+
+Asyra Design consumes the existing immutable `SharedPublication` as its only
+client document-change unit.
+
+- Factory does not expose a private Undo History entry, before/after bundle,
+  inverter, or replace-latest staging evidence to persistence.
+- Factory does not create a parallel persistence commit artifact.
+- Transaction-end, immediate, Undo, Redo, and rollback-compensation publication
+  semantics remain unchanged.
+- App document-channel filtering excludes Selection and other non-document
+  channels before the socket document stream.
+- Socket sequence, fixed-window batching, retry, backend materialization, and
+  durable acknowledgement remain outside Factory.
+- Factory transaction status ends at runtime settlement in the target App
+  flow; file-scoped socket accepted/durable watermarks are not transaction
+  persistence statuses.
+
+Authority:
+`../../apps/asyra-design/specs/socket-authoritative-document-session.md`.
+
 ## Validation Checklist
 
 - One intended committed action creates one intended undo entry.

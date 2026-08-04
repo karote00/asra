@@ -44,6 +44,7 @@ import type {
 import { subscribeToEventBatches } from '@asyra/reactive-events'
 import type { PresetCoreAPIs, PresetDependencies } from '../types'
 import { createCleanupReporter } from '../cleanup-reporter'
+import { deriveGroupBounds, type GroupBounds } from '../components/group'
 import {
   SelectionActions,
   SelectionChannels,
@@ -423,6 +424,82 @@ const getSelectedIds = (
   return selection ? selection.getSelectedIds() : new Set<string>()
 }
 
+interface LayoutComputedReader {
+  get: (key: string) => unknown
+}
+
+const readElementLayoutBounds = (
+  deps: PresetDependencies,
+  elementId: string,
+  visitedIds: Set<string>
+): GroupBounds | null => {
+  if (visitedIds.has(elementId)) {
+    return null
+  }
+
+  const element = deps.sceneTree.getElementById(elementId)
+  const computed = (element as { computed?: LayoutComputedReader } | undefined)
+    ?.computed
+  if (!element || !computed) {
+    return null
+  }
+
+  const x = computed.get('x')
+  const y = computed.get('y')
+  if (
+    typeof x !== 'number' ||
+    !Number.isFinite(x) ||
+    typeof y !== 'number' ||
+    !Number.isFinite(y)
+  ) {
+    return null
+  }
+
+  if (element.get('type') !== EntityTypes.GROUP) {
+    const width = computed.get('width')
+    const height = computed.get('height')
+    if (
+      typeof width !== 'number' ||
+      !Number.isFinite(width) ||
+      typeof height !== 'number' ||
+      !Number.isFinite(height)
+    ) {
+      return null
+    }
+    return { x, y, width, height }
+  }
+
+  const children = (element.save() as GroupRawData).children
+  if (
+    !Array.isArray(children) ||
+    children.some((childId) => typeof childId !== 'string')
+  ) {
+    return null
+  }
+  if (children.length === 0) {
+    return { x, y, width: 0, height: 0 }
+  }
+
+  const nextVisitedIds = new Set(visitedIds)
+  nextVisitedIds.add(elementId)
+  const childBounds: GroupBounds[] = []
+  for (const childId of children) {
+    const bounds = readElementLayoutBounds(deps, childId, nextVisitedIds)
+    if (!bounds) {
+      return null
+    }
+    childBounds.push(bounds)
+  }
+
+  const contentBounds = deriveGroupBounds(childBounds)
+  return {
+    x: x + contentBounds.x,
+    y: y + contentBounds.y,
+    width: contentBounds.width,
+    height: contentBounds.height
+  }
+}
+
 // Build ui-context aggregate compute input from current selection + scene-tree data.
 const buildSelectionContext = (
   deps: PresetDependencies,
@@ -435,7 +512,22 @@ const buildSelectionContext = (
     }
 
     const elementData = element.getAllComputedData() as ComputedAttrs
-    acc.push(elementData)
+    if (element.get('type') !== EntityTypes.GROUP) {
+      acc.push(elementData)
+      return acc
+    }
+
+    const currentBounds = readElementLayoutBounds(
+      deps,
+      elementId,
+      new Set<string>()
+    )
+    if (currentBounds) {
+      acc.push({
+        ...elementData,
+        ...currentBounds
+      })
+    }
     return acc
   }, [] as ComputedAttrs[])
 

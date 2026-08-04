@@ -4,6 +4,14 @@ This file is the fast API map for framework-level implementation requests.
 
 ## Core Facade (`@asyra/core`)
 
+Core has no commit-triggered snapshot persistence ownership. It retains
+canonical load migration/validation/apply and explicit detached document
+serialization; transaction commit calls neither serialization nor provider
+save.
+
+Authority:
+`../apps/asyra-design/specs/socket-authoritative-document-session.md`.
+
 Primary import:
 
 - `import core from '@asyra/core'`
@@ -20,9 +28,12 @@ Core API tier types (explicit ownership contract):
 Lifecycle and integration:
 
 - `setRenderer(renderer: IRenderer): void`
-- `setPersistence(provider: IPersistenceProvider): void`
-  - `IPersistenceProvider.load(): Promise<unknown | null>` returns raw input; a
+- `setLoadSource(source: DocumentLoadSource): void`
+  - `DocumentLoadSource.load(): Promise<unknown | null>` returns raw input; a
     resolved `null` or `undefined` means no persisted document
+- `setPersistence(provider: IPersistenceProvider): void` is a deprecated
+  load-only compatibility surface; Core uses only `provider.load()` and never
+  calls `save()` or `clear()`
 - `definePropertyComponent(definition: PropertyComponentDefinition): PropertyComponentConstructor`
 - `PropertyComponentDefinition` supports:
   - constructor mode: `{ type, constructor, options? }`
@@ -712,6 +723,12 @@ See `packages/collaboration.md` and
   `prepareGroupOperation`, `prepareUngroupOperation`, `groupElements`,
   `ungroupElement`, `moveElementsWithGroupGeometry`, `deriveGroupBounds`, and
   `normalizeGroupsForElements`
+  - explicit Group/Ungroup and identity-preserving reparent operations may
+    normalize Group geometry; descendant-only property or position mutations
+    do not walk ancestor Groups or rebase siblings
+  - `deriveGroupBounds` is a pure rectangle-union helper; read-only Group
+    presentation or property projection never creates canonical writes,
+    History, publication, or persistence changes
 - exports `PRESET_REGISTRATION_OWNER` for metadata inspection; daily app
   customization does not require owner input or preset target keys
 - app customization uses ordinary Core relation/registration APIs after

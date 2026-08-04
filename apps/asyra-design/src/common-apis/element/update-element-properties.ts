@@ -1,11 +1,14 @@
 import { runTransaction } from '@asyra/core'
 import { projectGroupGeometryPropertyUpdates } from '@asyra/preset'
 import {
+  EntityTypes,
   measureBrowserDragPhase,
   type DataTypes,
   type EVENT_OPTIONS
 } from '@asyra/utils'
-import core from '../../contexts'
+import core, { sceneTree } from '../../contexts'
+
+const GROUP_GEOMETRY_KEYS = new Set(['x', 'y', 'width', 'height'])
 
 export const updateElementProperties = (
   elementIds: readonly string[],
@@ -19,10 +22,27 @@ export const updateElementProperties = (
 
   measureBrowserDragPhase('canonical:updateElementProperties', () => {
     runTransaction(() => {
-      const request = projectGroupGeometryPropertyUpdates(
-        core,
-        elementIds.map((elementId) => ({ elementId, values }))
+      const directRequest = elementIds.map((elementId) => ({
+        elementId,
+        values
+      }))
+      const explicitGroupElementIds = entries.some(([key]) =>
+        GROUP_GEOMETRY_KEYS.has(key)
       )
+        ? elementIds.filter(
+            (elementId) =>
+              sceneTree.getElementById(elementId)?.get('type') ===
+              EntityTypes.GROUP
+          )
+        : []
+      const request =
+        explicitGroupElementIds.length > 0
+          ? projectGroupGeometryPropertyUpdates(
+              core,
+              directRequest,
+              explicitGroupElementIds
+            )
+          : directRequest
       core.updateElementProperties(request, options)
     })
   })

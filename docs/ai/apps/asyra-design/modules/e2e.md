@@ -70,19 +70,20 @@
     excluded unless CI or the caller sets
     `RUN_BALANCED_AI_CORRECTNESS=1`
   - `yarn workspace @asyra/asyra-design
-    test:e2e:balanced-ai-correctness` runs that heavy case explicitly with one
+test:e2e:balanced-ai-correctness` runs that heavy case explicitly with one
     worker
 
 - `collaboration.spec.ts`
   - uses the dedicated `playwright.collaboration.config.ts` composition
-  - opens three real app contexts against the public memory-only WebSocket
-    reference server
+  - starts the repository document backend, socket server, and frontend, then
+    opens three real app contexts against that complete local composition
   - covers same-file create/move canonical convergence before pointer-up,
-    return-to-origin convergence, different-file room isolation, disconnect,
-    and reconnect; unit/integration suites own the exact
-    one-synchronous-action publication/send assertions
+    return-to-origin convergence, different-file room isolation, fixed-window
+    backend checkpoint materialization, disconnect, and reconnect bootstrap;
+    unit/integration suites own the exact one-synchronous-action
+    publication/send assertions
   - is excluded from ordinary `playwright.config.ts` discovery so the normal
-    E2E suite does not require the optional WebSocket reference server
+    E2E suite can select its own service composition
 
 ## Contract Notes
 
@@ -115,8 +116,8 @@
 - the 7,076-element two-actor Agent recording remains the explicit
   `RUN_AI_CRDT_VIDEO=1` resource gate and is not materialized by
   default ordinary or collaboration CI
-- the collaboration suite may reuse manually started app and WebSocket servers;
-  it does not replace the documented two-window manual test
+- the collaboration suite may reuse manually started backend, socket, and app
+  services; it does not replace the documented two-window manual test
 
 ## When Updating Behavior
 

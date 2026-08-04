@@ -1,14 +1,9 @@
 import type {
   SceneTreeRawData,
   CoreRawData,
-  PropertySchema,
-  TransactionStatusPayload
+  PropertySchema
 } from '@asyra/utils'
-import {
-  isRecord,
-  measureBrowserDragAsyncPhase,
-  measureBrowserDragPhase
-} from '@asyra/utils'
+import { isRecord } from '@asyra/utils'
 import factory, { Factory } from '@asyra/factory'
 import inputSystem, { InputSystem } from '@asyra/input-system'
 import sceneTree, { componentRegistry, SceneTree } from '@asyra/scene-tree'
@@ -50,7 +45,12 @@ import render, {
 } from '@asyra/render'
 import type { RenderEngineProvider } from '@asyra/render-engine'
 import { propertyRegistry } from '@asyra/ui-context'
-import { IPersistenceProvider, SaveHook, LoadHook } from '@asyra/persistence'
+import {
+  type DocumentLoadSource,
+  type IPersistenceProvider,
+  type SaveHook,
+  type LoadHook
+} from '@asyra/persistence'
 import {
   type EventDefinition,
   eventRegistry,
@@ -121,30 +121,6 @@ interface CoreDeps {
   systemContext: SystemContext
 }
 
-interface SkippedPendingPersistence {
-  kind: 'skipped'
-  transaction: TransactionStatusPayload
-}
-
-interface SavePendingPersistence {
-  kind: 'save'
-  transaction: TransactionStatusPayload
-  provider: IPersistenceProvider
-  data: CoreRawData
-}
-
-interface CaptureFailedPendingPersistence {
-  kind: 'capture-failed'
-  transaction: TransactionStatusPayload
-  provider: IPersistenceProvider
-  error: unknown
-}
-
-type PendingPersistence =
-  | SkippedPendingPersistence
-  | SavePendingPersistence
-  | CaptureFailedPendingPersistence
-
 const DEFAULT_VERSION = '1.0.0'
 const DATA_VERSION = '1.0.0'
 const INLINE_COMPONENT_RENDER_RELATION = 'component-owner'
@@ -154,7 +130,7 @@ const EMPTY_SCENE_TREE_DATA: SceneTreeRawData = {
   elements: {}
 }
 
-const clonePersistenceSnapshot = (data: CoreRawData): CoreRawData => {
+const cloneSerializationSnapshot = (data: CoreRawData): CoreRawData => {
   if (typeof globalThis.structuredClone === 'function') {
     return globalThis.structuredClone(data)
   }
@@ -176,11 +152,10 @@ class Core implements CoreAPIs {
   private readonly defaultRenderer: IRenderer
   private renderer: IRenderer
   private renderEngineProviderToken: symbol | null = null
-  private persistence: IPersistenceProvider | null = null
+  private loadSource: DocumentLoadSource | null = null
   private saveHooks: SaveHook[] = []
   private loadHooks: LoadHook[] = []
   private loadDiagnosticsHooks: LoadDiagnosticsHook[] = []
-  private persistenceQueue: Promise<void> = Promise.resolve()
   private compositionOpen = true
   private propertyTypeRedefinitionInProgress = false
   private readonly redefinedPropertyTypes = new Set<string>()
@@ -319,9 +294,6 @@ class Core implements CoreAPIs {
       this.ensureUIPropertyNode(key, config.registration)
       this.defineRegistrationRelations(source, config.registration)
     }) as UIContextAPIs['registerUIProperty']
-
-    // Subscribe to this Core instance's Factory commit status for auto-save.
-    this.initAutoSave()
   }
 
   /** Set an advanced full renderer replacement before startup. */
@@ -399,12 +371,16 @@ class Core implements CoreAPIs {
     return this.deps.factory.createLocalSharedDataChannel()
   }
 
+  /** Set the read-only source used during Core startup. */
+  setLoadSource(source: DocumentLoadSource): void {
+    this.loadSource = source
+  }
+
   /**
-   * Set a persistence provider (LocalStorage, IndexedDB, custom)
-   * @param provider - Persistence provider implementation
+   * @deprecated Use setLoadSource. Core does not call provider save or clear.
    */
   setPersistence(provider: IPersistenceProvider): void {
-    this.persistence = provider
+    this.setLoadSource(provider)
   }
 
   /**
@@ -486,8 +462,8 @@ class Core implements CoreAPIs {
 
     this.dataChannelObservers.init()
 
-    // Phase 2: Load data from persistence
-    await this.loadFromPersistence()
+    // Phase 2: Load canonical data from the configured read-only source.
+    await this.loadFromSource()
 
     // Phase 3: Initialize features
     this.initFeatureSystem({
@@ -499,136 +475,12 @@ class Core implements CoreAPIs {
     this.renderIsReady()
   }
 
-  private initAutoSave(): void {
-    this.deps.factory.subscribeToCommitCapture((status) => {
-      if (
-        status.status !== 'committed' ||
-        !['action', 'undo', 'redo'].includes(status.origin)
-      ) {
-        return
-      }
-
-      const pending = this.captureCommittedTransaction(status)
-      this.persistenceQueue = this.persistenceQueue.then(() =>
-        this.persistCommittedTransaction(pending)
-      )
-    })
-  }
-
-  private captureCommittedTransaction(
-    transaction: TransactionStatusPayload
-  ): PendingPersistence {
-    const provider = this.persistence
-    if (!provider) {
-      return { kind: 'skipped', transaction }
-    }
-
-    try {
-      return {
-        kind: 'save',
-        transaction,
-        provider,
-        data: this.createPersistenceSnapshot()
-      }
-    } catch (error) {
-      return { kind: 'capture-failed', transaction, provider, error }
-    }
-  }
-
-  private async persistCommittedTransaction(
-    pending: PendingPersistence
-  ): Promise<void> {
-    if (pending.kind === 'skipped') {
-      this.deps.factory.reportPersistenceStatus(
-        pending.transaction,
-        'persistence-skipped'
-      )
+  private async loadFromSource(): Promise<void> {
+    if (!this.loadSource) {
       return
     }
 
-    if (pending.kind === 'capture-failed') {
-      this.deps.factory.reportPersistenceStatus(
-        pending.transaction,
-        'persistence-failed',
-        pending.provider.name,
-        pending.error
-      )
-      return
-    }
-
-    try {
-      await measureBrowserDragAsyncPhase('core:persistence-save', () =>
-        pending.provider.save(pending.data)
-      )
-      this.deps.factory.reportPersistenceStatus(
-        pending.transaction,
-        'persisted',
-        pending.provider.name
-      )
-    } catch (error) {
-      this.deps.factory.reportPersistenceStatus(
-        pending.transaction,
-        'persistence-failed',
-        pending.provider.name,
-        error
-      )
-    }
-  }
-
-  private createPersistenceSnapshot(): CoreRawData {
-    return measureBrowserDragPhase('core:persistence-capture', () => {
-      const systemContextData = measureBrowserDragPhase(
-        'core:persistence-capture:system-context',
-        () => this.deps.systemContext.saveManagedProperties()
-      )
-
-      let data: CoreRawData = {
-        version: this.version,
-        sceneTree: measureBrowserDragPhase(
-          'core:persistence-capture:scene-tree',
-          () => this.sceneTreeSaveData()
-        ),
-        props: measureBrowserDragPhase('core:persistence-capture:props', () =>
-          this.deps.props.save()
-        )
-      }
-      if (Object.keys(systemContextData).length > 0) {
-        data.systemContext = systemContextData
-      }
-
-      if (this.saveHooks.length === 0) {
-        return measureBrowserDragPhase('core:persistence-capture:detach', () =>
-          clonePersistenceSnapshot(data)
-        )
-      }
-
-      data = measureBrowserDragPhase('core:persistence-capture:detach', () =>
-        clonePersistenceSnapshot(data)
-      )
-
-      data = measureBrowserDragPhase(
-        'core:persistence-capture:save-hooks',
-        () => {
-          // Run before-save hooks (encryption, compression, metadata)
-          for (const hook of this.saveHooks) {
-            data = hook(data)
-          }
-          return data
-        }
-      )
-
-      return measureBrowserDragPhase('core:persistence-capture:detach', () =>
-        clonePersistenceSnapshot(data)
-      )
-    })
-  }
-
-  private async loadFromPersistence(): Promise<void> {
-    if (!this.persistence) {
-      return
-    }
-
-    const data = await this.persistence.load()
+    const data = await this.loadSource.load()
     this.load(data)
   }
 
@@ -1675,11 +1527,11 @@ class Core implements CoreAPIs {
     this.applyLoadedData(data)
   }
 
-  async save() {
+  async save(): Promise<CoreRawData> {
     const sceneTreeData = await this.sceneTreeSaveData()
     const systemContextData = this.deps.systemContext.saveManagedProperties()
 
-    const data: CoreRawData = {
+    let data: CoreRawData = {
       version: this.version,
       sceneTree: sceneTreeData,
       props: this.deps.props.save()
@@ -1688,7 +1540,11 @@ class Core implements CoreAPIs {
       data.systemContext = systemContextData
     }
 
-    return data
+    data = cloneSerializationSnapshot(data)
+    for (const hook of this.saveHooks) {
+      data = hook(data)
+    }
+    return cloneSerializationSnapshot(data)
   }
 
   private normalizeLoadData(

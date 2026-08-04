@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  applyElementPropertyUpdate: vi.fn(),
   createElement: vi.fn(),
   createElementInParent: vi.fn(),
   createElementsInParent: vi.fn(),
@@ -66,7 +67,7 @@ vi.mock('../vector-apis', async (importOriginal) => {
 })
 
 vi.mock('../update-element-properties', () => ({
-  updateElementProperties: vi.fn()
+  updateElementProperties: mocks.applyElementPropertyUpdate
 }))
 
 vi.mock('@asyra/preset', async (importOriginal) => ({
@@ -412,49 +413,21 @@ describe('create-element explicit parent and coordinates', () => {
     expect(mocks.toLocal).toHaveBeenCalledWith({ x: 370, y: 480 })
   })
 
-  it('submits changed geometry and affected Group bounds through one property request', () => {
-    mocks.projectGroupGeometryPropertyUpdates.mockReturnValue([
-      {
-        elementId: 'new-element',
-        values: { x: 0, y: 0, width: 30, height: 40 }
-      },
-      {
-        elementId: 'group-2',
-        values: { x: 10, y: 20, width: 30, height: 40 }
-      }
-    ])
-
+  it('routes changed child geometry through the shared property boundary', () => {
     elementApis.changeElementGeometry(
       'new-element',
       { x: 10, y: 20, width: 30, height: 40 },
       { sharedDelivery: 'immediate' }
     )
 
-    expect(mocks.projectGroupGeometryPropertyUpdates).toHaveBeenCalledWith(
-      expect.anything(),
-      [
-        {
-          elementId: 'new-element',
-          values: { x: 10, y: 20, width: 30, height: 40 }
-        }
-      ]
-    )
-    expect(mocks.updateElementProperties).toHaveBeenCalledOnce()
-    expect(mocks.updateElementProperties).toHaveBeenCalledWith(
-      [
-        {
-          elementId: 'new-element',
-          values: { x: 0, y: 0, width: 30, height: 40 }
-        },
-        {
-          elementId: 'group-2',
-          values: { x: 10, y: 20, width: 30, height: 40 }
-        }
-      ],
+    expect(mocks.applyElementPropertyUpdate).toHaveBeenCalledWith(
+      ['new-element'],
+      { x: 10, y: 20, width: 30, height: 40 },
       { sharedDelivery: 'immediate' }
     )
+    expect(mocks.projectGroupGeometryPropertyUpdates).not.toHaveBeenCalled()
+    expect(mocks.updateElementProperties).not.toHaveBeenCalled()
     expect(mocks.normalizeGroupsForElements).not.toHaveBeenCalled()
-    expect(mocks.runTransaction).toHaveBeenCalledOnce()
   })
 
   it('submits one typed plural property patch through one transaction', () => {

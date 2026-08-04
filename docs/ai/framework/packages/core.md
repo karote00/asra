@@ -7,7 +7,7 @@ System orchestrator and lifecycle coordinator.
 ## Owns
 
 - framework startup and dependency wiring
-- renderer/persistence integration entrypoints
+- renderer/read-only load-source integration entrypoints
 - load/save hooks
 - high-level API surface for apps
 - curated facade re-exports for high-value helpers
@@ -92,7 +92,7 @@ System orchestrator and lifecycle coordinator.
 - call the Core-owned or advanced renderer exactly once with the host container and
   engine-neutral `RenderOptions`
 - complete renderer/engine initialization before data-channel observers,
-  persistence load, Feature initialization, and ready publication
+  read-only source load, Feature initialization, and ready publication
 - with the Core-owned adapter only, normalize the exact missing-provider error
   to headless startup: no canvas/input surface, but observers, persistence load,
   Feature initialization, and ready still complete
@@ -166,7 +166,11 @@ System orchestrator and lifecycle coordinator.
 3. Load/save contract
 
 - load: app migration hooks -> package validation/fallback -> apply state
-- `registerLoadHook` pipeline runs for both persistence load and `core.load(...)`
+- `setLoadSource({ name, load })` configures the read-only startup input;
+  `DocumentLoadSource` intentionally has no save or clear capability
+- the deprecated `setPersistence(...)` compatibility surface delegates only to
+  `setLoadSource(...)`; Core never calls its provider writer
+- `registerLoadHook` pipeline runs for both load-source and `core.load(...)`
 - the first registered hook receives the raw document before Core normalization;
   its input type is `unknown`, so app code owns narrowing and version
   eligibility; hooks remain synchronous, instance-local, and registration
@@ -200,26 +204,29 @@ System orchestrator and lifecycle coordinator.
   Core assembles evidence only when diagnostics and an observer exist; assembly
   failure skips emission and preserves load success
 - save: collect package states -> compose persisted payload
+- explicit `core.save()` deeply detaches its input and result around registered
+  save hooks; it performs no provider I/O and is not a durability acknowledgement
 - save payload may include optional `systemContext` managed-property snapshot
   - includes only managed properties registered with `runtime: false`
 
 4. Transaction status contract
 
-- each Core subscribes to the Factory instance injected into that Core, not to a
-  global end-transaction event
-- committed action, undo, and redo capture their provider and CoreRawData
-  snapshot when the committed status arrives; provider writes then enter one
-  serial persistence queue
-- the captured snapshot is deeply detached before queueing; later mutations to
-  nested runtime arrays/objects and references retained by save hooks cannot
-  change queued provider input
-- queued work writes the detached snapshot and never re-reads later committed
-  state or an active uncommitted preview
-- missing provider reports `persistence-skipped`; successful save reports
-  `persisted`; provider failure reports `persistence-failed`
-- discarded, rolled-back, and rollback-failed outcomes never request save
-- persistence failure does not roll back committed runtime state and does not
-  block later queued saves; Core provides no automatic retry policy
+- Core does not subscribe to Factory commit capture for persistence.
+- Core does not build, deeply detach, queue, or provider-save `CoreRawData`
+  merely because a transaction committed.
+- Core does not translate file-scoped backend durability into Factory
+  `persistence-*` transaction statuses.
+- Core retains raw checkpoint migration, complete package
+  validation/fallback, canonical load apply, diagnostics, and explicit detached
+  serialization.
+- Explicit serialization remains available for export/diagnostics/tests but is
+  not a persistence acknowledgement and is never an automatic commit effect.
+- Socket handshake, pending-tail recovery, sequence, batching, retry,
+  materialization, and durable acknowledgement remain App/server owners.
+
+The exact implementation boundary is Inspector step
+`hydrate-core-checkpoint` in:
+`../../apps/asyra-design/plans/socket-authoritative-document-persistence-flow-inspector.data.cjs`.
 
 5. Selection transaction contract
 

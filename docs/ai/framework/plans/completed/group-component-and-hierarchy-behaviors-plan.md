@@ -97,8 +97,11 @@ must not hardcode Preset Group UI or design-tool selection policy.
   Core/Scene Tree and property APIs;
 - owns the default 2D coordinate normalization needed to preserve world-space
   appearance when elements enter or leave the invisible Group container;
-- keeps Group geometry consistent with its direct children for the supported
-  basic translation/bounds contract;
+- applies Group coordinate/bounds normalization only for explicit
+  Group/Ungroup, identity-preserving reparent, or an official Group-targeted
+  operation whose contract requires it;
+- exposes one pure direct-child bounds derivation path for read-only
+  consumers without turning descendant edits into ancestor writes;
 - projects committed canonical hierarchy lifecycle changes into the
   App-facing `flattenedElementIds` and `elementDataMap` UI-context values,
   including add, remove, move, subtree removal, subtree restoration, and load.
@@ -211,13 +214,21 @@ convergence guarantees.
   elements become its children in their previous relative order.
 - Nested groups are allowed.
 - Preset establishes the Group bounds/position and converts child coordinates
-  so visible world-space output does not jump. Group `x`, `y`, `width`, and
-  `height` are a derived canonical cache of its direct children rather than
-  independent shape geometry.
-- Every accepted direct-child membership or supported canonical geometry
-  mutation rederives that cache through one Preset-owned path, deepest affected
-  Group first. Rebasing must not create a visible jump, recursive mutation
-  loop, per-frame recomputation, or second geometry authority.
+  so visible world-space output does not jump. Group `x` and `y` are canonical
+  container translation. Group `width` and `height` are operation-produced
+  snapshots retained for document compatibility rather than live shape
+  geometry.
+- Explicit Group/Ungroup and identity-preserving reparent operations use one
+  Preset-owned direct-child rectangle-union path, deepest affected Group first
+  when ancestors are part of that explicit operation.
+- A descendant-only position or dimension mutation updates only its explicit
+  targets. It does not rederive ancestor Group properties, rebase siblings, or
+  add Group changes to the transaction, History, publication, or persistence
+  stream.
+- Consumers that display a selected or hovered Group derive current content
+  bounds read-only at their projection boundary. The projection must not
+  mutate Group geometry, create a recursive mutation loop, or become a second
+  canonical geometry authority.
 - The bounded Gate 3 geometry inputs are the registered canonical
   `x`/`y`/`width`/`height` fields shared by persistence and Render. A future
   canonical rotation, scale, or skew field must join this same derivation path

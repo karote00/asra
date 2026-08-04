@@ -61,25 +61,21 @@
 3. `src/render-app/index.tsx`
 
 - requires one non-empty `fileId`; that value maps to the App document,
-  and, when `VITE_COLLABORATION_WS_URL` is configured, the collaboration
-  document and room identity. A full UUID actor identity is generated per page
-  and configures the canonical ID-counter namespace before collaborative
-  actions
-- injects the App-owned same-origin document database provider before Core
-  startup. It uses `GET`, `PUT`, and `DELETE` at
-  `/api/documents/<encoded fileId>`; local actions, Agent actions, Undo, Redo,
-  and Reset use this one provider
-- treats database availability as a visible persistence status, not App
-  availability. A failed database load displays an error and continues through
-  the file-specific initial canonical document; failed saves remain errors but
-  do not roll back the already committed local action or crash Canvas
+  collaboration document, and room identity for every ordinary file. A full
+  UUID actor identity is generated per page and configures the canonical
+  ID-counter namespace before collaborative actions
+- derives the ordinary WebSocket endpoint from
+  `VITE_COLLABORATION_WS_URL` or same-origin `/collaboration`, prepares the
+  checkpoint/tail handshake before Core startup, and supplies that checkpoint
+  through Core's load-only source
 - for `fileId=crdt-7076-sample`, the initial source is the checked-in compressed
   canonical document generated through the ordinary prepared action and
   Factory path. Other files use one fresh empty canonical document. Core
   remains the load-validation owner
-- has no IndexedDB, localStorage, demo-only fake persistence, compatibility
-  format, or second persistence route. A fork implements the matching database
-  server without replacing the frontend client
+- currently has no IndexedDB publication recovery outbox; the accepted
+  socket-authoritative target adds one App-owned IndexedDB outbox containing
+  only unaccepted `SharedPublication` values, never a materialized document,
+  compatibility format, or second canonical persistence route
 - starts framework via `core.start(...)` using Core's default `RenderAdapter`;
   renderer/engine initialization must
   succeed before observers, persistence load, features, or ready publication
@@ -89,10 +85,11 @@
   collaboration lifecycle; the lifecycle disposer owns idempotent resource cleanup.
   Teardown does not reopen composition, and an unmount during pending startup
   cannot activate collaboration afterward
-- collaboration setup is optional when no WebSocket endpoint is configured.
-  Initial connection failure and later disconnection display an unavailable
-  status while Core, Canvas, and local editing continue; a partial setup is
-  disposed without turning transport availability into App availability
+- collaboration setup is mandatory for ordinary files; only
+  `crdt-7076-sample` bypasses it. The current partial implementation still
+  pauses startup/editing on session failure; the accepted recovery slice below
+  replaces that limitation with provisional local state, durable publication
+  retention, and continued editing
 - imports no Pixi SDK or concrete render-engine package
 
 4. `src/contexts/data-change.tsx`
@@ -138,11 +135,65 @@ the existing Render object.
 - Scene Tree and Props remain canonical state owners for local and remote
   changes. Awareness is ephemeral and cannot carry canonical create or move
   geometry; Render remains a downstream projection.
-- Core's persistence lifecycle stores local actions, Agent actions, Undo, and
-  Redo from the client that originated the operation. An accepted remote
-  publication applies canonical state and updates projections without
-  persistence, Undo, or echo publication; `peer-applied` therefore acknowledges
-  remote apply rather than receiver durability.
+- Core owns load and explicit serialization only; it no longer captures or
+  saves a complete document after local actions, Agent actions, Undo, or Redo.
+  An accepted remote publication applies canonical state and updates
+  projections without persistence, Undo, or echo publication; `peer-applied`
+  therefore acknowledges remote apply rather than receiver durability.
+
+## Socket-Authoritative Document Session
+
+The implemented document-session contract replaces the former split
+browser-database save plus optional live Collaboration composition:
+
+```text
+mandatory socket handshake
+-> backend checkpoint + exact socket pending tail
+-> Core canonical checkpoint load
+-> App remote apply through handshake head sequence
+-> Factory SharedPublication
+-> App durable unaccepted-publication outbox
+-> reconnect checkpoint/tail reconciliation when required
+-> socket-assigned document sequence and live fan-out
+-> fixed three-second dirty-window persistence batch
+-> backend ordered materialization
+-> contiguous durable-sequence acknowledgement
+```
+
+- One Actor and multiple Actors use this same document-session path.
+- Core retains load validation/apply and explicit serialization but loses
+  automatic commit-triggered persistence ownership.
+- Factory's existing immutable `SharedPublication` remains the only browser
+  document-change unit; private Undo History never reaches the server.
+- Selection, Awareness, computed projection, Render/UI state, and diagnostics
+  remain outside document persistence.
+- The browser performs no canonical document persistence write. The formal App
+  exposes no Reset persistence path; any future import must use the canonical
+  publication path. The sole exception is the temporary
+  `crdt-7076-sample` demo Reset, which stores one empty demo bootstrap document
+  in browser storage and forces a reload without entering Core, Factory, Undo,
+  socket, or backend persistence.
+- The App owns a native IndexedDB transport-recovery outbox containing only
+  immutable local publications that have not received socket acceptance.
+- A disconnected or incomplete socket session remains locally editable.
+  Initial failure and later disconnect each enter one stateful disconnected
+  epoch, retry at most once every 30 seconds, and do not emit per-operation
+  failure toasts.
+- Reconnect reloads the authoritative checkpoint/tail, reconciles the durable
+  local outbox in server sequence, and removes each entry only after matching
+  source acceptance. Conflict and recovery-storage failure remain explicit
+  sync states.
+- Socket acceptance, peer apply, and backend durability remain separate
+  observable states.
+- The server's dirty window defaults to 3000 ms, supports only 1000–3000 ms,
+  does not debounce continuous input, and retries backend failures without
+  allowing later sequences to overtake.
+
+Semantic authority:
+`specs/socket-authoritative-document-session.md`.
+
+Completed plan:
+`plans/completed/socket-authoritative-document-persistence-plan.md`.
 
 ## Module Ownership (App)
 

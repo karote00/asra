@@ -1,4 +1,3 @@
-import type { Provider } from '@asyra/collaboration'
 import type { SharedPublication } from '@asyra/factory'
 import {
   subscribeToBrowserDragPhases,
@@ -11,7 +10,7 @@ import {
   PUBLICATION_FRAME_VERSION_OFFSET,
   decodeCollaborationMessage,
   decodePublicationMessageFrames,
-  encodePublicationMessageFrames,
+  encodePublicationMessageFrames as encodeProtocolPublicationMessageFrames,
   inspectPublicationFrameHeader,
   isPublicationFrame,
   type PublicationFrameHeader
@@ -30,6 +29,7 @@ type ClientMessage = Readonly<{
   frameId?: string
   publicationId?: string
   frameByteLength?: number
+  headSequence?: number
   identity?: unknown
   publication?: SharedPublication
   publications?: readonly SharedPublication[]
@@ -56,6 +56,39 @@ interface Deferred<T> {
 }
 
 const diagnosticDisposers: (() => void)[] = []
+let inboundDocumentSequence = 0
+
+const encodePublicationMessageFrames = (
+  message: Parameters<typeof encodeProtocolPublicationMessageFrames>[0],
+  options?: Parameters<typeof encodeProtocolPublicationMessageFrames>[1]
+): ReturnType<typeof encodeProtocolPublicationMessageFrames> => {
+  if (message.type === 'publication') {
+    const sequenced = {
+      ...message,
+      sequence:
+        'sequence' in message && typeof message.sequence === 'number'
+          ? message.sequence
+          : ++inboundDocumentSequence
+    }
+    return encodeProtocolPublicationMessageFrames(sequenced, options)
+  }
+  if (message.type === 'publications') {
+    const firstSequence = inboundDocumentSequence + 1
+    const sequences =
+      'sequences' in message && Array.isArray(message.sequences)
+        ? message.sequences
+        : message.publications.map((_, index) => firstSequence + index)
+    inboundDocumentSequence = Math.max(
+      inboundDocumentSequence,
+      sequences.at(-1) ?? inboundDocumentSequence
+    )
+    return encodeProtocolPublicationMessageFrames(
+      { ...message, sequences },
+      options
+    )
+  }
+  return encodeProtocolPublicationMessageFrames(message, options)
+}
 
 const createDeferred = <T>(): Deferred<T> => {
   let resolve!: Deferred<T>['resolve']
@@ -281,9 +314,11 @@ const createLoopbackServer = async (
   ) => void,
   {
     autoAdmitSourceFrames = true,
+    autoCompleteBootstrap = true,
     onSourceFrame
   }: Readonly<{
     autoAdmitSourceFrames?: boolean
+    autoCompleteBootstrap?: boolean
     onSourceFrame?: (
       socket: NodeWebSocket,
       header: PublicationFrameHeader
@@ -293,6 +328,59 @@ const createLoopbackServer = async (
   const server = new WebSocketServer({ host: '127.0.0.1', port: 0 })
   const sockets = new Set<NodeWebSocket>()
   server.on('connection', (socket) => {
+    const originalSend = socket.send
+    let bootstrapReleased = true
+    const bootstrapSuccessorMessages: Readonly<{
+      readonly data: unknown
+      readonly args: readonly unknown[]
+    }>[] = []
+    const sendOriginal = (data: unknown, args: readonly unknown[]): unknown =>
+      Reflect.apply(originalSend, socket, [data, ...args])
+    const flushBootstrapSuccessors = (): void => {
+      bootstrapSuccessorMessages
+        .splice(0)
+        .forEach(({ data, args }) => sendOriginal(data, args))
+    }
+    socket.send = ((data: unknown, ...args: unknown[]) => {
+      let normalized = data
+      let beginsBootstrap = false
+      if (typeof data === 'string') {
+        try {
+          const message = JSON.parse(data)
+          if (message?.type === 'ready') {
+            beginsBootstrap = true
+            bootstrapReleased = false
+            if (message.bootstrap === undefined) {
+              normalized = JSON.stringify({
+                ...message,
+                bootstrap: {
+                  checkpoint: {
+                    version: '1.0.0',
+                    sceneTree: {
+                      workspace: '',
+                      workspaceList: [],
+                      elements: {}
+                    },
+                    props: {}
+                  },
+                  durableSequence: 0,
+                  headSequence: 0,
+                  pendingTail: []
+                }
+              })
+            }
+          }
+        } catch {
+          // Individual tests retain ownership of malformed wire payloads.
+        }
+      }
+      if (beginsBootstrap) return sendOriginal(normalized, args)
+      if (!bootstrapReleased) {
+        bootstrapSuccessorMessages.push({ data: normalized, args })
+        return
+      }
+      return sendOriginal(normalized, args)
+    }) as typeof socket.send
     const publicationFramesByRequest = new Map<string, ArrayBuffer[]>()
     sockets.add(socket)
     socket.on('close', () => sockets.delete(socket))
@@ -358,11 +446,24 @@ const createLoopbackServer = async (
         )
         return
       }
-      onMessage(
-        socket,
-        decodeCollaborationMessage(encoded) as ClientMessage,
-        encoded
-      )
+      const message = decodeCollaborationMessage(encoded) as ClientMessage
+      const releasesBootstrap = message.type === 'bootstrap-consumed'
+      if (releasesBootstrap) bootstrapReleased = true
+      onMessage(socket, message, encoded)
+      if (
+        autoCompleteBootstrap &&
+        message.type === 'bootstrap-consumed' &&
+        message.requestId
+      ) {
+        socket.send(
+          JSON.stringify({
+            type: 'response',
+            requestId: message.requestId,
+            ok: true
+          })
+        )
+      }
+      if (releasesBootstrap) flushBootstrapSuccessors()
     })
   })
   await new Promise<void>((resolve, reject) => {
@@ -393,7 +494,7 @@ const sendPublicationFrames = (
   )
 }
 
-type TestProvider = Provider
+type TestProvider = CollaborationWebSocketProvider
 
 const createProvider = (endpoint: string): TestProvider =>
   new CollaborationWebSocketProvider({
@@ -415,6 +516,7 @@ const createProvider = (endpoint: string): TestProvider =>
   })
 
 beforeEach(() => {
+  inboundDocumentSequence = 0
   mainThreadWebSocketConstructor.mockClear()
   function MainThreadWebSocketSentinel() {
     mainThreadWebSocketConstructor()
@@ -440,6 +542,86 @@ afterEach(async () => {
 })
 
 describe('CollaborationWebSocketProvider real connection contract', () => {
+  it('exposes bootstrap before explicitly releasing the reserved live cutoff', async () => {
+    const bootstrapCompletions: ClientMessage[] = []
+    const server = await createLoopbackServer(
+      (socket, message) => {
+        if (message.type === 'hello') {
+          socket.send(
+            JSON.stringify({
+              type: 'ready',
+              bootstrap: {
+                checkpoint: { elements: [{ id: 'element-a' }] },
+                durableSequence: 3,
+                headSequence: 4,
+                pendingTail: [
+                  {
+                    sequence: 4,
+                    publication,
+                    fromActorId: 'actor-b'
+                  }
+                ]
+              }
+            })
+          )
+          return
+        }
+        if (message.type === 'bootstrap-consumed' && message.requestId) {
+          bootstrapCompletions.push(message)
+          socket.send(
+            JSON.stringify({
+              type: 'response',
+              requestId: message.requestId,
+              ok: true
+            })
+          )
+        }
+      },
+      { autoCompleteBootstrap: false }
+    )
+    const provider = new CollaborationWebSocketProvider({
+      endpoint: server.endpoint,
+      transportWorkerFactory: () => {
+        const worker = new TestCollaborationTransportWorker()
+        transportWorkers.push(worker)
+        return worker
+      },
+      identity: {
+        documentId: 'internal-document',
+        roomId: 'internal-room',
+        actorId: 'actor-a',
+        connectionMetadata: { fileId: 'app-file-17' }
+      }
+    })
+
+    await expect(provider.openDocumentSession()).resolves.toEqual({
+      checkpoint: { elements: [{ id: 'element-a' }] },
+      durableSequence: 3,
+      headSequence: 4,
+      pendingTail: [
+        {
+          sequence: 4,
+          publication,
+          fromActorId: 'actor-b'
+        }
+      ]
+    })
+    expect(bootstrapCompletions).toEqual([])
+    await expect(provider.sendPublication(publication)).rejects.toMatchObject({
+      code: 'not-connected'
+    })
+
+    await provider.completeDocumentBootstrap()
+
+    expect(bootstrapCompletions).toEqual([
+      expect.objectContaining({
+        type: 'bootstrap-consumed',
+        headSequence: 4
+      })
+    ])
+    await provider.destroy()
+  })
+
   it('keeps bounded wire admission inside the transport worker while App apply is pending', async () => {
     const frameConsumedIds: string[] = []
     let sendInbound: (() => void) | undefined
@@ -486,6 +668,24 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       expect(mainBoundMessages.some(({ type }) => type === 'connected')).toBe(
         true
       )
+    )
+    runtime.handle({
+      type: 'send-request',
+      generation: 1,
+      message: {
+        type: 'bootstrap-consumed',
+        requestId: 'direct-worker-bootstrap-consumed',
+        headSequence: 0
+      }
+    })
+    await vi.waitFor(() =>
+      expect(
+        mainBoundMessages.some(
+          (message) =>
+            message.type === 'request-accepted' &&
+            message.requestId === 'direct-worker-bootstrap-consumed'
+        )
+      ).toBe(true)
     )
     sendInbound?.()
     await vi.waitFor(() => expect(frameConsumedIds).toHaveLength(1))
@@ -646,7 +846,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     }
   })
 
-  it('accepts one validated publication into bounded FIFO without awaiting wire receipts', async () => {
+  it('accepts one validated publication only after the server assigns its document sequence', async () => {
     let sent: SharedPublication | undefined
     const headers: PublicationFrameHeader[] = []
     const phaseSink = vi.fn()
@@ -665,7 +865,26 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       },
       {
         autoAdmitSourceFrames: false,
-        onSourceFrame: (_socket, header) => headers.push(header)
+        onSourceFrame: (socket, header) => {
+          headers.push(header)
+          socket.send(
+            JSON.stringify({
+              type: 'source-frame-admitted',
+              requestId: header.requestId,
+              frameId: header.frameId,
+              publicationId: header.publicationId,
+              frameByteLength: header.frameByteLength
+            })
+          )
+          socket.send(
+            JSON.stringify({
+              type: 'response',
+              requestId: header.requestId,
+              ok: true,
+              acceptedSequences: [1]
+            })
+          )
+        }
       }
     )
     const provider = createProvider(server.endpoint)
@@ -717,6 +936,77 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
         expect.any(Number)
       )
       expect(settlement).not.toBe('rejected')
+    } finally {
+      await provider.destroy()
+    }
+  })
+
+  it('returns matching source acceptance and consumes an early peer successor only after the source sequence', async () => {
+    const peerPublication = createPublication({
+      suffix: 'peer-after-source',
+      transactionId: 2
+    })
+    const order: string[] = []
+    const server = await createLoopbackServer(
+      (socket, message) => {
+        if (message.type === 'hello') {
+          socket.send(JSON.stringify({ type: 'ready' }))
+        }
+      },
+      {
+        autoAdmitSourceFrames: false,
+        onSourceFrame: (socket, header) => {
+          sendPublicationFrames(socket, {
+            type: 'publication',
+            publication: peerPublication,
+            fromActorId: 'actor-peer',
+            sequence: 2
+          })
+          socket.send(
+            JSON.stringify({
+              type: 'source-frame-admitted',
+              requestId: header.requestId,
+              frameId: header.frameId,
+              publicationId: header.publicationId,
+              frameByteLength: header.frameByteLength
+            })
+          )
+          socket.send(
+            JSON.stringify({
+              type: 'response',
+              requestId: header.requestId,
+              ok: true,
+              acceptedSequences: [1]
+            })
+          )
+        }
+      }
+    )
+    const provider = createProvider(server.endpoint)
+    provider.onPublication(async (inbound) => {
+      order.push(`peer:${inbound.publicationId}`)
+    })
+    await provider.connect()
+
+    try {
+      await expect(
+        provider.sendPublicationWithAcceptance(
+          publication,
+          async (accepted) => {
+            order.push(`source:${accepted.publicationId}`)
+          }
+        )
+      ).resolves.toEqual({
+        publicationId: publication.publicationId,
+        sequence: 1
+      })
+      await vi.waitFor(() =>
+        expect(order).toEqual([
+          `source:${publication.publicationId}`,
+          `peer:${peerPublication.publicationId}`
+        ])
+      )
+      expect(provider.getAppliedDocumentSequence()).toBe(2)
     } finally {
       await provider.destroy()
     }
@@ -805,8 +1095,8 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
 
     try {
       await vi.waitFor(() => expect(headers).toHaveLength(1))
-      await vi.waitFor(() => expect(firstSettlement).toBe('accepted'))
       await new Promise((resolve) => setTimeout(resolve, 25))
+      expect(firstSettlement).toBe('pending')
       expect(secondSettlement).toBe('pending')
       expect(headers).toHaveLength(1)
 
@@ -820,8 +1110,36 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
           frameByteLength: firstHeader.frameByteLength
         })
       )
-      await vi.waitFor(() => expect(secondSettlement).toBe('accepted'))
       await vi.waitFor(() => expect(headers).toHaveLength(2))
+      expect(firstSettlement).toBe('pending')
+      sourceSocket?.send(
+        JSON.stringify({
+          type: 'response',
+          requestId: firstHeader.requestId,
+          ok: true,
+          acceptedSequences: [1]
+        })
+      )
+      await vi.waitFor(() => expect(firstSettlement).toBe('accepted'))
+      const secondHeader = headers[1] as PublicationFrameHeader
+      sourceSocket?.send(
+        JSON.stringify({
+          type: 'source-frame-admitted',
+          requestId: secondHeader.requestId,
+          frameId: secondHeader.frameId,
+          publicationId: secondHeader.publicationId,
+          frameByteLength: secondHeader.frameByteLength
+        })
+      )
+      sourceSocket?.send(
+        JSON.stringify({
+          type: 'response',
+          requestId: secondHeader.requestId,
+          ok: true,
+          acceptedSequences: [2]
+        })
+      )
+      await vi.waitFor(() => expect(secondSettlement).toBe('accepted'))
       expect(headers.map(({ publicationId }) => publicationId)).toEqual([
         publication.publicationId,
         secondPublication.publicationId
@@ -833,7 +1151,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     }
   })
 
-  it('reports an inexact source admission after publication ownership was accepted', async () => {
+  it('rejects an inexact source admission before publication acceptance', async () => {
     let sourceSocket: NodeWebSocket | undefined
     let firstHeader: PublicationFrameHeader | undefined
     const server = await createLoopbackServer(
@@ -857,10 +1175,10 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     const sending = provider.sendPublication(
       createTwoDeliveryPublication(700_000)
     )
+    void sending.catch(() => undefined)
 
     try {
       await vi.waitFor(() => expect(firstHeader).toBeDefined())
-      await expect(sending).resolves.toBeUndefined()
       const header = firstHeader as unknown as PublicationFrameHeader
       sourceSocket?.send(
         JSON.stringify({
@@ -873,6 +1191,9 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       )
 
       await vi.waitFor(() => expect(failures).toHaveBeenCalledOnce())
+      await expect(sending).rejects.toMatchObject({
+        code: 'acknowledgement-failed'
+      })
       expect(failures).toHaveBeenCalledWith(
         expect.objectContaining({
           code: 'acknowledgement-failed',
@@ -886,7 +1207,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     }
   })
 
-  it('reports a premature server response separately from accepted publication ownership', async () => {
+  it('rejects a premature server response before source frame admission', async () => {
     const headers: PublicationFrameHeader[] = []
     const server = await createLoopbackServer(
       (socket, message) => {
@@ -916,7 +1237,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     try {
       await expect(
         provider.sendPublication(createTwoDeliveryPublication(700_000))
-      ).resolves.toBeUndefined()
+      ).rejects.toMatchObject({ code: 'acknowledgement-failed' })
       await vi.waitFor(() => expect(failures).toHaveBeenCalledOnce())
 
       expect(failures).toHaveBeenCalledWith(
@@ -933,7 +1254,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     }
   })
 
-  it('keeps accepted ownership distinct from a capacity waiter cleared by disconnect', async () => {
+  it('rejects pending acceptance and its capacity waiter when disconnected', async () => {
     const headers: PublicationFrameHeader[] = []
     const server = await createLoopbackServer(
       (socket, message) => {
@@ -953,17 +1274,20 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     const firstOutcome = provider.sendPublication(
       createTwoDeliveryPublication(700_000)
     )
+    void firstOutcome.catch(() => undefined)
     const secondOutcome = provider
       .sendPublication(createTwoDeliveryPublication(700_000))
       .catch((error: unknown) => error)
 
     try {
       await vi.waitFor(() => expect(headers).toHaveLength(1))
-      await expect(firstOutcome).resolves.toBeUndefined()
       await new Promise((resolve) => setTimeout(resolve, 25))
       expect(headers).toHaveLength(1)
       await provider.disconnect()
 
+      await expect(firstOutcome).rejects.toMatchObject({
+        code: 'not-connected'
+      })
       expect(await secondOutcome).toMatchObject({ code: 'not-connected' })
       expect(headers).toHaveLength(1)
     } finally {
@@ -1038,7 +1362,8 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       JSON.stringify({
         type: 'response',
         requestId: publicationRequestId,
-        ok: true
+        ok: true,
+        acceptedSequences: [1]
       })
     )
     await publicationSending
@@ -1200,7 +1525,8 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
         JSON.stringify({
           type: 'response',
           requestId: message.requestId,
-          ok: true
+          ok: true,
+          acceptedSequences: [1]
         })
       )
     })
@@ -1274,7 +1600,8 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       {
         type: 'publication',
         publication: inboundPublication,
-        fromActorId: 'actor-b'
+        fromActorId: 'actor-b',
+        sequence: 2
       },
       { softTargetBytes: 256 }
     )
@@ -1294,7 +1621,8 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
         JSON.stringify({
           type: 'response',
           requestId: message.requestId,
-          ok: true
+          ok: true,
+          acceptedSequences: [1]
         })
       )
     })
@@ -1570,6 +1898,41 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     } finally {
       await provider.destroy()
     }
+  })
+
+  it('rejects a live document-sequence gap before invoking the App consumer', async () => {
+    let sendGap: (() => void) | undefined
+    const server = await createLoopbackServer((socket, message) => {
+      if (message.type !== 'hello') return
+      socket.send(JSON.stringify({ type: 'ready' }))
+      sendGap = () =>
+        sendPublicationFrames(socket, {
+          type: 'publication',
+          publication,
+          fromActorId: 'actor-b',
+          sequence: 2
+        })
+    })
+    const provider = createProvider(server.endpoint)
+    const inbound = vi.fn(async () => undefined)
+    const failures = vi.fn()
+    provider.onPublication(inbound)
+    provider.onFailure(failures)
+    await provider.connect()
+
+    sendGap?.()
+
+    await vi.waitFor(() =>
+      expect(failures).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'transport-failed',
+          message: '[collaboration] live document sequence is not contiguous'
+        })
+      )
+    )
+    expect(inbound).not.toHaveBeenCalled()
+    expect(provider.getStatus()).toBe('failed')
+    await provider.destroy()
   })
 
   it('accepts one oversized indivisible inbound frame through an empty window', async () => {
@@ -2362,7 +2725,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     worker.flush()
   })
 
-  it('reports one ProviderFailure for an unexpected close after publication acceptance', async () => {
+  it('reports one ProviderFailure when the server closes before publication acceptance', async () => {
     const server = await createLoopbackServer((socket, message) => {
       if (message.type === 'hello') {
         socket.send(JSON.stringify({ type: 'ready' }))
@@ -2376,9 +2739,9 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     await provider.connect()
 
     try {
-      await expect(
-        provider.sendPublication(publication)
-      ).resolves.toBeUndefined()
+      await expect(provider.sendPublication(publication)).rejects.toMatchObject(
+        { code: 'not-connected' }
+      )
       await vi.waitFor(() => expect(failures).toHaveBeenCalledOnce())
       await new Promise((resolve) => setTimeout(resolve, 25))
 

@@ -1,26 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { ProviderFailure, type ProviderStatus } from '@asyra/collaboration'
 import core from '../contexts'
 import {
   AiDocumentInteractionTargetProps,
   CANVAS_BACKGROUND_COLOR
 } from '../constants'
-import {
-  activateDocumentPersistence,
-  createDocumentPersistence,
-  DOCUMENT_DATABASE_UNAVAILABLE_MESSAGE
-} from '../document-persistence'
+import type {
+  CollaborationSessionNotification,
+  PreparedCollaborationDocumentSession
+} from '../collaboration/lifecycle'
 import { createInitialDocumentForFile } from '../config/demo-document'
-import { createEmptyDocument } from '../config/empty-document'
 import { getCollaborationMode, getRequiredFileId } from './collaboration-mode'
 import AiDrawingProgressIndicator from './ai-drawing-progress-indicator'
 import { StatusToastStack } from './status-toast-stack'
-
-const COLLABORATION_UNAVAILABLE_MESSAGE =
-  'Collaboration server is unavailable. You can keep using the app, but this tab will not receive remote changes.'
-
-const isCollaborationUnavailable = (status: ProviderStatus): boolean =>
-  status !== 'connected'
 
 export interface CanvasContextMenuInvocation {
   clientX: number
@@ -39,10 +30,8 @@ const RenderApp: React.FC<RenderAppProps> = ({
 }) => {
   const renderContainerRef = useRef<HTMLDivElement>(null)
   const lifecycleRef = useRef<Promise<void>>(Promise.resolve())
-  const [documentDatabaseUnavailable, setDocumentDatabaseUnavailable] =
-    useState(false)
-  const [collaborationUnavailable, setCollaborationUnavailable] =
-    useState(false)
+  const [collaborationNotification, setCollaborationNotification] =
+    useState<CollaborationSessionNotification>()
 
   const handleContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
     if (
@@ -65,7 +54,7 @@ const RenderApp: React.FC<RenderAppProps> = ({
     let active = true
     let collaborationDisposer: (() => Promise<void>) | undefined
     let collaborationDisposePromise: Promise<void> | undefined
-    let unsubscribeCollaborationStatus: (() => void) | undefined
+    let unsubscribeCollaborationState: (() => void) | undefined
     const disposeCollaboration = (): Promise<void> => {
       if (!collaborationDisposer) return Promise.resolve()
       collaborationDisposePromise ??= collaborationDisposer()
@@ -84,18 +73,29 @@ const RenderApp: React.FC<RenderAppProps> = ({
         }
         const fileId = getRequiredFileId()
         const collaborationMode = getCollaborationMode()
-        const documentPersistence = createDocumentPersistence(fileId, {
-          createInitialDocument: collaborationMode
-            ? createEmptyDocument
-            : () => createInitialDocumentForFile(fileId),
-          onStatusChange: (status) => {
-            if (active) {
-              setDocumentDatabaseUnavailable(status.status === 'unavailable')
-            }
-          }
-        })
-        activateDocumentPersistence(documentPersistence)
-        core.setPersistence(documentPersistence.provider)
+        let preparedCollaboration:
+          | PreparedCollaborationDocumentSession
+          | undefined
+
+        if (collaborationMode) {
+          const collaborationLifecycle = await import(
+            '../collaboration/lifecycle'
+          )
+          collaborationDisposer = collaborationLifecycle.disposeCollaboration
+          preparedCollaboration =
+            await collaborationLifecycle.prepareCollaborationDocumentSession(
+              collaborationMode
+            )
+          core.setLoadSource({
+            name: 'SocketDocumentSession',
+            load: async () => preparedCollaboration?.bootstrap.checkpoint
+          })
+        } else {
+          core.setLoadSource({
+            name: 'Crdt7076AgentSimulation',
+            load: () => createInitialDocumentForFile(fileId)
+          })
+        }
 
         await core.start(container, {
           width: window.innerWidth,
@@ -108,40 +108,24 @@ const RenderApp: React.FC<RenderAppProps> = ({
           return
         }
 
-        if (!collaborationMode) {
+        if (!preparedCollaboration) {
           return
         }
-        const collaborationLifecycle = await import(
-          '../collaboration/lifecycle'
-        )
-        collaborationDisposer = collaborationLifecycle.disposeCollaboration
         if (!active) {
           await disposeCollaboration()
           return
         }
-        try {
-          const handle =
-            await collaborationLifecycle.startCollaboration(collaborationMode)
-          if (!active) {
-            await disposeCollaboration()
-            return
-          }
-          setCollaborationUnavailable(
-            isCollaborationUnavailable(handle.getStatus())
-          )
-          unsubscribeCollaborationStatus = handle.onStatusChange((status) => {
-            if (active) {
-              setCollaborationUnavailable(isCollaborationUnavailable(status))
-            }
-          })
-        } catch (error) {
-          if (!(error instanceof ProviderFailure)) {
-            throw error
-          }
-          if (active) {
-            setCollaborationUnavailable(true)
-          }
+        const handle = await preparedCollaboration.activate()
+        if (!active) {
+          await disposeCollaboration()
+          return
         }
+        setCollaborationNotification(handle.getSessionState().notification)
+        unsubscribeCollaborationState = handle.onSessionStateChange((state) => {
+          if (active) {
+            setCollaborationNotification(state.notification)
+          }
+        })
         if (!active) await disposeCollaboration()
       })
     lifecycleRef.current = lifecycle
@@ -153,7 +137,7 @@ const RenderApp: React.FC<RenderAppProps> = ({
 
     return () => {
       active = false
-      unsubscribeCollaborationStatus?.()
+      unsubscribeCollaborationState?.()
       core.destroyRenderer()
       void disposeCollaboration().catch((error: unknown) => {
         console.error('[RenderApp] collaboration teardown failed:', error)
@@ -183,19 +167,11 @@ const RenderApp: React.FC<RenderAppProps> = ({
       />
       <StatusToastStack
         toasts={[
-          ...(documentDatabaseUnavailable
+          ...(collaborationNotification
             ? [
                 {
-                  id: 'document-database-unavailable',
-                  message: DOCUMENT_DATABASE_UNAVAILABLE_MESSAGE
-                }
-              ]
-            : []),
-          ...(collaborationUnavailable
-            ? [
-                {
-                  id: 'collaboration-unavailable',
-                  message: COLLABORATION_UNAVAILABLE_MESSAGE
+                  id: collaborationNotification.id,
+                  message: collaborationNotification.message
                 }
               ]
             : [])

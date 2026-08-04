@@ -2087,3 +2087,89 @@ unregister -> app migration -> core.start()` as the public app route.
 - Related Plan:
   - `docs/ai/framework/plans/completed/canonical-projection-and-collaboration-contract-realignment-plan.md`
   - `docs/ai/framework/plans/canonical-projection-and-collaboration-contract-flow-inspector.html`
+
+## 2026-08-03 - Accept load-only Core and socket-authoritative App persistence target
+
+- Context:
+  - Core currently captures, deeply detaches, and queues a complete
+    `CoreRawData` snapshot after every committed action, Undo, and Redo.
+  - On the 7,076-element Asyra Design document, selection and History actions
+    spend most of their visible delay in this full-document persistence work,
+    while Factory publication and UI projection remain small.
+  - Asyra Design will keep a socket session active for one-Actor as well as
+    multi-Actor document editing.
+- Decision:
+  - Remove commit-triggered snapshot persistence from Core in the accepted
+    target while retaining canonical load and explicit serialization.
+  - Keep Factory's existing immutable `SharedPublication` as the only client
+    document-change unit; do not expose private Undo History or create a
+    persistence-specific Factory artifact.
+  - Keep generic Collaboration provider-neutral. The App socket server owns
+    handshake, sequence, live fan-out, a fixed three-second dirty-window queue,
+    retry, and durable-watermark tracking; the App backend owns ordered
+    materialization.
+- Consequences:
+  - Runtime commit, socket acceptance, peer apply, and backend durability remain
+    distinct states.
+  - Selection and other non-document state cannot trigger persistence merely
+    because they are transaction-bounded or undoable.
+  - The target is not implemented; current Core and App persistence behavior
+    remains until the active Inspector slices and formal gates pass.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-plan.md`
+- Related Inspector:
+  - `docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-flow-inspector.data.cjs`
+- Related Commit(s):
+  - pending
+
+## 2026-08-04 - Implement the load-only Core persistence boundary
+
+- Context:
+  - The accepted App persistence plan has completed its framework-facing Core,
+    Factory, Persistence, and Collaboration contract work.
+- Decision:
+  - Remove automatic full-document capture and provider save from Core action,
+    Undo, and Redo settlement.
+  - Preserve canonical checkpoint load and explicit detached serialization as
+    separate Core operations.
+  - Preserve Factory `SharedPublication` as the sole bounded canonical
+    publication and keep generic Collaboration free of App recovery or backend
+    persistence policy.
+- Consequences:
+  - Transaction completion no longer implies a persistence snapshot boundary.
+  - Selection and other ephemeral state cannot trigger document persistence.
+  - App transport recovery and backend durability remain explicit
+    App-owned acknowledgement domains.
+- Related Plan:
+  - `docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-plan.md`
+- Related Commit(s):
+  - pending
+
+## 2026-08-04 - Separate Group operation snapshots from live content bounds
+
+- Context:
+  - Preset treated Group `x/y/width/height` as an eagerly synchronized cache
+    and rewrote ancestor Groups after every descendant geometry change.
+  - Core scene bounds also unioned invisible Group snapshot rectangles with
+    visible descendant geometry.
+- Decision:
+  - Group `x/y` remain canonical container translation; `width/height` remain
+    operation-produced document snapshots and are not refreshed by
+    descendant-only mutation.
+  - Preset Group projection requires explicit official Group target ids.
+    Child-only updates return unchanged without Scene Tree or computed reads.
+  - Selected Group content bounds and Group overlay bounds are read-only
+    consumer projections.
+  - Core world-scene bounds union visible non-Group rectangles and use Group
+    translation only while traversing descendant parent chains.
+- Consequences:
+  - Descendant writes no longer cause ancestor traversal, sibling rebasing,
+    Group-sized History, or Group-sized publication.
+  - Zoom fit and Group UI remain aligned with current visible descendants
+    without making read operations canonical mutations.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/group-component-and-hierarchy-behaviors-plan.md`
+- Related Inspector:
+  - `docs/ai/framework/plans/group-component-and-hierarchy-flow-inspector.data.cjs`
+- Related Commit(s):
+  - pending

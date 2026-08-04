@@ -2,19 +2,94 @@ import assert from 'node:assert/strict'
 import { Buffer } from 'node:buffer'
 import { execFile, spawn } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
+import { createServer as createHttpBackendServer } from 'node:http'
 import { createServer } from 'node:net'
 import process from 'node:process'
-import test, { before } from 'node:test'
+import test, { after, before } from 'node:test'
 import { clearTimeout, setTimeout } from 'node:timers'
 import { fileURLToPath, URL } from 'node:url'
 import { promisify, TextDecoder, TextEncoder } from 'node:util'
+import { createServer as createViteServer } from 'vite'
 import { WebSocket } from 'ws'
 
 const appDir = fileURLToPath(new URL('../', import.meta.url))
 const compiledServerPath = 'dist/collaboration-server/collaboration-server.js'
 const execFileAsync = promisify(execFile)
+let protocolTestRuntime
+let encodeProtocolPublicationFrames
+let inspectProtocolPublicationFrame
+let defaultPersistenceBackend
+let defaultPersistenceBackendURL
+
+const createTransportCheckpointDocument = () => ({
+  version: '1.0.0',
+  sceneTree: {
+    workspace: 'workspace',
+    workspaceList: ['workspace'],
+    elements: {
+      workspace: {
+        id: 'workspace',
+        name: 'Workspace',
+        type: 'workspace',
+        parentId: '',
+        visible: true,
+        lock: false,
+        children: []
+      }
+    }
+  },
+  props: {
+    'position-a': {
+      id: 'position-a',
+      type: 'position',
+      x: 0,
+      y: 0
+    }
+  }
+})
 
 before(async () => {
+  defaultPersistenceBackend = createHttpBackendServer(
+    async (request, response) => {
+      response.setHeader('content-type', 'application/json')
+      if (
+        request.method === 'GET' &&
+        request.url?.endsWith('/bootstrap-checkpoint')
+      ) {
+        response.end(
+          JSON.stringify({
+            checkpoint: request.url.includes(
+              '/documents/initial-bootstrap-file/'
+            )
+              ? null
+              : createTransportCheckpointDocument(),
+            durableSequence: 0
+          })
+        )
+        return
+      }
+      if (
+        request.method === 'POST' &&
+        request.url?.endsWith('/persistence-batches')
+      ) {
+        const chunks = []
+        for await (const chunk of request) chunks.push(chunk)
+        const batch = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+        response.end(JSON.stringify({ durableSequence: batch.lastSequence }))
+        return
+      }
+      response.statusCode = 404
+      response.end(JSON.stringify({ error: 'not found' }))
+    }
+  )
+  await new Promise((resolve, reject) => {
+    defaultPersistenceBackend.once('error', reject)
+    defaultPersistenceBackend.listen(0, '127.0.0.1', resolve)
+  })
+  const backendAddress = defaultPersistenceBackend.address()
+  assert.ok(backendAddress && typeof backendAddress === 'object')
+  defaultPersistenceBackendURL = `http://127.0.0.1:${backendAddress.port}`
+
   if (process.env.COLLABORATION_SERVER_FOCUSED_TEST_BUILD === '1') {
     await execFileAsync(
       'yarn',
@@ -26,12 +101,32 @@ before(async () => {
       ['vite', 'build', '--config', 'vite.collaboration-server.config.ts'],
       { cwd: appDir }
     )
-    return
+  } else {
+    await execFileAsync('yarn', ['build:collaboration-server'], { cwd: appDir })
   }
-  await execFileAsync('yarn', ['build:collaboration-server'], { cwd: appDir })
+  protocolTestRuntime = await createViteServer({
+    appType: 'custom',
+    configFile: false,
+    root: appDir,
+    optimizeDeps: { noDiscovery: true },
+    server: { middlewareMode: true },
+    ssr: { noExternal: true }
+  })
+  const protocol = await protocolTestRuntime.ssrLoadModule(
+    '/src/collaboration/protocol.ts'
+  )
+  encodeProtocolPublicationFrames = protocol.encodePublicationMessageFrames
+  inspectProtocolPublicationFrame = protocol.inspectPublicationFrameHeader
 })
 
-test('reference server is a TypeScript build with an opaque uncompressed publication route', async () => {
+after(async () => {
+  await protocolTestRuntime?.close()
+  await new Promise((resolve) =>
+    defaultPersistenceBackend?.close(() => resolve())
+  )
+})
+
+test('reference server is a TypeScript build with a validated uncompressed publication route', async () => {
   const source = await readFile(
     new URL('../collaboration-server.ts', import.meta.url),
     'utf8'
@@ -49,10 +144,8 @@ test('reference server is a TypeScript build with an opaque uncompressed publica
   assert.match(source, /from ['"].*collaboration\/protocol['"]/)
   assert.match(providerSource, /from ['"].*protocol['"]/)
   assert.doesNotMatch(source, /MemoryHub|MemoryProvider/)
-  assert.doesNotMatch(
-    source,
-    /\bdecodeCollaborationMessage\b|\bdecodePublicationMessageFrames\b/
-  )
+  assert.match(source, /\bdecodePublicationMessageFrames\b/)
+  assert.match(source, /\bdecodeDocumentPublication\b/)
   assert.doesNotMatch(source, /from ['"]vite['"]|ssrLoadModule/)
   assert.match(
     source,
@@ -254,11 +347,34 @@ const startServer = ({
   profile = false,
   holdPeerWriteCallbacks = false,
   injectPeerWriteCallbackError = false,
-  holdPeerCloseCleanup = false
+  holdPeerCloseCleanup = false,
+  persistenceBackendURL,
+  persistenceMaxPublicationCount,
+  persistenceMaxSerializedBytes = 1024 * 1024 * 1024,
+  persistenceRetryIntervalMs
 }) => {
   const environment = {
     ...process.env,
-    COLLABORATION_WS_PORT: String(port)
+    COLLABORATION_WS_PORT: String(port),
+    DOCUMENT_PERSISTENCE_BACKEND_URL:
+      persistenceBackendURL ?? defaultPersistenceBackendURL
+  }
+  if (persistenceMaxPublicationCount !== undefined) {
+    environment.DOCUMENT_PERSISTENCE_MAX_PUBLICATIONS = String(
+      persistenceMaxPublicationCount
+    )
+  } else {
+    delete environment.DOCUMENT_PERSISTENCE_MAX_PUBLICATIONS
+  }
+  environment.DOCUMENT_PERSISTENCE_MAX_SERIALIZED_BYTES = String(
+    persistenceMaxSerializedBytes
+  )
+  if (persistenceRetryIntervalMs !== undefined) {
+    environment.DOCUMENT_PERSISTENCE_RETRY_INTERVAL_MS = String(
+      persistenceRetryIntervalMs
+    )
+  } else {
+    delete environment.DOCUMENT_PERSISTENCE_RETRY_INTERVAL_MS
   }
   if (profile) {
     environment.COLLABORATION_PROFILE = '1'
@@ -460,7 +576,26 @@ const requestPublicClient = async ({ port, origin, fileId, actorId }) => {
 
 const connectPublicClient = async (identity) => {
   const { socket, result } = await requestPublicClient(identity)
-  assert.deepEqual(result, { type: 'ready' })
+  assert.equal(result.type, 'ready')
+  assert.ok(result.bootstrap)
+  const requestId = `bootstrap-consumed:${identity.actorId}`
+  const consumed = waitForMessage(
+    socket,
+    (message) => message.type === 'response' && message.requestId === requestId,
+    `bootstrap completion for ${identity.actorId}`
+  )
+  socket.send(
+    JSON.stringify({
+      type: 'bootstrap-consumed',
+      requestId,
+      headSequence: result.bootstrap.headSequence
+    })
+  )
+  assert.deepEqual(await consumed, {
+    type: 'response',
+    requestId,
+    ok: true
+  })
   return socket
 }
 
@@ -477,10 +612,7 @@ const closeSocket = async (socket) => {
   await closed
 }
 
-const publicationFrameMagic = new Uint8Array([
-  0x41, 0x53, 0x59, 0x52, 0x41, 0x50
-])
-const publicationFrameFixedHeaderBytes = 44
+const publicationFrameFixedHeaderBytes = 52
 
 const encodeFrameString = (value) => {
   const utf8 = new TextEncoder().encode(value)
@@ -513,32 +645,17 @@ const createOpaquePublicationFrame = ({
   chunkIndex = 0,
   chunkCount = 1
 }) => {
-  const requestIdBytes = encodeFrameString(requestId)
-  const publicationIdBytes = encodeFrameString(publicationId)
-  const headerByteLength =
-    publicationFrameFixedHeaderBytes +
-    requestIdBytes.byteLength +
-    publicationIdBytes.byteLength
-  const bytes = new Uint8Array(headerByteLength + payload.byteLength)
-  bytes.set(publicationFrameMagic, 0)
-  bytes[6] = 1
+  const bytes = createCanonicalPublicationFrame({
+    requestId,
+    publicationId,
+    value: 'x'.repeat(payload.byteLength)
+  })
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   bytes[7] = publicationCount === 1 ? 1 : 2
-  const view = new DataView(bytes.buffer)
-  view.setUint32(8, headerByteLength, true)
-  view.setUint32(12, payload.byteLength, true)
   view.setUint32(16, publicationIndex, true)
   view.setUint32(20, publicationCount, true)
   view.setUint32(24, chunkIndex, true)
   view.setUint32(28, chunkCount, true)
-  view.setUint32(32, requestIdBytes.byteLength, true)
-  view.setUint32(36, publicationIdBytes.byteLength, true)
-  view.setUint32(40, 0, true)
-  bytes.set(requestIdBytes, publicationFrameFixedHeaderBytes)
-  bytes.set(
-    publicationIdBytes,
-    publicationFrameFixedHeaderBytes + requestIdBytes.byteLength
-  )
-  bytes.set(payload, headerByteLength)
   return bytes
 }
 
@@ -549,6 +666,7 @@ const inspectOpaquePublicationFrame = (data) => {
   const requestIdByteLength = view.getUint32(32, true)
   const publicationIdByteLength = view.getUint32(36, true)
   const fromActorIdByteLength = view.getUint32(40, true)
+  const sequence = Number(view.getBigUint64(44, true))
   const publicationIdOffset =
     publicationFrameFixedHeaderBytes + requestIdByteLength
   const fromActorIdOffset = publicationIdOffset + publicationIdByteLength
@@ -594,6 +712,7 @@ const inspectOpaquePublicationFrame = (data) => {
     publicationCount: view.getUint32(20, true),
     chunkIndex,
     chunkCount: view.getUint32(28, true),
+    sequence,
     frameByteLength: bytes.byteLength,
     frameId: [
       messageType,
@@ -601,7 +720,8 @@ const inspectOpaquePublicationFrame = (data) => {
       lengthPrefixed(identity),
       lengthPrefixed(publicationId),
       publicationIndex,
-      chunkIndex
+      chunkIndex,
+      sequence
     ].join('|'),
     payload: bytes.slice(headerByteLength)
   }
@@ -627,6 +747,78 @@ const responseFor = (socket, requestId) =>
     (message) => message.type === 'response' && message.requestId === requestId,
     `response for ${requestId}`
   )
+
+const createCanonicalPropertyPublication = (publicationId, value = 1) => ({
+  publicationId,
+  artifactId: `artifact-${publicationId}`,
+  transactionId: 1,
+  origin: 'action',
+  mode: 'progressive',
+  slices: [
+    {
+      sliceId: `slice-${publicationId}`,
+      orderedIds: ['position-a'],
+      batches: [
+        {
+          batchId: `batch-${publicationId}`,
+          channel: 'props',
+          deliveries: [
+            {
+              deliveryId: `delivery-${publicationId}`,
+              eventName: 'updateProperty',
+              orderedIds: ['position-a'],
+              payload: {
+                action: 'updateProperty',
+                eventName: 'updateProperty',
+                id: 'position-a',
+                key: 'x',
+                before: typeof value === 'number' ? value - 1 : '',
+                after: value
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+})
+
+const createCanonicalPublicationFrame = ({
+  requestId,
+  publicationId,
+  after = 1,
+  value = after,
+  targetRelayedFrameByteLength,
+  fromActorId
+}) => {
+  let fillerLength =
+    targetRelayedFrameByteLength === undefined
+      ? undefined
+      : Math.max(0, targetRelayedFrameByteLength - 512)
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const frames = encodeProtocolPublicationFrames({
+      type: 'send-publication',
+      requestId,
+      publication: createCanonicalPropertyPublication(
+        publicationId,
+        fillerLength === undefined ? value : 'x'.repeat(fillerLength)
+      )
+    })
+    assert.equal(frames.length, 1)
+    const frame = new Uint8Array(frames[0])
+    if (targetRelayedFrameByteLength === undefined) return frame
+    assert.ok(fromActorId)
+    const view = new DataView(frame.buffer, frame.byteOffset, frame.byteLength)
+    const relayedFrameByteLength =
+      frame.byteLength -
+      view.getUint32(32, true) +
+      encodeFrameString(fromActorId).byteLength
+    const delta = targetRelayedFrameByteLength - relayedFrameByteLength
+    if (delta === 0) return frame
+    fillerLength = Math.max(0, (fillerLength ?? 0) + delta)
+  }
+  throw new Error('Unable to construct exact relayed publication frame')
+}
 
 const expectedSourceFrameAdmission = (frame) => {
   const inspected = inspectOpaquePublicationFrame(frame)
@@ -685,6 +877,190 @@ test('public reference server accepts app-defined fileId without credentials and
     assert.equal(envChild.exitCode, null)
   } finally {
     await stopServer(envChild)
+  }
+})
+
+test('single-actor handshake returns the formal sequence-zero document bootstrap', async () => {
+  const port = await getAvailablePort()
+  const origin = 'http://localhost:4316'
+  const child = startServer({ port, origin })
+  let socket
+  try {
+    await waitForServer(child)
+    const requested = await requestPublicClient({
+      port,
+      origin,
+      fileId: 'initial-bootstrap-file',
+      actorId: 'initial-bootstrap-actor'
+    })
+    socket = requested.socket
+    assert.deepEqual(requested.result, {
+      type: 'ready',
+      bootstrap: {
+        checkpoint: {
+          version: '1.0.0',
+          sceneTree: {
+            workspace: 'workspace',
+            workspaceList: ['workspace'],
+            elements: {
+              workspace: {
+                id: 'workspace',
+                name: 'Workspace',
+                type: 'workspace',
+                parentId: '',
+                visible: true,
+                lock: false,
+                children: []
+              }
+            }
+          },
+          props: {}
+        },
+        durableSequence: 0,
+        headSequence: 0,
+        pendingTail: []
+      }
+    })
+  } finally {
+    await closeSocket(socket)
+    await stopServer(child)
+  }
+})
+
+test('bootstrap returns the gap-free pending tail and withholds post-cutoff live publications until completion', async () => {
+  const port = await getAvailablePort()
+  const origin = 'http://localhost:4315'
+  const child = startServer({ port, origin })
+  const sockets = []
+  try {
+    await waitForServer(child)
+    const source = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'bootstrap-cutoff-file',
+      actorId: 'bootstrap-source'
+    })
+    sockets.push(source)
+
+    const firstAccepted = responseFor(source, 'bootstrap-first-request')
+    const firstFrame = createCanonicalPublicationFrame({
+      requestId: 'bootstrap-first-request',
+      publicationId: 'bootstrap-first-publication',
+      after: 1
+    })
+    await sendPublicationFrameAndWaitForAdmission(
+      source,
+      firstFrame,
+      'bootstrap first source admission'
+    )
+    assert.deepEqual(await firstAccepted, {
+      type: 'response',
+      requestId: 'bootstrap-first-request',
+      ok: true,
+      acceptedSequences: [1]
+    })
+
+    const requested = await requestPublicClient({
+      port,
+      origin,
+      fileId: 'bootstrap-cutoff-file',
+      actorId: 'bootstrap-observer'
+    })
+    const observer = requested.socket
+    sockets.push(observer)
+    assert.equal(requested.result.type, 'ready')
+    assert.deepEqual(
+      requested.result.bootstrap.pendingTail.map(
+        ({ sequence, publication, fromActorId }) => ({
+          sequence,
+          publicationId: publication.publicationId,
+          fromActorId
+        })
+      ),
+      [
+        {
+          sequence: 1,
+          publicationId: 'bootstrap-first-publication',
+          fromActorId: 'bootstrap-source'
+        }
+      ]
+    )
+    assert.equal(requested.result.bootstrap.durableSequence, 0)
+    assert.equal(requested.result.bootstrap.headSequence, 1)
+
+    const noPrematureLiveFrame = expectNoBinaryMessage(observer, 150)
+    const secondAccepted = responseFor(source, 'bootstrap-second-request')
+    const secondFrame = createCanonicalPublicationFrame({
+      requestId: 'bootstrap-second-request',
+      publicationId: 'bootstrap-second-publication',
+      after: 2
+    })
+    await sendPublicationFrameAndWaitForAdmission(
+      source,
+      secondFrame,
+      'bootstrap second source admission'
+    )
+    assert.deepEqual(await secondAccepted, {
+      type: 'response',
+      requestId: 'bootstrap-second-request',
+      ok: true,
+      acceptedSequences: [2]
+    })
+    await noPrematureLiveFrame
+
+    const delivered = waitForBinaryMessage(
+      observer,
+      'post-bootstrap live publication'
+    )
+    const completionRequestId = 'bootstrap-observer-consumed'
+    const completion = responseFor(observer, completionRequestId)
+    observer.send(
+      JSON.stringify({
+        type: 'bootstrap-consumed',
+        requestId: completionRequestId,
+        headSequence: 1
+      })
+    )
+    assert.deepEqual(await completion, {
+      type: 'response',
+      requestId: completionRequestId,
+      ok: true
+    })
+    const deliveredHeader = inspectProtocolPublicationFrame(await delivered)
+    assert.equal(deliveredHeader.publicationId, 'bootstrap-second-publication')
+    assert.equal(deliveredHeader.sequence, 2)
+
+    await closeSocket(observer)
+    const reconnected = await requestPublicClient({
+      port,
+      origin,
+      fileId: 'bootstrap-cutoff-file',
+      actorId: 'bootstrap-observer'
+    })
+    sockets.push(reconnected.socket)
+    assert.equal(reconnected.result.type, 'ready')
+    assert.equal(reconnected.result.bootstrap.headSequence, 2)
+    assert.deepEqual(
+      reconnected.result.bootstrap.pendingTail.map(
+        ({ sequence, publication }) => ({
+          sequence,
+          publicationId: publication.publicationId
+        })
+      ),
+      [
+        {
+          sequence: 1,
+          publicationId: 'bootstrap-first-publication'
+        },
+        {
+          sequence: 2,
+          publicationId: 'bootstrap-second-publication'
+        }
+      ]
+    )
+  } finally {
+    await Promise.all(sockets.map((socket) => closeSocket(socket)))
+    await stopServer(child)
   }
 })
 
@@ -879,7 +1255,397 @@ test('peer-applied remains a distinct acknowledged server receipt', async () => 
   }
 })
 
-test('public reference server relays opaque publication payload bytes and bypasses a stalled binary queue for JSON controls', async () => {
+test('socket server assigns one room sequence, deduplicates publication retries, and returns only acceptance metadata', async () => {
+  const port = await getAvailablePort()
+  const origin = 'http://localhost:4338'
+  const child = startServer({ port, origin })
+  const sockets = []
+  try {
+    await waitForServer(child)
+    const actorA = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'sequenced-file',
+      actorId: 'sequenced-actor-a'
+    })
+    const actorB = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'sequenced-file',
+      actorId: 'sequenced-actor-b'
+    })
+    const observer = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'sequenced-file',
+      actorId: 'sequenced-observer'
+    })
+    sockets.push(actorA, actorB, observer)
+
+    const firstFrame = createCanonicalPublicationFrame({
+      requestId: 'sequenced-request-a',
+      publicationId: 'sequenced-publication-a',
+      after: 1
+    })
+    const secondFrame = createCanonicalPublicationFrame({
+      requestId: 'sequenced-request-b',
+      publicationId: 'sequenced-publication-b',
+      after: 2
+    })
+    const firstObserved = waitForBinaryMessage(
+      observer,
+      'first sequenced publication'
+    )
+    const firstAccepted = waitForMessage(
+      actorA,
+      (message) =>
+        (message.type === 'response' &&
+          message.requestId === 'sequenced-request-a') ||
+        message.type === 'connection-error',
+      'first sequenced acceptance'
+    )
+    actorA.send(firstFrame, { binary: true })
+
+    assert.deepEqual(await firstAccepted, {
+      type: 'response',
+      requestId: 'sequenced-request-a',
+      ok: true,
+      acceptedSequences: [1]
+    })
+    const firstObservedFrame = await firstObserved
+    await expectNoBinaryMessage(actorA)
+    const secondObserved = waitForBinaryMessage(
+      observer,
+      'second sequenced publication'
+    )
+    const secondAccepted = waitForMessage(
+      actorB,
+      (message) =>
+        (message.type === 'response' &&
+          message.requestId === 'sequenced-request-b') ||
+        message.type === 'connection-error',
+      'second sequenced acceptance'
+    )
+    actorB.send(secondFrame, { binary: true })
+    assert.deepEqual(await secondAccepted, {
+      type: 'response',
+      requestId: 'sequenced-request-b',
+      ok: true,
+      acceptedSequences: [2]
+    })
+    assert.deepEqual(
+      [firstObservedFrame, await secondObserved].map((frame) => {
+        const header = inspectProtocolPublicationFrame(frame)
+        return {
+          publicationId: header.publicationId,
+          sequence: header.sequence
+        }
+      }),
+      [
+        { publicationId: 'sequenced-publication-a', sequence: 1 },
+        { publicationId: 'sequenced-publication-b', sequence: 2 }
+      ]
+    )
+
+    const retryResponse = responseFor(actorA, 'sequenced-retry-a')
+    actorA.send(
+      createCanonicalPublicationFrame({
+        requestId: 'sequenced-retry-a',
+        publicationId: 'sequenced-publication-a',
+        after: 1
+      }),
+      { binary: true }
+    )
+    assert.deepEqual(await retryResponse, {
+      type: 'response',
+      requestId: 'sequenced-retry-a',
+      ok: true,
+      acceptedSequences: [1]
+    })
+    await expectNoBinaryMessage(observer)
+  } finally {
+    await Promise.all(sockets.map((socket) => closeSocket(socket)))
+    await stopServer(child)
+  }
+})
+
+test('socket server rejects unsupported document channels before sequence allocation or peer fan-out', async () => {
+  const port = await getAvailablePort()
+  const origin = 'http://localhost:4339'
+  const child = startServer({ port, origin })
+  const sockets = []
+  try {
+    await waitForServer(child)
+    const invalidSource = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'validated-channel-file',
+      actorId: 'invalid-channel-source'
+    })
+    const validSource = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'validated-channel-file',
+      actorId: 'valid-channel-source'
+    })
+    const observer = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'validated-channel-file',
+      actorId: 'validated-channel-observer'
+    })
+    sockets.push(invalidSource, validSource, observer)
+
+    const invalidPublication = createCanonicalPropertyPublication(
+      'invalid-selection-publication',
+      1
+    )
+    invalidPublication.slices[0].batches[0].channel = 'selection'
+    const invalidFrames = encodeProtocolPublicationFrames({
+      type: 'send-publication',
+      requestId: 'invalid-selection-request',
+      publication: invalidPublication
+    })
+    assert.equal(invalidFrames.length, 1)
+    const rejectedResponse = waitForMessage(
+      invalidSource,
+      (message) =>
+        message.type === 'response' &&
+        message.requestId === 'invalid-selection-request',
+      'unsupported channel rejection'
+    )
+    const noInvalidFanOut = expectNoBinaryMessage(observer)
+    invalidSource.send(invalidFrames[0], { binary: true })
+
+    const rejected = await rejectedResponse
+    assert.equal(rejected.ok, false)
+    assert.equal(rejected.error.code, 'acknowledgement-failed')
+    assert.match(rejected.error.message, /unsupported|selection/i)
+    await noInvalidFanOut
+    assert.equal(invalidSource.readyState, WebSocket.OPEN)
+
+    const structurallyInvalidPublication = createCanonicalPropertyPublication(
+      'invalid-structural-publication',
+      2
+    )
+    structurallyInvalidPublication.slices[0].batches[0].deliveries[0].payload.id =
+      'missing-position'
+    const structurallyInvalidFrames = encodeProtocolPublicationFrames({
+      type: 'send-publication',
+      requestId: 'invalid-structural-request',
+      publication: structurallyInvalidPublication
+    })
+    assert.equal(structurallyInvalidFrames.length, 1)
+    const structurallyRejected = responseFor(
+      invalidSource,
+      'invalid-structural-request'
+    )
+    const noStructuralFanOut = expectNoBinaryMessage(observer)
+    invalidSource.send(structurallyInvalidFrames[0], { binary: true })
+
+    const structuralResponse = await structurallyRejected
+    assert.equal(structuralResponse.ok, false)
+    assert.equal(structuralResponse.error.code, 'acknowledgement-failed')
+    assert.match(structuralResponse.error.message, /missing-position|missing/i)
+    await noStructuralFanOut
+    assert.equal(invalidSource.readyState, WebSocket.OPEN)
+
+    const validFrame = createCanonicalPublicationFrame({
+      requestId: 'valid-after-selection',
+      publicationId: 'valid-after-selection-publication',
+      after: 2
+    })
+    const accepted = responseFor(validSource, 'valid-after-selection')
+    const relayed = waitForBinaryMessage(
+      observer,
+      'valid publication after unsupported channel'
+    )
+    validSource.send(validFrame, { binary: true })
+
+    assert.deepEqual(await accepted, {
+      type: 'response',
+      requestId: 'valid-after-selection',
+      ok: true,
+      acceptedSequences: [1]
+    })
+    assert.equal(inspectProtocolPublicationFrame(await relayed).sequence, 1)
+  } finally {
+    await Promise.all(sockets.map((socket) => closeSocket(socket)))
+    await stopServer(child)
+  }
+})
+
+test('socket server retries the exact ordered backend batch after a non-success response', async () => {
+  const requestBodies = []
+  let resolveFirstFailure
+  const firstFailure = new Promise((resolve) => {
+    resolveFirstFailure = resolve
+  })
+  let resolveRetried
+  const retried = new Promise((resolve) => {
+    resolveRetried = resolve
+  })
+  let backendDurableSequence = 0
+  const backend = createHttpBackendServer(async (request, response) => {
+    if (
+      request.method === 'GET' &&
+      request.url?.endsWith('/bootstrap-checkpoint')
+    ) {
+      response.writeHead(200, { 'content-type': 'application/json' })
+      response.end(
+        JSON.stringify({
+          checkpoint: {
+            ...createTransportCheckpointDocument()
+          },
+          durableSequence: backendDurableSequence
+        })
+      )
+      return
+    }
+    const chunks = []
+    for await (const chunk of request) chunks.push(Buffer.from(chunk))
+    requestBodies.push(Buffer.concat(chunks).toString('utf8'))
+    if (requestBodies.length === 1) {
+      response.writeHead(503)
+      response.end()
+      resolveFirstFailure()
+      return
+    }
+    const batch = JSON.parse(requestBodies[1])
+    backendDurableSequence = batch.lastSequence
+    response.writeHead(200, { 'content-type': 'application/json' })
+    response.end(JSON.stringify({ durableSequence: batch.lastSequence }))
+    resolveRetried()
+  })
+  await new Promise((resolve, reject) => {
+    backend.once('error', reject)
+    backend.listen(0, '127.0.0.1', resolve)
+  })
+  const backendAddress = backend.address()
+  assert.ok(backendAddress && typeof backendAddress === 'object')
+
+  const port = await getAvailablePort()
+  const origin = 'http://localhost:4340'
+  const child = startServer({
+    port,
+    origin,
+    persistenceBackendURL: `http://127.0.0.1:${backendAddress.port}`,
+    persistenceMaxPublicationCount: 1,
+    persistenceRetryIntervalMs: 250
+  })
+  const sockets = []
+  try {
+    await waitForServer(child)
+    const socket = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'backend-retry-file',
+      actorId: 'backend-retry-source'
+    })
+    const blockedSource = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'backend-retry-file',
+      actorId: 'backend-blocked-source'
+    })
+    sockets.push(socket, blockedSource)
+    const accepted = responseFor(socket, 'backend-retry-request')
+    socket.send(
+      createCanonicalPublicationFrame({
+        requestId: 'backend-retry-request',
+        publicationId: 'backend-retry-publication'
+      }),
+      { binary: true }
+    )
+
+    assert.deepEqual(await accepted, {
+      type: 'response',
+      requestId: 'backend-retry-request',
+      ok: true,
+      acceptedSequences: [1]
+    })
+    await firstFailure
+    await new Promise((resolve) => setTimeout(resolve, 25))
+    const blocked = waitForMessage(
+      blockedSource,
+      (message) => message.type === 'connection-error',
+      'persistence failure editability block'
+    )
+    blockedSource.send(
+      createCanonicalPublicationFrame({
+        requestId: 'backend-blocked-request',
+        publicationId: 'backend-blocked-publication',
+        after: 2
+      }),
+      { binary: true }
+    )
+    assert.deepEqual(await blocked, {
+      type: 'connection-error',
+      code: 'transport-failed',
+      message:
+        '[collaboration] document persistence is unavailable until accepted changes are durable'
+    })
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error('backend retry timeout')),
+        5_000
+      )
+      void retried.then(() => {
+        clearTimeout(timeout)
+        resolve()
+      })
+    })
+
+    assert.equal(requestBodies.length, 2)
+    assert.equal(requestBodies[1], requestBodies[0])
+    assert.deepEqual(JSON.parse(requestBodies[0]), {
+      protocolVersion: 1,
+      batchId: 'document-persistence:backend-retry-file:1-1',
+      documentId: 'backend-retry-file',
+      expectedDurableSequence: 0,
+      firstSequence: 1,
+      lastSequence: 1,
+      entries: [
+        {
+          documentId: 'backend-retry-file',
+          sequence: 1,
+          publication: createCanonicalPropertyPublication(
+            'backend-retry-publication'
+          )
+        }
+      ]
+    })
+
+    const recoveredSource = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'backend-retry-file',
+      actorId: 'backend-recovered-source'
+    })
+    sockets.push(recoveredSource)
+    const recovered = responseFor(recoveredSource, 'backend-recovered-request')
+    recoveredSource.send(
+      createCanonicalPublicationFrame({
+        requestId: 'backend-recovered-request',
+        publicationId: 'backend-recovered-publication',
+        after: 3
+      }),
+      { binary: true }
+    )
+    assert.deepEqual(await recovered, {
+      type: 'response',
+      requestId: 'backend-recovered-request',
+      ok: true,
+      acceptedSequences: [2]
+    })
+  } finally {
+    await Promise.all(sockets.map((socket) => closeSocket(socket)))
+    await stopServer(child)
+    await new Promise((resolve) => backend.close(() => resolve()))
+  }
+})
+
+test('public reference server validates canonical publication bytes and bypasses a stalled binary queue for JSON controls', async () => {
   const port = await getAvailablePort()
   const origin = 'http://localhost:4320'
   const child = startServer({ port, origin })
@@ -902,34 +1668,35 @@ test('public reference server relays opaque publication payload bytes and bypass
     assert.equal(sender.extensions, '')
     assert.equal(peer.extensions, '')
 
-    const sentinelPayload = new Uint8Array([
-      0xff, 0x00, 0x71, 0x12, 0xc3, 0x28, 0xde, 0xad, 0xbe, 0xef
-    ])
-    const relayed = waitForBinaryMessage(peer, 'opaque publication relay')
+    const sourcePayload = new Uint8Array(10)
+    const relayed = waitForBinaryMessage(peer, 'validated publication relay')
     const accepted = responseFor(sender, 'opaque-request')
     const opaqueFrame = createOpaquePublicationFrame({
       requestId: 'opaque-request',
       publicationId: 'opaque-publication',
-      payload: sentinelPayload
+      payload: sourcePayload
     })
+    const expectedPayload = inspectOpaquePublicationFrame(opaqueFrame).payload
     await sendPublicationFrameAndWaitForAdmission(sender, opaqueFrame)
     const received = inspectOpaquePublicationFrame(await relayed)
     assert.equal(received.kind, 3)
     assert.equal(received.requestIdByteLength, 0)
     assert.equal(received.publicationId, 'opaque-publication')
     assert.equal(received.fromActorId, 'opaque-actor-a')
-    assert.deepEqual(received.payload, sentinelPayload)
+    assert.deepEqual(received.payload, expectedPayload)
+    assert.equal(received.sequence, 1)
     assert.deepEqual(await accepted, {
       type: 'response',
       requestId: 'opaque-request',
-      ok: true
+      ok: true,
+      acceptedSequences: [1]
     })
 
     const secondAccepted = responseFor(sender, 'opaque-request-2')
     const secondOpaqueFrame = createOpaquePublicationFrame({
       requestId: 'opaque-request-2',
       publicationId: 'opaque-publication-2',
-      payload: sentinelPayload
+      payload: sourcePayload
     })
     await sendPublicationFrameAndWaitForAdmission(sender, secondOpaqueFrame)
     await secondAccepted
@@ -1102,7 +1869,8 @@ test('publication queue sends admitted frames before contiguous dual-gated retir
     assert.deepEqual(await acknowledgements[3], {
       type: 'response',
       requestId: 'dual-d',
-      ok: true
+      ok: true,
+      acceptedSequences: [4]
     })
     const fourth = inspectOpaquePublicationFrame(await fourthInbound)
     assert.equal(fourth.publicationId, 'dual-publication-d')
@@ -1341,15 +2109,11 @@ test('publication queue resumes at exact remaining 2 MiB capacity without hyster
     const oneMiB = 1024 * 1024
     const createExactRelayedFrame = (suffix, targetByteLength) => {
       const publicationId = `exact-capacity-publication-${suffix}`
-      const relayedHeaderByteLength =
-        publicationFrameFixedHeaderBytes +
-        encodeFrameString(publicationId).byteLength +
-        encodeFrameString(senderActorId).byteLength
-      assert.ok(targetByteLength > relayedHeaderByteLength)
-      return createOpaquePublicationFrame({
+      return createCanonicalPublicationFrame({
         requestId: `exact-capacity-${suffix}`,
         publicationId,
-        payload: new Uint8Array(targetByteLength - relayedHeaderByteLength)
+        targetRelayedFrameByteLength: targetByteLength,
+        fromActorId: senderActorId
       })
     }
     const frames = [
@@ -1426,7 +2190,8 @@ test('publication queue resumes at exact remaining 2 MiB capacity without hyster
     assert.deepEqual(await responses[3], {
       type: 'response',
       requestId: 'exact-capacity-d',
-      ok: true
+      ok: true,
+      acceptedSequences: [4]
     })
     const fourth = inspectOpaquePublicationFrame(await fourthInbound)
     assert.equal(fourth.frameByteLength, oneMiB + 1)
@@ -1565,7 +2330,8 @@ test('a request-start peer socket outside OPEN is dropped without blocking sourc
     assert.deepEqual(await response, {
       type: 'response',
       requestId,
-      ok: true
+      ok: true,
+      acceptedSequences: [1]
     })
     assert.equal(sender.readyState, WebSocket.OPEN)
   } finally {
@@ -1647,7 +2413,8 @@ test('a request-start peer disconnect drops only that peer and releases healthy 
     assert.deepEqual(await fourthResponse, {
       type: 'response',
       requestId: 'slow-4',
-      ok: true
+      ok: true,
+      acceptedSequences: [4]
     })
     assert.equal(sender.readyState, WebSocket.OPEN)
 
@@ -1708,7 +2475,8 @@ test('a peer socket write callback failure removes that peer instead of fabricat
     assert.deepEqual(await accepted, {
       type: 'response',
       requestId: 'write-failure-request',
-      ok: true
+      ok: true,
+      acceptedSequences: [1]
     })
     await closed
 
@@ -1722,7 +2490,8 @@ test('a peer socket write callback failure removes that peer instead of fabricat
     assert.deepEqual(await afterFailure, {
       type: 'response',
       requestId: 'after-write-failure',
-      ok: true
+      ok: true,
+      acceptedSequences: [2]
     })
   } finally {
     await Promise.all(sockets.map((socket) => closeSocket(socket)))

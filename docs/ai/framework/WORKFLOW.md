@@ -69,8 +69,10 @@ Actions:
 - write/update a short plan (runtime flow + touched packages)
 - define transaction boundaries (`runTransaction` for finite work, or
   `start/update/end` for long-lived sessions) for state mutations
-- define rollbackability, inverse ownership, validation, cancel policy, and
-  persistence acknowledgement for every affected transaction path
+- define rollbackability, inverse ownership, validation, and cancel policy for
+  every affected transaction path; when durability exists, define its
+  acknowledgement owner and whether it is intentionally separate from
+  transaction settlement
 - define extension surface changes (register APIs, schemas, hooks, adapters)
 - define deprecation impact if replacing old behavior
 - for new feature contracts, run `golden-paths/feature-acceptance-checklist.md`

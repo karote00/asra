@@ -11,6 +11,7 @@ import {
   inspectPublicationFrameHeader,
   parseCollaborationServerMessage,
   type CollaborationRequestMessage,
+  type DocumentSessionBootstrap,
   type PublicationFrameHeader,
   type PublicationFrameMessage
 } from './protocol'
@@ -60,12 +61,14 @@ export type CollaborationTransportWorkerRequest =
 export interface CollaborationTransportConnectedResponse {
   readonly type: 'connected'
   readonly generation: number
+  readonly bootstrap: DocumentSessionBootstrap
 }
 
 export interface CollaborationTransportRequestAcceptedResponse {
   readonly type: 'request-accepted'
   readonly generation: number
   readonly requestId: string
+  readonly acceptedSequences?: readonly number[]
 }
 
 export interface CollaborationTransportRequestRejectedResponse {
@@ -87,7 +90,8 @@ export interface CollaborationPublicationDeliveryResponse {
   readonly generation: number
   readonly deliveryId: string
   readonly publication: SharedPublication
-  readonly fromActorId?: string
+  readonly fromActorId: string
+  readonly sequence: number
   readonly durationMs?: number
 }
 
@@ -200,17 +204,18 @@ interface ActiveOutboundPublication {
   readonly generation: number
   readonly requestId: string
   readonly publicationId: string
+  readonly publicationCount: number
   frames: (ArrayBuffer | undefined)[]
   nextFrameIndex: number
   inFlightHeader?: PublicationFrameHeader
-  accepted: boolean
 }
 
 interface ActiveInboundPublication {
   readonly generation: number
   readonly deliveryId: string
   readonly publicationId: string
-  readonly fromActorId?: string
+  readonly fromActorId: string
+  readonly sequence: number
 }
 
 const SOCKET_OPEN = 1
@@ -283,6 +288,10 @@ export class CollaborationTransportWorkerRuntime {
   private codecSequence = 0
   private deliverySequence = 0
   private activeOutboundPublication: ActiveOutboundPublication | undefined
+  private readonly pendingPublicationResponses = new Map<
+    string,
+    Readonly<{ publicationId: string; publicationCount: number }>
+  >()
   private activeInboundPublication: ActiveInboundPublication | undefined
   private readonly pendingControlRequestIds = new Set<string>()
   private readonly inboundCodecStartedAt = new Map<string, number>()
@@ -462,7 +471,11 @@ export class CollaborationTransportWorkerRuntime {
           return
         }
         this.connected = true
-        this.postMessage({ type: 'connected', generation: this.generation })
+        this.postMessage({
+          type: 'connected',
+          generation: this.generation,
+          bootstrap: parsed.bootstrap
+        })
         return
       case CollaborationMessageTypes.SOURCE_FRAME_ADMITTED:
         this.handleSourceFrameAdmitted(parsed)
@@ -624,9 +637,12 @@ export class CollaborationTransportWorkerRuntime {
           generation: this.generation,
           requestId: message.requestId,
           publicationId,
+          publicationCount:
+            message.type === CollaborationMessageTypes.SEND_PUBLICATION
+              ? 1
+              : message.publications.length,
           frames: [...response.frames],
-          nextFrameIndex: 0,
-          accepted: false
+          nextFrameIndex: 0
         }
         this.sendNextPublicationFrame()
       }
@@ -675,14 +691,12 @@ export class CollaborationTransportWorkerRuntime {
         active.publicationId
       )
     } catch {
-      if (!active.accepted) {
-        this.rejectRequest(
-          active.requestId,
-          'transport-failed',
-          '[collaboration] publication frame send failed',
-          active.publicationId
-        )
-      }
+      this.rejectRequest(
+        active.requestId,
+        'transport-failed',
+        '[collaboration] publication frame send failed',
+        active.publicationId
+      )
       this.fail(
         'transport-failed',
         '[collaboration] publication frame send failed',
@@ -690,14 +704,6 @@ export class CollaborationTransportWorkerRuntime {
         true
       )
       return
-    }
-    if (!active.accepted) {
-      active.accepted = true
-      this.postMessage({
-        type: 'request-accepted',
-        generation: this.generation,
-        requestId: active.requestId
-      })
     }
   }
 
@@ -733,6 +739,10 @@ export class CollaborationTransportWorkerRuntime {
       this.sendNextPublicationFrame()
       return
     }
+    this.pendingPublicationResponses.set(active.requestId, {
+      publicationId: active.publicationId,
+      publicationCount: active.publicationCount
+    })
     this.activeOutboundPublication = undefined
     this.postMessage({
       type: 'publication-capacity-released',
@@ -764,6 +774,41 @@ export class CollaborationTransportWorkerRuntime {
           true
         )
       }
+      return
+    }
+    const pendingPublication = this.pendingPublicationResponses.get(
+      message.requestId
+    )
+    if (pendingPublication) {
+      this.pendingPublicationResponses.delete(message.requestId)
+      if (message.ok) {
+        if (
+          !message.acceptedSequences ||
+          message.acceptedSequences.length !==
+            pendingPublication.publicationCount
+        ) {
+          this.fail(
+            'acknowledgement-failed',
+            '[collaboration] publication acceptance has invalid document sequences',
+            pendingPublication.publicationId,
+            true
+          )
+          return
+        }
+        this.postMessage({
+          type: 'request-accepted',
+          generation: this.generation,
+          requestId: message.requestId,
+          acceptedSequences: message.acceptedSequences
+        })
+        return
+      }
+      this.rejectRequest(
+        message.requestId,
+        message.error.code,
+        message.error.message,
+        pendingPublication.publicationId
+      )
       return
     }
     if (!this.pendingControlRequestIds.delete(message.requestId)) return
@@ -816,7 +861,8 @@ export class CollaborationTransportWorkerRuntime {
         generation: this.generation,
         deliveryId,
         publicationId: response.publication.publicationId,
-        ...(response.fromActorId ? { fromActorId: response.fromActorId } : {})
+        fromActorId: response.fromActorId,
+        sequence: response.sequence
       }
       const handoffStartedAt = performance.now()
       this.postMessage({
@@ -824,7 +870,8 @@ export class CollaborationTransportWorkerRuntime {
         generation: this.generation,
         deliveryId,
         publication: response.publication,
-        ...(response.fromActorId ? { fromActorId: response.fromActorId } : {}),
+        fromActorId: response.fromActorId,
+        sequence: response.sequence,
         ...(response.durationMs === undefined
           ? {}
           : { durationMs: response.durationMs })
@@ -1107,6 +1154,7 @@ export class CollaborationTransportWorkerRuntime {
     this.codecRuntime.destroy()
     this.activeOutboundPublication = undefined
     this.activeInboundPublication = undefined
+    this.pendingPublicationResponses.clear()
     this.pendingControlRequestIds.clear()
     this.inboundCodecStartedAt.clear()
   }

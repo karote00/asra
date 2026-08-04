@@ -4,6 +4,7 @@ import { resolveOrdinaryPlaywrightRuntimePolicy } from './playwright-runtime-pol
 
 const appEnvironment = resolveEnvironment(loadEnvironment())
 const runtimePolicy = resolveOrdinaryPlaywrightRuntimePolicy(process.env)
+const documentBackendURL = 'http://127.0.0.1:4201'
 const ordinaryTestIgnore = [
   'collaboration-ai-agent-video.spec.ts',
   'collaboration.spec.ts',
@@ -16,7 +17,7 @@ const ordinaryTestIgnore = [
     ? ['render-delta-performance.spec.ts']
     : [])
 ]
-const visualReviewWebServerCommand = `E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_DATABASE=1 yarn react:start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`
+const visualReviewWebServerCommand = `E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_BACKEND_URL=${documentBackendURL} yarn react:start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -67,7 +68,14 @@ export default defineConfig({
     ? undefined
     : [
         {
-          command: 'yarn collaboration:server',
+          command:
+            'DOCUMENT_BACKEND_DATA_DIR=test-results/document-backend yarn document:backend',
+          url: `${documentBackendURL}/health`,
+          reuseExistingServer: true,
+          timeout: 120 * 1000
+        },
+        {
+          command: `DOCUMENT_PERSISTENCE_BACKEND_URL=${documentBackendURL} yarn collaboration:server`,
           url: appEnvironment.collaborationHealthURL,
           reuseExistingServer: true,
           timeout: 120 * 1000

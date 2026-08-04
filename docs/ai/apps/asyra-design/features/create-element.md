@@ -45,8 +45,8 @@
   transform and apply geometry via `elementApis.changeElementGeometry` with
   `sharedDelivery: 'immediate'`; each applied input update uses the complete
   canonical shared pipeline without ending the outer session transaction
-- normalize affected official Group bounds through Preset after each geometry
-  update; the app does not calculate Group origins or bounds
+- update only the created child; do not normalize ancestor Group bounds,
+  rebase siblings, or append Group changes after drag geometry updates
 - keep selection-overlay projection aligned with the current render-frame geometry, including rapid negative-direction drag updates
 
 3. End

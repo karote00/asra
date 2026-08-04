@@ -2,6 +2,8 @@ import { Buffer } from 'node:buffer'
 import { URL } from 'node:url'
 
 const DOCUMENT_ENDPOINT_PREFIX = '/api/documents/'
+const PERSISTENCE_BATCH_SUFFIX = '/persistence-batches'
+const BOOTSTRAP_CHECKPOINT_SUFFIX = '/bootstrap-checkpoint'
 const MAX_DOCUMENT_BYTES = 64 * 1024 * 1024
 
 const sendJson = (response, statusCode, payload) => {
@@ -32,7 +34,10 @@ const readJsonBody = async (request) => {
  * contract. It is enabled only by Playwright server commands and is never a
  * production or ordinary development persistence fallback.
  */
-export const createDocumentDatabaseMiddleware = () => {
+export const createDocumentDatabaseMiddleware = ({
+  materializePersistenceBatch,
+  readBootstrapCheckpoint
+} = {}) => {
   const documents = new Map()
 
   return async (request, response, next) => {
@@ -42,7 +47,27 @@ export const createDocumentDatabaseMiddleware = () => {
       return
     }
 
-    const encodedFileId = url.pathname.slice(DOCUMENT_ENDPOINT_PREFIX.length)
+    const encodedDocumentPath = url.pathname.slice(
+      DOCUMENT_ENDPOINT_PREFIX.length
+    )
+    const isPersistenceBatchRequest = encodedDocumentPath.endsWith(
+      PERSISTENCE_BATCH_SUFFIX
+    )
+    const isBootstrapCheckpointRequest = encodedDocumentPath.endsWith(
+      BOOTSTRAP_CHECKPOINT_SUFFIX
+    )
+    let encodedFileId = encodedDocumentPath
+    if (isPersistenceBatchRequest) {
+      encodedFileId = encodedDocumentPath.slice(
+        0,
+        -PERSISTENCE_BATCH_SUFFIX.length
+      )
+    } else if (isBootstrapCheckpointRequest) {
+      encodedFileId = encodedDocumentPath.slice(
+        0,
+        -BOOTSTRAP_CHECKPOINT_SUFFIX.length
+      )
+    }
     if (!encodedFileId) {
       sendJson(response, 404, { error: 'Document fileId is required' })
       return
@@ -57,6 +82,55 @@ export const createDocumentDatabaseMiddleware = () => {
     }
 
     try {
+      if (isBootstrapCheckpointRequest) {
+        if (request.method !== 'GET') {
+          response.setHeader('allow', 'GET')
+          sendJson(response, 405, {
+            error: 'Document bootstrap checkpoint method is unsupported'
+          })
+          return
+        }
+        if (typeof readBootstrapCheckpoint !== 'function') {
+          sendJson(response, 503, {
+            error: 'Document bootstrap checkpoint reader is unavailable'
+          })
+          return
+        }
+        const checkpoint = await readBootstrapCheckpoint(fileId)
+        sendJson(response, 200, checkpoint)
+        return
+      }
+
+      if (isPersistenceBatchRequest) {
+        if (request.method !== 'POST') {
+          response.setHeader('allow', 'POST')
+          sendJson(response, 405, {
+            error: 'Document persistence batch method is unsupported'
+          })
+          return
+        }
+        if (typeof materializePersistenceBatch !== 'function') {
+          sendJson(response, 503, {
+            error: 'Document persistence materializer is unavailable'
+          })
+          return
+        }
+        const batch = await readJsonBody(request)
+        if (
+          typeof batch !== 'object' ||
+          batch === null ||
+          batch.documentId !== fileId
+        ) {
+          sendJson(response, 400, {
+            error: 'Document persistence batch identity is invalid'
+          })
+          return
+        }
+        const acknowledgement = await materializePersistenceBatch(batch)
+        sendJson(response, 200, acknowledgement)
+        return
+      }
+
       if (request.method === 'GET') {
         sendJson(response, 200, {
           document: documents.has(fileId) ? documents.get(fileId) : null

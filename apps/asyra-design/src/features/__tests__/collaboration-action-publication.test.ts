@@ -193,10 +193,7 @@ describe('Asyra Design canonical collaboration delivery timeline', () => {
     vi.mocked(elementApis.setElementPositions).mockClear()
     moveElementsSession.onEnd?.(snapshot as never, state as never)
     expect(elementApis.setElementPositions).not.toHaveBeenCalled()
-    expect(elementApis.normalizeGroupGeometryForElements).toHaveBeenCalledWith(
-      ['element-a', 'element-b'],
-      { sharedDelivery: 'immediate' }
-    )
+    expect(elementApis.normalizeGroupGeometryForElements).not.toHaveBeenCalled()
   })
 
   it('delivers a newer final multi-element pointer position on mouse up', () => {
@@ -237,9 +234,6 @@ describe('Asyra Design canonical collaboration delivery timeline', () => {
         }
       }
     )
-    expect(elementApis.normalizeGroupGeometryForElements).toHaveBeenCalledWith(
-      ['element-a', 'element-b'],
-      { sharedDelivery: 'immediate' }
-    )
+    expect(elementApis.normalizeGroupGeometryForElements).not.toHaveBeenCalled()
   })
 })

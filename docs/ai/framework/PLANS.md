@@ -6,7 +6,15 @@ This file tracks framework planning topics and points to detailed references.
 
 ## Active Pre-Release Blockers
 
-None.
+No active App persistence blocker remains. The completed
+socket-authoritative document-session record is:
+
+- App semantic authority:
+  `../apps/asyra-design/specs/socket-authoritative-document-session.md`.
+- Completed implementation plan:
+  `../apps/asyra-design/plans/completed/socket-authoritative-document-persistence-plan.md`.
+- Retained Inspector:
+  `../apps/asyra-design/plans/socket-authoritative-document-persistence-flow-inspector.data.cjs`.
 
 ## Framework Release Gates
 

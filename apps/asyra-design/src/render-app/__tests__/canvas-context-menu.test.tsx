@@ -21,6 +21,13 @@ const collaborationHandle = {
   getStatus: () => 'connected' as const,
   onStatusChange: (_subscriber: (status: ProviderStatus) => void) => () =>
     undefined,
+  getSessionState: () => ({
+    connection: 'connected' as const,
+    sync: 'synced' as const,
+    pendingCount: 0,
+    disconnectedEpoch: 0
+  }),
+  onSessionStateChange: () => () => undefined,
   disconnect: async () => undefined,
   reconnect: async () => undefined,
   whenIdle: async () => undefined,

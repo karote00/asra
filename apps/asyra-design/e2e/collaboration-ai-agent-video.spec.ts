@@ -1388,7 +1388,9 @@ const getPersistedAiDrawingEvidence = (
       }
       type SavedProperty = Record<string, unknown>
       const response = await fetch(
-        `/api/documents/${encodeURIComponent(requestedFileId)}`,
+        `/api/documents/${encodeURIComponent(
+          requestedFileId
+        )}/bootstrap-checkpoint`,
         {
           credentials: 'same-origin',
           headers: { accept: 'application/json' }
@@ -1400,14 +1402,14 @@ const getPersistedAiDrawingEvidence = (
         )
       }
       const payload = (await response.json()) as {
-        document?: {
+        checkpoint?: {
           props?: Record<string, SavedProperty>
           sceneTree?: {
             elements?: Record<string, SavedElement>
           }
         } | null
       }
-      const saved = payload.document ?? null
+      const saved = payload.checkpoint ?? null
       if (!saved) return null
 
       const properties = saved.props ?? {}

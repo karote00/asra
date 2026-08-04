@@ -5,10 +5,8 @@ import {
   createVectorPath,
   dragSelectedElementBy,
   getCanvasPosition,
-  getCoreDocumentDigest,
   getContentsPanel,
   getElementCount,
-  getPersistedDocumentDigest,
   getPropertiesPanel,
   getSelectedElementClientCenter,
   pressGroupCommandShortcut,
@@ -56,16 +54,8 @@ const getSelectedIds = (page: Page): Promise<string[]> =>
       ).core?.deps.selection.getElementSelectionIds() ?? []
   )
 
-const expectFileScopedPersistenceEvidence = async (
-  page: Page,
-  origin: 'local' | 'remote'
-) => {
+const expectNoBrowserPersistenceEvidence = async (page: Page) => {
   const evidence = await getClientPersistenceEvidence(page)
-  if (origin === 'local') {
-    expect(evidence.captureCount).toBeGreaterThan(0)
-    expect(evidence.saveCount).toBeGreaterThan(0)
-    return
-  }
   expect(evidence.captureCount).toBe(0)
   expect(evidence.saveCount).toBe(0)
 }
@@ -1001,8 +991,8 @@ test('16-item AI response converges through the ordinary two-actor publication p
     })
 
     await Promise.all([
-      expectFileScopedPersistenceEvidence(actorA, 'local'),
-      expectFileScopedPersistenceEvidence(actorB, 'remote')
+      expectNoBrowserPersistenceEvidence(actorA),
+      expectNoBrowserPersistenceEvidence(actorB)
     ])
     checkpoint = 'property-persistence-evidence-complete'
     expect(await getPublicationOutcomes(actorA)).not.toEqual(
@@ -1044,8 +1034,8 @@ test('16-item AI response converges through the ordinary two-actor publication p
       )
     }
     await Promise.all([
-      expectFileScopedPersistenceEvidence(actorA, 'local'),
-      expectFileScopedPersistenceEvidence(actorB, 'remote')
+      expectNoBrowserPersistenceEvidence(actorA),
+      expectNoBrowserPersistenceEvidence(actorB)
     ])
     checkpoint = 'ai-undo-persistence-evidence-complete'
     expect(await getUndoDepth(actorB)).toBe(actorBUndoDepthBefore)
@@ -1077,8 +1067,8 @@ test('16-item AI response converges through the ordinary two-actor publication p
       await getPublicationOutcomeIds(actorA, 'remote', 'processed')
     ).toEqual([])
     await Promise.all([
-      expectFileScopedPersistenceEvidence(actorA, 'local'),
-      expectFileScopedPersistenceEvidence(actorB, 'remote')
+      expectNoBrowserPersistenceEvidence(actorA),
+      expectNoBrowserPersistenceEvidence(actorB)
     ])
     checkpoint = 'ai-redo-persistence-evidence-complete'
 
@@ -1505,7 +1495,7 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
   }
 })
 
-test('two real Asyra Design windows converge while connected and reconnect live-only', async ({
+test('two real Asyra Design windows converge while connected and catch up through reconnect bootstrap', async ({
   browser
 }, testInfo) => {
   const fileId = `e2e-${Date.now()}-${testInfo.workerIndex}`
@@ -1659,7 +1649,10 @@ test('two real Asyra Design windows converge while connected and reconnect live-
         ?.reconnect()
     )
     await waitForCollaboration(second)
-    expect(await getElementCount(second)).toBe(0)
+    await expect.poll(() => getElementCount(second)).toBe(1)
+    await expect
+      .poll(() => getCanonicalSnapshot(second))
+      .toEqual(await getCanonicalSnapshot(first))
 
     await first.screenshot({
       path: testInfo.outputPath('actor-a-live-only.png'),
@@ -1747,6 +1740,43 @@ test('remote undo restores an exact nested Group with and without local tombston
         }, expectedElementIds.length)
       )
       .toBe(true)
+
+    await expect
+      .poll(
+        () =>
+          sender.evaluate(async (requestedFileId) => {
+            const response = await fetch(
+              `/api/documents/${encodeURIComponent(
+                requestedFileId
+              )}/bootstrap-checkpoint`
+            )
+            if (!response.ok) return null
+            const payload = (await response.json()) as {
+              checkpoint?: {
+                props?: Record<string, unknown>
+                sceneTree?: {
+                  elements?: Record<string, unknown>
+                }
+              }
+              durableSequence?: number
+            }
+            return {
+              hasDurablePublication:
+                typeof payload.durableSequence === 'number' &&
+                payload.durableSequence > 0,
+              elementCount: Object.keys(
+                payload.checkpoint?.sceneTree?.elements ?? {}
+              ).filter((elementId) => elementId !== 'workspace').length,
+              propertyCount: Object.keys(payload.checkpoint?.props ?? {}).length
+            }
+          }, fileId),
+        { timeout: 15_000 }
+      )
+      .toMatchObject({
+        hasDurablePublication: true,
+        elementCount: 0,
+        propertyCount: 0
+      })
 
     noTombstonePeer = await senderContext.newPage()
     await noTombstonePeer.goto(collaborationUrl(fileId))
@@ -2133,10 +2163,45 @@ test('vector creation and anchor movement converge through the canonical collabo
     expect(await getCanonicalSnapshot(first)).toEqual(canonicalAfter)
     expect(await getUndoDepth(second)).toBe(secondUndoDepthBefore)
 
-    const remoteDigest = await getCoreDocumentDigest(second)
+    const remoteDocument = await second.evaluate(async () => {
+      const saved = await (
+        await import('../src/testing/runtime-access')
+      ).core.save()
+      return {
+        version: saved.version,
+        sceneTree: saved.sceneTree,
+        props: saved.props
+      }
+    })
     await expect
-      .poll(() => getPersistedDocumentDigest(second, fileId))
-      .toEqual(remoteDigest)
+      .poll(
+        () =>
+          second.evaluate(async (requestedFileId) => {
+            const response = await fetch(
+              `/api/documents/${encodeURIComponent(
+                requestedFileId
+              )}/bootstrap-checkpoint`,
+              {
+                credentials: 'same-origin',
+                headers: { accept: 'application/json' }
+              }
+            )
+            if (!response.ok) {
+              throw new Error(
+                `Document checkpoint load failed with status ${String(
+                  response.status
+                )}`
+              )
+            }
+            return (
+              (await response.json()) as {
+                checkpoint?: unknown
+              }
+            ).checkpoint
+          }, fileId),
+        { message: 'backend checkpoint must match the canonical client save' }
+      )
+      .toEqual(remoteDocument)
     await second.reload()
     await waitForAppReady(second)
     await waitForCollaboration(second)

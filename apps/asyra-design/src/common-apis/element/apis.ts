@@ -6,8 +6,7 @@
 import { runTransaction, type ElementPropertyPatchUpdate } from '@asyra/core'
 import {
   moveElementsWithGroupGeometry,
-  normalizeGroupsForElements,
-  projectGroupGeometryPropertyUpdates
+  normalizeGroupsForElements
 } from '@asyra/preset'
 import {
   DEFAULT_ELEMENT_SIZE,
@@ -625,12 +624,7 @@ export const elementApis = {
     geometry: Partial<ElementBounds>,
     options?: EVENT_OPTIONS
   ) => {
-    runTransaction(() => {
-      const request = projectGroupGeometryPropertyUpdates(core, [
-        { elementId, values: geometry }
-      ])
-      core.updateElementProperties(request, options)
-    })
+    applyElementPropertyUpdate([elementId], geometry, options)
   },
 
   normalizeGroupGeometryForElements: (

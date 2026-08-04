@@ -93,11 +93,12 @@
   be pending.
 - Isolation: Feature session/command operations use one interaction queue so
   mutations do not interleave. Active preview may still be visible to Render/UI.
-- Durability: committed action, undo, and redo outcomes are saved through a
-  serial Core queue. Each queue item writes a deeply detached snapshot captured
-  at its committed status, so later nested state mutation or active preview
-  cannot alter it.
-  `committed` and `persisted` are separate statuses.
+- Durability: local runtime commit ends at Factory settlement and does not
+  automatically capture or save a complete document through Core. An app may
+  compose a separate persistence or publication-acknowledgement owner.
+  `committed`, transport-retained, socket-accepted, and backend-durable remain
+  separate states; none may redefine the local transaction or private History
+  boundary.
 - Transaction status payloads retain the transaction id and counts captured for
   their own outcome even when publication/completion observers commit another
   action reentrantly.
@@ -151,8 +152,9 @@
   commit-current, while its policy may choose rollback or feature-defined
   behavior for a true discard.
 - `committed`: accepted by the runtime transaction owner.
-- `persisted`: durably acknowledged by the configured persistence provider;
-  runtime commit alone does not imply persistence durability.
+- `persisted`/`durable`: acknowledged by the explicit external persistence
+  owner; runtime commit or local transport retention alone does not imply
+  persistence durability.
 
 ## Shared and Network Boundary
 

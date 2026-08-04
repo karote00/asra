@@ -77,3 +77,100 @@ test('E2E document database implements the formal file-scoped HTTP contract', as
     await close(server)
   }
 })
+
+test('E2E document database forwards ordered persistence batches to the backend materializer', async () => {
+  const observed = []
+  const middleware = createDocumentDatabaseMiddleware({
+    materializePersistenceBatch: async (batch) => {
+      observed.push(batch)
+      return { durableSequence: batch.lastSequence }
+    }
+  })
+  const server = createServer((request, response) => {
+    void middleware(request, response, () => {
+      response.statusCode = 404
+      response.end()
+    })
+  })
+  const origin = await listen(server)
+
+  try {
+    const batch = {
+      protocolVersion: 1,
+      batchId: 'batch-a',
+      documentId: 'file/a',
+      expectedDurableSequence: 0,
+      firstSequence: 1,
+      lastSequence: 1,
+      entries: [
+        {
+          documentId: 'file/a',
+          sequence: 1,
+          publication: {
+            publicationId: 'publication-a',
+            artifactId: 'artifact-a',
+            transactionId: 1,
+            origin: 'action',
+            mode: 'atomic',
+            slices: []
+          }
+        }
+      ]
+    }
+    const persisted = await globalThis.fetch(
+      `${origin}/api/documents/file%2Fa/persistence-batches`,
+      {
+        body: JSON.stringify(batch),
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json'
+        },
+        method: 'POST'
+      }
+    )
+
+    assert.equal(persisted.status, 200)
+    assert.deepEqual(await persisted.json(), { durableSequence: 1 })
+    assert.deepEqual(observed, [batch])
+  } finally {
+    await close(server)
+  }
+})
+
+test('E2E document database exposes the authoritative bootstrap checkpoint contract', async () => {
+  const observed = []
+  const middleware = createDocumentDatabaseMiddleware({
+    readBootstrapCheckpoint: async (fileId) => {
+      observed.push(fileId)
+      return {
+        checkpoint: { elements: [{ id: 'element-a' }] },
+        durableSequence: 4
+      }
+    }
+  })
+  const server = createServer((request, response) => {
+    void middleware(request, response, () => {
+      response.statusCode = 404
+      response.end()
+    })
+  })
+  const origin = await listen(server)
+
+  try {
+    const loaded = await globalThis.fetch(
+      `${origin}/api/documents/file%2Fa/bootstrap-checkpoint`,
+      {
+        headers: { accept: 'application/json' }
+      }
+    )
+
+    assert.equal(loaded.status, 200)
+    assert.deepEqual(await loaded.json(), {
+      checkpoint: { elements: [{ id: 'element-a' }] },
+      durableSequence: 4
+    })
+    assert.deepEqual(observed, ['file/a'])
+  } finally {
+    await close(server)
+  }
+})

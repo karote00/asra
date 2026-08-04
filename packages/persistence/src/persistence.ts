@@ -1,6 +1,21 @@
 import type { CoreRawData } from '@asyra/utils'
 
 /**
+ * Read-only source used to hydrate one Core document.
+ */
+export interface DocumentLoadSource {
+  /**
+   * Source name for diagnostics.
+   */
+  readonly name: string
+
+  /**
+   * Load raw document data, or a nullish value when no document exists.
+   */
+  load(): Promise<unknown | null>
+}
+
+/**
  * Persistence Provider Interface
  * Allows users to swap persistence strategies:
  * - LocalStorage (default for web apps)
@@ -9,7 +24,7 @@ import type { CoreRawData } from '@asyra/utils'
  * - Cloud sync (for SaaS apps)
  * - Custom backends (Firebase, Supabase, etc.)
  */
-export interface IPersistenceProvider {
+export interface IPersistenceProvider extends DocumentLoadSource {
   /**
    * Provider name for identification
    */
@@ -20,12 +35,6 @@ export interface IPersistenceProvider {
    * @param data - Framework data to save
    */
   save(data: CoreRawData): Promise<void>
-
-  /**
-   * Load data from persistence layer
-   * @returns Raw saved data, or a nullish value if no saved data exists
-   */
-  load(): Promise<unknown | null>
 
   /**
    * Clear all persisted data
