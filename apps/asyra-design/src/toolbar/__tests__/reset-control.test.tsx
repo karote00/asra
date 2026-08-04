@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  fileId: 'crdt-7076-sample',
   resetData: vi.fn(),
   switchPrimaryTool: vi.fn()
 }))
@@ -19,12 +20,17 @@ vi.mock('../../controllers/app', () => ({
   switchPrimaryTool: mocks.switchPrimaryTool
 }))
 
+vi.mock('../../render-app/collaboration-mode', () => ({
+  getRequiredFileId: () => mocks.fileId
+}))
+
 import ToolButton from '../tool-button'
 
 describe('Toolbar Reset control', () => {
   afterEach(() => {
     cleanup()
     vi.clearAllMocks()
+    mocks.fileId = 'crdt-7076-sample'
   })
 
   it('keeps Reset and its separator before every primary tool control', () => {
@@ -41,5 +47,17 @@ describe('Toolbar Reset control', () => {
 
     fireEvent.click(resetButton)
     expect(mocks.resetData).toHaveBeenCalledOnce()
+  })
+
+  it('omits Reset and its separator outside the 7076 demo', () => {
+    mocks.fileId = 'ordinary-document'
+
+    render(<ToolButton />)
+
+    expect(screen.queryByTestId('reset-button')).toBeNull()
+    expect(screen.queryByTestId('reset-separator')).toBeNull()
+    expect(screen.getByTestId('tool-select').parentElement?.children[0]).toBe(
+      screen.getByTestId('tool-select')
+    )
   })
 })
