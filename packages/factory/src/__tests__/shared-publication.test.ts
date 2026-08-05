@@ -2234,6 +2234,47 @@ describe('Factory action-level shared publication', () => {
     ])
   })
 
+  it('settles retained immediate replay evidence through its recorded source slice', async () => {
+    const { factory, publications } = createHarness()
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_PROPERTY,
+      (event) => {
+        factory.updateTransaction({
+          type: TransactionEventTypes.UPDATE_TRANSACTION,
+          eventName: event.type,
+          payload: (event as AllEvent & { payload: unknown }).payload,
+          options: {
+            shared: SharedDataChannelNames.SCENE_TREE,
+            sharedDelivery: 'immediate'
+          }
+        })
+        return true
+      }
+    )
+
+    factory.startTransaction()
+    const handle = update(factory, 'interactive-owner', 1, {
+      sharedDelivery: 'immediate'
+    })
+    handle?.setDeliverySequence({
+      mode: 'atomic',
+      batchPublications: false,
+      slices: []
+    })
+    await Promise.resolve()
+    factory.endTransaction()
+    publications.length = 0
+
+    expect(() => factory.undo()).not.toThrow()
+    expect(publications).toHaveLength(1)
+    expect(publications[0]).toEqual(expect.objectContaining({ origin: 'undo' }))
+
+    publications.length = 0
+    expect(() => factory.redo()).not.toThrow()
+    expect(publications).toHaveLength(1)
+    expect(publications[0]).toEqual(expect.objectContaining({ origin: 'redo' }))
+  })
+
   it('replays one immediate multi-channel owner batch as one publication', async () => {
     const { factory, publications } = createHarness()
     factory.registerSharedDataChannel(

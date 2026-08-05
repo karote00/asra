@@ -716,6 +716,9 @@ class DataTransact {
         )
       }
       if (
+        !(
+          this.applyingReplayEvent && this.retainingHistoryReplaySharedEvidence
+        ) &&
         this.activeDeliverySequence?.mode === 'progressive' &&
         this.nextDeliverySliceIndex <
           this.activeDeliverySequence.slices.length &&
