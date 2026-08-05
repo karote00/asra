@@ -11,7 +11,7 @@ const REQUIRED_DOCUMENT_TOKENS = Object.freeze({
   'RELEASE_NOTES.md': ['0.2.5', 'release readiness', 'does not authorize'],
   'SECURITY.md': ['private security advisory', 'Framework Security Boundaries'],
   'docs/ai/framework/RELEASE_SUPPORT.md': [
-    'Node.js 20.x',
+    'Node.js 24.x',
     'Yarn 4.3.1',
     'TypeScript 5.8.3',
     'React 19',
@@ -35,7 +35,7 @@ const REQUIRED_DOCUMENT_TOKENS = Object.freeze({
     'release:template',
     'release:records'
   ],
-  'apps/asyra-design/README.md': ['Node.js 20.x', 'Yarn 4.3.1']
+  'apps/asyra-design/README.md': ['Node.js 24.x', 'Yarn 4.3.1']
 })
 
 const COMPLETED_READINESS_PLAN =
@@ -106,7 +106,7 @@ export const validateFrameworkReleaseRecords = ({ repositoryRoot }) => {
     assertFileContains(
       resolvedRoot,
       path.join('packages', directory, 'README.md'),
-      [name, 'Node.js 20.x', 'RELEASE_SUPPORT.md']
+      [name, 'Node.js 24.x', 'RELEASE_SUPPORT.md']
     )
     return {
       name,

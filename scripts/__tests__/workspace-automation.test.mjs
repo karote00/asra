@@ -160,11 +160,12 @@ test('CI, E2E, and release validation own their bounded integration gates', () =
   assert.match(releaseValidation, /yarn release:app:check --prod=\$\{appName\}/)
 })
 
-test('CI reproduces Framework Release Gate 5 from packed artifacts on Node 20', () => {
+test('CI reproduces Framework Release Gate 5 from packed artifacts on Node 24', () => {
   const ci = readText('.github/workflows/main.yml')
   const releaseJob = ci.slice(ci.indexOf('framework-release-readiness:'))
 
-  assert.match(releaseJob, /node-version: 20\.17\.0/)
+  assert.match(releaseJob, /node-version: 24/)
+  assert.doesNotMatch(releaseJob, /node-version: 20/)
   assert.match(releaseJob, /yarn install --immutable/)
   assert.match(releaseJob, /yarn react:build/)
   assert.match(releaseJob, /yarn release:packages --prebuilt/)

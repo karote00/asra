@@ -274,7 +274,7 @@ export const validateFrameworkReleasePackageArtifacts = ({
     if (
       manifest.license !== 'MIT' ||
       manifest.type !== 'module' ||
-      manifest.engines?.node !== '20.x'
+      manifest.engines?.node !== '24.x'
     ) {
       throw new Error(`${record.packageName} packed metadata is incomplete`)
     }

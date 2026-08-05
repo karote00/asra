@@ -2206,3 +2206,38 @@ unregister -> app migration -> core.start()` as the public app route.
   - `docs/ai/framework/plans/framework-release-readiness-flow-inspector.data.cjs`
 - Related Pull Request:
   - [#106](https://github.com/karote00/asyra/pull/106)
+
+## 2026-08-05 - Complete the Node.js 24 runtime prerequisite
+
+- Context:
+  - Framework package publication remained blocked until local, CI, generated
+    consumer, Asyra Design, and Vercel evidence agreed on one Node.js runtime.
+  - The existing Vercel project still selected Node.js 20.x even though
+    Vercel supported Node.js 24.x.
+- Decision:
+  - Make Node.js 24.x the only current supported runtime across repository and
+    package manifests, release automation, generated output, CI, and public
+    support records while preserving Yarn 4.3.1.
+  - Set the existing Asyra Design Vercel project to Node.js 24.x and accept the
+    reviewed feature-branch Preview only after its build log, static resources,
+    required-file route, and editable frontend smoke passed.
+  - Record the migration prerequisite as `READY` with no unresolved P0/P1/P2
+    finding.
+- Consequences:
+  - The next release-sequence plan may begin from one Node.js 24.x contract;
+    Node.js 20 is no longer a current support path.
+  - The deployed project currently owns static assets only, so no Vercel
+    Function or Middleware path exists to waive or test.
+  - Merge, package version changes, Changesets, registry or create-app
+    publication, tag, production deployment, and formal release remain
+    separately authorized operations.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/node-24-runtime-upgrade-and-vercel-validation-plan.md`
+- Related Inspector:
+  - `docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.data.cjs`
+- Related Pull Request:
+  - [#107](https://github.com/karote00/asyra/pull/107)
+- Related Preview:
+  - [Node.js 24 feature-branch Preview](https://asyra-git-codex-node-24-runtime-upgrade-karote00s-projects.vercel.app)
+- Related Commit:
+  - `e24c021b2f93ba200c728761d400d0ac0a87379d`

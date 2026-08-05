@@ -63,7 +63,7 @@ authorization, or UI behavior.
 ## Release support
 
 Framework `0.2.5` is the release-readiness candidate for the 19 public
-`@asyra/*` packages. The formal environment is Node.js 20.x and Yarn 4.3.1.
+`@asyra/*` packages. The formal environment is Node.js 24.x and Yarn 4.3.1.
 The release supports the official 2D preset and engine-neutral CUSTOM
 composition; production 3D, HYBRID, auto-layout, and unit-aware aggregation are
 not available in this release.

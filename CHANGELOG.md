@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Framework packages now publish explicit ESM entrypoints, declaration files,
-  package-local licenses, Node.js 20.x engines, and exact internal production
+  package-local licenses, Node.js 24.x engines, and exact internal production
   dependency ranges in packed artifacts.
 - The generated Asyra Design template now installs and builds independently
   from packed artifacts without workspace aliases or dependency hoisting.

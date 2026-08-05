@@ -191,7 +191,7 @@ if (!fs.existsSync(pkgPath)) {
   updateDeps(pkg.peerDependencies)
 
   pkg.engines = {
-    node: '20.x'
+    node: '24.x'
   }
   pkg.packageManager = 'yarn@4.3.1'
 

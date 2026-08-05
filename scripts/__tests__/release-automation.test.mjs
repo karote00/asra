@@ -93,7 +93,7 @@ test('generated template manifest is standalone on the supported release runtime
   )
   const serializedScripts = JSON.stringify(manifest.scripts ?? {})
 
-  assert.deepEqual(manifest.engines, { node: '20.x' })
+  assert.deepEqual(manifest.engines, { node: '24.x' })
   assert.equal(manifest.packageManager, 'yarn@4.3.1')
   assert.doesNotMatch(serializedScripts, /(?:\.\.\/){2}|--cwd\s+\.\.\/\.\./)
   assert.doesNotMatch(JSON.stringify(manifest), /workspace:|(?:link|portal):/)
@@ -120,7 +120,7 @@ test('generated template documents its verified standalone commands and opt-ins'
   )
 
   assert.equal(generated, source)
-  assert.match(generated, /Node\.js 20\.x/)
+  assert.match(generated, /Node\.js 24\.x/)
   for (const command of [
     'yarn install',
     'yarn react:build',

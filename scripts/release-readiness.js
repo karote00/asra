@@ -176,9 +176,9 @@ const runCommandDefault = (command, args, options) => {
 
 const assertSupportedRuntime = ({ allowUnsupportedNode }) => {
   const major = Number.parseInt(process.versions.node.split('.')[0], 10)
-  if (major !== 20 && !allowUnsupportedNode) {
+  if (major !== 24 && !allowUnsupportedNode) {
     throw new Error(
-      `Framework release verification requires Node 20.x; current runtime is ${process.version}`
+      `Framework release verification requires Node 24.x; current runtime is ${process.version}`
     )
   }
 }

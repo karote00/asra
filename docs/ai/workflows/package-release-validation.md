@@ -93,7 +93,7 @@ dependencies. `release:records` freezes the candidate versions, public support
 documents, package READMEs, Changesets configuration, and the distinction
 between readiness and publication.
 
-The formal commands require Node.js 20.x to report `READY`. The explicit
+The formal commands require Node.js 24.x to report `READY`. The explicit
 `--allow-unsupported-node` option is local diagnostic evidence only and cannot
 authorize the release decision.
 

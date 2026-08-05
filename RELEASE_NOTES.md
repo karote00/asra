@@ -21,7 +21,7 @@ The candidate supports:
 - explicitly composed AI action plans through registered app actions;
 - side-effect-free operation when Collaboration or AI is not enabled.
 
-The supported runtime is Node.js 20.x with Yarn 4.3.1. Declarations are
+The supported runtime is Node.js 24.x with Yarn 4.3.1. Declarations are
 validated with TypeScript 5.8.3, and the React surface targets React 19. The
 formal browser evidence uses the current Chromium supplied by Playwright 1.57.
 

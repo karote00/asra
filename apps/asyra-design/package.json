@@ -3,6 +3,9 @@
   "version": "0.2.5",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
   "dependencies": {
     "@asyra/ai-agent-runtime": "workspace:*",
     "@asyra/collaboration": "workspace:*",

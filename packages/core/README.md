@@ -48,6 +48,6 @@ window and is planned for removal in the next major release.
 
 ## Release support
 
-The `@asyra/core` `0.2.5` ESM artifact supports Node.js 20.x. Use only
+The `@asyra/core` `0.2.5` ESM artifact supports Node.js 24.x. Use only
 package-root or explicitly exported subpath APIs. See the
 [Framework release support contract](../../docs/ai/framework/RELEASE_SUPPORT.md).
