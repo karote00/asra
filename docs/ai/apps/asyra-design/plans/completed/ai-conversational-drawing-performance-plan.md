@@ -1908,56 +1908,39 @@ intended transaction or history boundary.
   substitute; the existing viewport input path and an explicit App-owned
   interaction policy keep the responsibilities separate.
 
-### File-Scoped Demo Persistence
+### Socket-Authoritative 7076 Sample
 
-- RenderApp receives one required `fileId` URL, derives one same-origin
-  document database URL, injects that provider before `Core.start()`, and lets
-  Core load the stored canonical snapshot or the file-specific initial
-  document. A missing or empty `fileId` cannot open the document. The identity
-  selects the document and is future server authorization input.
-- The provider uses `GET`, `PUT`, and `DELETE` on
-  `/api/documents/<encoded fileId>`. A failed request displays a database
-  unavailable message. Failed load continues with the initial document;
-  failed save remains an error without rolling back the committed local action
-  or crashing the App.
-- When no WebSocket endpoint is configured, the deployed
-  `crdt-7076-sample` document loads the checked-in compressed canonical result
-  with 7,076 non-workspace elements and composes no Collaboration. When the
-  endpoint is configured for the local full-flow test, the same file starts
-  from the database or a fresh empty document before Actor A submits the exact
-  sample request.
+- RenderApp receives one required `fileId` URL and always composes the same
+  socket-authoritative document session before `Core.start()`. The identity
+  selects both the socket document and Collaboration room; a missing or empty
+  `fileId` cannot open a document.
+- `crdt-7076-sample` uses exactly that same session. It has no `null`
+  Collaboration mode, compressed-canonical `Core.load` bootstrap, alternate
+  route, localStorage Reset, or demo-only persistence path.
+- When the socket is unavailable, the existing provisional local checkpoint
+  still starts Core and Canvas. Local manual and Agent actions remain
+  available, their publications enter the ordinary durable outbox, and
+  connection/operation failures remain ordinary Collaboration diagnostics.
+- Actor A obtains the prepared 7,076-element sample only after the exact image
+  and instruction are sent through the one same-origin HTTP action-batch
+  request. The interceptor reads the checked-in sample folder and returns one
+  prepared Group plus 7,075 Vector descriptors.
+- With a socket connection, Actor A executes that response through Runtime,
+  canonical owners, Factory, Render, and CRDT; Actor B receives the result only
+  through Actor A publications. Without a socket connection, Actor A executes
+  and renders the same response locally and retains the unsent publication in
+  the ordinary outbox.
 - Root `dev:all` starts only workspace package watchers and the App dev server.
   The explicit `collaboration:server` command or collaboration Playwright
   startup separately owns the reference WebSocket server.
 - One connected Actor is classified as single-Actor processing. A second Actor
   joining the same document session is classified as two-Actor CRDT processing;
   both cases use the same framework and App APIs.
-- Superseding demo-only Reset decision: `resetData()` accepts only
-  `crdt-7076-sample`, writes one fresh App-owned empty document to its
-  file-scoped demo browser key, and forces a page reload only after that write
-  succeeds. The reloaded demo reads that empty document before its bundled
-  sample asset.
-- Reset Data is a temporary public-demo utility, not a Core mutation, Factory
-  action, Undo entry, socket publication, backend persistence request, or CRDT
-  clear command. Ordinary socket files do not use it, and the formal App will
-  remove it.
-- `Core.load(...)` remains the sole `FILE_LOAD_COMPLETE` publisher during the
-  reloaded startup. `resetData()` itself does not call Core or synthesize file
-  readiness.
-- Local actions, AI actions, Undo, and Redo reuse Core autosave only on the
-  client that originated the operation. Accepted remote publications perform
-  zero persistence, Undo, or echo; `peer-applied` acknowledges canonical apply,
-  not durability.
-- No IndexedDB/localStorage fallback, fake database success, old-format
-  compatibility, dual-format branch, or second canonical state owner is
-  allowed.
-- Collaboration connects only after the database or initial canonical document
-  is loaded. A missing endpoint, initial connection failure, or later
-  disconnection displays status while Core, Canvas, and local editing continue.
-- The current reference WebSocket server remains an in-memory transport owner,
-  not a durability owner. Future App developers implement the formal document
-  database server endpoint without changing the frontend persistence
-  composition.
+- Accepted remote publications perform zero receiver persistence, Undo, or
+  echo; `peer-applied` acknowledges canonical apply, not durability.
+- No URL-selected action payload, direct sample-document load, localStorage
+  bootstrap, fake connection success, compatibility branch, or second
+  canonical state owner is allowed.
 
 ## Performance Measurement Contract
 

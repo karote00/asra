@@ -45,7 +45,7 @@
       bypasses: [
         'An absent checkpoint bypasses backend document data but not authorization, sequence-zero labeling, or the socket handshake.',
         'An unauthorized or duplicate Actor session returns failure and produces no bootstrap artifacts.',
-        'The explicit crdt-7076-sample non-production Agent simulation does not open an ordinary document session. Its temporary save-empty-then-refresh Reset remains outside this Inspector; no other file identity has a local-only bypass.'
+        'Opening crdt-7076-sample without submitting its exact Agent request performs the ordinary document handshake but bypasses action-batch execution and canonical mutation.'
       ],
       allowedContributors: [
         'Asyra Design collaboration wire protocol',
@@ -225,7 +225,7 @@
         'The App adapter admits only registered Scene Tree and Props document channels.'
       ],
       bypasses: [
-        'The temporary crdt-7076-sample demo Reset stores one empty demo bootstrap document and forces a page refresh without entering this formal publication flow.',
+        'A nonmatching crdt-7076-sample HTTP action-batch request fails before Runtime and canonical publication.',
         'A selection-only or other non-document transaction produces no document publication.',
         'Rollback before publication discards pending transaction-end delivery.',
         'A semantic no-op produces no publication.'
@@ -1123,7 +1123,7 @@
       id: 'publication-and-undo-contract',
       title: 'Canonical changes, not undo History, cross the socket',
       assertions: [
-        'The formal App exposes no Reset mutation or persistence path; the temporary crdt-7076 demo Reset remains outside the socket session and creates no Undo or publication.',
+        'The formal App exposes no Reset mutation or persistence path; crdt-7076-sample uses the same socket session and publishes only after Actor A submits its exact HTTP action-batch request.',
         'Transaction-end, immediate, Undo, Redo, and compensation publications preserve existing Factory semantics.',
         'Selection-only transactions produce no document publication.',
         'Remote apply creates no receiving Undo, browser save, or echo.',

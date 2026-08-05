@@ -144,6 +144,49 @@ test('CI can exclude the isolated render performance gate from the functional su
   assert.doesNotMatch(functional, /render-delta-performance\.spec\.ts/)
 })
 
+test('the one 7076 URL uses an HTTP action-batch interceptor on both offline and CRDT gates', async () => {
+  const [offlineSource, collaborationSource, packageJson] = await Promise.all([
+    readFile(
+      new URL('../e2e/crdt-7076-render.spec.ts', import.meta.url),
+      'utf8'
+    ),
+    readFile(
+      new URL('../e2e/collaboration-ai-agent-video.spec.ts', import.meta.url),
+      'utf8'
+    ),
+    readFile(new URL('../package.json', import.meta.url), 'utf8')
+  ])
+
+  assert.match(offlineSource, /SAMPLE_FILE_ID = 'crdt-7076-sample'/)
+  assert.match(offlineSource, /seedServerResponse\([\s\S]*itemCount: 7_075/)
+  assert.match(offlineSource, /ACTION_BATCH_ENDPOINT/)
+  assert.match(offlineSource, /getByRole\('button', \{ name: 'Send' \}\)/)
+  assert.match(offlineSource, /directDocumentRequestCount\)\.toBe\(0\)/)
+  assert.doesNotMatch(offlineSource, /createInitialDocumentForFile/)
+  assert.match(
+    collaborationSource,
+    /CRDT_7076_SAMPLE_FILE_ID = 'crdt-7076-sample'/
+  )
+  assert.equal(
+    collaborationSource.match(/const fileId = CRDT_7076_SAMPLE_FILE_ID/g)
+      ?.length,
+    2
+  )
+  assert.match(
+    collaborationSource,
+    /getPerformanceProfileCounterTotal[\s\S]*readCounterTotal/
+  )
+  assert.doesNotMatch(collaborationSource, /const sumProfileCounter/)
+  assert.doesNotMatch(
+    collaborationSource,
+    /make the whiskers blue|make the pupils red/
+  )
+  assert.match(
+    packageJson,
+    /VITE_COLLABORATION_WS_URL=ws:\/\/127\.0\.0\.1:4199/
+  )
+})
+
 test('ordinary AI profiling stays low-load while high detail remains guarded', async () => {
   const [ordinary, configSource, endpointSource, specSource] =
     await Promise.all([

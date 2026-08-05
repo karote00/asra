@@ -1,11 +1,50 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
+import { ACTION_BATCH_ENDPOINT } from '../src/ai/action-batch-endpoint'
+import { seedServerResponse } from './server-response-inbox'
+import { waitForAppReady } from './test-utils'
 
-test('renders the complete checked-in crdt-7076 sample from existing Vector values', async ({
+const SAMPLE_FILE_ID = 'crdt-7076-sample'
+const sampleRoot = new URL('../samples/crdt-7076/', import.meta.url)
+
+const attachReferenceImage = async (page: Page) => {
+  const image = await readFile(new URL('reference-image.png', sampleRoot))
+  const dataTransfer = await page.evaluateHandle(
+    ({ base64 }) => {
+      const bytes = Uint8Array.from(globalThis.atob(base64), (character) =>
+        character.charCodeAt(0)
+      )
+      const transfer = new DataTransfer()
+      transfer.items.add(
+        new File([bytes], 'reference-image.png', {
+          type: 'image/png'
+        })
+      )
+      return transfer
+    },
+    { base64: image.toString('base64') }
+  )
+
+  try {
+    await page
+      .getByTestId('agent-image-drop-target')
+      .dispatchEvent('drop', { dataTransfer })
+  } finally {
+    await dataTransfer.dispose()
+  }
+  await expect(
+    page.getByRole('img', { name: 'reference-image.png' })
+  ).toBeVisible()
+}
+
+test('renders the complete crdt-7076 HTTP-intercepted action while the socket is unavailable', async ({
   page
 }, testInfo) => {
   test.setTimeout(360_000)
   const renderFailures: string[] = []
   const startupErrors: string[] = []
+  let actionBatchPostCount = 0
+  let directDocumentRequestCount = 0
   page.on('console', (message) => {
     const text = message.text()
     if (message.type() === 'error') {
@@ -23,10 +62,25 @@ test('renders the complete checked-in crdt-7076 sample from existing Vector valu
   page.on('pageerror', (error) => {
     renderFailures.push(error.message)
   })
+  page.on('request', (request) => {
+    if (
+      request.method() === 'POST' &&
+      new URL(request.url()).pathname === ACTION_BATCH_ENDPOINT
+    ) {
+      actionBatchPostCount += 1
+    }
+    if (request.url().includes('/samples/crdt-7076/document.json.gz')) {
+      directDocumentRequestCount += 1
+    }
+  })
 
-  await page.goto('/?fileId=crdt-7076-sample')
+  await seedServerResponse(page.context(), {
+    fileId: SAMPLE_FILE_ID,
+    itemCount: 7_075
+  })
+  await page.goto(`/?fileId=${SAMPLE_FILE_ID}`)
   try {
-    await expect(page.locator('canvas')).toBeVisible({ timeout: 60_000 })
+    await waitForAppReady(page)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     throw new Error(
@@ -35,6 +89,28 @@ test('renders the complete checked-in crdt-7076 sample from existing Vector valu
       }\nCaptured render failures: ${renderFailures.join(' | ') || '(none)'}`
     )
   }
+  await expect
+    .poll(() =>
+      startupErrors.some((message) =>
+        message.includes('[collaboration] initial document session failed:')
+      )
+    )
+    .toBe(true)
+  expect(directDocumentRequestCount).toBe(0)
+
+  await page.getByRole('button', { name: 'Open Agent' }).click()
+  await expect(page.getByTestId('ai-agent-panel')).toBeVisible()
+  await attachReferenceImage(page)
+  const instruction = (
+    await readFile(new URL('instruction.txt', sampleRoot), 'utf8')
+  ).trim()
+  await page.getByLabel('Message Agent').fill(instruction)
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(
+    page.getByTestId('ai-agent-panel').locator('article[data-turn-id]').last()
+  ).toHaveAttribute('data-outcome', 'success', { timeout: 300_000 })
+  expect(actionBatchPostCount).toBe(1)
+
   await page.waitForFunction(
     async () => {
       const { core } = await import('../src/testing/runtime-access')

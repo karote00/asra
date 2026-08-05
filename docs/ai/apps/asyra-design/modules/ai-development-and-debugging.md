@@ -126,11 +126,11 @@ actions, Agent actions, Undo, and Redo publish existing Factory
 materialization on the fixed three-second dirty window. The browser never
 writes a materialized ordinary document snapshot.
 
-`crdt-7076-sample` is the sole non-production socket bypass. Its temporary
-toolbar Reset writes one App-owned empty demo document to a file-scoped browser
-key and then forces a refresh. This creates no Core mutation, Factory action,
-Undo entry, socket publication, or backend write. It exists only to restart the
-public Agent simulation and will be removed from the formal App.
+`crdt-7076-sample` uses the same mandatory socket document session as every
+other fileId. The checked-in response enters only through Actor A's same-origin
+HTTP action-batch request. Socket unavailability keeps the ordinary provisional
+local document and outbox active; there is no direct compressed-document load,
+localStorage Reset, or sample-specific Collaboration bypass.
 
 Authority:
 `../specs/socket-authoritative-document-session.md`.

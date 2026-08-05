@@ -20,9 +20,6 @@
 
 - delegates render lifecycle calls to core (`setupInputSystem`, `renderIsReady`)
 - delegates primary-tool change to feature API (`getFeature(FeatureNames.SWITCH_PRIMARY_TOOL)`)
-- owns the temporary `crdt-7076-sample` demo Reset adapter (`resetData`), which
-  delegates save-empty-then-refresh behavior to `config/demo-document.ts` and
-  is not a formal document mutation path
 
 ### `controllers/scene-tree.ts`
 

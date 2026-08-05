@@ -28,12 +28,12 @@ database writes rather than coexisting with them as a second autosave mode.
   local editing continues through the same durable pending-publication path.
   The App reports the transition once rather than creating a separate
   frontend-only document mode.
-- `crdt-7076-sample` is the sole explicit non-production exception: it loads the
-  bundled large-document fixture without a socket so a visitor can simulate the
-  AI Agent flow. Its temporary toolbar Reset may store one empty demo bootstrap
-  document in browser storage and force a refresh. That reset is outside the
-  formal document session, does not define ordinary document behavior, and will
-  be removed from the formal App.
+- `crdt-7076-sample` uses this same full-stack client path. Actor A's exact
+  image and instruction receive the checked-in prepared response through the
+  same-origin HTTP action-batch interceptor; the response then executes through
+  ordinary canonical and publication owners. Socket unavailability keeps the
+  provisional local document and durable outbox active rather than selecting a
+  sample-specific bootstrap.
 - A developer who clones the repository can start the frontend, socket server,
   and persistence backend locally to use the complete formal document-session
   flow. This is the same production architecture exercised locally, not an E2E
@@ -92,9 +92,10 @@ The production path has no local-only document mode. A one-Actor document and
 a multi-Actor document use the same handshake, publication, sequencing,
 broadcast, recovery-outbox, and persistence path.
 
-The bundled `crdt-7076-sample` Agent simulation is outside that production
-document path. No other file identity may bypass the socket workflow because
-an endpoint is absent or unavailable.
+The bundled `crdt-7076-sample` Agent flow remains inside that same document
+path. No file identity may bypass the socket workflow because an endpoint is
+absent or unavailable. The sample has no direct compressed-document load,
+localStorage Reset, or nullable Collaboration mode.
 
 Before the first successful handshake, an ordinary file may operate from its
 formal provisional initial document. It must not claim that remote content was
@@ -341,11 +342,9 @@ review or export.
 
 ## Reset, Import, Export, and Serialization
 
-- The formal App exposes no Reset operation. The temporary
-  `crdt-7076-sample` demo toolbar Reset stores one empty App-owned demo document
-  in browser storage and forces a reload; it creates no Core mutation, Undo
-  entry, Factory publication, socket message, or backend persistence request.
-  It will be removed rather than promoted into the formal product flow.
+- The App exposes no local-only Reset operation. `crdt-7076-sample` follows the
+  same socket-authoritative document lifecycle and cannot store bootstrap state
+  in localStorage or force a second startup route.
 - Any future import must produce canonical document changes through the normal
   publication path. It cannot call a browser snapshot `PUT`, `DELETE`, or
   hidden save fallback.

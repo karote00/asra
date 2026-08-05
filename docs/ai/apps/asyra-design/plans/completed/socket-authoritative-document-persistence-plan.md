@@ -13,8 +13,11 @@ Final outcome: Asyra Design now uses one socket-authoritative document-session
 path with Core load-only ownership, Factory `SharedPublication`, an App-owned
 durable unaccepted-publication outbox, a fixed 30-second reconnect cadence, a
 fixed three-second server persistence window, and ordered backend
-materialization. The temporary `crdt-7076-sample` Reset remains the sole
-non-production bypass.
+materialization. The temporary `crdt-7076-sample` Reset remained the sole
+non-production bypass in the original 2026-08-04 closeout. That exception was
+superseded on 2026-08-05: the sample now uses the ordinary socket document
+session, has no Reset, and receives prepared data only through Actor A's exact
+HTTP action-batch request.
 
 Semantic authority:
 `../../specs/socket-authoritative-document-session.md`.
@@ -26,11 +29,11 @@ The public deployment runs the same full-stack client path as every ordinary
 document. It deploys no socket server or backend, so the ordinary handshake
 fails, local editing continues through the ordinary pending-publication
 outbox, and the App reports the disconnected transition once. This is not a
-separate frontend-only document mode. The sole explicit non-production bypass
-is `crdt-7076-sample`, which loads the bundled large-document fixture only to
-simulate the AI Agent flow and owns no socket recovery outbox. A developer who
-clones the repository must be able to start the frontend, socket server, and
-persistence backend locally to exercise the full formal flow.
+separate frontend-only document mode. `crdt-7076-sample` now uses that same
+socket composition and recovery outbox; its generated compressed document is
+retained only as a regression asset. A developer who clones the repository
+must be able to start the frontend, socket server, and persistence backend
+locally to exercise the full formal flow.
 
 ## Goal
 
@@ -555,9 +558,9 @@ First add E2E/integration tests proving:
   recoverable in the App outbox.
 
 Then switch App startup to the mandatory document session and delete the old
-browser document persistence path. The temporary `crdt-7076-sample` Reset may
-retain only its file-scoped demo browser key plus forced reload and must not
-enter Core, Factory, Undo, socket, or backend persistence.
+browser document persistence path. This slice originally retained a temporary
+`crdt-7076-sample` Reset; the 2026-08-05 superseding decision removed that
+utility and routed the sample through the ordinary socket session.
 
 Focused gates:
 
@@ -624,9 +627,8 @@ Focused gates:
 - Current browser snapshot persistence and alternate paths are deleted.
 - The public deployment follows the ordinary full-stack client path and reports
   its unavailable server once while local editing and outbox retention
-  continue; only
-  `crdt-7076-sample` bypasses the socket for the non-production Agent
-  simulation.
+  continue; `crdt-7076-sample` now follows that same socket path and receives
+  its prepared drawing only after the exact HTTP action-batch request.
 - A documented repository-local workflow starts the frontend, socket server,
   and persistence backend together for the complete formal flow.
 - Formal unit, integration, E2E, failure, reconnect, and large-document

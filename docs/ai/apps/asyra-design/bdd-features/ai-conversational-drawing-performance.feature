@@ -497,19 +497,17 @@ Feature: Conversational AI drawing performance
     And Actor B should perform zero persistence after canonical apply
     And peer-applied should settle immediately after that canonical apply completes
 
-  Scenario: Documents use the formal database boundary without making availability fatal
-    Given an App document session starts from one required fileId URL
-    When RenderApp starts Core for the document
-    Then the App should inject one same-origin document database provider before Core starts
-    And it should load the database snapshot or the file-specific initial canonical document
-    And a database connection failure should display an error message
-    But that failure should not stop the App and Canvas
-    And local actions and AI actions should reuse Core autosave
-    And Undo and Redo should reuse Core autosave
-    And a successful database connection should let refresh restore the latest snapshot for that fileId
-    But request-time Agent transport should remain separate from document persistence
-    And no IndexedDB, localStorage, or demo-only persistence fallback should exist
-    And future App developers should implement the matching production database server without replacing the frontend client
+  Scenario: The 7076 sample uses the ordinary socket-authoritative document session
+    Given the required URL is "/?fileId=crdt-7076-sample"
+    When RenderApp starts the document
+    Then it should create the same socket document and Collaboration identity as every other fileId
+    And it should open the socket handshake before Core starts
+    And it should supply only the socket checkpoint through "SocketDocumentSession"
+    And it should activate live publication delivery after Core and Canvas start
+    And a missing or empty fileId should not open a document session
+    But no direct compressed-document bootstrap should exist
+    And no localStorage Reset should exist
+    And no sample-specific socket bypass should exist
 
   Scenario: Remote apply never persists on the receiving client
     Given Actor A originated and persisted one committed canonical operation
@@ -519,44 +517,42 @@ Feature: Conversational AI drawing performance
     And Actor B should create no echo publication
     And peer-applied should acknowledge canonical apply rather than durability
 
-  Scenario: The deployed 7076 sample loads without CRDT
-    Given the deployed URL is "/?fileId=crdt-7076-sample"
-    And no WebSocket endpoint is configured
-    When the formal database request fails
-    Then the App should display the database error
-    And it should load the checked-in compressed canonical document
-    And Core should receive exactly 7076 non-workspace elements
-    And the Canvas should remain usable without Collaboration
+  Scenario: The 7076 sample stays usable while the socket is unavailable
+    Given the required URL is "/?fileId=crdt-7076-sample"
+    And the WebSocket endpoint is unavailable
+    When RenderApp opens the document
+    Then the Collaboration lifecycle should return its provisional local checkpoint
+    And Core and Canvas should remain usable
+    When Actor A submits the exact sample through the HTTP action-batch interceptor
+    Then Actor A should execute and render all 7076 canonical elements locally
+    And its publication should remain in the ordinary durable outbox
+    And the connection failure should be reported to the DevTools console
+    But the App should not request "samples/crdt-7076/document.json.gz"
 
-  Scenario: Required fileId selects the document while Collaboration remains optional
+  Scenario: Required fileId always selects the socket document and Collaboration room
     Given RenderApp receives one required fileId URL
-    And that fileId selects the App-owned document session
-    When no WebSocket endpoint is configured
-    Then Core and Canvas should start without Collaboration
+    Then the fileId should select the socket document and Collaboration room
     And root dev:all should start only frontend workspace processes and the App dev server
-    When the explicit collaboration:server command or collaboration Playwright separately supplies the WebSocket endpoint
-    Then the first Actor should connect after the document load
+    And the explicit collaboration:server command or collaboration Playwright should separately supply the WebSocket endpoint
+    When the first Actor connects
     And one Actor in that document session should be classified as single-Actor processing
     When a second Actor opens the same fileId
     Then both Actors should use the same collaboration room
     And the session should be classified as two-Actor CRDT processing
-    And a missing or empty fileId should not open a document session
 
-  Scenario: Reset restarts only the deployed 7076 demo
-    Given the required fileId is crdt-7076-sample
-    And resetData uses the App-owned fresh empty-document factory
-    When resetData is invoked
-    Then it should store the empty document under the file-scoped demo browser key
-    And it should force a page reload only after that write succeeds
-    And the reloaded demo should read the stored empty document before the checked-in sample asset
-    But resetData should create no Core mutation, Factory action, Undo entry, socket publication, or backend persistence request
-    And an ordinary socket fileId should not use this demo Reset path
-    And the formal App should remove this temporary Reset utility
+  Scenario: The 7076 sample publishes from Actor A when the socket is available
+    Given Actor A and Actor B open "/?fileId=crdt-7076-sample"
+    And both Actors complete the ordinary socket-authoritative startup
+    When Actor A submits the exact sample through the HTTP action-batch interceptor
+    Then Actor A should execute the server-prepared batch through ordinary canonical owners
+    And Actor A should publish the resulting canonical changes through CRDT
+    And Actor B should receive the drawing only through Actor A publications
+    And Actor A and Actor B should each finish with 7076 canonical elements
 
   Scenario: Actor A requests the checked-in 7076 backend sample after Send
     Given the required URL is "/?fileId=crdt-7076-sample"
-    And the local action-batch backend, database server, and WebSocket endpoint are configured
-    And fileId selects the persisted document and Collaboration session
+    And the local action-batch backend and WebSocket endpoint are configured
+    And fileId selects the socket document and Collaboration session
     And the checked-in crdt-7076 sample folder contains the reference image, exact instruction text, and previously converted 7075-vector source
     When App bootstrap and Agent readiness complete
     Then no action payload should be seeded, preloaded, read from a response inbox, or selected by fileId
@@ -567,7 +563,7 @@ Feature: Conversational AI drawing performance
     And the sample backend should match the exact image and instruction
     And it should read the previously converted vector source without invoking VTracer, image conversion, or a model
     And it should return one server-prepared "AiActionBatch" containing one prepared Group and 7075 ordered editable Vector descriptors
-    And Actor A should execute the batch through the ordinary Runtime, App action, Core, Factory, Render, CRDT, and persistence owners
+    And Actor A should execute the batch through the ordinary Runtime, App action, Core, Factory, Render, and CRDT owners
     And Actor B should receive the drawing only through Actor A canonical CRDT publications
     And Actor A and Actor B should each finish with 7076 canonical elements
     But a nonmatching, malformed, or aborted request should fail before Runtime and canonical mutation

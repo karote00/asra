@@ -238,9 +238,9 @@ Semantic authority:
 - one non-empty `fileId` is required to open the App document; it selects the
   App-owned document session identity and is future server authorization input,
   but it is never a Collaboration activation flag
-- Current RenderApp prepares Collaboration before Core for every ordinary
-  `fileId`, using configured `VITE_COLLABORATION_WS_URL` or same-origin
-  `/collaboration`; only `crdt-7076-sample` bypasses the socket
+- RenderApp prepares Collaboration before Core for every required `fileId`,
+  including `crdt-7076-sample`, using configured
+  `VITE_COLLABORATION_WS_URL` or same-origin `/collaboration`
 - the composition maps `fileId` to both internal document and room identity and
   generates a full UUID actor identity per page
 - one connected Actor is the single-Actor execution case; when another Actor
@@ -562,13 +562,6 @@ Import boundary:
 - `destroyRenderApp(): void`
 - `setupInputSystem(canvas: HTMLElement): void`
 - `renderIsReady(): void`
-- `resetData(): void`
-  - accepts only `fileId=crdt-7076-sample`
-  - stores one fresh App-owned empty document under the file-scoped demo browser
-    key and forces `window.location.reload()` only after that write succeeds
-  - creates no Core mutation, Factory action, Undo entry, socket publication, or
-    backend persistence request
-  - is a temporary public-demo utility and will be removed from the formal App
 - `switchPrimaryTool(primaryTool: PrimaryToolType): void`
 
 `controllers/element-selection.ts`

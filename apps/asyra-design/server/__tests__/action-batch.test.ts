@@ -162,7 +162,7 @@ describe('crdt-7076 action-batch backend sample', () => {
     )
   })
 
-  it('keeps one canonical 7,076-element document for the serverless demo import', async () => {
+  it('keeps one canonical 7,076-element generated regression document', async () => {
     const compressedDocument = await readFile(
       new URL('document.json.gz', sampleRoot)
     )

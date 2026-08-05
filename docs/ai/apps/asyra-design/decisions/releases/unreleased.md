@@ -7424,3 +7424,39 @@ join` constrained dashed product path across: - shape-generated `rect` - closed 
     utility and does not become a second formal persistence path.
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/socket-authoritative-document-persistence-plan.md`
+
+## 2026-08-05 - Route the 7076 sample through the ordinary socket document session
+
+- Context:
+  - The August 4 decisions retained `crdt-7076-sample` as a temporary socket
+    bypass with a compressed-document bootstrap and local-only Reset utility.
+  - That exception created a second startup and persistence shape that did not
+    prove the ordinary one-Actor or two-Actor Collaboration path.
+- Decision:
+  - Supersede the 7076 socket-bypass and temporary Reset portions of those
+    August 4 decisions.
+  - Use `/?fileId=crdt-7076-sample` as the only 7076 URL and treat that fileId
+    as an ordinary socket-authoritative document and Collaboration identity.
+  - Obtain the prepared sample only after Actor A submits the exact Agent
+    request through the same-origin HTTP action-batch interceptor.
+  - With a socket, publish Actor A's ordinary canonical results through CRDT to
+    Actor B. Without a socket, keep the same provisional local
+    session/durable-outbox path, render locally, and report the connection
+    failure in DevTools.
+  - Retain `samples/crdt-7076/document.json.gz` only as a generated formal
+    regression asset. It is not a RenderApp startup source.
+  - Remove the local-only Reset API and UI.
+- Consequences:
+  - Opening the one 7076 URL does not preload or execute the sample action.
+  - Socket availability changes transport state, not RenderApp composition,
+    Core load ownership, URL, or sample data source.
+  - Actor A and Actor B exercise the same App, Runtime, Core, Factory, Render,
+    and Collaboration owners used by every other required fileId.
+- Related Completed Plan:
+  - `docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md`
+- Related Inspector:
+  - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`
+- Related Specification:
+  - `docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md`
+- Related Commit(s):
+  - pending
