@@ -89,7 +89,7 @@ Opening the same `fileId` in two windows joins the same document session;
 different values remain isolated. One Actor and multiple Actors use exactly
 the same checkpoint-plus-tail handshake, Factory publication, socket sequence,
 three-second persistence window, and backend materialization path. The
-frontend starts Collaboration for every required `fileId`, including
+frontend always starts Collaboration for every required `fileId`, including
 `crdt-7076-sample`.
 
 The browser never writes a materialized document. It stores only unaccepted
