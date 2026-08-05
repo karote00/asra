@@ -172,8 +172,11 @@ mandatory socket handshake
   document-change unit; private Undo History never reaches the server.
 - Selection, Awareness, computed projection, Render/UI state, and diagnostics
   remain outside document persistence.
-- The browser performs no canonical document persistence write. The formal App
-  exposes no Reset persistence path; `crdt-7076-sample` uses the same
+- The browser performs no canonical document persistence write during ordinary
+  App operation. The permanent toolbar Reset is the one standalone exception:
+  it deletes only the current stored checkpoint and refreshes after success,
+  without Core, Feature, transaction, History, CRDT, Selection, or
+  Collaboration participation. `crdt-7076-sample` otherwise uses the same
   socket-authoritative document session and request-time HTTP action-batch as
   its only prepared sample source.
 - The App owns a native IndexedDB transport-recovery outbox containing only

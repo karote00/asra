@@ -13,11 +13,12 @@ Final outcome: Asyra Design now uses one socket-authoritative document-session
 path with Core load-only ownership, Factory `SharedPublication`, an App-owned
 durable unaccepted-publication outbox, a fixed 30-second reconnect cadence, a
 fixed three-second server persistence window, and ordered backend
-materialization. The temporary `crdt-7076-sample` Reset remained the sole
-non-production bypass in the original 2026-08-04 closeout. That exception was
-superseded on 2026-08-05: the sample now uses the ordinary socket document
-session, has no Reset, and receives prepared data only through Actor A's exact
-HTTP action-batch request.
+materialization. The temporary `crdt-7076-sample`-only Reset condition was
+superseded on 2026-08-06: Reset is now a permanent toolbar control for every
+fileId. Its special behavior remains isolated from the document session—it
+deletes only the current stored checkpoint and refreshes after success—while
+the sample uses the ordinary socket session and receives prepared data only
+through Actor A's exact HTTP action-batch request.
 
 Semantic authority:
 `../../specs/socket-authoritative-document-session.md`.
@@ -104,8 +105,9 @@ second App autosave path.
   - server/backend document persistence adapter;
   - removal of the old browser document-persistence path and its direct
     consumers;
-  - explicit exclusion of the temporary `crdt-7076-sample`
-    save-empty-then-refresh demo Reset from the formal document session;
+  - explicit isolation of the permanent save-empty-then-refresh Reset from
+    Core, Feature, transaction, History, CRDT, Selection, Factory publication,
+    and Collaboration operations;
   - focused unit, server, integration, E2E, reconnect, failure, and performance
     tests.
 - Directly affected framework/App docs, plan, Inspector, and decision history.
@@ -558,9 +560,9 @@ First add E2E/integration tests proving:
   recoverable in the App outbox.
 
 Then switch App startup to the mandatory document session and delete the old
-browser document persistence path. This slice originally retained a temporary
-`crdt-7076-sample` Reset; the 2026-08-05 superseding decision removed that
-utility and routed the sample through the ordinary socket session.
+browser document persistence path. The later product contract keeps Reset as
+one permanent standalone stored-file DELETE followed by refresh, while routing
+the sample itself through the ordinary socket session.
 
 Focused gates:
 

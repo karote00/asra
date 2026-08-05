@@ -246,6 +246,18 @@ Accepted socket-authoritative target:
 Semantic authority:
 `specs/socket-authoritative-document-session.md`.
 
+- The Asyra Design toolbar always exposes `Reset document` before the primary
+  tool controls for every `fileId`. This control is permanent unless the
+  product owner explicitly requests its removal.
+- `resetStoredDocument()` is a standalone stored-document utility, not an App
+  controller or Feature API. It reads the required `fileId`, sends
+  `DELETE /api/documents/{encoded fileId}`, and calls
+  `window.location.reload()` only after a successful response.
+- The document backend handles that DELETE by replacing the stored record with
+  the formal empty checkpoint at durable sequence zero. Reset performs no Core
+  mutation, transaction, History, Undo/Redo, Factory publication, CRDT,
+  Selection, or Collaboration operation.
+
 - `APP_URL` is the one app-origin contract shared by Vite,
   ordinary Playwright, visual review, collaboration E2E, and the reference
   WebSocket server's Origin validation

@@ -95,7 +95,9 @@ broadcast, recovery-outbox, and persistence path.
 The bundled `crdt-7076-sample` Agent flow remains inside that same document
 path. No file identity may bypass the socket workflow because an endpoint is
 absent or unavailable. The sample has no direct compressed-document load,
-localStorage Reset, or nullable Collaboration mode.
+localStorage bootstrap, or nullable Collaboration mode. The permanent toolbar
+Reset remains a separate stored-file utility and never becomes a document
+session mode.
 
 Before the first successful handshake, an ordinary file may operate from its
 formal provisional initial document. It must not claim that remote content was
@@ -342,12 +344,22 @@ review or export.
 
 ## Reset, Import, Export, and Serialization
 
-- The App exposes no local-only Reset operation. `crdt-7076-sample` follows the
-  same socket-authoritative document lifecycle and cannot store bootstrap state
-  in localStorage or force a second startup route.
+- The toolbar Reset control is a permanent Asyra Design UI component for every
+  `fileId`. It may be removed only after an explicit product-owner request;
+  sample, persistence, startup, or Collaboration work must not hide, disable,
+  or delete it.
+- Reset is an intentionally standalone destructive stored-file utility. One
+  click sends `DELETE /api/documents/{encoded fileId}` to replace the stored
+  checkpoint with the formal empty document and reset its durable sequence,
+  then refreshes the page only after that request succeeds.
+- Reset must not call Core, Feature System, a common mutation API, transaction,
+  History, Undo/Redo, Selection, Factory publication, Collaboration, or a CRDT
+  apply path. Failure leaves the current page loaded and reports the error.
+- This exact Reset endpoint is the only browser document-delete exception.
+  It creates no localStorage bootstrap and no second document startup route.
 - Any future import must produce canonical document changes through the normal
-  publication path. It cannot call a browser snapshot `PUT`, `DELETE`, or
-  hidden save fallback.
+  publication path. It cannot call a browser snapshot `PUT`, another `DELETE`,
+  or hidden save fallback.
 - Explicit export may serialize the current Core document, but serialization is
   not persistence and must not register an automatic transaction subscriber.
 - Core may retain an explicit snapshot serialization API for export,

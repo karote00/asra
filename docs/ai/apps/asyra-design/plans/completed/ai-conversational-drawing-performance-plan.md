@@ -1924,6 +1924,10 @@ intended transaction or history boundary.
 - `crdt-7076-sample` uses exactly that same session. It has no `null`
   Collaboration mode, compressed-canonical `Core.load` bootstrap, alternate
   route, localStorage Reset, or demo-only persistence path.
+- The toolbar Reset remains permanently visible for every fileId. It is not an
+  App document action: it deletes only the current stored checkpoint and
+  refreshes after success, without Core, Feature, transaction, History,
+  Selection, Factory publication, Collaboration, or CRDT work.
 - When the socket is unavailable, the existing provisional local checkpoint
   still starts Core and Canvas. Local manual and Agent actions remain
   available, their publications enter the ordinary durable outbox, and
@@ -2240,16 +2244,14 @@ boundary before the next publication is released. Actor B converges without
 persistence, Undo, or echo, then emits `peer-applied` after canonical and Render
 projection settlement complete.
 
-### Demo Documents Persist by File
+### Permanent Standalone Reset
 
-Every document configures one `fileId`-scoped same-origin database provider
-before Core starts. A stored snapshot or the file-specific initial document
-loads before optional Collaboration. Local actions, Agent actions, Undo, Redo,
-and Reset persist through one serialized provider queue on the client that
-originated the operation; accepted remote apply performs zero persistence. The
-deployed 7,076 preview attempts this same database contract and, on failure,
-shows an error while loading its checked-in compressed canonical document.
-There is no browser-storage or fake-persistence fallback.
+Every document exposes the same toolbar Reset. It sends one same-origin DELETE
+for the current stored file and refreshes only after success. It never enters
+Core, Feature System, a transaction, History, Undo/Redo, Selection, Factory
+publication, Collaboration, or CRDT apply. Ordinary App document operations
+continue to use the socket-authoritative publication and backend
+materialization contract.
 
 ### Fast Server-response AI CRDT Correctness
 

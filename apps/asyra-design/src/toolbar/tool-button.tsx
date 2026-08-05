@@ -3,6 +3,7 @@ import { Icon, type IconName } from '@asyra/design-system'
 import { usePrimaryTool } from '../providers'
 import { switchPrimaryTool } from '../controllers/app'
 import { PrimaryToolType } from '../constants'
+import { resetStoredDocument } from './reset-stored-document'
 
 const PRIMARY_TOOL_ICON_MAP: Record<string, IconName> = {
   [PrimaryToolType.SELECT]: 'Select',
@@ -13,6 +14,12 @@ const PRIMARY_TOOL_ICON_MAP: Record<string, IconName> = {
 
 const ToolButton = () => {
   const primaryTool = usePrimaryTool()
+
+  const handleReset = useCallback(() => {
+    void resetStoredDocument().catch((error: unknown) => {
+      console.error('[toolbar.reset] Stored document Reset failed:', error)
+    })
+  }, [])
 
   const handleSwitchToSelectTool = useCallback(() => {
     switchPrimaryTool(PrimaryToolType.SELECT)
@@ -32,6 +39,41 @@ const ToolButton = () => {
 
   return (
     <div className="flex items-center gap-1">
+      <button
+        aria-label="Reset document"
+        className="tool-btn"
+        data-testid="reset-button"
+        onClick={handleReset}
+        title="Reset document"
+        type="button"
+      >
+        <svg
+          aria-hidden="true"
+          fill="none"
+          height="16"
+          viewBox="0 0 16 16"
+          width="16"
+        >
+          <path
+            d="M3.5 5.5A5 5 0 1 1 3 9"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeWidth="1.5"
+          />
+          <path
+            d="M3.5 2.5v3h3"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.5"
+          />
+        </svg>
+      </button>
+      <div
+        aria-hidden="true"
+        className="mx-1 h-5 w-px bg-[#4a4a4a]"
+        data-testid="reset-separator"
+      />
       <button
         className={`tool-btn ${primaryTool === PrimaryToolType.SELECT ? 'active' : ''}`}
         onClick={handleSwitchToSelectTool}

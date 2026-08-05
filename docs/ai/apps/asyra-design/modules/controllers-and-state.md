@@ -20,6 +20,8 @@
 
 - delegates render lifecycle calls to core (`setupInputSystem`, `renderIsReady`)
 - delegates primary-tool change to feature API (`getFeature(FeatureNames.SWITCH_PRIMARY_TOOL)`)
+- does not own Reset; the permanent toolbar Reset calls its isolated
+  stored-document DELETE utility directly so no App operation is introduced
 
 ### `controllers/scene-tree.ts`
 
@@ -54,5 +56,8 @@
 ## Rules
 
 - Controllers are orchestration adapters; domain mutation stays in common APIs.
+- Reset must remain outside controllers, Core, Feature System, transactions,
+  History, CRDT, Selection, and other App operations. Its only effects are
+  deleting the current stored file and refreshing after success.
 - `states/app.ts` should only hold UI runtime objects (renderer instance), not domain data.
 - If controller behavior defines a reusable interaction contract, move it to common API.
