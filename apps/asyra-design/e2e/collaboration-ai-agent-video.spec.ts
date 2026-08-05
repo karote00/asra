@@ -3271,6 +3271,7 @@ test('keeps two connected Actors converged through one complete high-detail cat 
       }
     }
     const publicationBaseline = await readPublicationCounts()
+    const maxHighDetailPublicationWindows = 16
     await submitTurn(actorA, exactCatOnlyPrompt, 1)
     const creationPeerCatchupStartedAt = Date.now()
     await waitForConnectedCounts(7076, 7076, 120_000)
@@ -3280,7 +3281,9 @@ test('keeps two connected Actors converged through one complete high-detail cat 
     const creationPublicationWindows =
       afterCreationPublicationCounts.sent - publicationBaseline.sent
     expect(creationPublicationWindows).toBeGreaterThan(1)
-    expect(creationPublicationWindows).toBeLessThanOrEqual(8)
+    expect(creationPublicationWindows).toBeLessThanOrEqual(
+      maxHighDetailPublicationWindows
+    )
     expect(
       afterCreationPublicationCounts.processed - publicationBaseline.processed
     ).toBe(creationPublicationWindows)
@@ -3319,7 +3322,9 @@ test('keeps two connected Actors converged through one complete high-detail cat 
     const undoPublicationWindows =
       afterUndoPublicationCounts.sent - afterCreationPublicationCounts.sent
     expect(undoPublicationWindows).toBeGreaterThan(1)
-    expect(undoPublicationWindows).toBeLessThanOrEqual(8)
+    expect(undoPublicationWindows).toBeLessThanOrEqual(
+      maxHighDetailPublicationWindows
+    )
     expect(
       afterUndoPublicationCounts.processed -
         afterCreationPublicationCounts.processed
@@ -3351,7 +3356,9 @@ test('keeps two connected Actors converged through one complete high-detail cat 
     const redoPublicationWindows =
       afterRedoPublicationCounts.sent - afterUndoPublicationCounts.sent
     expect(redoPublicationWindows).toBeGreaterThan(1)
-    expect(redoPublicationWindows).toBeLessThanOrEqual(8)
+    expect(redoPublicationWindows).toBeLessThanOrEqual(
+      maxHighDetailPublicationWindows
+    )
     expect(
       afterRedoPublicationCounts.processed -
         afterUndoPublicationCounts.processed

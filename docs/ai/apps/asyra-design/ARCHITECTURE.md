@@ -128,7 +128,7 @@ the existing Render object.
 - Factory owns shared-publication timing and batching. A synchronous immediate
   delivery action is one ordered source boundary; default progressive delivery
   groups consecutive source boundaries into bounded publication windows of at
-  most 1,024 distinct work items. An explicit
+  most 512 distinct work items. An explicit
   `batchPublications: false` sequence preserves per-slice publication
   settlement, and neither mode splits the local undo commit.
 - `@asyra/collaboration` and the WebSocket Provider preserve publications and

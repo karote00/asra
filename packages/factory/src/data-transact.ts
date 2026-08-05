@@ -143,7 +143,6 @@ import type {
 import {
   acknowledgeTransactionReplayApplied,
   applyEventBatchToSynchronousOwners,
-  DEFAULT_COOPERATIVE_RENDER_MAX_ITEMS_PER_SLICE,
   EventTypes,
   endTransaction,
   hasSynchronousEventBatchHandler,
@@ -218,6 +217,7 @@ const LOCAL_ONLY_COMPUTED_EVENT_TYPES = new Set<string>([
 ])
 
 const MAX_CANONICAL_REPLAY_OWNER_BATCH_ITEMS = 32
+const DEFAULT_SHARED_PUBLICATION_MAX_WORK_ITEMS = 512
 
 type TransactionPayloadOptions = NonNullable<TransactionPayload['options']>
 
@@ -1989,7 +1989,7 @@ class DataTransact {
   private publicationWindowWouldExceedTarget(
     pendingWorkItemKeys: ReadonlySet<string>,
     currentWorkItemKeys: readonly string[],
-    maxItemsPerPublication = DEFAULT_COOPERATIVE_RENDER_MAX_ITEMS_PER_SLICE
+    maxItemsPerPublication = DEFAULT_SHARED_PUBLICATION_MAX_WORK_ITEMS
   ): boolean {
     if (pendingWorkItemKeys.size === 0) return false
     let distinctCount = pendingWorkItemKeys.size
@@ -2002,7 +2002,7 @@ class DataTransact {
   private shouldFlushPublicationWindow(
     pendingWorkItemKeys: ReadonlySet<string>,
     finalSlice: boolean,
-    maxItemsPerPublication = DEFAULT_COOPERATIVE_RENDER_MAX_ITEMS_PER_SLICE
+    maxItemsPerPublication = DEFAULT_SHARED_PUBLICATION_MAX_WORK_ITEMS
   ): boolean {
     return (
       this.activeDeliverySequence?.batchPublications === false ||
@@ -2447,7 +2447,7 @@ class DataTransact {
       this.activeDeliverySequence?.batchPublications === false ||
       (this.activeDeliverySequence?.mode !== 'atomic' &&
         this.pendingImmediatePublicationWorkItemKeys.size >=
-          DEFAULT_COOPERATIVE_RENDER_MAX_ITEMS_PER_SLICE)
+          DEFAULT_SHARED_PUBLICATION_MAX_WORK_ITEMS)
     ) {
       this.flushPendingImmediatePublication()
     }

@@ -114,9 +114,10 @@ infrastructure.
   into per-component Factory journal entries
 - recorded progressive boundaries remain exact render boundaries; consecutive
   immediate source boundaries remain ordered while default progressive replay
-  groups their shared evidence into bounded publication windows and coalesces
-  completed projection into a render slice until 1,024 distinct canonical
-  work items have settled, then reaches the framework host/paint yield;
+  groups their shared evidence into publication windows of at most 512 distinct
+  work items and coalesces completed projection into a render slice until 1,024
+  distinct canonical work items have settled, then reaches the framework
+  host/paint yield;
   ordered ids are the work identity when present and delivery identity is the
   fallback when an owner batch has no ordered ids; `maxItemsPerSlice` may
   select another positive render budget
@@ -199,7 +200,7 @@ infrastructure.
 - all changes made by one synchronous immediate delivery action remain one
   ordered source boundary. Default progressive delivery groups consecutive
   source boundaries from the same transaction into publication windows of at
-  most 1,024 distinct work items; ordered ids are used when present and
+  most 512 distinct work items; ordered ids are used when present and
   delivery identity is the fallback
 - `FactoryMutationDeliverySequence.batchPublications: false` is the explicit
   per-slice publication-settlement opt-out for a dependent bulk interaction;

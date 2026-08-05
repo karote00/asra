@@ -611,7 +611,7 @@ test('Factory reuses existing action history and exposes only the minimal wire a
   )
   assert.match(
     factoryText,
-    /Undo and Redo reuse.*progressive slice boundaries.*immediate owner-batch boundaries.*plural Scene owner apply.*at most 32.*immediate source boundaries remain ordered.*bounded publication windows.*1,024 distinct work items.*host-yield\/paint adapter.*one History transition.*outer transaction/i
+    /Undo and Redo reuse.*progressive slice boundaries.*immediate owner-batch boundaries.*plural Scene owner apply.*at most 32.*immediate source boundaries remain ordered.*publication windows.*512 distinct work items.*render slices.*1,024 distinct work items.*host-yield\/paint adapter.*one History transition.*outer transaction/i
   )
   assert.match(factoryText, /app-local duplicate cooperative render scheduler/i)
   assert.match(

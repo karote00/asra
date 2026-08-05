@@ -159,7 +159,8 @@ test('framework cooperative rendering batches canonical replay before bounded pr
     contract,
     /immediate source boundaries remain ordered.*bounded publication windows/i
   )
-  assert.match(contract, /1,024 distinct work items/i)
+  assert.match(contract, /publication windows.*512 distinct work items/i)
+  assert.match(contract, /render slices.*1,024 distinct work items/i)
   assert.match(contract, /delivery identity is the fallback/i)
   assert.match(
     contract,

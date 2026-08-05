@@ -289,7 +289,7 @@ change in the current undo commit; the default is `'transaction-end'`. All
 shared changes made by one synchronous immediate delivery action remain one
 ordered source boundary. Default progressive delivery groups consecutive
 source boundaries from the same transaction into publication windows of at
-most 1,024 distinct work items, using delivery identity when ordered ids are
+most 512 distinct work items, using delivery identity when ordered ids are
 absent. `FactoryMutationDeliverySequence.batchPublications: false` preserves
 per-source publication settlement for a dependent interaction without changing
 local projection or undo granularity. Factory retains the action's actual

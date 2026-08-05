@@ -162,11 +162,12 @@
   Compatible consecutive single-element Scene events inside one source boundary
   return to the plural Scene owner apply in batches of at most 32. Recorded
   progressive boundaries remain exact render boundaries; immediate source
-  boundaries remain ordered while shared evidence is grouped into bounded
-  publication windows and the default render slice coalesces completed
-  projection up to 1,024 distinct work items. Ordered ids are the work identity
-  when present and delivery identity is the fallback. `maxItemsPerSlice` may
-  override that positive render budget. This does not create per-slice History.
+  boundaries remain ordered while shared evidence is grouped into publication
+  windows of at most 512 distinct work items and the default render slice
+  coalesces completed projection up to 1,024 distinct work items. Ordered ids
+  are the work identity when present and delivery identity is the fallback.
+  `maxItemsPerSlice` may override that positive render budget. This does not
+  create per-slice History.
   Browser scheduling belongs to the reusable
   `@asyra/reactive-events` adapter, not DataTransact or an app-local duplicate.
 - `cancel`: stop an active session; user-driven interruption defaults to

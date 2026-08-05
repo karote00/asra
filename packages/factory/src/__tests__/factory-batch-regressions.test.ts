@@ -94,6 +94,59 @@ describe('Factory batch regression contracts', () => {
     expect(publicationDeliveryCounts()).toEqual([425, 600])
   })
 
+  it('bounds default immediate publication windows before one render slice can monopolize a peer', async () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    const publications: SharedPublication[] = []
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
+    )
+    const createImmediateOwnerBatch = (start: number) => {
+      const orderedIds = Array.from(
+        { length: 32 },
+        (_, index) => `element-${start + index}`
+      )
+      return {
+        ...createUpdateEvent(
+          `owner-batch-${start}`,
+          SharedDataChannelNames.SCENE_TREE,
+          EventTypes.UPDATE_PROPERTY,
+          {
+            orderedIds,
+            sharedRecords: orderedIds.map((id) => createRecord(id))
+          }
+        ),
+        options: {
+          shared: SharedDataChannelNames.SCENE_TREE,
+          sharedDelivery: 'immediate' as const
+        }
+      }
+    }
+    const publicationWorkItemCounts = () =>
+      publications.map(
+        ({ slices }) =>
+          new Set(
+            slices.flatMap(({ batches }) =>
+              batches.flatMap(({ deliveries }) =>
+                deliveries.flatMap(({ orderedIds }) => orderedIds)
+              )
+            )
+          ).size
+      )
+
+    factory.startTransaction()
+    for (let start = 0; start < 1_280; start += 32) {
+      factory.updateTransactionBatch([createImmediateOwnerBatch(start)])
+      await Promise.resolve()
+    }
+    factory.endTransaction()
+
+    expect(publicationWorkItemCounts()).toEqual([512, 512, 256])
+  })
+
   it('cooperatively groups immediate owner batches by the render item budget', async () => {
     const factory = new Factory()
     factory.registerSharedDataChannel(
