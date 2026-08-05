@@ -157,7 +157,9 @@
         'Any rollback participant wins over commit-current participants.',
         'All public SessionManager instances using the default transaction owner share one interaction queue and one active session runtime; a registered session start cancels the previously active session before opening its transaction boundary.',
         'Keyboard and machine actions remain deliverable while pointer input is active.',
-        'An interactive preview that must reach Render/UI before outer completion uses an explicit sharedDelivery immediate option.'
+        'An interactive preview that must reach Render/UI before outer completion uses an explicit sharedDelivery immediate option.',
+        'The Undo/Redo shortcut and the current AI Message Bar invoke the reusable framework render policy with its default progressive mode and await the complete History replay before reporting success; an explicit atomic option remains available for a future dependent bulk interaction.',
+        'The exclusive shortcut interaction queue and the AI Message Bar pending guard remain active until progressive replay settles, and Undo or Redo presentation state changes only after the canonical completion event.'
       ],
       bypasses: [
         'An empty or non-participating action requests discard without history.'
@@ -182,6 +184,10 @@
         'packages/input-system/src/input-system.ts',
         'packages/input-system/src/__tests__/input-system.test.ts',
         'apps/asyra-design/src/features/**',
+        'apps/asyra-design/src/common-apis/history.ts',
+        'apps/asyra-design/src/common-apis/__tests__/history.test.ts',
+        'apps/asyra-design/src/app/ai-history-message-bar.tsx',
+        'apps/asyra-design/src/app/__tests__/ai-history-message-bar.test.tsx',
         'apps/asyra-design/src/properties/fills/use-fill-interactions.ts',
         'apps/asyra-design/src/properties/fills/use-gradient-interactions.ts',
         'apps/asyra-design/src/properties/strokes/use-stroke-interactions.ts',
@@ -192,6 +198,8 @@
         'docs/ai/framework/API_SURFACES.md',
         'docs/ai/framework/packages/feature-system.md',
         'docs/ai/apps/asyra-design/API_SURFACES.md',
+        'docs/ai/apps/asyra-design/features/undo-redo.md',
+        'docs/ai/apps/asyra-design/prd/undo-redo.md',
         'docs/ai/apps/asyra-design/features/move-elements.md',
         'docs/ai/apps/asyra-design/features/pen-tool.md',
         'docs/ai/apps/asyra-design/prd/properties-panel.md',
@@ -250,7 +258,8 @@
         'artifact:transaction-outcome-request',
         'artifact:commit-validation',
         'synchronous state-owner apply acknowledgement',
-        'transaction replay restoration mode'
+        'transaction replay restoration mode',
+        'framework cooperative render policy, defaulting to progressive with an explicit atomic opt-out'
       ],
       outputs: ['artifact:canonical-transaction-outcome'],
       conditions: [
@@ -259,6 +268,9 @@
         'Commit-current interruption finalizes the latest complete staged bundle, while rollback discards staged History and restores canonical state through the rollback journal.',
         'Rollback replays inverses in reverse order without undo, redo, or user-action-completed effects.',
         'Undo and redo use the same replay primitive with their own history effects.',
+        'The framework cooperative render policy defaults to progressive and permits an explicit atomic opt-out for interactions that must complete one full canonical mutation and projection before a dependent mutation begins.',
+        'When progressive Undo or Redo replays a committed History entry, Factory uses its recorded progressive slice boundaries or already-delivered immediate owner-batch boundaries and applies that same canonical replay in recorded order. Compatible consecutive single-element Scene events inside one source boundary use the plural Scene owner apply in batches of at most 32 after complete preflight. Recorded progressive boundaries remain exact render boundaries; immediate source publications remain distinct and ordered while completed projection is coalesced into render slices with a default budget of 1,024 distinct canonical ids. The framework cooperative host/paint yield occurs after each render slice, and the complete replay remains one History transition inside one outer transaction.',
+        'Props removal replay preserves each exact REMOVE_PROPERTY source payload as one ordered canonical owner batch and does not expand it into per-component Factory journal entries.',
         'Undo and redo inside an existing command boundary retain their replay journal until the outer close.',
         'Nested replay moves its source history stack only on outer commit; outer rollback leaves the original undo or redo source available.',
         'A successful nested replay followed by outer rollback restores runtime through the complete source replay in the opposite direction even without a replay journal or with a mixed replay journal, and restoration does not record a second journal.',
@@ -283,6 +295,7 @@
         'registered inverse generators',
         'factory-owned undo and redo stacks',
         '@asyra/reactive-events synchronous typed apply route and replay context',
+        '@asyra/reactive-events cooperative render policy and host-yield adapter',
         '@asyra/scene-tree canonical restoration owner',
         '@asyra/props-manager canonical restoration owner',
         'Factory instance-local selection restoration owner'
@@ -290,7 +303,10 @@
       forbiddenContributors: [
         'public undo invocation as rollback implementation',
         'feature cleanup',
-        'persistence save'
+        'persistence save',
+        'DataTransact-owned animation frame, timer, or browser scheduler',
+        'app-local duplicate cooperative render scheduler',
+        'AI-, fixture-, or item-count-specific replay history'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -300,6 +316,8 @@
         'packages/core/src/core.ts',
         'packages/core/src/__tests__/element-selection-api.test.ts',
         'packages/reactive-events/src/event-bus.ts',
+        'packages/reactive-events/src/app/publish.ts',
+        'packages/reactive-events/src/cooperative-render.ts',
         'packages/reactive-events/src/transaction-owner.ts',
         'packages/reactive-events/src/transaction-replay.ts',
         'packages/reactive-events/src/scene-tree/events.ts',
@@ -317,6 +335,7 @@
         'packages/utils/src/__tests__/setter.test.ts',
         'packages/preset/src/subscriptions/data-channel.ts',
         'apps/asyra-design/e2e/delete-element.spec.ts',
+        'apps/asyra-design/e2e/collaboration-ai-agent-video.spec.ts',
         'docs/ai/framework/packages/factory.md',
         'docs/ai/framework/packages/scene-tree.md',
         'docs/ai/framework/plans/completed/transaction-atomicity-and-rollback-plan.md',
@@ -485,7 +504,8 @@
       from: 'finalize-transaction-state',
       to: 'settle-local-shared-projection',
       kind: 'normal',
-      predicate: 'canonical commit, rollback, discard, or failure outcome exists',
+      predicate:
+        'canonical commit, rollback, discard, or failure outcome exists',
       producedArtifacts: ['artifact:canonical-transaction-outcome']
     },
     {
@@ -509,10 +529,7 @@
     {
       id: 'artifact:transaction-boundary',
       ownerStepId: 'coordinate-transaction-boundary',
-      consumerStepIds: [
-        'record-reversible-journal',
-        'decide-feature-outcome'
-      ],
+      consumerStepIds: ['record-reversible-journal', 'decide-feature-outcome'],
       channel: 'transaction-lifecycle',
       terminal: false
     },
@@ -573,10 +590,7 @@
       id: 'rollback-restores-recorded-state',
       statement:
         'A failed uncommitted action restores every successfully reversible rollbackable mutation in reverse order without history effects.',
-      stepIds: [
-        'record-reversible-journal',
-        'finalize-transaction-state'
-      ],
+      stepIds: ['record-reversible-journal', 'finalize-transaction-state'],
       artifactIds: [
         'artifact:active-transaction-journal',
         'artifact:canonical-transaction-outcome'
@@ -603,10 +617,7 @@
       id: 'instance-local-status',
       statement:
         'Factory and Core instance status never crosses into another custom runtime instance.',
-      stepIds: [
-        'settle-local-shared-projection',
-        'acknowledge-persistence'
-      ],
+      stepIds: ['settle-local-shared-projection', 'acknowledge-persistence'],
       artifactIds: [
         'artifact:transaction-result',
         'artifact:persistence-status'
@@ -657,8 +668,7 @@
     authority: {
       specPath,
       inspectorPath,
-      semanticOwner:
-        'completed/transaction-atomicity-and-rollback-plan.md',
+      semanticOwner: 'completed/transaction-atomicity-and-rollback-plan.md',
       inspectorOwner: 'transaction-flow-inspector.data.cjs'
     },
     links: [

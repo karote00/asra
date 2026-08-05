@@ -97,9 +97,14 @@ class OrderedBatchReplaySubject extends ReplaySubject<AllEvent> {
 const eventBus = new OrderedBatchReplaySubject()
 
 type SynchronousEventHandler = (event: AllEvent) => unknown
+type SynchronousEventBatchHandler = (events: readonly AllEvent[]) => unknown
 const synchronousEventHandlers = new Map<
   AllEvent['type'],
   Set<SynchronousEventHandler>
+>()
+const synchronousEventBatchHandlers = new Map<
+  AllEvent['type'],
+  Set<SynchronousEventBatchHandler>
 >()
 
 export const publishEventsToObservers = (events: readonly AllEvent[]): void => {
@@ -115,6 +120,31 @@ export const applyEventToSynchronousOwners = (event: AllEvent): boolean => {
   if (handlers) {
     ;[...handlers].forEach((handler) => {
       const result = handler(event)
+      if (result !== false) {
+        applied = true
+        acknowledgeTransactionReplayApplied()
+      }
+    })
+  }
+  return applied
+}
+
+export const hasSynchronousEventBatchHandler = (
+  type: AllEvent['type']
+): boolean => (synchronousEventBatchHandlers.get(type)?.size ?? 0) > 0
+
+export const applyEventBatchToSynchronousOwners = (
+  events: readonly AllEvent[]
+): boolean => {
+  const firstEvent = events[0]
+  if (!firstEvent || events.some((event) => event.type !== firstEvent.type)) {
+    return false
+  }
+  const handlers = synchronousEventBatchHandlers.get(firstEvent.type)
+  let applied = false
+  if (handlers) {
+    ;[...handlers].forEach((handler) => {
+      const result = handler(events)
       if (result !== false) {
         applied = true
         acknowledgeTransactionReplayApplied()
@@ -143,6 +173,23 @@ export const subscribeToSynchronousEvent = <T extends AllEvent>(
     handlers.delete(handler)
     if (handlers.size === 0) {
       synchronousEventHandlers.delete(type)
+    }
+  })
+}
+
+export const subscribeToSynchronousEventBatch = <T extends AllEvent>(
+  type: T['type'],
+  subscriber: (events: readonly T[]) => unknown
+): Subscription => {
+  const handler = subscriber as SynchronousEventBatchHandler
+  const handlers = synchronousEventBatchHandlers.get(type) ?? new Set()
+  handlers.add(handler)
+  synchronousEventBatchHandlers.set(type, handlers)
+
+  return new Subscription(() => {
+    handlers.delete(handler)
+    if (handlers.size === 0) {
+      synchronousEventBatchHandlers.delete(type)
     }
   })
 }

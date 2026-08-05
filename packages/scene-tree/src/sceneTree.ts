@@ -297,7 +297,8 @@ interface PreparedElementRemovalArtifact {
     | 'canonical-element-removal'
     | 'subtree-removal'
   readonly entries: readonly PreparedElementRemovalEntry[]
-  readonly relationSetBefore: readonly ElementPropertyRelation[]
+  readonly relationRevisionBefore: number
+  readonly relationIndexUpdates: readonly ElementPropertyRelationIndexUpdate[]
   readonly parentChildrenBefore: ReadonlyMap<string, readonly string[]>
   readonly parentChildrenAfter: ReadonlyMap<string, readonly string[]>
 }
@@ -674,6 +675,7 @@ class SceneTree {
     string,
     readonly ElementPropertyRelation[]
   >()
+  private elementPropertyRelationRevision = 0
 
   constructor(
     private readonly propsManagerOwner: PropsManager = propsManager
@@ -685,12 +687,6 @@ class SceneTree {
     return (
       this.elementPropertyRelationsByComponentId.get(componentId) ??
       EMPTY_ELEMENT_PROPERTY_RELATIONS
-    )
-  }
-
-  private captureElementPropertyRelationSet(): readonly ElementPropertyRelation[] {
-    return freezeElementPropertyRelations(
-      [...this.elementPropertyRelationsByComponentId.values()].flat()
     )
   }
 
@@ -784,13 +780,21 @@ class SceneTree {
   private prepareElementPropertyRelationRemovals(
     elements: readonly ElementInstanceTypes[]
   ): readonly ElementPropertyRelationIndexUpdate[] {
+    return this.prepareElementPropertyRelationRemovalsFromRelations(
+      elements.flatMap((element) =>
+        collectElementPropertyRelations(element.save())
+      )
+    )
+  }
+
+  private prepareElementPropertyRelationRemovalsFromRelations(
+    relations: readonly ElementPropertyRelation[]
+  ): readonly ElementPropertyRelationIndexUpdate[] {
     const removalsByComponentId = new Map<string, ElementPropertyRelation[]>()
-    elements.forEach((element) => {
-      collectElementPropertyRelations(element.save()).forEach((relation) => {
-        const removals = removalsByComponentId.get(relation.componentId) ?? []
-        removals.push(relation)
-        removalsByComponentId.set(relation.componentId, removals)
-      })
+    relations.forEach((relation) => {
+      const removals = removalsByComponentId.get(relation.componentId) ?? []
+      removals.push(relation)
+      removalsByComponentId.set(relation.componentId, removals)
     })
     return Object.freeze(
       [...removalsByComponentId].map(([componentId, removals]) => {
@@ -830,31 +834,33 @@ class SceneTree {
     )
   }
 
-  private collectRootPropertyIdsExcluding(
-    excludedElementIds: ReadonlySet<string>
+  private collectRootPropertyIdsAfterRelationUpdates(
+    updates: readonly ElementPropertyRelationIndexUpdate[]
   ): readonly string[] {
-    const retainedRootPropertyIds: string[] = []
-    const retainedRootPropertyIdSet = new Set<string>()
-    this._elements.forEach((element, elementId) => {
-      if (excludedElementIds.has(elementId)) {
-        return
-      }
-      collectElementPropertyRelations(element.save()).forEach(
-        ({ componentId }) => {
-          if (!retainedRootPropertyIdSet.has(componentId)) {
-            retainedRootPropertyIdSet.add(componentId)
-            retainedRootPropertyIds.push(componentId)
-          }
-        }
-      )
-    })
-    return Object.freeze(retainedRootPropertyIds)
+    const relationsAfterByComponentId = new Map(
+      updates.map(({ componentId, relationsAfter }) => [
+        componentId,
+        relationsAfter
+      ])
+    )
+    return Object.freeze(
+      [...this.elementPropertyRelationsByComponentId]
+        .filter(
+          ([componentId, currentRelations]) =>
+            (relationsAfterByComponentId.get(componentId) ?? currentRelations)
+              .length > 0
+        )
+        .map(([componentId]) => componentId)
+    )
   }
 
   private applyElementPropertyRelationIndexUpdates(
     updates: readonly ElementPropertyRelationIndexUpdate[],
     direction: 'forward' | 'reverse'
   ): void {
+    if (updates.length === 0) {
+      return
+    }
     updates.forEach(({ componentId, relationsBefore, relationsAfter }) => {
       const relations =
         direction === 'forward' ? relationsAfter : relationsBefore
@@ -864,6 +870,7 @@ class SceneTree {
         this.elementPropertyRelationsByComponentId.set(componentId, relations)
       }
     })
+    this.elementPropertyRelationRevision += 1
   }
 
   private addElementsToCanonicalMap(
@@ -949,6 +956,7 @@ class SceneTree {
       this.buildElementPropertyRelationIndex(elements.values())
     this._elements = new Map(elements)
     this.elementPropertyRelationsByComponentId = nextRelations
+    this.elementPropertyRelationRevision += 1
   }
 
   _init(): void {
@@ -1892,16 +1900,15 @@ class SceneTree {
       | PreparedElementRemoval['kind']
       | PreparedCanonicalElementRemoval['kind']
   ): PreparedElementRemoval | PreparedCanonicalElementRemoval {
-    const relationSetBefore = this.captureElementPropertyRelationSet()
+    const relationRevisionBefore = this.elementPropertyRelationRevision
     if (removals.length === 0) {
       const preparedMutation = cloneAndFreezeSceneValue({
         kind,
         orderedElementIds: [],
         relationReleases: [],
         orphanRootPropertyIds: [],
-        retainedRootPropertyIds: this.collectRootPropertyIdsExcluding(
-          new Set()
-        ),
+        retainedRootPropertyIds:
+          this.collectRootPropertyIdsAfterRelationUpdates([]),
         evidence: []
       }) as PreparedElementRemoval | PreparedCanonicalElementRemoval
       this.preparedElementMutationArtifacts.set(preparedMutation, {
@@ -1910,7 +1917,8 @@ class SceneTree {
             ? 'element-removal'
             : 'canonical-element-removal',
         entries: Object.freeze([]),
-        relationSetBefore,
+        relationRevisionBefore,
+        relationIndexUpdates: Object.freeze([]),
         parentChildrenBefore: new Map(),
         parentChildrenAfter: new Map()
       })
@@ -2020,9 +2028,12 @@ class SceneTree {
         Object.freeze(children.filter((id) => !removalIds.has(id)))
       ])
     )
-    const relationIndexUpdates = this.prepareElementPropertyRelationRemovals(
-      candidates.map(({ element }) => element)
-    )
+    const relationIndexUpdates =
+      this.prepareElementPropertyRelationRemovalsFromRelations(
+        sourceEntries.flatMap(({ data }) =>
+          collectElementPropertyRelations(data)
+        )
+      )
     const relationReleases = relationIndexUpdates.map(
       ({ componentId, relationsBefore, relationsAfter }) => {
         const retainedTupleKeys = new Set(
@@ -2048,7 +2059,8 @@ class SceneTree {
       orphanRootPropertyIds: relationReleases
         .filter(({ retainedRelations }) => retainedRelations.length === 0)
         .map(({ componentId }) => componentId),
-      retainedRootPropertyIds: this.collectRootPropertyIdsExcluding(removalIds),
+      retainedRootPropertyIds:
+        this.collectRootPropertyIdsAfterRelationUpdates(relationIndexUpdates),
       evidence: [
         {
           action: SCENE_TREE_ACTIONS.REMOVE_ELEMENTS,
@@ -2077,7 +2089,8 @@ class SceneTree {
           })
         )
       ),
-      relationSetBefore,
+      relationRevisionBefore,
+      relationIndexUpdates,
       parentChildrenBefore,
       parentChildrenAfter
     })
@@ -2102,7 +2115,7 @@ class SceneTree {
 
   prepareSubtreeRemoval(elementId: string): PreparedSubtreeRemoval {
     this.validateCanonicalHierarchy()
-    const relationSetBefore = this.captureElementPropertyRelationSet()
+    const relationRevisionBefore = this.elementPropertyRelationRevision
     const removed = this.collectSubtreeRemovalEntries(elementId)
     const rootEntry = removed[removed.length - 1]
     const removalIds = new Set(removed.map((entry) => entry.elementId))
@@ -2160,7 +2173,9 @@ class SceneTree {
       )
     }
     const relationIndexUpdates =
-      this.prepareElementPropertyRelationRemovals(elements)
+      this.prepareElementPropertyRelationRemovalsFromRelations(
+        removed.flatMap(({ data }) => collectElementPropertyRelations(data))
+      )
     const relationReleases = relationIndexUpdates.map(
       ({ componentId, relationsBefore, relationsAfter }) => {
         const retainedTupleKeys = new Set(
@@ -2186,7 +2201,8 @@ class SceneTree {
       orphanRootPropertyIds: relationReleases
         .filter(({ retainedRelations }) => retainedRelations.length === 0)
         .map(({ componentId }) => componentId),
-      retainedRootPropertyIds: this.collectRootPropertyIdsExcluding(removalIds),
+      retainedRootPropertyIds:
+        this.collectRootPropertyIdsAfterRelationUpdates(relationIndexUpdates),
       evidence: [
         {
           eventName: EventTypes.CHANGE_SUBTREE,
@@ -2211,7 +2227,8 @@ class SceneTree {
           })
         )
       ),
-      relationSetBefore,
+      relationRevisionBefore,
+      relationIndexUpdates,
       parentChildrenBefore,
       parentChildrenAfter
     })
@@ -2531,40 +2548,14 @@ class SceneTree {
         )
       }
       const removalElements = artifact.entries.map(({ element }) => element)
-      const removalElementIds = new Set(
-        artifact.entries.map(({ data }) => data.id)
-      )
       if (
-        !isEqual(
-          this.captureElementPropertyRelationSet(),
-          artifact.relationSetBefore
-        )
+        this.elementPropertyRelationRevision !== artifact.relationRevisionBefore
       ) {
         throw new Error(
           '[SceneTree] Cannot apply stale element property relation set'
         )
       }
-      const relationIndexUpdates =
-        this.prepareElementPropertyRelationRemovals(removalElements)
-      const expectedRelationIndexUpdates =
-        preparedMutation.relationReleases.map(
-          ({ componentId, relationsBefore, retainedRelations }) => ({
-            componentId,
-            relationsBefore,
-            relationsAfter: retainedRelations
-          })
-        )
-      if (
-        !isEqual(relationIndexUpdates, expectedRelationIndexUpdates) ||
-        !isEqual(
-          this.collectRootPropertyIdsExcluding(removalElementIds),
-          preparedMutation.retainedRootPropertyIds
-        )
-      ) {
-        throw new Error(
-          '[SceneTree] Cannot apply stale element property relation set'
-        )
-      }
+      const relationIndexUpdates = artifact.relationIndexUpdates
       artifact.parentChildrenBefore.forEach((children, parentId) => {
         const parent = this.getElementById(parentId)
         if (
@@ -5176,6 +5167,7 @@ class SceneTree {
   dispose() {
     this._elements.clear()
     this.elementPropertyRelationsByComponentId.clear()
+    this.elementPropertyRelationRevision += 1
     this._deletedMap.clear()
     this.changes = []
     this.workspace = ''

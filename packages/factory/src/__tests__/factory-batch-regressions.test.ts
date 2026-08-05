@@ -40,6 +40,229 @@ const payloadId = (value: unknown): string | undefined =>
   (value as { id?: string } | undefined)?.id
 
 describe('Factory batch regression contracts', () => {
+  it('cooperatively groups immediate owner batches by the render item budget', async () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    const replayedIds: string[] = []
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_PROPERTY,
+      (event) => {
+        const payload = (
+          event as AllEvent & {
+            payload: { id: string; before: number; after: number }
+          }
+        ).payload
+        replayedIds.push(payload.id)
+        factory.updateTransaction({
+          type: TransactionEventTypes.UPDATE_TRANSACTION,
+          eventName: event.type,
+          payload,
+          options: { shared: SharedDataChannelNames.SCENE_TREE }
+        })
+        return true
+      }
+    )
+    const publications: SharedPublication[] = []
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
+    )
+    const immediateBatch = (ids: readonly string[]) =>
+      ids.map((id) => ({
+        ...createUpdateEvent(
+          id,
+          SharedDataChannelNames.SCENE_TREE,
+          EventTypes.UPDATE_PROPERTY,
+          {
+            orderedIds: [id],
+            sharedRecords: [createRecord(id)]
+          }
+        ),
+        options: {
+          shared: SharedDataChannelNames.SCENE_TREE,
+          sharedDelivery: 'immediate' as const
+        }
+      }))
+
+    factory.startTransaction()
+    factory.updateTransactionBatch(immediateBatch(['element-a', 'element-b']))
+    await Promise.resolve()
+    factory.updateTransactionBatch(immediateBatch(['element-c', 'element-d']))
+    await Promise.resolve()
+    factory.updateTransactionBatch(immediateBatch(['element-e', 'element-f']))
+    await Promise.resolve()
+    factory.endTransaction()
+
+    publications.length = 0
+    const settledBatches: {
+      publicationCount: number
+      replayedIds: string[]
+    }[] = []
+    factory.startTransaction()
+    await factory.getTransactionOwner().undoProgressively(
+      async () => {
+        settledBatches.push({
+          publicationCount: publications.length,
+          replayedIds: [...replayedIds]
+        })
+        await Promise.resolve()
+      },
+      { maxItemsPerSlice: 3 }
+    )
+    factory.endTransaction()
+
+    expect(settledBatches).toEqual([
+      {
+        publicationCount: 2,
+        replayedIds: ['element-f', 'element-e', 'element-d', 'element-c']
+      },
+      {
+        publicationCount: 3,
+        replayedIds: [
+          'element-f',
+          'element-e',
+          'element-d',
+          'element-c',
+          'element-b',
+          'element-a'
+        ]
+      }
+    ])
+  })
+
+  it('cooperatively yields after each recorded progressive Undo and Redo slice', async () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    const replayedIds: string[] = []
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_PROPERTY,
+      (event) => {
+        const payload = (
+          event as AllEvent & {
+            payload: { id: string; before: number; after: number }
+          }
+        ).payload
+        replayedIds.push(payload.id)
+        factory.updateTransaction({
+          type: TransactionEventTypes.UPDATE_TRANSACTION,
+          eventName: event.type,
+          payload,
+          options: { shared: SharedDataChannelNames.SCENE_TREE }
+        })
+        return true
+      }
+    )
+    const publications: SharedPublication[] = []
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
+    )
+
+    factory.startTransaction()
+    const handle = factory.updateTransactionBatch(
+      ['element-a', 'element-b', 'element-c', 'element-d'].map((id) => ({
+        ...createUpdateEvent(
+          id,
+          SharedDataChannelNames.SCENE_TREE,
+          EventTypes.UPDATE_PROPERTY,
+          {
+            orderedIds: [id],
+            sharedRecords: [createRecord(id)]
+          }
+        )
+      }))
+    )
+    handle?.setDeliverySequence({
+      mode: 'progressive',
+      slices: [
+        {
+          sliceId: 'slice-a',
+          orderedIds: ['element-a', 'element-b']
+        },
+        {
+          sliceId: 'slice-b',
+          orderedIds: ['element-c', 'element-d']
+        }
+      ]
+    })
+    handle?.deliverSlice('slice-a')
+    handle?.deliverSlice('slice-b')
+    factory.endTransaction()
+
+    expect(factory.getUndoHistoryDepth()).toBe(1)
+    publications.length = 0
+    replayedIds.length = 0
+    const undoSlices: {
+      historyDepth: number
+      publicationCount: number
+      replayedIds: string[]
+    }[] = []
+
+    factory.startTransaction()
+    await factory.getTransactionOwner().undoProgressively(async () => {
+      undoSlices.push({
+        historyDepth: factory.getUndoHistoryDepth(),
+        publicationCount: publications.length,
+        replayedIds: [...replayedIds]
+      })
+      await Promise.resolve()
+    })
+    expect(factory.getUndoHistoryDepth()).toBe(1)
+    factory.endTransaction()
+
+    expect(undoSlices).toEqual([
+      {
+        historyDepth: 1,
+        publicationCount: 1,
+        replayedIds: ['element-d', 'element-c']
+      },
+      {
+        historyDepth: 1,
+        publicationCount: 2,
+        replayedIds: ['element-d', 'element-c', 'element-b', 'element-a']
+      }
+    ])
+    expect(factory.getUndoHistoryDepth()).toBe(0)
+
+    publications.length = 0
+    replayedIds.length = 0
+    const redoSlices: {
+      historyDepth: number
+      publicationCount: number
+      replayedIds: string[]
+    }[] = []
+
+    factory.startTransaction()
+    await factory.getTransactionOwner().redoProgressively(async () => {
+      redoSlices.push({
+        historyDepth: factory.getUndoHistoryDepth(),
+        publicationCount: publications.length,
+        replayedIds: [...replayedIds]
+      })
+      await Promise.resolve()
+    })
+    expect(factory.getUndoHistoryDepth()).toBe(0)
+    factory.endTransaction()
+
+    expect(redoSlices).toEqual([
+      {
+        historyDepth: 0,
+        publicationCount: 1,
+        replayedIds: ['element-a', 'element-b']
+      },
+      {
+        historyDepth: 0,
+        publicationCount: 2,
+        replayedIds: ['element-a', 'element-b', 'element-c', 'element-d']
+      }
+    ])
+    expect(factory.getUndoHistoryDepth()).toBe(1)
+  })
+
   it('delivers duplicate cross-channel canonical ids in slice-major order', () => {
     const factory = new Factory()
     factory.registerSharedDataChannel(

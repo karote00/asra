@@ -496,15 +496,20 @@ Import boundary:
 
 `historyApis` (`src/common-apis/history.ts`)
 
-- `undo(): void`
-- `redo(): void`
+- `undo(options?: CooperativeRenderOptions): Promise<void>`
+- `redo(options?: CooperativeRenderOptions): Promise<void>`
+  - `mode` defaults to `progressive`; `mode: 'atomic'` is an explicit opt-out
+    from intermediate host/paint yields
+  - progressive mode defaults `maxItemsPerSlice` to 1,024 distinct canonical
+    ids; callers may provide another positive safe-integer render budget
 - `createAiHistoryProjection()` creates one disposable,
   app-root-local observer over canonical user-action, Undo, and Redo events
   - `beginTurn(turnId)` / `endTurn(turnId)` bracket transaction correlation
   - `getCurrentActionId()` exposes only the latest canonical action identity
   - `correlateCommittedAction(actionId)` accepts only that current identity
-  - `undoCurrent()` / `redoCurrent()` fail closed when the correlated action is
-    stale
+  - `undoCurrent()` / `redoCurrent()` return `Promise<boolean>`, fail closed
+    when the correlated action is stale or another replay is pending, and
+    resolve only after canonical completion
   - the projection stores no history stack, inverse, canonical snapshot, or
     replay patch
 

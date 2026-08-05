@@ -11,7 +11,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { decodeProfiledWebSocketFrame } from '../src/collaboration/websocket-profile-frame'
-import { getUndoHistoryDepth, undo, waitForAppReady } from './test-utils'
+import { getUndoHistoryDepth, redo, undo, waitForAppReady } from './test-utils'
 import { seedServerResponse } from './server-response-inbox'
 
 interface CanonicalAiDrawingSnapshot {
@@ -35,6 +35,52 @@ interface ProgressiveCreationEvidence {
   readonly observedElementCounts: readonly number[]
   readonly peerFirstVisibleMs: number
   readonly processedPublicationCount: number
+}
+
+interface HistoryReplayPaintEvidence {
+  readonly canonicalCount: number
+  readonly renderedCount: number
+}
+
+interface HistoryReplayPaintSequence {
+  readonly redo: HistoryReplayPaintEvidence[]
+  readonly undo: HistoryReplayPaintEvidence[]
+}
+
+interface HistoryReplayPhaseSummary {
+  readonly count: number
+  readonly name: string
+  readonly totalDurationMs: number
+}
+
+interface HistoryReplayPhaseSequence {
+  readonly journals: Readonly<
+    Partial<
+      Record<
+        'redo' | 'undo',
+        {
+          readonly entryCount: number
+          readonly eventTypeCounts: Readonly<Record<string, number>>
+        }
+      >
+    >
+  >
+  readonly redo: readonly HistoryReplayPhaseSummary[]
+  readonly undo: readonly HistoryReplayPhaseSummary[]
+}
+
+interface HistoryReplaySourceSummary {
+  readonly deliveredRecordCount: number
+  readonly entryCount: number
+  readonly eventTypeCounts: Readonly<Record<string, number>>
+  readonly immediateEntryCount: number
+  readonly progressiveSliceCount: number
+  readonly sourceBatchCount: number
+  readonly sourceBatchDeliveryCountDistribution: Readonly<
+    Record<string, number>
+  >
+  readonly sourceBatchDeliveryMax: number
+  readonly sourceBatchDeliveryMin: number
 }
 
 interface CollaborationOutcomeEvidence {
@@ -180,6 +226,8 @@ const referenceImagePath = fileURLToPath(
   new URL('../samples/crdt-7076/reference-image.png', import.meta.url)
 )
 const RUN_HIGH_DETAIL_CRDT = process.env.RUN_HIGH_DETAIL_AI_CRDT === '1'
+const RUN_HIGH_DETAIL_UNDO_REPRO =
+  process.env.RUN_HIGH_DETAIL_UNDO_REPRO === '1'
 const CAPTURE_HIGH_DETAIL_CRDT_VISUAL_REVIEW =
   process.env.CAPTURE_AI_CRDT_VISUAL_REVIEW === '1'
 const recordingWindowWidth = 1280
@@ -725,6 +773,239 @@ const getCanonicalAiDrawingSnapshot = (
       whiteBackgrounds: whiteBackgrounds.sort((left, right) =>
         left.id.localeCompare(right.id)
       )
+    }
+  })
+
+const getCanonicalAiElementCount = (page: Page): Promise<number> =>
+  page.evaluate(async () => {
+    const { core } = await import('../src/testing/runtime-access')
+    let count = 0
+    core.deps.sceneTree.getAllElements().forEach((element) => {
+      if (element.get('type') !== 'workspace') {
+        count += 1
+      }
+    })
+    return count
+  })
+
+const installHistoryReplayPaintCapture = (page: Page): Promise<void> =>
+  page.evaluate(async () => {
+    const { core, testRuntimeState } = await import(
+      '../src/testing/runtime-access'
+    )
+    const evidence = testRuntimeState.set<HistoryReplayPaintSequence>(
+      'ai-history-replay-paints',
+      { redo: [], undo: [] }
+    )
+    core.deps.factory.subscribeToSharedPublication(
+      (publication: { origin: string }) => {
+        if (publication.origin !== 'undo' && publication.origin !== 'redo') {
+          return
+        }
+        const direction = publication.origin
+        globalThis.requestAnimationFrame(() => {
+          const elements = Array.from(
+            core.deps.sceneTree.getAllElements().entries()
+          ).filter(([, element]) => element.get('type') !== 'workspace')
+          evidence[direction].push({
+            canonicalCount: elements.length,
+            renderedCount: elements.filter(([id]) =>
+              Boolean(core.deps.render.getElementById(id))
+            ).length
+          })
+        })
+      }
+    )
+  })
+
+const getHistoryReplayPaintCapture = (
+  page: Page
+): Promise<HistoryReplayPaintSequence> =>
+  page.evaluate(async () => {
+    const { testRuntimeState } = await import('../src/testing/runtime-access')
+    return (
+      testRuntimeState.get<HistoryReplayPaintSequence>(
+        'ai-history-replay-paints'
+      ) ?? { redo: [], undo: [] }
+    )
+  })
+
+const installHistoryReplayPhaseCapture = (page: Page): Promise<void> =>
+  page.evaluate(async () => {
+    const { core, subscribeToBrowserDragPhases, testRuntimeState } =
+      await import('../src/testing/runtime-access')
+    const capture = testRuntimeState.set<{
+      active: 'redo' | 'undo' | null
+      journals: Partial<
+        Record<
+          'redo' | 'undo',
+          {
+            entryCount: number
+            eventTypeCounts: Record<string, number>
+          }
+        >
+      >
+      redo: Map<string, { count: number; totalDurationMs: number }>
+      undo: Map<string, { count: number; totalDurationMs: number }>
+    }>('ai-history-replay-phases', {
+      active: null,
+      journals: {},
+      redo: new Map(),
+      undo: new Map()
+    })
+    subscribeToBrowserDragPhases((name, durationMs) => {
+      if (!capture.active) return
+      const totals = capture[capture.active]
+      const current = totals.get(name) ?? {
+        count: 0,
+        totalDurationMs: 0
+      }
+      totals.set(name, {
+        count: current.count + 1,
+        totalDurationMs: current.totalDurationMs + durationMs
+      })
+    })
+    core.deps.factory.subscribeToTransactionStatus(
+      ({ origin, status }: { origin: string; status: string }) => {
+        if (
+          status !== 'committed' ||
+          (origin !== 'undo' && origin !== 'redo')
+        ) {
+          return
+        }
+        const journal = (
+          core.deps.factory.transact as unknown as {
+            journal?: readonly {
+              event?: { type?: string }
+            }[]
+          }
+        ).journal
+        const eventTypeCounts: Record<string, number> = {}
+        journal?.forEach((entry) => {
+          const eventType = entry.event?.type ?? 'unknown'
+          eventTypeCounts[eventType] = (eventTypeCounts[eventType] ?? 0) + 1
+        })
+        capture.journals[origin] = {
+          entryCount: journal?.length ?? 0,
+          eventTypeCounts
+        }
+      }
+    )
+  })
+
+const setHistoryReplayPhaseDirection = (
+  page: Page,
+  direction: 'redo' | 'undo' | null
+): Promise<void> =>
+  page.evaluate(async (nextDirection) => {
+    const { testRuntimeState } = await import('../src/testing/runtime-access')
+    const capture = testRuntimeState.get<{
+      active: 'redo' | 'undo' | null
+    }>('ai-history-replay-phases')
+    if (capture) {
+      capture.active = nextDirection
+    }
+  }, direction)
+
+const getHistoryReplayPhaseCapture = (
+  page: Page
+): Promise<HistoryReplayPhaseSequence> =>
+  page.evaluate(async () => {
+    const { testRuntimeState } = await import('../src/testing/runtime-access')
+    const capture = testRuntimeState.get<{
+      journals: HistoryReplayPhaseSequence['journals']
+      redo: Map<string, { count: number; totalDurationMs: number }>
+      undo: Map<string, { count: number; totalDurationMs: number }>
+    }>('ai-history-replay-phases')
+    const summarize = (
+      totals:
+        | Map<string, { count: number; totalDurationMs: number }>
+        | undefined
+    ) =>
+      [...(totals ?? new Map())]
+        .map(([name, summary]) => ({ name, ...summary }))
+        .sort((left, right) => right.totalDurationMs - left.totalDurationMs)
+    return {
+      journals: capture?.journals ?? {},
+      redo: summarize(capture?.redo),
+      undo: summarize(capture?.undo)
+    }
+  })
+
+const getHistoryReplaySourceSummary = (
+  page: Page
+): Promise<HistoryReplaySourceSummary> =>
+  page.evaluate(async () => {
+    const { core } = await import('../src/testing/runtime-access')
+    const transact = core.deps.factory.transact as unknown as {
+      undoStack?: readonly {
+        entries?: readonly {
+          event?: { type?: string }
+          options?: { sharedDelivery?: string }
+          shared?: {
+            records?: readonly {
+              batch?: {
+                batchId?: string
+                deliveries?: readonly unknown[]
+              }
+              delivered?: boolean
+            }[]
+          }
+        }[]
+        progressiveDeliverySequence?: {
+          slices?: readonly unknown[]
+        }
+      }[]
+    }
+    const history = transact.undoStack?.[transact.undoStack.length - 1]
+    const entries = history?.entries ?? []
+    const eventTypeCounts: Record<string, number> = {}
+    const batchDeliveryCounts = new Map<string, number>()
+    let deliveredRecordCount = 0
+    let immediateEntryCount = 0
+    entries.forEach((entry) => {
+      const eventType = entry.event?.type ?? 'unknown'
+      eventTypeCounts[eventType] = (eventTypeCounts[eventType] ?? 0) + 1
+      if (entry.options?.sharedDelivery === 'immediate') {
+        immediateEntryCount += 1
+      }
+      entry.shared?.records?.forEach((record) => {
+        if (record.delivered) {
+          deliveredRecordCount += 1
+        }
+        const batchId = record.batch?.batchId
+        if (batchId && !batchDeliveryCounts.has(batchId)) {
+          batchDeliveryCounts.set(
+            batchId,
+            record.batch?.deliveries?.length ?? 0
+          )
+        }
+      })
+    })
+    const sourceBatchDeliveryCounts = [...batchDeliveryCounts.values()]
+    const sourceBatchDeliveryCountDistribution: Record<string, number> = {}
+    sourceBatchDeliveryCounts.forEach((count) => {
+      const key = String(count)
+      sourceBatchDeliveryCountDistribution[key] =
+        (sourceBatchDeliveryCountDistribution[key] ?? 0) + 1
+    })
+    return {
+      deliveredRecordCount,
+      entryCount: entries.length,
+      eventTypeCounts,
+      immediateEntryCount,
+      progressiveSliceCount:
+        history?.progressiveDeliverySequence?.slices?.length ?? 0,
+      sourceBatchCount: batchDeliveryCounts.size,
+      sourceBatchDeliveryCountDistribution,
+      sourceBatchDeliveryMax:
+        sourceBatchDeliveryCounts.length > 0
+          ? Math.max(...sourceBatchDeliveryCounts)
+          : 0,
+      sourceBatchDeliveryMin:
+        sourceBatchDeliveryCounts.length > 0
+          ? Math.min(...sourceBatchDeliveryCounts)
+          : 0
     }
   })
 
@@ -2997,6 +3278,221 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
       })
     }
     await Promise.all([actorAContext.close(), actorBContext.close()])
+  }
+})
+
+test('undoes and redoes one complete high-detail cat action without crashing the App', async ({
+  browser
+}, testInfo) => {
+  test.skip(
+    !RUN_HIGH_DETAIL_UNDO_REPRO,
+    'High-detail Undo regression is an explicit opt-in gate.'
+  )
+  test.setTimeout(420_000)
+  const context = await browser.newContext({
+    deviceScaleFactor: 1,
+    viewport: { height: 720, width: 1280 }
+  })
+  const page = await context.newPage()
+  const browserErrors: string[] = []
+  let pageCrashed = false
+  page.on('crash', () => {
+    pageCrashed = true
+  })
+  page.on('pageerror', (error) => {
+    browserErrors.push(error.message)
+  })
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      browserErrors.push(message.text())
+    }
+  })
+
+  const evidence: {
+    afterUndo?: CanonicalAiDrawingSnapshot
+    afterRedo?: CanonicalAiDrawingSnapshot
+    beforeUndo?: CanonicalAiDrawingSnapshot
+    browserErrors: string[]
+    historyReplayPaints?: HistoryReplayPaintSequence
+    historyReplayPhases?: HistoryReplayPhaseSequence
+    historyReplaySource?: HistoryReplaySourceSummary
+    pageCrashed: boolean
+    redoDurationMs?: number
+    undoDurationMs?: number
+  } = {
+    browserErrors,
+    pageCrashed
+  }
+
+  try {
+    const fileId = `ai-high-detail-undo-${Date.now()}`
+    await seedServerResponse(context, {
+      appUrl: collaborationUrl(fileId),
+      fileId,
+      itemCount: 7075
+    })
+    await page.goto(collaborationUrl(fileId))
+    await waitForAppReady(page)
+    await captureProgressiveRuntimeEvidence(page)
+    await installHistoryReplayPaintCapture(page)
+    await installHistoryReplayPhaseCapture(page)
+    await openAgent(page)
+    await dropReferenceImage(page)
+
+    const historyBefore = await getUndoHistoryDepth(page)
+    await submitTurn(page, exactCatOnlyPrompt, 1)
+    evidence.beforeUndo = await getCanonicalAiDrawingSnapshot(page)
+    expect(evidence.beforeUndo).toMatchObject({
+      groupCount: 1,
+      totalCount: 7076,
+      vectorCount: 7075
+    })
+    expect(await getUndoHistoryDepth(page)).toBe(historyBefore + 1)
+    evidence.historyReplaySource = await getHistoryReplaySourceSummary(page)
+    // eslint-disable-next-line no-console
+    console.log(
+      `AI_HIGH_DETAIL_HISTORY_SOURCE ${JSON.stringify(
+        evidence.historyReplaySource
+      )}`
+    )
+
+    await setHistoryReplayPhaseDirection(page, 'undo')
+    const undoStartedAt = Date.now()
+    await undo(page)
+    await expect
+      .poll(() => getCanonicalAiElementCount(page), { timeout: 30_000 })
+      .toBe(0)
+    evidence.undoDurationMs = Date.now() - undoStartedAt
+    await setHistoryReplayPhaseDirection(page, null)
+    evidence.afterUndo = await getCanonicalAiDrawingSnapshot(page)
+
+    expect(pageCrashed).toBe(false)
+    expect(browserErrors).toEqual([])
+    expect(await getUndoHistoryDepth(page)).toBe(historyBefore)
+
+    await setHistoryReplayPhaseDirection(page, 'redo')
+    const redoStartedAt = Date.now()
+    await redo(page)
+    await expect
+      .poll(() => getCanonicalAiElementCount(page), { timeout: 30_000 })
+      .toBe(7076)
+    evidence.redoDurationMs = Date.now() - redoStartedAt
+    await setHistoryReplayPhaseDirection(page, null)
+    expect(evidence.redoDurationMs).toBeLessThanOrEqual(30_000)
+    expect(evidence.undoDurationMs).toBeLessThanOrEqual(12_000)
+    expect(evidence.undoDurationMs).toBeLessThanOrEqual(
+      evidence.redoDurationMs * 1.5
+    )
+    evidence.afterRedo = await getCanonicalAiDrawingSnapshot(page)
+    expect(evidence.afterRedo).toEqual(evidence.beforeUndo)
+    expect(await getUndoHistoryDepth(page)).toBe(historyBefore + 1)
+
+    await expect
+      .poll(() => getHistoryReplayPaintCapture(page), { timeout: 5_000 })
+      .toMatchObject({
+        redo: expect.arrayContaining([
+          expect.objectContaining({
+            canonicalCount: expect.any(Number),
+            renderedCount: expect.any(Number)
+          })
+        ]),
+        undo: expect.arrayContaining([
+          expect.objectContaining({
+            canonicalCount: expect.any(Number),
+            renderedCount: expect.any(Number)
+          })
+        ])
+      })
+    evidence.historyReplayPaints = await getHistoryReplayPaintCapture(page)
+    evidence.historyReplayPhases = await getHistoryReplayPhaseCapture(page)
+    const isIntermediatePaint = ({
+      canonicalCount,
+      renderedCount
+    }: HistoryReplayPaintEvidence) =>
+      canonicalCount > 0 &&
+      canonicalCount < 7076 &&
+      renderedCount >= 0 &&
+      renderedCount < 7076
+    expect(evidence.historyReplayPaints.undo.some(isIntermediatePaint)).toBe(
+      true
+    )
+    expect(evidence.historyReplayPaints.redo.some(isIntermediatePaint)).toBe(
+      true
+    )
+    evidence.pageCrashed = pageCrashed
+  } finally {
+    evidence.pageCrashed = pageCrashed
+    if (!evidence.historyReplayPaints && !page.isClosed()) {
+      evidence.historyReplayPaints = await getHistoryReplayPaintCapture(
+        page
+      ).catch(() => undefined)
+    }
+    if (!evidence.historyReplayPhases && !page.isClosed()) {
+      evidence.historyReplayPhases = await getHistoryReplayPhaseCapture(
+        page
+      ).catch(() => undefined)
+    }
+    if (!page.isClosed()) {
+      const diagnostics = await getCollaborationDiagnostics(page).catch(
+        () => undefined
+      )
+      const summarizePaintObservations = (
+        observations: readonly HistoryReplayPaintEvidence[]
+      ) =>
+        observations.reduce<HistoryReplayPaintEvidence[]>(
+          (distinct, observation) => {
+            const previous = distinct.at(-1)
+            if (
+              previous?.canonicalCount !== observation.canonicalCount ||
+              previous.renderedCount !== observation.renderedCount
+            ) {
+              distinct.push(observation)
+            }
+            return distinct
+          },
+          []
+        )
+      // eslint-disable-next-line no-console
+      console.log(
+        `AI_HIGH_DETAIL_HISTORY_RESULT ${JSON.stringify({
+          browserErrors,
+          diagnostics: diagnostics
+            ? {
+                recentStatuses: diagnostics.factoryStatuses.slice(-4)
+              }
+            : undefined,
+          historyReplayPaints: evidence.historyReplayPaints
+            ? {
+                redoDistinctCounts: summarizePaintObservations(
+                  evidence.historyReplayPaints.redo
+                ),
+                redoLast: evidence.historyReplayPaints.redo.at(-1),
+                redoObservationCount: evidence.historyReplayPaints.redo.length,
+                undoDistinctCounts: summarizePaintObservations(
+                  evidence.historyReplayPaints.undo
+                ),
+                undoLast: evidence.historyReplayPaints.undo.at(-1),
+                undoObservationCount: evidence.historyReplayPaints.undo.length
+              }
+            : undefined,
+          historyReplayPhases: evidence.historyReplayPhases
+            ? {
+                journals: evidence.historyReplayPhases.journals,
+                redo: evidence.historyReplayPhases.redo.slice(0, 12),
+                undo: evidence.historyReplayPhases.undo.slice(0, 12)
+              }
+            : undefined,
+          pageCrashed,
+          redoDurationMs: evidence.redoDurationMs,
+          undoDurationMs: evidence.undoDurationMs
+        })}`
+      )
+    }
+    await testInfo.attach('high-detail-undo-evidence.json', {
+      body: JSON.stringify(evidence, null, 2),
+      contentType: 'application/json'
+    })
+    await context.close().catch(() => undefined)
   }
 })
 

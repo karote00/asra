@@ -3,6 +3,7 @@ import {
   getTransactionReplayMode,
   subscribeToEventBatches,
   subscribeToSynchronousEvent,
+  subscribeToSynchronousEventBatch,
   subscribeToSceneTreeInit,
   subscribeToSceneTreeLoadData,
   sceneTreeLoadComplete,
@@ -54,6 +55,56 @@ export const initSceneTreeSubscribes = () => {
     sceneTree.load(payload.data)
     sceneTreeLoadComplete()
   })
+
+  const applyElementReplayBatch = (
+    events: readonly (AddElementEvent | RemoveElementEvent)[]
+  ): boolean => {
+    const firstEvent = events[0]
+    if (!firstEvent || getTransactionReplayMode() === null) {
+      return false
+    }
+    const entries = events.map(({ payload }) => {
+      const { data } = payload
+      const { parentId, index } = payload as typeof payload & {
+        parentId?: string
+        index?: number
+      }
+      if (
+        typeof data.id !== 'string' ||
+        typeof parentId !== 'string' ||
+        !Number.isInteger(index) ||
+        Number(index) < 0
+      ) {
+        throw new Error(
+          `Cannot replay element ${data.id ?? ''}: exact parent-index evidence is required`
+        )
+      }
+      return {
+        data: data as ElementRawData,
+        parentId,
+        index: Number(index)
+      }
+    })
+    const preparedMutation =
+      firstEvent.type === EventTypes.ADD_ELEMENT
+        ? sceneTree.prepareCanonicalElementInsertion({ entries })
+        : sceneTree.prepareCanonicalElementRemoval(entries)
+    return (
+      sceneTree.applyPreparedElementMutation(
+        preparedMutation,
+        firstEvent.options
+      ).orderedElementIds.length === entries.length
+    )
+  }
+
+  subscribeToSynchronousEventBatch<AddElementEvent>(
+    EventTypes.ADD_ELEMENT,
+    applyElementReplayBatch
+  )
+  subscribeToSynchronousEventBatch<RemoveElementEvent>(
+    EventTypes.REMOVE_ELEMENT,
+    applyElementReplayBatch
+  )
 
   subscribeToSynchronousEvent<AddElementEvent>(
     EventTypes.ADD_ELEMENT,

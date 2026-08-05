@@ -103,6 +103,12 @@ const isAddPropertyChange = (
   change.action === PROPS_ACTIONS.ADD_PROPERTY &&
   change.eventName === EventTypes.ADD_PROPERTY
 
+const isRemovePropertyChange = (
+  change: PropsChange
+): change is AddRemovePropertyChange =>
+  change.action === PROPS_ACTIONS.REMOVE_PROPERTY &&
+  change.eventName === EventTypes.REMOVE_PROPERTY
+
 const isUpdatePropertyChange = (
   change: PropsChange
 ): change is UpdatePropertyChange =>
@@ -5788,6 +5794,41 @@ class PropsManager {
   private prepareCanonicalPropertyBatch(): PropsChange[] {
     if (this.changes.length < 2) {
       return this.changes
+    }
+
+    const removeChanges = this.changes.filter(isRemovePropertyChange)
+    if (removeChanges.length === this.changes.length) {
+      const firstRemove = removeChanges[0]
+      if (!firstRemove) {
+        return this.changes
+      }
+      const { data: _firstData, ...firstRemoveContract } = firstRemove
+      const removedIds = new Set<string>()
+      const removedData: PropertyComponentRawData[] = []
+      for (const removeChange of removeChanges) {
+        const { data: _data, ...removeContract } = removeChange
+        if (!isEqual(removeContract, firstRemoveContract)) {
+          return this.changes
+        }
+        for (const propertyData of removeChange.data) {
+          const propertyId = propertyData.id
+          if (
+            typeof propertyId !== 'string' ||
+            propertyId.length === 0 ||
+            removedIds.has(propertyId)
+          ) {
+            return this.changes
+          }
+          removedIds.add(propertyId)
+          removedData.push(propertyData)
+        }
+      }
+      return [
+        {
+          ...firstRemove,
+          data: removedData
+        }
+      ]
     }
 
     const addChanges = this.changes.filter(isAddPropertyChange)

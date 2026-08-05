@@ -58,6 +58,9 @@ packages/props-manager/src/
 
 - manager records property changes for transaction integration
 - add/remove/update paths stay consistent with manager change tracking
+- multiple compatible removals produced by one exact `REMOVE_PROPERTY`
+  payload remain one ordered canonical removal event; Props Manager does not
+  expand that owner batch into one Factory handoff per component
 - pending change buffer is cleaned at transaction end to prevent cross-action leakage
 
 4. Load state application
@@ -140,6 +143,9 @@ pre-start property-type redefinition facade:
   child-first snapshots, registers all new instances through one
   `registerMany(...)` boundary, updates the relationship indexes, and hands one
   ordered evidence batch to the transaction owner.
+- Add and remove replay are batch-symmetric at the transaction boundary:
+  compatible component snapshots from one source payload are handed off once
+  in source order, while a batch of one retains the same shape.
 - Prepared creation snapshots are the canonical apply input. Apply does not
   serialize and deep-compare every newly created component again; custom
   constructors are responsible for obeying their registered schema and

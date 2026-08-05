@@ -23,9 +23,7 @@ test('completed product contract remains the resolvable Inspector authority', ()
     'docs/ai/framework/plans/completed/transaction-atomicity-and-rollback-plan.md'
   )
   assert.ok(fs.existsSync(path.resolve(repoRoot, data.authority.specPath)))
-  assert.ok(
-    fs.existsSync(path.resolve(__dirname, '..', productContract.href))
-  )
+  assert.ok(fs.existsSync(path.resolve(__dirname, '..', productContract.href)))
 })
 
 test('nested rollback is owned by the outer boundary and finalized once', () => {
@@ -57,8 +55,19 @@ test('feature interruption commits current state while failures roll back', () =
   assert.match(contract, /one active session runtime/i)
   assert.match(contract, /cancels the previously active session/i)
   assert.match(contract, /explicit sharedDelivery immediate/i)
+  assert.match(contract, /Undo\/Redo shortcut.*current AI Message Bar/i)
+  assert.match(contract, /default progressive mode/i)
+  assert.match(contract, /await the complete History replay/i)
+  assert.match(contract, /explicit atomic option/i)
+  assert.match(contract, /exclusive shortcut interaction queue/i)
+  assert.match(contract, /AI Message Bar pending guard/i)
+  assert.match(contract, /canonical completion event/i)
   ;[
     'apps/asyra-design/src/features/**',
+    'apps/asyra-design/src/common-apis/history.ts',
+    'apps/asyra-design/src/common-apis/__tests__/history.test.ts',
+    'apps/asyra-design/src/app/ai-history-message-bar.tsx',
+    'apps/asyra-design/src/app/__tests__/ai-history-message-bar.test.tsx',
     'apps/asyra-design/src/properties/fills/use-fill-interactions.ts',
     'apps/asyra-design/src/properties/fills/use-gradient-interactions.ts',
     'apps/asyra-design/src/properties/strokes/use-stroke-interactions.ts',
@@ -67,6 +76,8 @@ test('feature interruption commits current state while failures roll back', () =
     'apps/asyra-design/e2e/properties.spec.ts',
     'apps/asyra-design/e2e/undo-redo.spec.ts',
     'docs/ai/apps/asyra-design/API_SURFACES.md',
+    'docs/ai/apps/asyra-design/features/undo-redo.md',
+    'docs/ai/apps/asyra-design/prd/undo-redo.md',
     'docs/ai/apps/asyra-design/features/move-elements.md',
     'docs/ai/apps/asyra-design/features/pen-tool.md',
     'docs/ai/apps/asyra-design/prd/properties-panel.md',
@@ -118,6 +129,59 @@ test('rollback is distinct from undo history effects', () => {
   assert.match(contract, /non-null event object with a string event type/i)
   assert.match(contract, /attempts the remaining journal inverses/i)
   assert.match(contract, /rollback-failed/i)
+})
+
+test('framework cooperative rendering batches canonical replay before bounded progressive paint', () => {
+  const finalize = step('finalize-transaction-state')
+  const contract = [
+    ...finalize.inputs,
+    ...finalize.conditions,
+    ...finalize.allowedContributors,
+    ...finalize.forbiddenContributors
+  ].join(' ')
+
+  assert.match(contract, /defaults to progressive/i)
+  assert.match(contract, /explicit atomic opt-out/i)
+  assert.match(contract, /complete one full canonical mutation and projection/i)
+  assert.match(contract, /progressive Undo or Redo/i)
+  assert.match(contract, /same canonical replay/i)
+  assert.match(contract, /recorded progressive slice boundaries/i)
+  assert.match(contract, /already-delivered immediate owner-batch boundaries/i)
+  assert.match(contract, /recorded order/i)
+  assert.match(contract, /plural Scene owner apply/i)
+  assert.match(contract, /at most 32/i)
+  assert.match(
+    contract,
+    /immediate source publications remain distinct and ordered/i
+  )
+  assert.match(contract, /1,024 distinct canonical ids/i)
+  assert.match(contract, /host\/paint yield occurs after each render slice/i)
+  assert.match(contract, /one History transition/i)
+  assert.match(contract, /one outer transaction/i)
+  assert.match(
+    contract,
+    /DataTransact-owned animation frame, timer, or browser scheduler/i
+  )
+  assert.match(contract, /app-local duplicate cooperative render scheduler/i)
+  assert.match(
+    contract,
+    /AI-, fixture-, or item-count-specific replay history/i
+  )
+  assert.ok(
+    finalize.implementationBoundary.includes(
+      'packages/reactive-events/src/app/publish.ts'
+    )
+  )
+  assert.ok(
+    finalize.implementationBoundary.includes(
+      'packages/reactive-events/src/cooperative-render.ts'
+    )
+  )
+  assert.ok(
+    finalize.implementationBoundary.includes(
+      'apps/asyra-design/e2e/collaboration-ai-agent-video.spec.ts'
+    )
+  )
 })
 
 test('setter-backed replay acknowledgement stays at the canonical owner boundary', () => {
@@ -214,10 +278,16 @@ test('replace-latest History staging is explicit, bundle-based, and local-only',
   assert.match(journalContract, /ordinary mutations preserve every/i)
   assert.match(journalContract, /explicitly opt into/i)
   assert.match(journalContract, /gesture-keyed replace-latest History stage/i)
-  assert.match(journalContract, /complete owner-issued History candidate bundles/i)
+  assert.match(
+    journalContract,
+    /complete owner-issued History candidate bundles/i
+  )
   assert.match(journalContract, /first complete before bundle/i)
   assert.match(journalContract, /latest complete after bundle reference/i)
-  assert.match(journalContract, /does not perform a per-element pending-History merge/i)
+  assert.match(
+    journalContract,
+    /does not perform a per-element pending-History merge/i
+  )
   assert.match(journalContract, /never enters canonical payloads/i)
   assert.match(journalContract, /collaboration wire data/i)
   assert.match(finalizeContract, /ordinary state-owner-backed History/i)
@@ -266,7 +336,10 @@ test('shared append failure restores the transaction before commit effects', () 
   const contract = [...shared.conditions, ...shared.bypasses].join(' ')
 
   assert.match(contract, /append failure before application requests rollback/i)
-  assert.match(contract, /leaves no final undo history or user-action-completed/i)
+  assert.match(
+    contract,
+    /leaves no final undo history or user-action-completed/i
+  )
   assert.match(contract, /partially delivered transaction-end changes/i)
 })
 
@@ -279,12 +352,12 @@ test('persistence failure never owns runtime rollback', () => {
   ].join(' ')
 
   assert.match(contract, /queue in order/i)
-  assert.match(contract, /captures its configured provider and CoreRawData snapshot/i)
-  assert.match(contract, /deeply detached from live mutable references/i)
   assert.match(
     contract,
-    /commit-capture handoff.*before.*reentrant.*observer/i
+    /captures its configured provider and CoreRawData snapshot/i
   )
+  assert.match(contract, /deeply detached from live mutable references/i)
+  assert.match(contract, /commit-capture handoff.*before.*reentrant.*observer/i)
   assert.match(contract, /remote.*does not request persistence/i)
   assert.match(contract, /do not request persistence/i)
   assert.match(contract, /never rolls back committed runtime state/i)

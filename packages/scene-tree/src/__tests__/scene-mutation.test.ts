@@ -406,6 +406,18 @@ describe('SceneTree owner-issued mutation prepared mutations', () => {
     expect(publicSurface).not.toHaveProperty('addChangeForRemoveElement')
   })
 
+  it('prepares and applies an exact removal without serializing unrelated active elements', () => {
+    const unrelatedSave = second.save.bind(second)
+    second.save = vi.fn(unrelatedSave)
+    const preparedMutation = sceneTree.prepareElementRemoval([first.get('id')])
+
+    runWithTransactionOwner(createTransactionOwner(), () =>
+      sceneTree.applyPreparedElementMutation(preparedMutation)
+    )
+
+    expect(second.save).not.toHaveBeenCalled()
+  })
+
   it('applies one detached raw preparedMutation once through one Scene-only batch', () => {
     const requests = [
       {

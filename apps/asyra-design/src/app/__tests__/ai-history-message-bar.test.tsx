@@ -15,10 +15,12 @@ describe('AI current history Message Bar', () => {
         turnId: string
       } | null
       disposed: boolean
+      replaying: boolean
     }
     let historySnapshot: HistorySnapshot = {
       control: null,
-      disposed: false
+      disposed: false,
+      replaying: false
     }
     const historyObservers = new Set<(snapshot: HistorySnapshot) => void>()
     const notifyHistory = () => {
@@ -26,7 +28,7 @@ describe('AI current history Message Bar', () => {
     }
     const history = {
       getSnapshot: () => historySnapshot,
-      redoCurrent: vi.fn(() => {
+      redoCurrent: vi.fn(async () => {
         historySnapshot = {
           ...historySnapshot,
           control: historySnapshot.control
@@ -44,7 +46,7 @@ describe('AI current history Message Bar', () => {
         observer(historySnapshot)
         return () => historyObservers.delete(observer)
       },
-      undoCurrent: vi.fn(() => {
+      undoCurrent: vi.fn(async () => {
         historySnapshot = {
           ...historySnapshot,
           control: historySnapshot.control
@@ -113,13 +115,36 @@ describe('AI current history Message Bar', () => {
           direction: 'undo',
           turnId: 'conversation-a:turn:1'
         },
-        disposed: false
+        disposed: false,
+        replaying: false
       }
       notifyHistory()
     })
 
     expect(screen.getByText('Drawing updated successfully.')).toBeTruthy()
     expect(screen.queryByText(/secret-canonical-id/)).toBeNull()
+    act(() => {
+      historySnapshot = {
+        ...historySnapshot,
+        replaying: true
+      }
+      notifyHistory()
+    })
+    expect(
+      screen.getByRole('button', { name: 'Undo AI change' })
+    ).toHaveProperty('disabled', true)
+    expect(
+      screen
+        .getByRole('button', { name: 'Undo AI change' })
+        .getAttribute('aria-busy')
+    ).toBe('true')
+    act(() => {
+      historySnapshot = {
+        ...historySnapshot,
+        replaying: false
+      }
+      notifyHistory()
+    })
     fireEvent.click(screen.getByRole('button', { name: 'Undo AI change' }))
     expect(history.undoCurrent).toHaveBeenCalledOnce()
     fireEvent.click(screen.getByRole('button', { name: 'Redo AI change' }))
@@ -128,7 +153,8 @@ describe('AI current history Message Bar', () => {
     act(() => {
       historySnapshot = {
         control: null,
-        disposed: false
+        disposed: false,
+        replaying: false
       }
       notifyHistory()
     })

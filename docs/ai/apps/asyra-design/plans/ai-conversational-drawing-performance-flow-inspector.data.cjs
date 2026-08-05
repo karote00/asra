@@ -364,6 +364,8 @@
         'A successful mutating turn creates one intended Undo action, and Undo and Redo each restore the complete action.',
         'Existing Undo and Redo journal replay preserves owner event order and returns to the canonical owner; only an actually delivered shared change is eligible for the corresponding replay publication.',
         'Progressive publication boundaries create no new canonical writes and no additional history actions.',
+        'The reusable framework cooperative render policy defaults to progressive, while an explicit atomic opt-out is available to future dependent bulk interactions that must settle a complete canonical mutation and projection before their next mutation.',
+        'Undo and Redo reuse the source action progressive slice boundaries or already-delivered immediate owner-batch boundaries. Compatible consecutive single-element Scene events inside one source boundary use the plural Scene owner apply in batches of at most 32 after complete preflight. Recorded progressive boundaries remain exact render boundaries; immediate source publications remain distinct and ordered while completed projection is coalesced into render slices with a default budget of 1,024 distinct canonical ids. The framework host-yield/paint adapter exposes each render slice without splitting the one History transition or outer transaction.',
         'Rollback of an already-published immediate slice uses compensation from the inverse already retained by the existing journal.',
         'An observer mutation attempt cannot pollute another consumer or the retained journal entry.',
         'Single-delivery conveniences delegate to batch-of-one rather than a second canonical implementation.'
@@ -377,6 +379,7 @@
         'Factory transaction and journal owners with their ordered canonical evidence',
         'Factory shared-data channel',
         'Reactive Events batch transaction contract that forwards and observes the ordered canonical batch without a scalar owner path',
+        'Reactive Events cooperative render policy and host-yield/paint adapter',
         'ordinary ordered canonical delivery evidence'
       ],
       forbiddenContributors: [
@@ -390,6 +393,7 @@
         'inverseEvents, History evidence, rollback evidence, or synonymous payload aliases in the transport wire artifact',
         'parallel old and new SharedPublication types, compatibility conversion, or optional legacy aliases',
         'AI-specific history or compensation',
+        'app-local duplicate cooperative render scheduler',
         'dropped or reordered canonical changes'
       ],
       cacheDimensions: [],
@@ -401,12 +405,14 @@
         'packages/factory/src/shared-data-channel.ts',
         'packages/reactive-events/src/app/events.ts',
         'packages/reactive-events/src/app/publish.ts',
+        'packages/reactive-events/src/cooperative-render.ts',
         'packages/reactive-events/src/scene-tree/events.ts',
         'packages/reactive-events/src/scene-tree/publish.ts',
         'packages/reactive-events/src/scene-tree/subscribes.ts',
         'packages/reactive-events/src/transaction-owner.ts',
         'packages/reactive-events/src/types.ts',
         'packages/reactive-events/src/__tests__/scene-tree-publish.test.ts',
+        'packages/reactive-events/src/__tests__/cooperative-render.test.ts',
         'packages/reactive-events/src/__tests__/transaction-batch.test.ts',
         'packages/reactive-events/src/__tests__/transaction-boundary.test.ts',
         'packages/scene-tree/src/sceneTree.ts',
@@ -548,7 +554,7 @@
         'artifact:bounded-ai-action-batch-preview',
         'artifact:visible-loading-boundary',
         'artifact:ordered-canonical-element-ids',
-        'single production Conversational AI runtime with fixed cooperative progressive delivery',
+        'single production Conversational AI runtime using the framework cooperative render policy in fixed progressive mode',
         'Feature-owned AbortSignal',
         'App-owned runtime drawing-progress projection',
         'App-owned DOM compositor overlay',
@@ -587,7 +593,7 @@
         'App-owned DOM overlay component and compositor-safe CSS animation',
         'App-owned document interaction lock and existing viewport pan and zoom input routes',
         'Agent conversation Cancel control as the only non-navigation DOM interaction exemption',
-        'App-owned serialized cooperative main-thread scheduling policy'
+        '@asyra/reactive-events cooperative host-yield and paint adapter'
       ],
       forbiddenContributors: [
         '7,000 single-item Core calls',
@@ -604,6 +610,7 @@
         'a second reactive-events bus used as a scheduling or document-admission lock',
         'product delivery-mode switches or delivery URL parameters',
         'performanceContentsMode or another profile-selected product projection',
+        'app-local duplicate cooperative host-yield or paint scheduler',
         'microtask-only progressive yield',
         'one timeout scheduled independently for every prepared range'
       ],
