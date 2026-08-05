@@ -1437,6 +1437,7 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
       getCanonicalCount(actorB)
     ])
 
+    const firstVectorTimeoutMs = 30_000
     let startedAt = 0
     const waitForFirstVector = async (
       actor: 'actor-a' | 'actor-b',
@@ -1446,13 +1447,23 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
     ) => {
       try {
         await expect
-          .poll(() => getCanonicalCount(page), { timeout: 30_000 })
+          .poll(() => getCanonicalCount(page), {
+            timeout: firstVectorTimeoutMs
+          })
           .toBeGreaterThan(canonicalBaseline + 1)
         return Date.now() - startedAt
       } catch (error) {
+        const finalCanonicalCount = await getCanonicalCount(page)
+        const finalElapsedMs = Date.now() - startedAt
+        if (
+          finalCanonicalCount > canonicalBaseline + 1 &&
+          finalElapsedMs <= firstVectorTimeoutMs
+        ) {
+          return finalElapsedMs
+        }
         const diagnostics = {
           actor,
-          elapsedMs: Date.now() - startedAt,
+          elapsedMs: finalElapsedMs,
           pageErrors,
           progress: await getActorProgressDiagnostics(page)
         }
@@ -1502,6 +1513,13 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
         renderedCompleteMs: Date.now() - startedAt
       }
     }
+
+    await actorA.getByTestId('ai-agent-toolbar-button').click()
+    await expect(actorA.getByTestId('ai-agent-panel')).toBeVisible()
+    await actorA
+      .getByLabel('Message Agent')
+      .fill('create the 1280-item CRDT performance fixture')
+    startedAt = Date.now()
     const actorAFirstVector = waitForFirstVector(
       'actor-a',
       actorA,
@@ -1522,13 +1540,6 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
       actorB,
       actorBCanonicalBaseline
     )
-
-    await actorA.getByTestId('ai-agent-toolbar-button').click()
-    await expect(actorA.getByTestId('ai-agent-panel')).toBeVisible()
-    await actorA
-      .getByLabel('Message Agent')
-      .fill('create the 1280-item CRDT performance fixture')
-    startedAt = Date.now()
     await actorA.getByRole('button', { name: 'Send' }).click()
 
     const settledTurn = actorA.getByTestId('ai-agent-message').last()
