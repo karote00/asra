@@ -1206,14 +1206,6 @@ class RenderSceneTree {
       }
       renderDataByElementId.set(data.id, renderData)
     }
-    for (const parentId of entriesByParent.keys()) {
-      if (!sceneTree.getElementById(parentId)) {
-        return entries.map(({ data }) =>
-          this.projectionOutcome(data.id, 'failed')
-        )
-      }
-    }
-
     const appliedParentRemovals: {
       parentId: string
       entries: readonly AddRemoveElementEntry[]
@@ -1536,10 +1528,7 @@ class RenderSceneTree {
     removals: readonly AddRemoveElementEntry[]
   ): RenderProjectionOutcome | null {
     const parent = sceneTree.getElementById(parentId)
-    if (!parent) {
-      return this.projectionOutcome(parentId, 'failed')
-    }
-    if (parent.get('type') === EntityTypes.WORKSPACE) {
+    if (parent?.get('type') === EntityTypes.WORKSPACE) {
       return null
     }
 
@@ -1549,6 +1538,9 @@ class RenderSceneTree {
     )
     if (!applyResult) {
       return this.projectionOutcome(parentId, 'failed')
+    }
+    if (!parent) {
+      return this.projectionOutcome(parentId, 'applied')
     }
 
     this.recordDirtyChange(

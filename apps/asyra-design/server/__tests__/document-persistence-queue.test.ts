@@ -132,6 +132,88 @@ describe('document persistence queue', () => {
     queue.dispose()
   })
 
+  it('retains one complete high-detail create Undo Redo tail behind an in-flight request', async () => {
+    vi.useFakeTimers()
+    const first = Promise.withResolvers<Readonly<{ durableSequence: number }>>()
+    const queue = createDocumentPersistenceQueue({
+      documentId: 'high-detail-history-chain',
+      sendBatch: vi.fn(() => first.promise)
+    })
+    const publicationByteLength = 5 * 1024 * 1024
+
+    queue.enqueue(entry(1, publicationByteLength))
+    void queue.flushNow()
+    await vi.runAllTicks()
+
+    const admission = queue.enqueueBatchWhenAvailable(
+      Array.from({ length: 42 }, (_, index) =>
+        entry(index + 2, publicationByteLength)
+      )
+    )
+    let admitted = false
+    const observedAdmission = admission.then(
+      () => {
+        admitted = true
+      },
+      () => undefined
+    )
+
+    try {
+      await vi.runAllTicks()
+
+      expect(admitted).toBe(true)
+      expect(queue.getState()).toMatchObject({
+        durableSequence: 0,
+        headSequence: 43,
+        pendingCount: 42
+      })
+    } finally {
+      queue.dispose()
+      first.resolve({ durableSequence: 1 })
+      await observedAdmission
+    }
+  })
+
+  it('drains only one contiguous durable prefix within the request byte limit', async () => {
+    vi.useFakeTimers()
+    const first = Promise.withResolvers<Readonly<{ durableSequence: number }>>()
+    const second =
+      Promise.withResolvers<Readonly<{ durableSequence: number }>>()
+    const sendBatch = vi
+      .fn()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise)
+    const queue = createDocumentPersistenceQueue({
+      documentId: 'bounded-durable-request',
+      maxSerializedBytes: 1_000,
+      maxBatchSerializedBytes: 250,
+      sendBatch
+    })
+
+    queue.enqueue(entry(1, 200))
+    void queue.flushNow()
+    await vi.runAllTicks()
+    queue.enqueueBatch([entry(2, 150), entry(3, 150), entry(4, 150)])
+
+    first.resolve({ durableSequence: 1 })
+    await vi.advanceTimersByTimeAsync(3_000)
+
+    expect(sendBatch).toHaveBeenCalledTimes(2)
+    expect(sendBatch.mock.calls[1]?.[0]).toMatchObject({
+      expectedDurableSequence: 1,
+      firstSequence: 2,
+      lastSequence: 2
+    })
+    expect(queue.getState()).toMatchObject({
+      durableSequence: 1,
+      headSequence: 4,
+      pendingCount: 2
+    })
+
+    queue.dispose()
+    second.resolve({ durableSequence: 2 })
+  })
+
   it('stops admission when the bounded next batch fills behind an in-flight request', async () => {
     vi.useFakeTimers()
     const first = Promise.withResolvers<Readonly<{ durableSequence: number }>>()

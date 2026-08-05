@@ -9,7 +9,10 @@ export const MIN_DOCUMENT_PERSISTENCE_FLUSH_INTERVAL_MS = 1_000
 export const MAX_DOCUMENT_PERSISTENCE_FLUSH_INTERVAL_MS = 3_000
 export const DEFAULT_DOCUMENT_PERSISTENCE_RETRY_INTERVAL_MS = 1_000
 export const DEFAULT_DOCUMENT_PERSISTENCE_MAX_PUBLICATIONS = 256
-export const DEFAULT_DOCUMENT_PERSISTENCE_MAX_SERIALIZED_BYTES = 4 * 1024 * 1024
+export const DEFAULT_DOCUMENT_PERSISTENCE_MAX_SERIALIZED_BYTES =
+  256 * 1024 * 1024
+export const DEFAULT_DOCUMENT_PERSISTENCE_MAX_BATCH_SERIALIZED_BYTES =
+  8 * 1024 * 1024
 
 type Awaitable<Value> = Value | Promise<Value>
 
@@ -51,6 +54,7 @@ export interface DocumentPersistenceQueueOptions {
   readonly retryIntervalMs?: number
   readonly maxPublicationCount?: number
   readonly maxSerializedBytes?: number
+  readonly maxBatchSerializedBytes?: number
 }
 
 interface InFlightBatch {
@@ -103,7 +107,8 @@ export const createDocumentPersistenceQueue = ({
   flushIntervalMs = DEFAULT_DOCUMENT_PERSISTENCE_FLUSH_INTERVAL_MS,
   retryIntervalMs = DEFAULT_DOCUMENT_PERSISTENCE_RETRY_INTERVAL_MS,
   maxPublicationCount = DEFAULT_DOCUMENT_PERSISTENCE_MAX_PUBLICATIONS,
-  maxSerializedBytes = DEFAULT_DOCUMENT_PERSISTENCE_MAX_SERIALIZED_BYTES
+  maxSerializedBytes = DEFAULT_DOCUMENT_PERSISTENCE_MAX_SERIALIZED_BYTES,
+  maxBatchSerializedBytes = DEFAULT_DOCUMENT_PERSISTENCE_MAX_BATCH_SERIALIZED_BYTES
 }: DocumentPersistenceQueueOptions): DocumentPersistenceQueue => {
   if (!isNonBlankString(documentId)) {
     throw new Error(
@@ -127,6 +132,14 @@ export const createDocumentPersistenceQueue = ({
   requirePositivePolicy(retryIntervalMs, 'retry interval')
   requirePositivePolicy(maxPublicationCount, 'publication count limit')
   requirePositivePolicy(maxSerializedBytes, 'serialized byte limit')
+  requirePositivePolicy(
+    maxBatchSerializedBytes,
+    'durable batch serialized byte limit'
+  )
+  const effectiveMaxBatchSerializedBytes = Math.min(
+    maxBatchSerializedBytes,
+    maxSerializedBytes
+  )
 
   let durableSequence = initialDurableSequence
   let headSequence = initialDurableSequence
@@ -253,10 +266,24 @@ export const createDocumentPersistenceQueue = ({
       return activeAttempt ?? Promise.resolve()
     }
     clearDirtyTimer()
-    const entries = pending
-    pending = []
-    pendingBytes = 0
-    dirtyStartedAt = undefined
+    let batchBytes = 0
+    let batchEntryCount = 0
+    for (const entry of pending) {
+      if (
+        batchEntryCount > 0 &&
+        batchBytes + entry.byteLength > effectiveMaxBatchSerializedBytes
+      ) {
+        break
+      }
+      batchBytes += entry.byteLength
+      batchEntryCount += 1
+    }
+    const entries = pending.slice(0, batchEntryCount)
+    pending = pending.slice(batchEntryCount)
+    pendingBytes -= batchBytes
+    if (pending.length === 0) {
+      dirtyStartedAt = undefined
+    }
     const firstSequence = entries[0]?.sequence
     const lastSequence = entries.at(-1)?.sequence
     if (

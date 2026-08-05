@@ -666,6 +666,7 @@
         'Core preserves each injected Factory batch through one batch observer callback so Preset consumes the exact boundary without importing the default Factory instance.',
         'Preset and UI consume one local canonical batch directly; transport may expose ordered record ranges, but Factory does not split local projection into single-entry changes.',
         'Each formal local canonical slice or remote publication window performs one batch projection and at most one visible flush.',
+        'When a later owner event in the same transaction already removed a canonical parent, an earlier valid child-removal projection consumes the retained owner event and computed mirror instead of rejecting the child removals solely because the canonical parent is absent.',
         'The fixed progressive composition route preserves every local slice and exposes each bounded remote publication window; it never collapses the complete action to one final-only peer frame.',
         'One invalidation and one frame flush occur at most once per slice.',
         'The ordinary Vector strategy preserves all 7,076 editable elements, complete Render topology, transforms, hierarchy, fills, strokes, and visibility.',
@@ -914,7 +915,7 @@
         'After one source frame enters every request-start peer queue whose peer remains open through admission, the server returns exact source-frame-admitted credit; the provider sends no next publication frame before that credit.',
         'The JSON control fast path remains readable while publication admission is blocked; the server does not use socket-wide pause to bound source frames.',
         'server-accepted means current peer queues had bounded capacity and does not mean a peer decoded or applied the publication.',
-        'peer-applied remains a separate receipt after main-thread canonical apply.',
+        'peer-applied remains a separate receipt after main-thread canonical apply and cooperative projection settlement.',
         'Client and server explicitly configure perMessageDeflate: false.'
       ],
       bypasses: [
@@ -976,8 +977,8 @@
         'The remote Factory transaction exposes a batch-capable owner so the same atomic Factory evidence handoff remains available without Undo, echo publication, or persistence.',
         'Reactive publication takes one observer-registry snapshot and invokes the batch observer once while preserving event order.',
         'Actor B produces no Undo, echo publication, or persistence save; it only applies the received canonical changes and updates downstream projections.',
-        'Remote publication settlement is a discriminated success or terminal failure outcome: success resolves after canonical apply completes, while failure tears down the active and pending publications and releases none.',
-        'The remote owner emits peer-applied after canonical apply completes; it remains distinct from frame-consumed credit and never waits for receiver persistence.'
+        'Remote publication settlement is a discriminated success or terminal failure outcome: success resolves after canonical apply and one cooperative host-and-paint projection settlement complete, while failure tears down the active and pending publications and releases none.',
+        'The remote owner emits peer-applied after canonical apply and projection settlement complete; it remains distinct from frame-consumed credit and never waits for receiver persistence.'
       ],
       bypasses: [
         'Disconnected or closed transport performs no remote transaction.',
@@ -1047,7 +1048,10 @@
         'The required fileId selects only the socket document and Collaboration session; it never selects, preloads, or stores an Agent action payload.',
         'The crdt-7076 sample request uses the same HTTP action-batch interceptor regardless of socket availability. Actor A executes the returned server-prepared batch through ordinary Runtime and canonical owners; a connected Actor B receives only Actor A CRDT publications.',
         'With the socket unavailable, the same HTTP action-batch execution creates all 7,076 canonical elements locally and attempts the same publication route; the failed transport remains recoverable through the ordinary outbox and reports its operation error to the console.',
-        'Each accepted remote publication performs canonical apply and projection with zero persistence, zero Undo, and zero echo. peer-applied acknowledges canonical apply completion and never waits for receiver durability.',
+        'Each accepted remote publication performs canonical apply and one cooperative projection settlement with zero persistence, zero Undo, and zero echo. peer-applied acknowledges canonical and projection completion and never waits for receiver durability.',
+        'The lifecycle gives each immutable Factory publication to the explicit Factory-owned outbox append boundary by identity. The outbox waits for the IndexedDB durable put before socket send but performs no second source-side publication clone or recursive freeze; its generic append boundary still snapshots mutable input.',
+        'The server persistence queue separates its bounded admission buffer from each durable HTTP request: at most 256 publications and 256 MiB of accepted evidence may wait behind one in-flight request, while each durable request drains only one contiguous prefix within an 8 MiB soft wire-byte limit and permits one larger indivisible publication to travel alone.',
+        'Server canonical deletion materialization preserves the same exact owned-property closure and save evidence while traversing its growing reference queue with one monotonic cursor and one visited set; it never performs repeated array-head compaction for high-detail shared or cyclic property graphs.',
         'When accepted publications temporarily fill the bounded persistence queue, source admission waits for durable capacity and resumes in original sequence without closing the source socket, dropping the request, or changing the publication payload.',
         'The request-time Agent transport remains separate from socket document bootstrap and never doubles as a checkpoint, pending tail, or CRDT state owner.',
         'There is no checked-in compressed canonical document Core.load bootstrap, localStorage Reset, sample-specific socket bypass, fake connection success, alternate fileId, old-format compatibility branch, or second canonical state owner.',
@@ -1085,6 +1089,8 @@
         'apps/asyra-design/samples/crdt-7076',
         'apps/asyra-design/server/action-batch.ts',
         'apps/asyra-design/server/__tests__/action-batch.test.ts',
+        'apps/asyra-design/server/document-canonical-reducer.ts',
+        'apps/asyra-design/server/__tests__/document-canonical-reducer.test.ts',
         'apps/asyra-design/server/document-persistence-queue.ts',
         'apps/asyra-design/server/__tests__/document-persistence-queue.test.ts',
         'apps/asyra-design/collaboration-server.ts',
@@ -1095,6 +1101,8 @@
         'apps/asyra-design/src/render-app/index.tsx',
         'apps/asyra-design/src/render-app/collaboration-mode.ts',
         'apps/asyra-design/src/collaboration/lifecycle.ts',
+        'apps/asyra-design/src/collaboration/publication-outbox.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-publication-outbox.test.ts',
         'apps/asyra-design/src/render-app/__tests__/collaboration-mode.test.ts',
         'apps/asyra-design/src/render-app/__tests__/render-app-strict-mode.test.tsx',
         'apps/asyra-design/src/toolbar/tool-button.tsx',
@@ -1345,6 +1353,7 @@
         'Local performance and maximum-detail gates launch background headless Chrome for Testing so automation never steals the product owner desktop focus; they apply no CPU quota, process-count limit, worker-count limit, memory ceiling, software-rendering requirement, or Playwright retry, while workers: 1 limits concurrent test cases only and never limits one browser process group.',
         'A maximum-detail-only rotating DevTools diagnostic may retain one fixed-capacity cross-slice heavy-hitter summary with source locations and explicit approximation error; it stores no profile artifact, does not enter raw CPU percentage or stop decisions, and cannot satisfy the maximum-detail acceptance gate.',
         'Canonical equivalence compares exact IDs, order, point counts, geometry data, complete Render topology, hierarchy, bounds, transforms, roles, styles, visibility, and transaction evidence.',
+        'The guarded 7,076-element history proof requires Actor B Undo and Redo to expose intermediate canonical and Render paints, keep every adjacent distinct progress observation within 20 seconds, converge both projections within 30 seconds, and retain zero receiver Undo, echo, or persistence.',
         'Synchronized Actor A and Actor B screenshots come from the same measured live App state and are inspected for complete uncropped output, Styles, IDs, and hierarchy.',
         'Generated screenshots, recordings, traces, profiles, and thumbnails are ignored and never committed.'
       ],
@@ -2440,7 +2449,7 @@
     {
       id: 'socket-session-publishes-originating-client-outcomes',
       statement:
-        'Ordinary local and AI actions, Undo, and Redo publish from the originating client through the same socket document session or its durable provisional outbox. Each accepted remote publication updates canonical, Render, and UI state with zero receiver persistence, Undo, or echo; peer-applied acknowledges canonical apply, and socket unavailability never selects a second startup path.',
+        'Ordinary local and AI actions, Undo, and Redo publish from the originating client through the same socket document session or its durable provisional outbox. Each accepted remote publication updates canonical, Render, and UI state with zero receiver persistence, Undo, or echo; peer-applied acknowledges canonical apply and cooperative projection settlement, and socket unavailability never selects a second startup path.',
       stepIds: [
         'open-socket-authoritative-document-session',
         'evaluate-endpoint-performance',

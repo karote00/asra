@@ -1687,7 +1687,8 @@ The write timeline is fixed:
    bulk compensation artifact is created.
 6. Local action, Agent action, Undo, and Redo use Core autosave on the client
    that originated the operation. Accepted remote apply uses zero persistence,
-   Undo, or echo; `peer-applied` acknowledges canonical apply completion.
+   Undo, or echo; `peer-applied` acknowledges canonical apply and cooperative
+   projection settlement.
 
 No network frame, publication slice, or observer callback may split the
 intended transaction or history boundary.
@@ -1706,6 +1707,10 @@ intended transaction or history boundary.
 - Preset consumes the batch observer directly. Each canonical publication batch
   causes one projection; each formal slice from the fixed cooperative
   composition remains peer-visible and never collapses to a final-only frame.
+- A valid child-removal owner event remains authoritative for projection when
+  a later event in the same transaction has already removed its canonical
+  parent. Render consumes that event against its computed mirror instead of
+  leaving stale projected children.
 - Render uses the existing ordinary Vector strategy and preserves all 7,076
   editable elements. Each slice causes at most one invalidation and one frame
   flush.
@@ -1762,9 +1767,10 @@ intended transaction or history boundary.
   mutate or retain a second canonical copy.
 - The Provider privately retains only the queue and settlement token needed to
   expose one decoded publication at a time. The consumer Promise resolves after
-  App policy, canonical preflight, and remote apply succeed; that settlement
-  releases the next decoded publication. Terminal failure clears active and
-  pending publications and releases none instead of fabricating progress.
+  App policy, canonical preflight, remote apply, and one cooperative
+  host-and-paint projection settlement succeed; that settlement releases the
+  next decoded publication. Terminal failure clears active and pending
+  publications and releases none instead of fabricating progress.
 - `@asyra/collaboration` has one provider-to-process contract for this async
   handoff. It does not retain a legacy clone mode, public lease wrapper, or
   alternate scalar publication route.
@@ -1819,7 +1825,8 @@ intended transaction or history boundary.
 - Each source publication owns one remote Factory transaction. Different source
   publications are not merged into one transaction.
 - The active decoded publication settles only after that transaction applies
-  successfully. Settlement releases the next publication; failure performs
+  successfully and its ordinary projection crosses one cooperative host-and-
+  paint boundary. Settlement releases the next publication; failure performs
   terminal cleanup and releases none.
 - The worker owns wire validation and normalization only. App policy and
   canonical preflight remain in the App/Core owner.
@@ -1831,8 +1838,8 @@ intended transaction or history boundary.
 - Reactive evidence uses one batch publish with one observer-registry snapshot,
   while preserving exact event order.
 - Actor B creates no Undo, echo publication, or persistence save. It applies
-  the received canonical changes, updates Render/UI projections, and then
-  acknowledges `peer-applied`.
+  the received canonical changes, settles Render/UI projection for that source
+  publication, and then acknowledges `peer-applied`.
 - Disconnection, closed transport, invalid frames, and worker teardown preserve
   existing `ProviderFailure` behavior and never fabricate convergence.
 
@@ -1937,7 +1944,26 @@ intended transaction or history boundary.
   joining the same document session is classified as two-Actor CRDT processing;
   both cases use the same framework and App APIs.
 - Accepted remote publications perform zero receiver persistence, Undo, or
-  echo; `peer-applied` acknowledges canonical apply, not durability.
+  echo; `peer-applied` acknowledges canonical apply plus cooperative projection
+  settlement, not durability.
+- The lifecycle gives each immutable Factory publication to the explicit
+  Factory-owned outbox append boundary by identity. The outbox still waits for
+  the IndexedDB durable `put` before socket send, but it does not clone or
+  recursively freeze that publication a second time before the browser-owned
+  structured clone. The generic outbox append boundary continues to snapshot
+  mutable input.
+- The server persistence queue separates its bounded admission buffer from one
+  durable HTTP request. At most 256 publications and 256 MiB of accepted
+  publication evidence may wait behind an in-flight request, while each
+  durable request drains only one contiguous prefix within an 8 MiB soft
+  wire-byte limit; one larger indivisible publication may travel alone.
+  Reaching either admission limit still pauses the source in original order
+  without closing its socket, dropping evidence, or bypassing persistence.
+- Server canonical deletion materialization preserves the exact owned-property
+  closure, deletion evidence, and persistence save. Its growing reference queue
+  is consumed through one monotonic cursor and the existing visited set, so a
+  large shared or cyclic graph remains linear instead of repeatedly compacting
+  the remaining array from its head.
 - No URL-selected action payload, direct sample-document load, localStorage
   bootstrap, fake connection success, compatibility branch, or second
   canonical state owner is allowed.
@@ -2209,8 +2235,10 @@ capacity, and wire receipt, server acceptance, and peer apply remain distinct.
 ### Remote Batch Apply
 
 Each source publication applies through one remote Factory transaction and one
-batch observer delivery. Actor B converges without persistence, Undo, or echo,
-then emits `peer-applied` after canonical apply completes.
+batch observer delivery, then crosses one cooperative host-and-paint projection
+boundary before the next publication is released. Actor B converges without
+persistence, Undo, or echo, then emits `peer-applied` after canonical and Render
+projection settlement complete.
 
 ### Demo Documents Persist by File
 

@@ -491,17 +491,18 @@ Feature: Conversational AI drawing performance
     And App policy should validate the publication before Core canonical apply
     And Actor B should apply "UPDATE_PROPERTY" without receiving "UPDATE_COMPUTED_DATA" through CRDT
     And Actor B should derive computed state locally and update ordinary Render output
-    And the consumer promise should resolve only after canonical apply completes
+    And the consumer promise should resolve only after canonical apply and one cooperative host-and-paint projection settlement complete
     And Actor B should create no Undo action
     And Actor B should create no echo publication
     And Actor B should perform zero persistence after canonical apply
-    And peer-applied should settle immediately after that canonical apply completes
+    And peer-applied should settle after canonical and projection completion without waiting for receiver durability
 
   Scenario: Remote removal batches preserve container lifecycle
     Given Actor B receives one source publication with adjacent ordered element removals
     When the App derives the remote canonical request
     Then adjacent non-container removals should use one ordered Core canonical request
     But a removal whose canonical element data owns children should remain a lifecycle barrier
+    And an earlier valid child-removal projection should consume its owner event and computed mirror when a later event already removed the canonical parent
     And the App should not merge removal requests across source publications
 
   Scenario: The 7076 sample uses the ordinary socket-authoritative document session
@@ -522,7 +523,7 @@ Feature: Conversational AI drawing performance
     Then Actor B should perform zero persistence
     And Actor B should create no Undo
     And Actor B should create no echo publication
-    And peer-applied should acknowledge canonical apply rather than durability
+    And peer-applied should acknowledge canonical apply and cooperative projection settlement rather than durability
 
   Scenario: The 7076 sample stays usable while the socket is unavailable
     Given the required URL is "/?fileId=crdt-7076-sample"
@@ -555,6 +556,46 @@ Feature: Conversational AI drawing performance
     And Actor A should publish the resulting canonical changes through CRDT
     And Actor B should receive the drawing only through Actor A publications
     And Actor A and Actor B should each finish with 7076 canonical elements
+
+  Scenario: The 7076 remote Undo and Redo remain progressively visible
+    Given Actor A and Actor B have converged on the complete 7076 sample
+    When Actor A performs one Undo
+    Then Actor A should retain the existing one-action History boundary
+    And Actor B should create no Undo, echo publication, or persistence save
+    And Actor B should expose intermediate canonical and Render projection counts before reaching zero
+    And each adjacent distinct Actor B progress observation should be at most 20 seconds apart
+    And both Actors should reach exactly zero canonical and Render projections within 30 seconds
+    When Actor A performs one Redo
+    Then Actor B should expose intermediate canonical and Render projection counts before reaching 7076
+    And each adjacent distinct Actor B progress observation should be at most 20 seconds apart
+    And both Actors should reach exactly 7076 canonical and Render projections within 30 seconds
+    And Actor A and Actor B should retain exact canonical, topology, hierarchy, and style equivalence
+
+  Scenario: Source publications cross the durable outbox without duplicate snapshots
+    Given Factory emits one immutable local SharedPublication
+    When the document lifecycle appends that owner evidence to its durable outbox
+    Then the in-memory outbox record should retain the same Factory publication identity
+    And IndexedDB should complete its durable put before the socket sends that publication
+    But the source should not clone or recursively freeze the publication again before that put
+    And the generic outbox boundary should still snapshot mutable publication input
+
+  Scenario: High-detail source admission remains bounded while durability drains
+    Given one durable publication request is in flight for the source document
+    When one complete high-detail create Undo Redo tail enters the next admission buffer
+    Then the fixed buffer should retain at most 256 publications and 256 MiB of serialized evidence
+    And each durable request should drain only a contiguous prefix within an 8 MiB soft wire-byte limit
+    And one larger indivisible publication should still be allowed to travel alone
+    And accepted source publications should continue to the connected peer while the buffer has capacity
+    But a publication beyond either fixed capacity should wait for durability in original order
+    And that wait should not close the source socket, drop evidence, or bypass persistence
+
+  Scenario: High-detail deletion materializes the exact owned-property closure linearly
+    Given one canonical deletion owns a large shared and cyclic property graph
+    When the server validates and materializes that deletion before admission
+    Then it should retain the same complete visited closure and deletion evidence
+    And it should preserve the same persistence save and Undo Redo restoration semantics
+    But it should consume the growing property-reference queue with one monotonic cursor
+    And it should not repeatedly compact the remaining queue by removing its first item
 
   Scenario: Actor A requests the checked-in 7076 backend sample after Send
     Given the required URL is "/?fileId=crdt-7076-sample"

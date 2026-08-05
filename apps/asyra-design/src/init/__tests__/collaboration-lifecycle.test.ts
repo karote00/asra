@@ -62,6 +62,20 @@ const createDeferred = <Value>() => {
   return { promise, reject, resolve }
 }
 
+const freezePublication = (
+  publication: SharedPublication
+): SharedPublication => {
+  const freezeValue = (value: unknown): void => {
+    if (value === null || typeof value !== 'object' || Object.isFrozen(value)) {
+      return
+    }
+    Object.values(value).forEach(freezeValue)
+    Object.freeze(value)
+  }
+  freezeValue(publication)
+  return publication
+}
+
 const remotePublication = (publicationId: string): SharedPublication => {
   const artifactId = `artifact-${publicationId}`
   const batchId = `batch-${publicationId}`
@@ -80,7 +94,7 @@ const remotePublication = (publicationId: string): SharedPublication => {
     orderedIds: [`position-${publicationId}`],
     payload
   }
-  return {
+  return freezePublication({
     publicationId,
     artifactId,
     transactionId: 1,
@@ -99,7 +113,7 @@ const remotePublication = (publicationId: string): SharedPublication => {
         ]
       }
     ]
-  }
+  })
 }
 
 const harness = {
@@ -177,6 +191,48 @@ it('rejects the consumer promise for a policy-rejected publication outcome', asy
   ).rejects.toThrow(
     '[collaboration] remote publication policy-rejected was rejected'
   )
+})
+
+it('settles each remote publication projection before releasing the handler', async () => {
+  const projectionSettlement = createDeferred<undefined>()
+  const order: string[] = []
+  const processRemotePublication = (
+    createRemotePublicationHandler as unknown as (
+      applyRemotePublication: (publication: SharedPublication) => boolean,
+      settleProjection: () => Promise<void>
+    ) => (publication: SharedPublication) => Promise<void>
+  )(
+    () => {
+      order.push('canonical-apply')
+      return true
+    },
+    async () => {
+      order.push('projection-start')
+      await projectionSettlement.promise
+      order.push('projection-settled')
+    }
+  )
+
+  let handlerSettled = false
+  const handling = processRemotePublication(
+    remotePublication('projection-settlement')
+  ).then(() => {
+    handlerSettled = true
+  })
+  await Promise.resolve()
+
+  expect(order).toEqual(['canonical-apply', 'projection-start'])
+  expect(handlerSettled).toBe(false)
+
+  projectionSettlement.resolve(undefined)
+  await handling
+
+  expect(order).toEqual([
+    'canonical-apply',
+    'projection-start',
+    'projection-settled'
+  ])
+  expect(handlerSettled).toBe(true)
 })
 
 it('opens the socket bootstrap before activation and applies its tail before live delivery starts', async () => {

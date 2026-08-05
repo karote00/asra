@@ -138,7 +138,14 @@ interface CollaborationProfileBatch {
 const collaborationProfileMaximumKeys: Readonly<
   Record<CollaborationProfilePrefix, readonly string[]>
 > = {
-  AI_COLLABORATION_SERVER_PROFILE: ['queueWaitMs', 'totalMs'],
+  AI_COLLABORATION_SERVER_PROFILE: [
+    'decodeMs',
+    'materializeMs',
+    'persistenceCapacityMs',
+    'peerAdmissionMs',
+    'queueWaitMs',
+    'totalMs'
+  ],
   AI_COLLABORATION_SERVER_PEER_WRITE: ['writeCallbackMs', 'queueBytes'],
   AI_COLLABORATION_SERVER_PEER_DRAIN: ['drainMs', 'queueBytes'],
   AI_COLLABORATION_SERVER_PEER_APPLIED: []
@@ -253,6 +260,10 @@ interface InboundPublicationRequest {
   currentChunkCount?: number
   frameCount: number
   frameBytes: number
+  decodeMs: number
+  materializeMs: number
+  persistenceCapacityMs: number
+  peerAdmissionMs: number
   queueWaitMs: number
 }
 
@@ -1142,6 +1153,7 @@ webSocketServer.on('connection', (socket) => {
         '[collaboration] provider handshake is incomplete'
       )
     }
+    const decodeStartedAtMs = performance.now()
     let decoded
     try {
       decoded = decodePublicationMessageFrames(
@@ -1184,6 +1196,7 @@ webSocketServer.on('connection', (socket) => {
         )
       }
     })
+    request.decodeMs += elapsed(decodeStartedAtMs)
 
     return enqueueRoomAdmission(room, async () => {
       const accepted = publications.map((publication) =>
@@ -1215,6 +1228,7 @@ webSocketServer.on('connection', (socket) => {
         return accepted.map((entry) => entry?.sequence as number)
       }
       let nextAdmissionDocument = room.admissionDocument
+      const materializeStartedAtMs = performance.now()
       try {
         canonicalChanges.forEach((changes) => {
           nextAdmissionDocument = applyCanonicalChangesToDocument(
@@ -1232,6 +1246,7 @@ webSocketServer.on('connection', (socket) => {
           publications[0]?.publicationId
         )
       }
+      request.materializeMs += elapsed(materializeStartedAtMs)
 
       const firstSequence = room.headSequence + 1
       const lastSequence = room.headSequence + publications.length
@@ -1249,6 +1264,7 @@ webSocketServer.on('connection', (socket) => {
           .filter(({ header }) => header.publicationIndex === index)
           .reduce((total, { header }) => total + header.frameByteLength, 0)
       }))
+      const persistenceCapacityStartedAtMs = performance.now()
       try {
         await room.persistenceQueue.enqueueBatchWhenAvailable(
           sequenced.map(({ sequence, publication, byteLength }) => ({
@@ -1264,6 +1280,7 @@ webSocketServer.on('connection', (socket) => {
           error
         )
       }
+      request.persistenceCapacityMs += elapsed(persistenceCapacityStartedAtMs)
       sequenced.forEach((entry) => {
         room.acceptedPublications.set(entry.publication.publicationId, entry)
         room.pendingPublications.push(entry)
@@ -1272,6 +1289,7 @@ webSocketServer.on('connection', (socket) => {
       room.headSequence = lastSequence
 
       const sequences = sequenced.map(({ sequence }) => sequence)
+      const peerAdmissionStartedAtMs = performance.now()
       for (const frame of request.frames) {
         const sequence = sequences[frame.header.publicationIndex]
         if (!sequence) {
@@ -1293,6 +1311,7 @@ webSocketServer.on('connection', (socket) => {
           signal
         )
       }
+      request.peerAdmissionMs += elapsed(peerAdmissionStartedAtMs)
       return sequences
     })
   }
@@ -1355,6 +1374,10 @@ webSocketServer.on('connection', (socket) => {
         nextChunkIndex: 0,
         frameCount: 0,
         frameBytes: 0,
+        decodeMs: 0,
+        materializeMs: 0,
+        persistenceCapacityMs: 0,
+        peerAdmissionMs: 0,
         queueWaitMs: 0
       }
     } else {
@@ -1439,6 +1462,10 @@ webSocketServer.on('connection', (socket) => {
           frameCount: request.frameCount,
           frameBytes: request.frameBytes,
           peerCount: request.recipients.filter(({ closed }) => !closed).length,
+          decodeMs: rounded(request.decodeMs),
+          materializeMs: rounded(request.materializeMs),
+          persistenceCapacityMs: rounded(request.persistenceCapacityMs),
+          peerAdmissionMs: rounded(request.peerAdmissionMs),
           queueWaitMs: rounded(request.queueWaitMs),
           totalMs: rounded(elapsed(request.receivedAtMs))
         })

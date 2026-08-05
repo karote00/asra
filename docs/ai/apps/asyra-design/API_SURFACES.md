@@ -220,6 +220,20 @@ Accepted socket-authoritative target:
 - the Asyra Design collaboration lifecycle owns a native IndexedDB outbox of
   immutable local `SharedPublication` values awaiting socket acceptance; this
   is transport recovery, not Core document persistence
+- the lifecycle uses the outbox's explicit Factory-owned append boundary for
+  immutable local publication evidence. The in-memory record retains that
+  owner identity without a second source-side clone or recursive freeze, while
+  the IndexedDB durable `put` still completes before socket send; the generic
+  outbox append boundary still snapshots mutable input
+- the server retains at most 256 publications and 256 MiB of accepted
+  publication evidence behind one in-flight persistence request. Durable HTTP
+  requests drain one contiguous prefix within an 8 MiB soft wire-byte limit,
+  while one larger indivisible publication may travel alone; reaching the
+  bounded admission limit pauses the source without closing its socket
+- server canonical deletion materialization keeps the exact owned-property
+  closure and persistence evidence, using one monotonic reference-queue cursor
+  plus the existing visited set so large shared or cyclic property graphs do
+  not incur repeated array-head compaction
 - connection state and sync state remain distinct; disconnected local editing
   continues, fixed reconnect attempts occur at most once every 30 seconds, and
   ordinary toasts are limited to disconnected/reconnected transitions

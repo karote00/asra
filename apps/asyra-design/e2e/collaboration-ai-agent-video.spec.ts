@@ -38,6 +38,7 @@ interface ProgressiveCreationEvidence {
 }
 
 interface HistoryReplayPaintEvidence {
+  readonly atMs: number
   readonly canonicalCount: number
   readonly renderedCount: number
 }
@@ -780,13 +781,23 @@ const getCanonicalAiDrawingSnapshot = (
 const getCanonicalAiElementCount = (page: Page): Promise<number> =>
   page.evaluate(async () => {
     const { core } = await import('../src/testing/runtime-access')
-    let count = 0
-    core.deps.sceneTree.getAllElements().forEach((element) => {
-      if (element.get('type') !== 'workspace') {
-        count += 1
-      }
-    })
-    return count
+    return (
+      core.deps.sceneTree.getAllElements().size -
+      core.deps.sceneTree.workspaceList.length
+    )
+  })
+
+const getCanonicalAndRenderedAiElementCounts = (
+  page: Page
+): Promise<Readonly<{ canonical: number; rendered: number }>> =>
+  page.evaluate(async () => {
+    const { core } = await import('../src/testing/runtime-access')
+    return {
+      canonical:
+        core.deps.sceneTree.getAllElements().size -
+        core.deps.sceneTree.workspaceList.length,
+      rendered: core.deps.render.getProjectedElementCount()
+    }
   })
 
 const installHistoryReplayPaintCapture = (page: Page): Promise<void> =>
@@ -794,30 +805,65 @@ const installHistoryReplayPaintCapture = (page: Page): Promise<void> =>
     const { core, testRuntimeState } = await import(
       '../src/testing/runtime-access'
     )
-    const evidence = testRuntimeState.set<HistoryReplayPaintSequence>(
-      'ai-history-replay-paints',
-      { redo: [], undo: [] }
-    )
+    const evidence = testRuntimeState.set<
+      HistoryReplayPaintSequence & {
+        active: 'redo' | 'undo' | null
+      }
+    >('ai-history-replay-paints', { active: null, redo: [], undo: [] })
+    const captureNextPaint = (direction: 'redo' | 'undo') => {
+      globalThis.requestAnimationFrame(() => {
+        evidence[direction].push({
+          atMs: globalThis.performance.now(),
+          canonicalCount:
+            core.deps.sceneTree.getAllElements().size -
+            core.deps.sceneTree.workspaceList.length,
+          renderedCount: core.deps.render.getProjectedElementCount()
+        })
+      })
+    }
     core.deps.factory.subscribeToSharedPublication(
       (publication: { origin: string }) => {
         if (publication.origin !== 'undo' && publication.origin !== 'redo') {
           return
         }
-        const direction = publication.origin
-        globalThis.requestAnimationFrame(() => {
-          const elements = Array.from(
-            core.deps.sceneTree.getAllElements().entries()
-          ).filter(([, element]) => element.get('type') !== 'workspace')
-          evidence[direction].push({
-            canonicalCount: elements.length,
-            renderedCount: elements.filter(([id]) =>
-              Boolean(core.deps.render.getElementById(id))
-            ).length
-          })
-        })
+        captureNextPaint(publication.origin)
+      }
+    )
+    core.deps.factory.subscribeToTransactionStatus(
+      ({ origin, status }: { origin: string; status: string }) => {
+        if (origin === 'remote' && status === 'committed' && evidence.active) {
+          captureNextPaint(evidence.active)
+        }
       }
     )
   })
+
+const setHistoryReplayPaintDirection = (
+  page: Page,
+  direction: 'redo' | 'undo' | null
+): Promise<void> =>
+  page.evaluate(async (nextDirection) => {
+    const { core, testRuntimeState } = await import(
+      '../src/testing/runtime-access'
+    )
+    const capture = testRuntimeState.get<{
+      active: 'redo' | 'undo' | null
+      redo: HistoryReplayPaintEvidence[]
+      undo: HistoryReplayPaintEvidence[]
+    }>('ai-history-replay-paints')
+    if (capture) {
+      capture.active = nextDirection
+      if (nextDirection) {
+        capture[nextDirection].push({
+          atMs: globalThis.performance.now(),
+          canonicalCount:
+            core.deps.sceneTree.getAllElements().size -
+            core.deps.sceneTree.workspaceList.length,
+          renderedCount: core.deps.render.getProjectedElementCount()
+        })
+      }
+    }
+  }, direction)
 
 const getHistoryReplayPaintCapture = (
   page: Page
@@ -3136,6 +3182,7 @@ test('keeps two connected Actors converged through one complete high-detail cat 
     historyReplayPhases?: HistoryReplayPhaseSequence
     historyReplaySource?: HistoryReplaySourceSummary
     pageCrashed: typeof pageCrashed
+    peerHistoryReplayPaints?: HistoryReplayPaintSequence
     peerHistoryReplayPhases?: HistoryReplayPhaseSequence
     publicationWindows?: {
       creation: number
@@ -3171,7 +3218,10 @@ test('keeps two connected Actors converged through one complete high-detail cat 
       captureProgressiveRuntimeEvidence(actorA),
       captureProgressiveRuntimeEvidence(actorB)
     ])
-    await installHistoryReplayPaintCapture(actorA)
+    await Promise.all([
+      installHistoryReplayPaintCapture(actorA),
+      installHistoryReplayPaintCapture(actorB)
+    ])
     await Promise.all([
       installHistoryReplayPhaseCapture(actorA),
       installHistoryReplayPhaseCapture(actorB)
@@ -3201,13 +3251,13 @@ test('keeps two connected Actors converged through one complete high-detail cat 
       const deadline = Date.now() + timeoutMs
       while (Date.now() < deadline) {
         const [
-          currentActorACount,
-          currentActorBCount,
+          currentActorACounts,
+          currentActorBCounts,
           actorAState,
           actorBState
         ] = await Promise.all([
-          getCanonicalAiElementCount(actorA),
-          getCanonicalAiElementCount(actorB),
+          getCanonicalAndRenderedAiElementCounts(actorA),
+          getCanonicalAndRenderedAiElementCounts(actorB),
           readSessionState(actorA),
           readSessionState(actorB)
         ])
@@ -3229,13 +3279,13 @@ test('keeps two connected Actors converged through one complete high-detail cat 
             `High-detail history replay disconnected a document session: ${JSON.stringify(
               {
                 actorA: {
-                  canonicalCount: currentActorACount,
+                  ...currentActorACounts,
                   diagnostics:
                     summarizeCollaborationDiagnostics(actorADiagnostics),
                   state: actorAState
                 },
                 actorB: {
-                  canonicalCount: currentActorBCount,
+                  ...currentActorBCounts,
                   diagnostics:
                     summarizeCollaborationDiagnostics(actorBDiagnostics),
                   state: actorBState
@@ -3245,8 +3295,10 @@ test('keeps two connected Actors converged through one complete high-detail cat 
           )
         }
         if (
-          currentActorACount === actorACount &&
-          currentActorBCount === actorBCount
+          currentActorACounts.canonical === actorACount &&
+          currentActorACounts.rendered === actorACount &&
+          currentActorBCounts.canonical === actorBCount &&
+          currentActorBCounts.rendered === actorBCount
         ) {
           return
         }
@@ -3255,8 +3307,8 @@ test('keeps two connected Actors converged through one complete high-detail cat 
       throw new Error(
         `High-detail history replay did not converge while connected: ${JSON.stringify(
           {
-            actorA: await getCanonicalAiElementCount(actorA),
-            actorB: await getCanonicalAiElementCount(actorB),
+            actorA: await getCanonicalAndRenderedAiElementCounts(actorA),
+            actorB: await getCanonicalAndRenderedAiElementCounts(actorB),
             expected: { actorA: actorACount, actorB: actorBCount }
           }
         )}`
@@ -3320,6 +3372,8 @@ test('keeps two connected Actors converged through one complete high-detail cat 
     )
 
     await Promise.all([
+      setHistoryReplayPaintDirection(actorA, 'undo'),
+      setHistoryReplayPaintDirection(actorB, 'undo'),
       setHistoryReplayPhaseDirection(actorA, 'undo'),
       setHistoryReplayPhaseDirection(actorB, 'undo')
     ])
@@ -3331,7 +3385,6 @@ test('keeps two connected Actors converged through one complete high-detail cat 
     evidence.undoDurationMs = Date.now() - undoStartedAt
     await waitForConnectedCounts(0, 0, 120_000)
     evidence.undoConvergenceMs = Date.now() - undoStartedAt
-    expect(evidence.undoConvergenceMs).toBeLessThanOrEqual(30_000)
     const afterUndoPublicationCounts = await readPublicationCounts()
     const undoPublicationWindows =
       afterUndoPublicationCounts.sent - afterCreationPublicationCounts.sent
@@ -3344,6 +3397,8 @@ test('keeps two connected Actors converged through one complete high-detail cat 
         afterCreationPublicationCounts.processed
     ).toBe(undoPublicationWindows)
     await Promise.all([
+      setHistoryReplayPaintDirection(actorA, null),
+      setHistoryReplayPaintDirection(actorB, null),
       setHistoryReplayPhaseDirection(actorA, null),
       setHistoryReplayPhaseDirection(actorB, null)
     ])
@@ -3359,6 +3414,8 @@ test('keeps two connected Actors converged through one complete high-detail cat 
     expect(await getUndoHistoryDepth(actorB)).toBe(actorBHistoryBefore)
 
     await Promise.all([
+      setHistoryReplayPaintDirection(actorA, 'redo'),
+      setHistoryReplayPaintDirection(actorB, 'redo'),
       setHistoryReplayPhaseDirection(actorA, 'redo'),
       setHistoryReplayPhaseDirection(actorB, 'redo')
     ])
@@ -3370,7 +3427,6 @@ test('keeps two connected Actors converged through one complete high-detail cat 
     evidence.redoDurationMs = Date.now() - redoStartedAt
     await waitForConnectedCounts(7076, 7076, 120_000)
     evidence.redoConvergenceMs = Date.now() - redoStartedAt
-    expect(evidence.redoConvergenceMs).toBeLessThanOrEqual(30_000)
     const afterRedoPublicationCounts = await readPublicationCounts()
     const redoPublicationWindows =
       afterRedoPublicationCounts.sent - afterUndoPublicationCounts.sent
@@ -3388,11 +3444,15 @@ test('keeps two connected Actors converged through one complete high-detail cat 
       undo: undoPublicationWindows
     }
     await Promise.all([
+      setHistoryReplayPaintDirection(actorA, null),
+      setHistoryReplayPaintDirection(actorB, null),
       setHistoryReplayPhaseDirection(actorA, null),
       setHistoryReplayPhaseDirection(actorB, null)
     ])
     expect(evidence.redoDurationMs).toBeLessThanOrEqual(30_000)
     expect(evidence.undoDurationMs).toBeLessThanOrEqual(12_000)
+    expect(evidence.undoConvergenceMs).toBeLessThanOrEqual(30_000)
+    expect(evidence.redoConvergenceMs).toBeLessThanOrEqual(30_000)
     expect(evidence.undoDurationMs).toBeLessThanOrEqual(
       evidence.redoDurationMs * 1.5
     )
@@ -3422,6 +3482,8 @@ test('keeps two connected Actors converged through one complete high-detail cat 
         ])
       })
     evidence.historyReplayPaints = await getHistoryReplayPaintCapture(actorA)
+    evidence.peerHistoryReplayPaints =
+      await getHistoryReplayPaintCapture(actorB)
     evidence.historyReplayPhases = await getHistoryReplayPhaseCapture(actorA)
     const isIntermediatePaint = ({
       canonicalCount,
@@ -3431,12 +3493,40 @@ test('keeps two connected Actors converged through one complete high-detail cat 
       canonicalCount < 7076 &&
       renderedCount >= 0 &&
       renderedCount < 7076
+    const expectResponsivePaintProgress = (
+      observations: readonly HistoryReplayPaintEvidence[]
+    ) => {
+      const distinct = observations.filter((observation, index) => {
+        const previous = observations[index - 1]
+        return (
+          !previous ||
+          previous.canonicalCount !== observation.canonicalCount ||
+          previous.renderedCount !== observation.renderedCount
+        )
+      })
+      const gaps = distinct
+        .slice(1)
+        .map(
+          (observation, index) =>
+            observation.atMs - (distinct[index]?.atMs ?? observation.atMs)
+        )
+      expect(distinct.length).toBeGreaterThan(2)
+      expect(Math.max(...gaps)).toBeLessThanOrEqual(20_000)
+    }
     expect(evidence.historyReplayPaints.undo.some(isIntermediatePaint)).toBe(
       true
     )
     expect(evidence.historyReplayPaints.redo.some(isIntermediatePaint)).toBe(
       true
     )
+    expect(
+      evidence.peerHistoryReplayPaints.undo.some(isIntermediatePaint)
+    ).toBe(true)
+    expect(
+      evidence.peerHistoryReplayPaints.redo.some(isIntermediatePaint)
+    ).toBe(true)
+    expectResponsivePaintProgress(evidence.peerHistoryReplayPaints.undo)
+    expectResponsivePaintProgress(evidence.peerHistoryReplayPaints.redo)
     evidence.pageCrashed = { ...pageCrashed }
   } finally {
     evidence.pageCrashed = { ...pageCrashed }
@@ -3452,6 +3542,11 @@ test('keeps two connected Actors converged through one complete high-detail cat 
     }
     if (!evidence.peerHistoryReplayPhases && !actorB.isClosed()) {
       evidence.peerHistoryReplayPhases = await getHistoryReplayPhaseCapture(
+        actorB
+      ).catch(() => undefined)
+    }
+    if (!evidence.peerHistoryReplayPaints && !actorB.isClosed()) {
+      evidence.peerHistoryReplayPaints = await getHistoryReplayPaintCapture(
         actorB
       ).catch(() => undefined)
     }
@@ -3507,6 +3602,22 @@ test('keeps two connected Actors converged through one complete high-detail cat 
               }
             : undefined,
           pageCrashed: evidence.pageCrashed,
+          peerHistoryReplayPaints: evidence.peerHistoryReplayPaints
+            ? {
+                redoDistinctCounts: summarizePaintObservations(
+                  evidence.peerHistoryReplayPaints.redo
+                ),
+                redoLast: evidence.peerHistoryReplayPaints.redo.at(-1),
+                redoObservationCount:
+                  evidence.peerHistoryReplayPaints.redo.length,
+                undoDistinctCounts: summarizePaintObservations(
+                  evidence.peerHistoryReplayPaints.undo
+                ),
+                undoLast: evidence.peerHistoryReplayPaints.undo.at(-1),
+                undoObservationCount:
+                  evidence.peerHistoryReplayPaints.undo.length
+              }
+            : undefined,
           peerHistoryReplayPhases: evidence.peerHistoryReplayPhases
             ? {
                 redo: evidence.peerHistoryReplayPhases.redo.slice(0, 12),
