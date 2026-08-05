@@ -1114,6 +1114,7 @@
         'apps/asyra-design/server/document-backend.ts',
         'apps/asyra-design/server/document-backend-store.ts',
         'apps/asyra-design/server/__tests__/document-backend-reset.test.ts',
+        'apps/asyra-design/e2e/app.spec.ts',
         'apps/asyra-design/playwright.config.ts',
         'apps/asyra-design/__tests__/playwright-config.test.mjs',
         'apps/asyra-design/e2e/crdt-7076-render.spec.ts',

@@ -73,14 +73,27 @@ test.describe('Asyra Design Tool', () => {
     await expect(propertiesPanel).toBeVisible()
   })
 
-  test('should omit the demo-only Reset button for ordinary documents', async ({
+  test('should permanently expose Reset for ordinary documents', async ({
     page
   }) => {
     await waitForAppReady(page)
 
     const toolbar = getToolbar(page)
     const resetButton = toolbar.getByTestId('reset-button')
-    await expect(resetButton).toHaveCount(0)
+    const selectButton = toolbar.getByTestId('tool-select')
+    await expect(resetButton).toBeVisible()
+    await expect(resetButton).toHaveAttribute('aria-label', 'Reset document')
+    await expect(selectButton).toBeVisible()
+    expect(
+      await toolbar.evaluate((toolbarElement) => {
+        const controlIds = Array.from(
+          toolbarElement.querySelectorAll('[data-testid]')
+        ).map((element) => element.getAttribute('data-testid'))
+        const resetIndex = controlIds.indexOf('reset-button')
+        const selectIndex = controlIds.indexOf('tool-select')
+        return resetIndex >= 0 && selectIndex > resetIndex
+      })
+    ).toBe(true)
   })
 
   test('should have Zoom display in toolbar', async ({ page }) => {
