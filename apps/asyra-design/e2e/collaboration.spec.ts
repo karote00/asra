@@ -1350,6 +1350,14 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
   const actorBContext = await browser.newContext()
   const actorA = await actorAContext.newPage()
   const actorB = await actorBContext.newPage()
+  const actorAPageErrors: string[] = []
+  const actorBPageErrors: string[] = []
+  actorA.on('pageerror', (error) =>
+    actorAPageErrors.push(error.stack ?? error.message)
+  )
+  actorB.on('pageerror', (error) =>
+    actorBPageErrors.push(error.stack ?? error.message)
+  )
 
   try {
     await seedServerResponse(actorAContext, {
@@ -1389,6 +1397,34 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
         }
         return profile.readCounterTotal('render-projection-outcome-applied')
       })
+    const getActorProgressDiagnostics = (page: Page) =>
+      page.evaluate(async () => {
+        const runtimeAccess = await import('../src/testing/runtime-access')
+        const profile = runtimeAccess.getActiveAiDrawingPerformanceProfile()
+        if (!profile) {
+          throw new Error('AI drawing performance profile is unavailable')
+        }
+        const snapshot = profile.snapshot()
+        const runtimeEvidence = profile.getRuntimeEvidence()
+        return {
+          canonicalElementCount: profile.readCanonicalElementCount(),
+          collaborationStatus:
+            runtimeAccess.getActiveCollaborationHandle()?.getStatus() ??
+            'missing',
+          factoryPublicationCount: profile.readFactoryPublicationCount(),
+          factoryPublications: runtimeEvidence.factoryPublications,
+          factoryStatuses: runtimeEvidence.factoryStatuses,
+          historyDepth: profile.readHistoryDepth(),
+          latestFactoryTransactionStatus:
+            profile.readLatestFactoryTransactionStatus(),
+          latestOwnerTiming: profile.readLatestPhaseSample(),
+          latestTurnSettlement: profile.readLatestTurnSettlement(),
+          renderProjectionElementCount:
+            profile.readRenderProjectionElementCount(),
+          retainedCounters: snapshot.counters,
+          retainedPhases: snapshot.phases
+        }
+      })
     const [
       actorAUndoDepthBefore,
       actorBUndoDepthBefore,
@@ -1403,13 +1439,48 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
 
     let startedAt = 0
     const waitForFirstVector = async (
+      actor: 'actor-a' | 'actor-b',
       page: Page,
-      canonicalBaseline: number
+      canonicalBaseline: number,
+      pageErrors: readonly string[]
     ) => {
-      await expect
-        .poll(() => getCanonicalCount(page), { timeout: 30_000 })
-        .toBeGreaterThan(canonicalBaseline + 1)
-      return Date.now() - startedAt
+      try {
+        await expect
+          .poll(() => getCanonicalCount(page), { timeout: 30_000 })
+          .toBeGreaterThan(canonicalBaseline + 1)
+        return Date.now() - startedAt
+      } catch (error) {
+        const diagnostics = {
+          actor,
+          elapsedMs: Date.now() - startedAt,
+          pageErrors,
+          progress: await getActorProgressDiagnostics(page)
+        }
+        await testInfo.attach(`1280-item-${actor}-first-vector-timeout.json`, {
+          body: Buffer.from(JSON.stringify(diagnostics, null, 2)),
+          contentType: 'application/json'
+        })
+        throw new Error(
+          `${actor} did not apply its first canonical vector within 30 seconds: ${JSON.stringify(
+            {
+              canonicalElementCount: diagnostics.progress.canonicalElementCount,
+              collaborationStatus: diagnostics.progress.collaborationStatus,
+              elapsedMs: diagnostics.elapsedMs,
+              factoryPublicationCount:
+                diagnostics.progress.factoryPublicationCount,
+              historyDepth: diagnostics.progress.historyDepth,
+              latestFactoryTransactionStatus:
+                diagnostics.progress.latestFactoryTransactionStatus,
+              latestOwnerTiming: diagnostics.progress.latestOwnerTiming,
+              latestTurnSettlement: diagnostics.progress.latestTurnSettlement,
+              pageErrorCount: diagnostics.pageErrors.length,
+              renderProjectionElementCount:
+                diagnostics.progress.renderProjectionElementCount
+            }
+          )}`,
+          { cause: error }
+        )
+      }
     }
     const waitForCompleteProjection = async (
       page: Page,
@@ -1432,12 +1503,16 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
       }
     }
     const actorAFirstVector = waitForFirstVector(
+      'actor-a',
       actorA,
-      actorACanonicalBaseline
+      actorACanonicalBaseline,
+      actorAPageErrors
     )
     const actorBFirstVector = waitForFirstVector(
+      'actor-b',
       actorB,
-      actorBCanonicalBaseline
+      actorBCanonicalBaseline,
+      actorBPageErrors
     )
     const actorAComplete = waitForCompleteProjection(
       actorA,
