@@ -1641,6 +1641,118 @@ test('socket server retries the exact ordered backend batch after a non-success 
   }
 })
 
+test('socket server waits for durable persistence capacity without disconnecting the source', async () => {
+  let resolveFirstPersistence
+  const firstPersistenceReleased = new Promise((resolve) => {
+    resolveFirstPersistence = resolve
+  })
+  let resolveFirstRequestStarted
+  const firstRequestStarted = new Promise((resolve) => {
+    resolveFirstRequestStarted = resolve
+  })
+  let persistenceRequestCount = 0
+  const backend = createHttpBackendServer(async (request, response) => {
+    response.setHeader('content-type', 'application/json')
+    if (
+      request.method === 'GET' &&
+      request.url?.endsWith('/bootstrap-checkpoint')
+    ) {
+      response.end(
+        JSON.stringify({
+          checkpoint: createTransportCheckpointDocument(),
+          durableSequence: 0
+        })
+      )
+      return
+    }
+    const chunks = []
+    for await (const chunk of request) chunks.push(Buffer.from(chunk))
+    const batch = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+    persistenceRequestCount += 1
+    if (persistenceRequestCount === 1) {
+      resolveFirstRequestStarted()
+      await firstPersistenceReleased
+    }
+    response.end(JSON.stringify({ durableSequence: batch.lastSequence }))
+  })
+  await new Promise((resolve, reject) => {
+    backend.once('error', reject)
+    backend.listen(0, '127.0.0.1', resolve)
+  })
+  const backendAddress = backend.address()
+  assert.ok(backendAddress && typeof backendAddress === 'object')
+
+  const port = await getAvailablePort()
+  const origin = 'http://localhost:4341'
+  const child = startServer({
+    port,
+    origin,
+    persistenceBackendURL: `http://127.0.0.1:${backendAddress.port}`,
+    persistenceMaxPublicationCount: 1
+  })
+  const sockets = []
+  try {
+    await waitForServer(child)
+    const source = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'durable-capacity-file',
+      actorId: 'durable-capacity-source'
+    })
+    sockets.push(source)
+
+    for (const suffix of ['a', 'b']) {
+      const requestId = `durable-capacity-${suffix}`
+      const frame = createCanonicalPublicationFrame({
+        requestId,
+        publicationId: `${requestId}-publication`,
+        after: suffix === 'a' ? 2 : 3
+      })
+      const accepted = responseFor(source, requestId)
+      await sendPublicationFrameAndWaitForAdmission(source, frame)
+      assert.deepEqual(await accepted, {
+        type: 'response',
+        requestId,
+        ok: true,
+        acceptedSequences: [suffix === 'a' ? 1 : 2]
+      })
+      if (suffix === 'a') await firstRequestStarted
+    }
+
+    const waitingRequestId = 'durable-capacity-c'
+    const waitingFrame = createCanonicalPublicationFrame({
+      requestId: waitingRequestId,
+      publicationId: `${waitingRequestId}-publication`,
+      after: 4
+    })
+    const waitingAdmission = sourceFrameAdmissionFor(source, waitingFrame)
+    const waitingResponse = responseFor(source, waitingRequestId)
+    source.send(waitingFrame, { binary: true })
+
+    await noMessageBefore(waitingAdmission)
+    await noMessageBefore(waitingResponse)
+    assert.equal(source.readyState, WebSocket.OPEN)
+
+    resolveFirstPersistence()
+    assert.deepEqual(
+      await waitingAdmission,
+      expectedSourceFrameAdmission(waitingFrame)
+    )
+    assert.deepEqual(await waitingResponse, {
+      type: 'response',
+      requestId: waitingRequestId,
+      ok: true,
+      acceptedSequences: [3]
+    })
+    assert.equal(source.readyState, WebSocket.OPEN)
+  } finally {
+    resolveFirstPersistence()
+    await Promise.all(sockets.map((socket) => closeSocket(socket)))
+    await stopServer(child)
+    await new Promise((resolve) => backend.close(() => resolve()))
+  }
+})
+
 test('public reference server validates canonical publication bytes and bypasses a stalled binary queue for JSON controls', async () => {
   const port = await getAvailablePort()
   const origin = 'http://localhost:4320'

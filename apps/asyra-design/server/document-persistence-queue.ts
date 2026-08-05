@@ -30,6 +30,9 @@ export interface DocumentPersistenceQueueState {
 export interface DocumentPersistenceQueue {
   enqueue(entry: PendingDocumentPublication): void
   enqueueBatch(entries: readonly PendingDocumentPublication[]): void
+  enqueueBatchWhenAvailable(
+    entries: readonly PendingDocumentPublication[]
+  ): Promise<void>
   flushNow(): Promise<void>
   flushForShutdown(): Promise<void>
   getState(): DocumentPersistenceQueueState
@@ -52,6 +55,20 @@ export interface DocumentPersistenceQueueOptions {
 
 interface InFlightBatch {
   readonly batch: DocumentPersistenceBatch
+}
+
+interface CapacityWaiter {
+  readonly reject: (error: Error) => void
+  readonly resolve: () => void
+}
+
+class PersistenceCapacityUnavailableError extends Error {
+  constructor() {
+    super(
+      '[document-persistence-queue] pending capacity is unavailable until accepted changes are durable'
+    )
+    this.name = 'PersistenceCapacityUnavailableError'
+  }
 }
 
 const isNonBlankString = (value: unknown): value is string =>
@@ -123,6 +140,25 @@ export const createDocumentPersistenceQueue = ({
   let retryTimer: ReturnType<typeof setTimeout> | undefined
   let inFlight: InFlightBatch | undefined
   let activeAttempt: Promise<void> | undefined
+  let backendUnavailable = false
+  const capacityWaiters = new Set<CapacityWaiter>()
+
+  const unavailableError = (): Error =>
+    new Error(
+      '[document-persistence-queue] document is unavailable until pending changes are durable'
+    )
+
+  const resolveCapacityWaiters = (): void => {
+    const waiters = [...capacityWaiters]
+    capacityWaiters.clear()
+    waiters.forEach(({ resolve }) => resolve())
+  }
+
+  const rejectCapacityWaiters = (error: Error): void => {
+    const waiters = [...capacityWaiters]
+    capacityWaiters.clear()
+    waiters.forEach(({ reject }) => reject(error))
+  }
 
   const setEditable = (next: boolean): void => {
     if (editable === next) return
@@ -172,6 +208,7 @@ export const createDocumentPersistenceQueue = ({
       )
     }
     const wasBlocked = !editable
+    backendUnavailable = false
     durableSequence = acknowledgement.durableSequence
     onDurableSequenceChange?.(durableSequence)
     inFlight = undefined
@@ -179,6 +216,7 @@ export const createDocumentPersistenceQueue = ({
       dirtyStartedAt = undefined
       clearDirtyTimer()
       setEditable(true)
+      resolveCapacityWaiters()
       return
     }
     const deadlineElapsed =
@@ -186,9 +224,12 @@ export const createDocumentPersistenceQueue = ({
       dirtyStartedAt + flushIntervalMs <= Date.now()
     if (wasBlocked || deadlineElapsed || stopping) {
       void beginPendingBatch()
+      setEditable(true)
+      resolveCapacityWaiters()
       return
     }
     scheduleDirtyTimer()
+    resolveCapacityWaiters()
   }
 
   async function attemptInFlight(): Promise<void> {
@@ -200,7 +241,9 @@ export const createDocumentPersistenceQueue = ({
       completeSuccessfulBatch(active, acknowledgement)
     } catch {
       if (inFlight !== active) return
+      backendUnavailable = true
       setEditable(false)
+      rejectCapacityWaiters(unavailableError())
       scheduleRetry()
     }
   }
@@ -254,11 +297,7 @@ export const createDocumentPersistenceQueue = ({
       if (disposed) {
         throw new Error('[document-persistence-queue] queue is disposed')
       }
-      if (!editable) {
-        throw new Error(
-          '[document-persistence-queue] document is unavailable until pending changes are durable'
-        )
-      }
+      if (backendUnavailable) throw unavailableError()
       if (entries.length === 0) {
         throw new Error(
           '[document-persistence-queue] publication batch is empty'
@@ -282,9 +321,7 @@ export const createDocumentPersistenceQueue = ({
         (pending.length + entries.length > maxPublicationCount ||
           pendingBytes + addedBytes > maxSerializedBytes)
       ) {
-        throw new Error(
-          '[document-persistence-queue] pending capacity is unavailable until accepted changes are durable'
-        )
+        throw new PersistenceCapacityUnavailableError()
       }
       headSequence = entries.at(-1)?.sequence as number
       if (pending.length === 0) {
@@ -302,6 +339,25 @@ export const createDocumentPersistenceQueue = ({
         } else {
           void beginPendingBatch()
         }
+      }
+    },
+    async enqueueBatchWhenAvailable(entries) {
+      while (true) {
+        if (disposed) {
+          throw new Error('[document-persistence-queue] queue is disposed')
+        }
+        if (backendUnavailable) throw unavailableError()
+        try {
+          queue.enqueueBatch(entries)
+          return
+        } catch (error) {
+          if (!(error instanceof PersistenceCapacityUnavailableError)) {
+            throw error
+          }
+        }
+        await new Promise<void>((resolve, reject) => {
+          capacityWaiters.add({ reject, resolve })
+        })
       }
     },
     flushNow() {
@@ -338,6 +394,9 @@ export const createDocumentPersistenceQueue = ({
       pending = []
       pendingBytes = 0
       dirtyStartedAt = undefined
+      rejectCapacityWaiters(
+        new Error('[document-persistence-queue] queue is disposed')
+      )
     }
   }
 

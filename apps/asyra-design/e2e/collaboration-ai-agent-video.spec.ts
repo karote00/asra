@@ -3074,7 +3074,7 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
   }
 })
 
-test('undoes and redoes one complete high-detail cat action without crashing the App', async ({
+test('keeps two connected Actors converged through one complete high-detail cat Undo and Redo', async ({
   browser
 }, testInfo) => {
   test.skip(
@@ -3082,35 +3082,68 @@ test('undoes and redoes one complete high-detail cat action without crashing the
     'High-detail Undo regression is an explicit opt-in gate.'
   )
   test.setTimeout(420_000)
-  const context = await browser.newContext({
+  const actorAContext = await browser.newContext({
     deviceScaleFactor: 1,
     viewport: { height: 720, width: 1280 }
   })
-  const page = await context.newPage()
-  const browserErrors: string[] = []
-  let pageCrashed = false
-  page.on('crash', () => {
-    pageCrashed = true
+  const actorBContext = await browser.newContext({
+    deviceScaleFactor: 1,
+    viewport: { height: 720, width: 1280 }
   })
-  page.on('pageerror', (error) => {
-    browserErrors.push(error.message)
+  const actorA = await actorAContext.newPage()
+  const actorB = await actorBContext.newPage()
+  const browserErrors = {
+    actorA: [] as string[],
+    actorB: [] as string[]
+  }
+  const pageCrashed = {
+    actorA: false,
+    actorB: false
+  }
+  actorA.on('crash', () => {
+    pageCrashed.actorA = true
   })
-  page.on('console', (message) => {
+  actorB.on('crash', () => {
+    pageCrashed.actorB = true
+  })
+  actorA.on('pageerror', (error) => {
+    browserErrors.actorA.push(error.message)
+  })
+  actorB.on('pageerror', (error) => {
+    browserErrors.actorB.push(error.message)
+  })
+  actorA.on('console', (message) => {
     if (message.type() === 'error') {
-      browserErrors.push(message.text())
+      browserErrors.actorA.push(message.text())
+    }
+  })
+  actorB.on('console', (message) => {
+    if (message.type() === 'error') {
+      browserErrors.actorB.push(message.text())
     }
   })
 
   const evidence: {
     afterUndo?: CanonicalAiDrawingSnapshot
+    actorBAfterRedo?: CanonicalAiDrawingSnapshot
+    actorBAfterUndo?: CanonicalAiDrawingSnapshot
+    actorBBeforeUndo?: CanonicalAiDrawingSnapshot
     afterRedo?: CanonicalAiDrawingSnapshot
     beforeUndo?: CanonicalAiDrawingSnapshot
-    browserErrors: string[]
+    browserErrors: typeof browserErrors
+    creationPeerCatchupMs?: number
     historyReplayPaints?: HistoryReplayPaintSequence
     historyReplayPhases?: HistoryReplayPhaseSequence
     historyReplaySource?: HistoryReplaySourceSummary
-    pageCrashed: boolean
+    pageCrashed: typeof pageCrashed
+    publicationWindows?: {
+      creation: number
+      redo: number
+      undo: number
+    }
+    redoPeerCatchupMs?: number
     redoDurationMs?: number
+    undoPeerCatchupMs?: number
     undoDurationMs?: number
   } = {
     browserErrors,
@@ -3119,29 +3152,151 @@ test('undoes and redoes one complete high-detail cat action without crashing the
 
   try {
     const fileId = `ai-high-detail-undo-${Date.now()}`
-    await seedServerResponse(context, {
+    await seedServerResponse(actorAContext, {
       appUrl: collaborationUrl(fileId),
       fileId,
       itemCount: 7075
     })
-    await page.goto(collaborationUrl(fileId))
-    await waitForAppReady(page)
-    await captureProgressiveRuntimeEvidence(page)
-    await installHistoryReplayPaintCapture(page)
-    await installHistoryReplayPhaseCapture(page)
-    await openAgent(page)
-    await dropReferenceImage(page)
+    await Promise.all([
+      actorA.goto(collaborationUrl(fileId)),
+      actorB.goto(collaborationUrl(fileId))
+    ])
+    await Promise.all([waitForAppReady(actorA), waitForAppReady(actorB)])
+    await Promise.all([
+      waitForCollaboration(actorA),
+      waitForCollaboration(actorB),
+      captureCollaborationOutcomes(actorA),
+      captureCollaborationOutcomes(actorB),
+      captureProgressiveRuntimeEvidence(actorA),
+      captureProgressiveRuntimeEvidence(actorB)
+    ])
+    await installHistoryReplayPaintCapture(actorA)
+    await installHistoryReplayPhaseCapture(actorA)
+    await openAgent(actorA)
+    await dropReferenceImage(actorA)
 
-    const historyBefore = await getUndoHistoryDepth(page)
-    await submitTurn(page, exactCatOnlyPrompt, 1)
-    evidence.beforeUndo = await getCanonicalAiDrawingSnapshot(page)
+    const readSessionState = (page: Page) =>
+      page.evaluate(async () => {
+        const handle = (
+          await import('../src/testing/runtime-access')
+        ).getActiveCollaborationHandle()
+        return handle?.getSessionState() ?? null
+      })
+    const [actorASessionBaseline, actorBSessionBaseline] = await Promise.all([
+      readSessionState(actorA),
+      readSessionState(actorB)
+    ])
+    if (!actorASessionBaseline || !actorBSessionBaseline) {
+      throw new Error('Both high-detail Actors require one document session')
+    }
+    const waitForConnectedCounts = async (
+      actorACount: number,
+      actorBCount: number,
+      timeoutMs: number
+    ): Promise<void> => {
+      const deadline = Date.now() + timeoutMs
+      while (Date.now() < deadline) {
+        const [
+          currentActorACount,
+          currentActorBCount,
+          actorAState,
+          actorBState
+        ] = await Promise.all([
+          getCanonicalAiElementCount(actorA),
+          getCanonicalAiElementCount(actorB),
+          readSessionState(actorA),
+          readSessionState(actorB)
+        ])
+        if (
+          !actorAState ||
+          !actorBState ||
+          actorAState.connection !== 'connected' ||
+          actorBState.connection !== 'connected' ||
+          actorAState.disconnectedEpoch !==
+            actorASessionBaseline.disconnectedEpoch ||
+          actorBState.disconnectedEpoch !==
+            actorBSessionBaseline.disconnectedEpoch
+        ) {
+          throw new Error(
+            `High-detail history replay disconnected a document session: ${JSON.stringify(
+              {
+                actorA: {
+                  canonicalCount: currentActorACount,
+                  state: actorAState
+                },
+                actorB: {
+                  canonicalCount: currentActorBCount,
+                  state: actorBState
+                }
+              }
+            )}`
+          )
+        }
+        if (
+          currentActorACount === actorACount &&
+          currentActorBCount === actorBCount
+        ) {
+          return
+        }
+        await actorA.waitForTimeout(100)
+      }
+      throw new Error(
+        `High-detail history replay did not converge while connected: ${JSON.stringify(
+          {
+            actorA: await getCanonicalAiElementCount(actorA),
+            actorB: await getCanonicalAiElementCount(actorB),
+            expected: { actorA: actorACount, actorB: actorBCount }
+          }
+        )}`
+      )
+    }
+
+    const [actorAHistoryBefore, actorBHistoryBefore] = await Promise.all([
+      getUndoHistoryDepth(actorA),
+      getUndoHistoryDepth(actorB)
+    ])
+    const readPublicationCounts = async () => {
+      const [actorADiagnostics, actorBDiagnostics] = await Promise.all([
+        getCollaborationDiagnostics(actorA),
+        getCollaborationDiagnostics(actorB)
+      ])
+      return {
+        processed: actorBDiagnostics.outcomes.filter(
+          ({ direction, status }) =>
+            direction === 'remote' && status === 'processed'
+        ).length,
+        sent: actorADiagnostics.outcomes.filter(
+          ({ direction, status }) => direction === 'local' && status === 'sent'
+        ).length
+      }
+    }
+    const publicationBaseline = await readPublicationCounts()
+    await submitTurn(actorA, exactCatOnlyPrompt, 1)
+    const creationPeerCatchupStartedAt = Date.now()
+    await waitForConnectedCounts(7076, 7076, 120_000)
+    evidence.creationPeerCatchupMs = Date.now() - creationPeerCatchupStartedAt
+    expect(evidence.creationPeerCatchupMs).toBeLessThanOrEqual(30_000)
+    const afterCreationPublicationCounts = await readPublicationCounts()
+    const creationPublicationWindows =
+      afterCreationPublicationCounts.sent - publicationBaseline.sent
+    expect(creationPublicationWindows).toBeGreaterThan(1)
+    expect(creationPublicationWindows).toBeLessThanOrEqual(8)
+    expect(
+      afterCreationPublicationCounts.processed - publicationBaseline.processed
+    ).toBe(creationPublicationWindows)
+    ;[evidence.beforeUndo, evidence.actorBBeforeUndo] = await Promise.all([
+      getCanonicalAiDrawingSnapshot(actorA),
+      getCanonicalAiDrawingSnapshot(actorB)
+    ])
     expect(evidence.beforeUndo).toMatchObject({
       groupCount: 1,
       totalCount: 7076,
       vectorCount: 7075
     })
-    expect(await getUndoHistoryDepth(page)).toBe(historyBefore + 1)
-    evidence.historyReplaySource = await getHistoryReplaySourceSummary(page)
+    expect(evidence.actorBBeforeUndo).toEqual(evidence.beforeUndo)
+    expect(await getUndoHistoryDepth(actorA)).toBe(actorAHistoryBefore + 1)
+    expect(await getUndoHistoryDepth(actorB)).toBe(actorBHistoryBefore)
+    evidence.historyReplaySource = await getHistoryReplaySourceSummary(actorA)
     // eslint-disable-next-line no-console
     console.log(
       `AI_HIGH_DETAIL_HISTORY_SOURCE ${JSON.stringify(
@@ -3149,39 +3304,80 @@ test('undoes and redoes one complete high-detail cat action without crashing the
       )}`
     )
 
-    await setHistoryReplayPhaseDirection(page, 'undo')
+    await setHistoryReplayPhaseDirection(actorA, 'undo')
     const undoStartedAt = Date.now()
-    await undo(page)
+    await undo(actorA)
     await expect
-      .poll(() => getCanonicalAiElementCount(page), { timeout: 30_000 })
+      .poll(() => getCanonicalAiElementCount(actorA), { timeout: 30_000 })
       .toBe(0)
     evidence.undoDurationMs = Date.now() - undoStartedAt
-    await setHistoryReplayPhaseDirection(page, null)
-    evidence.afterUndo = await getCanonicalAiDrawingSnapshot(page)
+    const undoPeerCatchupStartedAt = Date.now()
+    await waitForConnectedCounts(0, 0, 120_000)
+    evidence.undoPeerCatchupMs = Date.now() - undoPeerCatchupStartedAt
+    expect(evidence.undoPeerCatchupMs).toBeLessThanOrEqual(30_000)
+    const afterUndoPublicationCounts = await readPublicationCounts()
+    const undoPublicationWindows =
+      afterUndoPublicationCounts.sent - afterCreationPublicationCounts.sent
+    expect(undoPublicationWindows).toBeGreaterThan(1)
+    expect(undoPublicationWindows).toBeLessThanOrEqual(8)
+    expect(
+      afterUndoPublicationCounts.processed -
+        afterCreationPublicationCounts.processed
+    ).toBe(undoPublicationWindows)
+    await setHistoryReplayPhaseDirection(actorA, null)
+    ;[evidence.afterUndo, evidence.actorBAfterUndo] = await Promise.all([
+      getCanonicalAiDrawingSnapshot(actorA),
+      getCanonicalAiDrawingSnapshot(actorB)
+    ])
 
-    expect(pageCrashed).toBe(false)
-    expect(browserErrors).toEqual([])
-    expect(await getUndoHistoryDepth(page)).toBe(historyBefore)
+    expect(evidence.actorBAfterUndo).toEqual(evidence.afterUndo)
+    expect(pageCrashed).toEqual({ actorA: false, actorB: false })
+    expect(browserErrors).toEqual({ actorA: [], actorB: [] })
+    expect(await getUndoHistoryDepth(actorA)).toBe(actorAHistoryBefore)
+    expect(await getUndoHistoryDepth(actorB)).toBe(actorBHistoryBefore)
 
-    await setHistoryReplayPhaseDirection(page, 'redo')
+    await setHistoryReplayPhaseDirection(actorA, 'redo')
     const redoStartedAt = Date.now()
-    await redo(page)
+    await redo(actorA)
     await expect
-      .poll(() => getCanonicalAiElementCount(page), { timeout: 30_000 })
+      .poll(() => getCanonicalAiElementCount(actorA), { timeout: 30_000 })
       .toBe(7076)
     evidence.redoDurationMs = Date.now() - redoStartedAt
-    await setHistoryReplayPhaseDirection(page, null)
+    const redoPeerCatchupStartedAt = Date.now()
+    await waitForConnectedCounts(7076, 7076, 120_000)
+    evidence.redoPeerCatchupMs = Date.now() - redoPeerCatchupStartedAt
+    expect(evidence.redoPeerCatchupMs).toBeLessThanOrEqual(30_000)
+    const afterRedoPublicationCounts = await readPublicationCounts()
+    const redoPublicationWindows =
+      afterRedoPublicationCounts.sent - afterUndoPublicationCounts.sent
+    expect(redoPublicationWindows).toBeGreaterThan(1)
+    expect(redoPublicationWindows).toBeLessThanOrEqual(8)
+    expect(
+      afterRedoPublicationCounts.processed -
+        afterUndoPublicationCounts.processed
+    ).toBe(redoPublicationWindows)
+    evidence.publicationWindows = {
+      creation: creationPublicationWindows,
+      redo: redoPublicationWindows,
+      undo: undoPublicationWindows
+    }
+    await setHistoryReplayPhaseDirection(actorA, null)
     expect(evidence.redoDurationMs).toBeLessThanOrEqual(30_000)
     expect(evidence.undoDurationMs).toBeLessThanOrEqual(12_000)
     expect(evidence.undoDurationMs).toBeLessThanOrEqual(
       evidence.redoDurationMs * 1.5
     )
-    evidence.afterRedo = await getCanonicalAiDrawingSnapshot(page)
+    ;[evidence.afterRedo, evidence.actorBAfterRedo] = await Promise.all([
+      getCanonicalAiDrawingSnapshot(actorA),
+      getCanonicalAiDrawingSnapshot(actorB)
+    ])
     expect(evidence.afterRedo).toEqual(evidence.beforeUndo)
-    expect(await getUndoHistoryDepth(page)).toBe(historyBefore + 1)
+    expect(evidence.actorBAfterRedo).toEqual(evidence.beforeUndo)
+    expect(await getUndoHistoryDepth(actorA)).toBe(actorAHistoryBefore + 1)
+    expect(await getUndoHistoryDepth(actorB)).toBe(actorBHistoryBefore)
 
     await expect
-      .poll(() => getHistoryReplayPaintCapture(page), { timeout: 5_000 })
+      .poll(() => getHistoryReplayPaintCapture(actorA), { timeout: 5_000 })
       .toMatchObject({
         redo: expect.arrayContaining([
           expect.objectContaining({
@@ -3196,8 +3392,8 @@ test('undoes and redoes one complete high-detail cat action without crashing the
           })
         ])
       })
-    evidence.historyReplayPaints = await getHistoryReplayPaintCapture(page)
-    evidence.historyReplayPhases = await getHistoryReplayPhaseCapture(page)
+    evidence.historyReplayPaints = await getHistoryReplayPaintCapture(actorA)
+    evidence.historyReplayPhases = await getHistoryReplayPhaseCapture(actorA)
     const isIntermediatePaint = ({
       canonicalCount,
       renderedCount
@@ -3212,21 +3408,21 @@ test('undoes and redoes one complete high-detail cat action without crashing the
     expect(evidence.historyReplayPaints.redo.some(isIntermediatePaint)).toBe(
       true
     )
-    evidence.pageCrashed = pageCrashed
+    evidence.pageCrashed = { ...pageCrashed }
   } finally {
-    evidence.pageCrashed = pageCrashed
-    if (!evidence.historyReplayPaints && !page.isClosed()) {
+    evidence.pageCrashed = { ...pageCrashed }
+    if (!evidence.historyReplayPaints && !actorA.isClosed()) {
       evidence.historyReplayPaints = await getHistoryReplayPaintCapture(
-        page
+        actorA
       ).catch(() => undefined)
     }
-    if (!evidence.historyReplayPhases && !page.isClosed()) {
+    if (!evidence.historyReplayPhases && !actorA.isClosed()) {
       evidence.historyReplayPhases = await getHistoryReplayPhaseCapture(
-        page
+        actorA
       ).catch(() => undefined)
     }
-    if (!page.isClosed()) {
-      const diagnostics = await getCollaborationDiagnostics(page).catch(
+    if (!actorA.isClosed()) {
+      const diagnostics = await getCollaborationDiagnostics(actorA).catch(
         () => undefined
       )
       const summarizePaintObservations = (
@@ -3249,6 +3445,7 @@ test('undoes and redoes one complete high-detail cat action without crashing the
       console.log(
         `AI_HIGH_DETAIL_HISTORY_RESULT ${JSON.stringify({
           browserErrors,
+          creationPeerCatchupMs: evidence.creationPeerCatchupMs,
           diagnostics: diagnostics
             ? {
                 recentStatuses: diagnostics.factoryStatuses.slice(-4)
@@ -3275,8 +3472,11 @@ test('undoes and redoes one complete high-detail cat action without crashing the
                 undo: evidence.historyReplayPhases.undo.slice(0, 12)
               }
             : undefined,
-          pageCrashed,
+          pageCrashed: evidence.pageCrashed,
+          publicationWindows: evidence.publicationWindows,
+          redoPeerCatchupMs: evidence.redoPeerCatchupMs,
           redoDurationMs: evidence.redoDurationMs,
+          undoPeerCatchupMs: evidence.undoPeerCatchupMs,
           undoDurationMs: evidence.undoDurationMs
         })}`
       )
@@ -3285,7 +3485,10 @@ test('undoes and redoes one complete high-detail cat action without crashing the
       body: JSON.stringify(evidence, null, 2),
       contentType: 'application/json'
     })
-    await context.close().catch(() => undefined)
+    await Promise.all([
+      actorAContext.close().catch(() => undefined),
+      actorBContext.close().catch(() => undefined)
+    ])
   }
 })
 

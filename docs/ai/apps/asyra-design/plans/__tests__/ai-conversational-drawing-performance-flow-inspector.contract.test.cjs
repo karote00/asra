@@ -611,7 +611,7 @@ test('Factory reuses existing action history and exposes only the minimal wire a
   )
   assert.match(
     factoryText,
-    /Undo and Redo reuse.*progressive slice boundaries.*immediate owner-batch boundaries.*plural Scene owner apply.*at most 32.*immediate source publications remain distinct and ordered.*1,024 distinct canonical ids.*host-yield\/paint adapter.*one History transition.*outer transaction/i
+    /Undo and Redo reuse.*progressive slice boundaries.*immediate owner-batch boundaries.*plural Scene owner apply.*at most 32.*immediate source boundaries remain ordered.*bounded publication windows.*1,024 distinct work items.*host-yield\/paint adapter.*one History transition.*outer transaction/i
   )
   assert.match(factoryText, /app-local duplicate cooperative render scheduler/i)
   assert.match(
@@ -1309,11 +1309,15 @@ test('receiver handoff has one worker isolation boundary and no legacy clone mod
   )
   assert.match(
     text,
-    /frame-consumed credit.*only when.*leaves the retained byte window.*App handoff.*independently.*App policy.*canonical apply succeeds/i
+    /frame-consumed credit.*emitted immediately.*exact frame.*without waiting.*complete publication decode.*App policy.*canonical apply/i
   )
   assert.match(
     text,
-    /Slow App apply.*fill but cannot overrun.*retained byte window.*no fabricated wire credit.*handoff releases.*before.*App apply begins/i
+    /Slow App apply.*cannot overrun.*retained assembly.*pending-ingress windows.*no fabricated wire credit.*exclusive until App settlement/i
+  )
+  assert.match(
+    text,
+    /multiple Actors interleave.*oldest already-started assembly continuation.*sole oversized assembly.*different assemblies wait without credit/i
   )
   assert.match(
     text,

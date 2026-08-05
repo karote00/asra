@@ -160,31 +160,55 @@ describe('document persistence queue', () => {
     first.resolve({ durableSequence: 1 })
   })
 
-  it('rejects an oversized multi-publication admission without queuing a prefix', async () => {
+  it('waits to atomically admit a multi-publication batch after durable capacity is released', async () => {
     vi.useFakeTimers()
     const first = Promise.withResolvers<Readonly<{ durableSequence: number }>>()
+    const sendBatch = vi
+      .fn()
+      .mockImplementationOnce(() => first.promise)
+      .mockResolvedValueOnce({ durableSequence: 2 })
+      .mockResolvedValueOnce({ durableSequence: 4 })
     const queue = createDocumentPersistenceQueue({
       documentId: 'atomic-capacity-document',
       maxPublicationCount: 2,
       maxSerializedBytes: 10_000,
-      sendBatch: vi.fn(() => first.promise)
+      sendBatch
     })
 
     queue.enqueue(entry(1))
     await vi.advanceTimersByTimeAsync(3_000)
     queue.enqueue(entry(2))
 
-    expect(() => queue.enqueueBatch([entry(3), entry(4)])).toThrow(
-      /pending capacity/
-    )
+    const admission = queue.enqueueBatchWhenAvailable([entry(3), entry(4)])
+    let admitted = false
+    void admission.then(() => {
+      admitted = true
+    })
+    await vi.runAllTicks()
+
+    expect(admitted).toBe(false)
     expect(queue.getState()).toMatchObject({
       editable: true,
       headSequence: 2,
       pendingCount: 1
     })
 
-    queue.dispose()
     first.resolve({ durableSequence: 1 })
+    await vi.runAllTicks()
+    await admission
+
+    expect(admitted).toBe(true)
+    expect(queue.getState()).toMatchObject({
+      headSequence: 4,
+      pendingCount: 0
+    })
+    expect(sendBatch.mock.calls[1]?.[0]).toMatchObject({
+      expectedDurableSequence: 1,
+      firstSequence: 2,
+      lastSequence: 4
+    })
+
+    queue.dispose()
   })
 
   it('retains and retries the exact failed batch before making the accepted tail durable', async () => {

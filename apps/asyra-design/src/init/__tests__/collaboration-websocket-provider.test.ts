@@ -143,25 +143,29 @@ const createPublication = ({
 const publication = createPublication()
 
 const createTwoDeliveryPublication = (
-  sourceLength = 2_048
+  sourceLength = 2_048,
+  {
+    suffix = 'multi',
+    transactionId = 4
+  }: Pick<PublicationFixtureOptions, 'suffix' | 'transactionId'> = {}
 ): SharedPublication => {
-  const artifactId = '4:artifact'
-  const batchId = '4:batch:multi'
-  const sliceId = '4:slice:multi'
+  const artifactId = `${transactionId}:artifact`
+  const batchId = `${transactionId}:batch:${suffix}`
+  const sliceId = `${transactionId}:slice:${suffix}`
   const payloads = [
-    { id: 'element-multi-a', source: 'a'.repeat(sourceLength) },
-    { id: 'element-multi-b', source: 'b'.repeat(sourceLength) }
+    { id: `element-${suffix}-a`, source: 'a'.repeat(sourceLength) },
+    { id: `element-${suffix}-b`, source: 'b'.repeat(sourceLength) }
   ]
   const deliveries = payloads.map((payload, index) => ({
-    deliveryId: `4:delivery:${index}`,
+    deliveryId: `${transactionId}:delivery:${suffix}:${index}`,
     eventName: 'updateComputedData',
     orderedIds: [payload.id],
     payload
   }))
   return {
-    publicationId: 'publication-multi',
+    publicationId: `publication-${suffix}`,
     artifactId,
-    transactionId: 4,
+    transactionId,
     origin: 'action',
     mode: 'progressive',
     slices: [
@@ -688,7 +692,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       ).toBe(true)
     )
     sendInbound?.()
-    await vi.waitFor(() => expect(frameConsumedIds).toHaveLength(1))
+    await vi.waitFor(() => expect(frameConsumedIds).toHaveLength(2))
     await vi.waitFor(() =>
       expect(
         mainBoundMessages.filter(({ type }) => type === 'publication-delivery')
@@ -729,7 +733,6 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       deliveryId: firstDelivery.deliveryId,
       outcome: 'applied'
     })
-    await vi.waitFor(() => expect(frameConsumedIds).toHaveLength(2))
     await vi.waitFor(() =>
       expect(
         mainBoundMessages
@@ -1711,6 +1714,185 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     }
   })
 
+  it('credits each retained inbound chunk before the next chunk is admitted', async () => {
+    const inboundPublication = createTwoDeliveryPublication()
+    const inboundFrames = encodePublicationMessageFrames(
+      {
+        type: 'publication',
+        publication: inboundPublication,
+        fromActorId: 'actor-b'
+      },
+      { softTargetBytes: 256 }
+    )
+    expect(inboundFrames.length).toBeGreaterThan(2)
+    let sendFirstChunk: (() => void) | undefined
+    let nextChunkIndex = 1
+    const consumedFrameIds: string[] = []
+    const server = await createLoopbackServer((socket, message) => {
+      if (message.type === 'hello') {
+        socket.send(JSON.stringify({ type: 'ready' }))
+        sendFirstChunk = () => {
+          const frame = inboundFrames[0]
+          if (frame) socket.send(new Uint8Array(frame))
+        }
+        return
+      }
+      if (message.type === 'frame-consumed' && message.frameId) {
+        consumedFrameIds.push(message.frameId)
+        const nextFrame = inboundFrames[nextChunkIndex]
+        nextChunkIndex += 1
+        if (nextFrame) socket.send(new Uint8Array(nextFrame))
+        return
+      }
+      if (message.type === 'peer-applied' && message.requestId) {
+        socket.send(
+          JSON.stringify({
+            type: 'response',
+            requestId: message.requestId,
+            ok: true
+          })
+        )
+      }
+    })
+    const provider = createProvider(server.endpoint)
+    const inbound = vi.fn(async (_publication: SharedPublication) => undefined)
+    provider.onPublication(inbound)
+    await provider.connect()
+
+    try {
+      sendFirstChunk?.()
+      await vi.waitFor(
+        () => {
+          expect(inbound).toHaveBeenCalledOnce()
+        },
+        { timeout: 3_000 }
+      )
+
+      expect(inbound).toHaveBeenCalledWith(inboundPublication)
+      expect(consumedFrameIds).toEqual(
+        inboundFrames.map(
+          (frame) => inspectPublicationFrameHeader(frame).frameId
+        )
+      )
+    } finally {
+      await provider.destroy()
+    }
+  })
+
+  it('waits for inbound capacity instead of failing after a decoded oversized publication fills the window', async () => {
+    const firstPublication = createPublication({
+      suffix: 'capacity-first',
+      transactionId: 50
+    })
+    const oversizedPublication = createTwoDeliveryPublication(1_100_000, {
+      suffix: 'capacity-oversized',
+      transactionId: 51
+    })
+    const trailingPublication = createPublication({
+      suffix: 'capacity-trailing',
+      transactionId: 52
+    })
+    const firstFrames = encodePublicationMessageFrames({
+      type: 'publication',
+      publication: firstPublication,
+      fromActorId: 'actor-b'
+    })
+    const oversizedFrames = encodePublicationMessageFrames({
+      type: 'publication',
+      publication: oversizedPublication,
+      fromActorId: 'actor-b'
+    })
+    const trailingFrames = encodePublicationMessageFrames({
+      type: 'publication',
+      publication: trailingPublication,
+      fromActorId: 'actor-b'
+    })
+    const inboundFrames = [
+      ...firstFrames,
+      ...oversizedFrames,
+      ...trailingFrames
+    ]
+    expect(firstFrames).toHaveLength(1)
+    expect(oversizedFrames.length).toBeGreaterThan(1)
+    expect(trailingFrames).toHaveLength(1)
+    expect(
+      oversizedFrames.reduce(
+        (sum, frame) =>
+          sum + inspectPublicationFrameHeader(frame).frameByteLength,
+        0
+      )
+    ).toBeGreaterThan(2 * 1024 * 1024)
+    let sendFirstFrame: (() => void) | undefined
+    let nextFrameIndex = 1
+    const consumedFrameIds: string[] = []
+    const server = await createLoopbackServer((socket, message) => {
+      if (message.type === 'hello') {
+        socket.send(JSON.stringify({ type: 'ready' }))
+        sendFirstFrame = () => {
+          const frame = inboundFrames[0]
+          if (frame) socket.send(new Uint8Array(frame))
+        }
+        return
+      }
+      if (message.type === 'frame-consumed' && message.frameId) {
+        consumedFrameIds.push(message.frameId)
+        const nextFrame = inboundFrames[nextFrameIndex]
+        nextFrameIndex += 1
+        if (nextFrame) socket.send(new Uint8Array(nextFrame))
+        return
+      }
+      if (message.type === 'peer-applied' && message.requestId) {
+        socket.send(
+          JSON.stringify({
+            type: 'response',
+            requestId: message.requestId,
+            ok: true
+          })
+        )
+      }
+    })
+    const provider = createProvider(server.endpoint)
+    const firstSettlement = createDeferred<undefined>()
+    void firstSettlement.promise.catch(() => undefined)
+    const received: SharedPublication[] = []
+    const failures = vi.fn()
+    provider.onPublication(async (inbound) => {
+      received.push(inbound)
+      if (inbound.publicationId === firstPublication.publicationId) {
+        await firstSettlement.promise
+      }
+    })
+    provider.onFailure(failures)
+    await provider.connect()
+
+    try {
+      sendFirstFrame?.()
+      await vi.waitFor(() => expect(received).toHaveLength(1))
+      await vi.waitFor(() => expect(nextFrameIndex).toBe(inboundFrames.length))
+
+      expect(failures).not.toHaveBeenCalled()
+      expect(provider.getStatus()).toBe('connected')
+      expect(consumedFrameIds).toHaveLength(inboundFrames.length - 1)
+
+      firstSettlement.resolve(undefined)
+      await vi.waitFor(() => expect(received).toHaveLength(3))
+      await vi.waitFor(() =>
+        expect(consumedFrameIds).toHaveLength(inboundFrames.length)
+      )
+
+      expect(received).toEqual([
+        firstPublication,
+        oversizedPublication,
+        trailingPublication
+      ])
+      expect(failures).not.toHaveBeenCalled()
+      expect(provider.getStatus()).toBe('connected')
+    } finally {
+      firstSettlement.resolve(undefined)
+      await provider.destroy()
+    }
+  })
+
   it('bounds retained wire credit while one exclusive async consumer remains pending', async () => {
     const publications = Array.from({ length: 4 }, (_, index) =>
       createPublication({
@@ -1789,7 +1971,9 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
 
     try {
       sendInbound?.()
-      await vi.waitFor(() => expect(consumedFrameIds).toHaveLength(1))
+      await vi.waitFor(() =>
+        expect(consumedFrameIds).toHaveLength(inboundFrames.length)
+      )
       await vi.waitFor(() => expect(received).toHaveLength(1))
 
       expect(
@@ -1805,9 +1989,13 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
         )
       ).toBe(false)
       expect(appliedPublicationIds).toEqual([])
-      expect(consumedFrameIds).toEqual([
-        inspectPublicationFrameHeader(inboundFrames[0] as ArrayBuffer).frameId
-      ])
+      expect(new Set(consumedFrameIds)).toEqual(
+        new Set(
+          inboundFrames.map(
+            (frame) => inspectPublicationFrameHeader(frame).frameId
+          )
+        )
+      )
 
       firstSettlement.resolve(undefined)
       await vi.waitFor(() => expect(received).toHaveLength(publications.length))
@@ -1881,7 +2069,10 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     try {
       sendInbound?.()
       await vi.waitFor(() =>
-        expect(consumedPublicationIds).toEqual([publication.publicationId])
+        expect(consumedPublicationIds).toEqual([
+          publication.publicationId,
+          secondPublication.publicationId
+        ])
       )
       await vi.waitFor(() =>
         expect(receivedPublicationIds).toEqual([publication.publicationId])
@@ -2241,7 +2432,9 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       sendDuplicate?.()
       await vi.waitFor(() => expect(failures).toHaveBeenCalledOnce())
 
-      expect(consumedFrameIds).toEqual([])
+      expect(consumedFrameIds).toEqual([
+        inspectPublicationFrameHeader(duplicateFrame).frameId
+      ])
       expect(inbound).not.toHaveBeenCalled()
       expect(provider.getStatus()).toBe('failed')
       expect(transportWorkers[0]?.terminateCount).toBe(1)
@@ -2366,7 +2559,9 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       sendInterleavedBurst?.()
       await vi.waitFor(() => expect(failures).toHaveBeenCalledOnce())
 
-      expect(consumedFrameIds).toEqual([])
+      expect(consumedFrameIds).toEqual([
+        inspectPublicationFrameHeader(firstOpeningFrame).frameId
+      ])
       expect(inbound).not.toHaveBeenCalled()
       expect(failures).toHaveBeenCalledWith(
         expect.objectContaining({

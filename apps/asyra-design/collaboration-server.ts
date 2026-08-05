@@ -219,7 +219,6 @@ interface RoomState {
   admissionDocument: CoreRawData
   bootstrapCheckpointSeed?: DocumentBootstrapCheckpoint
   pendingPublications: SequencedDocumentPublication[]
-  acceptingPublications: boolean
   headSequence: number
   admissionTail: Promise<void>
 }
@@ -471,11 +470,6 @@ const getOrCreateRoom = async (fileId: string): Promise<RoomState> => {
       maxPublicationCount: persistenceMaxPublicationCount,
       maxSerializedBytes: persistenceMaxSerializedBytes,
       sendBatch: (batch) => documentPersistenceClient.sendBatch(batch),
-      onEditabilityChange: (editable) => {
-        const room = roomReference.current
-        if (!room) return
-        room.acceptingPublications = editable
-      },
       onDurableSequenceChange: (durableSequence) => {
         const room = roomReference.current
         if (!room) return
@@ -503,7 +497,6 @@ const getOrCreateRoom = async (fileId: string): Promise<RoomState> => {
           ? createFormalInitialDocument()
           : (bootstrapCheckpoint.checkpoint as CoreRawData),
       bootstrapCheckpointSeed: bootstrapCheckpoint,
-      acceptingPublications: true,
       headSequence: bootstrapCheckpoint.durableSequence,
       admissionTail: Promise.resolve()
     }
@@ -1221,13 +1214,6 @@ webSocketServer.on('connection', (socket) => {
         })
         return accepted.map((entry) => entry?.sequence as number)
       }
-      if (!room.acceptingPublications) {
-        throw new ProviderFailure(
-          'transport-failed',
-          '[collaboration] document persistence is unavailable until accepted changes are durable'
-        )
-      }
-
       let nextAdmissionDocument = room.admissionDocument
       try {
         canonicalChanges.forEach((changes) => {
@@ -1263,13 +1249,21 @@ webSocketServer.on('connection', (socket) => {
           .filter(({ header }) => header.publicationIndex === index)
           .reduce((total, { header }) => total + header.frameByteLength, 0)
       }))
-      room.persistenceQueue.enqueueBatch(
-        sequenced.map(({ sequence, publication, byteLength }) => ({
-          sequence,
-          publication,
-          byteLength
-        }))
-      )
+      try {
+        await room.persistenceQueue.enqueueBatchWhenAvailable(
+          sequenced.map(({ sequence, publication, byteLength }) => ({
+            sequence,
+            publication,
+            byteLength
+          }))
+        )
+      } catch (error) {
+        throw new ProviderFailure(
+          'transport-failed',
+          '[collaboration] document persistence is unavailable until accepted changes are durable',
+          error
+        )
+      }
       sequenced.forEach((entry) => {
         room.acceptedPublications.set(entry.publication.publicationId, entry)
         room.pendingPublications.push(entry)

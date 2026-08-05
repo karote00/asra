@@ -5393,6 +5393,14 @@ benchmark runs.
 
 ## Endpoint Proof Gates
 
+Post-completion correction (2026-08-05): the historical retained-window credit
+iterations above remain execution evidence, but their publication-handoff
+credit conclusion is superseded. A validated frame now returns
+`frame-consumed` as soon as the codec worker owns its retained buffer, allowing
+one publication larger than the server's 2 MiB Peer queue to finish. A
+separate bounded pending-ingress queue withholds credit while retained assembly
+capacity is unavailable and drains FIFO after capacity release.
+
 - Guard: a pure decision test proves the CPU, stale-heartbeat, stalled-progress,
   tracked-process termination, and last-heartbeat report behavior without
   starting a browser.
@@ -5405,11 +5413,12 @@ benchmark runs.
   shared view, one batch observer registry snapshot, no parallel AI/bulk
   history artifact, no synonymous flattened payload graph, and exact
   rollback/Undo/Redo.
-- Receiver: frame acceptance remains Worker-owned; `frame-consumed` releases
-  exact retained-window capacity before App apply and never fabricates capacity
-  for a still-queued publication. Bounded bytes and one active decoded
-  publication survive slow consumer, terminal failure, disconnect, and
-  teardown.
+- Receiver: frame acceptance remains Worker-owned; `frame-consumed` transfers
+  exact frame-byte ownership from the server Peer queue to the validated worker
+  assembly without waiting for complete decode or App apply. Frames waiting
+  outside available assembly capacity receive no credit. Bounded assembly and
+  pending-ingress bytes plus one active decoded publication survive slow
+  consumer, terminal failure, disconnect, and teardown.
 - Remote: one policy pass, one Core request, one remote transaction, no
   quadratic batch/slice scan, Undo, or echo, followed by one serialized
   file-scoped document save.

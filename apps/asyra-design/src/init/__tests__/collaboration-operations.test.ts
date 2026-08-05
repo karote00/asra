@@ -1225,6 +1225,51 @@ describe('Asyra Design app-owned collaboration processing', () => {
     ])
   })
 
+  it('applies one bounded progressive publication window in one remote transaction', () => {
+    const harness = createHarness()
+    const firstElementIds = ['rect-a', 'rect-b']
+    const secondElementIds = ['rect-c', 'rect-d']
+    const first = publication(
+      canonicalCreationDeliveries(firstElementIds, 'workspace-a', 0),
+      'progressive-window-first'
+    )
+    const second = publication(
+      canonicalCreationDeliveries(secondElementIds, 'workspace-a', 2),
+      'progressive-window-second'
+    )
+    const window: SharedPublication = {
+      ...first,
+      publicationId: 'progressive-window',
+      mode: 'progressive',
+      slices: [
+        {
+          sliceId: 'progressive-window-slice-1',
+          orderedIds: firstElementIds,
+          batches: first.slices.flatMap(({ batches }) => batches)
+        },
+        {
+          sliceId: 'progressive-window-slice-2',
+          orderedIds: secondElementIds,
+          batches: second.slices.flatMap(({ batches }) => batches)
+        }
+      ]
+    }
+
+    expect(harness.processPublication(window)).toBe(true)
+    expect(harness.runRemoteTransaction).toHaveBeenCalledOnce()
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledOnce()
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledWith([
+      expect.objectContaining({
+        kind: 'element-creation',
+        elements: firstElementIds.map((id) => expect.objectContaining({ id }))
+      }),
+      expect.objectContaining({
+        kind: 'element-creation',
+        elements: secondElementIds.map((id) => expect.objectContaining({ id }))
+      })
+    ])
+  })
+
   it('does not merge different source publications', () => {
     const harness = createHarness()
 

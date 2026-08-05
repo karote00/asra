@@ -126,8 +126,11 @@ the existing Render object.
   wire boundary; the browser provider and reference server validate untrusted
   messages against it before invoking provider operations.
 - Factory owns shared-publication timing and batching. A synchronous immediate
-  delivery action is one publication; an outer pointer session may contain
-  several publications while remaining one local undo commit.
+  delivery action is one ordered source boundary; default progressive delivery
+  groups consecutive source boundaries into bounded publication windows of at
+  most 1,024 distinct work items. An explicit
+  `batchPublications: false` sequence preserves per-slice publication
+  settlement, and neither mode splits the local undo commit.
 - `@asyra/collaboration` and the WebSocket Provider preserve publications and
   live connection order only. They own no app dedupe, permission, conflict,
   persistence, recovery, or reconnect-replay policy.

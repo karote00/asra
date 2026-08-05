@@ -351,7 +351,7 @@
         'Each owner event supplies the before/after or add/remove evidence already required by its ordinary inverter contract, and the outer transaction groups those journal entries into one existing Undo action.',
         'Factory creates no AI/bulk-specific forward/inverse artifact, parallel applied-result mirror, action-completion snapshot, or second history representation.',
         'Render/UI consumes artifact:local-canonical-owner-batch from the canonical owner step and never consumes History or rollback evidence; Collaboration receives only the transport wire artifact.',
-        'The shared-data boundary derives one separate SharedPublication exactly once. Its only hierarchy is publicationId, artifactId, transactionId, origin, mode, optional actual compensatesPublicationId, ordered slices, channel batches, and remote-apply deliveries.',
+        'The shared-data boundary derives each separate SharedPublication window exactly once. Its only hierarchy is publicationId, artifactId, transactionId, origin, mode, optional actual compensatesPublicationId, ordered slices, channel batches, and remote-apply deliveries.',
         'SharedPublication artifactId is an opaque transport correlation identity and never references a local History artifact.',
         'Each publication slice contains only sliceId, orderedIds, and ordered batches; each batch contains only batchId, channel, and deliveries; each delivery contains only deliveryId, eventName, orderedIds, payload, and an optional actual compensatesDeliveryId.',
         'SharedPublication contains one remote-apply payload reference per delivery and no inverseEvents, History evidence, rollback evidence, reserved future compensation IDs, top-level delivery aliases, batch records or changes aliases, or nested record wrapper.',
@@ -360,12 +360,13 @@
         'Shared-delivery bookkeeping records only the existing journal entry delivery outcome and never mirrors canonical payloads into another applied-result object.',
         'The production fast path performs no post-action save, isEqual, finalize-save, full-document comparison, evidence clone, or recursive immutable-tree scan; required mutation-time detachment is not repeated after owner apply.',
         'The canonical owner issues its newly combined frozen Props-then-Scene outer container through the Reactive Events detached-owner contract: that contract checks only frozen transaction structural roots, records the exact outer identity, and never traverses nested geometry; unissued external shallow-frozen batches remain isolated at the Factory boundary.',
-        'Local observers receive one ordinary canonical owner batch, while Collaboration receives only the one transport wire artifact; transport framing does not split local projection into single-entry changes.',
+        'Local observers receive one ordinary canonical owner batch, while Collaboration receives only the ordered transport publication windows; transport framing does not split local projection into single-entry changes.',
         'A successful mutating turn creates one intended Undo action, and Undo and Redo each restore the complete action.',
         'Existing Undo and Redo journal replay preserves owner event order and returns to the canonical owner; only an actually delivered shared change is eligible for the corresponding replay publication.',
         'Progressive publication boundaries create no new canonical writes and no additional history actions.',
         'The reusable framework cooperative render policy defaults to progressive, while an explicit atomic opt-out is available to future dependent bulk interactions that must settle a complete canonical mutation and projection before their next mutation.',
-        'Undo and Redo reuse the source action progressive slice boundaries or already-delivered immediate owner-batch boundaries. Compatible consecutive single-element Scene events inside one source boundary use the plural Scene owner apply in batches of at most 32 after complete preflight. Recorded progressive boundaries remain exact render boundaries; immediate source publications remain distinct and ordered while completed projection is coalesced into render slices with a default budget of 1,024 distinct canonical ids. The framework host-yield/paint adapter exposes each render slice without splitting the one History transition or outer transaction.',
+        'Progressive shared delivery batches consecutive slices from one transaction into bounded publication windows of at most 1,024 distinct work items by default. Ordered ids are the work identity when present; delivery identity is the fallback for owner batches without ordered ids. Setting batchPublications to false preserves per-slice publication settlement for a dependent interaction that requires it; this transport option changes neither local slice projection nor the one History transaction.',
+        'Undo and Redo reuse the source action progressive slice boundaries or already-delivered immediate owner-batch boundaries. Compatible consecutive single-element Scene events inside one source boundary use the plural Scene owner apply in batches of at most 32 after complete preflight. Recorded progressive boundaries remain exact render boundaries; immediate source boundaries remain ordered while their shared evidence is coalesced into bounded publication windows and completed projection is coalesced into render slices with a default budget of 1,024 distinct work items. The framework host-yield/paint adapter exposes each render slice without splitting the one History transition or outer transaction.',
         'Rollback of an already-published immediate slice uses compensation from the inverse already retained by the existing journal.',
         'An observer mutation attempt cannot pollute another consumer or the retained journal entry.',
         'Single-delivery conveniences delegate to batch-of-one rather than a second canonical implementation.'
@@ -664,8 +665,8 @@
       conditions: [
         'Core preserves each injected Factory batch through one batch observer callback so Preset consumes the exact boundary without importing the default Factory instance.',
         'Preset and UI consume one local canonical batch directly; transport may expose ordered record ranges, but Factory does not split local projection into single-entry changes.',
-        'Each formal local or remote canonical batch performs one batch projection and at most one visible flush.',
-        'The fixed progressive composition route performs one projection for each formal slice and never collapses to a final-only peer frame.',
+        'Each formal local canonical slice or remote publication window performs one batch projection and at most one visible flush.',
+        'The fixed progressive composition route preserves every local slice and exposes each bounded remote publication window; it never collapses the complete action to one final-only peer frame.',
         'One invalidation and one frame flush occur at most once per slice.',
         'The ordinary Vector strategy preserves all 7,076 editable elements, complete Render topology, transforms, hierarchy, fills, strokes, and visibility.',
         'UI context updates affected entries and hierarchy order without rebuilding the complete map for every ADD_ELEMENT.',
@@ -830,14 +831,15 @@
       conditions: [
         'A Dedicated Worker owns the browser WebSocket data plane, receives publication bytes, performs wire admission, and sends frame-consumed directly on its socket without waiting for the main thread.',
         'The main-thread Provider never receives inbound publication bytes and never sends frame-consumed; it exchanges only bounded commands, normalized control evidence, one decoded publication handoff, and apply settlement with the Worker.',
-        'Inbound ArrayBuffer data enters a bounded 2 MiB frame-ingress window; one active oversized publication assembly is allowed only without a second queued publication.',
-        'After worker header, order, duplicate, and capacity validation, frame-consumed credit is emitted only when that publication leaves the retained byte window for the one App handoff, independently of whether later App policy or canonical apply succeeds.',
+        'Inbound ArrayBuffer data enters a bounded 2 MiB retained assembly window; the currently assembling publication may exceed it only as one indivisible or continued oversized assembly. Already-relayed later frames may occupy one separate bounded 2 MiB pending-ingress queue without credit and drain in FIFO order after retained capacity is released.',
+        'When multiple Actors interleave within the retained window, the oldest already-started assembly continuation may finish and become the sole oversized assembly even if later accepted frames occupy residual capacity; after that crossing, different assemblies wait without credit until the oversized assembly is released.',
+        'After worker header, order, duplicate, and capacity validation transfers ownership of a frame buffer into the retained assembly window, frame-consumed credit is emitted immediately for that exact frame without waiting for complete publication decode, App policy, or canonical apply.',
         'The worker-to-main structured clone is the only inbound object isolation boundary; validated publication evidence enters a single-consumer ownership contract without a Provider clone or recursive main-thread freeze.',
         'The receiver retains bounded decoded candidates while exposing exactly one read-only publication to exactly one required async Collaboration consumer until its Promise settlement.',
         'Receiver-handoff timing starts only after one decoded candidate is ready and closes after the sole main-bound publication-delivery post returns; it excludes codec decode and retained-queue time so owner phases do not overlap.',
         'The Dedicated Worker keeps one outbound publication frame in flight and sends the next frame directly on its WebSocket only after exact source-frame-admitted credit.',
         'Successful remote publication settlement releases the next decoded publication; terminal apply failure clears active and pending publications and releases no fabricated progress.',
-        'Slow App apply may fill but cannot overrun the exact retained byte window; queued publications return no fabricated wire credit, and each ordered handoff releases its exact frame credits before that App apply begins.',
+        'Slow App apply may fill but cannot overrun the retained assembly and pending-ingress windows; queued frames return no fabricated wire credit, and each ordered publication handoff remains exclusive until App settlement.',
         'Disconnect, worker teardown, and invalid settlement reject pending work through ProviderFailure and close all receiver-owned capacity.'
       ],
       bypasses: [
@@ -868,6 +870,7 @@
         'apps/asyra-design/src/collaboration/collaboration-transport-worker.ts',
         'apps/asyra-design/src/collaboration/publication-codec-worker.ts',
         'apps/asyra-design/src/collaboration/websocket-provider.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-protocol.test.ts',
         'apps/asyra-design/src/init/__tests__/collaboration-websocket-provider.test.ts',
         'packages/collaboration/src/provider.ts',
         'packages/collaboration/src/process.ts',
@@ -1043,6 +1046,7 @@
         'The crdt-7076 sample request uses the same HTTP action-batch interceptor regardless of socket availability. Actor A executes the returned server-prepared batch through ordinary Runtime and canonical owners; a connected Actor B receives only Actor A CRDT publications.',
         'With the socket unavailable, the same HTTP action-batch execution creates all 7,076 canonical elements locally and attempts the same publication route; the failed transport remains recoverable through the ordinary outbox and reports its operation error to the console.',
         'Each accepted remote publication performs canonical apply and projection with zero persistence, zero Undo, and zero echo. peer-applied acknowledges canonical apply completion and never waits for receiver durability.',
+        'When accepted publications temporarily fill the bounded persistence queue, source admission waits for durable capacity and resumes in original sequence without closing the source socket, dropping the request, or changing the publication payload.',
         'The request-time Agent transport remains separate from socket document bootstrap and never doubles as a checkpoint, pending tail, or CRDT state owner.',
         'There is no checked-in compressed canonical document Core.load bootstrap, localStorage Reset, sample-specific socket bypass, fake connection success, alternate fileId, old-format compatibility branch, or second canonical state owner.',
         'Single-Actor and two-Actor sessions still preserve one outer action transaction, exact Undo and Redo, canonical IDs, complete detail, and ordered canonical publication.'
@@ -1079,6 +1083,10 @@
         'apps/asyra-design/samples/crdt-7076',
         'apps/asyra-design/server/action-batch.ts',
         'apps/asyra-design/server/__tests__/action-batch.test.ts',
+        'apps/asyra-design/server/document-persistence-queue.ts',
+        'apps/asyra-design/server/__tests__/document-persistence-queue.test.ts',
+        'apps/asyra-design/collaboration-server.ts',
+        'apps/asyra-design/__tests__/collaboration-server.test.mjs',
         'apps/asyra-design/src/config/empty-document.ts',
         'apps/asyra-design/src/controllers/app.ts',
         'apps/asyra-design/src/controllers/__tests__/app.test.ts',
@@ -2443,10 +2451,7 @@
         'artifact:remote-factory-mutation-batch',
         'artifact:visible-canonical-slices'
       ],
-      specRefs: [
-        '#remote-apply-contract',
-        '#socket-authoritative-7076-sample'
-      ]
+      specRefs: ['#remote-apply-contract', '#socket-authoritative-7076-sample']
     }
   ]
 

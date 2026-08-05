@@ -48,8 +48,10 @@ Users must be able to recover from mistakes through reliable undo and redo behav
   current-only Message Bar Undo/Redo, and stale-control invalidation
 - the explicit 7,076-element gate completes Undo within 12,000 ms, keeps Undo
   at or below 1.5 times the same-run Redo duration, completes Redo within
-  30,000 ms, preserves the complete canonical drawing, and observes
-  progressive intermediate projection without a page crash
+  30,000 ms, keeps both connected Actors converged within 30,000 ms after
+  create/Undo/Redo without a disconnect epoch, preserves the complete canonical
+  drawing, and observes progressive intermediate projection without a page
+  crash
 
 ## References
 

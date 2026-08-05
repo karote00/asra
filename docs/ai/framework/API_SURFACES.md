@@ -284,14 +284,17 @@ requirement; intentionally irreversible effects must also set
 `undoable: false`. The Factory remote-apply wrapper is the exception: it forces
 remote-origin changes to remain rollbackable and ignores a remote handler's
 `rollbackable: false`. `sharedDelivery: 'immediate'` completes local
-shared-channel delivery and optional collaboration publication during an
-active transaction while retaining the change in the current undo commit; the
-default is `'transaction-end'`. All shared changes made by one synchronous
-immediate delivery action are one ordered publication. A pointer session may
-emit several such publications without splitting its undo commit. A committed
-local undo emits one ordered inverse publication and redo emits one forward
-publication for channels delivered by the original action. Remote-origin
-replay remains excluded.
+shared-channel delivery during an active transaction while retaining the
+change in the current undo commit; the default is `'transaction-end'`. All
+shared changes made by one synchronous immediate delivery action remain one
+ordered source boundary. Default progressive delivery groups consecutive
+source boundaries from the same transaction into publication windows of at
+most 1,024 distinct work items, using delivery identity when ordered ids are
+absent. `FactoryMutationDeliverySequence.batchPublications: false` preserves
+per-slice publication settlement for a dependent interaction without changing
+local projection or undo granularity. A committed local undo emits ordered
+inverse publication windows and redo emits forward windows for channels
+delivered by the original action. Remote-origin replay remains excluded.
 
 Transaction facade exports:
 
@@ -612,11 +615,11 @@ See `packages/collaboration.md` and
   - `getSharedDataChannel(name)` (safe accessor; returns `undefined` when missing)
   - `subscribeToSharedDelivery(handler)` (detached delivery metadata for
     local projection observation; observer failure cannot alter commit)
-  - `subscribeToSharedPublication(handler)` (one immutable minimal
-    `SharedPublication` per synchronous immediate delivery action or committed
-    transaction-end batch; the hierarchy is publication → ordered slices →
-    channel batches → ordered payload deliveries; `artifactId` is opaque
-    transport correlation and not a local History-artifact reference)
+  - `subscribeToSharedPublication(handler)` (each immutable minimal
+    `SharedPublication` window produced from eligible immediate or
+    transaction-end source boundaries; the hierarchy is publication → ordered
+    slices → channel batches → ordered payload deliveries; `artifactId` is
+    opaque transport correlation and not a local History-artifact reference)
   - ordinary transaction observer evidence is buffered until transaction-owner
     finalization succeeds, then released once as one ordered batch across owner
     evidence batches; rollback or owner-finalization failure releases no prefix

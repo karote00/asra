@@ -478,7 +478,7 @@ describe('collaboration wire protocol', () => {
     ])
   })
 
-  it('releases retained wire bytes at ordered app handoff before delivery settlement', () => {
+  it('credits each retained frame before ordered app delivery settlement', () => {
     const firstPublication = createPublication({
       suffix: 'worker-first',
       transactionId: 11
@@ -521,6 +521,7 @@ describe('collaboration wire protocol', () => {
     expect(responses.map((response) => response.type)).toEqual([
       'publication-frame-consumed',
       'decoded-publication',
+      'publication-frame-consumed',
       'publication-frame-accepted'
     ])
     expect(
@@ -539,10 +540,6 @@ describe('collaboration wire protocol', () => {
         type: 'decoded-publication-delivery-settled',
         jobId: 'settle-first'
       },
-      expect.objectContaining({
-        type: 'publication-frame-consumed',
-        jobId: 'decode-second'
-      }),
       expect.objectContaining({
         type: 'decoded-publication',
         jobId: 'settle-first',
@@ -612,7 +609,7 @@ describe('collaboration wire protocol', () => {
     ])
   })
 
-  it('keeps multi-assembly continuation within the exact worker byte window', () => {
+  it('lets the oldest interleaved assembly finish before later decoded work', () => {
     const oversizedPublication = createMultiDeliveryPublication([
       { source: 'a'.repeat(1_150_000) },
       { source: 'b'.repeat(1_150_000) }
@@ -693,23 +690,69 @@ describe('collaboration wire protocol', () => {
       },
       postInterleaved
     )
-    const responseCountBeforeOverflow = interleavedResponses.length
+    const responseCountBeforeContinuation = interleavedResponses.length
     interleavedRuntime.handle(
       {
         type: 'decode-publication-frame',
-        jobId: 'decode-interleaved-overflow',
+        jobId: 'decode-interleaved-continuation',
         frame: (oversizedFrames[1] as ArrayBuffer).slice(0)
       },
       postInterleaved
     )
 
-    expect(interleavedResponses.slice(responseCountBeforeOverflow)).toEqual([
-      expect.objectContaining({
-        type: 'publication-codec-failure',
-        jobId: 'decode-interleaved-overflow',
-        message: '[collaboration] inbound publication frame window exceeded'
-      })
+    const continuationResponses = interleavedResponses.slice(
+      responseCountBeforeContinuation
+    )
+    expect(
+      continuationResponses.map(({ jobId, type }) => ({ jobId, type }))
+    ).toEqual([
+      {
+        type: 'publication-frame-consumed',
+        jobId: 'decode-interleaved-continuation'
+      },
+      {
+        type: 'decoded-publication',
+        jobId: 'decode-interleaved-continuation'
+      }
     ])
+    expect(
+      continuationResponses.find(({ type }) => type === 'decoded-publication')
+        ?.publication.publicationId
+    ).toBe(oversizedPublication.publicationId)
+    expect(
+      interleavedResponses.some(
+        ({ type }) => type === 'publication-codec-failure'
+      )
+    ).toBe(false)
+
+    const responseCountBeforeSettlement = interleavedResponses.length
+    interleavedRuntime.handle(
+      {
+        type: 'settle-decoded-publication-delivery',
+        jobId: 'settle-interleaved-continuation'
+      },
+      postInterleaved
+    )
+
+    const settlementResponses = interleavedResponses.slice(
+      responseCountBeforeSettlement
+    )
+    expect(
+      settlementResponses.map(({ jobId, type }) => ({ jobId, type }))
+    ).toEqual([
+      {
+        type: 'decoded-publication-delivery-settled',
+        jobId: 'settle-interleaved-continuation'
+      },
+      {
+        type: 'decoded-publication',
+        jobId: 'settle-interleaved-continuation'
+      }
+    ])
+    expect(
+      settlementResponses.find(({ type }) => type === 'decoded-publication')
+        ?.publication.publicationId
+    ).toBe(interleavedPublication.publicationId)
   })
 
   it('preserves every UTF-16 code unit in publication frame identities', () => {

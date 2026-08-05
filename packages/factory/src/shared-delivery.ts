@@ -13,6 +13,7 @@ export interface FactoryMutationSliceBoundary {
 
 export interface FactoryMutationDeliverySequence {
   readonly mode: FactoryMutationDeliveryMode
+  readonly batchPublications?: boolean
   readonly slices: readonly FactoryMutationSliceBoundary[]
 }
 

@@ -112,7 +112,7 @@ interface HistoryReplaySharedState {
 }
 interface HistoryReplaySliceSettlement {
   readonly explicitBoundary: boolean
-  readonly orderedIds: readonly string[]
+  readonly workItemKeys: readonly string[]
 }
 interface PreparedReplayStep {
   readonly replayEvent: AllEvent
@@ -143,6 +143,7 @@ import type {
 import {
   acknowledgeTransactionReplayApplied,
   applyEventBatchToSynchronousOwners,
+  DEFAULT_COOPERATIVE_RENDER_MAX_ITEMS_PER_SLICE,
   EventTypes,
   endTransaction,
   hasSynchronousEventBatchHandler,
@@ -422,6 +423,9 @@ class DataTransact {
   private emittingSharedPublications = false
   private readonly pendingImmediatePublicationEntries: TransactionJournalEntry[] =
     []
+  private readonly pendingImmediatePublicationRecords: JournalSharedRecordRef[] =
+    []
+  private readonly pendingImmediatePublicationWorkItemKeys = new Set<string>()
   private immediatePublicationToken = 0
   private scheduledImmediatePublicationToken: number | null = null
   private publicationSequence = 0
@@ -441,6 +445,13 @@ class DataTransact {
     string,
     readonly JournalSharedRecordRef[]
   >()
+  private readonly pendingProgressivePublicationRecords: JournalSharedRecordRef[] =
+    []
+  private readonly pendingProgressivePublicationWorkItemKeys = new Set<string>()
+  private readonly pendingHistoryReplayPublicationBatches: SharedDeliveryBatch[] =
+    []
+  private readonly pendingHistoryReplayPublicationWorkItemKeys =
+    new Set<string>()
   private historyReplaySharedState: HistoryReplaySharedState | undefined
   private retainingHistoryReplaySharedEvidence = false
   private activeDeliverySequence: FactoryMutationDeliverySequence | undefined
@@ -527,6 +538,8 @@ class DataTransact {
     this.replaceLatestHistoryStages.clear()
     this.preparedActionHistoryEntries = null
     this.pendingImmediatePublicationEntries.length = 0
+    this.pendingImmediatePublicationRecords.length = 0
+    this.pendingImmediatePublicationWorkItemKeys.clear()
     this.immediatePublicationToken += 1
     this.scheduledImmediatePublicationToken = null
     this.publicationSequence = 0
@@ -536,6 +549,10 @@ class DataTransact {
     this.transactionEndDeliveryBatches = null
     this.transactionEndBatchesBySlice.clear()
     this.transactionEndRecordsBySlice.clear()
+    this.pendingProgressivePublicationRecords.length = 0
+    this.pendingProgressivePublicationWorkItemKeys.clear()
+    this.pendingHistoryReplayPublicationBatches.length = 0
+    this.pendingHistoryReplayPublicationWorkItemKeys.clear()
     this.historyReplaySharedState = undefined
     this.retainingHistoryReplaySharedEvidence = false
     this.activeDeliverySequence = undefined
@@ -1520,6 +1537,14 @@ class DataTransact {
         'Atomic Factory mutation delivery sequence accepts at most one slice'
       )
     }
+    if (
+      detachedSequence.batchPublications !== undefined &&
+      typeof detachedSequence.batchPublications !== 'boolean'
+    ) {
+      throw new Error(
+        'Factory mutation delivery sequence batchPublications must be boolean'
+      )
+    }
     const alreadyDeliveredImmediateOrderedId = this.currentSharedDeliveryBatches
       .filter((batch) => batch.sharedDelivery === 'immediate')
       .flatMap((batch) => batch.records)
@@ -1924,6 +1949,105 @@ class DataTransact {
     )
   }
 
+  private sharedRecordPublicationWorkItemKeys(
+    records: readonly JournalSharedRecordRef[]
+  ): readonly string[] {
+    return records.flatMap(({ entry, record }) =>
+      record.orderedIds.length > 0
+        ? record.orderedIds.map((orderedId) => `ordered:${orderedId}`)
+        : [
+            `delivery:${
+              record.delivery?.deliveryId ??
+              record.evidence?.deliveryId ??
+              `${entry.index}:${record.occurrence}`
+            }`
+          ]
+    )
+  }
+
+  private sharedBatchPublicationWorkItemKeys(
+    batches: readonly SharedDeliveryBatch[]
+  ): readonly string[] {
+    return batches.flatMap(({ deliveries }) =>
+      deliveries.flatMap(({ deliveryId, record }) =>
+        record.orderedIds.length > 0
+          ? record.orderedIds.map((orderedId) => `ordered:${orderedId}`)
+          : [`delivery:${deliveryId}`]
+      )
+    )
+  }
+
+  private publicationWindowWouldExceedTarget(
+    pendingWorkItemKeys: ReadonlySet<string>,
+    currentWorkItemKeys: readonly string[],
+    maxItemsPerPublication = DEFAULT_COOPERATIVE_RENDER_MAX_ITEMS_PER_SLICE
+  ): boolean {
+    if (pendingWorkItemKeys.size === 0) return false
+    let distinctCount = pendingWorkItemKeys.size
+    for (const workItemKey of currentWorkItemKeys) {
+      if (!pendingWorkItemKeys.has(workItemKey)) distinctCount += 1
+    }
+    return distinctCount > maxItemsPerPublication
+  }
+
+  private shouldFlushPublicationWindow(
+    pendingWorkItemKeys: ReadonlySet<string>,
+    finalSlice: boolean,
+    maxItemsPerPublication = DEFAULT_COOPERATIVE_RENDER_MAX_ITEMS_PER_SLICE
+  ): boolean {
+    return (
+      this.activeDeliverySequence?.batchPublications === false ||
+      pendingWorkItemKeys.size >= maxItemsPerPublication ||
+      finalSlice
+    )
+  }
+
+  private flushPendingProgressivePublication(): void {
+    const records = this.pendingProgressivePublicationRecords.splice(0)
+    this.pendingProgressivePublicationWorkItemKeys.clear()
+    if (records.length === 0) return
+    this.queueSharedPublication(
+      this.createSharedPublicationFromRecords(records)
+    )
+    this.flushSharedPublications()
+  }
+
+  private queueProgressiveSlicePublication(
+    records: readonly JournalSharedRecordRef[],
+    sliceOrderedIds: readonly string[],
+    finalSlice: boolean
+  ): void {
+    const publishableRecords = records.filter(
+      ({ record }) => record.delivered && record.publicationId === undefined
+    )
+    const workItemKeys =
+      sliceOrderedIds.length > 0
+        ? sliceOrderedIds.map((orderedId) => `ordered:${orderedId}`)
+        : this.sharedRecordPublicationWorkItemKeys(publishableRecords)
+    if (
+      publishableRecords.length > 0 &&
+      this.activeDeliverySequence?.batchPublications !== false &&
+      this.publicationWindowWouldExceedTarget(
+        this.pendingProgressivePublicationWorkItemKeys,
+        workItemKeys
+      )
+    ) {
+      this.flushPendingProgressivePublication()
+    }
+    this.pendingProgressivePublicationRecords.push(...publishableRecords)
+    workItemKeys.forEach((workItemKey) =>
+      this.pendingProgressivePublicationWorkItemKeys.add(workItemKey)
+    )
+    if (
+      this.shouldFlushPublicationWindow(
+        this.pendingProgressivePublicationWorkItemKeys,
+        finalSlice
+      )
+    ) {
+      this.flushPendingProgressivePublication()
+    }
+  }
+
   private deliverActiveSlice(sliceId: string): void {
     try {
       const sequence = this.activeDeliverySequence
@@ -1946,10 +2070,11 @@ class DataTransact {
         )
       }
       const records = this.transactionEndRecordsBySlice.get(sliceId) ?? []
-      this.queueSharedPublication(
-        this.createSharedPublicationFromRecords(records)
+      this.queueProgressiveSlicePublication(
+        records,
+        expectedSlice.orderedIds,
+        this.nextDeliverySliceIndex === sequence.slices.length - 1
       )
-      this.flushSharedPublications()
       this.nextDeliverySliceIndex += 1
     } catch (error) {
       this.rollbackOnly = true
@@ -2263,13 +2388,50 @@ class DataTransact {
     this.immediatePublicationToken += 1
     const entries = this.pendingImmediatePublicationEntries.splice(0)
     if (entries.length === 0) return
-    this.queueSharedPublication(this.createSharedPublication(entries))
+    const records = this.sharedRecordRefs(entries).filter(
+      ({ record }) => record.delivered && record.publicationId === undefined
+    )
+    const workItemKeys = this.sharedRecordPublicationWorkItemKeys(records)
+    if (
+      records.length > 0 &&
+      this.activeDeliverySequence?.mode !== 'atomic' &&
+      this.publicationWindowWouldExceedTarget(
+        this.pendingImmediatePublicationWorkItemKeys,
+        workItemKeys
+      )
+    ) {
+      this.flushPendingImmediatePublication()
+    }
+    this.pendingImmediatePublicationRecords.push(...records)
+    workItemKeys.forEach((workItemKey) =>
+      this.pendingImmediatePublicationWorkItemKeys.add(workItemKey)
+    )
+    if (
+      this.activeDeliverySequence?.batchPublications === false ||
+      (this.activeDeliverySequence?.mode !== 'atomic' &&
+        this.pendingImmediatePublicationWorkItemKeys.size >=
+          DEFAULT_COOPERATIVE_RENDER_MAX_ITEMS_PER_SLICE)
+    ) {
+      this.flushPendingImmediatePublication()
+    }
+  }
+
+  private flushPendingImmediatePublication(): void {
+    const records = this.pendingImmediatePublicationRecords.splice(0)
+    this.pendingImmediatePublicationWorkItemKeys.clear()
+    if (records.length === 0) return
+    this.queueSharedPublication(
+      this.createSharedPublicationFromRecords(records)
+    )
+    this.flushSharedPublications()
   }
 
   private discardPendingImmediatePublication(): void {
     this.scheduledImmediatePublicationToken = null
     this.immediatePublicationToken += 1
     this.pendingImmediatePublicationEntries.length = 0
+    this.pendingImmediatePublicationRecords.length = 0
+    this.pendingImmediatePublicationWorkItemKeys.clear()
   }
 
   private queueSharedPublication(
@@ -2642,7 +2804,7 @@ class DataTransact {
     preparedReplayEvents?: readonly (readonly AllEvent[] | undefined)[]
   ): Generator<void, unknown[], undefined> {
     const failures: unknown[] = []
-    const pendingSliceOrderedIds = new Set<string>()
+    const pendingSliceWorkItemKeys = new Set<string>()
     let hasPendingSlicePublication = false
     const entries = events.map((event, index) => ({
       event,
@@ -2775,21 +2937,23 @@ class DataTransact {
                 this.markHistoryReplaySharedReady(shared)
               }
             })
-            let settlement = this.flushNextReadyHistoryReplaySlice()
+            let settlement =
+              this.flushNextReadyHistoryReplaySlice(maxItemsPerSlice)
             while (settlement !== 'none') {
               hasPendingSlicePublication = true
-              settlement.orderedIds.forEach((orderedId) =>
-                pendingSliceOrderedIds.add(orderedId)
+              settlement.workItemKeys.forEach((workItemKey) =>
+                pendingSliceWorkItemKeys.add(workItemKey)
               )
               if (
                 settlement.explicitBoundary ||
-                pendingSliceOrderedIds.size >= maxItemsPerSlice
+                pendingSliceWorkItemKeys.size >= maxItemsPerSlice
               ) {
                 hasPendingSlicePublication = false
-                pendingSliceOrderedIds.clear()
+                pendingSliceWorkItemKeys.clear()
                 yield
               }
-              settlement = this.flushNextReadyHistoryReplaySlice()
+              settlement =
+                this.flushNextReadyHistoryReplaySlice(maxItemsPerSlice)
             }
           }
         }
@@ -3509,6 +3673,7 @@ class DataTransact {
             try {
               this.queueUnacknowledgedSharedPublications()
               this.queuePendingImmediatePublication()
+              this.flushPendingImmediatePublication()
               this.flushSharedPublications()
               const transactionEndBatches =
                 this.prepareTransactionEndDeliveryIndex()
@@ -3527,26 +3692,24 @@ class DataTransact {
               measureBrowserDragPhase('factory:flush-shared-channels', () => {
                 if (this.activeDeliverySequence?.mode === 'progressive') {
                   const { slices } = this.activeDeliverySequence
-                  for (
-                    let sliceIndex = this.nextDeliverySliceIndex;
-                    sliceIndex < slices.length;
-                    sliceIndex += 1
-                  ) {
-                    const sliceId = slices[sliceIndex]?.sliceId
-                    if (!sliceId) continue
+                  while (this.nextDeliverySliceIndex < slices.length) {
+                    const sliceId = slices[this.nextDeliverySliceIndex]?.sliceId
+                    if (!sliceId) {
+                      throw new Error(
+                        'Factory mutation delivery sequence contains an empty progressive slice'
+                      )
+                    }
                     const sliceBatches =
                       this.transactionEndBatchesBySlice.get(sliceId) ?? []
                     sliceBatches.forEach((batch) => {
                       this.deliverPreparedSharedBatch(batch)
                     })
-                    const publication = this.historyReplaySharedState
-                      ?.batchStates.length
-                      ? this.createHistoryReplaySharedPublication(sliceBatches)
-                      : this.createSharedPublicationFromRecords(
-                          this.transactionEndRecordsBySlice.get(sliceId) ?? []
-                        )
-                    this.queueSharedPublication(publication)
-                    this.flushSharedPublications()
+                    this.queueProgressiveSlicePublication(
+                      this.transactionEndRecordsBySlice.get(sliceId) ?? [],
+                      slices[this.nextDeliverySliceIndex]?.orderedIds ?? [],
+                      this.nextDeliverySliceIndex === slices.length - 1
+                    )
+                    this.nextDeliverySliceIndex += 1
                   }
                   return
                 }
@@ -3615,6 +3778,10 @@ class DataTransact {
         this.transactionEndDeliveryBatches = null
         this.transactionEndBatchesBySlice.clear()
         this.transactionEndRecordsBySlice.clear()
+        this.pendingProgressivePublicationRecords.length = 0
+        this.pendingProgressivePublicationWorkItemKeys.clear()
+        this.pendingHistoryReplayPublicationBatches.length = 0
+        this.pendingHistoryReplayPublicationWorkItemKeys.clear()
         this.historyReplaySharedState = undefined
         this.retainingHistoryReplaySharedEvidence = false
         if (this.nestedReplaySourceEvents) {
@@ -3723,7 +3890,13 @@ class DataTransact {
       return
     }
     this.configureActiveDeliverySequence(
-      deepFreezeValue({ mode: 'progressive', slices })
+      deepFreezeValue({
+        mode: 'progressive',
+        ...(deliverySequence.batchPublications === undefined
+          ? {}
+          : { batchPublications: deliverySequence.batchPublications }),
+        slices
+      })
     )
   }
 
@@ -3924,9 +4097,9 @@ class DataTransact {
     )
   }
 
-  private flushNextReadyHistoryReplaySlice():
-    | 'none'
-    | HistoryReplaySliceSettlement {
+  private flushNextReadyHistoryReplaySlice(
+    maxItemsPerPublication: number
+  ): 'none' | HistoryReplaySliceSettlement {
     const sharedState = this.historyReplaySharedState
     if (!sharedState) return 'none'
     const firstUndeliveredIndex = sharedState.batchStates.findIndex(
@@ -3948,6 +4121,7 @@ class DataTransact {
             state.readyReadinessKeys.size === state.requiredReadinessKeys.size
         )
     ) {
+      this.flushPendingHistoryReplayPublication()
       return 'none'
     }
     const sliceId = firstUndeliveredState.batch.sliceId
@@ -3967,6 +4141,37 @@ class DataTransact {
     ) {
       return 'none'
     }
+    const isFormalProgressiveSlice =
+      isProgressive && this.activeDeliveryBoundaryBySliceId.has(sliceId)
+    const activeSlice = isFormalProgressiveSlice
+      ? this.activeDeliverySequence?.slices[this.nextDeliverySliceIndex]
+      : undefined
+    if (
+      isFormalProgressiveSlice &&
+      (!activeSlice || activeSlice.sliceId !== sliceId)
+    ) {
+      throw new Error(
+        `Factory history replay delivery slice must follow sequence order: ${activeSlice?.sliceId ?? 'complete'}`
+      )
+    }
+    const workItemKeys = new Set(
+      this.sharedBatchPublicationWorkItemKeys(states.map(({ batch }) => batch))
+    )
+    const pendingDeliveryMode =
+      this.pendingHistoryReplayPublicationBatches[0]?.sharedDelivery
+    const currentDeliveryMode = states[0]?.batch.sharedDelivery
+    if (
+      this.pendingHistoryReplayPublicationBatches.length > 0 &&
+      (pendingDeliveryMode !== currentDeliveryMode ||
+        this.activeDeliverySequence?.batchPublications === false ||
+        this.publicationWindowWouldExceedTarget(
+          this.pendingHistoryReplayPublicationWorkItemKeys,
+          [...workItemKeys],
+          maxItemsPerPublication
+        ))
+    ) {
+      this.flushPendingHistoryReplayPublication()
+    }
 
     states.forEach((state) => {
       if (!this.deliverPreparedSharedBatch(state.batch)) {
@@ -3975,21 +4180,38 @@ class DataTransact {
         )
       }
     })
-    const publication = this.createHistoryReplaySharedPublication(
-      states.map(({ batch }) => batch)
+    this.pendingHistoryReplayPublicationBatches.push(
+      ...states.map(({ batch }) => batch)
     )
+    workItemKeys.forEach((workItemKey) =>
+      this.pendingHistoryReplayPublicationWorkItemKeys.add(workItemKey)
+    )
+    const finalSlice = sharedState.batchStates.every((state) => state.delivered)
+    if (
+      this.shouldFlushPublicationWindow(
+        this.pendingHistoryReplayPublicationWorkItemKeys,
+        finalSlice,
+        maxItemsPerPublication
+      )
+    ) {
+      this.flushPendingHistoryReplayPublication()
+    }
+    if (isFormalProgressiveSlice) {
+      this.nextDeliverySliceIndex += 1
+    }
+    return {
+      explicitBoundary: isFormalProgressiveSlice,
+      workItemKeys: deepFreezeValue([...workItemKeys])
+    }
+  }
+
+  private flushPendingHistoryReplayPublication(): void {
+    const batches = this.pendingHistoryReplayPublicationBatches.splice(0)
+    this.pendingHistoryReplayPublicationWorkItemKeys.clear()
+    if (batches.length === 0) return
+    const publication = this.createHistoryReplaySharedPublication(batches)
     this.queueSharedPublication(publication)
     this.flushSharedPublications()
-    const orderedIds = new Set<string>()
-    states.forEach(({ batch }) =>
-      batch.deliveries.forEach(({ record }) =>
-        record.orderedIds.forEach((orderedId) => orderedIds.add(orderedId))
-      )
-    )
-    return {
-      explicitBoundary: isProgressive,
-      orderedIds: deepFreezeValue([...orderedIds])
-    }
   }
 
   private markHistoryReplaySharedReady(
@@ -4350,6 +4572,10 @@ class DataTransact {
     this.transactionEndDeliveryBatches = null
     this.transactionEndBatchesBySlice.clear()
     this.transactionEndRecordsBySlice.clear()
+    this.pendingProgressivePublicationRecords.length = 0
+    this.pendingProgressivePublicationWorkItemKeys.clear()
+    this.pendingHistoryReplayPublicationBatches.length = 0
+    this.pendingHistoryReplayPublicationWorkItemKeys.clear()
     this.historyReplaySharedState = undefined
     this.retainingHistoryReplaySharedEvidence = false
     this.activeDeliverySequence = undefined

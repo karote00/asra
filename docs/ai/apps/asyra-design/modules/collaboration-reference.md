@@ -57,7 +57,7 @@ separate environment settings because they identify a separate service.
 
 ```text
 local app mutation
--> Factory immediate or transaction-end SharedPublication
+-> Factory immediate or transaction-end SharedPublication window
 -> app channel filter (Scene Tree and Props)
 -> Collaboration serial FIFO handoff
 -> WebSocket Provider worker binary encoding
@@ -73,7 +73,7 @@ local app mutation
 -> distinct peer-applied receipt
 ```
 
-One Factory publication remains one provider request, one receiving app
+One Factory publication window remains one provider request, one receiving app
 callback, one remote Factory transaction, and one Core canonical request. The
 binary codec may split a large publication into ordered wire frames, but this
 does not split or merge publication identity, App policy, canonical mutation,
@@ -145,16 +145,19 @@ candidate readiness, and receiver-handoff starts only after that candidate is
 ready and closes after the sole main-bound `publication-delivery` post
 returns. Handoff timing therefore excludes codec and retained-queue time.
 
-Wire credit and canonical apply completion are distinct. The worker may admit
-later frames into its exact retained-byte window while one publication is
-active, but it returns each publication's `frame-consumed` credits only when
-that ordered publication leaves the retained window for the exclusive async
-App handoff. Those credits are sent before that App apply begins and do not
-depend on whether it later succeeds. Queued publications expose no fabricated
-capacity. The receiver reports `peer-applied` only after the App consumer
-settles the complete publication. Sender acceptance therefore means the
-reference server admitted the current frame set into bounded peer capacity; it
-does not mean a peer finished canonical apply.
+Wire credit and canonical apply completion are distinct. After a frame passes
+worker header, order, duplicate, and capacity validation and the worker retains
+its buffer, the worker immediately returns that exact frame's
+`frame-consumed` credit; it does not wait for complete publication decode or
+App apply. This lets one multi-frame publication finish crossing the server's
+2 MiB Peer queue. If a decoded oversized publication temporarily fills the
+retained assembly window while another App apply is active, later relayed
+frames wait in a separate bounded ingress queue without fabricated credit and
+drain in FIFO order after capacity is released. The receiver reports
+`peer-applied` only after the App consumer settles the complete publication.
+Sender acceptance therefore means the reference server admitted the current
+frame set into bounded peer capacity; it does not mean a peer finished
+canonical apply.
 
 Neither wire boundary whitelists app channel, event names, or payload meaning;
 App semantics remain in the app processor. WebSocket per-message compression
@@ -176,8 +179,8 @@ and persistence queue plus one session record per accepted socket. It:
 - validates versioned binary frames and App document publications before
   sequence allocation;
 - assigns one monotonic document sequence, deduplicates publication identity,
-  appends the publication to the persistence queue, and then fans it out in
-  order;
+  waits for bounded persistence-queue admission when necessary, appends the
+  publication without changing sequence, and then fans it out in order;
 - bounds each peer's queued publication bytes to 2 MiB while allowing one
   indivisible oversized frame;
 - releases queued byte capacity only after the WebSocket send callback and the
