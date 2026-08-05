@@ -192,7 +192,8 @@ describe('initApp preset composition', () => {
     })
     expect(initialization.aiHistory?.getSnapshot()).toEqual({
       control: null,
-      disposed: true
+      disposed: true,
+      replaying: false
     })
     expect(disposeFeature).toHaveBeenCalledOnce()
   })
