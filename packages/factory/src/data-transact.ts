@@ -1876,10 +1876,16 @@ class DataTransact {
             sliceBatches.push(batch)
             batchesBySlice.set(batch.sliceId, sliceBatches)
           })
+          const immediateSliceIds = new Set(
+            this.historyReplaySharedState.batchStates.flatMap(({ batch }) =>
+              batch.sharedDelivery === 'immediate' ? [batch.sliceId] : []
+            )
+          )
           if (
             this.activeDeliverySequence?.mode === 'progressive' &&
             this.activeDeliverySequence.slices.some(
-              ({ sliceId }) => !batchesBySlice.has(sliceId)
+              ({ sliceId }) =>
+                !batchesBySlice.has(sliceId) && !immediateSliceIds.has(sliceId)
             )
           ) {
             throw new Error(
@@ -2359,6 +2365,34 @@ class DataTransact {
           ? 'progressive'
           : 'atomic'),
       slices: [...slices].map(([sliceId, orderedIds]) => ({
+        sliceId,
+        orderedIds
+      }))
+    })
+  }
+
+  private resolveCommittedHistoryDeliverySequence():
+    | FactoryMutationDeliverySequence
+    | undefined {
+    if (this.activeDeliverySequence?.mode === 'progressive') {
+      return this.activeDeliverySequence
+    }
+    if (this.activeDeliverySequence?.batchPublications !== false) return
+
+    const deliveryIdsBySlice = new Map<string, string[]>()
+    this.currentSharedDeliveryBatches.forEach((batch) => {
+      const deliveryIds = deliveryIdsBySlice.get(batch.sliceId) ?? []
+      deliveryIds.push(
+        ...batch.deliveries.map((delivery) => delivery.deliveryId)
+      )
+      deliveryIdsBySlice.set(batch.sliceId, deliveryIds)
+    })
+    if (deliveryIdsBySlice.size === 0) return
+
+    return deepFreezeValue({
+      mode: 'progressive',
+      batchPublications: false,
+      slices: [...deliveryIdsBySlice].map(([sliceId, orderedIds]) => ({
         sliceId,
         orderedIds
       }))
@@ -3680,11 +3714,13 @@ class DataTransact {
               const transactionEndEntries = this.journal.filter(
                 (entry) => entry.options.sharedDelivery === 'transaction-end'
               )
+              const historyDeliverySequence =
+                this.resolveCommittedHistoryDeliverySequence()
               const history: FactoryHistoryEntry = {
                 entries: this.preparedActionHistoryEntries ?? this.journal,
-                ...(this.activeDeliverySequence?.mode === 'progressive'
+                ...(historyDeliverySequence
                   ? {
-                      progressiveDeliverySequence: this.activeDeliverySequence
+                      progressiveDeliverySequence: historyDeliverySequence
                     }
                   : {})
               }
@@ -3840,6 +3876,31 @@ class DataTransact {
     return batches
   }
 
+  private orderHistorySourceBatchesByDeliverySequence(
+    history: FactoryHistoryEntry,
+    batches: readonly SharedDeliveryBatch[]
+  ): readonly SharedDeliveryBatch[] {
+    const sequence = history.progressiveDeliverySequence
+    if (!sequence) return batches
+
+    const batchesBySlice = new Map<string, SharedDeliveryBatch[]>()
+    batches.forEach((batch) => {
+      const sliceBatches = batchesBySlice.get(batch.sliceId) ?? []
+      sliceBatches.push(batch)
+      batchesBySlice.set(batch.sliceId, sliceBatches)
+    })
+    const orderedBatches = sequence.slices.flatMap(
+      ({ sliceId }) => batchesBySlice.get(sliceId) ?? []
+    )
+    const orderedBatchIds = new Set(
+      orderedBatches.map(({ batchId }) => batchId)
+    )
+    orderedBatches.push(
+      ...batches.filter(({ batchId }) => !orderedBatchIds.has(batchId))
+    )
+    return deepFreezeValue(orderedBatches)
+  }
+
   private historyReplayReadinessKey(
     sourceRecordId: string,
     outputIndex: number
@@ -3914,7 +3975,11 @@ class DataTransact {
         record.delivery ? [record.delivery.deliveryId] : []
       )
     )
-    const committedSourceBatches = this.historySourceBatches(deliveredRecords)
+    const committedSourceBatches =
+      this.orderHistorySourceBatchesByDeliverySequence(
+        history,
+        this.historySourceBatches(deliveredRecords)
+      )
     const sourceBatches =
       direction === 'forward'
         ? committedSourceBatches
@@ -3925,6 +3990,11 @@ class DataTransact {
       HistoryReplaySharedBatchState[]
     >()
     const deliveredOrderedIds = new Set<string>()
+    const historyDeliveryOrderedIds = new Set(
+      history.progressiveDeliverySequence?.slices.flatMap(
+        ({ orderedIds }) => orderedIds
+      ) ?? []
+    )
 
     sourceBatches.forEach((sourceBatch) => {
       const sourceDeliveries = (
@@ -3966,7 +4036,14 @@ class DataTransact {
             direction === 'forward'
               ? sourceRecord.orderedIds
               : [...sourceRecord.orderedIds].reverse()
-          orderedIds.forEach((orderedId) => deliveredOrderedIds.add(orderedId))
+          orderedIds.forEach((orderedId) => {
+            if (historyDeliveryOrderedIds.has(orderedId)) {
+              deliveredOrderedIds.add(orderedId)
+            }
+          })
+          if (historyDeliveryOrderedIds.has(sourceDelivery.deliveryId)) {
+            deliveredOrderedIds.add(sourceDelivery.deliveryId)
+          }
           const replaySharedOptions = {
             undoable: false,
             rollbackable: true,

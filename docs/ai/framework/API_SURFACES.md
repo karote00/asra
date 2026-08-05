@@ -291,9 +291,11 @@ ordered source boundary. Default progressive delivery groups consecutive
 source boundaries from the same transaction into publication windows of at
 most 1,024 distinct work items, using delivery identity when ordered ids are
 absent. `FactoryMutationDeliverySequence.batchPublications: false` preserves
-per-slice publication settlement for a dependent interaction without changing
-local projection or undo granularity. A committed local undo emits ordered
-inverse publication windows and redo emits forward windows for channels
+per-source publication settlement for a dependent interaction without changing
+local projection or undo granularity. Factory retains the action's actual
+immediate and transaction-end delivery order in the same History entry so Undo
+reverses and Redo restores that settlement policy. A committed local undo emits
+ordered inverse publication windows and redo emits forward windows for channels
 delivered by the original action. Remote-origin replay remains excluded.
 
 Transaction facade exports:

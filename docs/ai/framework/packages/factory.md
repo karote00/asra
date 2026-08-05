@@ -103,9 +103,12 @@ infrastructure.
 - the progressive Undo/Redo route is additive to the synchronous route: when
   the committed History entry carries a progressive delivery sequence or
   already-delivered immediate owner batches, Factory applies the same canonical
-  replay in recorded boundary order; consecutive compatible single-element
-  Scene replay events from one source boundary use the existing plural Scene
-  owner apply in groups of at most 32, after complete batch preflight
+  replay in recorded delivery order; an explicit `batchPublications: false`
+  policy is retained for Undo/Redo so immediate and transaction-end source
+  boundaries settle separately without creating per-slice History. Consecutive
+  compatible single-element Scene replay events from one source boundary use
+  the existing plural Scene owner apply in groups of at most 32, after complete
+  batch preflight
 - Props removal replay preserves each exact source payload as one ordered
   canonical owner batch, matching add replay instead of expanding one payload
   into per-component Factory journal entries
@@ -200,7 +203,9 @@ infrastructure.
   delivery identity is the fallback
 - `FactoryMutationDeliverySequence.batchPublications: false` is the explicit
   per-slice publication-settlement opt-out for a dependent bulk interaction;
-  it changes neither local projection boundaries nor the one outer undo commit
+  it changes neither local projection boundaries nor the one outer undo commit.
+  Factory records the actual source-delivery order on that History entry so
+  Undo reverses and Redo restores the same settlement policy
 - a pointer session may expose multiple immediate source boundaries while all
   of its undoable journal entries remain one outer undo commit
 - already-published immediate entries are excluded from the transaction-end
@@ -248,7 +253,8 @@ infrastructure.
   `atomic` or `progressive` mode plus ordered slice boundaries and the optional
   `batchPublications` settlement policy; batching defaults on, while `false`
   preserves per-slice publication settlement. It is delivery execution
-  evidence, not History evidence or a planning API
+  evidence retained by the ordinary History entry for replay, not an
+  independent History artifact or a planning API
 - `getActiveStagedDeliveryController()` exposes only
   `setDeliverySequence(...)` and `stageSlice(...)` for a consumer that
   explicitly owns optional staged publication. The sequence does not create a

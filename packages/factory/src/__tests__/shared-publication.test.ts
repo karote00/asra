@@ -2156,6 +2156,84 @@ describe('Factory action-level shared publication', () => {
     ])
   })
 
+  it('preserves immediate per-source publication settlement through undo and redo', async () => {
+    const { factory, publications } = createHarness()
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_PROPERTY,
+      () => true
+    )
+
+    factory.startTransaction()
+    const handle = update(factory, 'element-a', 1, {
+      sharedDelivery: 'immediate'
+    })
+    handle?.setDeliverySequence({
+      mode: 'atomic',
+      batchPublications: false,
+      slices: []
+    })
+    await Promise.resolve()
+    update(factory, 'transaction-end-between-immediate-sources', 1)
+    update(factory, 'element-a', 2, { sharedDelivery: 'immediate' })
+    await Promise.resolve()
+    factory.endTransaction()
+
+    expect(publications).toHaveLength(3)
+    expect(publications.every(({ origin }) => origin === 'action')).toBe(true)
+    publications.length = 0
+
+    factory.undo()
+
+    expect(publications).toHaveLength(3)
+    expect(publications.every(({ origin }) => origin === 'undo')).toBe(true)
+    expect(publications.map(publicationDeliveries)).toEqual([
+      [
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            id: 'transaction-end-between-immediate-sources',
+            after: 0
+          })
+        })
+      ],
+      [
+        expect.objectContaining({
+          payload: expect.objectContaining({ id: 'element-a', after: 1 })
+        })
+      ],
+      [
+        expect.objectContaining({
+          payload: expect.objectContaining({ id: 'element-a', after: 0 })
+        })
+      ]
+    ])
+    publications.length = 0
+
+    factory.redo()
+
+    expect(publications).toHaveLength(3)
+    expect(publications.every(({ origin }) => origin === 'redo')).toBe(true)
+    expect(publications.map(publicationDeliveries)).toEqual([
+      [
+        expect.objectContaining({
+          payload: expect.objectContaining({ id: 'element-a', after: 1 })
+        })
+      ],
+      [
+        expect.objectContaining({
+          payload: expect.objectContaining({ id: 'element-a', after: 2 })
+        })
+      ],
+      [
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            id: 'transaction-end-between-immediate-sources',
+            after: 1
+          })
+        })
+      ]
+    ])
+  })
+
   it('replays one immediate multi-channel owner batch as one publication', async () => {
     const { factory, publications } = createHarness()
     factory.registerSharedDataChannel(

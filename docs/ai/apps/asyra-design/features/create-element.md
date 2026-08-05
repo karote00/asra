@@ -34,6 +34,10 @@
   reparent/coordinate/bounds normalization in one transaction
 - immediately project the undoable ADD_ELEMENT so the canvas and Contents panel show it before pointer-up
 - select and immediately project the created element so selection-derived UI is available during the active session
+- before the first mutation, configure `batchPublications: false`; mouse-down,
+  applied drag frames, and a conditional pointer-up correction settle as
+  separate source publications, and Undo/Redo retain those boundaries without
+  splitting the session's one History entry
 - store drag-start workspace position and latest applied bounds in session
   state
 

@@ -80,6 +80,9 @@
 
   - `runTransaction` for finite mutation groups
   - manual start/end/rollback wrappers for interactions that span input events
+  - `configureSharedDeliverySequence(...)` delegates an already-decided
+    transaction delivery sequence to the active Factory controller; it fails
+    when no transaction is active
 
 ## Rules
 
@@ -94,8 +97,11 @@
 - `elementApis.setElementPositions(...)` applies per-element `x/y` updates in
   one `runTransaction` boundary and forwards mutation options. Create/move
   features use `sharedDelivery: 'immediate'` so one synchronous multi-element
-  update becomes one shared publication while the outer session remains one
-  undo commit. Child-only move samples and gesture finalization do not
+  update becomes one source publication while the outer session remains one
+  undo commit. Create, move, and Pen sessions configure
+  `batchPublications: false` before their first mutation because later pointer
+  input depends on every prior source settlement; Factory retains that choice
+  for Undo/Redo. Child-only move samples and gesture finalization do not
   normalize ancestor Groups, rebase siblings, or append Group changes.
 - `elementApis.updateElementProperties(...)` submits only the explicit
   element ids and values to the plural Core boundary for child-only geometry

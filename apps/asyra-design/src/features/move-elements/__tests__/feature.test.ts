@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
+  configureSharedDeliverySequence: vi.fn(),
   defineFeature: vi.fn(
     (
       _name: string,
@@ -50,6 +51,7 @@ vi.mock('../../../common-apis', () => ({
     getPathEditingMode: mocks.getPathEditingMode
   },
   transactionApis: {
+    configureSharedDeliverySequence: mocks.configureSharedDeliverySequence,
     runTransaction: mocks.runTransaction
   }
 }))
@@ -84,6 +86,16 @@ describe('move canvas hierarchy target handoff', () => {
     mocks.isElementVisible.mockReturnValue(true)
   })
 
+  it('does not change shared delivery when the move session is rejected', () => {
+    expect(
+      moveElementsSession.onStart?.({
+        ...startSnapshot,
+        primaryTool: PrimaryToolType.RECTANGLE
+      } as never)
+    ).toBeNull()
+    expect(mocks.configureSharedDeliverySequence).not.toHaveBeenCalled()
+  })
+
   it('starts from the shared resolved target without using the legacy raw fallback', () => {
     mocks.resolveAtClientPos.mockReturnValue('group-1')
 
@@ -98,6 +110,11 @@ describe('move canvas hierarchy target handoff', () => {
     expect(mocks.resolveAtClientPos).toHaveBeenCalledWith(startSnapshot)
     expect(mocks.selectElements).toHaveBeenCalledWith(['group-1'], {
       undoable: false
+    })
+    expect(mocks.configureSharedDeliverySequence).toHaveBeenCalledWith({
+      mode: 'atomic',
+      batchPublications: false,
+      slices: []
     })
     expect(mocks.getElementIdAtClientPos).not.toHaveBeenCalled()
   })

@@ -63,6 +63,10 @@ describe('Asyra Design canonical collaboration delivery timeline', () => {
     vi.spyOn(transactionApis, 'runTransaction').mockImplementation((run) =>
       run()
     )
+    vi.spyOn(
+      transactionApis,
+      'configureSharedDeliverySequence'
+    ).mockImplementation(() => undefined)
   })
 
   it('delivers mouse-down create and every applied drag geometry through the canonical immediate path', () => {

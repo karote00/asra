@@ -9,7 +9,8 @@ import { defineFeature } from '@asyra/core'
 import {
   elementApis,
   selectionApis,
-  systemContextApis
+  systemContextApis,
+  transactionApis
 } from '../../common-apis'
 import {
   FEATURE_MOVEMENT_THRESHOLD,
@@ -118,6 +119,11 @@ export const createElementSession = {
     if (!dragStartWorkspace) {
       return null
     }
+    transactionApis.configureSharedDeliverySequence({
+      mode: 'atomic',
+      batchPublications: false,
+      slices: []
+    })
     const elementId = api.createElement(
       snapshot.mousePosition,
       primaryTool,

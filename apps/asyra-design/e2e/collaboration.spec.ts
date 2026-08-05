@@ -590,6 +590,53 @@ const getFactoryPublicationShapes = (page: Page) =>
     return testRuntimeState.get('factory-publication-shapes') ?? []
   })
 
+const getFactoryUndoXChanges = (page: Page) =>
+  page.evaluate(async () => {
+    const { testRuntimeState } = await import('../src/testing/runtime-access')
+    const publications =
+      testRuntimeState.get<
+        {
+          origin?: string
+          publicationId?: string
+          slices?: readonly {
+            batches?: readonly {
+              deliveries?: readonly {
+                eventName?: string
+                payload?: unknown
+              }[]
+            }[]
+          }[]
+        }[]
+      >('factory-publications') ?? []
+    return publications.flatMap((publication) =>
+      publication.origin !== 'undo'
+        ? []
+        : (publication.slices ?? []).flatMap((slice) =>
+            (slice.batches ?? []).flatMap((batch) =>
+              (batch.deliveries ?? []).flatMap((delivery) => {
+                const payload =
+                  delivery.payload &&
+                  typeof delivery.payload === 'object' &&
+                  !Array.isArray(delivery.payload)
+                    ? (delivery.payload as Record<string, unknown>)
+                    : null
+                return delivery.eventName === 'updateProperty' &&
+                  payload?.key === 'x'
+                  ? [
+                      {
+                        after: payload.after,
+                        before: payload.before,
+                        id: payload.id,
+                        publicationId: publication.publicationId
+                      }
+                    ]
+                  : []
+              })
+            )
+          )
+    )
+  })
+
 const classifyFactoryPublicationsInApp = (page: Page) =>
   page.evaluate(async () => {
     const operationsModule = await import('/src/collaboration/operations.ts')
@@ -800,19 +847,15 @@ test('16-item server response keeps ordered minimal publications through one Act
     body: Buffer.from(JSON.stringify(shapes, null, 2)),
     contentType: 'application/json'
   })
-  expect(shapes.map(({ origin }) => origin)).toEqual([
-    ...Array.from({ length: 9 }, () => 'action'),
-    ...Array.from({ length: 9 }, () => 'undo'),
-    ...Array.from({ length: 9 }, () => 'redo')
-  ])
+  expect(shapes.map(({ origin }) => origin)).toEqual(['action', 'undo', 'redo'])
   expect(JSON.stringify(shapes)).not.toMatch(
     /updateComputedData|updateComputedDataPatch/
   )
 
   expect(await classifyFactoryPublicationsInApp(page)).toEqual([
-    ...Array.from({ length: 9 }, () => ['element-creation']),
-    ...Array.from({ length: 9 }, () => ['element-removal']),
-    ...Array.from({ length: 9 }, () => ['element-creation'])
+    Array.from({ length: 9 }, () => 'element-creation'),
+    Array.from({ length: 9 }, () => 'element-removal'),
+    Array.from({ length: 9 }, () => 'element-creation')
   ])
 })
 
@@ -2404,17 +2447,52 @@ test('pen drag-to-add publishes real topology and curve frames before pointer-up
     }
 
     await undo(first)
-    await expect
-      .poll(() => getVectorTopologySummary(second))
-      .toMatchObject({
-        anchorCount: 1,
-        controlCount: 0,
-        segmentCount: 0,
-        curvedSegmentCount: 0
+    try {
+      await expect
+        .poll(() => getVectorTopologySummary(second))
+        .toMatchObject({
+          anchorCount: 1,
+          controlCount: 0,
+          segmentCount: 0,
+          curvedSegmentCount: 0
+        })
+      await expect
+        .poll(() => getCanonicalSnapshot(second))
+        .toEqual(await getCanonicalSnapshot(first))
+    } catch (error) {
+      const [firstSnapshot, secondSnapshot, firstOutcomes, secondOutcomes] =
+        await Promise.all([
+          getCanonicalSnapshot(first),
+          getCanonicalSnapshot(second),
+          getPublicationOutcomes(first),
+          getPublicationOutcomes(second)
+        ])
+      const publications = await getFactoryPublicationShapes(first)
+      const undoXChanges = await getFactoryUndoXChanges(first)
+      const firstHistoryState = await first.evaluate(async () => {
+        const transact = (await import('../src/testing/runtime-access')).core
+          ?.deps?.factory?.transact
+        return {
+          inRedo: transact?.inRedo,
+          inUndo: transact?.inUndo,
+          redoDepth: transact?.redoStack?.length ?? 0,
+          undoDepth: transact?.undoStack?.length ?? 0
+        }
       })
-    await expect
-      .poll(() => getCanonicalSnapshot(second))
-      .toEqual(await getCanonicalSnapshot(first))
+      throw new Error(
+        `Pen Undo convergence failed: ${JSON.stringify({
+          firstSnapshot,
+          secondSnapshot,
+          firstHistoryState,
+          firstPageErrors: firstPageErrors.slice(-8),
+          firstOutcomes: firstOutcomes.slice(-16),
+          publications: publications.slice(-16),
+          undoXChanges,
+          secondOutcomes: secondOutcomes.slice(-16)
+        })}`,
+        { cause: error }
+      )
+    }
 
     await redo(first)
     try {

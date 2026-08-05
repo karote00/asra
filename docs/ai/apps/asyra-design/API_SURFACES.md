@@ -554,6 +554,12 @@ Import boundary:
 - `rollbackTransaction(failure?): void`
 - `runTransaction(callback, options?)`: finite synchronous/asynchronous work
   commits on success and rolls back thrown/rejected work
+- `configureSharedDeliverySequence(sequence): void`: delegates an
+  already-decided delivery sequence to the active Factory transaction and
+  fails when no transaction is active. Create, move, and Pen sessions use
+  `batchPublications: false` before their first mutation; Factory retains the
+  actual source-delivery order for Undo/Redo without splitting the action's
+  History entry
 
 ## Controller APIs (`src/controllers/*`)
 
