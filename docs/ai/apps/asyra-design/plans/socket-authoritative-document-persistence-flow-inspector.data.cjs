@@ -1123,7 +1123,7 @@
       id: 'publication-and-undo-contract',
       title: 'Canonical changes, not undo History, cross the socket',
       assertions: [
-        'The permanent toolbar Reset is the one standalone stored-file DELETE exception: it replaces the current checkpoint with the formal empty document and refreshes only after success, without entering Core, Feature System, transactions, History, CRDT, Selection, Factory publication, or Collaboration. crdt-7076-sample otherwise uses the same socket session and publishes only after Actor A submits its exact HTTP action-batch request.',
+        'The permanent toolbar Reset is the one standalone stored-file DELETE exception: it replaces the current checkpoint with the formal empty document when the backend is available and always refreshes after the request attempt settles, including when a storage-free demo has no backend, without entering Core, Feature System, transactions, History, CRDT, Selection, Factory publication, or Collaboration. crdt-7076-sample otherwise uses the same socket session and publishes only after Actor A submits its exact HTTP action-batch request.',
         'Transaction-end, immediate, Undo, Redo, and compensation publications preserve existing Factory semantics.',
         'Selection-only transactions produce no document publication.',
         'Remote apply creates no receiving Undo, browser save, or echo.',

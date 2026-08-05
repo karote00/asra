@@ -44,8 +44,14 @@ provider/network side effect until the consumer explicitly configures it. See
 
 Vite, the normal Playwright suite, visual review, the collaboration E2E suite,
 and the socket server's Origin check use `APP_URL`. The socket server reads and
-writes checkpoints only through `DOCUMENT_PERSISTENCE_BACKEND_URL`; it never
-derives that backend origin from the frontend URL.
+writes checkpoints only through `DOCUMENT_PERSISTENCE_BACKEND_URL`; Vite uses
+that same backend origin to proxy the browser's same-origin
+`/api/documents/*` Reset DELETE during ordinary development. Neither derives
+the backend origin from the frontend URL.
+
+Reset always refreshes after the DELETE attempt settles. A storage-free demo
+without a reachable backend therefore still reloads the formal empty App; the
+failed request is diagnostic only and never blocks refresh.
 
 For example:
 

@@ -349,12 +349,17 @@ review or export.
   sample, persistence, startup, or Collaboration work must not hide, disable,
   or delete it.
 - Reset is an intentionally standalone destructive stored-file utility. One
-  click sends `DELETE /api/documents/{encoded fileId}` to replace the stored
-  checkpoint with the formal empty document and reset its durable sequence,
-  then refreshes the page only after that request succeeds.
+  click sends `DELETE /api/documents/{encoded fileId}`. When the backend is
+  available, it replaces the stored checkpoint with the formal empty document
+  and resets its durable sequence. The browser always refreshes after the
+  request attempt settles, including when a storage-free demo has no backend.
+- In ordinary development, Vite must proxy this exact same-origin route to
+  `DOCUMENT_PERSISTENCE_BACKEND_URL`; Reset must not depend on an E2E-only
+  backend override.
 - Reset must not call Core, Feature System, a common mutation API, transaction,
   History, Undo/Redo, Selection, Factory publication, Collaboration, or a CRDT
-  apply path. Failure leaves the current page loaded and reports the error.
+  apply path. Backend absence or failure reports the error but never blocks the
+  refresh; the storage-free demo reloads its formal empty App.
 - This exact Reset endpoint is the only browser document-delete exception.
   It creates no localStorage bootstrap and no second document startup route.
 - Any future import must produce canonical document changes through the normal

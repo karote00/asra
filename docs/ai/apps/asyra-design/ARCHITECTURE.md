@@ -174,8 +174,9 @@ mandatory socket handshake
   remain outside document persistence.
 - The browser performs no canonical document persistence write during ordinary
   App operation. The permanent toolbar Reset is the one standalone exception:
-  it deletes only the current stored checkpoint and refreshes after success,
-  without Core, Feature, transaction, History, CRDT, Selection, or
+  it attempts to delete only the current stored checkpoint and always refreshes
+  after that attempt settles, including when a storage-free demo has no
+  backend, without Core, Feature, transaction, History, CRDT, Selection, or
   Collaboration participation. `crdt-7076-sample` otherwise uses the same
   socket-authoritative document session and request-time HTTP action-batch as
   its only prepared sample source.

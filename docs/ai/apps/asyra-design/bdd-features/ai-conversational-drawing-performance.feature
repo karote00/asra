@@ -523,10 +523,11 @@ Feature: Conversational AI drawing performance
     And sample, persistence, startup, or Collaboration changes must not remove, hide, or disable Reset
     When the user presses Reset
     Then the browser should DELETE only "/api/documents/{encoded fileId}"
-    And the backend should replace that stored checkpoint with the formal empty document at durable sequence zero
-    And the browser should refresh only after the DELETE succeeds
+    And an available backend should replace that stored checkpoint with the formal empty document at durable sequence zero
+    And the browser should always refresh after the DELETE attempt settles
     But Reset should not call Core, Feature System, a transaction, History, Undo Redo, Selection, Factory publication, Collaboration, or CRDT apply
-    And a failed DELETE should not refresh the page
+    And an unavailable or failed DELETE should report its error without blocking refresh
+    And a storage-free demo should therefore reload the formal empty App
 
   Scenario: Remote apply never persists on the receiving client
     Given Actor A originated and persisted one committed canonical operation

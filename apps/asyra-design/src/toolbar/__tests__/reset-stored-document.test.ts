@@ -22,7 +22,7 @@ describe('independent stored-document Reset', () => {
     expect(reload).toHaveBeenCalledOnce()
   })
 
-  it('does not reload when clearing the stored file fails', async () => {
+  it('reloads when the stored-file endpoint rejects Reset', async () => {
     window.history.replaceState({}, '', '/?fileId=document-a')
     const fetchImplementation = vi.fn().mockResolvedValue({
       ok: false,
@@ -33,6 +33,19 @@ describe('independent stored-document Reset', () => {
     await expect(
       resetStoredDocument({ fetchImplementation, reload })
     ).rejects.toThrow('stored document Reset failed (409)')
-    expect(reload).not.toHaveBeenCalled()
+    expect(reload).toHaveBeenCalledOnce()
+  })
+
+  it('reloads the storage-free demo when no backend connection exists', async () => {
+    window.history.replaceState({}, '', '/?fileId=demo-document')
+    const fetchImplementation = vi
+      .fn()
+      .mockRejectedValue(new TypeError('Failed to fetch'))
+    const reload = vi.fn()
+
+    await expect(
+      resetStoredDocument({ fetchImplementation, reload })
+    ).rejects.toThrow('Failed to fetch')
+    expect(reload).toHaveBeenCalledOnce()
   })
 })

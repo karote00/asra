@@ -16,9 +16,10 @@ fixed three-second server persistence window, and ordered backend
 materialization. The temporary `crdt-7076-sample`-only Reset condition was
 superseded on 2026-08-06: Reset is now a permanent toolbar control for every
 fileId. Its special behavior remains isolated from the document session—it
-deletes only the current stored checkpoint and refreshes after success—while
-the sample uses the ordinary socket session and receives prepared data only
-through Actor A's exact HTTP action-batch request.
+attempts to delete only the current stored checkpoint and always refreshes
+after the request settles, including without a backend—while the sample uses
+the ordinary socket session and receives prepared data only through Actor A's
+exact HTTP action-batch request.
 
 Semantic authority:
 `../../specs/socket-authoritative-document-session.md`.

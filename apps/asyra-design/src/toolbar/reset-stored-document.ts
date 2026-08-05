@@ -37,14 +37,22 @@ export const resetStoredDocument = async (
   options: ResetStoredDocumentOptions = {}
 ): Promise<void> => {
   const fileId = getRequiredStoredFileId()
-  const send = options.fetchImplementation ?? getPlatformFetch()
-  const response = await send(`/api/documents/${encodeURIComponent(fileId)}`, {
-    headers: { accept: 'application/json' },
-    method: 'DELETE'
-  })
-  if (!response.ok) {
-    throw new Error(`stored document Reset failed (${String(response.status)})`)
-  }
   const reload = options.reload ?? (() => window.location.reload())
-  reload()
+  try {
+    const send = options.fetchImplementation ?? getPlatformFetch()
+    const response = await send(
+      `/api/documents/${encodeURIComponent(fileId)}`,
+      {
+        headers: { accept: 'application/json' },
+        method: 'DELETE'
+      }
+    )
+    if (!response.ok) {
+      throw new Error(
+        `stored document Reset failed (${String(response.status)})`
+      )
+    }
+  } finally {
+    reload()
+  }
 }

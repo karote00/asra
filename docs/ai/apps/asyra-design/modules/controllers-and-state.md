@@ -58,6 +58,7 @@
 - Controllers are orchestration adapters; domain mutation stays in common APIs.
 - Reset must remain outside controllers, Core, Feature System, transactions,
   History, CRDT, Selection, and other App operations. Its only effects are
-  deleting the current stored file and refreshing after success.
+  attempting to delete the current stored file and always refreshing after the
+  attempt settles; backend absence cannot block a storage-free demo refresh.
 - `states/app.ts` should only hold UI runtime objects (renderer instance), not domain data.
 - If controller behavior defines a reusable interaction contract, move it to common API.

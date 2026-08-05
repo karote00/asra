@@ -1925,9 +1925,10 @@ intended transaction or history boundary.
   Collaboration mode, compressed-canonical `Core.load` bootstrap, alternate
   route, localStorage Reset, or demo-only persistence path.
 - The toolbar Reset remains permanently visible for every fileId. It is not an
-  App document action: it deletes only the current stored checkpoint and
-  refreshes after success, without Core, Feature, transaction, History,
-  Selection, Factory publication, Collaboration, or CRDT work.
+  App document action: it attempts to delete only the current stored checkpoint
+  and always refreshes after the request settles, including without a backend,
+  without Core, Feature, transaction, History, Selection, Factory publication,
+  Collaboration, or CRDT work.
 - When the socket is unavailable, the existing provisional local checkpoint
   still starts Core and Canvas. Local manual and Agent actions remain
   available, their publications enter the ordinary durable outbox, and
@@ -2247,11 +2248,12 @@ projection settlement complete.
 ### Permanent Standalone Reset
 
 Every document exposes the same toolbar Reset. It sends one same-origin DELETE
-for the current stored file and refreshes only after success. It never enters
-Core, Feature System, a transaction, History, Undo/Redo, Selection, Factory
-publication, Collaboration, or CRDT apply. Ordinary App document operations
-continue to use the socket-authoritative publication and backend
-materialization contract.
+for the current stored file and always refreshes after the request attempt
+settles. A storage-free demo therefore returns to the formal empty App even
+without a backend. Reset never enters Core, Feature System, a transaction,
+History, Undo/Redo, Selection, Factory publication, Collaboration, or CRDT
+apply. Ordinary App document operations continue to use the
+socket-authoritative publication and backend materialization contract.
 
 ### Fast Server-response AI CRDT Correctness
 

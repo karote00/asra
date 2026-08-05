@@ -1054,7 +1054,8 @@
         'Server canonical deletion materialization preserves the same exact owned-property closure and save evidence while traversing its growing reference queue with one monotonic cursor and one visited set; it never performs repeated array-head compaction for high-detail shared or cyclic property graphs.',
         'When accepted publications temporarily fill the bounded persistence queue, source admission waits for durable capacity and resumes in original sequence without closing the source socket, dropping the request, or changing the publication payload.',
         'The request-time Agent transport remains separate from socket document bootstrap and never doubles as a checkpoint, pending tail, or CRDT state owner.',
-        'The toolbar Reset control remains permanently visible for every fileId unless the product owner explicitly requests removal. It is an isolated stored-file utility: one click deletes only the current backend checkpoint and refreshes after success, with no Core, Feature, transaction, History, Selection, Factory publication, Collaboration, or CRDT operation.',
+        'The toolbar Reset control remains permanently visible for every fileId unless the product owner explicitly requests removal. It is an isolated stored-file utility: one click attempts to delete only the current backend checkpoint and always refreshes after the request settles, including when a storage-free demo has no backend, with no Core, Feature, transaction, History, Selection, Factory publication, Collaboration, or CRDT operation.',
+        'Ordinary Vite development proxies the permanent Reset same-origin DELETE through DOCUMENT_PERSISTENCE_BACKEND_URL. The E2E backend override may take precedence only when explicitly configured and is never required for an ordinary Reset.',
         'There is no checked-in compressed canonical document Core.load bootstrap, localStorage Reset, sample-specific socket bypass, fake connection success, alternate fileId, old-format compatibility branch, or second canonical state owner.',
         'Single-Actor and two-Actor sessions still preserve one outer action transaction, exact Undo and Redo, canonical IDs, complete detail, and ordered canonical publication.'
       ],
@@ -1087,6 +1088,8 @@
       cacheDimensions: [],
       implementationBoundary: [
         'apps/asyra-design/package.json',
+        'apps/asyra-design/README.md',
+        'apps/asyra-design/vite.config.ts',
         'apps/asyra-design/samples/crdt-7076',
         'apps/asyra-design/server/action-batch.ts',
         'apps/asyra-design/server/__tests__/action-batch.test.ts',

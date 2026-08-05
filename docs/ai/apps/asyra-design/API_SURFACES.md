@@ -251,8 +251,13 @@ Semantic authority:
   product owner explicitly requests its removal.
 - `resetStoredDocument()` is a standalone stored-document utility, not an App
   controller or Feature API. It reads the required `fileId`, sends
-  `DELETE /api/documents/{encoded fileId}`, and calls
-  `window.location.reload()` only after a successful response.
+  `DELETE /api/documents/{encoded fileId}`, and always calls
+  `window.location.reload()` after that request attempt settles. A missing,
+  unreachable, or non-success backend still reports its error but cannot block
+  refresh; a storage-free demo therefore returns to the formal empty App.
+- Ordinary Vite development proxies that same-origin document route to
+  `DOCUMENT_PERSISTENCE_BACKEND_URL`; the `ASYRA_E2E_DOCUMENT_BACKEND_URL`
+  override remains test-only and takes precedence when explicitly configured.
 - The document backend handles that DELETE by replacing the stored record with
   the formal empty checkpoint at durable sequence zero. Reset performs no Core
   mutation, transaction, History, Undo/Redo, Factory publication, CRDT,
