@@ -2974,8 +2974,7 @@ class DataTransact {
                 this.markHistoryReplaySharedReady(shared)
               }
             })
-            let settlement =
-              this.flushNextReadyHistoryReplaySlice(maxItemsPerSlice)
+            let settlement = this.flushNextReadyHistoryReplaySlice()
             while (settlement !== 'none') {
               hasPendingSlicePublication = true
               settlement.workItemKeys.forEach((workItemKey) =>
@@ -2989,8 +2988,7 @@ class DataTransact {
                 pendingSliceWorkItemKeys.clear()
                 yield
               }
-              settlement =
-                this.flushNextReadyHistoryReplaySlice(maxItemsPerSlice)
+              settlement = this.flushNextReadyHistoryReplaySlice()
             }
           }
         }
@@ -4177,9 +4175,9 @@ class DataTransact {
     )
   }
 
-  private flushNextReadyHistoryReplaySlice(
-    maxItemsPerPublication: number
-  ): 'none' | HistoryReplaySliceSettlement {
+  private flushNextReadyHistoryReplaySlice():
+    | 'none'
+    | HistoryReplaySliceSettlement {
     const sharedState = this.historyReplaySharedState
     if (!sharedState) return 'none'
     const firstUndeliveredIndex = sharedState.batchStates.findIndex(
@@ -4246,8 +4244,7 @@ class DataTransact {
         this.activeDeliverySequence?.batchPublications === false ||
         this.publicationWindowWouldExceedTarget(
           this.pendingHistoryReplayPublicationWorkItemKeys,
-          [...workItemKeys],
-          maxItemsPerPublication
+          [...workItemKeys]
         ))
     ) {
       this.flushPendingHistoryReplayPublication()
@@ -4270,8 +4267,7 @@ class DataTransact {
     if (
       this.shouldFlushPublicationWindow(
         this.pendingHistoryReplayPublicationWorkItemKeys,
-        finalSlice,
-        maxItemsPerPublication
+        finalSlice
       )
     ) {
       this.flushPendingHistoryReplayPublication()

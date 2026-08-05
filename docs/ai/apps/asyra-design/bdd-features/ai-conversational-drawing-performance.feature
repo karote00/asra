@@ -497,6 +497,13 @@ Feature: Conversational AI drawing performance
     And Actor B should perform zero persistence after canonical apply
     And peer-applied should settle immediately after that canonical apply completes
 
+  Scenario: Remote removal batches preserve container lifecycle
+    Given Actor B receives one source publication with adjacent ordered element removals
+    When the App derives the remote canonical request
+    Then adjacent non-container removals should use one ordered Core canonical request
+    But a removal whose canonical element data owns children should remain a lifecycle barrier
+    And the App should not merge removal requests across source publications
+
   Scenario: The 7076 sample uses the ordinary socket-authoritative document session
     Given the required URL is "/?fileId=crdt-7076-sample"
     When RenderApp starts the document

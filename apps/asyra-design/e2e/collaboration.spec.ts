@@ -854,7 +854,7 @@ test('16-item server response keeps ordered minimal publications through one Act
 
   expect(await classifyFactoryPublicationsInApp(page)).toEqual([
     Array.from({ length: 9 }, () => 'element-creation'),
-    Array.from({ length: 9 }, () => 'element-removal'),
+    Array.from({ length: 2 }, () => 'element-removal'),
     Array.from({ length: 9 }, () => 'element-creation')
   ])
 })

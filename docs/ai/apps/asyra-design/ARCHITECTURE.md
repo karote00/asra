@@ -115,8 +115,11 @@ the existing Render object.
   Scene Tree and Props document channels to the collaboration instance.
 - `src/collaboration/operations.ts` owns app route/payload validation and turns
   one accepted remote publication into one Factory remote transaction through
-  the ordinary canonical event path. It does not reconstruct app behavior from
-  canonical state.
+  the ordinary canonical event path. Within that publication, adjacent
+  non-container element removals may be coalesced into one ordered Core
+  canonical request; a container removal remains a lifecycle barrier, and
+  different publications are never merged. The adapter does not reconstruct
+  app behavior from canonical state.
 - For hierarchy deliveries, the same adapter also owns the optional
   `DecideRemotePublication` permission/domain-order/duplicate/conflict decision.
   Accepted or transformed `MOVE_ELEMENTS` and `CHANGE_SUBTREE` publications are

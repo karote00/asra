@@ -651,6 +651,10 @@ test('Factory reuses existing action history and exposes only the minimal wire a
     /source slices.*batches.*delivery order.*batch-to-slice membership.*one linear pass.*without rescanning slices or merging publications/i
   )
   assert.match(
+    contractText(remoteOwner),
+    /one accepted publication.*coalesce adjacent non-container element-removal.*one ordered Core canonical request.*owns children.*lifecycle barrier.*original request order/i
+  )
+  assert.match(
     plan,
     /Factory Existing History and Transport Wire Contract[\s\S]*existing transaction journal[\s\S]*no\s+`FactoryMutationBatchArtifact`[\s\S]*post-action `save`[\s\S]*one remote-apply payload[\s\S]*inverseEvents[\s\S]*History[\s\S]*alias/i
   )

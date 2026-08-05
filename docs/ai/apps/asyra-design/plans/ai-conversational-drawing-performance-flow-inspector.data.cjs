@@ -971,6 +971,7 @@
         'One source publication owns one remote Factory transaction; different publications are not merged.',
         'The decoded publication is already wire-normalized, while App policy and canonical preflight remain in the App/Core owner.',
         'The App organizes source slices, batches, delivery order, and batch-to-slice membership in one linear pass per accepted publication; later classification consumes that organization without rescanning slices or merging publications.',
+        'Within one accepted publication, the App may coalesce adjacent non-container element-removal changes into one ordered Core canonical request. Any removal whose canonical element data owns children is a lifecycle barrier, so container and subtree semantics retain their original request order.',
         'Props, relationships, instances, Scene Tree, and Factory evidence apply through one batch boundary.',
         'The remote Factory transaction exposes a batch-capable owner so the same atomic Factory evidence handoff remains available without Undo, echo publication, or persistence.',
         'Reactive publication takes one observer-registry snapshot and invokes the batch observer once while preserving event order.',
@@ -992,6 +993,7 @@
       forbiddenContributors: [
         'one remote transaction per canonical event',
         'merging different source publications',
+        'coalescing across a container removal lifecycle barrier',
         'remote Undo or echo publication',
         'receiver persistence load, save, or clear',
         'generic Collaboration, Factory, or Core ownership of App database policy',

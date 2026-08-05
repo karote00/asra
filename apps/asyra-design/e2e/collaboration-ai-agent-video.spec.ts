@@ -3131,19 +3131,20 @@ test('keeps two connected Actors converged through one complete high-detail cat 
     afterRedo?: CanonicalAiDrawingSnapshot
     beforeUndo?: CanonicalAiDrawingSnapshot
     browserErrors: typeof browserErrors
-    creationPeerCatchupMs?: number
+    creationConvergenceMs?: number
     historyReplayPaints?: HistoryReplayPaintSequence
     historyReplayPhases?: HistoryReplayPhaseSequence
     historyReplaySource?: HistoryReplaySourceSummary
     pageCrashed: typeof pageCrashed
+    peerHistoryReplayPhases?: HistoryReplayPhaseSequence
     publicationWindows?: {
       creation: number
       redo: number
       undo: number
     }
-    redoPeerCatchupMs?: number
+    redoConvergenceMs?: number
     redoDurationMs?: number
-    undoPeerCatchupMs?: number
+    undoConvergenceMs?: number
     undoDurationMs?: number
   } = {
     browserErrors,
@@ -3171,7 +3172,10 @@ test('keeps two connected Actors converged through one complete high-detail cat 
       captureProgressiveRuntimeEvidence(actorB)
     ])
     await installHistoryReplayPaintCapture(actorA)
-    await installHistoryReplayPhaseCapture(actorA)
+    await Promise.all([
+      installHistoryReplayPhaseCapture(actorA),
+      installHistoryReplayPhaseCapture(actorB)
+    ])
     await openAgent(actorA)
     await dropReferenceImage(actorA)
 
@@ -3217,15 +3221,23 @@ test('keeps two connected Actors converged through one complete high-detail cat 
           actorBState.disconnectedEpoch !==
             actorBSessionBaseline.disconnectedEpoch
         ) {
+          const [actorADiagnostics, actorBDiagnostics] = await Promise.all([
+            getCollaborationDiagnostics(actorA),
+            getCollaborationDiagnostics(actorB)
+          ])
           throw new Error(
             `High-detail history replay disconnected a document session: ${JSON.stringify(
               {
                 actorA: {
                   canonicalCount: currentActorACount,
+                  diagnostics:
+                    summarizeCollaborationDiagnostics(actorADiagnostics),
                   state: actorAState
                 },
                 actorB: {
                   canonicalCount: currentActorBCount,
+                  diagnostics:
+                    summarizeCollaborationDiagnostics(actorBDiagnostics),
                   state: actorBState
                 }
               }
@@ -3272,11 +3284,11 @@ test('keeps two connected Actors converged through one complete high-detail cat 
     }
     const publicationBaseline = await readPublicationCounts()
     const maxHighDetailPublicationWindows = 16
+    const creationStartedAt = Date.now()
     await submitTurn(actorA, exactCatOnlyPrompt, 1)
-    const creationPeerCatchupStartedAt = Date.now()
     await waitForConnectedCounts(7076, 7076, 120_000)
-    evidence.creationPeerCatchupMs = Date.now() - creationPeerCatchupStartedAt
-    expect(evidence.creationPeerCatchupMs).toBeLessThanOrEqual(30_000)
+    evidence.creationConvergenceMs = Date.now() - creationStartedAt
+    expect(evidence.creationConvergenceMs).toBeLessThanOrEqual(30_000)
     const afterCreationPublicationCounts = await readPublicationCounts()
     const creationPublicationWindows =
       afterCreationPublicationCounts.sent - publicationBaseline.sent
@@ -3307,17 +3319,19 @@ test('keeps two connected Actors converged through one complete high-detail cat 
       )}`
     )
 
-    await setHistoryReplayPhaseDirection(actorA, 'undo')
+    await Promise.all([
+      setHistoryReplayPhaseDirection(actorA, 'undo'),
+      setHistoryReplayPhaseDirection(actorB, 'undo')
+    ])
     const undoStartedAt = Date.now()
     await undo(actorA)
     await expect
       .poll(() => getCanonicalAiElementCount(actorA), { timeout: 30_000 })
       .toBe(0)
     evidence.undoDurationMs = Date.now() - undoStartedAt
-    const undoPeerCatchupStartedAt = Date.now()
     await waitForConnectedCounts(0, 0, 120_000)
-    evidence.undoPeerCatchupMs = Date.now() - undoPeerCatchupStartedAt
-    expect(evidence.undoPeerCatchupMs).toBeLessThanOrEqual(30_000)
+    evidence.undoConvergenceMs = Date.now() - undoStartedAt
+    expect(evidence.undoConvergenceMs).toBeLessThanOrEqual(30_000)
     const afterUndoPublicationCounts = await readPublicationCounts()
     const undoPublicationWindows =
       afterUndoPublicationCounts.sent - afterCreationPublicationCounts.sent
@@ -3329,7 +3343,10 @@ test('keeps two connected Actors converged through one complete high-detail cat 
       afterUndoPublicationCounts.processed -
         afterCreationPublicationCounts.processed
     ).toBe(undoPublicationWindows)
-    await setHistoryReplayPhaseDirection(actorA, null)
+    await Promise.all([
+      setHistoryReplayPhaseDirection(actorA, null),
+      setHistoryReplayPhaseDirection(actorB, null)
+    ])
     ;[evidence.afterUndo, evidence.actorBAfterUndo] = await Promise.all([
       getCanonicalAiDrawingSnapshot(actorA),
       getCanonicalAiDrawingSnapshot(actorB)
@@ -3341,17 +3358,19 @@ test('keeps two connected Actors converged through one complete high-detail cat 
     expect(await getUndoHistoryDepth(actorA)).toBe(actorAHistoryBefore)
     expect(await getUndoHistoryDepth(actorB)).toBe(actorBHistoryBefore)
 
-    await setHistoryReplayPhaseDirection(actorA, 'redo')
+    await Promise.all([
+      setHistoryReplayPhaseDirection(actorA, 'redo'),
+      setHistoryReplayPhaseDirection(actorB, 'redo')
+    ])
     const redoStartedAt = Date.now()
     await redo(actorA)
     await expect
       .poll(() => getCanonicalAiElementCount(actorA), { timeout: 30_000 })
       .toBe(7076)
     evidence.redoDurationMs = Date.now() - redoStartedAt
-    const redoPeerCatchupStartedAt = Date.now()
     await waitForConnectedCounts(7076, 7076, 120_000)
-    evidence.redoPeerCatchupMs = Date.now() - redoPeerCatchupStartedAt
-    expect(evidence.redoPeerCatchupMs).toBeLessThanOrEqual(30_000)
+    evidence.redoConvergenceMs = Date.now() - redoStartedAt
+    expect(evidence.redoConvergenceMs).toBeLessThanOrEqual(30_000)
     const afterRedoPublicationCounts = await readPublicationCounts()
     const redoPublicationWindows =
       afterRedoPublicationCounts.sent - afterUndoPublicationCounts.sent
@@ -3368,7 +3387,10 @@ test('keeps two connected Actors converged through one complete high-detail cat 
       redo: redoPublicationWindows,
       undo: undoPublicationWindows
     }
-    await setHistoryReplayPhaseDirection(actorA, null)
+    await Promise.all([
+      setHistoryReplayPhaseDirection(actorA, null),
+      setHistoryReplayPhaseDirection(actorB, null)
+    ])
     expect(evidence.redoDurationMs).toBeLessThanOrEqual(30_000)
     expect(evidence.undoDurationMs).toBeLessThanOrEqual(12_000)
     expect(evidence.undoDurationMs).toBeLessThanOrEqual(
@@ -3428,6 +3450,11 @@ test('keeps two connected Actors converged through one complete high-detail cat 
         actorA
       ).catch(() => undefined)
     }
+    if (!evidence.peerHistoryReplayPhases && !actorB.isClosed()) {
+      evidence.peerHistoryReplayPhases = await getHistoryReplayPhaseCapture(
+        actorB
+      ).catch(() => undefined)
+    }
     if (!actorA.isClosed()) {
       const diagnostics = await getCollaborationDiagnostics(actorA).catch(
         () => undefined
@@ -3452,7 +3479,7 @@ test('keeps two connected Actors converged through one complete high-detail cat 
       console.log(
         `AI_HIGH_DETAIL_HISTORY_RESULT ${JSON.stringify({
           browserErrors,
-          creationPeerCatchupMs: evidence.creationPeerCatchupMs,
+          creationConvergenceMs: evidence.creationConvergenceMs,
           diagnostics: diagnostics
             ? {
                 recentStatuses: diagnostics.factoryStatuses.slice(-4)
@@ -3480,10 +3507,16 @@ test('keeps two connected Actors converged through one complete high-detail cat 
               }
             : undefined,
           pageCrashed: evidence.pageCrashed,
+          peerHistoryReplayPhases: evidence.peerHistoryReplayPhases
+            ? {
+                redo: evidence.peerHistoryReplayPhases.redo.slice(0, 12),
+                undo: evidence.peerHistoryReplayPhases.undo.slice(0, 12)
+              }
+            : undefined,
           publicationWindows: evidence.publicationWindows,
-          redoPeerCatchupMs: evidence.redoPeerCatchupMs,
+          redoConvergenceMs: evidence.redoConvergenceMs,
           redoDurationMs: evidence.redoDurationMs,
-          undoPeerCatchupMs: evidence.undoPeerCatchupMs,
+          undoConvergenceMs: evidence.undoConvergenceMs,
           undoDurationMs: evidence.undoDurationMs
         })}`
       )

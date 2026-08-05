@@ -1202,6 +1202,75 @@ describe('Asyra Design app-owned collaboration processing', () => {
     ])
   })
 
+  it('coalesces adjacent removal batches from one publication into one canonical request', () => {
+    const harness = createHarness()
+
+    expect(
+      harness.processPublication(
+        publication(
+          [
+            ...canonicalRemovalDeliveries(['rect-a', 'rect-b'], true),
+            ...canonicalRemovalDeliveries(['rect-c', 'rect-d'], true)
+          ],
+          'adjacent-element-removals',
+          'undo'
+        )
+      )
+    ).toBe(true)
+
+    expect(harness.runRemoteTransaction).toHaveBeenCalledOnce()
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledOnce()
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledWith([
+      {
+        kind: 'element-removal',
+        removals: [
+          expect.objectContaining({
+            data: expect.objectContaining({ id: 'rect-b' })
+          }),
+          expect.objectContaining({
+            data: expect.objectContaining({ id: 'rect-a' })
+          }),
+          expect.objectContaining({
+            data: expect.objectContaining({ id: 'rect-d' })
+          }),
+          expect.objectContaining({
+            data: expect.objectContaining({ id: 'rect-c' })
+          })
+        ]
+      }
+    ])
+  })
+
+  it('preserves a container removal as a canonical batch barrier', () => {
+    const harness = createHarness()
+
+    expect(
+      harness.processPublication(
+        publication(
+          [
+            ...canonicalRemovalDeliveries(['rect-a'], true),
+            ...canonicalRemovalDeliveries(['group-a'], true)
+          ],
+          'container-removal-barrier',
+          'undo'
+        )
+      )
+    ).toBe(true)
+
+    expect(
+      harness.applyCanonicalChanges.mock.calls[0]?.[0].map((change) => ({
+        ids:
+          change.kind === 'element-removal'
+            ? change.removals.map(({ data }) => data.id)
+            : [],
+        kind: change.kind
+      }))
+    ).toEqual([
+      { ids: ['rect-a'], kind: 'element-removal' },
+      { ids: ['group-a'], kind: 'element-removal' }
+    ])
+  })
+
   it('uses the same one-request boundary for a progressive canonical slice', () => {
     const harness = createHarness()
     const elementIds = ['rect-a', 'rect-b', 'rect-c']

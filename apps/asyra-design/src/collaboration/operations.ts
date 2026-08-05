@@ -1155,6 +1155,30 @@ const classifyCanonicalRemovalBatch = (
   })
 }
 
+const appendRemoteCanonicalChange = (
+  changes: CanonicalChange[],
+  change: CanonicalChange
+): void => {
+  const previous = changes.at(-1)
+  if (
+    previous?.kind === 'element-removal' &&
+    change.kind === 'element-removal' &&
+    !previous.removals.some(({ data }) =>
+      Array.isArray((data as { children?: unknown }).children)
+    ) &&
+    !change.removals.some(({ data }) =>
+      Array.isArray((data as { children?: unknown }).children)
+    )
+  ) {
+    changes[changes.length - 1] = Object.freeze({
+      kind: 'element-removal',
+      removals: Object.freeze([...previous.removals, ...change.removals])
+    })
+    return
+  }
+  changes.push(change)
+}
+
 const createRemoteApplySteps = (
   organization: OrganizedRemotePublication
 ): readonly CanonicalChange[] => {
@@ -1170,7 +1194,9 @@ const createRemoteApplySteps = (
     }
     const removal = classifyCanonicalRemovalBatch(organization, batchIndex)
     if (removal) {
-      changes.push(...removal.changes)
+      removal.changes.forEach((change) =>
+        appendRemoteCanonicalChange(changes, change)
+      )
       batchIndex += removal.consumedBatchCount
       continue
     }

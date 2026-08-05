@@ -100,6 +100,10 @@ describe('Factory batch regression contracts', () => {
       SharedDataChannelNames.SCENE_TREE,
       new LocalSharedDataChannel()
     )
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_PROPERTY,
+      () => true
+    )
     const publications: SharedPublication[] = []
     factory.subscribeToSharedPublication((publication) =>
       publications.push(publication)
@@ -145,9 +149,21 @@ describe('Factory batch regression contracts', () => {
     factory.endTransaction()
 
     expect(publicationWorkItemCounts()).toEqual([512, 512, 256])
+
+    publications.length = 0
+    let renderYieldCount = 0
+    factory.startTransaction()
+    await factory.getTransactionOwner().undoProgressively(async () => {
+      renderYieldCount += 1
+      await Promise.resolve()
+    })
+    factory.endTransaction()
+
+    expect(renderYieldCount).toBe(2)
+    expect(publicationWorkItemCounts()).toEqual([512, 512, 256])
   })
 
-  it('cooperatively groups immediate owner batches by the render item budget', async () => {
+  it('keeps the render item budget independent from publication windows', async () => {
     const factory = new Factory()
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
@@ -222,11 +238,11 @@ describe('Factory batch regression contracts', () => {
 
     expect(settledBatches).toEqual([
       {
-        publicationCount: 1,
+        publicationCount: 0,
         replayedIds: ['element-f', 'element-e', 'element-d', 'element-c']
       },
       {
-        publicationCount: 3,
+        publicationCount: 1,
         replayedIds: [
           'element-f',
           'element-e',
