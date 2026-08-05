@@ -110,7 +110,17 @@ interface HistoryReplaySharedState {
     readonly HistoryReplaySharedBatchState[]
   >
 }
+interface HistoryReplaySliceSettlement {
+  readonly explicitBoundary: boolean
+  readonly orderedIds: readonly string[]
+}
+interface PreparedReplayStep {
+  readonly replayEvent: AllEvent
+  readonly restorationEvents?: AllEvent[]
+  readonly shared?: HistorySharedReplayDirective
+}
 interface DataTransactCallbacks {
+  canReplayEventBatch?: (eventType: string) => boolean
   onCommitCapture?: (payload: TransactionStatusPayload) => void
   onStatus?: (payload: TransactionStatusPayload) => void
   onUserActionCompleted?: (payload: UserActionCompletedPayload) => void
@@ -123,6 +133,7 @@ interface DataTransactCallbacks {
 }
 import type {
   AllEvent,
+  CooperativeRenderBatchOptions,
   ReplaceLatestHistoryCandidate,
   TransactionCanonicalEvidence,
   TransactionReplayMode,
@@ -131,12 +142,16 @@ import type {
 } from '@asyra/reactive-events'
 import {
   acknowledgeTransactionReplayApplied,
+  applyEventBatchToSynchronousOwners,
   EventTypes,
   endTransaction,
+  hasSynchronousEventBatchHandler,
   isDetachedTransactionValue,
   isTransactionReplayApplied,
   publishEvent,
+  publishEventsToObservers,
   publishEventToObservers,
+  resolveCooperativeRenderMaxItemsPerSlice,
   runInTransactionReplayMode,
   startTransaction,
   userActionCompleted,
@@ -200,6 +215,8 @@ const LOCAL_ONLY_COMPUTED_EVENT_TYPES = new Set<string>([
   EventTypes.UPDATE_COMPUTED_DATA,
   EventTypes.UPDATE_COMPUTED_DATA_PATCH
 ])
+
+const MAX_CANONICAL_REPLAY_OWNER_BATCH_ITEMS = 32
 
 type TransactionPayloadOptions = NonNullable<TransactionPayload['options']>
 
@@ -455,6 +472,7 @@ class DataTransact {
     event: AllEvent,
     mode: TransactionReplayMode
   ) => boolean | { handled: boolean; applied: boolean }
+  private readonly canReplayEventBatch?: (eventType: string) => boolean
   private readonly onSharedDeliveryBatch?: (batch: SharedDeliveryBatch) => void
   private readonly onSharedPublication?: (
     publication: SharedPublication
@@ -479,6 +497,7 @@ class DataTransact {
       ? callbacks.onUserActionCompleted
       : userActionCompleted
     this.onReplayEvent = callbacks?.onReplayEvent
+    this.canReplayEventBatch = callbacks?.canReplayEventBatch
     this.onSharedDeliveryBatch = callbacks?.onSharedDeliveryBatch
     this.onSharedPublication = callbacks?.onSharedPublication
   }
@@ -2581,6 +2600,226 @@ class DataTransact {
     }
   }
 
+  private applyReplayEventBatch(
+    events: readonly AllEvent[],
+    mode: TransactionReplayMode
+  ): boolean {
+    const previousApplyingReplayEvent = this.applyingReplayEvent
+    this.applyingReplayEvent = true
+    try {
+      return runInTransactionReplayMode(mode, () => {
+        applyEventBatchToSynchronousOwners(events)
+        publishEventsToObservers(events)
+        return isTransactionReplayApplied()
+      })
+    } finally {
+      this.applyingReplayEvent = previousApplyingReplayEvent
+    }
+  }
+
+  private replayStepSourceSliceId(
+    step: PreparedReplayStep
+  ): string | undefined {
+    if (!step.shared || 'suppress' in step.shared) return
+    const sliceIds = new Set<string>()
+    step.shared.records.forEach(({ readinessKey }) => {
+      const states =
+        this.historyReplaySharedState?.batchStatesByReadinessKey.get(
+          readinessKey
+        ) ?? []
+      states.forEach(({ batch }) => sliceIds.add(batch.sliceId))
+    })
+    return sliceIds.size === 1 ? [...sliceIds][0] : undefined
+  }
+
+  private *replaySteps(
+    events: readonly AllEvent[],
+    direction: 'forward' | 'inverse',
+    mode: TransactionReplayMode,
+    maxItemsPerSlice: number,
+    restorationBatches?: AllEvent[][],
+    sharedReplay?: readonly (HistorySharedReplayOutputs | undefined)[],
+    preparedReplayEvents?: readonly (readonly AllEvent[] | undefined)[]
+  ): Generator<void, unknown[], undefined> {
+    const failures: unknown[] = []
+    const pendingSliceOrderedIds = new Set<string>()
+    let hasPendingSlicePublication = false
+    const entries = events.map((event, index) => ({
+      event,
+      shared: sharedReplay?.[index],
+      preparedReplayEvents: preparedReplayEvents?.[index]
+    }))
+    const orderedEntries = direction === 'inverse' ? entries.reverse() : entries
+    const preparedSteps: PreparedReplayStep[] = []
+
+    for (const {
+      event,
+      shared: sharedOutputs,
+      preparedReplayEvents
+    } of orderedEntries) {
+      let replayEvents: AllEvent[]
+      try {
+        replayEvents = preparedReplayEvents
+          ? preparedReplayEvents.map(cloneEvent)
+          : this.createReplayEvents(event, direction)
+      } catch (error) {
+        failures.push(error)
+        continue
+      }
+
+      for (
+        let replayOutputIndex = 0;
+        replayOutputIndex < replayEvents.length;
+        replayOutputIndex += 1
+      ) {
+        const replayEvent = replayEvents[replayOutputIndex]
+        if (!replayEvent) continue
+        const shared = sharedOutputs?.[replayOutputIndex]
+        let restorationEvents: AllEvent[] | undefined
+        const mustValidateReplayOutput =
+          restorationBatches !== undefined ||
+          (direction === 'inverse' && this.inverters.has(event.type))
+        const replayPayload = (replayEvent as AllEvent & { payload?: unknown })
+          .payload
+        if (
+          mustValidateReplayOutput &&
+          !this.hasInverseContract(replayEvent.type, replayPayload)
+        ) {
+          failures.push(
+            new Error(
+              `Replay output ${replayEvent.type} requires an inverse contract`
+            )
+          )
+          continue
+        }
+        if (restorationBatches || this.inverters.has(replayEvent.type)) {
+          try {
+            const inverseOutputEvents = this.createReplayEvents(
+              replayEvent,
+              'inverse'
+            ).map(cloneEvent)
+            if (inverseOutputEvents.length === 0) {
+              throw new Error(
+                `Replay output ${replayEvent.type} produced no restoration event`
+              )
+            }
+            if (restorationBatches) {
+              restorationEvents = inverseOutputEvents
+            }
+          } catch (error) {
+            failures.push(error)
+            continue
+          }
+        }
+
+        preparedSteps.push({
+          replayEvent,
+          restorationEvents,
+          shared
+        })
+      }
+    }
+
+    for (let stepIndex = 0; stepIndex < preparedSteps.length; stepIndex += 1) {
+      const firstStep = preparedSteps[stepIndex]
+      if (!firstStep) continue
+      const firstEventType = firstStep.replayEvent.type
+      const firstSourceSliceId = this.replayStepSourceSliceId(firstStep)
+      const mayUseOwnerBatch =
+        hasSynchronousEventBatchHandler(firstEventType) &&
+        (this.canReplayEventBatch?.(firstEventType) ??
+          this.onReplayEvent === undefined)
+      const ownerBatch = [firstStep]
+      if (mayUseOwnerBatch) {
+        while (ownerBatch.length < MAX_CANONICAL_REPLAY_OWNER_BATCH_ITEMS) {
+          const candidate = preparedSteps[stepIndex + ownerBatch.length]
+          if (
+            !candidate ||
+            candidate.replayEvent.type !== firstEventType ||
+            this.replayStepSourceSliceId(candidate) !== firstSourceSliceId
+          ) {
+            break
+          }
+          ownerBatch.push(candidate)
+        }
+      }
+      const appliedSteps =
+        mayUseOwnerBatch && ownerBatch.length > 1 ? ownerBatch : [firstStep]
+      const journalStart = this.journal.length
+      const previousRetainingHistoryReplaySharedEvidence =
+        this.retainingHistoryReplaySharedEvidence
+      const isRetainedHistoryReplay =
+        this.historyReplaySharedState?.ownsReplayEvidence === true
+      this.retainingHistoryReplaySharedEvidence = isRetainedHistoryReplay
+      try {
+        const applied =
+          appliedSteps.length > 1
+            ? this.applyReplayEventBatch(
+                appliedSteps.map(({ replayEvent }) => replayEvent),
+                mode
+              )
+            : this.applyReplayEvent(firstStep.replayEvent, mode)
+        const recordedEntries = this.journal.slice(journalStart)
+        if (isRetainedHistoryReplay) {
+          this.suppressHistoryReplayOwnerSharedEntries(recordedEntries)
+        }
+        if (applied) {
+          appliedSteps.forEach(({ restorationEvents }) => {
+            if (restorationEvents) {
+              restorationBatches?.push(restorationEvents)
+            }
+          })
+          if (isRetainedHistoryReplay) {
+            appliedSteps.forEach(({ shared }) => {
+              if (shared && !('suppress' in shared)) {
+                this.markHistoryReplaySharedReady(shared)
+              }
+            })
+            let settlement = this.flushNextReadyHistoryReplaySlice()
+            while (settlement !== 'none') {
+              hasPendingSlicePublication = true
+              settlement.orderedIds.forEach((orderedId) =>
+                pendingSliceOrderedIds.add(orderedId)
+              )
+              if (
+                settlement.explicitBoundary ||
+                pendingSliceOrderedIds.size >= maxItemsPerSlice
+              ) {
+                hasPendingSlicePublication = false
+                pendingSliceOrderedIds.clear()
+                yield
+              }
+              settlement = this.flushNextReadyHistoryReplaySlice()
+            }
+          }
+        }
+      } catch (error) {
+        if (isRetainedHistoryReplay) {
+          this.suppressHistoryReplayOwnerSharedEntries(
+            this.journal.slice(journalStart)
+          )
+        }
+        if (wasTransactionReplayApplied(error)) {
+          appliedSteps.forEach(({ restorationEvents }) => {
+            if (restorationEvents) {
+              restorationBatches?.push(restorationEvents)
+            }
+          })
+        }
+        failures.push(error)
+      } finally {
+        this.retainingHistoryReplaySharedEvidence =
+          previousRetainingHistoryReplaySharedEvidence
+      }
+      stepIndex += appliedSteps.length - 1
+    }
+
+    if (hasPendingSlicePublication) {
+      yield
+    }
+    return failures
+  }
+
   private replay(
     events: readonly AllEvent[],
     direction: 'forward' | 'inverse',
@@ -2589,108 +2828,52 @@ class DataTransact {
     sharedReplay?: readonly (HistorySharedReplayOutputs | undefined)[],
     preparedReplayEvents?: readonly (readonly AllEvent[] | undefined)[]
   ): unknown[] {
-    const failures: unknown[] = []
-    const entries = events.map((event, index) => ({
-      event,
-      shared: sharedReplay?.[index],
-      preparedReplayEvents: preparedReplayEvents?.[index]
-    }))
-    const orderedEntries = direction === 'inverse' ? entries.reverse() : entries
-
-    orderedEntries.forEach(
-      ({ event, shared: sharedOutputs, preparedReplayEvents }) => {
-        let replayEvents: AllEvent[]
-        try {
-          replayEvents = preparedReplayEvents
-            ? preparedReplayEvents.map(cloneEvent)
-            : this.createReplayEvents(event, direction)
-        } catch (error) {
-          failures.push(error)
-          return
-        }
-
-        replayEvents.forEach((replayEvent, replayOutputIndex) => {
-          const shared = sharedOutputs?.[replayOutputIndex]
-          let restorationEvents: AllEvent[] | undefined
-          const mustValidateReplayOutput =
-            restorationBatches !== undefined ||
-            (direction === 'inverse' && this.inverters.has(event.type))
-          const replayPayload = (
-            replayEvent as AllEvent & { payload?: unknown }
-          ).payload
-          if (
-            mustValidateReplayOutput &&
-            !this.hasInverseContract(replayEvent.type, replayPayload)
-          ) {
-            failures.push(
-              new Error(
-                `Replay output ${replayEvent.type} requires an inverse contract`
-              )
-            )
-            return
-          }
-          if (restorationBatches || this.inverters.has(replayEvent.type)) {
-            try {
-              const inverseOutputEvents = this.createReplayEvents(
-                replayEvent,
-                'inverse'
-              ).map(cloneEvent)
-              if (inverseOutputEvents.length === 0) {
-                throw new Error(
-                  `Replay output ${replayEvent.type} produced no restoration event`
-                )
-              }
-              if (restorationBatches) {
-                restorationEvents = inverseOutputEvents
-              }
-            } catch (error) {
-              failures.push(error)
-              return
-            }
-          }
-
-          const journalStart = this.journal.length
-          const previousRetainingHistoryReplaySharedEvidence =
-            this.retainingHistoryReplaySharedEvidence
-          const isRetainedHistoryReplay =
-            this.historyReplaySharedState?.ownsReplayEvidence === true
-          this.retainingHistoryReplaySharedEvidence = isRetainedHistoryReplay
-          try {
-            const applied = this.applyReplayEvent(replayEvent, mode)
-            const recordedEntries = this.journal.slice(journalStart)
-            if (isRetainedHistoryReplay) {
-              this.suppressHistoryReplayOwnerSharedEntries(recordedEntries)
-            }
-            if (restorationEvents && applied) {
-              restorationBatches?.push(restorationEvents)
-            }
-            if (
-              applied &&
-              shared &&
-              !('suppress' in shared) &&
-              isRetainedHistoryReplay
-            ) {
-              this.markHistoryReplaySharedReady(shared)
-            }
-          } catch (error) {
-            if (isRetainedHistoryReplay) {
-              this.suppressHistoryReplayOwnerSharedEntries(
-                this.journal.slice(journalStart)
-              )
-            }
-            if (restorationEvents && wasTransactionReplayApplied(error)) {
-              restorationBatches?.push(restorationEvents)
-            }
-            failures.push(error)
-          } finally {
-            this.retainingHistoryReplaySharedEvidence =
-              previousRetainingHistoryReplaySharedEvidence
-          }
-        })
-      }
+    const steps = this.replaySteps(
+      events,
+      direction,
+      mode,
+      Number.MAX_SAFE_INTEGER,
+      restorationBatches,
+      sharedReplay,
+      preparedReplayEvents
     )
+    let step = steps.next()
+    while (!step.done) {
+      step = steps.next()
+    }
+    return step.value
+  }
 
-    return failures
+  private async replayProgressively(
+    events: readonly AllEvent[],
+    direction: 'forward' | 'inverse',
+    mode: TransactionReplayMode,
+    yieldAfterSlice: () => Promise<void>,
+    maxItemsPerSlice: number,
+    restorationBatches?: AllEvent[][],
+    sharedReplay?: readonly (HistorySharedReplayOutputs | undefined)[],
+    preparedReplayEvents?: readonly (readonly AllEvent[] | undefined)[]
+  ): Promise<unknown[]> {
+    const steps = this.replaySteps(
+      events,
+      direction,
+      mode,
+      maxItemsPerSlice,
+      restorationBatches,
+      sharedReplay,
+      preparedReplayEvents
+    )
+    let step = steps.next()
+    try {
+      while (!step.done) {
+        await yieldAfterSlice()
+        step = steps.next()
+      }
+      return step.value
+    } catch (error) {
+      steps.return([])
+      throw error
+    }
   }
 
   private restoreNestedReplay(): unknown[] {
@@ -3741,60 +3924,72 @@ class DataTransact {
     )
   }
 
-  private flushReadyHistoryReplayBatchesBeforeImmediate(): void {
+  private flushNextReadyHistoryReplaySlice():
+    | 'none'
+    | HistoryReplaySliceSettlement {
     const sharedState = this.historyReplaySharedState
-    if (!sharedState) return
-    const firstReadyImmediateIndex = sharedState.batchStates.findIndex(
-      (state) =>
-        !state.delivered &&
-        state.batch.sharedDelivery === 'immediate' &&
-        state.readyReadinessKeys.size === state.requiredReadinessKeys.size
+    if (!sharedState) return 'none'
+    const firstUndeliveredIndex = sharedState.batchStates.findIndex(
+      (state) => !state.delivered
     )
-    if (firstReadyImmediateIndex < 0) return
-    const readyImmediateSliceId =
-      sharedState.batchStates[firstReadyImmediateIndex]?.batch.sliceId
-    let publishablePrefixEnd = firstReadyImmediateIndex
-    while (
-      readyImmediateSliceId !== undefined &&
-      sharedState.batchStates[publishablePrefixEnd + 1]?.batch.sliceId ===
-        readyImmediateSliceId
-    ) {
-      publishablePrefixEnd += 1
-    }
-    const prefix = sharedState.batchStates.slice(0, publishablePrefixEnd + 1)
+    if (firstUndeliveredIndex < 0) return 'none'
+    const firstUndeliveredState = sharedState.batchStates[firstUndeliveredIndex]
+    if (!firstUndeliveredState) return 'none'
+    const isProgressive = this.activeDeliverySequence?.mode === 'progressive'
     if (
-      prefix.some(
+      !isProgressive &&
+      firstUndeliveredState.batch.sharedDelivery !== 'immediate' &&
+      !sharedState.batchStates
+        .slice(firstUndeliveredIndex + 1)
+        .some(
+          (state) =>
+            !state.delivered &&
+            state.batch.sharedDelivery === 'immediate' &&
+            state.readyReadinessKeys.size === state.requiredReadinessKeys.size
+        )
+    ) {
+      return 'none'
+    }
+    const sliceId = firstUndeliveredState.batch.sliceId
+    let sliceEnd = firstUndeliveredIndex
+    while (sharedState.batchStates[sliceEnd + 1]?.batch.sliceId === sliceId) {
+      sliceEnd += 1
+    }
+    const states = sharedState.batchStates.slice(
+      firstUndeliveredIndex,
+      sliceEnd + 1
+    )
+    if (
+      states.some(
         (state) =>
-          !state.delivered &&
           state.readyReadinessKeys.size !== state.requiredReadinessKeys.size
       )
     ) {
-      return
+      return 'none'
     }
-    const publishableStates = prefix.filter((state) => !state.delivered)
-    const publicationGroups: HistoryReplaySharedBatchState[][] = []
-    publishableStates.forEach((state) => {
-      const currentGroup = publicationGroups[publicationGroups.length - 1]
-      if (currentGroup?.[0]?.batch.sliceId === state.batch.sliceId) {
-        currentGroup.push(state)
-        return
+
+    states.forEach((state) => {
+      if (!this.deliverPreparedSharedBatch(state.batch)) {
+        throw new Error(
+          `Factory history replay batch could not be delivered: ${state.batch.batchId}`
+        )
       }
-      publicationGroups.push([state])
     })
-    publicationGroups.forEach((states) => {
-      states.forEach((state) => {
-        if (!this.deliverPreparedSharedBatch(state.batch)) {
-          throw new Error(
-            `Factory history replay batch could not be delivered: ${state.batch.batchId}`
-          )
-        }
-      })
-      const publication = this.createHistoryReplaySharedPublication(
-        states.map(({ batch }) => batch)
+    const publication = this.createHistoryReplaySharedPublication(
+      states.map(({ batch }) => batch)
+    )
+    this.queueSharedPublication(publication)
+    this.flushSharedPublications()
+    const orderedIds = new Set<string>()
+    states.forEach(({ batch }) =>
+      batch.deliveries.forEach(({ record }) =>
+        record.orderedIds.forEach((orderedId) => orderedIds.add(orderedId))
       )
-      this.queueSharedPublication(publication)
-      this.flushSharedPublications()
-    })
+    )
+    return {
+      explicitBoundary: isProgressive,
+      orderedIds: deepFreezeValue([...orderedIds])
+    }
   }
 
   private markHistoryReplaySharedReady(
@@ -3807,7 +4002,6 @@ class DataTransact {
         sharedState.batchStatesByReadinessKey.get(readinessKey) ?? []
       states.forEach((state) => state.readyReadinessKeys.add(readinessKey))
     })
-    this.flushReadyHistoryReplayBatchesBeforeImmediate()
   }
 
   private suppressHistoryReplayOwnerSharedEntries(
@@ -3885,6 +4079,95 @@ class DataTransact {
         })
       )
     })
+  }
+
+  private async replayHistoryProgressively(
+    direction: 'forward' | 'inverse',
+    yieldAfterSlice: () => Promise<void>,
+    options: CooperativeRenderBatchOptions = {}
+  ): Promise<void> {
+    if (this.isTransacting > 0 && this.activeOrigin === 'remote') {
+      throw new Error(
+        `Remote transaction cannot consume local ${
+          direction === 'inverse' ? 'undo' : 'redo'
+        } history`
+      )
+    }
+    const sourceStack =
+      direction === 'inverse' ? this.undoStack : this.redoStack
+    if (!sourceStack.length) {
+      return
+    }
+    if (this.isTransacting <= 0) {
+      throw new Error(
+        `Progressive ${
+          direction === 'inverse' ? 'Undo' : 'Redo'
+        } requires an active outer transaction`
+      )
+    }
+    if (this.journal.length > 0 || this.nestedReplaySourceEvents) {
+      throw new Error(
+        `${
+          direction === 'inverse' ? 'Undo' : 'Redo'
+        } cannot join a non-empty transaction journal`
+      )
+    }
+
+    const sourceHistory = sourceStack[sourceStack.length - 1]
+    if (!sourceHistory) return
+    const maxItemsPerSlice = resolveCooperativeRenderMaxItemsPerSlice(options)
+    const sourceChanges = this.historyChanges(sourceHistory)
+    const lastChanges = sourceChanges.map(({ event }) => event)
+    if (direction === 'inverse') {
+      this.inUndo = true
+      updateUndoRedoStatus(UNDO.UNDO)
+    } else {
+      this.inRedo = true
+      updateUndoRedoStatus(UNDO.REDO)
+    }
+
+    try {
+      this.ensureReplayTransactionId()
+      this.nestedReplaySourceEvents = lastChanges
+      this.nestedReplaySourceHistory = sourceHistory
+      this.nestedReplayRestorationBatches = []
+      this.prepareHistoryReplaySharedState(sourceHistory, direction)
+      const failures = await this.replayProgressively(
+        lastChanges,
+        direction,
+        direction === 'inverse' ? 'undo' : 'redo',
+        yieldAfterSlice,
+        maxItemsPerSlice,
+        this.nestedReplayRestorationBatches,
+        this.historySharedReplay(sourceHistory, direction),
+        direction === 'inverse'
+          ? sourceChanges.map(({ inverseEvents }) => inverseEvents)
+          : undefined
+      )
+      if (failures.length > 0) {
+        throw new TransactionRollbackError(failures)
+      }
+    } catch (error) {
+      this.rollbackOnly = true
+      this.rollbackFailure ??= toReplayFailure(error)
+      throw error
+    } finally {
+      updateUndoRedoStatus(UNDO.NONE)
+    }
+  }
+
+  undoProgressively(
+    yieldAfterSlice: () => Promise<void>,
+    options?: CooperativeRenderBatchOptions
+  ): Promise<void> {
+    return this.replayHistoryProgressively('inverse', yieldAfterSlice, options)
+  }
+
+  redoProgressively(
+    yieldAfterSlice: () => Promise<void>,
+    options?: CooperativeRenderBatchOptions
+  ): Promise<void> {
+    return this.replayHistoryProgressively('forward', yieldAfterSlice, options)
   }
 
   undo() {

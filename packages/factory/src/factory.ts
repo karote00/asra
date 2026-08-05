@@ -3,6 +3,7 @@ import {
   runWithTransactionOwner,
   transactionStatusChanged,
   type AllEvent,
+  type CooperativeRenderBatchOptions,
   type TransactionReplayMode,
   type TransactionOwner,
   userActionCompleted,
@@ -45,6 +46,14 @@ export interface FactoryTransactionOwner extends TransactionOwner {
   updateTransactionBatch(
     events: readonly UpdateTransactionEvent[]
   ): FactoryMutationBatchDeliveryHandle | null
+  undoProgressively(
+    yieldAfterSlice: () => Promise<void>,
+    options?: CooperativeRenderBatchOptions
+  ): Promise<void>
+  redoProgressively(
+    yieldAfterSlice: () => Promise<void>,
+    options?: CooperativeRenderBatchOptions
+  ): Promise<void>
 }
 
 class RemoteAsyncHandlerError extends Error {
@@ -77,6 +86,8 @@ class Factory {
   constructor(options: FactoryOptions = {}) {
     this.bridgeToReactiveEvents = options.bridgeToReactiveEvents === true
     this.transact = new DataTransact(this.sharedDataChannels, {
+      canReplayEventBatch: (eventType) =>
+        !this.transactionReplayHandlers.has(eventType),
       onCommitCapture: (payload) => this.emitCommitCapture(payload),
       onStatus: (payload) => this.emitTransactionStatus(payload),
       onUserActionCompleted: this.bridgeToReactiveEvents
@@ -92,7 +103,11 @@ class Factory {
       updateTransactionBatch: (events) => this.updateTransactionBatch(events),
       endTransaction: (endOptions) => this.endTransaction(endOptions),
       undo: () => this.undo(),
-      redo: () => this.redo()
+      redo: () => this.redo(),
+      undoProgressively: (yieldAfterSlice, progressiveOptions) =>
+        this.transact.undoProgressively(yieldAfterSlice, progressiveOptions),
+      redoProgressively: (yieldAfterSlice, progressiveOptions) =>
+        this.transact.redoProgressively(yieldAfterSlice, progressiveOptions)
     }
   }
 
@@ -172,7 +187,11 @@ class Factory {
       updateTransactionBatch: (events) => this.updateTransactionBatch(events),
       endTransaction: () => undefined,
       undo: () => this.undo(),
-      redo: () => this.redo()
+      redo: () => this.redo(),
+      undoProgressively: (yieldAfterSlice, progressiveOptions) =>
+        this.transact.undoProgressively(yieldAfterSlice, progressiveOptions),
+      redoProgressively: (yieldAfterSlice, progressiveOptions) =>
+        this.transact.redoProgressively(yieldAfterSlice, progressiveOptions)
     }
 
     return runWithTransactionOwner(reactiveBoundaryOwner, () =>

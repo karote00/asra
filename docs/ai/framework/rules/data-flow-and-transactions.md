@@ -148,6 +148,20 @@
 - `rollback`: reverse an uncommitted failed or explicitly discarded
   transaction; it must not create a normal undo/redo history entry.
 - `undo`: reverse a successfully committed user-action history entry.
+- The reusable framework cooperative render policy defaults to `progressive`;
+  a caller may explicitly select `atomic` when the complete canonical mutation
+  and projection must settle before a dependent mutation begins.
+- Progressive Undo/Redo reuses the same canonical replay and one outer
+  transaction. DataTransact uses the source History entry's recorded progressive
+  slice boundaries or already-delivered immediate owner-batch boundaries.
+  Compatible consecutive single-element Scene events inside one source boundary
+  return to the plural Scene owner apply in batches of at most 32. Recorded
+  progressive boundaries remain exact render boundaries; immediate source
+  publications remain distinct and ordered while the default render slice
+  coalesces their completed projections up to 1,024 distinct canonical ids.
+  `maxItemsPerSlice` may override that positive budget. This does not create
+  per-slice History. Browser scheduling belongs to the reusable
+  `@asyra/reactive-events` adapter, not DataTransact or an app-local duplicate.
 - `cancel`: stop an active session; user-driven interruption defaults to
   commit-current, while its policy may choose rollback or feature-defined
   behavior for a true discard.

@@ -1,5 +1,6 @@
 import type { EndTransactionOptions } from '@asyra/utils'
 import type { UpdateTransactionEvent } from './app/events.js'
+import type { CooperativeRenderBatchOptions } from './cooperative-render.js'
 
 export interface TransactionOwner {
   startTransaction: () => void
@@ -7,6 +8,14 @@ export interface TransactionOwner {
   endTransaction: (options?: EndTransactionOptions) => void
   undo: () => void
   redo: () => void
+  undoProgressively?: (
+    yieldAfterSlice: () => Promise<void>,
+    options?: CooperativeRenderBatchOptions
+  ) => Promise<void>
+  redoProgressively?: (
+    yieldAfterSlice: () => Promise<void>,
+    options?: CooperativeRenderBatchOptions
+  ) => Promise<void>
 }
 
 let transactionOwner: TransactionOwner | null = null

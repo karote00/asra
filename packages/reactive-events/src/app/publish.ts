@@ -14,6 +14,12 @@ import {
   getTransactionOwner,
   type TransactionOwner
 } from '../transaction-owner.js'
+import {
+  resolveCooperativeRenderMaxItemsPerSlice,
+  resolveCooperativeRenderMode,
+  settleCooperativeRenderSlice,
+  type CooperativeRenderOptions
+} from '../cooperative-render.js'
 import type {
   UpdateTransactionEvent,
   UserActionCompletedPayload
@@ -393,6 +399,44 @@ export const redo = () => {
     type: EventTypes.REDO
   })
 }
+
+const runHistoryWithRenderPolicy = async (
+  direction: 'undo' | 'redo',
+  options: CooperativeRenderOptions
+): Promise<void> => {
+  const owner = getTransactionOwner()
+  if (resolveCooperativeRenderMode(options) === 'atomic') {
+    owner?.[direction]()
+  } else if (owner) {
+    const progressiveReplay =
+      direction === 'undo' ? owner.undoProgressively : owner.redoProgressively
+    if (!progressiveReplay) {
+      throw new Error(
+        `The registered TransactionOwner does not support progressive ${direction}.`
+      )
+    }
+    const maxItemsPerSlice = resolveCooperativeRenderMaxItemsPerSlice(options)
+    await runTransaction(() =>
+      progressiveReplay.call(
+        owner,
+        () => settleCooperativeRenderSlice(options),
+        { maxItemsPerSlice }
+      )
+    )
+  }
+
+  publishEvent({
+    type: direction === 'undo' ? EventTypes.UNDO : EventTypes.REDO
+  })
+}
+
+export const undoWithRenderPolicy = (
+  options: CooperativeRenderOptions = {}
+): Promise<void> => runHistoryWithRenderPolicy('undo', options)
+
+export const redoWithRenderPolicy = (
+  options: CooperativeRenderOptions = {}
+): Promise<void> => runHistoryWithRenderPolicy('redo', options)
 
 // Renderer events - published by render engine adapter
 export const renderPointerHover = (payload: string | RenderPointerPayload) => {

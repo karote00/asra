@@ -304,6 +304,72 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     factory.transact.reset()
   })
 
+  it('replays consecutive single-element history through one plural Scene owner batch', () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    const root = sceneTree.currentWorkspace as GroupInstanceTypes
+
+    runWithTransactionOwner(factory.getTransactionOwner(), () => {
+      runTransaction(() => {
+        add('single-history-a', LEAF_TYPE, root)
+        add('single-history-b', LEAF_TYPE, root)
+        add('single-history-c', LEAF_TYPE, root)
+      })
+    })
+
+    const replayEventBatches: string[][] = []
+    const replayBatchSubscription = subscribeToEventBatches((events) => {
+      const elementIds = events.flatMap((event) => {
+        if (
+          event.type !== EventTypes.ADD_ELEMENT &&
+          event.type !== EventTypes.REMOVE_ELEMENT
+        ) {
+          return []
+        }
+        if (!('payload' in event)) return []
+        const id = (event.payload as { data?: { id?: unknown } } | undefined)
+          ?.data?.id
+        return typeof id === 'string' ? [id] : []
+      })
+      if (elementIds.length > 0) replayEventBatches.push(elementIds)
+    })
+    const applyPreparedElementMutation = vi.spyOn(
+      sceneTree,
+      'applyPreparedElementMutation'
+    )
+
+    try {
+      factory.undo()
+
+      expect(applyPreparedElementMutation).toHaveBeenCalledTimes(1)
+      expect(replayEventBatches).toEqual([
+        ['single-history-c', 'single-history-b', 'single-history-a']
+      ])
+      expect(childrenOf(sceneTree.workspace)).toEqual([])
+
+      applyPreparedElementMutation.mockClear()
+      replayEventBatches.length = 0
+      factory.redo()
+
+      expect(applyPreparedElementMutation).toHaveBeenCalledTimes(1)
+      expect(replayEventBatches).toEqual([
+        ['single-history-a', 'single-history-b', 'single-history-c']
+      ])
+      expect(childrenOf(sceneTree.workspace)).toEqual([
+        'single-history-a',
+        'single-history-b',
+        'single-history-c'
+      ])
+    } finally {
+      replayBatchSubscription.unsubscribe()
+      applyPreparedElementMutation.mockRestore()
+      factory.transact.reset()
+    }
+  })
+
   it('replays one real plural Scene removal through the same tombstone on Undo and Redo', () => {
     const factory = new Factory()
     const publications: SharedPublication[] = []

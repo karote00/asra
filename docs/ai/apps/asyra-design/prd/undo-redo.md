@@ -22,6 +22,15 @@ Users must be able to recover from mistakes through reliable undo and redo behav
    intended action; its Message Bar acts only while that AI action is current.
 8. Failed, cancelled, denied, unavailable, unsupported, and zero-mutation AI
    turns do not expose a new enabled Undo control.
+9. Undo and Redo default to visible progressive replay. Exact recorded
+   progressive boundaries remain visible boundaries; ordered immediate source
+   publications may be coalesced into bounded render slices. Each operation
+   remains one History transition.
+10. A history control rejects a concurrent second request until replay settles,
+    and presentation direction changes only after canonical completion.
+11. The framework API permits an explicit atomic opt-out for a bulk interaction
+    whose dependent mutation must wait for the full canonical mutation and
+    projection.
 
 ## Constraints
 
@@ -37,6 +46,10 @@ Users must be able to recover from mistakes through reliable undo and redo behav
 - drag-create undo behavior remains compact and deterministic
 - `conversational-ai.spec.ts` proves one action per mutating Agent turn,
   current-only Message Bar Undo/Redo, and stale-control invalidation
+- the explicit 7,076-element gate completes Undo within 12,000 ms, keeps Undo
+  at or below 1.5 times the same-run Redo duration, completes Redo within
+  30,000 ms, preserves the complete canonical drawing, and observes
+  progressive intermediate projection without a page crash
 
 ## References
 

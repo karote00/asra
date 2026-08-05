@@ -141,6 +141,11 @@ Scene evidence through one batch handoff.
 - Both prepared mutations include exact released relations, orphan property
   roots, retained roots, parent/index evidence, and staleness evidence. Scene
   does not inspect the Props graph.
+- Removal preparation derives retained roots from Scene's canonical relation
+  index and retains the prepared relation-index update. Apply validates the
+  owner-issued monotonic relation revision before consuming that update; it
+  does not serialize unrelated active elements or rebuild the whole relation
+  set for every replay batch.
 - Core owns complete element-plus-property removal: it passes the Scene-issued
   orphan and retained roots unchanged to the prepared Props exact orphan-graph
   batch, then applies the prepared Scene mutation and optional Props batch
@@ -189,7 +194,7 @@ mutation, reparent/reorder, and subtree lifecycle behavior.
   `applySubtreeChange(...)` retain exact identity, parent, index, child order,
   and raw Group data. Stale replay evidence fails instead of partially applying.
 - Core may call `preflightRestoreSubtree(..., { propertyState:
-  'pending-restore' })` while coordinating an atomic Props + Scene restore.
+'pending-restore' })` while coordinating an atomic Props + Scene restore.
   This mode defers only the active-property assertion; all hierarchy and
   relation evidence is still validated, and `applyRestoreSubtree(...)` always
   revalidates the ordinary active-property contract before mutation.

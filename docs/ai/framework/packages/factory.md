@@ -97,6 +97,33 @@ infrastructure.
 - replay does not create another ordinary undo commit
 - rollback, undo, and redo share the same inverse/replay primitives while keeping
   different history and lifecycle effects
+- the reusable framework cooperative render policy defaults to `progressive`;
+  callers may explicitly select `atomic` when a complete canonical mutation and
+  projection must settle before a dependent mutation starts
+- the progressive Undo/Redo route is additive to the synchronous route: when
+  the committed History entry carries a progressive delivery sequence or
+  already-delivered immediate owner batches, Factory applies the same canonical
+  replay in recorded boundary order; consecutive compatible single-element
+  Scene replay events from one source boundary use the existing plural Scene
+  owner apply in groups of at most 32, after complete batch preflight
+- Props removal replay preserves each exact source payload as one ordered
+  canonical owner batch, matching add replay instead of expanding one payload
+  into per-component Factory journal entries
+- recorded progressive boundaries remain exact render boundaries; consecutive
+  immediate source publications remain distinct and ordered but default
+  progressive replay coalesces them into a render slice until 1,024 distinct
+  canonical ids have settled, then reaches the framework host/paint yield;
+  `maxItemsPerSlice` may select another positive budget
+- progressive replay remains one History transition inside one outer
+  transaction; it does not create per-slice History, clone canonical payloads,
+  or introduce a separate AI/item-count replay path
+- DataTransact owns the exact safe yield boundary but no browser primitive;
+  `@asyra/reactive-events` owns the reusable host-yield/paint adapter so AI,
+  future Copy/Paste, and other bulk actions do not duplicate app-local
+  schedulers
+- an atomic bulk interaction such as future Alt+Drag duplication stages its
+  complete canonical copy and local projection before applying dependent
+  movement; it does not expose partially copied elements between those phases
 - replay restoration reuses deleted scene-tree/property instances so rollback
   preserves exact state instead of constructing new defaults
 - undo/redo replay nested inside an existing outer boundary defers its source

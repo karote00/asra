@@ -257,6 +257,76 @@ describe('props-manager subscribes', () => {
     }
   })
 
+  it('keeps one replay REMOVE_PROPERTY payload as one ordered canonical change', () => {
+    const source = [
+      new PositionComponent({
+        id: 'batch-remove-position-first',
+        type: PropertyTypes.POSITION,
+        x: 10,
+        y: 20,
+        xUnit: Unit.PX,
+        yUnit: Unit.PX
+      }).save(),
+      new PositionComponent({
+        id: 'batch-remove-position-second',
+        type: PropertyTypes.POSITION,
+        x: 30,
+        y: 40,
+        xUnit: Unit.PX,
+        yUnit: Unit.PX
+      }).save()
+    ]
+    publishEvent({
+      type: EventTypes.ADD_PROPERTY,
+      payload: {
+        eventName: EventTypes.ADD_PROPERTY,
+        data: source,
+        action: PROPS_ACTIONS.ADD_PROPERTY,
+        undoType: EventTypes.REMOVE_PROPERTY,
+        undoAction: PROPS_ACTIONS.REMOVE_PROPERTY
+      }
+    })
+    const committedChanges: PropsChange[] = []
+    const subscription = subscribeToEvents((event) => {
+      if (event.type === EventTypes.UPDATE_TRANSACTION) {
+        committedChanges.push(
+          (event as unknown as { payload: PropsChange }).payload
+        )
+      }
+    })
+
+    try {
+      runInTransactionReplayMode('undo', () =>
+        publishEvent({
+          type: EventTypes.REMOVE_PROPERTY,
+          payload: {
+            eventName: EventTypes.REMOVE_PROPERTY,
+            data: source,
+            action: PROPS_ACTIONS.REMOVE_PROPERTY,
+            undoType: EventTypes.ADD_PROPERTY,
+            undoAction: PROPS_ACTIONS.ADD_PROPERTY
+          }
+        })
+      )
+
+      expect(committedChanges).toEqual([
+        expect.objectContaining({
+          action: PROPS_ACTIONS.REMOVE_PROPERTY,
+          data: source,
+          eventName: EventTypes.REMOVE_PROPERTY
+        })
+      ])
+      expect(
+        propsManager.getPropertyById('batch-remove-position-first')
+      ).toBeUndefined()
+      expect(
+        propsManager.getPropertyById('batch-remove-position-second')
+      ).toBeUndefined()
+    } finally {
+      subscription.unsubscribe()
+    }
+  })
+
   it.each([
     {
       label: 'duplicate ids',

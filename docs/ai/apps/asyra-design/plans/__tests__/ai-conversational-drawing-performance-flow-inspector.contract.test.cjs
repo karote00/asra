@@ -597,6 +597,15 @@ test('Factory reuses existing action history and exposes only the minimal wire a
   )
   assert.match(
     factoryText,
+    /cooperative render policy defaults to progressive.*explicit atomic opt-out/i
+  )
+  assert.match(
+    factoryText,
+    /Undo and Redo reuse.*progressive slice boundaries.*immediate owner-batch boundaries.*plural Scene owner apply.*at most 32.*immediate source publications remain distinct and ordered.*1,024 distinct canonical ids.*host-yield\/paint adapter.*one History transition.*outer transaction/i
+  )
+  assert.match(factoryText, /app-local duplicate cooperative render scheduler/i)
+  assert.match(
+    factoryText,
     /no AI\/bulk-specific forward\/inverse artifact.*parallel applied-result mirror.*action-completion snapshot/i
   )
   assert.match(
@@ -1359,6 +1368,20 @@ test('local progressive drawing paints exact bounds before cooperative canonical
     text,
     /successful canonical slice.*ordinary.*projection.*progress.*browser paint opportunity.*AbortSignal/i
   )
+  assert.match(
+    text,
+    /framework cooperative render policy.*fixed progressive mode/i
+  )
+  assert.ok(
+    owner.allowedContributors.includes(
+      '@asyra/reactive-events cooperative host-yield and paint adapter'
+    )
+  )
+  assert.ok(
+    owner.forbiddenContributors.includes(
+      'app-local duplicate cooperative host-yield or paint scheduler'
+    )
+  )
   assert.match(text, /CSS.*transform.*opacity.*compositor/i)
   assert.match(
     text,
@@ -1767,12 +1790,14 @@ test('Core returns ordered ids while Factory records transaction evidence direct
     [
       'packages/reactive-events/src/app/events.ts',
       'packages/reactive-events/src/app/publish.ts',
+      'packages/reactive-events/src/cooperative-render.ts',
       'packages/reactive-events/src/scene-tree/events.ts',
       'packages/reactive-events/src/scene-tree/publish.ts',
       'packages/reactive-events/src/scene-tree/subscribes.ts',
       'packages/reactive-events/src/transaction-owner.ts',
       'packages/reactive-events/src/types.ts',
       'packages/reactive-events/src/__tests__/scene-tree-publish.test.ts',
+      'packages/reactive-events/src/__tests__/cooperative-render.test.ts',
       'packages/reactive-events/src/__tests__/transaction-batch.test.ts',
       'packages/reactive-events/src/__tests__/transaction-boundary.test.ts'
     ]
