@@ -193,7 +193,7 @@
         'packages/factory/src/__tests__/factory.test.ts',
         'apps/asyra-design/e2e/collaboration.spec.ts',
         'docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md',
-        'docs/ai/apps/asyra-design/plans/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
+        'docs/ai/apps/asyra-design/plans/completed/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
       ],
       specRefs: [
         '#bootstrap-and-load-handshake',
@@ -328,7 +328,7 @@
         'apps/asyra-design/src/init/__tests__',
         'apps/asyra-design/e2e/collaboration.spec.ts',
         'docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md',
-        'docs/ai/apps/asyra-design/plans/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
+        'docs/ai/apps/asyra-design/plans/completed/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
       ],
       specRefs: [
         '#connection-local-outbox-and-notifications',
@@ -395,7 +395,7 @@
         'apps/asyra-design/src/init/__tests__/collaboration-protocol.test.ts',
         'apps/asyra-design/src/init/__tests__/collaboration-websocket-provider.test.ts',
         'docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md',
-        'docs/ai/apps/asyra-design/plans/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
+        'docs/ai/apps/asyra-design/plans/completed/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
       ],
       specRefs: [
         '#socket-sequencing-and-live-fan-out',
@@ -460,7 +460,7 @@
         'apps/asyra-design/src/init/__tests__/collaboration-lifecycle.test.ts',
         'apps/asyra-design/e2e/collaboration.spec.ts',
         'docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md',
-        'docs/ai/apps/asyra-design/plans/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
+        'docs/ai/apps/asyra-design/plans/completed/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
       ],
       specRefs: [
         '#canonical-publication-boundary',
@@ -525,7 +525,7 @@
         'apps/asyra-design/__tests__/document-database-middleware.test.mjs',
         'apps/asyra-design/e2e/document-database-middleware.mjs',
         'docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md',
-        'docs/ai/apps/asyra-design/plans/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
+        'docs/ai/apps/asyra-design/plans/completed/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
       ],
       specRefs: [
         '#three-second-persistence-window',
@@ -588,7 +588,7 @@
         'apps/asyra-design/src/collaboration/operations.ts',
         'apps/asyra-design/src/init/__tests__/collaboration-operations.test.ts',
         'docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md',
-        'docs/ai/apps/asyra-design/plans/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
+        'docs/ai/apps/asyra-design/plans/completed/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
       ],
       specRefs: [
         '#backend-materialization',
@@ -1256,7 +1256,8 @@
         id: 'implementation-plan',
         kind: 'plan',
         label: 'Trusted publication and CRDT 7,076 realignment plan',
-        href: './trusted-publication-and-crdt-7076-flow-realignment-plan.md'
+        href:
+          './completed/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
       },
       {
         id: 'factory-collaboration-inspector',

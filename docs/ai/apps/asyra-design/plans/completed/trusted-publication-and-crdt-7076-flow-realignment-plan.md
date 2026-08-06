@@ -2,14 +2,18 @@
 
 ## Status
 
-Implementation and bounded validation completed on 2026-08-06 following
-explicit product-owner approval. Contract realignment, the fixed
-`AiActionBatch` sample, trusted publication codec boundary, opaque socket relay,
-and cooperative source-slice remote transaction stages are implemented. The
-post-repair 32/64 profile retains the 32-element default. Focused unit,
-integration, Inspector, server harness, production build, lint, guarded
-two-Actor, formal Reset E2E, and independent live-App visual gates pass. The
-plan remains active only for product-owner review and explicit closeout.
+Completed on 2026-08-06 after product-owner closeout. Contract realignment, the
+fixed `AiActionBatch` sample, trusted publication codec boundary, opaque socket
+relay, backend materialization, and cooperative source-slice remote transaction
+stages are implemented. The post-repair 32/64 profile retains the 32-element
+default. Focused unit, integration, Inspector, server harness, production
+build, lint, guarded two-Actor, formal Reset E2E, independent live-App visual,
+and pull-request CI gates pass.
+
+Final outcome: the product owner confirmed that the complete 7,076-element
+flow is somewhat faster and materially less blocking. Some remaining jank is
+accepted for this release. The permanent Reset control and the single formal
+sample URL remain part of the App contract.
 
 ## Goal
 

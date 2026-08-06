@@ -222,7 +222,7 @@ test('Actor A requests the exact backend sample only after Send', () => {
   const text = contractText(owner)
   const plan = read(data.authority.specPath)
   const realignmentPlan = read(
-    'docs/ai/apps/asyra-design/plans/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
+    'docs/ai/apps/asyra-design/plans/completed/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
   )
   const feature = read(
     'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
