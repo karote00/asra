@@ -1,5 +1,3 @@
-import { CRDT_7076_DEMO_FILE_ID } from '../config/demo-document'
-
 export interface CollaborationMode {
   fileId: string
   actorId: string
@@ -25,11 +23,8 @@ export const getRequiredFileId = (): string => {
   return fileId
 }
 
-export const getCollaborationMode = (): CollaborationMode | null => {
+export const getCollaborationMode = (): CollaborationMode => {
   const fileId = getRequiredFileId()
-  if (fileId === CRDT_7076_DEMO_FILE_ID) {
-    return null
-  }
   const configuredEndpoint = import.meta.env.VITE_COLLABORATION_WS_URL?.trim()
   const endpoint =
     configuredEndpoint ||

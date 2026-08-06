@@ -92,8 +92,10 @@ const removeOwnedProperties = (
     Object.values(element.props ?? {})
   )
   const removed = new Set<string>()
-  while (pending.length > 0) {
-    const propertyId = pending.shift()
+  let pendingIndex = 0
+  while (pendingIndex < pending.length) {
+    const propertyId = pending[pendingIndex]
+    pendingIndex += 1
     if (!propertyId || removed.has(propertyId)) continue
     const component = document.props[propertyId]
     if (!component) continue

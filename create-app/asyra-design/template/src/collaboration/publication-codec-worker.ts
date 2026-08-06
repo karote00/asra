@@ -93,10 +93,6 @@ interface InboundPublicationAssembly {
   readonly header: PublicationFrameHeader
   readonly frames: (ArrayBuffer | undefined)[]
   readonly frameIds: string[]
-  readonly pendingFrameCredits: {
-    readonly jobId: string
-    readonly header: PublicationFrameHeader
-  }[]
   readonly acceptedChunkIndexes: Set<number>
   receivedCount: number
   acceptedByteLength: number
@@ -159,10 +155,12 @@ export class PublicationCodecWorkerRuntime {
   private readonly inboundAssemblyOrder: string[] = []
   private readonly inboundFrameIds = new Set<string>()
   private readonly inboundBurstNextPublicationIndex = new Map<string, number>()
+  private readonly pendingInboundFrames: InboundFrameToAccept[] = []
   private activeDecodedPublicationDelivery:
     | ActiveDecodedPublicationDelivery
     | undefined
   private inboundReservedBytes = 0
+  private pendingInboundFrameBytes = 0
   private oversizedAssemblyKey: string | undefined
   private destroyed = false
 
@@ -195,8 +193,10 @@ export class PublicationCodecWorkerRuntime {
     this.inboundAssemblyOrder.length = 0
     this.inboundFrameIds.clear()
     this.inboundBurstNextPublicationIndex.clear()
+    this.pendingInboundFrames.length = 0
     this.activeDecodedPublicationDelivery = undefined
     this.inboundReservedBytes = 0
+    this.pendingInboundFrameBytes = 0
     this.oversizedAssemblyKey = undefined
   }
 
@@ -246,19 +246,25 @@ export class PublicationCodecWorkerRuntime {
         )
       }
       const assemblyKey = inboundAssemblyKey(header)
-      this.validateInboundFrameOrder(header, assemblyKey)
-      if (!this.canAcceptInboundFrame(header, assemblyKey)) {
-        throw new TypeError(
-          '[collaboration] inbound publication frame window exceeded'
-        )
-      }
-      this.inboundFrameIds.add(header.frameId)
-      this.acceptInboundFrame({
+      const pending = {
         request,
         post,
         header,
         assemblyKey
-      })
+      }
+      if (this.pendingInboundFrames.length > 0) {
+        this.queueInboundFrame(pending)
+        return
+      }
+      this.validateInboundFrameOrder(header, assemblyKey)
+      this.inboundFrameIds.add(header.frameId)
+      if (!this.canAcceptInboundFrame(header, assemblyKey)) {
+        this.queueInboundFrame(pending, true)
+        return
+      }
+      if (this.acceptInboundFrame(pending)) {
+        this.drainPendingInboundFrames()
+      }
     } catch (error) {
       post({
         type: 'publication-codec-failure',
@@ -293,6 +299,54 @@ export class PublicationCodecWorkerRuntime {
       jobId: request.jobId
     })
     this.releaseReadyPublication(request.jobId, post)
+    this.drainPendingInboundFrames()
+  }
+
+  private queueInboundFrame(
+    pending: InboundFrameToAccept,
+    frameIdentityReserved = false
+  ): void {
+    const nextPendingBytes =
+      this.pendingInboundFrameBytes + pending.header.frameByteLength
+    if (
+      this.pendingInboundFrames.length > 0 &&
+      nextPendingBytes > PUBLICATION_FRAME_INBOUND_WINDOW_BYTES
+    ) {
+      throw new TypeError(
+        '[collaboration] pending inbound publication frame window exceeded'
+      )
+    }
+    if (!frameIdentityReserved) {
+      this.inboundFrameIds.add(pending.header.frameId)
+    }
+    this.pendingInboundFrames.push(pending)
+    this.pendingInboundFrameBytes = nextPendingBytes
+  }
+
+  private drainPendingInboundFrames(): void {
+    while (this.pendingInboundFrames.length > 0) {
+      const pending = this.pendingInboundFrames[0] as InboundFrameToAccept
+      if (!this.canAcceptInboundFrame(pending.header, pending.assemblyKey)) {
+        return
+      }
+      this.pendingInboundFrames.shift()
+      this.pendingInboundFrameBytes = Math.max(
+        0,
+        this.pendingInboundFrameBytes - pending.header.frameByteLength
+      )
+      try {
+        this.validateInboundFrameOrder(pending.header, pending.assemblyKey)
+      } catch (error) {
+        pending.post({
+          type: 'publication-codec-failure',
+          jobId: pending.request.jobId,
+          message: failureMessage(error),
+          publicationId: pending.header.publicationId
+        })
+        return
+      }
+      if (!this.acceptInboundFrame(pending)) return
+    }
   }
 
   private validateInboundFrameOrder(
@@ -330,13 +384,15 @@ export class PublicationCodecWorkerRuntime {
     if (this.oversizedAssemblyKey === assemblyKey) return true
     if (this.oversizedAssemblyKey) return false
     const assembly = this.inboundAssemblies.get(assemblyKey)
+    const isOldestAssembly = this.inboundAssemblyOrder[0] === assemblyKey
     return (
       (this.inboundReservedBytes === 0 &&
         header.frameByteLength > PUBLICATION_FRAME_INBOUND_WINDOW_BYTES) ||
       Boolean(
         assembly &&
           assembly.acceptedByteLength > 0 &&
-          this.inboundReservedBytes === assembly.acceptedByteLength
+          (this.inboundReservedBytes === assembly.acceptedByteLength ||
+            isOldestAssembly)
       )
     )
   }
@@ -351,7 +407,6 @@ export class PublicationCodecWorkerRuntime {
           header,
           frames: new Array<ArrayBuffer | undefined>(header.chunkCount),
           frameIds: [],
-          pendingFrameCredits: [],
           acceptedChunkIndexes: new Set<number>(),
           receivedCount: 0,
           acceptedByteLength: 0
@@ -375,10 +430,6 @@ export class PublicationCodecWorkerRuntime {
       }
       assembly.frames[header.chunkIndex] = request.frame
       assembly.frameIds.push(header.frameId)
-      assembly.pendingFrameCredits.push({
-        jobId: request.jobId,
-        header
-      })
       assembly.acceptedChunkIndexes.add(header.chunkIndex)
       assembly.receivedCount += 1
       assembly.acceptedByteLength += header.frameByteLength
@@ -390,6 +441,11 @@ export class PublicationCodecWorkerRuntime {
         this.oversizedAssemblyKey = assemblyKey
       }
       if (assembly.receivedCount < header.chunkCount) {
+        post({
+          type: 'publication-frame-consumed',
+          jobId: request.jobId,
+          header
+        })
         post({
           type: 'publication-frame-accepted',
           jobId: request.jobId,
@@ -410,6 +466,11 @@ export class PublicationCodecWorkerRuntime {
         sequence: decoded.header.sequence,
         durationMs: elapsed(startedAt)
       }
+      post({
+        type: 'publication-frame-consumed',
+        jobId: request.jobId,
+        header
+      })
       const burstKey = inboundBurstKey(header)
       const nextPublicationIndex = header.publicationIndex + 1
       if (nextPublicationIndex < header.publicationCount) {
@@ -464,13 +525,6 @@ export class PublicationCodecWorkerRuntime {
     if (this.oversizedAssemblyKey === key) {
       this.oversizedAssemblyKey = undefined
     }
-    assembly.pendingFrameCredits.forEach(({ jobId: creditJobId, header }) =>
-      post({
-        type: 'publication-frame-consumed',
-        jobId: creditJobId,
-        header
-      })
-    )
     const nextKey = this.inboundAssemblyOrder[0]
     const hasPendingPublication = nextKey
       ? this.inboundAssemblies.get(nextKey)?.decoded !== undefined

@@ -114,7 +114,8 @@ export interface ReadyMessage {
 
 export interface DocumentSessionBootstrapPublication {
   readonly sequence: number
-  readonly publication: SharedPublication
+  readonly publicationId: string
+  readonly encodedPublicationFrames: readonly string[]
   readonly fromActorId: string
 }
 
@@ -299,7 +300,7 @@ const isSharedPublicationDelivery = (
     !isNonBlankString(value.eventName) ||
     !isStringArray(value.orderedIds) ||
     !hasUniqueStrings(value.orderedIds) ||
-    !isJsonTransportValue(value.payload) ||
+    !Object.prototype.hasOwnProperty.call(value, 'payload') ||
     (Object.prototype.hasOwnProperty.call(value, 'compensatesDeliveryId') &&
       !isNonBlankString(value.compensatesDeliveryId))
   ) {
@@ -1109,10 +1110,7 @@ export const encodePublicationMessageFrames = (
 ): readonly ArrayBuffer[] => {
   const { messageType, requestId, fromActorId, publications, sequences } =
     publicationMessageParts(message)
-  if (
-    publications.length === 0 ||
-    !publications.every((publication) => isSharedPublication(publication))
-  ) {
+  if (publications.length === 0) {
     throw new TypeError('[collaboration] invalid shared publication')
   }
   if (
@@ -1208,18 +1206,6 @@ const isPublicationWireUnit = (
       'compensatesDeliveryId'
     )
 
-const isPublicationWireChunk = (
-  value: unknown
-): value is PublicationWireChunk => {
-  if (!isRecord(value) || !Array.isArray(value.units)) return false
-  const { units, ...metadata } = value
-  return (
-    isPublicationWireMetadata(metadata) &&
-    units.length > 0 &&
-    units.every((unit) => isPublicationWireUnit(unit, metadata))
-  )
-}
-
 interface MutablePublicationBatch {
   readonly metadata: PublicationWireBatchMetadata
   readonly deliveries: SharedPublicationDelivery[]
@@ -1307,7 +1293,7 @@ const rebuildPublication = (
       deliveries
     }))
   }))
-  const publication: SharedPublication = {
+  return {
     publicationId,
     artifactId: first.artifactId,
     transactionId: first.transactionId,
@@ -1318,10 +1304,6 @@ const rebuildPublication = (
       ? { compensatesPublicationId: first.compensatesPublicationId }
       : {})
   }
-  if (!isSharedPublication(publication)) {
-    throw new TypeError('[collaboration] invalid decoded shared publication')
-  }
-  return publication
 }
 
 interface DecodedPublicationFramePart {
@@ -1383,11 +1365,7 @@ const decodePublicationWirePayload = (
   if (offset !== bytes.byteLength) {
     throw new TypeError('[collaboration] trailing publication wire payload')
   }
-  const chunk = { ...metadata, units }
-  if (!isPublicationWireChunk(chunk)) {
-    throw new TypeError('[collaboration] invalid publication wire payload')
-  }
-  return chunk
+  return { ...metadata, units }
 }
 
 const decodePublicationFrameParts = (
@@ -1720,14 +1698,18 @@ const parseDocumentSessionBootstrap = (
     if (
       !isRecord(item) ||
       item.sequence !== value.durableSequence + index + 1 ||
-      !isSharedPublication(item.publication) ||
+      !isNonBlankString(item.publicationId) ||
+      !Array.isArray(item.encodedPublicationFrames) ||
+      item.encodedPublicationFrames.length === 0 ||
+      !item.encodedPublicationFrames.every(isNonBlankString) ||
       !isNonBlankString(item.fromActorId)
     ) {
       return
     }
     pendingTail.push({
       sequence: item.sequence,
-      publication: item.publication,
+      publicationId: item.publicationId,
+      encodedPublicationFrames: item.encodedPublicationFrames,
       fromActorId: item.fromActorId
     })
   }
@@ -1742,11 +1724,7 @@ const parseDocumentSessionBootstrap = (
 export const parseCollaborationClientMessage = (
   value: unknown
 ): CollaborationClientMessage | undefined => {
-  if (
-    !isJsonTransportValue(value) ||
-    !isRecord(value) ||
-    !isNonBlankString(value.type)
-  ) {
+  if (!isRecord(value) || !isNonBlankString(value.type)) {
     return
   }
   switch (value.type) {
@@ -1820,11 +1798,7 @@ export const parseCollaborationClientMessage = (
 export const parseCollaborationServerMessage = (
   value: unknown
 ): CollaborationServerMessage | undefined => {
-  if (
-    !isJsonTransportValue(value) ||
-    !isRecord(value) ||
-    !isNonBlankString(value.type)
-  ) {
+  if (!isRecord(value) || !isNonBlankString(value.type)) {
     return
   }
   switch (value.type) {

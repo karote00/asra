@@ -64,6 +64,25 @@ test('ordinary and collaboration Playwright suites have separate discovery', () 
   assert.match(statusToast, /status-toast-visual\.spec\.ts/)
 })
 
+test('functional Playwright suites use the installed Google Chrome channel', async () => {
+  const configSources = await Promise.all(
+    [
+      '../playwright.config.ts',
+      '../playwright.collaboration.config.ts',
+      '../playwright.status-toast.config.ts'
+    ].map((configPath) =>
+      readFile(new URL(configPath, import.meta.url), 'utf8')
+    )
+  )
+
+  configSources.forEach((configSource) => {
+    assert.match(
+      configSource,
+      /use:\s*\{\s*\.\.\.devices\['Desktop Chrome'\],\s*channel:\s*'chrome'\s*\}/
+    )
+  })
+})
+
 test('owned E2E servers never ask Vite to open a desktop browser', async () => {
   const viteSource = await readFile(
     new URL('../vite.config.ts', import.meta.url),
@@ -456,6 +475,17 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     'playwright.endpoint-performance.config.ts',
     endpointPerformanceEnvironment
   )
+  const longPreviewOutDir =
+    `/project/${'generated-consumer-segment-'.repeat(8)}` +
+    'tmp/endpoint-preview/current'
+  const guardedWithLongArtifactPaths = listTests(
+    'playwright.endpoint-performance.config.ts',
+    {
+      ...endpointPerformanceEnvironment,
+      ENDPOINT_PREVIEW_OUT_DIR: longPreviewOutDir,
+      ENDPOINT_RESPONSE_MANIFEST_PATH: `${longPreviewOutDir}/__endpoint-test__/server-responses/manifest.json`
+    }
+  )
 
   assert.notEqual(unguarded.status, 0)
   assert.match(
@@ -468,6 +498,10 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     /response artifact attestation must be one SHA-256 digest/i
   )
   assert.match(guarded, /crdt-endpoint-performance\.spec\.ts/)
+  assert.match(
+    guardedWithLongArtifactPaths,
+    /crdt-endpoint-performance\.spec\.ts/
+  )
   assert.doesNotMatch(
     actionBatchInterceptorSource,
     /MAXIMUM_COMPRESSED_RESPONSE_BYTES|maximumCompressedBytes/,
@@ -538,6 +572,14 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(configSource, /launchOptions/)
   assert.match(configSource, /client-a-browser/)
   assert.doesNotMatch(configSource, /client-b-browser/)
+  assert.match(
+    configSource,
+    /endpointBrowserChannel[\s\S]{0,200}['"]27471-maximum['"][\s\S]{0,200}['"]chrome['"]/
+  )
+  assert.match(
+    configSource,
+    /TRACKED_EXECUTABLE:\s*resolveEndpointBrowserExecutablePath\(/
+  )
 
   assert.match(specSource, /ENDPOINT_GUARD_URL/)
   assert.match(specSource, /ENDPOINT_GUARD_TOKEN/)
@@ -554,6 +596,10 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(
     specSource,
     /chromium\.launch\(\{[\s\S]{0,500}headless:\s*true[\s\S]{0,500}executablePath:\s*guardLauncherPath/
+  )
+  assert.match(
+    specSource,
+    /chromium\.launch\(\{[\s\S]{0,700}channel:\s*['"]chrome['"][\s\S]{0,700}TRACKED_EXECUTABLE:\s*resolveEndpointBrowserExecutablePath\(/
   )
   assert.match(specSource, /postPhaseBoundary/)
   assert.match(specSource, /proofKind:\s*['"]local-attribution['"]/)
@@ -1149,6 +1195,25 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     manifest.scripts['prepare:e2e:endpoint-performance'],
     /VITE_COLLABORATION_WS_URL=ws:\/\/127\.0\.0\.1:4121\/collaboration yarn react:build/
   )
+  const endpointPreparation =
+    manifest.scripts['prepare:e2e:endpoint-performance']
+  const clientBuildIndex = endpointPreparation.indexOf('yarn react:build')
+  const collaborationBuildIndex = endpointPreparation.indexOf(
+    'yarn build:collaboration-server'
+  )
+  const documentBackendBuildIndex = endpointPreparation.indexOf(
+    'yarn build:document-backend'
+  )
+  const responseOverlayIndex = endpointPreparation.indexOf(
+    'node e2e/prepare-server-response-preview.mjs'
+  )
+  assert.ok(clientBuildIndex >= 0)
+  assert.ok(
+    collaborationBuildIndex > clientBuildIndex,
+    'standalone client build must finish before its app-local server bundles'
+  )
+  assert.ok(documentBackendBuildIndex > collaborationBuildIndex)
+  assert.ok(responseOverlayIndex > documentBackendBuildIndex)
   ;[
     ['test:e2e:ai-attribution:16', '16'],
     ['test:e2e:ai-attribution:16-reduced-motion', '16-reduced-motion'],

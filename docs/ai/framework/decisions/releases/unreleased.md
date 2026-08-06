@@ -2241,3 +2241,39 @@ unregister -> app migration -> core.start()` as the public app route.
   - [Node.js 24 feature-branch Preview](https://asyra-git-codex-node-24-runtime-upgrade-karote00s-projects.vercel.app)
 - Related Commit:
   - `e24c021b2f93ba200c728761d400d0ac0a87379d`
+
+## 2026-08-06 - Accept local tarballs for exact-version pre-publication proof
+
+- Context:
+  - Framework Release Gate 5 already packed all 19 public packages and
+    substituted their transitive `@asyra/*` resolutions inside isolated clean
+    consumers.
+  - The release sequence still needed to decide whether this proof could
+    preserve a future exact package identity and validate the generated
+    create-app output without first publishing that version.
+- Decision:
+  - Accept `TARBALL_SUFFICIENT` as the final research conclusion.
+  - Accept matching `file:` tarballs for the root dependency and all 19
+    transitive Asyra resolutions as pre-publication proof of packed identity,
+    archive contents, install isolation, tests, build, startup, and generated
+    application behavior.
+  - Do not add an isolated local npm-compatible registry before the Framework
+    patch release. Workspace, link, portal, symlink, and source-directory
+    installs remain invalid release evidence.
+- Consequences:
+  - The Framework package patch release plan may begin after the closeout PR is
+    accepted and merged, without first publishing a speculative package
+    version or operating a local registry.
+  - Actual public `name@version` resolution, dist-tags, authentication,
+    registry metadata, CDN availability, propagation, and the unmodified
+    public-registry create-app path still require the target version to exist
+    on the public registry.
+  - The 7,076-element endpoint work-unit/publication terminal oracle remains a
+    separate performance-contract blind spot and is not treated as failed
+    package artifact or install evidence.
+  - This decision does not authorize a version bump, Changeset, package
+    publication, registry mutation, tag, deployment, or create-app release.
+- Research Baseline:
+  - `02a6ba7bfa4b1cf56f7c35f49e8179650dab2a71`
+- Related Plan:
+  - `docs/ai/framework/plans/completed/local-versioned-package-install-research-plan.md`

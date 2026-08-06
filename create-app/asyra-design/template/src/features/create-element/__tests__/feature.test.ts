@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   changeElementGeometry: vi.fn(),
+  configureSharedDeliverySequence: vi.fn(),
   createElement: vi.fn(),
   defineFeature: vi.fn(
     (
@@ -39,6 +40,9 @@ vi.mock('../../../common-apis', () => ({
   },
   systemContextApis: {
     switchPrimaryTool: vi.fn()
+  },
+  transactionApis: {
+    configureSharedDeliverySequence: mocks.configureSharedDeliverySequence
   }
 }))
 
@@ -85,6 +89,11 @@ describe('create-element canonical parent handoff', () => {
       },
       { sharedDelivery: 'immediate' }
     )
+    expect(mocks.configureSharedDeliverySequence).toHaveBeenCalledWith({
+      mode: 'atomic',
+      batchPublications: false,
+      slices: []
+    })
   })
 
   it('does not create when canonical hierarchy resolution rejects the target', () => {

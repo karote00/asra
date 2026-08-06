@@ -65,11 +65,16 @@ describe('collaboration public file identity', () => {
     })
   })
 
-  it('keeps only the 7076 AI simulation outside the socket document flow', () => {
+  it('keeps the 7076 sample on the ordinary socket document flow', () => {
     vi.stubEnv('VITE_COLLABORATION_WS_URL', '')
+    vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ACTOR_UUID)
     window.history.replaceState({}, '', '/?fileId=crdt-7076-sample')
 
     expect(getRequiredFileId()).toBe('crdt-7076-sample')
-    expect(getCollaborationMode()).toBeNull()
+    expect(getCollaborationMode()).toEqual({
+      fileId: 'crdt-7076-sample',
+      actorId: `actor-${ACTOR_UUID}`,
+      endpoint: 'ws://localhost:3000/collaboration'
+    })
   })
 })

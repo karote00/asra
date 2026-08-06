@@ -6,9 +6,9 @@ import {
   waitForAppReady
 } from './test-utils'
 import {
-  seedServerResponse,
+  installGeneratedActionBatchInterceptor,
   type ServerResponseItemCount
-} from './server-response-inbox'
+} from './action-batch-interceptor'
 
 const RUN_PROFILE = process.env.RUN_AI_DRAWING_PERFORMANCE === '1'
 
@@ -30,7 +30,6 @@ interface ProfileSnapshot {
 interface ProfiledTurn {
   bootstrap: {
     preparedResponseItemCount: ServerResponseItemCount
-    responseInboxPreload: ProfileSnapshot['phases'][number]
   }
   canonical: {
     groupCount: number
@@ -107,30 +106,13 @@ const runProfiledTurn = async (
   }
 ): Promise<ProfiledTurn> => {
   const identity = createTestDocumentIdentity('aiPerformance=profile')
-  await seedServerResponse(page.context(), {
+  await installGeneratedActionBatchInterceptor(page.context(), {
     appUrl: identity.url,
     fileId: identity.fileId,
     itemCount: preparedResponseItemCount
   })
   await page.goto(identity.url)
   await waitForAppReady(page)
-  const bootstrapSnapshot = await page.evaluate(
-    async () =>
-      (await import('../src/testing/runtime-access'))
-        .getActiveAiDrawingPerformanceProfile()
-        ?.snapshot() ?? null
-  )
-  if (!bootstrapSnapshot) {
-    throw new Error('AI drawing performance bootstrap profile is unavailable')
-  }
-  const responseInboxPreloadSamples = bootstrapSnapshot.phases.filter(
-    ({ name }) => name === 'ai-server-response-inbox:preload-file-response'
-  )
-  expect(responseInboxPreloadSamples).toHaveLength(1)
-  const responseInboxPreload = responseInboxPreloadSamples[0]
-  if (!responseInboxPreload) {
-    throw new Error('Server response inbox preload phase is unavailable')
-  }
   await expect(page.getByTestId('ai-agent-toolbar-button')).toBeVisible()
   await page.getByTestId('ai-agent-toolbar-button').click()
   await expect(page.getByRole('complementary')).toBeVisible()
@@ -178,11 +160,6 @@ const runProfiledTurn = async (
   )
   expect(snapshot).not.toBeNull()
   const exactSnapshot = snapshot as ProfileSnapshot
-  expect(
-    exactSnapshot.phases.some(
-      ({ name }) => name === 'ai-server-response-inbox:preload-file-response'
-    )
-  ).toBe(false)
   const productSamples = exactSnapshot.phases.filter(
     ({ name }) => name === 'ai-turn:accepted-to-settled'
   )
@@ -213,8 +190,7 @@ const runProfiledTurn = async (
 
   return {
     bootstrap: {
-      preparedResponseItemCount,
-      responseInboxPreload
+      preparedResponseItemCount
     },
     canonical,
     harnessWallMs,

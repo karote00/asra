@@ -39,15 +39,7 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
 - Retained Inspector:
   `docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.data.cjs`.
 
-1. Local exact-version package installation research
-
-- Determine the exact proof boundary of local tarballs and whether a local
-  registry is justified for registry-style `name@version` resolution.
-- Research only; no tool installation or implementation is authorized.
-- Reference:
-  `docs/ai/framework/plans/local-versioned-package-install-research-plan.md`
-
-2. Framework package patch release
+1. Framework package patch release
 
 - First publish the seven never-published Framework packages once at `0.2.5`,
   then prove all 19 packages share the public `0.2.5` baseline.
@@ -57,7 +49,7 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
 - Reference:
   `docs/ai/framework/plans/framework-package-patch-release-plan.md`
 
-3. Formal `create-asyra-design-app` release
+2. Formal `create-asyra-design-app` release
 
 - Begin only after the Framework patch set is publicly installable.
 - Apply user-specified Asyra/Asyra Design versions, regenerate through the
@@ -66,7 +58,7 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
 - Reference:
   `docs/ai/framework/plans/create-asyra-design-app-release-plan.md`
 
-4. Asyra Framework marketing and documentation website
+3. Asyra Framework marketing and documentation website
 
 - Build the public Next.js/Tailwind documentation experience after public
   package and create-app contracts are stable.

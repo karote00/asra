@@ -1,6 +1,7 @@
 import type { CanonicalChange } from '@asyra/core'
-import type { SharedPublication } from '@asyra/factory'
+import { Buffer } from 'node:buffer'
 import { decodeDocumentPublication } from '../src/collaboration/operations'
+import { decodePublicationFramePublication } from '../src/collaboration/protocol'
 
 export const DOCUMENT_PERSISTENCE_PROTOCOL_VERSION = 1
 
@@ -9,7 +10,8 @@ type Awaitable<Value> = Value | Promise<Value>
 export interface SequencedDocumentPublication {
   readonly documentId: string
   readonly sequence: number
-  readonly publication: SharedPublication
+  readonly publicationId: string
+  readonly encodedPublicationFrames: readonly string[]
 }
 
 export interface DocumentPersistenceBatch {
@@ -70,6 +72,9 @@ interface PreparedPublication {
   readonly canonicalChanges: readonly CanonicalChange[]
 }
 
+const BASE64_PATTERN =
+  /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
@@ -111,19 +116,29 @@ const parsePersistenceBatch = (input: unknown): DocumentPersistenceBatch => {
       !isRecord(entry) ||
       entry.documentId !== documentId ||
       entry.sequence !== expectedSequence ||
-      !isRecord(entry.publication) ||
-      !isNonBlankString(entry.publication.publicationId) ||
-      publicationIds.has(entry.publication.publicationId)
+      !isNonBlankString(entry.publicationId) ||
+      publicationIds.has(entry.publicationId) ||
+      !Array.isArray(entry.encodedPublicationFrames) ||
+      entry.encodedPublicationFrames.length === 0 ||
+      entry.encodedPublicationFrames.some(
+        (frame) =>
+          !isNonBlankString(frame) ||
+          !BASE64_PATTERN.test(frame) ||
+          Buffer.from(frame, 'base64').toString('base64') !== frame
+      )
     ) {
       throw new Error(
         '[document-materializer] persistence batch entries must be contiguous and uniquely identified'
       )
     }
-    publicationIds.add(entry.publication.publicationId)
+    publicationIds.add(entry.publicationId)
     entries.push({
       documentId: entry.documentId,
       sequence: entry.sequence,
-      publication: entry.publication as unknown as SharedPublication
+      publicationId: entry.publicationId,
+      encodedPublicationFrames: Object.freeze([
+        ...entry.encodedPublicationFrames
+      ])
     })
   })
 
@@ -221,13 +236,23 @@ export const createDocumentMaterializationService = <Document>({
     await authorize(batch.documentId, batch)
 
     const prepared = Object.freeze(
-      batch.entries.map((entry) =>
-        Object.freeze({
+      batch.entries.map((entry) => {
+        const decoded = decodePublicationFramePublication(
+          entry.encodedPublicationFrames.map(
+            (frame) => new Uint8Array(Buffer.from(frame, 'base64'))
+          )
+        )
+        if (decoded.publication.publicationId !== entry.publicationId) {
+          throw new Error(
+            '[document-materializer] publication identity conflicts with encoded bytes'
+          )
+        }
+        return Object.freeze({
           sequence: entry.sequence,
-          publicationId: entry.publication.publicationId,
-          canonicalChanges: decodeDocumentPublication(entry.publication)
+          publicationId: entry.publicationId,
+          canonicalChanges: decodeDocumentPublication(decoded.publication)
         })
-      )
+      })
     )
     const publicationIds = Object.freeze(
       prepared.map(({ publicationId }) => publicationId)

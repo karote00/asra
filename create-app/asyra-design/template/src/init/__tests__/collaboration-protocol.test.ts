@@ -78,6 +78,22 @@ const createPublication = ({
 
 const publication = createPublication()
 
+const bootstrapTailItem = (
+  sequence: number,
+  item: SharedPublication,
+  fromActorId: string
+) => ({
+  sequence,
+  publicationId: item.publicationId,
+  encodedPublicationFrames: encodePublicationMessageFrames({
+    type: CollaborationMessageTypes.PUBLICATION,
+    publication: item,
+    fromActorId,
+    sequence
+  }).map((frame) => Buffer.from(frame).toString('base64')),
+  fromActorId
+})
+
 const createTwoBatchPublication = (): SharedPublication => {
   const first = createPublication({ suffix: 'first', transactionId: 4 })
   const second = createPublication({ suffix: 'second', transactionId: 4 })
@@ -351,6 +367,31 @@ describe('collaboration wire protocol', () => {
     ).toEqual(request)
   })
 
+  it('hands a trusted publication payload directly to the compact codec without a validation traversal', () => {
+    let payloadOwnKeyReads = 0
+    const payload = new Proxy(
+      { id: 'element-trusted', value: 'trusted-payload' },
+      {
+        ownKeys: (target) => {
+          payloadOwnKeyReads += 1
+          return Reflect.ownKeys(target)
+        }
+      }
+    )
+    const request: CollaborationRequestMessage = {
+      type: CollaborationMessageTypes.SEND_PUBLICATION,
+      requestId: 'request-trusted-payload',
+      publication: createPublication({
+        payload,
+        suffix: 'trusted-payload'
+      })
+    }
+
+    encodePublicationMessageFrames(request)
+
+    expect(payloadOwnKeyReads).toBe(3)
+  })
+
   it('decodes text and base64 binary CDP WebSocket profile frames with exact wire bytes', () => {
     const text = JSON.stringify({ type: 'ready' })
     const textFrame = decodeProfiledWebSocketFrame({
@@ -478,7 +519,7 @@ describe('collaboration wire protocol', () => {
     ])
   })
 
-  it('releases retained wire bytes at ordered app handoff before delivery settlement', () => {
+  it('credits each retained frame before ordered app delivery settlement', () => {
     const firstPublication = createPublication({
       suffix: 'worker-first',
       transactionId: 11
@@ -521,6 +562,7 @@ describe('collaboration wire protocol', () => {
     expect(responses.map((response) => response.type)).toEqual([
       'publication-frame-consumed',
       'decoded-publication',
+      'publication-frame-consumed',
       'publication-frame-accepted'
     ])
     expect(
@@ -539,10 +581,6 @@ describe('collaboration wire protocol', () => {
         type: 'decoded-publication-delivery-settled',
         jobId: 'settle-first'
       },
-      expect.objectContaining({
-        type: 'publication-frame-consumed',
-        jobId: 'decode-second'
-      }),
       expect.objectContaining({
         type: 'decoded-publication',
         jobId: 'settle-first',
@@ -612,7 +650,7 @@ describe('collaboration wire protocol', () => {
     ])
   })
 
-  it('keeps multi-assembly continuation within the exact worker byte window', () => {
+  it('lets the oldest interleaved assembly finish before later decoded work', () => {
     const oversizedPublication = createMultiDeliveryPublication([
       { source: 'a'.repeat(1_150_000) },
       { source: 'b'.repeat(1_150_000) }
@@ -693,23 +731,69 @@ describe('collaboration wire protocol', () => {
       },
       postInterleaved
     )
-    const responseCountBeforeOverflow = interleavedResponses.length
+    const responseCountBeforeContinuation = interleavedResponses.length
     interleavedRuntime.handle(
       {
         type: 'decode-publication-frame',
-        jobId: 'decode-interleaved-overflow',
+        jobId: 'decode-interleaved-continuation',
         frame: (oversizedFrames[1] as ArrayBuffer).slice(0)
       },
       postInterleaved
     )
 
-    expect(interleavedResponses.slice(responseCountBeforeOverflow)).toEqual([
-      expect.objectContaining({
-        type: 'publication-codec-failure',
-        jobId: 'decode-interleaved-overflow',
-        message: '[collaboration] inbound publication frame window exceeded'
-      })
+    const continuationResponses = interleavedResponses.slice(
+      responseCountBeforeContinuation
+    )
+    expect(
+      continuationResponses.map(({ jobId, type }) => ({ jobId, type }))
+    ).toEqual([
+      {
+        type: 'publication-frame-consumed',
+        jobId: 'decode-interleaved-continuation'
+      },
+      {
+        type: 'decoded-publication',
+        jobId: 'decode-interleaved-continuation'
+      }
     ])
+    expect(
+      continuationResponses.find(({ type }) => type === 'decoded-publication')
+        ?.publication.publicationId
+    ).toBe(oversizedPublication.publicationId)
+    expect(
+      interleavedResponses.some(
+        ({ type }) => type === 'publication-codec-failure'
+      )
+    ).toBe(false)
+
+    const responseCountBeforeSettlement = interleavedResponses.length
+    interleavedRuntime.handle(
+      {
+        type: 'settle-decoded-publication-delivery',
+        jobId: 'settle-interleaved-continuation'
+      },
+      postInterleaved
+    )
+
+    const settlementResponses = interleavedResponses.slice(
+      responseCountBeforeSettlement
+    )
+    expect(
+      settlementResponses.map(({ jobId, type }) => ({ jobId, type }))
+    ).toEqual([
+      {
+        type: 'decoded-publication-delivery-settled',
+        jobId: 'settle-interleaved-continuation'
+      },
+      {
+        type: 'decoded-publication',
+        jobId: 'settle-interleaved-continuation'
+      }
+    ])
+    expect(
+      settlementResponses.find(({ type }) => type === 'decoded-publication')
+        ?.publication.publicationId
+    ).toBe(interleavedPublication.publicationId)
   })
 
   it('preserves every UTF-16 code unit in publication frame identities', () => {
@@ -809,7 +893,7 @@ describe('collaboration wire protocol', () => {
     ).toThrow(/duplicate publication identity/)
   })
 
-  it('rejects duplicate batch and delivery identities before framing', () => {
+  it('does not reinterpret trusted canonical batch and delivery identities before framing', () => {
     const base = createTwoBatchPublication()
     const firstSlice = base.slices[0]
     const secondSlice = base.slices[1]
@@ -861,7 +945,7 @@ describe('collaboration wire protocol', () => {
           requestId: 'request-duplicate-canonical-id',
           publication: candidate
         })
-      ).toThrow(/invalid shared publication/)
+      ).not.toThrow()
     }
   })
 
@@ -1327,14 +1411,10 @@ describe('collaboration wire protocol', () => {
         headSequence: 5,
         pendingTail: [
           {
-            sequence: 4,
-            publication,
-            fromActorId: 'actor-a'
+            ...bootstrapTailItem(4, publication, 'actor-a')
           },
           {
-            sequence: 5,
-            publication: secondPublication,
-            fromActorId: 'actor-b'
+            ...bootstrapTailItem(5, secondPublication, 'actor-b')
           }
         ]
       }
@@ -1358,9 +1438,7 @@ describe('collaboration wire protocol', () => {
         headSequence: 1,
         pendingTail: [
           {
-            sequence: 2,
-            publication,
-            fromActorId: 'actor-a'
+            ...bootstrapTailItem(2, publication, 'actor-a')
           }
         ]
       }

@@ -6,6 +6,7 @@ import {
   attestEndpointBuildArtifact,
   attemptGuardedTermination,
   DEFAULT_RESOURCE_GUARD_CONFIG,
+  ENDPOINT_GUARD_ABSOLUTE_PATH_LIMIT,
   buildBoundedResourceReport,
   buildEndpointPerformancePhases,
   buildRunnerSpawnOptions,
@@ -16,6 +17,7 @@ import {
   evaluateResourceSample,
   classifyGuardedChildExit,
   installTrackedProcessLifecycleGuard,
+  isEndpointGuardAbsolutePath,
   parseCpuTimeToMilliseconds,
   parseRunnerArguments,
   recordGuardedResourcePhaseBoundary,
@@ -26,6 +28,8 @@ import {
   recordResourceSampleFailure,
   recordTrackedProcessGroupRegistration,
   readBootstrapResourceStatus,
+  resolveEndpointBrowserExecutablePath,
+  resolveEndpointBuildAssetsDirectory,
   runEndpointPerformancePipeline,
   runResourceGuardCli,
   runTrackedProcessLauncher,
@@ -40,6 +44,92 @@ import {
 const TARGET_PGID = 4242
 const TOKEN = 'test-resource-guard-token'
 const OWNER = 'admit-receiver-publication-frames'
+
+test('endpoint browser resolution uses installed Google Chrome without a version floor', () => {
+  assert.equal(
+    resolveEndpointBrowserExecutablePath({
+      bundledChromiumExecutablePath: '/playwright/chrome-for-testing',
+      platform: 'darwin'
+    }),
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+  )
+  assert.equal(
+    resolveEndpointBrowserExecutablePath({
+      bundledChromiumExecutablePath: '/playwright/chrome-for-testing',
+      googleChromeExecutablePath: '/opt/google/chrome',
+      platform: 'linux'
+    }),
+    '/opt/google/chrome'
+  )
+})
+
+test('maximum-detail browser resolution retains Chrome for Testing ownership', () => {
+  assert.equal(
+    resolveEndpointBrowserExecutablePath({
+      attributionCase: '27471-maximum',
+      bundledChromiumExecutablePath: '/playwright/chrome-for-testing',
+      googleChromeExecutablePath: '/opt/google/chrome',
+      platform: 'linux'
+    }),
+    '/playwright/chrome-for-testing'
+  )
+})
+
+test('endpoint browser resolution rejects a relative executable override', () => {
+  assert.throws(
+    () =>
+      resolveEndpointBrowserExecutablePath({
+        googleChromeExecutablePath: 'google-chrome',
+        platform: 'linux'
+      }),
+    /requires an absolute ASYRA_E2E_GOOGLE_CHROME_EXECUTABLE_PATH/
+  )
+})
+
+test('endpoint guard absolute paths support generated consumers without becoming unbounded', () => {
+  assert.equal(ENDPOINT_GUARD_ABSOLUTE_PATH_LIMIT, 1_024)
+  assert.equal(isEndpointGuardAbsolutePath(`/${'a'.repeat(199)}`), true)
+  assert.equal(
+    isEndpointGuardAbsolutePath(
+      `/${'a'.repeat(ENDPOINT_GUARD_ABSOLUTE_PATH_LIMIT - 1)}`
+    ),
+    true
+  )
+  assert.equal(
+    isEndpointGuardAbsolutePath(
+      `/${'a'.repeat(ENDPOINT_GUARD_ABSOLUTE_PATH_LIMIT)}`
+    ),
+    false
+  )
+  assert.equal(isEndpointGuardAbsolutePath('relative/path'), false)
+})
+
+test('endpoint build attestation resolves workspace and standalone assets from the package contract', () => {
+  assert.equal(
+    resolveEndpointBuildAssetsDirectory({
+      appRoot: '/project/apps/asyra-design',
+      manifest: {
+        dependencies: {
+          '@asyra/core': 'workspace:*'
+        }
+      },
+      workspaceRoot: '/project'
+    }),
+    '/project/dist/assets'
+  )
+  assert.equal(
+    resolveEndpointBuildAssetsDirectory({
+      appRoot: '/project/tmp/standalone-asyra-design',
+      manifest: {
+        dependencies: {
+          '@asyra/core': 'file:../framework-artifacts/asyra-core-0.2.5.tgz'
+        }
+      },
+      workspaceRoot: '/project'
+    }),
+    '/project/tmp/standalone-asyra-design/dist/assets'
+  )
+})
 
 test('aggregates rotating CPU profile call frames with fixed capacity and error bounds', () => {
   const aggregate = createCpuProfileDiagnosticAggregate({

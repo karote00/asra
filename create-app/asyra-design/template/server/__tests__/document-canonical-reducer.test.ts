@@ -224,6 +224,70 @@ describe('backend canonical document reducer', () => {
     expect(removed.props.position).toBeUndefined()
   })
 
+  it('removes the complete shared and cyclic owned-property closure exactly once', () => {
+    const document = initialDocument()
+    const element = {
+      id: 'element',
+      name: 'Element',
+      type: 'rectangle' as never,
+      parentId: 'workspace',
+      visible: true,
+      lock: false,
+      props: { root: 'property-root' }
+    }
+    document.sceneTree.elements.element = element
+    ;(
+      document.sceneTree.elements
+        .workspace as typeof document.sceneTree.elements.workspace & {
+        children: string[]
+      }
+    ).children.push('element')
+    document.props['property-root'] = {
+      id: 'property-root',
+      type: 'root' as never,
+      children: ['property-left', 'property-right']
+    }
+    document.props['property-left'] = {
+      id: 'property-left',
+      type: 'branch' as never,
+      child: 'property-leaf'
+    }
+    document.props['property-right'] = {
+      id: 'property-right',
+      type: 'branch' as never,
+      child: 'property-leaf'
+    }
+    document.props['property-leaf'] = {
+      id: 'property-leaf',
+      type: 'leaf' as never,
+      owner: 'property-root'
+    }
+    document.props.unrelated = {
+      id: 'unrelated',
+      type: 'unrelated' as never,
+      value: 1
+    }
+
+    const removed = apply(document, [
+      {
+        kind: 'element-removal',
+        removals: [
+          {
+            data: element,
+            parentId: 'workspace',
+            index: 0
+          }
+        ]
+      }
+    ])
+
+    expect(removed.props).toEqual({
+      unrelated: document.props.unrelated
+    })
+    expect(document.props).toHaveProperty('property-root')
+    expect(document.props).toHaveProperty('property-leaf')
+  })
+
   it('removes and restores one exact subtree checkpoint including property components', () => {
     const document = initialDocument()
     const group = {

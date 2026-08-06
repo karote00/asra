@@ -3,6 +3,10 @@ import type {
   AiExecutionContext
 } from '@asyra/ai-agent-runtime'
 import {
+  waitForCooperativePaint,
+  yieldToCooperativeHost
+} from '@asyra/reactive-events'
+import {
   emitDiagnosticCounter,
   measureBrowserDragAsyncPhase,
   measureBrowserDragPhase,
@@ -39,55 +43,6 @@ const createAiMutationOptions = (): EVENT_OPTIONS =>
     sharedDelivery: 'immediate',
     undoable: true
   })
-
-interface CooperativeTaskScheduler {
-  yield?: () => Promise<void>
-}
-
-const yieldToHost = (): Promise<void> => {
-  const scheduler = (
-    globalThis as typeof globalThis & {
-      scheduler?: CooperativeTaskScheduler
-    }
-  ).scheduler
-  if (typeof scheduler?.yield === 'function') {
-    return scheduler.yield()
-  }
-
-  if (typeof globalThis.MessageChannel === 'function') {
-    return new Promise((resolve) => {
-      const channel = new globalThis.MessageChannel()
-      channel.port1.onmessage = () => {
-        channel.port1.close()
-        channel.port2.close()
-        resolve()
-      }
-      channel.port2.postMessage(undefined)
-    })
-  }
-
-  if (typeof globalThis.requestAnimationFrame === 'function') {
-    return new Promise((resolve) => {
-      globalThis.requestAnimationFrame(() => resolve())
-    })
-  }
-
-  return Promise.reject(
-    new Error('This environment does not support cooperative host scheduling.')
-  )
-}
-
-const waitForBrowserPaint = (): Promise<void> => {
-  if (typeof globalThis.requestAnimationFrame !== 'function') {
-    return yieldToHost()
-  }
-
-  return new Promise((resolve) => {
-    globalThis.requestAnimationFrame(() => {
-      globalThis.requestAnimationFrame(() => resolve())
-    })
-  })
-}
 
 export interface SetElementVisibilityArgs {
   readonly elementId: string
@@ -841,9 +796,9 @@ export const createAiActions = (
   options: CreateAiActionsOptions = {}
 ): readonly AiActionDefinition[] => {
   const mutationOptions = createAiMutationOptions()
-  const hostYield = options.yieldToHost ?? yieldToHost
+  const hostYield = options.yieldToHost ?? yieldToCooperativeHost
   const paintYield =
-    options.waitForPaint ?? options.yieldToHost ?? waitForBrowserPaint
+    options.waitForPaint ?? options.yieldToHost ?? waitForCooperativePaint
   const drawingDetailChoice: AiActionDefinition<RequestDrawingDetailChoiceArgs> =
     Object.freeze({
       name: AiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,

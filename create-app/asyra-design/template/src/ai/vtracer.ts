@@ -357,10 +357,11 @@ export const createVTracerClient = (
       const bytes = normalizedWebp
         ? await normalizeWebpToPng(attachmentBytes, signal)
         : attachmentBytes
+      const requestBody = new Uint8Array(bytes)
       let response: Response
       try {
         response = await fetchImplementation(endpoint, {
-          body: bytes,
+          body: requestBody,
           headers: {
             'content-type': normalizedWebp ? 'image/png' : attachment.mediaType,
             'x-asyra-vtracer-profile': profile

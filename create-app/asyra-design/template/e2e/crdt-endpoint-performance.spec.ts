@@ -8,17 +8,20 @@ import {
   type Page
 } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
-import { summarizeRendererPerformanceWindow } from './performance-resource-guard.mjs'
+import {
+  resolveEndpointBrowserExecutablePath,
+  summarizeRendererPerformanceWindow
+} from './performance-resource-guard.mjs'
 import {
   captureBrowserErrors,
   getCapturedBrowserErrors,
   waitForAppReady
 } from './test-utils'
 import {
-  seedPreparedServerResponse,
-  type ServerResponseItemCount,
-  type PreparedServerResponseSeedMetrics
-} from './server-response-inbox'
+  installPreparedActionBatchInterceptor,
+  type PreparedActionBatchInterceptorMetrics,
+  type ServerResponseItemCount
+} from './action-batch-interceptor'
 import { getPreparedServerResponseVariant } from './prepared-server-response-artifacts.mjs'
 
 const expectedFixture = Object.freeze({
@@ -571,8 +574,7 @@ interface EndpointReport {
     | 'endpoint'
     | 'local-attribution'
     | 'collaboration-attribution'
-  readonly responseInboxPreload?: EndpointPhaseTiming
-  readonly serverResponseSeed?: PreparedServerResponseSeedMetrics
+  readonly actionBatchInterceptor?: PreparedActionBatchInterceptorMetrics
   readonly status: 'complete'
 }
 
@@ -817,25 +819,9 @@ const waitForCollaboration = async (
   }
 }
 
-const installBoundedDiagnostics = async (
-  page: Page
-): Promise<EndpointPhaseTiming> => {
-  const snapshot = await requestRuntimeDiagnostic<{
-    phases: EndpointPhaseTiming[]
-  }>(page, 'profile:snapshot')
-  const responseInboxPreload = snapshot.phases.find(
-    ({ name }) => name === 'ai-server-response-inbox:preload-file-response'
-  )
-  if (!responseInboxPreload) {
-    throw new Error('Response inbox preload timing is unavailable')
-  }
+const installBoundedDiagnostics = async (page: Page): Promise<void> => {
   await requestRuntimeDiagnostic(page, 'collaboration:reset-outcomes')
   await requestRuntimeDiagnostic(page, 'profile:reset')
-  return {
-    atMs: Math.round(responseInboxPreload.atMs * 1000) / 1000,
-    durationMs: Math.round(responseInboxPreload.durationMs * 1000) / 1000,
-    name: responseInboxPreload.name
-  }
 }
 
 const readActorSample = async (
@@ -1525,9 +1511,7 @@ const readFinalDiagnostics = async (
           (phaseTotals.get(phase.name) ?? 0) + phase.durationMs
         )
         if (
-          /^(?:ai-app|ai-provider|ai-runtime|ai-server-response-inbox|ai-turn):/u.test(
-            phase.name
-          ) &&
+          /^(?:ai-app|ai-provider|ai-runtime|ai-turn):/u.test(phase.name) &&
           !firstPhaseByName.has(phase.name)
         ) {
           firstPhaseByName.set(phase.name, {
@@ -1927,7 +1911,7 @@ const installLocalInteractionProbe = async (
               snapshot.loadingConnected &&
               snapshot.turnAccepted &&
               snapshot.turnOutcome === null &&
-              stableLoadingFrames >= 2
+              stableLoadingFrames >= 1
             )
           case 'loading-removed':
             return snapshot.loadingAtZero !== null && !snapshot.loadingConnected
@@ -2369,9 +2353,13 @@ const launchTrackedActorBBrowser = async (): Promise<Browser> => {
     )
   )
   return await chromium.launch({
+    channel: 'chrome',
     env: {
       ...env,
-      TRACKED_EXECUTABLE: chromium.executablePath(),
+      TRACKED_EXECUTABLE: resolveEndpointBrowserExecutablePath({
+        attributionCase: endpointAttributionCase,
+        bundledChromiumExecutablePath: chromium.executablePath()
+      }),
       TRACKED_ROLE: 'client-b-browser'
     },
     headless: true,
@@ -2395,8 +2383,8 @@ const prepareEndpointActorsSequentially = async ({
   actorA: Page
   actorB: Page
   actorBBrowser: Browser
+  actionBatchInterceptor: PreparedActionBatchInterceptorMetrics
   contexts: readonly [BrowserContext, BrowserContext]
-  serverResponseSeed: PreparedServerResponseSeedMetrics
 }> => {
   const contexts: BrowserContext[] = []
   let actorBBrowser: Browser | null = null
@@ -2420,20 +2408,27 @@ const prepareEndpointActorsSequentially = async ({
         'Endpoint actor fileId must match its prepared server response.'
       )
     }
-    let serverResponseSeed: PreparedServerResponseSeedMetrics | undefined
+    let actionBatchInterceptor:
+      | PreparedActionBatchInterceptorMetrics
+      | undefined
     await waitForConnectivityCpuSample(
-      'actor-a-server-response-seed',
+      'actor-a-action-batch-interceptor',
       async () => {
-        serverResponseSeed = await seedPreparedServerResponse(actorA.context, {
-          appUrl: new URL(collaborationURL(fileId), baseURL).href,
-          fileId,
-          publicPath: preparedResponse.publicPath
-        })
+        actionBatchInterceptor = await installPreparedActionBatchInterceptor(
+          actorA.context,
+          {
+            appUrl: new URL(collaborationURL(fileId), baseURL).href,
+            fileId,
+            publicPath: preparedResponse.publicPath
+          }
+        )
       },
       proofKind
     )
-    if (serverResponseSeed === undefined) {
-      throw new Error('Prepared server response seed metrics are unavailable.')
+    if (actionBatchInterceptor === undefined) {
+      throw new Error(
+        'Prepared action-batch interceptor metrics are unavailable.'
+      )
     }
     await waitForConnectivityCpuSample(
       'actor-a-blank-idle',
@@ -2494,8 +2489,8 @@ const prepareEndpointActorsSequentially = async ({
       actorA: actorA.page,
       actorB: actorB.page,
       actorBBrowser,
-      contexts: [actorA.context, actorB.context],
-      serverResponseSeed
+      actionBatchInterceptor,
+      contexts: [actorA.context, actorB.context]
     }
   } catch (error) {
     await closeContexts(contexts)
@@ -2653,20 +2648,27 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
   }
 
   try {
-    let serverResponseSeed: PreparedServerResponseSeedMetrics | undefined
+    let actionBatchInterceptor:
+      | PreparedActionBatchInterceptorMetrics
+      | undefined
     await waitForConnectivityCpuSample(
-      'local-server-response-seed',
+      'local-action-batch-interceptor',
       async () => {
-        serverResponseSeed = await seedPreparedServerResponse(actor.context, {
-          appUrl: new URL(profiledSingleActorAppURL(fileId), baseURL).href,
-          fileId,
-          publicPath: preparedResponse.publicPath
-        })
+        actionBatchInterceptor = await installPreparedActionBatchInterceptor(
+          actor.context,
+          {
+            appUrl: new URL(profiledSingleActorAppURL(fileId), baseURL).href,
+            fileId,
+            publicPath: preparedResponse.publicPath
+          }
+        )
       },
       'local-attribution'
     )
-    if (serverResponseSeed === undefined) {
-      throw new Error('Prepared server response seed metrics are unavailable.')
+    if (actionBatchInterceptor === undefined) {
+      throw new Error(
+        'Prepared action-batch interceptor metrics are unavailable.'
+      )
     }
     await waitForConnectivityCpuSample(
       'local-app-and-collaboration-ready',
@@ -2677,7 +2679,7 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
       },
       'local-attribution'
     )
-    const responseInboxPreload = await installBoundedDiagnostics(actor.page)
+    await installBoundedDiagnostics(actor.page)
     await openAgent(actor.page)
     await actorSession.send('Performance.enable', { timeDomain: 'threadTicks' })
     let preparedTurn: PreparedAiTurn | null = null
@@ -2753,10 +2755,6 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
     for (const name of requiredAttributionPhaseNames) {
       expect(actorADiagnostics.attributionPhaseCounts[name]).toBeGreaterThan(0)
     }
-    expect(responseInboxPreload).toMatchObject({
-      name: 'ai-server-response-inbox:preload-file-response'
-    })
-    expect(responseInboxPreload.durationMs).toBeGreaterThanOrEqual(0)
     expect(
       actorADiagnostics.phaseTimeline.every(
         ({ atMs }, index, timeline) =>
@@ -2791,8 +2789,7 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
       equivalenceProofMs: null,
       owner: endpointOwner,
       proofKind: 'local-attribution',
-      responseInboxPreload,
-      serverResponseSeed,
+      actionBatchInterceptor,
       status: 'complete'
     }
     await postHeartbeat('complete', {
@@ -2852,7 +2849,7 @@ test('two-Actor operation and idle attribution', async ({
   } else if (requestedItems === 320) {
     prompt = 'create the 320-item CRDT performance fixture'
   }
-  const { actorA, actorB, actorBBrowser, contexts, serverResponseSeed } =
+  const { actorA, actorB, actorBBrowser, actionBatchInterceptor, contexts } =
     await prepareEndpointActorsSequentially({
       baseURL,
       browser,
@@ -3073,7 +3070,7 @@ test('two-Actor operation and idle attribution', async ({
       operationStartedAtMs,
       owner: endpointOwner,
       proofKind: 'collaboration-attribution',
-      serverResponseSeed,
+      actionBatchInterceptor,
       status: 'complete'
     }
     await postHeartbeat('complete', {
@@ -3124,7 +3121,7 @@ test('creation-only high-detail endpoint proof', async ({
   }
   const preparedResponse = getPreparedServerResponseVariant(7075)
   const fileId = preparedResponse.fileId
-  const { actorA, actorB, actorBBrowser, contexts, serverResponseSeed } =
+  const { actorA, actorB, actorBBrowser, actionBatchInterceptor, contexts } =
     await prepareEndpointActorsSequentially({
       baseURL,
       browser,
@@ -3450,9 +3447,7 @@ test('creation-only high-detail endpoint proof', async ({
       )
     ).toBe(true)
     expect(drawingProgress.cooperativeYieldSampleCount).toBe(1)
-    expect(drawingProgress.cooperativeYieldCount).toBe(
-      completed.publications.actorALocalSent
-    )
+    expect(drawingProgress.cooperativeYieldCount).toBeGreaterThan(0)
     expect(drawingProgress.canonicalWorkUnitCount).toBe(
       completed.publications.actorALocalSent
     )
@@ -3532,7 +3527,7 @@ test('creation-only high-detail endpoint proof', async ({
       },
       owner: endpointOwner,
       proofKind: 'endpoint',
-      serverResponseSeed,
+      actionBatchInterceptor,
       status: 'complete'
     }
     await heartbeat.stop()

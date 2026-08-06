@@ -59,13 +59,12 @@ export const AiHistoryMessageBar = ({
       </div>
       <button
         aria-label={isUndo ? 'Undo AI change' : 'Redo AI change'}
+        aria-busy={historySnapshot.replaying}
         className="shrink-0 rounded-md border border-[#7668d8] bg-[#6553d7] px-3 py-1.5 text-[10px] font-medium text-white hover:bg-[#7463e1]"
+        disabled={historySnapshot.replaying}
         onClick={() => {
-          if (isUndo) {
-            history.undoCurrent()
-          } else {
-            history.redoCurrent()
-          }
+          const request = isUndo ? history.undoCurrent() : history.redoCurrent()
+          void request.catch(() => undefined)
         }}
         type="button"
       >

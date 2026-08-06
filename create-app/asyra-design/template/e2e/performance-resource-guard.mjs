@@ -15,6 +15,7 @@ import {
   setTimeout
 } from 'node:timers'
 import { fileURLToPath, URL } from 'node:url'
+import { resolvePreparedServerResponseLayoutRoot } from './prepared-server-response-artifacts.mjs'
 
 export const DEFAULT_RESOURCE_GUARD_CONFIG = Object.freeze({
   maximumCpuPercent: 400,
@@ -44,6 +45,7 @@ const PROCESS_CPU_ROLES = new Set([
   'app-server',
   'client-a-browser',
   'client-b-browser',
+  'document-backend',
   'test-harness',
   'unknown',
   'websocket-server'
@@ -60,6 +62,7 @@ const TRACKED_PROCESS_ROLES = Object.freeze([
   'client-a-browser',
   'client-b-browser',
   'app-server',
+  'document-backend',
   'websocket-server'
 ])
 const TRACKED_PROCESS_ROLE_SET = new Set(TRACKED_PROCESS_ROLES)
@@ -67,6 +70,7 @@ const PRODUCT_PROCESS_ROLES = Object.freeze([
   'client-a-browser',
   'client-b-browser',
   'app-server',
+  'document-backend',
   'websocket-server'
 ])
 const CLIENT_BROWSER_PROCESS_ROLES = new Set([
@@ -80,6 +84,12 @@ const ENDPOINT_ARTIFACT_ENV = 'ENDPOINT_ARTIFACT_ATTESTED'
 const ENDPOINT_PREVIEW_OUT_DIR_ENV = 'ENDPOINT_PREVIEW_OUT_DIR'
 const ENDPOINT_RESPONSE_ARTIFACT_ENV = 'ENDPOINT_RESPONSE_ARTIFACT_ATTESTED'
 const ENDPOINT_RESPONSE_MANIFEST_PATH_ENV = 'ENDPOINT_RESPONSE_MANIFEST_PATH'
+const GOOGLE_CHROME_EXECUTABLE_PATH_ENV =
+  'ASYRA_E2E_GOOGLE_CHROME_EXECUTABLE_PATH'
+const GOOGLE_CHROME_EXECUTABLE_PATH_BY_PLATFORM = Object.freeze({
+  darwin: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  linux: '/usr/bin/google-chrome'
+})
 const GUARD_ENVIRONMENT_KEYS = Object.freeze([
   'ENDPOINT_GUARD_TOKEN',
   'ENDPOINT_GUARD_URL',
@@ -189,10 +199,51 @@ const isFiniteNonNegativeNumber = (value) =>
 const isNonEmptyBoundedString = (value) =>
   typeof value === 'string' && value.length > 0 && value.length <= 160
 
+export const ENDPOINT_GUARD_ABSOLUTE_PATH_LIMIT = 1_024
+
+export const isEndpointGuardAbsolutePath = (value) =>
+  typeof value === 'string' &&
+  value.length > 0 &&
+  value.length <= ENDPOINT_GUARD_ABSOLUTE_PATH_LIMIT &&
+  isAbsolute(value)
+
+export const resolveEndpointBrowserExecutablePath = ({
+  attributionCase = process.env.ENDPOINT_ATTRIBUTION_CASE?.trim() ?? '',
+  bundledChromiumExecutablePath,
+  googleChromeExecutablePath = process.env[
+    GOOGLE_CHROME_EXECUTABLE_PATH_ENV
+  ]?.trim(),
+  platform = process.platform
+} = {}) => {
+  if (attributionCase === '27471-maximum') {
+    if (!isNonEmptyBoundedString(bundledChromiumExecutablePath)) {
+      throw new Error(
+        'Maximum-detail performance requires the Playwright Chrome for Testing executable'
+      )
+    }
+    return bundledChromiumExecutablePath
+  }
+
+  const executablePath =
+    googleChromeExecutablePath ??
+    GOOGLE_CHROME_EXECUTABLE_PATH_BY_PLATFORM[platform] ??
+    ''
+  if (!isEndpointGuardAbsolutePath(executablePath)) {
+    throw new Error(
+      `Endpoint performance requires an absolute ${GOOGLE_CHROME_EXECUTABLE_PATH_ENV}`
+    )
+  }
+  return executablePath
+}
+
+export const resolveEndpointBuildAssetsDirectory = (options = {}) =>
+  resolve(resolvePreparedServerResponseLayoutRoot(options), 'dist', 'assets')
+
 const createEmptyRoleCpuPercent = () => ({
   actorABrowser: 0,
   actorBBrowser: 0,
   appServer: 0,
+  documentBackend: 0,
   testHarness: 0,
   unknown: 0,
   websocketServer: 0
@@ -202,6 +253,7 @@ const createEmptyRoleCpuTimeMs = () => ({
   actorABrowser: 0,
   actorBBrowser: 0,
   appServer: 0,
+  documentBackend: 0,
   testHarness: 0,
   unknown: 0,
   websocketServer: 0
@@ -265,6 +317,9 @@ const classifyProcessCommand = (command) => {
   ) {
     return { executable: 'node', role: 'websocket-server' }
   }
+  if (lowerCommand.includes('dist/document-backend/document-backend.js')) {
+    return { executable: 'node', role: 'document-backend' }
+  }
   if (lowerCommand.includes('vite') && lowerCommand.includes('preview')) {
     return { executable: 'node', role: 'app-server' }
   }
@@ -326,6 +381,8 @@ const roleCpuKey = (role) => {
       return 'actorABrowser'
     case 'client-b-browser':
       return 'actorBBrowser'
+    case 'document-backend':
+      return 'documentBackend'
     case 'test-harness':
       return 'testHarness'
     case 'websocket-server':
@@ -809,9 +866,7 @@ const normalizeCollaborationEndpoint = (value) => {
 
 export const attestEndpointBuildArtifact = async ({
   expectedEndpoint,
-  assetsDirectory = fileURLToPath(
-    new URL('../../../dist/assets/', import.meta.url)
-  ),
+  assetsDirectory = resolveEndpointBuildAssetsDirectory(),
   readdirImpl = readdir,
   readFileImpl = readFile
 }) => {
@@ -868,12 +923,12 @@ const normalizePreparedResponsePreviewAttestation = (attestation) => {
     )
   }
   const { currentPath, manifestPath, productionIndexSha256 } = attestation
-  if (!isNonEmptyBoundedString(currentPath) || !isAbsolute(currentPath)) {
+  if (!isEndpointGuardAbsolutePath(currentPath)) {
     throw new TypeError(
       'Prepared response preview attestation requires one bounded absolute output path'
     )
   }
-  if (!isNonEmptyBoundedString(manifestPath) || !isAbsolute(manifestPath)) {
+  if (!isEndpointGuardAbsolutePath(manifestPath)) {
     throw new TypeError(
       'Prepared response preview attestation requires one bounded absolute manifest path'
     )
@@ -2868,6 +2923,16 @@ export const buildEndpointPerformancePhases = ({
     4_121,
     'ENDPOINT_COLLABORATION_PORT'
   )
+  const documentBackendPort = normalizePort(
+    baseEnv.ENDPOINT_DOCUMENT_BACKEND_PORT,
+    4_221,
+    'ENDPOINT_DOCUMENT_BACKEND_PORT'
+  )
+  if (new Set([appPort, collaborationPort, documentBackendPort]).size !== 3) {
+    throw new Error(
+      'Endpoint App, collaboration, and document backend ports must be different'
+    )
+  }
   const collaborationUrl = `ws://127.0.0.1:${collaborationPort}/collaboration`
   const attributionCase = baseEnv.ENDPOINT_ATTRIBUTION_CASE?.trim() ?? ''
   const validAttributionCases = new Set([
@@ -2896,6 +2961,7 @@ export const buildEndpointPerformancePhases = ({
     'client-a-browser',
     ...(!singleActorAttribution ? ['client-b-browser'] : []),
     'app-server',
+    'document-backend',
     'websocket-server'
   ]
   let selectedPlaywrightTest = 'creation-only high-detail endpoint proof'
@@ -2911,9 +2977,11 @@ export const buildEndpointPerformancePhases = ({
     ...baseEnv,
     ENDPOINT_APP_PORT: String(appPort),
     ENDPOINT_COLLABORATION_PORT: String(collaborationPort),
+    ENDPOINT_DOCUMENT_BACKEND_PORT: String(documentBackendPort),
     ENDPOINT_CONNECTIVITY_ONLY: '0',
     APP_URL: `http://127.0.0.1:${appPort}`,
     COLLABORATION_WS_PORT: String(collaborationPort),
+    DOCUMENT_PERSISTENCE_BACKEND_URL: `http://127.0.0.1:${documentBackendPort}`,
     E2E_OWN_SERVERS: '1',
     COLLABORATION_PROFILE: '1',
     ENDPOINT_ATTRIBUTION_CASE: attributionCase,
@@ -2950,7 +3018,7 @@ export const buildEndpointPerformancePhases = ({
         requiredProcessRoles
       },
       requiresReady: true,
-      ports: [appPort, collaborationPort]
+      ports: [appPort, collaborationPort, documentBackendPort]
     }
   ]
 }

@@ -22,7 +22,8 @@ import {
   createPreparedServerResponseArtifacts,
   getPreparedServerResponseVariant,
   loadServerResponseRecordFactory,
-  prepareServerResponsePreview
+  prepareServerResponsePreview,
+  resolvePreparedServerResponseLayoutRoot
 } from '../e2e/prepared-server-response-artifacts.mjs'
 
 const workspaceRoot = path.resolve(
@@ -69,6 +70,40 @@ const createSmallRecord = async (fileId, itemCount) => ({
   },
   fileId,
   schemaVersion: 1
+})
+
+test('resolves workspace and standalone production output from the package contract', () => {
+  const workspaceAppRoot = path.join(workspaceRoot, 'apps', 'asyra-design')
+  const standaloneAppRoot = path.join(
+    workspaceRoot,
+    'tmp',
+    'standalone-asyra-design'
+  )
+
+  assert.equal(
+    resolvePreparedServerResponseLayoutRoot({
+      appRoot: workspaceAppRoot,
+      manifest: {
+        dependencies: {
+          '@asyra/core': 'workspace:*'
+        }
+      },
+      workspaceRoot
+    }),
+    workspaceRoot
+  )
+  assert.equal(
+    resolvePreparedServerResponseLayoutRoot({
+      appRoot: standaloneAppRoot,
+      manifest: {
+        dependencies: {
+          '@asyra/core': 'file:../framework-artifacts/asyra-core-0.2.5.tgz'
+        }
+      },
+      workspaceRoot
+    }),
+    standaloneAppRoot
+  )
 })
 
 test('defines one fixed file-scoped artifact for every supported response size', () => {

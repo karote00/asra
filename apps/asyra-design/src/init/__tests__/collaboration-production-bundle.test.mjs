@@ -57,9 +57,7 @@ test('production bundle keeps the deployable collaboration reference composition
   )
   assert.equal(
     moduleIds.some((moduleId) =>
-      /[/\\]apps[/\\]asyra-design[/\\]src[/\\]toolbar[/\\]reset-stored-document\.ts$/.test(
-        moduleId
-      )
+      /[/\\]src[/\\]toolbar[/\\]reset-stored-document\.ts$/.test(moduleId)
     ),
     true,
     'the permanent standalone Reset utility is missing from the production graph'

@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto'
+import { Buffer } from 'node:buffer'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import * as collaborationModule from '@asyra/collaboration'
 import { ProviderFailure } from '@asyra/collaboration'
@@ -13,6 +14,10 @@ import {
 import * as collaborationOperations from '../../collaboration/operations'
 import { createFormalInitialDocument } from '../../collaboration/initial-document'
 import { CollaborationWebSocketProvider } from '../../collaboration/websocket-provider'
+import {
+  CollaborationMessageTypes,
+  encodePublicationMessageFrames
+} from '../../collaboration/protocol'
 import {
   createRemotePublicationHandler,
   disposeCollaboration,
@@ -62,6 +67,20 @@ const createDeferred = <Value>() => {
   return { promise, reject, resolve }
 }
 
+const freezePublication = (
+  publication: SharedPublication
+): SharedPublication => {
+  const freezeValue = (value: unknown): void => {
+    if (value === null || typeof value !== 'object' || Object.isFrozen(value)) {
+      return
+    }
+    Object.values(value).forEach(freezeValue)
+    Object.freeze(value)
+  }
+  freezeValue(publication)
+  return publication
+}
+
 const remotePublication = (publicationId: string): SharedPublication => {
   const artifactId = `artifact-${publicationId}`
   const batchId = `batch-${publicationId}`
@@ -80,7 +99,7 @@ const remotePublication = (publicationId: string): SharedPublication => {
     orderedIds: [`position-${publicationId}`],
     payload
   }
-  return {
+  return freezePublication({
     publicationId,
     artifactId,
     transactionId: 1,
@@ -99,8 +118,24 @@ const remotePublication = (publicationId: string): SharedPublication => {
         ]
       }
     ]
-  }
+  })
 }
+
+const bootstrapTailItem = (
+  sequence: number,
+  publication: SharedPublication,
+  fromActorId: string
+) => ({
+  sequence,
+  publicationId: publication.publicationId,
+  encodedPublicationFrames: encodePublicationMessageFrames({
+    type: CollaborationMessageTypes.PUBLICATION,
+    publication,
+    fromActorId,
+    sequence
+  }).map((frame) => Buffer.from(frame).toString('base64')),
+  fromActorId
+})
 
 const harness = {
   collaboration: {
@@ -179,6 +214,65 @@ it('rejects the consumer promise for a policy-rejected publication outcome', asy
   )
 })
 
+it('settles each remote publication projection before releasing the handler', async () => {
+  const remoteApplication = createDeferred<undefined>()
+  const projectionSettlement = createDeferred<undefined>()
+  const order: string[] = []
+  const processRemotePublication = (
+    createRemotePublicationHandler as unknown as (
+      applyRemotePublication: (
+        publication: SharedPublication
+      ) => boolean | Promise<boolean>,
+      settleProjection: () => Promise<void>
+    ) => (publication: SharedPublication) => Promise<void>
+  )(
+    async () => {
+      order.push('canonical-apply-start')
+      await remoteApplication.promise
+      order.push('canonical-apply-complete')
+      return true
+    },
+    async () => {
+      order.push('projection-start')
+      await projectionSettlement.promise
+      order.push('projection-settled')
+    }
+  )
+
+  let handlerSettled = false
+  const handling = processRemotePublication(
+    remotePublication('projection-settlement')
+  ).then(() => {
+    handlerSettled = true
+  })
+  await Promise.resolve()
+
+  expect(order).toEqual(['canonical-apply-start'])
+  expect(handlerSettled).toBe(false)
+
+  remoteApplication.resolve(undefined)
+  await Promise.resolve()
+  await Promise.resolve()
+
+  expect(order).toEqual([
+    'canonical-apply-start',
+    'canonical-apply-complete',
+    'projection-start'
+  ])
+  expect(handlerSettled).toBe(false)
+
+  projectionSettlement.resolve(undefined)
+  await handling
+
+  expect(order).toEqual([
+    'canonical-apply-start',
+    'canonical-apply-complete',
+    'projection-start',
+    'projection-settled'
+  ])
+  expect(handlerSettled).toBe(true)
+})
+
 it('opens the socket bootstrap before activation and applies its tail before live delivery starts', async () => {
   const order: string[] = []
   const publication = remotePublication('bootstrap-tail')
@@ -191,13 +285,7 @@ it('opens the socket bootstrap before activation and applies its tail before liv
       checkpoint: EMPTY_DOCUMENT,
       durableSequence: 0,
       headSequence: 1,
-      pendingTail: [
-        {
-          sequence: 1,
-          publication,
-          fromActorId: 'actor-peer'
-        }
-      ]
+      pendingTail: [bootstrapTailItem(1, publication, 'actor-peer')]
     }
   })
   vi.spyOn(
@@ -260,11 +348,11 @@ it('reopens the socket bootstrap and hydrates checkpoint plus tail before reconn
         durableSequence: 0,
         headSequence: 1,
         pendingTail: [
-          {
-            sequence: 1,
-            publication: remotePublication('reconnect-tail'),
-            fromActorId: 'actor-peer'
-          }
+          bootstrapTailItem(
+            1,
+            remotePublication('reconnect-tail'),
+            'actor-peer'
+          )
         ]
       }
     })
@@ -275,11 +363,11 @@ it('reopens the socket bootstrap and hydrates checkpoint plus tail before reconn
         durableSequence: 0,
         headSequence: 1,
         pendingTail: [
-          {
-            sequence: 1,
-            publication: remotePublication('reconnect-tail'),
-            fromActorId: 'actor-peer'
-          }
+          bootstrapTailItem(
+            1,
+            remotePublication('reconnect-tail'),
+            'actor-peer'
+          )
         ]
       }
     })
@@ -691,7 +779,7 @@ it('starts the real app collaboration composition without an Awareness preview r
   expect(getActiveCollaborationHandle()).toBeDefined()
 })
 
-it('binds one remote canonical request to the Core-owned coordinator', async () => {
+it('binds source-sliced remote canonical requests to one Factory coordinator', async () => {
   const createPublicationProcessor = vi.spyOn(
     collaborationOperations,
     'createPublicationProcessor'
@@ -710,8 +798,10 @@ it('binds one remote canonical request to the Core-owned coordinator', async () 
   const options = createPublicationProcessor.mock.calls[0]?.[0]
   expect(options).toEqual({
     runRemoteTransaction: expect.any(Function),
+    runRemoteTransactionProgressively: expect.any(Function),
     decideRemotePublication: expect.any(Function),
-    applyCanonicalChanges: expect.any(Function)
+    applyCanonicalChanges: expect.any(Function),
+    settleRemoteSlice: expect.any(Function)
   })
   expect(options).not.toHaveProperty('applyRemoteEvent')
   expect(options).not.toHaveProperty('owners')
