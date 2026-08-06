@@ -23,6 +23,9 @@
   existing selection without replacing it
 - if drag starts on an unselected unlocked element, selects that element as the
   drag target with `undoable: false`
+- before the first mutation, configures `batchPublications: false` so every
+  dependent drag source settles on peers in order; Undo/Redo retain the same
+  source boundaries while the complete gesture remains one History entry
 - snapshots unlocked selected element start positions in their canonical
   parent-local coordinates
 

@@ -158,6 +158,7 @@
         'All public SessionManager instances using the default transaction owner share one interaction queue and one active session runtime; a registered session start cancels the previously active session before opening its transaction boundary.',
         'Keyboard and machine actions remain deliverable while pointer input is active.',
         'An interactive preview that must reach Render/UI before outer completion uses an explicit sharedDelivery immediate option.',
+        'An interactive document preview whose dependent source mutations must settle on peers before later input configures batchPublications false before its first mutation; that settlement choice remains inside the same transaction outcome and one undo commit.',
         'The Undo/Redo shortcut and the current AI Message Bar invoke the reusable framework render policy with its default progressive mode and await the complete History replay before reporting success; an explicit atomic option remains available for a future dependent bulk interaction.',
         'The exclusive shortcut interaction queue and the AI Message Bar pending guard remain active until progressive replay settles, and Undo or Redo presentation state changes only after the canonical completion event.'
       ],
@@ -269,7 +270,8 @@
         'Rollback replays inverses in reverse order without undo, redo, or user-action-completed effects.',
         'Undo and redo use the same replay primitive with their own history effects.',
         'The framework cooperative render policy defaults to progressive and permits an explicit atomic opt-out for interactions that must complete one full canonical mutation and projection before a dependent mutation begins.',
-        'When progressive Undo or Redo replays a committed History entry, Factory uses its recorded progressive slice boundaries or already-delivered immediate owner-batch boundaries and applies that same canonical replay in recorded order. Compatible consecutive single-element Scene events inside one source boundary use the plural Scene owner apply in batches of at most 32 after complete preflight. Recorded progressive boundaries remain exact render boundaries; immediate source publications remain distinct and ordered while completed projection is coalesced into render slices with a default budget of 1,024 distinct canonical ids. The framework cooperative host/paint yield occurs after each render slice, and the complete replay remains one History transition inside one outer transaction.',
+        'When progressive Undo or Redo replays a committed History entry, Factory uses its recorded progressive slice boundaries or already-delivered immediate owner-batch boundaries and applies that same canonical replay in recorded order. Compatible consecutive single-element Scene events inside one source boundary use the plural Scene owner apply in batches of at most 32 after complete preflight. Recorded progressive boundaries remain exact render boundaries; immediate source boundaries remain ordered while their shared evidence is grouped into bounded publication windows of at most 512 distinct work items and completed projection is coalesced into render slices with a default budget of 1,024 distinct work items. Ordered ids are the work identity when present and delivery identity is the fallback. The framework cooperative host/paint yield occurs after each render slice, and the complete replay remains one History transition inside one outer transaction.',
+        'When an action explicitly disables publication batching, Factory records its actual shared-delivery slice order as History delivery metadata. Undo reverses and Redo restores those source boundaries with the same per-source settlement, including transaction-end slices delivered after earlier immediate mutations, without creating another History entry.',
         'Props removal replay preserves each exact REMOVE_PROPERTY source payload as one ordered canonical owner batch and does not expand it into per-component Factory journal entries.',
         'Undo and redo inside an existing command boundary retain their replay journal until the outer close.',
         'Nested replay moves its source history stack only on outer commit; outer rollback leaves the original undo or redo source available.',
@@ -368,6 +370,7 @@
         'Partially delivered transaction-end changes are compensated in reverse order when a later append fails before application.',
         'Rolled-back immediate local delivery publishes one compensating inverse.',
         'An applied Yjs append remains delivered when a synchronous observer throws, and registered observers are isolated from one another.',
+        'Default progressive shared publication groups consecutive source boundaries into bounded windows of at most 512 distinct work items; ordered ids are the work identity when present and delivery identity is the fallback.',
         'Instance-local status observer failures cannot alter the canonical transaction result or block downstream observers.'
       ],
       bypasses: [

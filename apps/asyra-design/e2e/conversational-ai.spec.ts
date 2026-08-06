@@ -8,7 +8,7 @@ import {
   undo,
   waitForAppReady
 } from './test-utils'
-import { seedServerResponse } from './server-response-inbox'
+import { installGeneratedActionBatchInterceptor } from './action-batch-interceptor'
 
 interface CanonicalDrawingSummary {
   readonly groupCount: number
@@ -100,7 +100,7 @@ test.describe('Conversational AI drawing', () => {
     const pageErrors: string[] = []
     page.on('pageerror', (error) => pageErrors.push(error.message))
     const identity = createTestDocumentIdentity()
-    await seedServerResponse(page.context(), {
+    await installGeneratedActionBatchInterceptor(page.context(), {
       appUrl: identity.url,
       fileId: identity.fileId,
       itemCount: 16

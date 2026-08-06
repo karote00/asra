@@ -20,9 +20,8 @@
 
 - delegates render lifecycle calls to core (`setupInputSystem`, `renderIsReady`)
 - delegates primary-tool change to feature API (`getFeature(FeatureNames.SWITCH_PRIMARY_TOOL)`)
-- owns the temporary `crdt-7076-sample` demo Reset adapter (`resetData`), which
-  delegates save-empty-then-refresh behavior to `config/demo-document.ts` and
-  is not a formal document mutation path
+- does not own Reset; the permanent toolbar Reset calls its isolated
+  stored-document DELETE utility directly so no App operation is introduced
 
 ### `controllers/scene-tree.ts`
 
@@ -57,5 +56,9 @@
 ## Rules
 
 - Controllers are orchestration adapters; domain mutation stays in common APIs.
+- Reset must remain outside controllers, Core, Feature System, transactions,
+  History, CRDT, Selection, and other App operations. Its only effects are
+  attempting to delete the current stored file and always refreshing after the
+  attempt settles; backend absence cannot block a storage-free demo refresh.
 - `states/app.ts` should only hold UI runtime objects (renderer instance), not domain data.
 - If controller behavior defines a reusable interaction contract, move it to common API.

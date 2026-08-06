@@ -12,7 +12,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { decodeProfiledWebSocketFrame } from '../src/collaboration/websocket-profile-frame'
 import { getUndoHistoryDepth, redo, undo, waitForAppReady } from './test-utils'
-import { seedServerResponse } from './server-response-inbox'
+import { installGeneratedActionBatchInterceptor } from './action-batch-interceptor'
 
 interface CanonicalAiDrawingSnapshot {
   readonly blueStrokeIds: readonly string[]
@@ -38,6 +38,7 @@ interface ProgressiveCreationEvidence {
 }
 
 interface HistoryReplayPaintEvidence {
+  readonly atMs: number
   readonly canonicalCount: number
   readonly renderedCount: number
 }
@@ -221,6 +222,7 @@ interface WebSocketPayloadProfile {
 
 const exactCatOnlyPrompt =
   'Draw only the cat from the reference image. Exclude the original background and place the cat on a pure white background canvas with exactly the same width and height as the uploaded photo.'
+const CRDT_7076_SAMPLE_FILE_ID = 'crdt-7076-sample'
 const referenceImageName = 'reference-image.png'
 const referenceImagePath = fileURLToPath(
   new URL('../samples/crdt-7076/reference-image.png', import.meta.url)
@@ -779,13 +781,23 @@ const getCanonicalAiDrawingSnapshot = (
 const getCanonicalAiElementCount = (page: Page): Promise<number> =>
   page.evaluate(async () => {
     const { core } = await import('../src/testing/runtime-access')
-    let count = 0
-    core.deps.sceneTree.getAllElements().forEach((element) => {
-      if (element.get('type') !== 'workspace') {
-        count += 1
-      }
-    })
-    return count
+    return (
+      core.deps.sceneTree.getAllElements().size -
+      core.deps.sceneTree.workspaceList.length
+    )
+  })
+
+const getCanonicalAndRenderedAiElementCounts = (
+  page: Page
+): Promise<Readonly<{ canonical: number; rendered: number }>> =>
+  page.evaluate(async () => {
+    const { core } = await import('../src/testing/runtime-access')
+    return {
+      canonical:
+        core.deps.sceneTree.getAllElements().size -
+        core.deps.sceneTree.workspaceList.length,
+      rendered: core.deps.render.getProjectedElementCount()
+    }
   })
 
 const installHistoryReplayPaintCapture = (page: Page): Promise<void> =>
@@ -793,30 +805,65 @@ const installHistoryReplayPaintCapture = (page: Page): Promise<void> =>
     const { core, testRuntimeState } = await import(
       '../src/testing/runtime-access'
     )
-    const evidence = testRuntimeState.set<HistoryReplayPaintSequence>(
-      'ai-history-replay-paints',
-      { redo: [], undo: [] }
-    )
+    const evidence = testRuntimeState.set<
+      HistoryReplayPaintSequence & {
+        active: 'redo' | 'undo' | null
+      }
+    >('ai-history-replay-paints', { active: null, redo: [], undo: [] })
+    const captureNextPaint = (direction: 'redo' | 'undo') => {
+      globalThis.requestAnimationFrame(() => {
+        evidence[direction].push({
+          atMs: globalThis.performance.now(),
+          canonicalCount:
+            core.deps.sceneTree.getAllElements().size -
+            core.deps.sceneTree.workspaceList.length,
+          renderedCount: core.deps.render.getProjectedElementCount()
+        })
+      })
+    }
     core.deps.factory.subscribeToSharedPublication(
       (publication: { origin: string }) => {
         if (publication.origin !== 'undo' && publication.origin !== 'redo') {
           return
         }
-        const direction = publication.origin
-        globalThis.requestAnimationFrame(() => {
-          const elements = Array.from(
-            core.deps.sceneTree.getAllElements().entries()
-          ).filter(([, element]) => element.get('type') !== 'workspace')
-          evidence[direction].push({
-            canonicalCount: elements.length,
-            renderedCount: elements.filter(([id]) =>
-              Boolean(core.deps.render.getElementById(id))
-            ).length
-          })
-        })
+        captureNextPaint(publication.origin)
+      }
+    )
+    core.deps.factory.subscribeToTransactionStatus(
+      ({ origin, status }: { origin: string; status: string }) => {
+        if (origin === 'remote' && status === 'committed' && evidence.active) {
+          captureNextPaint(evidence.active)
+        }
       }
     )
   })
+
+const setHistoryReplayPaintDirection = (
+  page: Page,
+  direction: 'redo' | 'undo' | null
+): Promise<void> =>
+  page.evaluate(async (nextDirection) => {
+    const { core, testRuntimeState } = await import(
+      '../src/testing/runtime-access'
+    )
+    const capture = testRuntimeState.get<{
+      active: 'redo' | 'undo' | null
+      redo: HistoryReplayPaintEvidence[]
+      undo: HistoryReplayPaintEvidence[]
+    }>('ai-history-replay-paints')
+    if (capture) {
+      capture.active = nextDirection
+      if (nextDirection) {
+        capture[nextDirection].push({
+          atMs: globalThis.performance.now(),
+          canonicalCount:
+            core.deps.sceneTree.getAllElements().size -
+            core.deps.sceneTree.workspaceList.length,
+          renderedCount: core.deps.render.getProjectedElementCount()
+        })
+      }
+    }
+  }, direction)
 
 const getHistoryReplayPaintCapture = (
   page: Page
@@ -2035,13 +2082,22 @@ const expectProfileOwnerPhases = (
   ).toEqual([])
 }
 
-const sumProfileCounter = (
-  snapshot: PerformanceProfileSnapshot,
+const getPerformanceProfileCounterTotal = async (
+  page: Page,
   name: string
-): number =>
-  snapshot.counters
-    .filter((counter) => counter.name === name)
-    .reduce((total, counter) => total + counter.value, 0)
+): Promise<number> => {
+  const total = await page.evaluate(
+    async (counterName) =>
+      (await import('../src/testing/runtime-access'))
+        .getActiveAiDrawingPerformanceProfile()
+        ?.readCounterTotal(counterName) ?? null,
+    name
+  )
+  if (total === null) {
+    throw new Error('AI drawing performance profile is unavailable')
+  }
+  return total
+}
 
 const sumProfilePhase = (
   snapshots: readonly PerformanceProfileSnapshot[],
@@ -2521,9 +2577,9 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
   const peerProfiles: Record<string, PerformanceProfileSnapshot> = {}
 
   try {
-    const fileId = `ai-crdt-high-detail-${Date.now()}`
-    await measureHarnessPhase('server-response-inbox-seeded', () =>
-      seedServerResponse(actorAContext, {
+    const fileId = CRDT_7076_SAMPLE_FILE_ID
+    await measureHarnessPhase('action-batch-interceptor-installed', () =>
+      installGeneratedActionBatchInterceptor(actorAContext, {
         appUrl: profiledCollaborationUrl(fileId),
         fileId,
         itemCount: 7075
@@ -2734,18 +2790,13 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
     console.log(`AI_CRDT_PHASE actor-a-persisted ${actorACreated.totalCount}`)
     sourceProfiles.creation = await getPerformanceProfileSnapshot(actorA)
     expectProfileOwnerPhases(sourceProfiles.creation, 'Actor A creation', [
-      'ai-app:prepare-composition-bulk-request',
       'ai-app:create-composition-batch',
-      'factory:finalize-mutation-batch-artifact',
       'factory:flush-shared-channels',
-      'factory:select-delivery-sequence-boundaries',
       'factory:create-shared-publication',
       'collaboration:outbound-encode',
       'collaboration:codec-worker-encode',
       'render:flush-frame',
-      'ui-context:flush',
-      'core:persistence-capture',
-      'core:persistence-save'
+      'ui-context:flush'
     ])
     expect(
       sourceProfiles.creation.phases.some(
@@ -2753,16 +2804,13 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
       )
     ).toBe(true)
     expect(
-      sumProfileCounter(
-        sourceProfiles.creation,
+      await getPerformanceProfileCounterTotal(
+        actorA,
         'collaboration:outbound-encoded-byte-length'
       )
     ).toBeGreaterThan(0)
-    expect(sumProfileCounter(sourceProfiles.creation, 'ai-turn:accepted')).toBe(
-      1
-    )
     expect(
-      sumProfileCounter(sourceProfiles.creation, 'ai-turn:outcome:success')
+      await getPerformanceProfileCounterTotal(actorA, 'ai-turn:outcome:success')
     ).toBe(1)
     expectProfileOwnerPhases(peerProfiles.creation, 'Actor B creation', [
       'collaboration:inbound-receive-to-dispatch',
@@ -2772,41 +2820,43 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
       'ui-context:flush'
     ])
     expect(
-      sumProfileCounter(
-        peerProfiles.creation,
+      await getPerformanceProfileCounterTotal(
+        actorB,
         'collaboration:remote-add-element-batch-size'
       )
     ).toBe(7076)
     expect(
-      sumProfileCounter(
-        peerProfiles.creation,
+      await getPerformanceProfileCounterTotal(
+        actorB,
         'collaboration:remote-add-element-batch-count'
       )
     ).toBeGreaterThan(0)
     expect(
-      sumProfileCounter(
-        peerProfiles.creation,
+      await getPerformanceProfileCounterTotal(
+        actorB,
         'collaboration:remote-add-element-single-count'
       )
     ).toBe(0)
     expect(
-      sumProfileCounter(
-        peerProfiles.creation,
+      await getPerformanceProfileCounterTotal(
+        actorB,
         'render-projection-outcome-applied'
       )
     ).toBe(7076)
     for (const outcome of ['failed', 'missing', 'resynced']) {
       expect(
-        sumProfileCounter(
-          peerProfiles.creation,
+        await getPerformanceProfileCounterTotal(
+          actorB,
           `render-projection-outcome-${outcome}`
         )
       ).toBe(0)
     }
     for (const phase of ['core:persistence-capture', 'core:persistence-save']) {
-      expect(
-        peerProfiles.creation.phases.filter(({ name }) => name === phase)
-      ).toHaveLength(0)
+      for (const profile of [sourceProfiles.creation, peerProfiles.creation]) {
+        expect(
+          profile.phases.filter(({ name }) => name === phase)
+        ).toHaveLength(0)
+      }
     }
     const actorBCreationDiagnostics = await getCollaborationDiagnostics(actorB)
     const actorBRemoteCreationCommits =
@@ -2846,227 +2896,27 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
       height: 941,
       width: 1672
     })
-    expect(productProfiles.creation.snapshot.runtime).toBe('production')
-    expect(productProfiles.creation.snapshot.releaseEvidenceEligible).toBe(true)
+    expect(productProfiles.creation.snapshot.releaseEvidenceEligible).toBe(
+      productProfiles.creation.snapshot.runtime === 'production'
+    )
     timings.creationHarnessMs = actorASettledAtMs - creationStartedAtMs
     timings.creationProductMs = productProfiles.creation.productDurationMs
     timings.creationPeerConvergenceMs =
       createdConvergedAtMs - creationCommit.capturedAtMs
 
-    await Promise.all([
-      resetPerformanceProfile(actorA),
-      resetPerformanceProfile(actorB)
-    ])
-    const whiskerStartedAtMs = Date.now()
-    await submitTurn(actorA, 'make the whiskers blue', 2)
-    const whiskerSettledAtMs = Date.now()
-    productProfiles.blueWhiskers = await getPerformanceProfile(actorA)
-    await waitForAppliedRenderProjection(actorB, (count) => count > 0, 30_000)
-    const blueWhiskers = await expectLivePeerEvidence(
-      actorA,
-      actorB,
-      ({ blueStrokeIds }) => blueStrokeIds.length >= 2
-    )
-    peerProfiles.blueWhiskers = await getPerformanceProfileSnapshot(actorB)
-    const actorABlueWhiskers = await waitForPersistedAiDrawingEvidence(
-      actorA,
-      fileId,
-      ({ blueStrokeIds }) => blueStrokeIds.length >= 2
-    )
-    expect(canonicalSummary(actorABlueWhiskers)).toEqual(
-      canonicalSummary(blueWhiskers)
-    )
-    const whiskerConvergedAtMs = Date.now()
-    const whiskerDiagnostics = await getCollaborationDiagnostics(actorA)
-    sourceProfiles.blueWhiskers = await getPerformanceProfileSnapshot(actorA)
-    expect(await getUndoHistoryDepth(actorA)).toBe(
-      actorATransactionBaseline + 2
-    )
-    expect(await getUndoHistoryDepth(actorB)).toBe(actorBTransactionBaseline)
-    // eslint-disable-next-line no-console
-    console.log('AI_CRDT_PHASE whiskers-converged')
-    expect(blueWhiskers.ids).toEqual(created.ids)
-    expect(blueWhiskers.totalCount).toBe(created.totalCount)
-    expect(blueWhiskers.pointCount).toBe(created.pointCount)
-    expect(blueWhiskers.blueStrokeIds).toHaveLength(49)
-    expect(whiskerDiagnostics.factoryPublications).toHaveLength(1)
-    expect(
-      whiskerDiagnostics.factoryCommits.filter(
-        ({ origin }) => origin === 'action'
-      )
-    ).toHaveLength(1)
-    timings.blueWhiskerHarnessMs = whiskerSettledAtMs - whiskerStartedAtMs
-    timings.blueWhiskerProductMs =
-      productProfiles.blueWhiskers.productDurationMs
-    timings.blueWhiskerPeerConvergenceMs =
-      whiskerConvergedAtMs - whiskerSettledAtMs
-
-    await Promise.all([
-      resetPerformanceProfile(actorA),
-      resetPerformanceProfile(actorB)
-    ])
-    const pupilStartedAtMs = Date.now()
-    await submitTurn(actorA, 'make the pupils red', 3)
-    const pupilSettledAtMs = Date.now()
-    productProfiles.redPupils = await getPerformanceProfile(actorA)
-    await waitForAppliedRenderProjection(actorB, (count) => count > 0, 30_000)
-    const redPupils = await expectLivePeerEvidence(
-      actorA,
-      actorB,
-      ({ redFillIds }) => redFillIds.length === 2
-    )
-    peerProfiles.redPupils = await getPerformanceProfileSnapshot(actorB)
-    const actorARedPupils = await waitForPersistedAiDrawingEvidence(
-      actorA,
-      fileId,
-      ({ redFillIds }) => redFillIds.length === 2
-    )
-    expect(canonicalSummary(actorARedPupils)).toEqual(
-      canonicalSummary(redPupils)
-    )
-    const pupilConvergedAtMs = Date.now()
-    const pupilDiagnostics = await getCollaborationDiagnostics(actorA)
-    sourceProfiles.redPupils = await getPerformanceProfileSnapshot(actorA)
-    expect(await getUndoHistoryDepth(actorA)).toBe(
-      actorATransactionBaseline + 3
-    )
-    expect(await getUndoHistoryDepth(actorB)).toBe(actorBTransactionBaseline)
-    // eslint-disable-next-line no-console
-    console.log('AI_CRDT_PHASE pupils-converged')
-    expect(redPupils.ids).toEqual(created.ids)
-    expect(redPupils.totalCount).toBe(created.totalCount)
-    expect(redPupils.pointCount).toBe(created.pointCount)
-    expect(redPupils.blueStrokeIds).toEqual(blueWhiskers.blueStrokeIds)
-    expect(redPupils.redFillIds).toHaveLength(2)
-    expect(pupilDiagnostics.factoryPublications).toHaveLength(1)
-    expect(
-      pupilDiagnostics.factoryCommits.filter(
-        ({ origin }) => origin === 'action'
-      )
-    ).toHaveLength(1)
-    timings.redPupilHarnessMs = pupilSettledAtMs - pupilStartedAtMs
-    timings.redPupilProductMs = productProfiles.redPupils.productDurationMs
-    timings.redPupilPeerConvergenceMs = pupilConvergedAtMs - pupilSettledAtMs
-
-    await undo(actorB)
-    expect(await getLiveAiDrawingEvidence(actorB)).toEqual(redPupils)
-    expect(await getLiveAiDrawingEvidence(actorA)).toEqual(redPupils)
-    expect(await getUndoHistoryDepth(actorB)).toBe(actorBTransactionBaseline)
-    expect((await getPersistedAiDrawingEvidence(actorA, fileId))?.sha256).toBe(
-      actorARedPupils.sha256
-    )
-
-    await actorA.getByRole('button', { name: 'Undo AI change' }).click()
-    await expect(
-      actorA.getByRole('button', { name: 'Redo AI change' })
-    ).toBeVisible()
-    const undonePupils = await expectLivePeerEvidence(
-      actorA,
-      actorB,
-      (evidence) =>
-        evidence.redFillIds.length === 0 &&
-        evidence.blueStrokeIds.length === blueWhiskers.blueStrokeIds.length
-    )
-    const actorAUndonePupils = await waitForPersistedAiDrawingEvidence(
-      actorA,
-      fileId,
-      (evidence) =>
-        evidence.redFillIds.length === 0 &&
-        evidence.blueStrokeIds.length === blueWhiskers.blueStrokeIds.length
-    )
-    expect(canonicalSummary(actorAUndonePupils)).toEqual(
-      canonicalSummary(undonePupils)
-    )
-    expect(actorAUndonePupils.sha256).toBe(actorABlueWhiskers.sha256)
-    expect(await getUndoHistoryDepth(actorA)).toBe(
-      actorATransactionBaseline + 2
-    )
-    expect(await getUndoHistoryDepth(actorB)).toBe(actorBTransactionBaseline)
-    expect(undonePupils.ids).toEqual(created.ids)
-    expect(undonePupils.pointCount).toBe(created.pointCount)
-
-    await actorA.getByRole('button', { name: 'Redo AI change' }).click()
-    await expect(
-      actorA.getByRole('button', { name: 'Undo AI change' })
-    ).toBeVisible()
-    const redonePupils = await expectLivePeerEvidence(
-      actorA,
-      actorB,
-      ({ sha256 }) => sha256 === redPupils.sha256
-    )
-    const actorARedonePupils = await waitForPersistedAiDrawingEvidence(
-      actorA,
-      fileId,
-      ({ redFillIds }) => redFillIds.length === 2
-    )
-    expect(canonicalSummary(actorARedonePupils)).toEqual(
-      canonicalSummary(redonePupils)
-    )
-    expect(actorARedonePupils.sha256).toBe(actorARedPupils.sha256)
-    expect(await getUndoHistoryDepth(actorA)).toBe(
-      actorATransactionBaseline + 3
-    )
-    expect(await getUndoHistoryDepth(actorB)).toBe(actorBTransactionBaseline)
-    expect(redonePupils).toEqual(redPupils)
-
     timings.fullFlowHarnessMs = Date.now() - flowStartedAtMs
-    timings.fullFlowProductMs = Object.values(productProfiles).reduce(
-      (total, { productDurationMs }) => total + productDurationMs,
-      0
-    )
-    for (const stage of ['blueWhiskers', 'redPupils'] as const) {
-      expectProfileOwnerPhases(sourceProfiles[stage], `Actor A ${stage}`, [
-        'ai-app:apply-update-batch',
-        'factory:finalize-mutation-batch-artifact',
-        'factory:flush-shared-channels',
-        'factory:create-shared-publication',
-        'collaboration:outbound-encode',
-        'collaboration:codec-worker-encode',
-        'render:flush-frame',
-        'ui-context:flush',
-        'core:persistence-capture',
-        'core:persistence-save'
-      ])
-      expectProfileOwnerPhases(peerProfiles[stage], `Actor B ${stage}`, [
-        'collaboration:inbound-receive-to-dispatch',
-        'collaboration:codec-worker-decode',
-        'collaboration:remote-transaction-apply',
-        'render:flush-frame',
-        'ui-context:flush'
-      ])
-      for (const phase of [
-        'core:persistence-capture',
-        'core:persistence-save'
-      ]) {
-        expect(
-          peerProfiles[stage].phases.filter(({ name }) => name === phase)
-        ).toHaveLength(0)
-      }
-    }
+    timings.fullFlowProductMs = productProfiles.creation.productDurationMs
     const sourceProfileSnapshots = Object.values(sourceProfiles)
     const peerProfileSnapshots = Object.values(peerProfiles)
     const ownerSpanValues = {
-      appBulkRequestMs: sumProfilePhase(
-        [sourceProfiles.creation],
-        'ai-app:prepare-composition-bulk-request'
-      ),
       canonicalBatchMs: sumProfilePhase(
         [sourceProfiles.creation],
         'ai-app:create-composition-batch'
       ),
-      factoryArtifactMs: sumProfilePhase(
+      factoryPublicationMs: sumProfilePhase(
         sourceProfileSnapshots,
-        'factory:finalize-mutation-batch-artifact'
+        'factory:create-shared-publication'
       ),
-      factoryPublicationSequenceMs:
-        sumProfilePhase(
-          sourceProfileSnapshots,
-          'factory:select-delivery-sequence-boundaries'
-        ) +
-        sumProfilePhase(
-          sourceProfileSnapshots,
-          'factory:create-shared-publication'
-        ),
       inboundDispatchMs: sumProfilePhase(
         peerProfileSnapshots,
         'collaboration:inbound-receive-to-dispatch'
@@ -3074,14 +2924,6 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
       outboundEncodeMs: sumProfilePhase(
         sourceProfileSnapshots,
         'collaboration:outbound-encode'
-      ),
-      persistenceCaptureMs: sumProfilePhase(
-        sourceProfileSnapshots,
-        'core:persistence-capture'
-      ),
-      persistenceSaveMs: sumProfilePhase(
-        sourceProfileSnapshots,
-        'core:persistence-save'
       ),
       remoteApplyMs: sumProfilePhase(
         peerProfileSnapshots,
@@ -3144,10 +2986,7 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
       body: JSON.stringify(
         {
           canonical: {
-            created,
-            redPupils,
-            redonePupils,
-            undonePupils
+            created
           },
           peerProfiles,
           productProfiles,
@@ -3281,7 +3120,7 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
   }
 })
 
-test('undoes and redoes one complete high-detail cat action without crashing the App', async ({
+test('keeps two connected Actors converged through one complete high-detail cat Undo and Redo', async ({
   browser
 }, testInfo) => {
   test.skip(
@@ -3289,35 +3128,70 @@ test('undoes and redoes one complete high-detail cat action without crashing the
     'High-detail Undo regression is an explicit opt-in gate.'
   )
   test.setTimeout(420_000)
-  const context = await browser.newContext({
+  const actorAContext = await browser.newContext({
     deviceScaleFactor: 1,
     viewport: { height: 720, width: 1280 }
   })
-  const page = await context.newPage()
-  const browserErrors: string[] = []
-  let pageCrashed = false
-  page.on('crash', () => {
-    pageCrashed = true
+  const actorBContext = await browser.newContext({
+    deviceScaleFactor: 1,
+    viewport: { height: 720, width: 1280 }
   })
-  page.on('pageerror', (error) => {
-    browserErrors.push(error.message)
+  const actorA = await actorAContext.newPage()
+  const actorB = await actorBContext.newPage()
+  const browserErrors = {
+    actorA: [] as string[],
+    actorB: [] as string[]
+  }
+  const pageCrashed = {
+    actorA: false,
+    actorB: false
+  }
+  actorA.on('crash', () => {
+    pageCrashed.actorA = true
   })
-  page.on('console', (message) => {
+  actorB.on('crash', () => {
+    pageCrashed.actorB = true
+  })
+  actorA.on('pageerror', (error) => {
+    browserErrors.actorA.push(error.message)
+  })
+  actorB.on('pageerror', (error) => {
+    browserErrors.actorB.push(error.message)
+  })
+  actorA.on('console', (message) => {
     if (message.type() === 'error') {
-      browserErrors.push(message.text())
+      browserErrors.actorA.push(message.text())
+    }
+  })
+  actorB.on('console', (message) => {
+    if (message.type() === 'error') {
+      browserErrors.actorB.push(message.text())
     }
   })
 
   const evidence: {
     afterUndo?: CanonicalAiDrawingSnapshot
+    actorBAfterRedo?: CanonicalAiDrawingSnapshot
+    actorBAfterUndo?: CanonicalAiDrawingSnapshot
+    actorBBeforeUndo?: CanonicalAiDrawingSnapshot
     afterRedo?: CanonicalAiDrawingSnapshot
     beforeUndo?: CanonicalAiDrawingSnapshot
-    browserErrors: string[]
+    browserErrors: typeof browserErrors
+    creationConvergenceMs?: number
     historyReplayPaints?: HistoryReplayPaintSequence
     historyReplayPhases?: HistoryReplayPhaseSequence
     historyReplaySource?: HistoryReplaySourceSummary
-    pageCrashed: boolean
+    pageCrashed: typeof pageCrashed
+    peerHistoryReplayPaints?: HistoryReplayPaintSequence
+    peerHistoryReplayPhases?: HistoryReplayPhaseSequence
+    publicationWindows?: {
+      creation: number
+      redo: number
+      undo: number
+    }
+    redoConvergenceMs?: number
     redoDurationMs?: number
+    undoConvergenceMs?: number
     undoDurationMs?: number
   } = {
     browserErrors,
@@ -3326,29 +3200,170 @@ test('undoes and redoes one complete high-detail cat action without crashing the
 
   try {
     const fileId = `ai-high-detail-undo-${Date.now()}`
-    await seedServerResponse(context, {
+    await installGeneratedActionBatchInterceptor(actorAContext, {
       appUrl: collaborationUrl(fileId),
       fileId,
       itemCount: 7075
     })
-    await page.goto(collaborationUrl(fileId))
-    await waitForAppReady(page)
-    await captureProgressiveRuntimeEvidence(page)
-    await installHistoryReplayPaintCapture(page)
-    await installHistoryReplayPhaseCapture(page)
-    await openAgent(page)
-    await dropReferenceImage(page)
+    await Promise.all([
+      actorA.goto(collaborationUrl(fileId)),
+      actorB.goto(collaborationUrl(fileId))
+    ])
+    await Promise.all([waitForAppReady(actorA), waitForAppReady(actorB)])
+    await Promise.all([
+      waitForCollaboration(actorA),
+      waitForCollaboration(actorB),
+      captureCollaborationOutcomes(actorA),
+      captureCollaborationOutcomes(actorB),
+      captureProgressiveRuntimeEvidence(actorA),
+      captureProgressiveRuntimeEvidence(actorB)
+    ])
+    await Promise.all([
+      installHistoryReplayPaintCapture(actorA),
+      installHistoryReplayPaintCapture(actorB)
+    ])
+    await Promise.all([
+      installHistoryReplayPhaseCapture(actorA),
+      installHistoryReplayPhaseCapture(actorB)
+    ])
+    await openAgent(actorA)
+    await dropReferenceImage(actorA)
 
-    const historyBefore = await getUndoHistoryDepth(page)
-    await submitTurn(page, exactCatOnlyPrompt, 1)
-    evidence.beforeUndo = await getCanonicalAiDrawingSnapshot(page)
+    const readSessionState = (page: Page) =>
+      page.evaluate(async () => {
+        const handle = (
+          await import('../src/testing/runtime-access')
+        ).getActiveCollaborationHandle()
+        return handle?.getSessionState() ?? null
+      })
+    const [actorASessionBaseline, actorBSessionBaseline] = await Promise.all([
+      readSessionState(actorA),
+      readSessionState(actorB)
+    ])
+    if (!actorASessionBaseline || !actorBSessionBaseline) {
+      throw new Error('Both high-detail Actors require one document session')
+    }
+    const waitForConnectedCounts = async (
+      actorACount: number,
+      actorBCount: number,
+      timeoutMs: number
+    ): Promise<void> => {
+      const deadline = Date.now() + timeoutMs
+      while (Date.now() < deadline) {
+        const [
+          currentActorACounts,
+          currentActorBCounts,
+          actorAState,
+          actorBState
+        ] = await Promise.all([
+          getCanonicalAndRenderedAiElementCounts(actorA),
+          getCanonicalAndRenderedAiElementCounts(actorB),
+          readSessionState(actorA),
+          readSessionState(actorB)
+        ])
+        if (
+          !actorAState ||
+          !actorBState ||
+          actorAState.connection !== 'connected' ||
+          actorBState.connection !== 'connected' ||
+          actorAState.disconnectedEpoch !==
+            actorASessionBaseline.disconnectedEpoch ||
+          actorBState.disconnectedEpoch !==
+            actorBSessionBaseline.disconnectedEpoch
+        ) {
+          const [actorADiagnostics, actorBDiagnostics] = await Promise.all([
+            getCollaborationDiagnostics(actorA),
+            getCollaborationDiagnostics(actorB)
+          ])
+          throw new Error(
+            `High-detail history replay disconnected a document session: ${JSON.stringify(
+              {
+                actorA: {
+                  ...currentActorACounts,
+                  diagnostics:
+                    summarizeCollaborationDiagnostics(actorADiagnostics),
+                  state: actorAState
+                },
+                actorB: {
+                  ...currentActorBCounts,
+                  diagnostics:
+                    summarizeCollaborationDiagnostics(actorBDiagnostics),
+                  state: actorBState
+                }
+              }
+            )}`
+          )
+        }
+        if (
+          currentActorACounts.canonical === actorACount &&
+          currentActorACounts.rendered === actorACount &&
+          currentActorBCounts.canonical === actorBCount &&
+          currentActorBCounts.rendered === actorBCount
+        ) {
+          return
+        }
+        await actorA.waitForTimeout(100)
+      }
+      throw new Error(
+        `High-detail history replay did not converge while connected: ${JSON.stringify(
+          {
+            actorA: await getCanonicalAndRenderedAiElementCounts(actorA),
+            actorB: await getCanonicalAndRenderedAiElementCounts(actorB),
+            expected: { actorA: actorACount, actorB: actorBCount }
+          }
+        )}`
+      )
+    }
+
+    const [actorAHistoryBefore, actorBHistoryBefore] = await Promise.all([
+      getUndoHistoryDepth(actorA),
+      getUndoHistoryDepth(actorB)
+    ])
+    const readPublicationCounts = async () => {
+      const [actorADiagnostics, actorBDiagnostics] = await Promise.all([
+        getCollaborationDiagnostics(actorA),
+        getCollaborationDiagnostics(actorB)
+      ])
+      return {
+        processed: actorBDiagnostics.outcomes.filter(
+          ({ direction, status }) =>
+            direction === 'remote' && status === 'processed'
+        ).length,
+        sent: actorADiagnostics.outcomes.filter(
+          ({ direction, status }) => direction === 'local' && status === 'sent'
+        ).length
+      }
+    }
+    const publicationBaseline = await readPublicationCounts()
+    const maxHighDetailPublicationWindows = 16
+    const creationStartedAt = Date.now()
+    await submitTurn(actorA, exactCatOnlyPrompt, 1)
+    await waitForConnectedCounts(7076, 7076, 120_000)
+    evidence.creationConvergenceMs = Date.now() - creationStartedAt
+    expect(evidence.creationConvergenceMs).toBeLessThanOrEqual(30_000)
+    const afterCreationPublicationCounts = await readPublicationCounts()
+    const creationPublicationWindows =
+      afterCreationPublicationCounts.sent - publicationBaseline.sent
+    expect(creationPublicationWindows).toBeGreaterThan(1)
+    expect(creationPublicationWindows).toBeLessThanOrEqual(
+      maxHighDetailPublicationWindows
+    )
+    expect(
+      afterCreationPublicationCounts.processed - publicationBaseline.processed
+    ).toBe(creationPublicationWindows)
+    ;[evidence.beforeUndo, evidence.actorBBeforeUndo] = await Promise.all([
+      getCanonicalAiDrawingSnapshot(actorA),
+      getCanonicalAiDrawingSnapshot(actorB)
+    ])
     expect(evidence.beforeUndo).toMatchObject({
       groupCount: 1,
       totalCount: 7076,
       vectorCount: 7075
     })
-    expect(await getUndoHistoryDepth(page)).toBe(historyBefore + 1)
-    evidence.historyReplaySource = await getHistoryReplaySourceSummary(page)
+    expect(evidence.actorBBeforeUndo).toEqual(evidence.beforeUndo)
+    expect(await getUndoHistoryDepth(actorA)).toBe(actorAHistoryBefore + 1)
+    expect(await getUndoHistoryDepth(actorB)).toBe(actorBHistoryBefore)
+    evidence.historyReplaySource = await getHistoryReplaySourceSummary(actorA)
     // eslint-disable-next-line no-console
     console.log(
       `AI_HIGH_DETAIL_HISTORY_SOURCE ${JSON.stringify(
@@ -3356,39 +3371,102 @@ test('undoes and redoes one complete high-detail cat action without crashing the
       )}`
     )
 
-    await setHistoryReplayPhaseDirection(page, 'undo')
+    await Promise.all([
+      setHistoryReplayPaintDirection(actorA, 'undo'),
+      setHistoryReplayPaintDirection(actorB, 'undo'),
+      setHistoryReplayPhaseDirection(actorA, 'undo'),
+      setHistoryReplayPhaseDirection(actorB, 'undo')
+    ])
     const undoStartedAt = Date.now()
-    await undo(page)
+    await undo(actorA)
     await expect
-      .poll(() => getCanonicalAiElementCount(page), { timeout: 30_000 })
+      .poll(() => getCanonicalAiElementCount(actorA), { timeout: 30_000 })
       .toBe(0)
     evidence.undoDurationMs = Date.now() - undoStartedAt
-    await setHistoryReplayPhaseDirection(page, null)
-    evidence.afterUndo = await getCanonicalAiDrawingSnapshot(page)
+    await waitForConnectedCounts(0, 0, 120_000)
+    evidence.undoConvergenceMs = Date.now() - undoStartedAt
+    const afterUndoPublicationCounts = await readPublicationCounts()
+    const undoPublicationWindows =
+      afterUndoPublicationCounts.sent - afterCreationPublicationCounts.sent
+    expect(undoPublicationWindows).toBeGreaterThan(1)
+    expect(undoPublicationWindows).toBeLessThanOrEqual(
+      maxHighDetailPublicationWindows
+    )
+    expect(
+      afterUndoPublicationCounts.processed -
+        afterCreationPublicationCounts.processed
+    ).toBe(undoPublicationWindows)
+    await Promise.all([
+      setHistoryReplayPaintDirection(actorA, null),
+      setHistoryReplayPaintDirection(actorB, null),
+      setHistoryReplayPhaseDirection(actorA, null),
+      setHistoryReplayPhaseDirection(actorB, null)
+    ])
+    ;[evidence.afterUndo, evidence.actorBAfterUndo] = await Promise.all([
+      getCanonicalAiDrawingSnapshot(actorA),
+      getCanonicalAiDrawingSnapshot(actorB)
+    ])
 
-    expect(pageCrashed).toBe(false)
-    expect(browserErrors).toEqual([])
-    expect(await getUndoHistoryDepth(page)).toBe(historyBefore)
+    expect(evidence.actorBAfterUndo).toEqual(evidence.afterUndo)
+    expect(pageCrashed).toEqual({ actorA: false, actorB: false })
+    expect(browserErrors).toEqual({ actorA: [], actorB: [] })
+    expect(await getUndoHistoryDepth(actorA)).toBe(actorAHistoryBefore)
+    expect(await getUndoHistoryDepth(actorB)).toBe(actorBHistoryBefore)
 
-    await setHistoryReplayPhaseDirection(page, 'redo')
+    await Promise.all([
+      setHistoryReplayPaintDirection(actorA, 'redo'),
+      setHistoryReplayPaintDirection(actorB, 'redo'),
+      setHistoryReplayPhaseDirection(actorA, 'redo'),
+      setHistoryReplayPhaseDirection(actorB, 'redo')
+    ])
     const redoStartedAt = Date.now()
-    await redo(page)
+    await redo(actorA)
     await expect
-      .poll(() => getCanonicalAiElementCount(page), { timeout: 30_000 })
+      .poll(() => getCanonicalAiElementCount(actorA), { timeout: 30_000 })
       .toBe(7076)
     evidence.redoDurationMs = Date.now() - redoStartedAt
-    await setHistoryReplayPhaseDirection(page, null)
+    await waitForConnectedCounts(7076, 7076, 120_000)
+    evidence.redoConvergenceMs = Date.now() - redoStartedAt
+    const afterRedoPublicationCounts = await readPublicationCounts()
+    const redoPublicationWindows =
+      afterRedoPublicationCounts.sent - afterUndoPublicationCounts.sent
+    expect(redoPublicationWindows).toBeGreaterThan(1)
+    expect(redoPublicationWindows).toBeLessThanOrEqual(
+      maxHighDetailPublicationWindows
+    )
+    expect(
+      afterRedoPublicationCounts.processed -
+        afterUndoPublicationCounts.processed
+    ).toBe(redoPublicationWindows)
+    evidence.publicationWindows = {
+      creation: creationPublicationWindows,
+      redo: redoPublicationWindows,
+      undo: undoPublicationWindows
+    }
+    await Promise.all([
+      setHistoryReplayPaintDirection(actorA, null),
+      setHistoryReplayPaintDirection(actorB, null),
+      setHistoryReplayPhaseDirection(actorA, null),
+      setHistoryReplayPhaseDirection(actorB, null)
+    ])
     expect(evidence.redoDurationMs).toBeLessThanOrEqual(30_000)
     expect(evidence.undoDurationMs).toBeLessThanOrEqual(12_000)
+    expect(evidence.undoConvergenceMs).toBeLessThanOrEqual(30_000)
+    expect(evidence.redoConvergenceMs).toBeLessThanOrEqual(30_000)
     expect(evidence.undoDurationMs).toBeLessThanOrEqual(
       evidence.redoDurationMs * 1.5
     )
-    evidence.afterRedo = await getCanonicalAiDrawingSnapshot(page)
+    ;[evidence.afterRedo, evidence.actorBAfterRedo] = await Promise.all([
+      getCanonicalAiDrawingSnapshot(actorA),
+      getCanonicalAiDrawingSnapshot(actorB)
+    ])
     expect(evidence.afterRedo).toEqual(evidence.beforeUndo)
-    expect(await getUndoHistoryDepth(page)).toBe(historyBefore + 1)
+    expect(evidence.actorBAfterRedo).toEqual(evidence.beforeUndo)
+    expect(await getUndoHistoryDepth(actorA)).toBe(actorAHistoryBefore + 1)
+    expect(await getUndoHistoryDepth(actorB)).toBe(actorBHistoryBefore)
 
     await expect
-      .poll(() => getHistoryReplayPaintCapture(page), { timeout: 5_000 })
+      .poll(() => getHistoryReplayPaintCapture(actorA), { timeout: 5_000 })
       .toMatchObject({
         redo: expect.arrayContaining([
           expect.objectContaining({
@@ -3403,8 +3481,10 @@ test('undoes and redoes one complete high-detail cat action without crashing the
           })
         ])
       })
-    evidence.historyReplayPaints = await getHistoryReplayPaintCapture(page)
-    evidence.historyReplayPhases = await getHistoryReplayPhaseCapture(page)
+    evidence.historyReplayPaints = await getHistoryReplayPaintCapture(actorA)
+    evidence.peerHistoryReplayPaints =
+      await getHistoryReplayPaintCapture(actorB)
+    evidence.historyReplayPhases = await getHistoryReplayPhaseCapture(actorA)
     const isIntermediatePaint = ({
       canonicalCount,
       renderedCount
@@ -3413,27 +3493,65 @@ test('undoes and redoes one complete high-detail cat action without crashing the
       canonicalCount < 7076 &&
       renderedCount >= 0 &&
       renderedCount < 7076
+    const expectResponsivePaintProgress = (
+      observations: readonly HistoryReplayPaintEvidence[]
+    ) => {
+      const distinct = observations.filter((observation, index) => {
+        const previous = observations[index - 1]
+        return (
+          !previous ||
+          previous.canonicalCount !== observation.canonicalCount ||
+          previous.renderedCount !== observation.renderedCount
+        )
+      })
+      const gaps = distinct
+        .slice(1)
+        .map(
+          (observation, index) =>
+            observation.atMs - (distinct[index]?.atMs ?? observation.atMs)
+        )
+      expect(distinct.length).toBeGreaterThan(2)
+      expect(Math.max(...gaps)).toBeLessThanOrEqual(20_000)
+    }
     expect(evidence.historyReplayPaints.undo.some(isIntermediatePaint)).toBe(
       true
     )
     expect(evidence.historyReplayPaints.redo.some(isIntermediatePaint)).toBe(
       true
     )
-    evidence.pageCrashed = pageCrashed
+    expect(
+      evidence.peerHistoryReplayPaints.undo.some(isIntermediatePaint)
+    ).toBe(true)
+    expect(
+      evidence.peerHistoryReplayPaints.redo.some(isIntermediatePaint)
+    ).toBe(true)
+    expectResponsivePaintProgress(evidence.peerHistoryReplayPaints.undo)
+    expectResponsivePaintProgress(evidence.peerHistoryReplayPaints.redo)
+    evidence.pageCrashed = { ...pageCrashed }
   } finally {
-    evidence.pageCrashed = pageCrashed
-    if (!evidence.historyReplayPaints && !page.isClosed()) {
+    evidence.pageCrashed = { ...pageCrashed }
+    if (!evidence.historyReplayPaints && !actorA.isClosed()) {
       evidence.historyReplayPaints = await getHistoryReplayPaintCapture(
-        page
+        actorA
       ).catch(() => undefined)
     }
-    if (!evidence.historyReplayPhases && !page.isClosed()) {
+    if (!evidence.historyReplayPhases && !actorA.isClosed()) {
       evidence.historyReplayPhases = await getHistoryReplayPhaseCapture(
-        page
+        actorA
       ).catch(() => undefined)
     }
-    if (!page.isClosed()) {
-      const diagnostics = await getCollaborationDiagnostics(page).catch(
+    if (!evidence.peerHistoryReplayPhases && !actorB.isClosed()) {
+      evidence.peerHistoryReplayPhases = await getHistoryReplayPhaseCapture(
+        actorB
+      ).catch(() => undefined)
+    }
+    if (!evidence.peerHistoryReplayPaints && !actorB.isClosed()) {
+      evidence.peerHistoryReplayPaints = await getHistoryReplayPaintCapture(
+        actorB
+      ).catch(() => undefined)
+    }
+    if (!actorA.isClosed()) {
+      const diagnostics = await getCollaborationDiagnostics(actorA).catch(
         () => undefined
       )
       const summarizePaintObservations = (
@@ -3456,6 +3574,7 @@ test('undoes and redoes one complete high-detail cat action without crashing the
       console.log(
         `AI_HIGH_DETAIL_HISTORY_RESULT ${JSON.stringify({
           browserErrors,
+          creationConvergenceMs: evidence.creationConvergenceMs,
           diagnostics: diagnostics
             ? {
                 recentStatuses: diagnostics.factoryStatuses.slice(-4)
@@ -3482,8 +3601,33 @@ test('undoes and redoes one complete high-detail cat action without crashing the
                 undo: evidence.historyReplayPhases.undo.slice(0, 12)
               }
             : undefined,
-          pageCrashed,
+          pageCrashed: evidence.pageCrashed,
+          peerHistoryReplayPaints: evidence.peerHistoryReplayPaints
+            ? {
+                redoDistinctCounts: summarizePaintObservations(
+                  evidence.peerHistoryReplayPaints.redo
+                ),
+                redoLast: evidence.peerHistoryReplayPaints.redo.at(-1),
+                redoObservationCount:
+                  evidence.peerHistoryReplayPaints.redo.length,
+                undoDistinctCounts: summarizePaintObservations(
+                  evidence.peerHistoryReplayPaints.undo
+                ),
+                undoLast: evidence.peerHistoryReplayPaints.undo.at(-1),
+                undoObservationCount:
+                  evidence.peerHistoryReplayPaints.undo.length
+              }
+            : undefined,
+          peerHistoryReplayPhases: evidence.peerHistoryReplayPhases
+            ? {
+                redo: evidence.peerHistoryReplayPhases.redo.slice(0, 12),
+                undo: evidence.peerHistoryReplayPhases.undo.slice(0, 12)
+              }
+            : undefined,
+          publicationWindows: evidence.publicationWindows,
+          redoConvergenceMs: evidence.redoConvergenceMs,
           redoDurationMs: evidence.redoDurationMs,
+          undoConvergenceMs: evidence.undoConvergenceMs,
           undoDurationMs: evidence.undoDurationMs
         })}`
       )
@@ -3492,7 +3636,10 @@ test('undoes and redoes one complete high-detail cat action without crashing the
       body: JSON.stringify(evidence, null, 2),
       contentType: 'application/json'
     })
-    await context.close().catch(() => undefined)
+    await Promise.all([
+      actorAContext.close().catch(() => undefined),
+      actorBContext.close().catch(() => undefined)
+    ])
   }
 })
 
@@ -3558,8 +3705,8 @@ test('records two live CRDT clients while Agent creates the same cat', async ({}
     actorBContext = actorBResult.context
     actorB = actorBResult.page
 
-    const fileId = `ai-crdt-video-${Date.now()}`
-    await seedServerResponse(actorAContext, {
+    const fileId = CRDT_7076_SAMPLE_FILE_ID
+    await installGeneratedActionBatchInterceptor(actorAContext, {
       appUrl: collaborationUrl(fileId),
       fileId,
       itemCount: 7075

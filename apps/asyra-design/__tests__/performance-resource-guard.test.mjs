@@ -1032,6 +1032,7 @@ test('attributes one phase from atomic cumulative CPU-time boundaries instead of
         appServer: 50,
         actorABrowser: 500,
         actorBBrowser: 0,
+        documentBackend: 0,
         testHarness: 50,
         unknown: 0,
         websocketServer: 0
@@ -2926,6 +2927,7 @@ test('uses the second raw Darwin top sample instead of ps decaying CPU averages'
       appServer: 4,
       actorABrowser: 91,
       actorBBrowser: 0,
+      documentBackend: 0,
       testHarness: 12,
       unknown: 0,
       websocketServer: 18
@@ -2934,6 +2936,7 @@ test('uses the second raw Darwin top sample instead of ps decaying CPU averages'
       appServer: 50,
       actorABrowser: 1_250,
       actorBBrowser: 0,
+      documentBackend: 0,
       testHarness: 100,
       unknown: 0,
       websocketServer: 200
@@ -3306,6 +3309,7 @@ test('builds only the guarded Playwright runtime after separate production setup
       'client-a-browser',
       'client-b-browser',
       'app-server',
+      'document-backend',
       'websocket-server'
     ]
   })
@@ -3327,6 +3331,10 @@ test('builds only the guarded Playwright runtime after separate production setup
   assert.equal(phases[0].baseEnv.UV_THREADPOOL_SIZE, undefined)
   assert.equal(phases[0].baseEnv.APP_URL, 'http://127.0.0.1:3021')
   assert.equal(phases[0].baseEnv.COLLABORATION_WS_PORT, '4121')
+  assert.equal(
+    phases[0].baseEnv.DOCUMENT_PERSISTENCE_BACKEND_URL,
+    'http://127.0.0.1:4221'
+  )
   assert.equal(phases[0].baseEnv.ENDPOINT_CONNECTIVITY_ONLY, '0')
 })
 
@@ -3349,11 +3357,12 @@ test('builds each single-Actor attribution with the always-on WebSocket service'
       phases.map((phase) => phase.name),
       ['playwright']
     )
-    assert.deepEqual(phases[0].ports, [3021, 4121])
+    assert.deepEqual(phases[0].ports, [3021, 4121, 4221])
     assert.deepEqual(phases[0].guardConfig.requiredProcessRoles, [
       'test-harness',
       'client-a-browser',
       'app-server',
+      'document-backend',
       'websocket-server'
     ])
     assert.equal(phases[0].guardConfig.requiredProofKind, 'local-attribution')
@@ -3870,6 +3879,7 @@ test('attests separate production setup before starting guarded runtime', async 
   assert.deepEqual(events, [
     'port:3021',
     'port:4121',
+    'port:4221',
     'attest-build',
     'attest-response-preview',
     `runtime:${OWNER}`
@@ -3924,6 +3934,7 @@ test('does not spawn the guarded runtime when response overlay manifest or gzip 
   assert.deepEqual(events, [
     'port:3021',
     'port:4121',
+    'port:4221',
     'attest-build',
     'attest-response-preview'
   ])

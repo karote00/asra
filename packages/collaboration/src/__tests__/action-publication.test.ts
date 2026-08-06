@@ -93,7 +93,7 @@ const publication = (): SharedPublication =>
   })
 
 describe('Collaboration publication handoff', () => {
-  it('sends one intact ordered publication for one immediate Factory action', async () => {
+  it('sends one intact ordered publication when the batched Factory action settles', async () => {
     const { factory, instance, sendPublication, update } =
       createFactoryHarness()
     await instance.start()
@@ -101,6 +101,11 @@ describe('Collaboration publication handoff', () => {
     factory.startTransaction()
     update('element-a', 1)
     update('element-b', 2)
+    await instance.whenIdle()
+
+    expect(sendPublication).not.toHaveBeenCalled()
+
+    factory.endTransaction()
     await instance.whenIdle()
 
     expect(sendPublication).toHaveBeenCalledTimes(1)
@@ -116,10 +121,6 @@ describe('Collaboration publication handoff', () => {
     ])
     expect('yDoc' in instance).toBe(false)
 
-    factory.endTransaction()
-    await instance.whenIdle()
-    expect(sendPublication).toHaveBeenCalledTimes(1)
-
     await instance.dispose()
   })
 
@@ -130,6 +131,11 @@ describe('Collaboration publication handoff', () => {
 
     factory.startTransaction()
     update('element-a', 1, { rollbackable: true })
+    factory.getActiveStagedDeliveryController()?.setDeliverySequence({
+      mode: 'atomic',
+      batchPublications: false,
+      slices: []
+    })
     await instance.whenIdle()
     factory.endTransaction({ outcome: 'rollback' })
     await instance.whenIdle()

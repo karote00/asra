@@ -43,6 +43,7 @@ const mocks = vi.hoisted(() => ({
   setHoveredVectorPoint: vi.fn(),
   setHoveredVectorSegment: vi.fn(),
   setHoveredVectorSegmentInsertPoint: vi.fn(),
+  configureSharedDeliverySequence: vi.fn(),
   updateVectorAnchorPointPosition: vi.fn(() => true)
 }))
 
@@ -80,6 +81,9 @@ vi.mock('../../../common-apis', () => ({
     setHoveredVectorPoint: mocks.setHoveredVectorPoint,
     setHoveredVectorSegment: mocks.setHoveredVectorSegment,
     setHoveredVectorSegmentInsertPoint: mocks.setHoveredVectorSegmentInsertPoint
+  },
+  transactionApis: {
+    configureSharedDeliverySequence: mocks.configureSharedDeliverySequence
   }
 }))
 

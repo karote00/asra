@@ -1,4 +1,8 @@
 import type { SharedPublication } from '@asyra/factory'
+import {
+  measureBrowserDragAsyncPhase,
+  measureBrowserDragPhase
+} from '@asyra/utils'
 
 export type PendingDocumentPublicationStatus = 'pending' | 'conflicted'
 
@@ -52,18 +56,24 @@ const freezeValue = <T>(value: T): T => {
 
 const snapshotPublication = (
   publication: SharedPublication
-): SharedPublication => freezeValue(structuredClone(publication))
+): SharedPublication =>
+  measureBrowserDragPhase('collaboration:outbox-snapshot-publication', () =>
+    freezeValue(structuredClone(publication))
+  )
 
 const createRecord = (
   fileId: string,
   publication: SharedPublication,
-  appendOrder: number
+  appendOrder: number,
+  retainFactoryPublication: boolean
 ): PendingDocumentPublication =>
   Object.freeze({
     fileId,
     publicationId: publication.publicationId,
     appendOrder,
-    publication: snapshotPublication(publication),
+    publication: retainFactoryPublication
+      ? publication
+      : snapshotPublication(publication),
     status: 'pending'
   })
 
@@ -280,8 +290,26 @@ export class DocumentPublicationOutbox {
   }
 
   append(publication: SharedPublication): Promise<PendingDocumentPublication> {
+    return this.appendPublication(publication, false)
+  }
+
+  appendFactoryPublication(
+    publication: SharedPublication
+  ): Promise<PendingDocumentPublication> {
+    return this.appendPublication(publication, true)
+  }
+
+  private appendPublication(
+    publication: SharedPublication,
+    retainFactoryPublication: boolean
+  ): Promise<PendingDocumentPublication> {
     return this.schedule(async () => {
       this.requireInitialized()
+      if (retainFactoryPublication && !Object.isFrozen(publication)) {
+        throw new Error(
+          '[collaboration] Factory publication evidence must be immutable'
+        )
+      }
       const existing = this.records.get(publication.publicationId)
       if (existing) {
         if (!samePublication(existing.publication, publication)) {
@@ -295,12 +323,16 @@ export class DocumentPublicationOutbox {
       const record = createRecord(
         this.fileId,
         publication,
-        this.nextAppendOrder++
+        this.nextAppendOrder++,
+        retainFactoryPublication
       )
       this.records.set(record.publicationId, record)
       this.emitState()
       try {
-        await this.storage.put(record)
+        await measureBrowserDragAsyncPhase(
+          'collaboration:outbox-storage-put',
+          () => this.storage.put(record)
+        )
         return record
       } catch (error) {
         this.markStorageFailed()

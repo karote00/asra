@@ -57,27 +57,31 @@ separate environment settings because they identify a separate service.
 
 ```text
 local app mutation
--> Factory immediate or transaction-end SharedPublication
+-> Factory immediate or transaction-end SharedPublication window
 -> app channel filter (Scene Tree and Props)
 -> Collaboration serial FIFO handoff
 -> WebSocket Provider worker binary encoding
--> socket server validation, dedupe, document sequence, persistence enqueue
+-> socket server wire/security validation, byte-digest dedupe, document sequence,
+   opaque persistence enqueue
 -> ordered frame fan-out with connected-Peer byte backpressure
 -> receiving Provider worker decode and wire-credit return
 -> Collaboration exclusive async app callback once
--> app validates and classifies the complete publication
--> one Factory runRemoteTransaction
--> one Core.applyCanonicalChanges(ordered CanonicalChange[])
--> Factory owner commit and one ordinary observer batch
--> local computed projection, Render, and UI
+-> app routes the trusted publication into ordered source-slice canonical requests
+-> one Factory runRemoteTransactionProgressively
+-> one Core.applyCanonicalChanges(CanonicalChange[]) per source slice
+-> cooperative host-and-paint settlement between source slices
+-> Factory owner commit after the final slice
+-> ordinary local computed projection, Render, and UI
 -> distinct peer-applied receipt
 ```
 
-One Factory publication remains one provider request, one receiving app
-callback, one remote Factory transaction, and one Core canonical request. The
-binary codec may split a large publication into ordered wire frames, but this
-does not split or merge publication identity, App policy, canonical mutation,
-or remote transaction semantics. Repeated routes and equal payloads remain
+One Factory publication window remains one provider request, one receiving app
+callback, and one remote Factory transaction. Each recorded source slice
+becomes one ordered Core canonical request, and Factory keeps one rollback
+journal open while the scheduler yields between those requests. The binary
+codec may split a large publication into ordered wire frames, but wire frames
+do not become canonical or presentation slices and do not split publication
+identity or the remote transaction. Repeated routes and equal payloads remain
 repeated app intent and are forwarded in order.
 
 `SharedPublication.artifactId` is opaque wire-correlation metadata. It does not
@@ -98,25 +102,27 @@ change.
 - supported Props add/remove/update routes;
 - explicit rejection of computed-data and computed-patch evidence because
   computed state is local Render/UI projection, not shared source data;
-- payload validation for those routes;
-- validation of every delivery before any remote mutation;
-- an optional app-owned permission/domain-order/duplicate/conflict decision
-  that may reject or transform a publication, followed by validation of the
-  accepted result;
-- classification into one ordered `CanonicalChange[]`;
-- exactly one `runRemoteTransaction` and one
-  `core.applyCanonicalChanges(...)` for the accepted publication.
+- no recursive product-payload validation after the Factory-issued trusted
+  publication handoff;
+- an optional app-owned permission/domain-order/conflict decision that may
+  reject or transform a publication before routing its accepted result;
+- classification into one ordered `CanonicalChange[]` per source slice; and
+- exactly one progressive remote Factory transaction with one
+  `core.applyCanonicalChanges(...)` request per source slice.
 
-An invalid or unsupported delivery rejects the whole publication before the
-remote transaction begins. This is Asyra Design app policy, not
-`@asyra/collaboration` policy.
+An unsupported document route rejects the whole publication before the remote
+transaction begins. Unexpected trusted payload or owner-state failure during a
+later slice rolls the complete remote transaction back and requires
+authoritative resynchronization. App routing does not perform another semantic
+data-admission pass.
 
 Factory remote origin keeps accepted remote changes out of the receiving
 user's ordinary local undo stack and suppresses a new outbound publication.
-Owner evidence becomes visible to ordinary local observers only after Factory
-owner finalization succeeds, as one ordered batch. The receiving browser
-performs no persistence save. Rollback or owner-finalization failure exposes no
-observer prefix.
+Each successful source slice may become visible through ordinary local
+projection before the next cooperative boundary. The receiving browser
+performs no persistence save. A later failure leaves no committed prefix:
+Factory replays the one rollback journal and the session enters authoritative
+resynchronization.
 The default reference policy accepts repeated hierarchy publications. Any
 dedupe, last-write-wins, timestamp ordering, or concurrent hierarchy conflict
 policy is an app/backend responsibility and is not added to Collaboration.
@@ -145,16 +151,19 @@ candidate readiness, and receiver-handoff starts only after that candidate is
 ready and closes after the sole main-bound `publication-delivery` post
 returns. Handoff timing therefore excludes codec and retained-queue time.
 
-Wire credit and canonical apply completion are distinct. The worker may admit
-later frames into its exact retained-byte window while one publication is
-active, but it returns each publication's `frame-consumed` credits only when
-that ordered publication leaves the retained window for the exclusive async
-App handoff. Those credits are sent before that App apply begins and do not
-depend on whether it later succeeds. Queued publications expose no fabricated
-capacity. The receiver reports `peer-applied` only after the App consumer
-settles the complete publication. Sender acceptance therefore means the
-reference server admitted the current frame set into bounded peer capacity; it
-does not mean a peer finished canonical apply.
+Wire credit and canonical apply completion are distinct. After a frame passes
+worker header, order, duplicate, and capacity validation and the worker retains
+its buffer, the worker immediately returns that exact frame's
+`frame-consumed` credit; it does not wait for complete publication decode or
+App apply. This lets one multi-frame publication finish crossing the server's
+2 MiB Peer queue. If a decoded oversized publication temporarily fills the
+retained assembly window while another App apply is active, later relayed
+frames wait in a separate bounded ingress queue without fabricated credit and
+drain in FIFO order after capacity is released. The receiver reports
+`peer-applied` only after the App consumer settles the complete publication.
+Sender acceptance therefore means the reference server admitted the current
+frame set into bounded peer capacity; it does not mean a peer finished
+canonical apply.
 
 Neither wire boundary whitelists app channel, event names, or payload meaning;
 App semantics remain in the app processor. WebSocket per-message compression
@@ -176,8 +185,8 @@ and persistence queue plus one session record per accepted socket. It:
 - validates versioned binary frames and App document publications before
   sequence allocation;
 - assigns one monotonic document sequence, deduplicates publication identity,
-  appends the publication to the persistence queue, and then fans it out in
-  order;
+  waits for bounded persistence-queue admission when necessary, appends the
+  publication without changing sequence, and then fans it out in order;
 - bounds each peer's queued publication bytes to 2 MiB while allowing one
   indivisible oversized frame;
 - releases queued byte capacity only after the WebSocket send callback and the

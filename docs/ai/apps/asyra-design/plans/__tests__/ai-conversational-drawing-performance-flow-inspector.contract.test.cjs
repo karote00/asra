@@ -189,7 +189,7 @@ test('production conversational AI uses one ActionBatch contract without compati
     'apps/asyra-design/src/startup.ts',
     'apps/asyra-design/server',
     'apps/asyra-design/samples/crdt-7076',
-    'apps/asyra-design/e2e/server-response-inbox.ts',
+    'apps/asyra-design/e2e/action-batch-interceptor.ts',
     'apps/asyra-design/e2e/test-utils.ts',
     'apps/asyra-design/e2e/conversational-ai.spec.ts'
   ].forEach((boundary) =>
@@ -197,7 +197,7 @@ test('production conversational AI uses one ActionBatch contract without compati
   )
   assert.match(
     providerText,
-    /crdt-7076.*previously converted.*never invokes VTracer/i
+    /crdt-7076.*ordered AiActionBatch instruction file.*without SVG.*VTracer/i
   )
   assert.match(
     providerText,
@@ -221,6 +221,9 @@ test('Actor A requests the exact backend sample only after Send', () => {
   const owner = step('request-backend-action-batch')
   const text = contractText(owner)
   const plan = read(data.authority.specPath)
+  const realignmentPlan = read(
+    'docs/ai/apps/asyra-design/plans/completed/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
+  )
   const feature = read(
     'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
   )
@@ -235,11 +238,18 @@ test('Actor A requests the exact backend sample only after Send', () => {
   )
   assert.match(
     text,
-    /fileId=crdt-7076-sample.*document identity.*WebSocket endpoint.*collaboration identity/i
+    /fileId=crdt-7076-sample.*socket-authoritative document identity.*Collaboration identity/i
+  )
+  assert.match(text, /same socket-authoritative startup/i)
+  assert.match(text, /socket is unavailable.*provisional local/i)
+  assert.match(text, /Actor A HTTP action-batch execution/i)
+  assert.doesNotMatch(
+    text,
+    /separately deployed static demo.*compressed canonical.*without.*Collaboration/i
   )
   assert.match(
     text,
-    /previously converted vector source.*never invokes VTracer/i
+    /ordered AiActionBatch instruction file.*without SVG.*VTracer.*geometry reconstruction/i
   )
   assert.match(text, /7,075.*Vector.*Group.*7,076 total canonical elements/i)
   assert.match(
@@ -319,12 +329,12 @@ test('Actor A requests the exact backend sample only after Send', () => {
     /fileId[\s\S]*persisted document and Collaboration session/i
   )
   assert.match(
-    plan,
-    /crdt-7076[\s\S]*previously converted[\s\S]*vector source[\s\S]*does not invoke VTracer/i
+    realignmentPlan,
+    /7,076[\s\S]*ordered AiActionBatch instruction file[\s\S]*removes the SVG/i
   )
   assert.match(
     feature,
-    /Scenario: Actor A requests the checked-in 7076 backend sample after Send[\s\S]*fileId=crdt-7076-sample[\s\S]*exact sample image[\s\S]*exact sample instruction[\s\S]*without invoking VTracer[\s\S]*7075.*Vector[\s\S]*7076 canonical elements/i
+    /Scenario: Actor A requests the checked-in 7076 backend sample after Send[\s\S]*fileId=crdt-7076-sample[\s\S]*exact sample image[\s\S]*exact sample instruction[\s\S]*without VTracer[\s\S]*7075.*Vector[\s\S]*7076 canonical elements/i
   )
 })
 
@@ -374,7 +384,7 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
   )
   assert.match(
     text,
-    /server validates.*normalize.*item.*path.*point.*PreparedDrawingArtifact.*Group descriptor.*child descriptor slices.*before returning.*front.?end.*submits.*createElementsInParent/i
+    /provider output owns preparation.*item.*path.*point.*PreparedDrawingArtifact.*Group descriptor.*child descriptor slices.*complete source creation data.*neither request handling nor the front end repeats.*front-end composition executor.*createElementsInParent/i
   )
   assert.match(
     text,
@@ -460,7 +470,7 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
   )
   assert.match(
     feature,
-    /sample backend should match[\s\S]*previously converted[\s\S]*vector source/i
+    /sample backend should match[\s\S]*ordered AiActionBatch instruction file directly/i
   )
   assert.match(feature, /server-prepared action.*PreparedDrawingArtifact/i)
   assert.match(
@@ -601,7 +611,7 @@ test('Factory reuses existing action history and exposes only the minimal wire a
   )
   assert.match(
     factoryText,
-    /Undo and Redo reuse.*progressive slice boundaries.*immediate owner-batch boundaries.*plural Scene owner apply.*at most 32.*immediate source publications remain distinct and ordered.*1,024 distinct canonical ids.*host-yield\/paint adapter.*one History transition.*outer transaction/i
+    /Undo and Redo reuse.*progressive slice boundaries.*immediate owner-batch boundaries.*plural Scene owner apply.*at most 32.*immediate source boundaries remain ordered.*publication windows.*512 distinct work items.*render slices.*1,024 distinct work items.*host-yield\/paint adapter.*one History transition.*outer transaction/i
   )
   assert.match(factoryText, /app-local duplicate cooperative render scheduler/i)
   assert.match(
@@ -639,6 +649,10 @@ test('Factory reuses existing action history and exposes only the minimal wire a
   assert.match(
     contractText(remoteOwner),
     /source slices.*batches.*delivery order.*batch-to-slice membership.*one linear pass.*without rescanning slices or merging publications/i
+  )
+  assert.match(
+    contractText(remoteOwner),
+    /one accepted publication.*coalesce adjacent non-container element-removal.*one ordered Core canonical request.*owns children.*lifecycle barrier.*original request order/i
   )
   assert.match(
     plan,
@@ -884,7 +898,11 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /Response inbox seed, read, structured clone, and handoff.*external backend and transport-adapter timing.*recorded separately.*excluded from frontend product execution/i
+    /test-only HTTP action-batch interceptor artifact fetch, decode, and route-install spans.*external harness timing.*recorded separately.*excluded from frontend product execution.*no startup page, IndexedDB inbox, resident action batch, or preload phase/i
+  )
+  assert.match(
+    text,
+    /fixed two-Actor tracked process registry.*document-backend.*one document backend.*test-owned/i
   )
   assert.match(
     text,
@@ -1299,11 +1317,15 @@ test('receiver handoff has one worker isolation boundary and no legacy clone mod
   )
   assert.match(
     text,
-    /frame-consumed credit.*only when.*leaves the retained byte window.*App handoff.*independently.*App policy.*canonical apply succeeds/i
+    /frame-consumed credit.*emitted immediately.*exact frame.*without waiting.*complete publication decode.*App policy.*canonical apply/i
   )
   assert.match(
     text,
-    /Slow App apply.*fill but cannot overrun.*retained byte window.*no fabricated wire credit.*handoff releases.*before.*App apply begins/i
+    /Slow App apply.*cannot overrun.*retained assembly.*pending-ingress windows.*no fabricated wire credit.*exclusive until App settlement/i
+  )
+  assert.match(
+    text,
+    /multiple Actors interleave.*oldest already-started assembly continuation.*sole oversized assembly.*different assemblies wait without credit/i
   )
   assert.match(
     text,
@@ -1840,8 +1862,8 @@ test('Core returns ordered ids while Factory records transaction evidence direct
   )
 })
 
-test('documents use the formal database boundary while remote apply stays nonpersistent', () => {
-  const owner = step('load-file-scoped-demo-document')
+test('every document uses socket-authoritative startup while remote apply stays nonpersistent', () => {
+  const owner = step('open-socket-authoritative-document-session')
   const localProofOwner = step('evaluate-endpoint-performance')
   const text = contractText(owner)
   const plan = read(data.authority.specPath)
@@ -1849,54 +1871,41 @@ test('documents use the formal database boundary while remote apply stays nonper
     'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
   )
 
+  assert.match(text, /fileId.*socket-authoritative.*before Core starts/i)
   assert.match(
     text,
-    /fileId.*same-origin document database.*before Core starts/i
+    /socket.*unavailable.*provisional local.*Core.*Canvas.*local actions.*outbox/i
   )
   assert.match(
     text,
-    /database.*unavailable.*visible.*continue.*initial canonical document/i
+    /crdt-7076-sample.*same.*socket.*HTTP action-batch.*Actor A.*Actor B.*CRDT/i
   )
   assert.match(
     text,
-    /WebSocket.*configured.*Collaboration.*missing.*failed.*does not block.*Core.*Canvas/i
-  )
-  assert.match(
-    text,
-    /compressed canonical document.*7,076.*without Collaboration/i
-  )
-  assert.match(
-    text,
-    /local actions.*AI actions.*Undo.*Redo.*Core autosave.*client that originated/i
+    /socket unavailable.*HTTP action-batch.*7,076.*canonical elements locally.*console/i
   )
   assert.match(text, /remote publication.*zero persistence/i)
   assert.match(
     text,
-    /resetData.*crdt-7076-sample.*empty document.*file-scoped demo browser key.*page reload/i
+    /request-time Agent transport.*separate.*socket document bootstrap/i
   )
   assert.match(
     text,
-    /request-time Agent transport.*separate.*document persistence/i
+    /no.*compressed canonical.*Core\.load.*localStorage Reset.*socket bypass/i
   )
-  assert.match(text, /no ordinary-document IndexedDB or localStorage/i)
-  assert.match(text, /fake database success/)
-  assert.match(text, /future App developer.*database server/i)
   ;[
     'apps/asyra-design/package.json',
-    'apps/asyra-design/scripts/generate-crdt-7076-document.ts',
     'apps/asyra-design/samples/crdt-7076',
-    'apps/asyra-design/src/config/demo-document.ts',
     'apps/asyra-design/src/config/empty-document.ts',
     'apps/asyra-design/src/controllers/app.ts',
     'apps/asyra-design/src/controllers/__tests__/app.test.ts',
-    'apps/asyra-design/src/contexts/data-change.tsx',
-    'apps/asyra-design/src/contexts/__tests__/data-change.test.tsx',
-    'apps/asyra-design/src/document-persistence.ts',
     'apps/asyra-design/src/render-app/index.tsx',
     'apps/asyra-design/src/render-app/collaboration-mode.ts',
     'apps/asyra-design/src/collaboration/lifecycle.ts',
+    'apps/asyra-design/server/action-batch.ts',
+    'apps/asyra-design/server/__tests__/action-batch.test.ts',
+    'apps/asyra-design/e2e/crdt-7076-render.spec.ts',
     'apps/asyra-design/src/render-app/__tests__/collaboration-mode.test.ts',
-    'apps/asyra-design/src/render-app/__tests__/document-persistence.test.ts',
     'apps/asyra-design/src/render-app/__tests__/render-app-strict-mode.test.tsx',
     'apps/asyra-design/playwright.config.ts',
     'apps/asyra-design/__tests__/playwright-config.test.mjs'
@@ -1910,13 +1919,13 @@ test('documents use the formal database boundary while remote apply stays nonper
   assert.doesNotMatch(text, /ordinary non-collaboration.*FILE.*unchanged/i)
   assert.ok(
     !localProofOwner.inputs.includes(
-      'artifact:file-scoped-demo-document-snapshot'
+      'artifact:socket-authoritative-document-session-status'
     )
   )
   assert.ok(
     !data.routes.some(
       (route) =>
-        route.from === 'load-file-scoped-demo-document' &&
+        route.from === 'open-socket-authoritative-document-session' &&
         route.to === 'evaluate-endpoint-performance'
     )
   )
@@ -1926,19 +1935,24 @@ test('documents use the formal database boundary while remote apply stays nonper
   )
   assert.match(
     JSON.stringify(data),
-    /artifact:file-scoped-demo-document-snapshot/
+    /artifact:socket-authoritative-document-session-status/
+  )
+  assert.doesNotMatch(
+    JSON.stringify(data),
+    /file-scoped-demo-document|document-database-status/
   )
   assert.doesNotMatch(
     JSON.stringify(data),
     /artifact:remote-persistence-settlement/
   )
-  assert.match(
-    plan,
-    /File-Scoped Demo Persistence[\s\S]*required `fileId` URL[\s\S]*same-origin[\s\S]*document database[\s\S]*Core autosave[\s\S]*remote publication[\s\S]*zero persistence[\s\S]*database server/i
-  )
+  assert.match(plan, /Socket-Authoritative 7076 Sample/i)
+  assert.match(plan, /required `fileId` URL/i)
+  assert.match(plan, /socket-authoritative document session/i)
+  assert.match(plan, /HTTP action-batch/i)
+  assert.match(plan, /Actor A[\s\S]*Actor B[\s\S]*CRDT/i)
   assert.match(
     feature,
-    /Scenario: Documents use the formal database boundary without making availability fatal[\s\S]*required fileId URL[\s\S]*same-origin document database[\s\S]*error message[\s\S]*App and Canvas[\s\S]*local actions[\s\S]*AI actions[\s\S]*Undo[\s\S]*Redo/i
+    /Scenario: The 7076 sample uses the ordinary socket-authoritative document session[\s\S]*fileId=crdt-7076-sample[\s\S]*socket handshake[\s\S]*Core[\s\S]*Canvas/i
   )
   assert.match(
     feature,
@@ -1946,18 +1960,18 @@ test('documents use the formal database boundary while remote apply stays nonper
   )
   assert.match(
     feature,
-    /Scenario: The deployed 7076 sample loads without CRDT[\s\S]*compressed canonical document[\s\S]*7076[\s\S]*without Collaboration/i
+    /Scenario: The 7076 sample stays usable while the socket is unavailable[\s\S]*HTTP action-batch[\s\S]*7076[\s\S]*local[\s\S]*console/i
   )
   assert.match(
     feature,
-    /Scenario: Reset restarts only the deployed 7076 demo[\s\S]*resetData[\s\S]*file-scoped demo browser key[\s\S]*page reload[\s\S]*no Core mutation[\s\S]*ordinary socket fileId/i
+    /Scenario: The 7076 sample publishes from Actor A when the socket is available[\s\S]*HTTP action-batch[\s\S]*Actor A[\s\S]*Actor B[\s\S]*CRDT/i
   )
   assert.match(
     feature,
-    /Scenario: Required fileId selects the document while Collaboration remains optional[\s\S]*required fileId URL[\s\S]*WebSocket endpoint[\s\S]*same fileId[\s\S]*CRDT/i
+    /no direct compressed-document bootstrap[\s\S]*no localStorage Reset[\s\S]*no sample-specific socket bypass/i
   )
   assert.match(
     feature,
-    /root dev:all[\s\S]*only frontend workspace processes[\s\S]*App dev server[\s\S]*explicit collaboration:server[\s\S]*collaboration Playwright[\s\S]*separately supplies the WebSocket endpoint/i
+    /root dev:all[\s\S]*only frontend workspace processes[\s\S]*App dev server[\s\S]*explicit collaboration:server[\s\S]*collaboration Playwright[\s\S]*separately supply the WebSocket endpoint/i
   )
 })

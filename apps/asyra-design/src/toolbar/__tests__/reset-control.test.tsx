@@ -2,8 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  fileId: 'crdt-7076-sample',
-  resetData: vi.fn(),
+  resetStoredDocument: vi.fn(() => Promise.resolve()),
   switchPrimaryTool: vi.fn()
 }))
 
@@ -16,12 +15,11 @@ vi.mock('../../providers', () => ({
 }))
 
 vi.mock('../../controllers/app', () => ({
-  resetData: mocks.resetData,
   switchPrimaryTool: mocks.switchPrimaryTool
 }))
 
-vi.mock('../../render-app/collaboration-mode', () => ({
-  getRequiredFileId: () => mocks.fileId
+vi.mock('../reset-stored-document', () => ({
+  resetStoredDocument: mocks.resetStoredDocument
 }))
 
 import ToolButton from '../tool-button'
@@ -30,34 +28,33 @@ describe('Toolbar Reset control', () => {
   afterEach(() => {
     cleanup()
     vi.clearAllMocks()
-    mocks.fileId = 'crdt-7076-sample'
   })
 
-  it('keeps Reset and its separator before every primary tool control', () => {
+  it.each(['ordinary-document', 'crdt-7076-sample'])(
+    'permanently exposes Reset before the primary tools for %s',
+    (fileId) => {
+      window.history.replaceState({}, '', `/?fileId=${fileId}`)
+
+      render(<ToolButton />)
+
+      const resetButton = screen.getByTestId('reset-button')
+      const separator = screen.getByTestId('reset-separator')
+      const selectButton = screen.getByTestId('tool-select')
+      const toolbarGroup = resetButton.parentElement
+
+      expect(toolbarGroup?.children[0]).toBe(resetButton)
+      expect(toolbarGroup?.children[1]).toBe(separator)
+      expect(toolbarGroup?.children[2]).toBe(selectButton)
+
+      fireEvent.click(resetButton)
+      expect(mocks.resetStoredDocument).toHaveBeenCalledOnce()
+    }
+  )
+
+  it('never routes Reset through an App controller operation', () => {
     render(<ToolButton />)
 
-    const resetButton = screen.getByTestId('reset-button')
-    const separator = screen.getByTestId('reset-separator')
-    const selectButton = screen.getByTestId('tool-select')
-    const toolbarGroup = resetButton.parentElement
-
-    expect(toolbarGroup?.children[0]).toBe(resetButton)
-    expect(toolbarGroup?.children[1]).toBe(separator)
-    expect(toolbarGroup?.children[2]).toBe(selectButton)
-
-    fireEvent.click(resetButton)
-    expect(mocks.resetData).toHaveBeenCalledOnce()
-  })
-
-  it('omits Reset and its separator outside the 7076 demo', () => {
-    mocks.fileId = 'ordinary-document'
-
-    render(<ToolButton />)
-
-    expect(screen.queryByTestId('reset-button')).toBeNull()
-    expect(screen.queryByTestId('reset-separator')).toBeNull()
-    expect(screen.getByTestId('tool-select').parentElement?.children[0]).toBe(
-      screen.getByTestId('tool-select')
-    )
+    fireEvent.click(screen.getByTestId('reset-button'))
+    expect(mocks.switchPrimaryTool).not.toHaveBeenCalled()
   })
 })

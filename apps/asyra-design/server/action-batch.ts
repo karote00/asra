@@ -1,13 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { Buffer } from 'node:buffer'
 import { readFileSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type {
   AiActionBatch,
   AiJsonValue,
   AiProviderInput
 } from '@asyra/ai-agent-runtime'
-import { createServerResponseRecord } from '../e2e/server-response-inbox'
 import { ACTION_BATCH_ENDPOINT } from '../src/ai/action-batch-endpoint'
 
 const sampleRoot = new URL('../samples/crdt-7076/', import.meta.url)
@@ -17,7 +17,9 @@ const sampleInstruction = readFileSync(
 ).trim()
 const sampleImage = readFileSync(new URL('reference-image.png', sampleRoot))
 const sampleImageDigest = createHash('sha256').update(sampleImage).digest('hex')
+const sampleActionBatchUrl = new URL('action-batch.json', sampleRoot)
 const maximumRequestBytes = 16 * 1024 * 1024
+let sampleActionBatchPromise: Promise<AiActionBatch> | undefined
 
 type MiddlewareNext = (error?: unknown) => void
 
@@ -93,6 +95,13 @@ const assertRequestId = (value: string): string => {
   return requestId
 }
 
+const readSampleActionBatch = (): Promise<AiActionBatch> => {
+  sampleActionBatchPromise ??= readFile(sampleActionBatchUrl, 'utf8').then(
+    (source) => JSON.parse(source) as AiActionBatch
+  )
+  return sampleActionBatchPromise
+}
+
 export const resolveActionBatchRequest = async (
   input: AiProviderInput,
   options: {
@@ -114,18 +123,15 @@ export const resolveActionBatchRequest = async (
     return unsupportedSample()
   }
   readImageAttachment(input.metadata)
-  const requestId = assertRequestId(options.requestId ?? randomUUID())
-  const response = await createServerResponseRecord(
-    `crdt-7076-${requestId}`,
-    7_075
-  )
+  assertRequestId(options.requestId ?? randomUUID())
+  const batch = await readSampleActionBatch()
   if (options.signal?.aborted) {
     throw new ActionBatchServerError(
       'ACTION_BATCH_ABORTED',
       'The action-batch request was aborted.'
     )
   }
-  return response.batch
+  return batch
 }
 
 const sendJson = (

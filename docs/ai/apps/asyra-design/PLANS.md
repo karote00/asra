@@ -4,8 +4,19 @@ Never record completed plans here.
 
 ## Current Status
 
-- No active app plan.
+- No highest-priority Asyra Design plan is currently active.
 - Most recently completed canonical App plan:
+  `plans/completed/trusted-publication-and-crdt-7076-flow-realignment-plan.md`.
+- The completed plan retains the accepted one-time canonical data admission,
+  trusted publication handoff, opaque socket relay, Actor B cooperative
+  presentation, backend-only materialization decode, permanent Reset control,
+  and checked-in ordered 7,076 `AiActionBatch` instruction file with no
+  retained SVG source.
+- Its retained product and architecture authorities are:
+  - `specs/socket-authoritative-document-session.md`
+  - `plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`
+  - `plans/socket-authoritative-document-persistence-flow-inspector.data.cjs`
+- Previously completed canonical App plan:
   `plans/completed/socket-authoritative-document-persistence-plan.md`.
 - Its retained product contract and exact owner flow are:
   - `specs/socket-authoritative-document-session.md`
@@ -15,7 +26,7 @@ Never record completed plans here.
   App-owned durable outbox for unaccepted publications, fixed 30-second
   reconnect policy, fixed three-second server persistence window, and backend
   materialization flow.
-- Previously completed canonical App plan:
+- Earlier completed canonical App plan:
   `plans/completed/vector-local-geometry-transform-plan.md`.
 - Retained architecture authority for the completed Vector transform work:
   `plans/vector-local-geometry-transform-flow-inspector.data.cjs`.

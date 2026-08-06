@@ -28,12 +28,13 @@ database writes rather than coexisting with them as a second autosave mode.
   local editing continues through the same durable pending-publication path.
   The App reports the transition once rather than creating a separate
   frontend-only document mode.
-- `crdt-7076-sample` is the sole explicit non-production exception: it loads the
-  bundled large-document fixture without a socket so a visitor can simulate the
-  AI Agent flow. Its temporary toolbar Reset may store one empty demo bootstrap
-  document in browser storage and force a refresh. That reset is outside the
-  formal document session, does not define ordinary document behavior, and will
-  be removed from the formal App.
+- `crdt-7076-sample` uses this same full-stack client path. Actor A's exact
+  image and instruction receive the checked-in ordered `AiActionBatch`
+  instruction file through the same-origin HTTP action-batch interceptor; the
+  response then executes through ordinary canonical and publication owners.
+  The sample retains no SVG or alternate drawing source. Socket unavailability
+  keeps the provisional local document and durable outbox active rather than
+  selecting a sample-specific bootstrap.
 - A developer who clones the repository can start the frontend, socket server,
   and persistence backend locally to use the complete formal document-session
   flow. This is the same production architecture exercised locally, not an E2E
@@ -63,6 +64,13 @@ database writes rather than coexisting with them as a second autosave mode.
 - **Publication**: the existing immutable Factory `SharedPublication`. It
   contains committed canonical document deliveries, not a local undo entry or
   full document snapshot.
+- **Trusted publication**: a `SharedPublication` created only from canonical
+  owner evidence that has already passed its one semantic data-admission
+  boundary. Transport and remote consumers do not repeat product-payload schema
+  validation.
+- **Opaque publication bytes**: the encoded trusted publication retained,
+  sequenced, deduplicated, relayed, and queued by the socket without product
+  payload decode or reinterpretation.
 - **Sequence**: the socket-server-assigned monotonically increasing document
   order for one accepted publication.
 - **Head sequence**: the highest sequence accepted by the live document
@@ -92,9 +100,12 @@ The production path has no local-only document mode. A one-Actor document and
 a multi-Actor document use the same handshake, publication, sequencing,
 broadcast, recovery-outbox, and persistence path.
 
-The bundled `crdt-7076-sample` Agent simulation is outside that production
-document path. No other file identity may bypass the socket workflow because
-an endpoint is absent or unavailable.
+The bundled `crdt-7076-sample` Agent flow remains inside that same document
+path. No file identity may bypass the socket workflow because an endpoint is
+absent or unavailable. The sample has no direct compressed-document load,
+localStorage bootstrap, or nullable Collaboration mode. The permanent toolbar
+Reset remains a separate stored-file utility and never becomes a document
+session mode.
 
 Before the first successful handshake, an ordinary file may operate from its
 formal provisional initial document. It must not claim that remote content was
@@ -154,10 +165,11 @@ The browser then:
 
 1. passes the raw checkpoint through the ordinary Core migration,
    validation/fallback, and canonical load path;
-2. validates and applies each pending publication in sequence through the same
-   app-owned remote canonical processor used for live publications;
-3. submits durable local outbox publications in append order for validation,
-   dedupe, and socket sequencing;
+2. decodes and atomically applies each trusted pending publication in sequence
+   through the same app-owned remote canonical processor used for live
+   publications, without repeating product-payload schema validation;
+3. submits durable local outbox publications in append order for wire/security
+   admission, dedupe, and socket sequencing;
 4. applies accepted local recovery publications and interleaved peer
    publications in the server-assigned sequence, without creating duplicate
    local History or outbound echo;
@@ -203,25 +215,50 @@ document channels. Selection and other non-document channels may remain local
 transactions or local History behavior, but they do not enter the socket
 document stream and cannot trigger persistence.
 
+Scene Tree and Props Manager perform semantic data admission for the original
+local mutation. Factory creates a document `SharedPublication` only from the
+successfully committed canonical evidence. The resulting delivery payload is
+trusted product data for its remaining publication, encode, transport, decode,
+remote apply, and backend materialization lifecycle.
+
+After that handoff, transport may validate only the security and wire envelope
+it owns: authenticated session identity, protocol version, frame lengths and
+limits, chunk order, publication identity, sequence metadata, and syntactic
+codec integrity. It does not recursively traverse the delivery payload to
+revalidate its product schema. A standalone recursive
+`isJsonTransportValue(payload)` pre-walk is not part of the publication hot
+path; representability failures belong to the encoder or decoder's ordinary
+single traversal.
+
 Every admitted local publication uses the same outbox route whether the socket
 is connected or disconnected. Socket connection changes delivery timing, not
 publication shape or transaction/History boundaries.
 
 Accepted remote publications apply through one Factory remote transaction.
-They create no receiving-client undo entry, browser persistence write, or
-outbound echo.
+They are decoded once from their wire representation and then consumed through
+one typed trusted handoff. Their source slices form one ordered series of Core
+canonical requests; Factory keeps the single rollback journal open while the
+cooperative scheduler yields between slices, so ordinary Render projection can
+become visible without turning the slices into separate remote transactions.
+Ordinary local action transactions cannot join that open remote transaction.
+Remote apply creates no receiving-client undo entry, browser persistence
+write, or outbound echo. An unexpected apply failure leaves no partial prefix,
+does not advance the applied sequence, and enters authoritative
+resynchronization rather than silently skipping that sequence.
 
 ## Socket Sequencing and Live Fan-Out
 
 For each accepted publication, the socket server:
 
-1. validates session identity, wire integrity, supported App document channels,
-   and publication identity;
-2. deduplicates a retransmission of an already accepted publication identity;
+1. validates session identity, outer wire integrity and bounds, and publication
+   identity without decoding the product payload;
+2. deduplicates a retransmission by publication identity and exact encoded-byte
+   digest;
 3. assigns exactly one next document sequence;
-4. appends the sequenced publication to the document's pending persistence
-   queue;
-5. broadcasts it to the other connected Actors in that sequence order; and
+4. appends the sequenced opaque publication bytes to the document's pending
+   persistence queue;
+5. reframes only server-owned metadata and broadcasts the original encoded
+   payload bytes to the other connected Actors in that sequence order; and
 6. acknowledges source acceptance with the assigned sequence.
 
 Source acceptance means the socket owns the publication in its current
@@ -232,6 +269,12 @@ The App removes a local outbox entry only after this source acceptance is
 matched to the same publication identity. A response loss may cause
 retransmission; server dedupe must return the existing sequence without
 applying, persisting, or broadcasting the publication twice.
+
+The live socket server does not construct an admission document, recursively
+validate App route/payload schema, compare decoded publications, or decode and
+re-encode publication data. If a future security policy requires decoded
+inspection, that inspection may consume one decode for its security decision
+while peer fan-out still uses the original encoded payload bytes.
 
 One document stream has one ordering authority. Horizontal deployment must
 route a document to one sequencer or provide an equivalent single ordered
@@ -280,7 +323,7 @@ The backend owns:
 - request authorization at the server boundary;
 - batch idempotency and publication-identity dedupe;
 - contiguous sequence validation;
-- App publication validation and conversion to canonical changes;
+- one decode of each trusted publication into canonical changes;
 - ordered application to the existing materialized document;
 - atomic publication boundaries;
 - checkpoint/revision update; and
@@ -289,7 +332,9 @@ The backend owns:
 The browser and generic `@asyra/collaboration` package do not implement backend
 merge policy. App-owned publication decoding must be shared by the live remote
 processor and backend materializer so route/payload meaning is not duplicated
-in two hand-maintained special implementations.
+in two hand-maintained special implementations. Decode reconstructs the
+in-memory publication and enforces codec integrity; it does not authorize a
+second recursive product-schema validation pass.
 
 If one batch cannot be applied, the backend does not acknowledge a sequence
 past the failure. The socket server retains the exact unacknowledged batch and
@@ -334,21 +379,35 @@ in-memory queue into durable storage.
 For concurrent recovery, the socket sequence remains the final order.
 Independent property updates remain independent; two accepted updates to the
 same property resolve by later server sequence. Scene Tree and other structural
-changes remain subject to their canonical owner invariants. A recovery
-publication that cannot be validly applied is rejected before sequence
-allocation, moved to `conflicted`, and retained with its failure reason for
-review or export.
+changes were admitted by their originating canonical owners. If a sequenced
+publication nevertheless cannot apply atomically to an Actor or the backend,
+that is an authoritative synchronization failure: no partial prefix or later
+sequence is accepted, and the affected owner resynchronizes from the latest
+authoritative checkpoint and contiguous tail.
 
 ## Reset, Import, Export, and Serialization
 
-- The formal App exposes no Reset operation. The temporary
-  `crdt-7076-sample` demo toolbar Reset stores one empty App-owned demo document
-  in browser storage and forces a reload; it creates no Core mutation, Undo
-  entry, Factory publication, socket message, or backend persistence request.
-  It will be removed rather than promoted into the formal product flow.
+- The toolbar Reset control is a permanent Asyra Design UI component for every
+  `fileId`. It may be removed only after an explicit product-owner request;
+  sample, persistence, startup, or Collaboration work must not hide, disable,
+  or delete it.
+- Reset is an intentionally standalone destructive stored-file utility. One
+  click sends `DELETE /api/documents/{encoded fileId}`. When the backend is
+  available, it replaces the stored checkpoint with the formal empty document
+  and resets its durable sequence. The browser always refreshes after the
+  request attempt settles, including when a storage-free demo has no backend.
+- In ordinary development, Vite must proxy this exact same-origin route to
+  `DOCUMENT_PERSISTENCE_BACKEND_URL`; Reset must not depend on an E2E-only
+  backend override.
+- Reset must not call Core, Feature System, a common mutation API, transaction,
+  History, Undo/Redo, Selection, Factory publication, Collaboration, or a CRDT
+  apply path. Backend absence or failure reports the error but never blocks the
+  refresh; the storage-free demo reloads its formal empty App.
+- This exact Reset endpoint is the only browser document-delete exception.
+  It creates no localStorage bootstrap and no second document startup route.
 - Any future import must produce canonical document changes through the normal
-  publication path. It cannot call a browser snapshot `PUT`, `DELETE`, or
-  hidden save fallback.
+  publication path. It cannot call a browser snapshot `PUT`, another `DELETE`,
+  or hidden save fallback.
 - Explicit export may serialize the current Core document, but serialization is
   not persistence and must not register an automatic transaction subscriber.
 - Core may retain an explicit snapshot serialization API for export,
@@ -370,8 +429,9 @@ review or export.
   retention, fixed reconnect scheduling, reconciliation, accepted-sequence
   observations, and live transport.
 - Asyra Design socket server: document sequencing, dedupe, fan-out, pending
-  queue, three-second flush, retry, and durable-watermark tracking.
-- App backend: canonical publication decoding, ordered materialization,
+  opaque-byte queue, three-second flush, retry, and durable-watermark tracking;
+  no product payload decode or semantic document admission.
+- App backend: one canonical publication decode, ordered materialization,
   idempotency, checkpoint storage, and durable acknowledgement.
 
 Forbidden paths:
@@ -385,6 +445,9 @@ Forbidden paths:
 - persisting Selection, Awareness, Render/UI projection, computed data,
   diagnostics, or transport-only metadata as document state;
 - receiver-side save and publication echo;
+- repeated product-payload validation after canonical owner admission;
+- live socket admission documents, decoded deep-equality dedupe, or
+  decode/re-encode fan-out;
 - debounce that can postpone persistence indefinitely during continuous input;
 - acknowledging past a failed or missing sequence;
 - removing an outbox entry before matching socket acceptance;
@@ -433,9 +496,10 @@ Forbidden paths:
       publications in append order, applies the resulting server sequence once,
       and removes only publications acknowledged by identity.
 12. **Concurrent conflict**
-    - Same-property conflicts follow server sequence; invalid structural
-      publications become retained conflict records and are not silently lost
-      or retried forever.
+    - Same-property conflicts follow server sequence. An unexpected structural
+      apply failure advances no sequence, leaves no partial mutation, and
+      requires authoritative resynchronization rather than semantic socket
+      admission or silent skip.
 13. **Recovery storage unavailable**
     - Local editing remains responsive, the current runtime retains pending
       publications when possible, one storage-failed transition is reported,
@@ -461,11 +525,14 @@ Forbidden paths:
   states.
 - Factory `SharedPublication` remains the one client change unit; no parallel
   persistence artifact contains undo History.
+- One local canonical data admission produces a trusted publication; later
+  transport, remote apply, and backend materialization do not repeat recursive
+  product-payload validation.
 - The socket assigns one sequence, batches on a non-debounced three-second
-  window, retries failures idempotently, and exposes accepted versus durable
-  watermarks.
-- The backend applies sequenced publications in order and returns a contiguous
-  durable sequence.
+  window, relays and queues original opaque encoded payload bytes, retries
+  failures idempotently, and exposes accepted versus durable watermarks.
+- The backend decodes once, applies sequenced publications atomically in order,
+  and returns a contiguous durable sequence.
 - Selection and other non-document state never schedule persistence.
 - Formal unit, integration, server, E2E, reconnect, failure, and large-document
   performance cases pass through the ordinary production path.

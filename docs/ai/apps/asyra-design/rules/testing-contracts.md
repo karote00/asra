@@ -6,7 +6,6 @@ Keep these stable where possible:
 - `data-testid="toolbar"`
 - `data-testid="contents-panel"`
 - `data-testid="properties-panel"`
-- `data-testid="reset-button"`
 - `data-testid="tool-select|tool-rectangle|tool-oval|tool-pen"`
 - `data-testid="zoom-level"`
 

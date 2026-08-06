@@ -18,7 +18,8 @@ import {
   cursorApis,
   elementApis,
   selectionApis,
-  systemContextApis
+  systemContextApis,
+  transactionApis
 } from '../../common-apis'
 import type {
   PathEditingContinuationState,
@@ -590,6 +591,11 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
         if (!dragStartWorkspace) {
           return null
         }
+        transactionApis.configureSharedDeliverySequence({
+          mode: 'atomic',
+          batchPublications: false,
+          slices: []
+        })
 
         const runtimeBefore = captureVectorEditingRuntimeState()
 

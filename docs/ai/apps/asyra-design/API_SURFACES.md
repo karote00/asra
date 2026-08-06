@@ -48,10 +48,12 @@ Completed plan:
   abort ownership; no fileId, URL parameter, startup branch, resident batch, or
   IndexedDB response inbox selects its payload
 - the checked-in `samples/crdt-7076` reference contains its exact input image,
-  instruction text, and previously converted 7,075-vector source. Its backend
-  accepts only the exact sample input, reads that converted source without
-  invoking VTracer, and returns one prepared Group plus 7,075 ordered Vector
-  children for 7,076 total canonical elements
+  instruction text, and one ordered versioned `AiActionBatch` instruction file
+  as its only drawing authority. Its backend accepts only the exact sample
+  input, reads that instruction file directly, and returns its prepared Group
+  plus 7,075 ordered Vector children for 7,076 total canonical elements. The
+  sample retains no SVG, alternate drawing source, regeneration fallback, or
+  request-time geometry reconstruction
 - production startup always composes that provider, the confirmation broker,
   app-root-local conversation controller, current AI history projection, and
   one isolated `@asyra/ai-agent-runtime` instance. There is no URL activation
@@ -89,9 +91,11 @@ Completed plan:
   describes what the server must prepare; the frontend does not run it against
   returned action arguments and exposes no client model-prepare or
   model-validation path
-- the server validates and normalizes accepted/skipped roles, bounds, styles,
-  paths, and points, then builds one `PreparedDrawingArtifact` before returning
-  the `AiActionBatch`
+- the production provider owns preparation of accepted/skipped roles, bounds,
+  styles, paths, points, and one `PreparedDrawingArtifact` before returning the
+  `AiActionBatch`. The 7,076 sample stores that already-prepared result in its
+  ordered instruction file, so request handling performs no geometry
+  preparation
 - `insert_vector_composition` receives one server-prepared Group descriptor and
   ordered child descriptor slices with complete source creation data, exact
   loading bounds, stable ids, relationships, point counts, roles, and skipped
@@ -158,6 +162,22 @@ Completed plan:
   clone. Render/UI observes the ordinary canonical owner batch, while
   Collaboration receives only the minimal `SharedPublication`; its
   `artifactId` is wire correlation rather than a History reference
+- Scene Tree and Props perform the one semantic data admission for the original
+  local mutation. Factory creates `SharedPublication` only from accepted
+  canonical evidence; after that handoff its payload is trusted product data.
+  Transport validates security and wire integrity but does not recursively
+  revalidate the product payload. The codec rejects unsupported or malformed
+  wire values during its own encode/decode traversal rather than through a
+  separate `isJsonTransportValue(payload)` pre-walk
+- the live socket server sequences, deduplicates by publication identity plus
+  encoded-byte digest, queues, and relays original opaque publication bytes
+  without an admission document, product-payload decode, decoded deep equality,
+  or re-encode. The backend decodes once for ordered atomic materialization
+- a receiving client routes the decoded trusted publication into its recorded
+  source slices. Factory keeps one progressive remote rollback journal open,
+  Core receives one ordered canonical request per source slice, and the
+  framework scheduler crosses a cooperative host-and-paint boundary between
+  slices. The receiver creates no Undo, outbound echo, or browser save
 - the App AI transaction runner acquires one document-interaction lock before
   opening that outer transaction and releases it only after commit or rollback
   plus history correlation. While locked, wheel input on the marked viewport
@@ -220,6 +240,20 @@ Accepted socket-authoritative target:
 - the Asyra Design collaboration lifecycle owns a native IndexedDB outbox of
   immutable local `SharedPublication` values awaiting socket acceptance; this
   is transport recovery, not Core document persistence
+- the lifecycle uses the outbox's explicit Factory-owned append boundary for
+  immutable local publication evidence. The in-memory record retains that
+  owner identity without a second source-side clone or recursive freeze, while
+  the IndexedDB durable `put` still completes before socket send; the generic
+  outbox append boundary still snapshots mutable input
+- the server retains at most 256 publications and 256 MiB of accepted
+  publication evidence behind one in-flight persistence request. Durable HTTP
+  requests drain one contiguous prefix within an 8 MiB soft wire-byte limit,
+  while one larger indivisible publication may travel alone; reaching the
+  bounded admission limit pauses the source without closing its socket
+- server canonical deletion materialization keeps the exact owned-property
+  closure and persistence evidence, using one monotonic reference-queue cursor
+  plus the existing visited set so large shared or cyclic property graphs do
+  not incur repeated array-head compaction
 - connection state and sync state remain distinct; disconnected local editing
   continues, fixed reconnect attempts occur at most once every 30 seconds, and
   ordinary toasts are limited to disconnected/reconnected transitions
@@ -232,15 +266,32 @@ Accepted socket-authoritative target:
 Semantic authority:
 `specs/socket-authoritative-document-session.md`.
 
+- The Asyra Design toolbar always exposes `Reset document` before the primary
+  tool controls for every `fileId`. This control is permanent unless the
+  product owner explicitly requests its removal.
+- `resetStoredDocument()` is a standalone stored-document utility, not an App
+  controller or Feature API. It reads the required `fileId`, sends
+  `DELETE /api/documents/{encoded fileId}`, and always calls
+  `window.location.reload()` after that request attempt settles. A missing,
+  unreachable, or non-success backend still reports its error but cannot block
+  refresh; a storage-free demo therefore returns to the formal empty App.
+- Ordinary Vite development proxies that same-origin document route to
+  `DOCUMENT_PERSISTENCE_BACKEND_URL`; the `ASYRA_E2E_DOCUMENT_BACKEND_URL`
+  override remains test-only and takes precedence when explicitly configured.
+- The document backend handles that DELETE by replacing the stored record with
+  the formal empty checkpoint at durable sequence zero. Reset performs no Core
+  mutation, transaction, History, Undo/Redo, Factory publication, CRDT,
+  Selection, or Collaboration operation.
+
 - `APP_URL` is the one app-origin contract shared by Vite,
   ordinary Playwright, visual review, collaboration E2E, and the reference
   WebSocket server's Origin validation
 - one non-empty `fileId` is required to open the App document; it selects the
   App-owned document session identity and is future server authorization input,
   but it is never a Collaboration activation flag
-- Current RenderApp prepares Collaboration before Core for every ordinary
-  `fileId`, using configured `VITE_COLLABORATION_WS_URL` or same-origin
-  `/collaboration`; only `crdt-7076-sample` bypasses the socket
+- RenderApp prepares Collaboration before Core for every required `fileId`,
+  including `crdt-7076-sample`, using configured
+  `VITE_COLLABORATION_WS_URL` or same-origin `/collaboration`
 - the composition maps `fileId` to both internal document and room identity and
   generates a full UUID actor identity per page
 - one connected Actor is the single-Actor execution case; when another Actor
@@ -554,6 +605,12 @@ Import boundary:
 - `rollbackTransaction(failure?): void`
 - `runTransaction(callback, options?)`: finite synchronous/asynchronous work
   commits on success and rolls back thrown/rejected work
+- `configureSharedDeliverySequence(sequence): void`: delegates an
+  already-decided delivery sequence to the active Factory transaction and
+  fails when no transaction is active. Create, move, and Pen sessions use
+  `batchPublications: false` before their first mutation; Factory retains the
+  actual source-delivery order for Undo/Redo without splitting the action's
+  History entry
 
 ## Controller APIs (`src/controllers/*`)
 
@@ -562,13 +619,6 @@ Import boundary:
 - `destroyRenderApp(): void`
 - `setupInputSystem(canvas: HTMLElement): void`
 - `renderIsReady(): void`
-- `resetData(): void`
-  - accepts only `fileId=crdt-7076-sample`
-  - stores one fresh App-owned empty document under the file-scoped demo browser
-    key and forces `window.location.reload()` only after that write succeeds
-  - creates no Core mutation, Factory action, Undo entry, socket publication, or
-    backend persistence request
-  - is a temporary public-demo utility and will be removed from the formal App
 - `switchPrimaryTool(primaryTool: PrimaryToolType): void`
 
 `controllers/element-selection.ts`

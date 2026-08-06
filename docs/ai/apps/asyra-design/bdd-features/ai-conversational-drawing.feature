@@ -14,6 +14,8 @@ Feature: Conversational Agent drawing
     When the user submits one Agent request
     Then the provider should POST the exact request to the same-origin backend
     And the backend should return one versioned AiActionBatch
+    And the 7076 sample should read its checked-in ordered AiActionBatch instruction file directly
+    And the sample should retain no SVG or alternate drawing source
     And Runtime should validate only the bounded action control envelope
     And permission, confirmation, and execution should preserve the prepared arguments identity
     And the registered action should call ordinary App common APIs
@@ -29,6 +31,7 @@ Feature: Conversational Agent drawing
     And every accepted progressive slice should become visible through the ordinary projection route
     And Factory should create one intended Undo entry for the outer action
     And Collaboration should receive minimal ordered SharedPublications without History evidence
+    And each SharedPublication payload should remain trusted after local canonical owner admission
 
   Scenario: Agent output remains editable through the Property panel
     Given the Agent created a Vector composition
@@ -60,7 +63,8 @@ Feature: Conversational Agent drawing
     Given Actor A and Actor B opened the same fileId
     When Actor A commits one canonical action
     Then Actor B should process each source publication through one remote Factory transaction
-    And Actor B should apply one ordered Core canonical request per publication
+    And Actor B should apply ordered trusted source slices without recursive payload revalidation
+    And Actor B should cross a cooperative paint boundary between visible source slices
     And Actor B should create no local Undo entry
     And Actor B should send no echo publication
     And Actor B should persist the accepted result once before peer-applied settlement

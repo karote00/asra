@@ -899,6 +899,70 @@ describe('RenderSceneTree computed data mirror', () => {
     )
   })
 
+  it('removes projected children when a later owner event already removed their canonical parent', async () => {
+    const { RenderSceneTree } = await import('../stores/scene-tree.js')
+    const groupRaw = {
+      id: 'group-1',
+      type: EntityTypes.GROUP,
+      parentId: 'workspace-1',
+      visible: true,
+      children: [] as string[]
+    }
+    const childEntries = ['child-a', 'child-b'].map((elementId, index) => ({
+      data: {
+        id: elementId,
+        type: 'rectangle',
+        parentId: 'group-1',
+        visible: true
+      },
+      parentId: 'group-1',
+      index
+    }))
+    const elements = new Map([
+      ['group-1', createElement('group-1', groupRaw, {})],
+      ...childEntries.map(
+        ({ data }) =>
+          [
+            data.id,
+            createElement(data.id, data, { height: 10, width: 10 })
+          ] as const
+      )
+    ])
+    sceneTreeMock.getElementById.mockImplementation((elementId: string) =>
+      elements.get(elementId)
+    )
+    const store = new RenderSceneTree()
+
+    expect(store.addElementById('group-1', 'workspace-1', 0)).toEqual({
+      status: 'applied',
+      elementId: 'group-1'
+    })
+    groupRaw.children = childEntries.map(({ data }) => data.id)
+    expect(store.addElements(childEntries)).toEqual([
+      { status: 'applied', elementId: 'child-a' },
+      { status: 'applied', elementId: 'child-b' }
+    ])
+    await flushScheduledFrame()
+    renderMock.removeElement.mockClear()
+
+    elements.clear()
+
+    expect(store.removeElements(childEntries)).toEqual([
+      { status: 'removed', elementId: 'child-a' },
+      { status: 'removed', elementId: 'child-b' }
+    ])
+    expect(renderMock.removeElement.mock.calls).toEqual([
+      ['child-a', 'group-1'],
+      ['child-b', 'group-1']
+    ])
+
+    expect(store.removeElement(groupRaw, 'workspace-1', 0)).toEqual({
+      status: 'removed',
+      elementId: 'group-1'
+    })
+    expect(store.getProjectionSnapshotCount()).toBe(0)
+  })
+
   it('rejects missing parents and stale batch indexes without canonical resync', async () => {
     const { RenderSceneTree } = await import('../stores/scene-tree.js')
     const missingParentChildRaw = {

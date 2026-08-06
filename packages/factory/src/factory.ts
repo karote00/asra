@@ -165,7 +165,7 @@ class Factory {
   }
 
   startTransaction() {
-    this.transact.start()
+    this.transact.start('action')
   }
 
   updateTransaction(event: UpdateTransactionEvent) {
@@ -182,7 +182,60 @@ class Factory {
 
   runRemoteTransaction<T>(mutate: () => T): T {
     this.transact.start('remote')
-    const reactiveBoundaryOwner: FactoryTransactionOwner = {
+    const reactiveBoundaryOwner = this.createRemoteReactiveBoundaryOwner()
+
+    return runWithTransactionOwner(reactiveBoundaryOwner, () =>
+      runTransaction(
+        () => {
+          try {
+            const result = this.runSynchronousRemoteMutation(mutate)
+            this.transact.end()
+            return result
+          } catch (error) {
+            this.rollbackRemoteTransaction(error)
+            throw error
+          }
+        },
+        { failureKind: 'handler-error' }
+      )
+    )
+  }
+
+  async runRemoteTransactionProgressively(
+    mutateSlices: readonly (() => void)[],
+    settleAfterSlice: (completedSliceIndex: number) => Promise<void>
+  ): Promise<void> {
+    if (mutateSlices.length === 0) return
+
+    this.transact.start('remote')
+    const reactiveBoundaryOwner = this.createRemoteReactiveBoundaryOwner()
+
+    try {
+      for (
+        let completedSliceIndex = 0;
+        completedSliceIndex < mutateSlices.length;
+        completedSliceIndex += 1
+      ) {
+        const mutate = mutateSlices[completedSliceIndex]
+        if (!mutate) continue
+        runWithTransactionOwner(reactiveBoundaryOwner, () =>
+          runTransaction(() => this.runSynchronousRemoteMutation(mutate), {
+            failureKind: 'handler-error'
+          })
+        )
+        if (completedSliceIndex < mutateSlices.length - 1) {
+          await settleAfterSlice(completedSliceIndex)
+        }
+      }
+      this.transact.end()
+    } catch (error) {
+      this.rollbackRemoteTransaction(error)
+      throw error
+    }
+  }
+
+  private createRemoteReactiveBoundaryOwner(): FactoryTransactionOwner {
+    return {
       startTransaction: () => undefined,
       updateTransactionBatch: (events) => this.updateTransactionBatch(events),
       endTransaction: () => undefined,
@@ -193,37 +246,30 @@ class Factory {
       redoProgressively: (yieldAfterSlice, progressiveOptions) =>
         this.transact.redoProgressively(yieldAfterSlice, progressiveOptions)
     }
+  }
 
-    return runWithTransactionOwner(reactiveBoundaryOwner, () =>
-      runTransaction(
-        () => {
-          try {
-            const result = mutate()
-            if (
-              result !== null &&
-              (typeof result === 'object' || typeof result === 'function') &&
-              typeof (result as { then?: unknown }).then === 'function'
-            ) {
-              void Promise.resolve(result).catch(() => undefined)
-              throw new RemoteAsyncHandlerError()
-            }
-            this.transact.end()
-            return result
-          } catch (error) {
-            this.transact.end({
-              outcome: 'rollback',
-              failure: {
-                kind: 'handler-error',
-                message: error instanceof Error ? error.message : undefined,
-                cause: error
-              }
-            })
-            throw error
-          }
-        },
-        { failureKind: 'handler-error' }
-      )
-    )
+  private runSynchronousRemoteMutation<T>(mutate: () => T): T {
+    const result = mutate()
+    if (
+      result !== null &&
+      (typeof result === 'object' || typeof result === 'function') &&
+      typeof (result as { then?: unknown }).then === 'function'
+    ) {
+      void Promise.resolve(result).catch(() => undefined)
+      throw new RemoteAsyncHandlerError()
+    }
+    return result
+  }
+
+  private rollbackRemoteTransaction(error: unknown): void {
+    this.transact.end({
+      outcome: 'rollback',
+      failure: {
+        kind: 'handler-error',
+        message: error instanceof Error ? error.message : undefined,
+        cause: error
+      }
+    })
   }
 
   applyRemoteEvent(event: AllEvent, apply: CanonicalEventApply): boolean {

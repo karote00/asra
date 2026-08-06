@@ -256,6 +256,11 @@ export const moveElementsSession = {
     if (!initialState) {
       return null
     }
+    transactionApis.configureSharedDeliverySequence({
+      mode: 'atomic',
+      batchPublications: false,
+      slices: []
+    })
 
     return {
       ...initialState,

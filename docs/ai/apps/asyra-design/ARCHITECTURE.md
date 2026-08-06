@@ -68,10 +68,11 @@
   `VITE_COLLABORATION_WS_URL` or same-origin `/collaboration`, prepares the
   checkpoint/tail handshake before Core startup, and supplies that checkpoint
   through Core's load-only source
-- for `fileId=crdt-7076-sample`, the initial source is the checked-in compressed
-  canonical document generated through the ordinary prepared action and
-  Factory path. Other files use one fresh empty canonical document. Core
-  remains the load-validation owner
+- every required `fileId`, including `crdt-7076-sample`, receives its initial
+  checkpoint from the same socket document session. The prepared 7,076-element
+  sample enters only through Actor A's request-time HTTP action-batch after
+  Send; the checked-in compressed document is a regression asset, not a
+  RenderApp load source
 - currently has no IndexedDB publication recovery outbox; the accepted
   socket-authoritative target adds one App-owned IndexedDB outbox containing
   only unaccepted `SharedPublication` values, never a materialized document,
@@ -85,11 +86,9 @@
   collaboration lifecycle; the lifecycle disposer owns idempotent resource cleanup.
   Teardown does not reopen composition, and an unmount during pending startup
   cannot activate collaboration afterward
-- collaboration setup is mandatory for ordinary files; only
-  `crdt-7076-sample` bypasses it. The current partial implementation still
-  pauses startup/editing on session failure; the accepted recovery slice below
-  replaces that limitation with provisional local state, durable publication
-  retention, and continued editing
+- collaboration setup is mandatory for every required `fileId`. Session
+  failure uses provisional local state, durable publication retention, and
+  continued editing without selecting a second RenderApp composition
 - imports no Pixi SDK or concrete render-engine package
 
 4. `src/contexts/data-change.tsx`
@@ -116,8 +115,11 @@ the existing Render object.
   Scene Tree and Props document channels to the collaboration instance.
 - `src/collaboration/operations.ts` owns app route/payload validation and turns
   one accepted remote publication into one Factory remote transaction through
-  the ordinary canonical event path. It does not reconstruct app behavior from
-  canonical state.
+  the ordinary canonical event path. Within that publication, adjacent
+  non-container element removals may be coalesced into one ordered Core
+  canonical request; a container removal remains a lifecycle barrier, and
+  different publications are never merged. The adapter does not reconstruct
+  app behavior from canonical state.
 - For hierarchy deliveries, the same adapter also owns the optional
   `DecideRemotePublication` permission/domain-order/duplicate/conflict decision.
   Accepted or transformed `MOVE_ELEMENTS` and `CHANGE_SUBTREE` publications are
@@ -127,8 +129,11 @@ the existing Render object.
   wire boundary; the browser provider and reference server validate untrusted
   messages against it before invoking provider operations.
 - Factory owns shared-publication timing and batching. A synchronous immediate
-  delivery action is one publication; an outer pointer session may contain
-  several publications while remaining one local undo commit.
+  delivery action is one ordered source boundary; default progressive delivery
+  groups consecutive source boundaries into bounded publication windows of at
+  most 512 distinct work items. An explicit
+  `batchPublications: false` sequence preserves per-slice publication
+  settlement, and neither mode splits the local undo commit.
 - `@asyra/collaboration` and the WebSocket Provider preserve publications and
   live connection order only. They own no app dedupe, permission, conflict,
   persistence, recovery, or reconnect-replay policy.
@@ -167,12 +172,14 @@ mandatory socket handshake
   document-change unit; private Undo History never reaches the server.
 - Selection, Awareness, computed projection, Render/UI state, and diagnostics
   remain outside document persistence.
-- The browser performs no canonical document persistence write. The formal App
-  exposes no Reset persistence path; any future import must use the canonical
-  publication path. The sole exception is the temporary
-  `crdt-7076-sample` demo Reset, which stores one empty demo bootstrap document
-  in browser storage and forces a reload without entering Core, Factory, Undo,
-  socket, or backend persistence.
+- The browser performs no canonical document persistence write during ordinary
+  App operation. The permanent toolbar Reset is the one standalone exception:
+  it attempts to delete only the current stored checkpoint and always refreshes
+  after that attempt settles, including when a storage-free demo has no
+  backend, without Core, Feature, transaction, History, CRDT, Selection, or
+  Collaboration participation. `crdt-7076-sample` otherwise uses the same
+  socket-authoritative document session and request-time HTTP action-batch as
+  its only prepared sample source.
 - The App owns a native IndexedDB transport-recovery outbox containing only
   immutable local publications that have not received socket acceptance.
 - A disconnected or incomplete socket session remains locally editable.

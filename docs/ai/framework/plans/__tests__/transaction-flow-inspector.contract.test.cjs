@@ -55,6 +55,11 @@ test('feature interruption commits current state while failures roll back', () =
   assert.match(contract, /one active session runtime/i)
   assert.match(contract, /cancels the previously active session/i)
   assert.match(contract, /explicit sharedDelivery immediate/i)
+  assert.match(
+    contract,
+    /batchPublications false before its first mutation/i
+  )
+  assert.match(contract, /same transaction outcome and one undo commit/i)
   assert.match(contract, /Undo\/Redo shortcut.*current AI Message Bar/i)
   assert.match(contract, /default progressive mode/i)
   assert.match(contract, /await the complete History replay/i)
@@ -152,9 +157,21 @@ test('framework cooperative rendering batches canonical replay before bounded pr
   assert.match(contract, /at most 32/i)
   assert.match(
     contract,
-    /immediate source publications remain distinct and ordered/i
+    /immediate source boundaries remain ordered.*bounded publication windows/i
   )
-  assert.match(contract, /1,024 distinct canonical ids/i)
+  assert.match(contract, /publication windows.*512 distinct work items/i)
+  assert.match(contract, /render slices.*1,024 distinct work items/i)
+  assert.match(contract, /delivery identity is the fallback/i)
+  assert.match(
+    contract,
+    /actual shared-delivery slice order as History delivery metadata/i
+  )
+  assert.match(contract, /Undo reverses and Redo restores/i)
+  assert.match(
+    contract,
+    /transaction-end slices delivered after earlier immediate mutations/i
+  )
+  assert.match(contract, /without creating another History entry/i)
   assert.match(contract, /host\/paint yield occurs after each render slice/i)
   assert.match(contract, /one History transition/i)
   assert.match(contract, /one outer transaction/i)

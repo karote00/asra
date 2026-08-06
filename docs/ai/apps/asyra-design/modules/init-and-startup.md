@@ -77,8 +77,9 @@
   ordinary remote canonical processor and activates Factory publication
   transport; immediate publications may occur during an outer pointer
   transaction, while transaction-end publications wait for commit
-- `crdt-7076-sample` is the sole non-production socket bypass and supplies its
-  checked-in fixture through a separate load-only source
+- `crdt-7076-sample` uses this same socket-authoritative startup; its checked-in
+  response enters only after Actor A's same-origin HTTP action-batch request
+  and never through a separate load source
 - `core.start(container, options)` uses the Core-owned default `RenderAdapter`;
   the app does not call `setRenderer()`
 - if renderer/engine initialization rejects, Core stops before observers,

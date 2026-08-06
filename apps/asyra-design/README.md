@@ -44,8 +44,14 @@ provider/network side effect until the consumer explicitly configures it. See
 
 Vite, the normal Playwright suite, visual review, the collaboration E2E suite,
 and the socket server's Origin check use `APP_URL`. The socket server reads and
-writes checkpoints only through `DOCUMENT_PERSISTENCE_BACKEND_URL`; it never
-derives that backend origin from the frontend URL.
+writes checkpoints only through `DOCUMENT_PERSISTENCE_BACKEND_URL`; Vite uses
+that same backend origin to proxy the browser's same-origin
+`/api/documents/*` Reset DELETE during ordinary development. Neither derives
+the backend origin from the frontend URL.
+
+Reset always refreshes after the DELETE attempt settles. A storage-free demo
+without a reachable backend therefore still reloads the formal empty App; the
+failed request is diagnostic only and never blocks refresh.
 
 For example:
 
@@ -88,9 +94,9 @@ http://localhost:3000/?fileId=manual-design-file
 Opening the same `fileId` in two windows joins the same document session;
 different values remain isolated. One Actor and multiple Actors use exactly
 the same checkpoint-plus-tail handshake, Factory publication, socket sequence,
-three-second persistence window, and backend materialization path.
-The frontend always starts Collaboration for every ordinary file; only the
-explicit `crdt-7076-sample` simulation bypasses that session.
+three-second persistence window, and backend materialization path. The
+frontend always starts Collaboration for every required `fileId`, including
+`crdt-7076-sample`.
 
 The browser never writes a materialized document. It stores only unaccepted
 local `SharedPublication` values in an IndexedDB recovery outbox and removes
@@ -127,12 +133,13 @@ editable. Per-operation send failures stay in the console, and one
 non-overlapping reconnect attempt is scheduled every 30 seconds. This is not a
 second local-only mode.
 
-`crdt-7076-sample` is the only explicit exception. It loads the bundled
-large-document fixture without a socket so visitors can simulate the AI Agent
-flow. Its temporary toolbar Reset stores one empty demo document in browser
-storage and then forces a page refresh so the simulation can be restarted.
-That utility is not part of ordinary file behavior and will be removed from the
-formal App.
+`crdt-7076-sample` uses this same disconnected socket composition. Opening
+`http://localhost:3000/?fileId=crdt-7076-sample` does not preload a drawing.
+After Actor A submits the checked-in reference image and exact instruction, the
+same-origin HTTP action-batch endpoint returns the prepared sample. Actor A
+then executes it through the ordinary Runtime/Core/Factory/Render path; with a
+socket, Actor B receives the result through CRDT, and without a socket Actor A
+still renders locally while the ordinary outbox retains its publication.
 
 ## Tests
 

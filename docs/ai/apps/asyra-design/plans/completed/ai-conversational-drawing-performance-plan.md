@@ -1687,7 +1687,8 @@ The write timeline is fixed:
    bulk compensation artifact is created.
 6. Local action, Agent action, Undo, and Redo use Core autosave on the client
    that originated the operation. Accepted remote apply uses zero persistence,
-   Undo, or echo; `peer-applied` acknowledges canonical apply completion.
+   Undo, or echo; `peer-applied` acknowledges canonical apply and cooperative
+   projection settlement.
 
 No network frame, publication slice, or observer callback may split the
 intended transaction or history boundary.
@@ -1706,6 +1707,10 @@ intended transaction or history boundary.
 - Preset consumes the batch observer directly. Each canonical publication batch
   causes one projection; each formal slice from the fixed cooperative
   composition remains peer-visible and never collapses to a final-only frame.
+- A valid child-removal owner event remains authoritative for projection when
+  a later event in the same transaction has already removed its canonical
+  parent. Render consumes that event against its computed mirror instead of
+  leaving stale projected children.
 - Render uses the existing ordinary Vector strategy and preserves all 7,076
   editable elements. Each slice causes at most one invalidation and one frame
   flush.
@@ -1762,9 +1767,10 @@ intended transaction or history boundary.
   mutate or retain a second canonical copy.
 - The Provider privately retains only the queue and settlement token needed to
   expose one decoded publication at a time. The consumer Promise resolves after
-  App policy, canonical preflight, and remote apply succeed; that settlement
-  releases the next decoded publication. Terminal failure clears active and
-  pending publications and releases none instead of fabricating progress.
+  App policy, canonical preflight, remote apply, and one cooperative
+  host-and-paint projection settlement succeed; that settlement releases the
+  next decoded publication. Terminal failure clears active and pending
+  publications and releases none instead of fabricating progress.
 - `@asyra/collaboration` has one provider-to-process contract for this async
   handoff. It does not retain a legacy clone mode, public lease wrapper, or
   alternate scalar publication route.
@@ -1819,7 +1825,8 @@ intended transaction or history boundary.
 - Each source publication owns one remote Factory transaction. Different source
   publications are not merged into one transaction.
 - The active decoded publication settles only after that transaction applies
-  successfully. Settlement releases the next publication; failure performs
+  successfully and its ordinary projection crosses one cooperative host-and-
+  paint boundary. Settlement releases the next publication; failure performs
   terminal cleanup and releases none.
 - The worker owns wire validation and normalization only. App policy and
   canonical preflight remain in the App/Core owner.
@@ -1831,8 +1838,8 @@ intended transaction or history boundary.
 - Reactive evidence uses one batch publish with one observer-registry snapshot,
   while preserving exact event order.
 - Actor B creates no Undo, echo publication, or persistence save. It applies
-  the received canonical changes, updates Render/UI projections, and then
-  acknowledges `peer-applied`.
+  the received canonical changes, settles Render/UI projection for that source
+  publication, and then acknowledges `peer-applied`.
 - Disconnection, closed transport, invalid frames, and worker teardown preserve
   existing `ProviderFailure` behavior and never fabricate convergence.
 
@@ -1908,56 +1915,63 @@ intended transaction or history boundary.
   substitute; the existing viewport input path and an explicit App-owned
   interaction policy keep the responsibilities separate.
 
-### File-Scoped Demo Persistence
+### Socket-Authoritative 7076 Sample
 
-- RenderApp receives one required `fileId` URL, derives one same-origin
-  document database URL, injects that provider before `Core.start()`, and lets
-  Core load the stored canonical snapshot or the file-specific initial
-  document. A missing or empty `fileId` cannot open the document. The identity
-  selects the document and is future server authorization input.
-- The provider uses `GET`, `PUT`, and `DELETE` on
-  `/api/documents/<encoded fileId>`. A failed request displays a database
-  unavailable message. Failed load continues with the initial document;
-  failed save remains an error without rolling back the committed local action
-  or crashing the App.
-- When no WebSocket endpoint is configured, the deployed
-  `crdt-7076-sample` document loads the checked-in compressed canonical result
-  with 7,076 non-workspace elements and composes no Collaboration. When the
-  endpoint is configured for the local full-flow test, the same file starts
-  from the database or a fresh empty document before Actor A submits the exact
-  sample request.
+- RenderApp receives one required `fileId` URL and always composes the same
+  socket-authoritative document session before `Core.start()`. The identity
+  selects both the socket document and Collaboration room; a missing or empty
+  `fileId` cannot open a document.
+- `crdt-7076-sample` uses exactly that same session. It has no `null`
+  Collaboration mode, compressed-canonical `Core.load` bootstrap, alternate
+  route, localStorage Reset, or demo-only persistence path.
+- The toolbar Reset remains permanently visible for every fileId. It is not an
+  App document action: it attempts to delete only the current stored checkpoint
+  and always refreshes after the request settles, including without a backend,
+  without Core, Feature, transaction, History, Selection, Factory publication,
+  Collaboration, or CRDT work.
+- When the socket is unavailable, the existing provisional local checkpoint
+  still starts Core and Canvas. Local manual and Agent actions remain
+  available, their publications enter the ordinary durable outbox, and
+  connection/operation failures remain ordinary Collaboration diagnostics.
+- Actor A obtains the prepared 7,076-element sample only after the exact image
+  and instruction are sent through the one same-origin HTTP action-batch
+  request. The interceptor reads the checked-in sample folder and returns one
+  prepared Group plus 7,075 Vector descriptors.
+- With a socket connection, Actor A executes that response through Runtime,
+  canonical owners, Factory, Render, and CRDT; Actor B receives the result only
+  through Actor A publications. Without a socket connection, Actor A executes
+  and renders the same response locally and retains the unsent publication in
+  the ordinary outbox.
 - Root `dev:all` starts only workspace package watchers and the App dev server.
   The explicit `collaboration:server` command or collaboration Playwright
   startup separately owns the reference WebSocket server.
 - One connected Actor is classified as single-Actor processing. A second Actor
   joining the same document session is classified as two-Actor CRDT processing;
   both cases use the same framework and App APIs.
-- Superseding demo-only Reset decision: `resetData()` accepts only
-  `crdt-7076-sample`, writes one fresh App-owned empty document to its
-  file-scoped demo browser key, and forces a page reload only after that write
-  succeeds. The reloaded demo reads that empty document before its bundled
-  sample asset.
-- Reset Data is a temporary public-demo utility, not a Core mutation, Factory
-  action, Undo entry, socket publication, backend persistence request, or CRDT
-  clear command. Ordinary socket files do not use it, and the formal App will
-  remove it.
-- `Core.load(...)` remains the sole `FILE_LOAD_COMPLETE` publisher during the
-  reloaded startup. `resetData()` itself does not call Core or synthesize file
-  readiness.
-- Local actions, AI actions, Undo, and Redo reuse Core autosave only on the
-  client that originated the operation. Accepted remote publications perform
-  zero persistence, Undo, or echo; `peer-applied` acknowledges canonical apply,
-  not durability.
-- No IndexedDB/localStorage fallback, fake database success, old-format
-  compatibility, dual-format branch, or second canonical state owner is
-  allowed.
-- Collaboration connects only after the database or initial canonical document
-  is loaded. A missing endpoint, initial connection failure, or later
-  disconnection displays status while Core, Canvas, and local editing continue.
-- The current reference WebSocket server remains an in-memory transport owner,
-  not a durability owner. Future App developers implement the formal document
-  database server endpoint without changing the frontend persistence
-  composition.
+- Accepted remote publications perform zero receiver persistence, Undo, or
+  echo; `peer-applied` acknowledges canonical apply plus cooperative projection
+  settlement, not durability.
+- The lifecycle gives each immutable Factory publication to the explicit
+  Factory-owned outbox append boundary by identity. The outbox still waits for
+  the IndexedDB durable `put` before socket send, but it does not clone or
+  recursively freeze that publication a second time before the browser-owned
+  structured clone. The generic outbox append boundary continues to snapshot
+  mutable input.
+- The server persistence queue separates its bounded admission buffer from one
+  durable HTTP request. At most 256 publications and 256 MiB of accepted
+  publication evidence may wait behind an in-flight request, while each
+  durable request drains only one contiguous prefix within an 8 MiB soft
+  wire-byte limit; one larger indivisible publication may travel alone.
+  Reaching either admission limit still pauses the source in original order
+  without closing its socket, dropping evidence, or bypassing persistence.
+- Server canonical deletion materialization preserves the exact owned-property
+  closure, deletion evidence, and persistence save. Its growing reference queue
+  is consumed through one monotonic cursor and the existing visited set, so a
+  large shared or cyclic graph remains linear instead of repeatedly compacting
+  the remaining array from its head.
+- No URL-selected action payload, direct sample-document load, localStorage
+  bootstrap, fake connection success, compatibility branch, or second
+  canonical state owner is allowed.
 
 ## Performance Measurement Contract
 
@@ -2226,19 +2240,20 @@ capacity, and wire receipt, server acceptance, and peer apply remain distinct.
 ### Remote Batch Apply
 
 Each source publication applies through one remote Factory transaction and one
-batch observer delivery. Actor B converges without persistence, Undo, or echo,
-then emits `peer-applied` after canonical apply completes.
+batch observer delivery, then crosses one cooperative host-and-paint projection
+boundary before the next publication is released. Actor B converges without
+persistence, Undo, or echo, then emits `peer-applied` after canonical and Render
+projection settlement complete.
 
-### Demo Documents Persist by File
+### Permanent Standalone Reset
 
-Every document configures one `fileId`-scoped same-origin database provider
-before Core starts. A stored snapshot or the file-specific initial document
-loads before optional Collaboration. Local actions, Agent actions, Undo, Redo,
-and Reset persist through one serialized provider queue on the client that
-originated the operation; accepted remote apply performs zero persistence. The
-deployed 7,076 preview attempts this same database contract and, on failure,
-shows an error while loading its checked-in compressed canonical document.
-There is no browser-storage or fake-persistence fallback.
+Every document exposes the same toolbar Reset. It sends one same-origin DELETE
+for the current stored file and always refreshes after the request attempt
+settles. A storage-free demo therefore returns to the formal empty App even
+without a backend. Reset never enters Core, Feature System, a transaction,
+History, Undo/Redo, Selection, Factory publication, Collaboration, or CRDT
+apply. Ordinary App document operations continue to use the
+socket-authoritative publication and backend materialization contract.
 
 ### Fast Server-response AI CRDT Correctness
 
@@ -5410,6 +5425,14 @@ benchmark runs.
 
 ## Endpoint Proof Gates
 
+Post-completion correction (2026-08-05): the historical retained-window credit
+iterations above remain execution evidence, but their publication-handoff
+credit conclusion is superseded. A validated frame now returns
+`frame-consumed` as soon as the codec worker owns its retained buffer, allowing
+one publication larger than the server's 2 MiB Peer queue to finish. A
+separate bounded pending-ingress queue withholds credit while retained assembly
+capacity is unavailable and drains FIFO after capacity release.
+
 - Guard: a pure decision test proves the CPU, stale-heartbeat, stalled-progress,
   tracked-process termination, and last-heartbeat report behavior without
   starting a browser.
@@ -5422,11 +5445,12 @@ benchmark runs.
   shared view, one batch observer registry snapshot, no parallel AI/bulk
   history artifact, no synonymous flattened payload graph, and exact
   rollback/Undo/Redo.
-- Receiver: frame acceptance remains Worker-owned; `frame-consumed` releases
-  exact retained-window capacity before App apply and never fabricates capacity
-  for a still-queued publication. Bounded bytes and one active decoded
-  publication survive slow consumer, terminal failure, disconnect, and
-  teardown.
+- Receiver: frame acceptance remains Worker-owned; `frame-consumed` transfers
+  exact frame-byte ownership from the server Peer queue to the validated worker
+  assembly without waiting for complete decode or App apply. Frames waiting
+  outside available assembly capacity receive no credit. Bounded assembly and
+  pending-ingress bytes plus one active decoded publication survive slow
+  consumer, terminal failure, disconnect, and teardown.
 - Remote: one policy pass, one Core request, one remote transaction, no
   quadratic batch/slice scan, Undo, or echo, followed by one serialized
   file-scoped document save.

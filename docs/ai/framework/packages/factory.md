@@ -100,20 +100,32 @@ infrastructure.
 - the reusable framework cooperative render policy defaults to `progressive`;
   callers may explicitly select `atomic` when a complete canonical mutation and
   projection must settle before a dependent mutation starts
+- `runRemoteTransactionProgressively(...)` keeps one remote rollback journal
+  open across ordered synchronous mutation slices and awaits the supplied
+  cooperative settlement only between slices. It creates no local Undo entry
+  or outbound publication, and an ordinary local action transaction cannot join
+  the open remote journal
 - the progressive Undo/Redo route is additive to the synchronous route: when
   the committed History entry carries a progressive delivery sequence or
   already-delivered immediate owner batches, Factory applies the same canonical
-  replay in recorded boundary order; consecutive compatible single-element
-  Scene replay events from one source boundary use the existing plural Scene
-  owner apply in groups of at most 32, after complete batch preflight
+  replay in recorded delivery order; an explicit `batchPublications: false`
+  policy is retained for Undo/Redo so immediate and transaction-end source
+  boundaries settle separately without creating per-slice History. Consecutive
+  compatible single-element Scene replay events from one source boundary use
+  the existing plural Scene owner apply in groups of at most 32, after complete
+  batch preflight
 - Props removal replay preserves each exact source payload as one ordered
   canonical owner batch, matching add replay instead of expanding one payload
   into per-component Factory journal entries
 - recorded progressive boundaries remain exact render boundaries; consecutive
-  immediate source publications remain distinct and ordered but default
-  progressive replay coalesces them into a render slice until 1,024 distinct
-  canonical ids have settled, then reaches the framework host/paint yield;
-  `maxItemsPerSlice` may select another positive budget
+  immediate source boundaries remain ordered while default progressive replay
+  groups their shared evidence into publication windows of at most 512 distinct
+  work items and coalesces completed projection into a render slice until 1,024
+  distinct canonical work items have settled, then reaches the framework
+  host/paint yield;
+  ordered ids are the work identity when present and delivery identity is the
+  fallback when an owner batch has no ordered ids; `maxItemsPerSlice` may
+  select another positive render budget
 - progressive replay remains one History transition inside one outer
   transaction; it does not create per-slice History, clone canonical payloads,
   or introduce a separate AI/item-count replay path
@@ -190,11 +202,18 @@ infrastructure.
   optional collaboration publication during the active transaction
 - delivery timing is independent from `undoable`; non-undoable shared changes
   also default to transaction-end unless immediate delivery is explicit
-- all changes made by one synchronous immediate delivery action are batched in
-  journal order into one publication; a committed transaction-end batch is one
-  publication
-- a pointer session may emit multiple immediate publications while all of its
-  undoable journal entries remain one outer undo commit
+- all changes made by one synchronous immediate delivery action remain one
+  ordered source boundary. Default progressive delivery groups consecutive
+  source boundaries from the same transaction into publication windows of at
+  most 512 distinct work items; ordered ids are used when present and
+  delivery identity is the fallback
+- `FactoryMutationDeliverySequence.batchPublications: false` is the explicit
+  per-slice publication-settlement opt-out for a dependent bulk interaction;
+  it changes neither local projection boundaries nor the one outer undo commit.
+  Factory records the actual source-delivery order on that History entry so
+  Undo reverses and Redo restores the same settlement policy
+- a pointer session may expose multiple immediate source boundaries while all
+  of its undoable journal entries remain one outer undo commit
 - already-published immediate entries are excluded from the transaction-end
   batch; Factory never restores and replays final state solely to publish it
 - publication preserves repeated semantic changes such as A -> B -> C -> B and
@@ -224,9 +243,9 @@ infrastructure.
 - shared channels transport detached committed payloads only; they do not own
   canonical Scene Tree state, Render snapshots, or an independent revision
   authority
-- `subscribeToSharedPublication(...)` observes one immutable minimal
-  `SharedPublication` per synchronous immediate delivery action or committed
-  transaction-end batch. Its exact transport hierarchy is publication
+- `subscribeToSharedPublication(...)` observes each immutable minimal
+  `SharedPublication` window produced from eligible immediate or
+  transaction-end source boundaries. Its exact transport hierarchy is publication
   identity/origin/mode → ordered slices → channel batches → ordered payload
   deliveries
 - the transport publication contains no inverse events, local history or
@@ -237,8 +256,11 @@ infrastructure.
   publication and delivery correlation ids
 - `FactoryMutationDeliverySequence` is the already-decided publication order
   for the active transaction's eligible ordinary shared changes. It carries
-  `atomic` or `progressive` mode plus ordered slice boundaries; it is delivery
-  execution evidence, not History evidence or a planning API
+  `atomic` or `progressive` mode plus ordered slice boundaries and the optional
+  `batchPublications` settlement policy; batching defaults on, while `false`
+  preserves per-slice publication settlement. It is delivery execution
+  evidence retained by the ordinary History entry for replay, not an
+  independent History artifact or a planning API
 - `getActiveStagedDeliveryController()` exposes only
   `setDeliverySequence(...)` and `stageSlice(...)` for a consumer that
   explicitly owns optional staged publication. The sequence does not create a

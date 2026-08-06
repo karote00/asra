@@ -30,7 +30,7 @@
       title: 'Request one backend action batch',
       ownerPackage: 'App server action-batch route',
       purpose:
-        'After Actor A submits an ordinary Agent turn, send its intent, exact image attachment, App context, registered actions, and abort signal through the one same-origin requestActionBatch() transport; the backend prepares and returns one AiActionBatch containing a PreparedDrawingArtifact before Runtime resolution.',
+        'After Actor A submits an ordinary Agent turn, send its intent, exact image attachment, App context, registered actions, and abort signal through the one same-origin requestActionBatch() transport; the sample backend directly reads and returns the checked-in ordered AiActionBatch instruction file before Runtime resolution.',
       inputs: [
         'artifact:precanonical-owner-attribution',
         'Actor A Agent intent',
@@ -47,10 +47,11 @@
         'This step starts only when Actor A presses Send on an ordinary Agent turn; App navigation, required fileId resolution, document load, Agent readiness, and attachment selection do not request or execute a drawing.',
         'requestActionBatch() is the only public provider request and performs exactly one same-origin HTTP POST for the accepted turn.',
         'The request carries the submitted intent, attachment metadata and data URL, App context, registered action descriptions, attempt number, and abort ownership without reading canonical document persistence.',
-        'The backend owns input matching, model or reference-sample processing, server-side geometry preparation, stable descriptor IDs, relationships, summaries, and construction of one AiActionBatch with one batchId.',
-        'The checked-in crdt-7076 backend sample remains the local full-flow request path: its documented URL uses fileId=crdt-7076-sample as document identity and, when a WebSocket endpoint is configured, collaboration identity; the backend accepts its exact checked-in image and instruction through the ordinary request body.',
-        'The separately deployed static demo may load the checked-in compressed canonical crdt-7076 document during document bootstrap without issuing an Agent request or composing Collaboration. That document bootstrap is not an AiActionBatch, provider response, or alternate Agent execution path.',
-        'The crdt-7076 sample backend reads the checked-in previously converted vector source from the same sample folder after the exact image and instruction match; it never invokes VTracer, image conversion, or a model during this sample request.',
+        'The backend owns input matching and ordinary provider response construction. requestActionBatch() returns the crdt-7076 checked-in ordered AiActionBatch instruction file with its batchId and already-prepared arguments.',
+        'The checked-in crdt-7076 backend sample remains the local full-flow request path: its documented URL uses fileId=crdt-7076-sample as both socket-authoritative document identity and Collaboration identity; the backend accepts its exact checked-in image and instruction through the ordinary request body.',
+        'The crdt-7076 sample uses the same socket-authoritative startup as every other fileId. When the socket is unavailable, the formal provisional local document still accepts Actor A HTTP action-batch execution and retains publications in the ordinary outbox; there is no compressed-document Core.load bootstrap, sample-only Reset behavior, or socket bypass. The permanent standalone Reset remains available for every fileId.',
+        'After the exact image and instruction match, the crdt-7076 sample backend reads the checked-in ordered AiActionBatch instruction file directly and returns it without SVG, VTracer, image conversion, geometry reconstruction, normalization, or model work.',
+        'Runtime executes the instruction file actions in order, and each registered action executes its prepared slices in file order through ordinary App common APIs and plural Core routes.',
         'The crdt-7076 sample returns 7,075 ordered editable Vector descriptors inside one prepared Group descriptor, for 7,076 total canonical elements; no route, fileId, query parameter, or startup branch is named or counted as 7,075.',
         'A nonmatching sample request fails explicitly at the backend. It never falls back to a frontend action payload, URL-selected response, prompt-only size selection, response inbox, or client-side action fixture import.',
         'The production client contains no server-response inbox, response seeding, response preload, resident batch, or fileId-selected action payload.',
@@ -62,23 +63,23 @@
       bypasses: [
         'An aborted request cancels the same provider/backend attempt and creates no Runtime, canonical, history, persistence, or CRDT result.',
         'A malformed or unsupported request fails at the provider/backend boundary before Runtime resolution.',
-        'An Actor that only opens the sample URL performs ordinary document startup with zero action-batch request; Collaboration starts only when the WebSocket endpoint is configured.'
+        'An Actor that only opens the sample URL performs ordinary socket document startup with zero action-batch request. Socket unavailability selects the existing provisional local session and never a second App startup route.'
       ],
       allowedContributors: [
         'artifact:precanonical-owner-attribution',
         'single same-origin server action-batch provider',
         'App server action-batch middleware',
         'backend-owned action-batch preparation',
-        'checked-in crdt-7076 sample input and server-owned reference output',
-        'checked-in previously converted crdt-7076 vector source',
-        'required fileId as document identity and configured collaboration identity only'
+        'checked-in crdt-7076 sample input',
+        'checked-in ordered crdt-7076 AiActionBatch instruction file',
+        'required fileId as socket document and Collaboration identity only'
       ],
       forbiddenContributors: [
         'canonical document database client or document snapshot',
         'server-response inbox, startup response preload, or resident action batch',
         'fileId, URL, query parameter, or App bootstrap selecting an action payload',
         'frontend action fixture import, phrase branch, geometry preparation, materialization, or response construction',
-        'VTracer or image conversion during the crdt-7076 sample request',
+        'retained SVG, VTracer input, alternate drawing source, regeneration fallback, or request-time geometry reconstruction',
         'frontend item, path, point, style, bounds, role, or model semantic validation',
         'frontend model normalization or drawing-artifact encoding',
         'frontend replacement IDs for server-issued stable descriptor IDs',
@@ -102,7 +103,7 @@
         'apps/asyra-design/src/startup.ts',
         'apps/asyra-design/server',
         'apps/asyra-design/samples/crdt-7076',
-        'apps/asyra-design/e2e/server-response-inbox.ts',
+        'apps/asyra-design/e2e/action-batch-interceptor.ts',
         'apps/asyra-design/e2e/test-utils.ts',
         'apps/asyra-design/e2e/conversational-ai.spec.ts',
         'apps/asyra-design/e2e/ai-drawing-performance.spec.ts',
@@ -147,7 +148,7 @@
         'The server-prepared action arguments are not recursively cloned or frozen by Runtime. Permission and execution receive the exact same arguments identity.',
         'resolveAiActionBatch() returns one ResolvedAiActionBatch. Permission produces one PermissionReadyAiActionBatch, and confirmation and terminal state retain one AiActionBatchPreview; every stage preserves batchId.',
         'Each server-prepared action carries one bounded redaction-ready summary. AiActionBatchPreview retains and redacts only that summary, never complete item, path, point, coordinate, or geometry arguments.',
-        'The server validates and normalizes every item, path, point, role, style, bound, stable ID, and relationship and builds one PreparedDrawingArtifact containing one prepared Group descriptor and ordered child descriptor slices with complete source creation data before returning the accepted request; the front end performs none of that model work.',
+        'The server or maintained provider output owns preparation of every item, path, point, role, style, bound, stable ID, and relationship. The crdt-7076 instruction file already contains one complete PreparedDrawingArtifact with one prepared Group descriptor and ordered child descriptor slices containing complete source creation data; neither request handling nor the front end repeats that model work.',
         'The front-end composition executor shows the server-prepared loading bounds first and submits those descriptor slices through the existing Core.createElementsInParent(...) route without materializing a second point-object or geometry relationship graph.',
         'The production App constructs one required server-backed Agent runtime during startup; that runtime is never nullable or optional after App initialization.',
         'Create-app template output parity is deferred to a separate follow-up and is not an implementation boundary or completion claim of this CRDT closure.',
@@ -351,7 +352,7 @@
         'Each owner event supplies the before/after or add/remove evidence already required by its ordinary inverter contract, and the outer transaction groups those journal entries into one existing Undo action.',
         'Factory creates no AI/bulk-specific forward/inverse artifact, parallel applied-result mirror, action-completion snapshot, or second history representation.',
         'Render/UI consumes artifact:local-canonical-owner-batch from the canonical owner step and never consumes History or rollback evidence; Collaboration receives only the transport wire artifact.',
-        'The shared-data boundary derives one separate SharedPublication exactly once. Its only hierarchy is publicationId, artifactId, transactionId, origin, mode, optional actual compensatesPublicationId, ordered slices, channel batches, and remote-apply deliveries.',
+        'The shared-data boundary derives each separate SharedPublication window exactly once. Its only hierarchy is publicationId, artifactId, transactionId, origin, mode, optional actual compensatesPublicationId, ordered slices, channel batches, and remote-apply deliveries.',
         'SharedPublication artifactId is an opaque transport correlation identity and never references a local History artifact.',
         'Each publication slice contains only sliceId, orderedIds, and ordered batches; each batch contains only batchId, channel, and deliveries; each delivery contains only deliveryId, eventName, orderedIds, payload, and an optional actual compensatesDeliveryId.',
         'SharedPublication contains one remote-apply payload reference per delivery and no inverseEvents, History evidence, rollback evidence, reserved future compensation IDs, top-level delivery aliases, batch records or changes aliases, or nested record wrapper.',
@@ -360,12 +361,13 @@
         'Shared-delivery bookkeeping records only the existing journal entry delivery outcome and never mirrors canonical payloads into another applied-result object.',
         'The production fast path performs no post-action save, isEqual, finalize-save, full-document comparison, evidence clone, or recursive immutable-tree scan; required mutation-time detachment is not repeated after owner apply.',
         'The canonical owner issues its newly combined frozen Props-then-Scene outer container through the Reactive Events detached-owner contract: that contract checks only frozen transaction structural roots, records the exact outer identity, and never traverses nested geometry; unissued external shallow-frozen batches remain isolated at the Factory boundary.',
-        'Local observers receive one ordinary canonical owner batch, while Collaboration receives only the one transport wire artifact; transport framing does not split local projection into single-entry changes.',
+        'Local observers receive one ordinary canonical owner batch, while Collaboration receives only the ordered transport publication windows; transport framing does not split local projection into single-entry changes.',
         'A successful mutating turn creates one intended Undo action, and Undo and Redo each restore the complete action.',
         'Existing Undo and Redo journal replay preserves owner event order and returns to the canonical owner; only an actually delivered shared change is eligible for the corresponding replay publication.',
         'Progressive publication boundaries create no new canonical writes and no additional history actions.',
         'The reusable framework cooperative render policy defaults to progressive, while an explicit atomic opt-out is available to future dependent bulk interactions that must settle a complete canonical mutation and projection before their next mutation.',
-        'Undo and Redo reuse the source action progressive slice boundaries or already-delivered immediate owner-batch boundaries. Compatible consecutive single-element Scene events inside one source boundary use the plural Scene owner apply in batches of at most 32 after complete preflight. Recorded progressive boundaries remain exact render boundaries; immediate source publications remain distinct and ordered while completed projection is coalesced into render slices with a default budget of 1,024 distinct canonical ids. The framework host-yield/paint adapter exposes each render slice without splitting the one History transition or outer transaction.',
+        'Progressive shared delivery batches consecutive slices from one transaction into bounded publication windows of at most 512 distinct work items by default. Ordered ids are the work identity when present; delivery identity is the fallback for owner batches without ordered ids. Setting batchPublications to false preserves per-slice publication settlement for a dependent interaction that requires it; this transport option changes neither local slice projection nor the one History transaction.',
+        'Undo and Redo reuse the source action progressive slice boundaries or already-delivered immediate owner-batch boundaries. Compatible consecutive single-element Scene events inside one source boundary use the plural Scene owner apply in batches of at most 32 after complete preflight. Recorded progressive boundaries remain exact render boundaries; immediate source boundaries remain ordered while their shared evidence is coalesced into publication windows of at most 512 distinct work items and completed projection is coalesced into render slices with a default budget of 1,024 distinct work items. The framework host-yield/paint adapter exposes each render slice without splitting the one History transition or outer transaction.',
         'Rollback of an already-published immediate slice uses compensation from the inverse already retained by the existing journal.',
         'An observer mutation attempt cannot pollute another consumer or the retained journal entry.',
         'Single-delivery conveniences delegate to batch-of-one rather than a second canonical implementation.'
@@ -664,8 +666,9 @@
       conditions: [
         'Core preserves each injected Factory batch through one batch observer callback so Preset consumes the exact boundary without importing the default Factory instance.',
         'Preset and UI consume one local canonical batch directly; transport may expose ordered record ranges, but Factory does not split local projection into single-entry changes.',
-        'Each formal local or remote canonical batch performs one batch projection and at most one visible flush.',
-        'The fixed progressive composition route performs one projection for each formal slice and never collapses to a final-only peer frame.',
+        'Each formal local canonical slice or remote publication window performs one batch projection and at most one visible flush.',
+        'When a later owner event in the same transaction already removed a canonical parent, an earlier valid child-removal projection consumes the retained owner event and computed mirror instead of rejecting the child removals solely because the canonical parent is absent.',
+        'The fixed progressive composition route preserves every local slice and exposes each bounded remote publication window; it never collapses the complete action to one final-only peer frame.',
         'One invalidation and one frame flush occur at most once per slice.',
         'The ordinary Vector strategy preserves all 7,076 editable elements, complete Render topology, transforms, hierarchy, fills, strokes, and visibility.',
         'UI context updates affected entries and hierarchy order without rebuilding the complete map for every ADD_ELEMENT.',
@@ -762,8 +765,8 @@
         'The existing codec runs in the Dedicated Worker without a new package.',
         'Outbound encoding performs one object-to-worker structured clone; the Worker encodes the publication and writes each frame directly to the Worker-owned WebSocket.',
         'Prepared compact-binary metadata and delivery segments write directly into each final frame allocation without an intermediate full-publication payload copy.',
-        'Inbound decoding validates version, header, chunk order, duplicate identity, and payload schema exactly once in the worker.',
-        'The Worker posts one decoded publication candidate through the sole worker-to-main structured-clone boundary without main-thread JSON pre-serialization, recursive clone, or recursive freeze.',
+        'Inbound decoding validates version, header, chunk order, duplicate identity, lengths, tags, references, and other codec-integrity facts exactly once in the worker while reconstructing the trusted payload; it does not run a separate recursive product-schema validation pass.',
+        'The Worker posts one decoded trusted publication candidate through the sole worker-to-main structured-clone boundary without main-thread JSON pre-serialization, recursive clone, recursive freeze, or later product-payload revalidation.',
         'The 1 MiB frame target is soft; one indivisible canonical record may exceed it without a product ceiling.',
         'Invalid, unsupported-version, and truncated frames reject through ProviderFailure.'
       ],
@@ -785,7 +788,9 @@
         'main-thread publication byte send',
         'main-thread publication compression',
         'element, point, payload, or composition ceiling',
-        'worker-owned App policy'
+        'worker-owned App policy',
+        'standalone recursive isJsonTransportValue payload pre-walk',
+        'repeated product-payload schema validation after codec reconstruction'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -813,7 +818,7 @@
       ownerPackage:
         'Asyra Design Dedicated Worker WebSocket receiver scheduler',
       purpose:
-        'Admit validated inbound publication bytes independently from main-thread canonical apply, expose one decoded publication to one required async consumer, and keep wire credit, App settlement, and teardown distinct.',
+        'Admit wire-verified inbound publication bytes independently from main-thread canonical apply, expose one decoded trusted publication to one required async consumer, and keep wire credit, App settlement, and teardown distinct.',
       inputs: [
         'artifact:precanonical-owner-attribution',
         'artifact:relayed-publication-frames',
@@ -830,14 +835,15 @@
       conditions: [
         'A Dedicated Worker owns the browser WebSocket data plane, receives publication bytes, performs wire admission, and sends frame-consumed directly on its socket without waiting for the main thread.',
         'The main-thread Provider never receives inbound publication bytes and never sends frame-consumed; it exchanges only bounded commands, normalized control evidence, one decoded publication handoff, and apply settlement with the Worker.',
-        'Inbound ArrayBuffer data enters a bounded 2 MiB frame-ingress window; one active oversized publication assembly is allowed only without a second queued publication.',
-        'After worker header, order, duplicate, and capacity validation, frame-consumed credit is emitted only when that publication leaves the retained byte window for the one App handoff, independently of whether later App policy or canonical apply succeeds.',
-        'The worker-to-main structured clone is the only inbound object isolation boundary; validated publication evidence enters a single-consumer ownership contract without a Provider clone or recursive main-thread freeze.',
+        'Inbound ArrayBuffer data enters a bounded 2 MiB retained assembly window; the currently assembling publication may exceed it only as one indivisible or continued oversized assembly. Already-relayed later frames may occupy one separate bounded 2 MiB pending-ingress queue without credit and drain in FIFO order after retained capacity is released.',
+        'When multiple Actors interleave within the retained window, the oldest already-started assembly continuation may finish and become the sole oversized assembly even if later accepted frames occupy residual capacity; after that crossing, different assemblies wait without credit until the oversized assembly is released.',
+        'After worker header, order, duplicate, and capacity validation transfers ownership of a frame buffer into the retained assembly window, frame-consumed credit is emitted immediately for that exact frame without waiting for complete publication decode, App policy, or canonical apply.',
+        'The worker-to-main structured clone is the only inbound object isolation boundary; the decoded trusted publication enters a single-consumer ownership contract without a Provider clone, recursive main-thread freeze, or product-schema revalidation.',
         'The receiver retains bounded decoded candidates while exposing exactly one read-only publication to exactly one required async Collaboration consumer until its Promise settlement.',
         'Receiver-handoff timing starts only after one decoded candidate is ready and closes after the sole main-bound publication-delivery post returns; it excludes codec decode and retained-queue time so owner phases do not overlap.',
         'The Dedicated Worker keeps one outbound publication frame in flight and sends the next frame directly on its WebSocket only after exact source-frame-admitted credit.',
         'Successful remote publication settlement releases the next decoded publication; terminal apply failure clears active and pending publications and releases no fabricated progress.',
-        'Slow App apply may fill but cannot overrun the exact retained byte window; queued publications return no fabricated wire credit, and each ordered handoff releases its exact frame credits before that App apply begins.',
+        'Slow App apply may fill but cannot overrun the retained assembly and pending-ingress windows; queued frames return no fabricated wire credit, and each ordered publication handoff remains exclusive until App settlement.',
         'Disconnect, worker teardown, and invalid settlement reject pending work through ProviderFailure and close all receiver-owned capacity.'
       ],
       bypasses: [
@@ -861,13 +867,15 @@
         'unbounded main-thread frame or publication queue',
         'overlapping decoded publication consumers',
         'main-thread recursive publication clone or freeze',
-        'Provider-owned App policy or canonical mutation'
+        'Provider-owned App policy or canonical mutation',
+        'main-thread recursive route or product-payload schema validation'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'apps/asyra-design/src/collaboration/collaboration-transport-worker.ts',
         'apps/asyra-design/src/collaboration/publication-codec-worker.ts',
         'apps/asyra-design/src/collaboration/websocket-provider.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-protocol.test.ts',
         'apps/asyra-design/src/init/__tests__/collaboration-websocket-provider.test.ts',
         'packages/collaboration/src/provider.ts',
         'packages/collaboration/src/process.ts',
@@ -911,7 +919,7 @@
         'After one source frame enters every request-start peer queue whose peer remains open through admission, the server returns exact source-frame-admitted credit; the provider sends no next publication frame before that credit.',
         'The JSON control fast path remains readable while publication admission is blocked; the server does not use socket-wide pause to bound source frames.',
         'server-accepted means current peer queues had bounded capacity and does not mean a peer decoded or applied the publication.',
-        'peer-applied remains a separate receipt after main-thread canonical apply.',
+        'peer-applied remains a separate receipt after main-thread canonical apply and cooperative projection settlement.',
         'Client and server explicitly configure perMessageDeflate: false.'
       ],
       bypasses: [
@@ -956,7 +964,7 @@
       title: 'Apply remote publication batches',
       ownerPackage: 'Asyra Design Collaboration adapter',
       purpose:
-        'Apply each decoded source publication through one remote Factory transaction and one canonical batch observer delivery without creating local-only side effects.',
+        'Apply each decoded trusted source publication through one remote Factory transaction, ordered source-slice canonical batches, and framework cooperative presentation without creating local-only side effects.',
       inputs: ['artifact:decoded-publication-batches'],
       outputs: [
         'artifact:remote-factory-mutation-batch',
@@ -966,18 +974,20 @@
       ],
       conditions: [
         'One source publication owns one remote Factory transaction; different publications are not merged.',
-        'The decoded publication is already wire-normalized, while App policy and canonical preflight remain in the App/Core owner.',
+        'The decoded publication is already wire-normalized and trusted product data; App and Core do not repeat recursive route/payload schema validation.',
         'The App organizes source slices, batches, delivery order, and batch-to-slice membership in one linear pass per accepted publication; later classification consumes that organization without rescanning slices or merging publications.',
-        'Props, relationships, instances, Scene Tree, and Factory evidence apply through one batch boundary.',
+        'Within one accepted publication, the App may coalesce adjacent non-container element-removal changes into one ordered Core canonical request. Any removal whose canonical element data owns children is a lifecycle barrier, so container and subtree semantics retain their original request order.',
+        'Props, relationships, instances, Scene Tree, and Factory evidence apply through the ordered source-slice boundaries inside the one publication transaction.',
         'The remote Factory transaction exposes a batch-capable owner so the same atomic Factory evidence handoff remains available without Undo, echo publication, or persistence.',
-        'Reactive publication takes one observer-registry snapshot and invokes the batch observer once while preserving event order.',
+        'Reactive publication preserves event order and lets Render consume each visible source slice while hierarchy/UI projections that do not require per-slice visibility coalesce to their declared framework batch boundary.',
         'Actor B produces no Undo, echo publication, or persistence save; it only applies the received canonical changes and updates downstream projections.',
-        'Remote publication settlement is a discriminated success or terminal failure outcome: success resolves after canonical apply completes, while failure tears down the active and pending publications and releases none.',
-        'The remote owner emits peer-applied after canonical apply completes; it remains distinct from frame-consumed credit and never waits for receiver persistence.'
+        'After every successful visible source slice, Actor B crosses the framework cooperative host-and-paint boundary before applying the next slice so it visibly progresses instead of revealing the complete publication only at terminal settlement.',
+        'Remote publication settlement is a discriminated success or terminal failure outcome: success resolves after all ordered canonical slices and their cooperative projection settlements complete, while failure leaves no partial publication prefix, advances no sequence, tears down active and pending publications, and requires authoritative resynchronization.',
+        'The remote owner emits peer-applied after canonical apply and projection settlement complete; it remains distinct from frame-consumed credit and never waits for receiver persistence.'
       ],
       bypasses: [
         'Disconnected or closed transport performs no remote transaction.',
-        'Invalid App policy or canonical input fails before mutation.',
+        'A sequence or codec-integrity failure rejects before mutation; an unexpected atomic apply failure rolls back and requires authoritative resynchronization.',
         'An upstream worker teardown yields no decoded publication and preserves ProviderFailure.'
       ],
       allowedContributors: [
@@ -989,10 +999,14 @@
       forbiddenContributors: [
         'one remote transaction per canonical event',
         'merging different source publications',
+        'coalescing across a container removal lifecycle barrier',
         'remote Undo or echo publication',
         'receiver persistence load, save, or clear',
         'generic Collaboration, Factory, or Core ownership of App database policy',
-        'whole-document peer regeneration'
+        'whole-document peer regeneration',
+        'recursive route or product-payload schema validation after trusted decode',
+        'one final-only paint after all source slices',
+        'silent failed-sequence skip or partial-prefix commit'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -1018,107 +1032,112 @@
       failureOwnerStepId: 'apply-remote-publication-batches'
     },
     {
-      id: 'load-file-scoped-demo-document',
+      id: 'open-socket-authoritative-document-session',
       order: 1,
       laneId: 'persistence-proof',
-      title: 'Load and save one file-scoped document',
-      ownerPackage: 'Asyra Design RenderApp persistence composition',
+      title: 'Open one socket-authoritative document session',
+      ownerPackage: 'Asyra Design RenderApp Collaboration composition',
       purpose:
-        'Require fileId to select one App document, inject the same-origin document database provider before Core starts, continue with the file-specific initial canonical document and a visible error when the database is unavailable, optionally compose Collaboration only when a WebSocket endpoint is configured, and persist only actions originated by this client.',
+        'Require fileId to select one socket-authoritative document and Collaboration identity, prepare its checkpoint before Core starts, activate live delivery after Core hydration, and preserve the ordinary provisional local action path when the socket is unavailable.',
       inputs: [
         'required fileId URL',
         'Asyra Design RenderApp startup policy',
-        'same-origin document database endpoint',
-        'checked-in compressed crdt-7076 canonical document',
+        'configured or same-deployment Collaboration WebSocket endpoint',
         'artifact:remote-publication-settlement'
       ],
-      outputs: [
-        'artifact:file-scoped-demo-document-snapshot',
-        'artifact:document-database-status'
-      ],
+      outputs: ['artifact:socket-authoritative-document-session-status'],
       conditions: [
         'A missing or empty fileId does not open a document session.',
-        'RenderApp derives one same-origin document database URL from required fileId, injects that provider before Core starts, and lets Core load the stored canonical snapshot or the file-specific initial canonical document.',
-        'When the document database is unavailable, malformed, or returns a failure, the App exposes a visible unavailable status and continues Core and Canvas startup with the file-specific initial canonical document. Database availability never owns App availability.',
-        'The required fileId supplies document identity. When VITE_COLLABORATION_WS_URL is configured it also supplies document and room identity; a missing endpoint or failed WebSocket connection does not block Core, Canvas, or local editing.',
+        'Every required fileId, including crdt-7076-sample, creates one socket-authoritative document and Collaboration identity. No fileId may select a second RenderApp, Core.load, persistence, or Collaboration composition.',
+        'RenderApp derives the configured or same-deployment WebSocket endpoint, prepares the socket checkpoint and pending tail before Core starts, supplies only that checkpoint through SocketDocumentSession, and activates live publication delivery only after Core hydration.',
+        'When the socket is unavailable, the lifecycle returns the formal provisional local checkpoint so Core, Canvas, local actions, AI actions, Undo, and Redo remain available; local publications enter the ordinary durable outbox and connection failures remain console diagnostics plus the ordinary connection-state notification.',
         'Root dev:all starts only workspace package watchers and the App dev server. The explicit collaboration:server command or collaboration Playwright startup separately owns the reference WebSocket server.',
         'With one connected Actor the session is classified as single-Actor; when a second Actor joins the same document session it is classified as two-Actor CRDT processing.',
-        'The required fileId selects only the document and configured collaboration session; it never selects, preloads, or stores an Agent action payload.',
-        'Ordinary local actions, AI actions, Undo, and Redo reuse the existing Core autosave boundary and save one current canonical snapshot from the client that originated the operation.',
-        'Each accepted remote publication performs canonical apply and projection with zero persistence, zero Undo, and zero echo. peer-applied acknowledges canonical apply completion and never waits for receiver durability.',
-        'The deployed crdt-7076 URL loads the checked-in compressed canonical document with exactly 7,076 non-workspace elements when the database request fails; it does so without Collaboration when no WebSocket endpoint is configured.',
-        'The deployed App still attempts the formal database endpoint. It has no demo-only persistence provider, fake database success, or alternate document route.',
-        'Playwright server commands alone may enable one E2E-only in-memory implementation of the exact same-origin database contract. That test fixture is absent from ordinary development and production startup and never becomes a product persistence fallback.',
-        'resetData accepts only crdt-7076-sample, stores one fresh App-owned empty document under the file-scoped demo browser key, and forces a page reload only after that write succeeds.',
-        'The reloaded crdt-7076 demo reads the stored empty document before the checked-in sample asset; no shared mutable empty-document singleton exists.',
-        'Core.load remains the sole FILE_LOAD_COMPLETE publisher during the reloaded startup. resetData itself does not call Core load or synthesize file readiness.',
-        'Reset Data is a temporary public-demo utility. It creates no Core mutation, Factory action, Undo entry, collaboration publication, or backend persistence request and will be removed from the formal App.',
-        'The request-time Agent transport remains separate from document persistence and never doubles as document storage.',
-        'There is no ordinary-document IndexedDB or localStorage snapshot fallback, old-format compatibility branch, dual document format, or second canonical state owner. The sole browser-document key belongs to the temporary crdt-7076 Reset.',
-        'The frontend defines the formal database client contract; a future App developer supplies the matching production database server without changing frontend composition.',
+        'The required fileId selects only the socket document and Collaboration session; it never selects, preloads, or stores an Agent action payload.',
+        'The crdt-7076 sample request uses the same HTTP action-batch interceptor regardless of socket availability. The interceptor reads the checked-in ordered AiActionBatch instruction file directly; Actor A executes it through ordinary Runtime and canonical owners, while a connected Actor B receives only Actor A CRDT publications.',
+        'With the socket unavailable, the same HTTP action-batch execution creates all 7,076 canonical elements locally and attempts the same publication route; the failed transport remains recoverable through the ordinary outbox and reports its operation error to the console.',
+        'Each accepted remote publication performs canonical apply and one cooperative projection settlement with zero persistence, zero Undo, and zero echo. peer-applied acknowledges canonical and projection completion and never waits for receiver durability.',
+        'The lifecycle gives each immutable Factory publication to the explicit Factory-owned outbox append boundary by identity. The outbox waits for the IndexedDB durable put before socket send but performs no second source-side publication clone or recursive freeze; its generic append boundary still snapshots mutable input.',
+        'The server persistence queue separates its bounded admission buffer from each durable HTTP request: at most 256 publications and 256 MiB of accepted evidence may wait behind one in-flight request, while each durable request drains only one contiguous prefix within an 8 MiB soft wire-byte limit and permits one larger indivisible publication to travel alone.',
+        'Server canonical deletion materialization preserves the same exact owned-property closure and save evidence while traversing its growing reference queue with one monotonic cursor and one visited set; it never performs repeated array-head compaction for high-detail shared or cyclic property graphs.',
+        'When accepted publications temporarily fill the bounded persistence queue, source admission waits for durable capacity and resumes in original sequence without closing the source socket, dropping the request, or changing the publication payload.',
+        'The request-time Agent transport remains separate from socket document bootstrap and never doubles as a checkpoint, pending tail, or CRDT state owner.',
+        'The toolbar Reset control remains permanently visible for every fileId unless the product owner explicitly requests removal. It is an isolated stored-file utility: one click attempts to delete only the current backend checkpoint and always refreshes after the request settles, including when a storage-free demo has no backend, with no Core, Feature, transaction, History, Selection, Factory publication, Collaboration, or CRDT operation.',
+        'Ordinary Vite development proxies the permanent Reset same-origin DELETE through DOCUMENT_PERSISTENCE_BACKEND_URL. The E2E backend override may take precedence only when explicitly configured and is never required for an ordinary Reset.',
+        'There is no checked-in compressed canonical document Core.load bootstrap, localStorage Reset, sample-specific socket bypass, fake connection success, alternate fileId, old-format compatibility branch, or second canonical state owner.',
         'Single-Actor and two-Actor sessions still preserve one outer action transaction, exact Undo and Redo, canonical IDs, complete detail, and ordered canonical publication.'
       ],
       bypasses: [
-        'A failed document database load reports unavailable and loads one file-specific initial canonical document without claiming persistence success.',
-        'A missing WebSocket endpoint bypasses Collaboration composition while preserving the same document, Core, Canvas, action, and persistence owners.',
-        'Formal server checkpoint policy, authorization, multi-device durability, and backend database ownership remain outside this reference App step.'
+        'Socket unavailability uses the existing provisional local checkpoint and durable outbox without bypassing Collaboration composition.',
+        'An Actor that only opens the sample URL performs zero action-batch request and remains on the same socket-authoritative startup path.',
+        'A malformed or unsupported HTTP action-batch request fails before Runtime and canonical mutation.'
       ],
       allowedContributors: [
         'required fileId App startup',
-        'fileId-selected App document identity',
+        'fileId-selected socket document and Collaboration identity',
         'Asyra Design RenderApp startup',
-        'App-owned same-origin document database provider',
-        'Core persistence provider and autosave boundaries',
-        'App-owned fresh empty-document factory and crdt-7076 demo storage key',
-        'checked-in compressed canonical sample generator and asset',
-        'temporary crdt-7076 save-empty-then-refresh Reset',
-        'Collaboration status observation'
+        'Asyra Design Collaboration lifecycle checkpoint, pending-tail, live-delivery, and durable-outbox owners',
+        'single same-origin HTTP action-batch interceptor',
+        'checked-in crdt-7076 request input and ordered AiActionBatch instruction file',
+        'ordinary Collaboration connection and operation diagnostics'
       ],
       forbiddenContributors: [
-        'Agent action-batch transport as canonical document persistence',
-        'IndexedDB or localStorage document storage, migration, or fallback for any ordinary socket document',
-        'demo-only fake persistence or database success',
+        'Agent action-batch transport as a socket checkpoint or document snapshot',
+        'checked-in compressed canonical document startup load',
+        'localStorage Reset or demo bootstrap state',
+        'sample-specific socket rejection, null Collaboration mode, or alternate startup path',
+        'demo-only fake connection success',
         'receiver-side persistence, Undo, or echo publication',
         'old-format compatibility or dual-format document branches',
-        'Factory, Collaboration, or transport ownership of App database policy',
         'synthetic FILE_LOAD_COMPLETE publication from Render readiness',
-        'treating the temporary demo Reset as a CRDT clear action or formal App operation',
         'a URL route that opens a document without fileId',
-        'treating fileId alone as proof that a collaboration endpoint exists',
-        'a separate demo-only Core or persistence startup path',
         'changes to Factory history or transaction semantics'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'apps/asyra-design/package.json',
-        'apps/asyra-design/scripts/generate-crdt-7076-document.ts',
+        'apps/asyra-design/README.md',
+        'apps/asyra-design/vite.config.ts',
         'apps/asyra-design/samples/crdt-7076',
+        'apps/asyra-design/server/action-batch.ts',
         'apps/asyra-design/server/__tests__/action-batch.test.ts',
-        'apps/asyra-design/src/config/demo-document.ts',
+        'apps/asyra-design/server/document-canonical-reducer.ts',
+        'apps/asyra-design/server/__tests__/document-canonical-reducer.test.ts',
+        'apps/asyra-design/server/document-persistence-queue.ts',
+        'apps/asyra-design/server/__tests__/document-persistence-queue.test.ts',
+        'apps/asyra-design/collaboration-server.ts',
+        'apps/asyra-design/__tests__/collaboration-server.test.mjs',
         'apps/asyra-design/src/config/empty-document.ts',
         'apps/asyra-design/src/controllers/app.ts',
         'apps/asyra-design/src/controllers/__tests__/app.test.ts',
-        'apps/asyra-design/src/contexts/data-change.tsx',
-        'apps/asyra-design/src/contexts/__tests__/data-change.test.tsx',
-        'apps/asyra-design/src/document-persistence.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-production-bundle.test.mjs',
+        'apps/asyra-design/src/toolbar/reset-stored-document.ts',
+        'apps/asyra-design/src/toolbar/__tests__/reset-stored-document.test.ts',
         'apps/asyra-design/src/render-app/index.tsx',
         'apps/asyra-design/src/render-app/collaboration-mode.ts',
         'apps/asyra-design/src/collaboration/lifecycle.ts',
-        'apps/asyra-design/src/render-app/__tests__',
+        'apps/asyra-design/src/collaboration/publication-outbox.ts',
+        'apps/asyra-design/src/init/__tests__/collaboration-publication-outbox.test.ts',
         'apps/asyra-design/src/render-app/__tests__/collaboration-mode.test.ts',
-        'apps/asyra-design/src/render-app/__tests__/document-persistence.test.ts',
         'apps/asyra-design/src/render-app/__tests__/render-app-strict-mode.test.tsx',
+        'apps/asyra-design/src/toolbar/tool-button.tsx',
+        'apps/asyra-design/src/toolbar/__tests__/reset-control.test.tsx',
+        'apps/asyra-design/server/document-backend.ts',
+        'apps/asyra-design/server/document-backend-store.ts',
+        'apps/asyra-design/server/__tests__/document-backend-reset.test.ts',
+        'apps/asyra-design/e2e/app.spec.ts',
         'apps/asyra-design/playwright.config.ts',
         'apps/asyra-design/__tests__/playwright-config.test.mjs',
-        'apps/asyra-design/e2e',
+        'apps/asyra-design/e2e/crdt-7076-render.spec.ts',
+        'apps/asyra-design/e2e/collaboration-ai-agent-video.spec.ts',
         'docs/ai/apps/asyra-design'
       ],
       specRefs: [
-        '#file-scoped-demo-persistence',
+        '#socket-authoritative-7076-sample',
         '#transaction-boundary',
         '#step-local-gates'
       ],
-      failureOwnerStepId: 'load-file-scoped-demo-document'
+      failureOwnerStepId: 'open-socket-authoritative-document-session'
     },
     {
       id: 'evaluate-endpoint-performance',
@@ -1173,18 +1192,18 @@
         'Production build commands are a separate setup outside the runtime guard and product timing; artifact attestation must succeed before Playwright starts, runtime safety begins with the production App processes, and operation timing begins only at Actor A request submission.',
         'Production artifact attestation is separate from response overlay attestation and both complete before Playwright starts; the guard rejects either stale or mismatched artifact.',
         'The preview overlay copies the attested production dist and adds only generated compressed server response artifacts and their manifest; canonical production dist contains no server response and the preview overlay can never be used for production deployment.',
-        'A fixed two-Actor tracked process registry contains only test-harness, client-a-browser, client-b-browser, app-server, and websocket-server; single-Actor attribution omits only client-b-browser; exactly one production preview and one WebSocket server are test-owned, HMR is absent, and no pre-existing listener participates.',
+        'A fixed two-Actor tracked process registry contains only test-harness, client-a-browser, client-b-browser, app-server, document-backend, and websocket-server; single-Actor attribution omits only client-b-browser; exactly one production preview, one document backend, and one WebSocket server are test-owned, HMR is absent, and no pre-existing listener participates.',
         'One bounded operating-system ps snapshot supplies exact tracked PID, PPID, PGID, cumulative CPU-time, and command identity without supplying formal CPU percentages. Darwin top filters on those exact PIDs plus one long-lived unreported guard-process anchor and produces two bounded pid,cpu tables; the initialization table is ignored, the second current percent-CPU table is intersected with the exact still-live test-owned identities, and the anchor plus untracked system PIDs are ignored. Polling nominally every 1,000 milliseconds only requests another current raw value; cadence is not a measurement window and never participates in a CPU-percentage formula.',
         'Periodic and phase-boundary sampling share one serialized OS sample and state-consumption queue, so no overlapping ps/top command or out-of-order state update can combine current CPU values from different top tables.',
         'A fixed 7,000-millisecond gap between successfully completed raw observations permits two adjacent serialized requests to consume their existing 3,000-millisecond command deadlines plus bounded scheduling and HTTP handoff; anything larger fails closed because the guard may have missed a raw current system peak, and the gap never constructs a longer interval average or changes a raw percent-CPU value.',
         'The proof-class raw same-snapshot limit for each complete Actor browser process group—500 percent for the exact 7,076-element endpoint and 250 percent for 16-item or 1,280-item safety or attribution—plus the proof-class aggregate limit—500 percent for the exact 7,076-element endpoint and 400 percent for 16-item or 1,280-item safety or attribution—applies before and after guard readiness; Actor A and Actor B are never added for the per-Actor frontend decision, while bootstrap overload is reported as bootstrap rather than attributed to a product request.',
         'Each Actor browser role reports its root-browser, GPU, utility, other browser subprocesses, and each renderer PID separately while retaining every raw same-snapshot system percent in that Actor frontend total and the aggregate safety total. Actor A and Actor B retain separate highest complete raw frontend snapshots; backend and harness CPU enter neither Actor peak, although both Actor browser values plus backend and harness remain inside aggregate stop evaluation and the proof-class violation report. Page-target CDP reports TaskDuration, ScriptDuration, LayoutDuration, and RecalcStyleDuration, CDP-visible worker targets are listed as visible worker target evidence, and any renderer CPU not explained by those signals remains explicitly residual renderer evidence rather than being guessed as page or worker ownership.',
-        'A single-Actor attribution invocation starts a fresh client-a-browser process group and App preview, navigates one required fileId URL, establishes its Collaboration session through the required WebSocket server, creates no Actor B or client-b-browser process group, and requires the fixed test-harness, client-a-browser, app-server, and websocket-server roles.',
+        'A single-Actor attribution invocation starts a fresh client-a-browser process group, App preview, and document backend, navigates one required fileId URL, establishes its Collaboration session through the required WebSocket server and durable backend, creates no Actor B or client-b-browser process group, and requires the fixed test-harness, client-a-browser, app-server, document-backend, and websocket-server roles.',
         'Each single-Actor invocation measures exactly one 16-item, reduced-motion 16-item, or 1,280-item case so a preceding Chrome startup or navigation decay cannot contaminate a later case.',
         'Each attribution invocation may retain request-wide cumulative OS process CPU-time milliseconds as non-percentage diagnostic evidence; it never converts those deltas into CPU percent. Ordered browser-monotonic Runtime, provider, App, and loading spans provide inner owner attribution, while raw system percent-CPU snapshots never become nested phase timers.',
         'Every phase-boundary sample passes through the same active proof-class raw same-snapshot frontend evaluation—500 percent for the exact 7,076-element endpoint or 250 percent for 16-item and 1,280-item safety or attribution—and the proof-class aggregate safety evaluation—500 percent for the exact 7,076-element endpoint or 400 percent for 16-item and 1,280-item safety or attribution—as the periodic sampler and requires exact PID set equality; any observed process identity change before an accepted terminal heartbeat makes attribution invalid, and raw OS CPU can never be the sole owner-attribution signal.',
         'After one valid terminal complete heartbeat is accepted, the product proof window is closed: later Chrome teardown process-identity changes cannot create a resource stop or invalidate the accepted proof, while exact tracked process-group termination must still be confirmed.',
-        'Response inbox seed, read, structured clone, and handoff are external backend and transport-adapter timing: they are recorded separately but excluded from frontend product execution, Runtime, Render, and CRDT effectiveness. Bootstrap before ready remains safety-only and legal pre-ready process registration or identity churn resets the candidate baseline without attribution.',
+        'The test-only HTTP action-batch interceptor artifact fetch, decode, and route-install spans are external harness timing: they are recorded separately but excluded from frontend product execution, Runtime, Render, and CRDT effectiveness. The interceptor owns no startup page, IndexedDB inbox, resident action batch, or preload phase. Bootstrap before ready remains safety-only and legal pre-ready process registration or identity churn resets the candidate baseline without attribution.',
         'After App, Collaboration, and Agent readiness settle, the harness resolves the prompt field and submit control, performs attachment selection, prompt fill, locator resolution, and actionability outside the product boundary, then establishes one complete raw system snapshot for the process identity. App-owned request acceptance or dispatch starts local-request and retains the maximum raw frontend system value observed during the product window; the provider request and backend preparation occur inside that product window, and no Playwright locator, visibility, count, text, or attribute polling may execute in it. One App-owned O(1) scalar completion signal ends product timing, and UI correctness assertions run only after that boundary.',
         'In-page interaction evidence uses event-driven observation plus a fixed bounded frame handoff for each requested assertion; it never runs a recursive requestAnimationFrame polling loop or creates a second per-frame workload during the product window.',
         'Playwright progress observation performs at most one O(1) scalar sample in each Actor every five seconds during the product window; the independent 1,000-millisecond current raw operating-system sampler, ten-second heartbeat deadline, and twenty-second progress deadline remain unchanged.',
@@ -1277,6 +1296,9 @@
         'apps/asyra-design/e2e/crdt-endpoint-performance.spec.ts',
         'apps/asyra-design/e2e/prepared-server-response-artifacts.mjs',
         'apps/asyra-design/e2e/prepare-server-response-preview.mjs',
+        'apps/asyra-design/e2e/action-batch-interceptor.ts',
+        'apps/asyra-design/test-data/ai-drawing/__tests__/action-batch-interceptor.test.ts',
+        'apps/asyra-design/e2e/collaboration.spec.ts',
         'apps/asyra-design/src/index.tsx',
         'apps/asyra-design/e2e/performance-resource-guard.mjs',
         'apps/asyra-design/playwright.endpoint-performance.config.ts',
@@ -1338,8 +1360,7 @@
         'artifact:visible-canonical-slices',
         'artifact:ui-context-batch-projection',
         'artifact:render-ui-timing',
-        'artifact:file-scoped-demo-document-snapshot',
-        'artifact:document-database-status',
+        'artifact:socket-authoritative-document-session-status',
         'artifact:endpoint-performance-proof'
       ],
       outputs: ['artifact:performance-equivalence-proof'],
@@ -1354,6 +1375,7 @@
         'Local performance and maximum-detail gates launch background headless Chrome for Testing so automation never steals the product owner desktop focus; they apply no CPU quota, process-count limit, worker-count limit, memory ceiling, software-rendering requirement, or Playwright retry, while workers: 1 limits concurrent test cases only and never limits one browser process group.',
         'A maximum-detail-only rotating DevTools diagnostic may retain one fixed-capacity cross-slice heavy-hitter summary with source locations and explicit approximation error; it stores no profile artifact, does not enter raw CPU percentage or stop decisions, and cannot satisfy the maximum-detail acceptance gate.',
         'Canonical equivalence compares exact IDs, order, point counts, geometry data, complete Render topology, hierarchy, bounds, transforms, roles, styles, visibility, and transaction evidence.',
+        'The guarded 7,076-element history proof requires Actor B Undo and Redo to expose intermediate canonical and Render paints, keep every adjacent distinct progress observation within 20 seconds, converge both projections within 30 seconds, and retain zero receiver Undo, echo, or persistence.',
         'Synchronized Actor A and Actor B screenshots come from the same measured live App state and are inspected for complete uncropped output, Styles, IDs, and hierarchy.',
         'Generated screenshots, recordings, traces, profiles, and thumbnails are ignored and never committed.'
       ],
@@ -1720,7 +1742,7 @@
       to: 'admit-receiver-publication-frames',
       kind: 'handoff',
       predicate:
-        'The worker decoded and validated one transferable publication candidate.',
+        'The worker reconstructed one wire-verified trusted publication candidate.',
       producedArtifacts: ['artifact:decoded-publication-candidates']
     },
     {
@@ -1729,7 +1751,7 @@
       to: 'apply-remote-publication-batches',
       kind: 'handoff',
       predicate:
-        'The receiver exposed one validated, normalized, read-only decoded publication to the single async consumer.',
+        'The receiver exposed one wire-decoded trusted publication to the single async consumer without a second product-schema validation.',
       producedArtifacts: ['artifact:decoded-publication-batches']
     },
     {
@@ -1738,13 +1760,13 @@
       to: 'admit-receiver-publication-frames',
       kind: 'settlement',
       predicate:
-        'Success resolves the active remote publication and releases the next decoded publication; terminal failure clears the active and pending publications and releases none.',
+        'Success resolves after every source slice crosses cooperative projection settlement and releases the next decoded publication; terminal failure clears the active and pending publications, advances no sequence, and releases none.',
       producedArtifacts: ['artifact:remote-publication-settlement']
     },
     {
-      id: 'route-remote-settlement-to-persistence-proof',
+      id: 'route-remote-settlement-to-document-session-proof',
       from: 'apply-remote-publication-batches',
-      to: 'load-file-scoped-demo-document',
+      to: 'open-socket-authoritative-document-session',
       kind: 'observation',
       predicate:
         'Remote canonical apply settlement proves that receiver-side persistence, Undo, and echo remained absent.',
@@ -1755,7 +1777,8 @@
       from: 'apply-remote-publication-batches',
       to: 'project-visible-canonical-slices',
       kind: 'projection',
-      predicate: 'One remote publication transaction completed.',
+      predicate:
+        'One remote publication transaction progressively exposed its ordered source slices and completed.',
       producedArtifacts: ['artifact:remote-factory-mutation-batch']
     },
     {
@@ -1878,15 +1901,14 @@
       producedArtifacts: ['artifact:render-ui-timing']
     },
     {
-      id: 'route-file-scoped-demo-document-to-full-proof',
-      from: 'load-file-scoped-demo-document',
+      id: 'route-socket-document-session-to-full-proof',
+      from: 'open-socket-authoritative-document-session',
       to: 'evaluate-performance-and-equivalence',
       kind: 'policy-proof',
       predicate:
-        'Document sessions use the same formal database boundary, the deployed crdt-7076 sample can continue from its checked-in canonical document when that database is unavailable, and receiver-side remote apply remains nonpersistent.',
+        'Every fileId uses the same socket-authoritative startup, the crdt-7076 sample remains locally actionable through its HTTP action-batch interceptor when the socket is unavailable, and receiver-side remote apply remains nonpersistent.',
       producedArtifacts: [
-        'artifact:file-scoped-demo-document-snapshot',
-        'artifact:document-database-status'
+        'artifact:socket-authoritative-document-session-status'
       ]
     },
     {
@@ -2151,7 +2173,7 @@
     {
       id: 'artifact:decoded-publication-batches',
       ownerStepId: 'admit-receiver-publication-frames',
-      channel: 'single read-only decoded-publication consumer handoff',
+      channel: 'single decoded trusted-publication consumer handoff',
       consumerStepIds: ['apply-remote-publication-batches'],
       terminal: false
     },
@@ -2247,7 +2269,7 @@
         'decoded-publication settlement outcome: success | terminal failure',
       consumerStepIds: [
         'admit-receiver-publication-frames',
-        'load-file-scoped-demo-document'
+        'open-socket-authoritative-document-session'
       ],
       terminal: false
     },
@@ -2299,17 +2321,10 @@
       terminal: true
     },
     {
-      id: 'artifact:file-scoped-demo-document-snapshot',
-      ownerStepId: 'load-file-scoped-demo-document',
+      id: 'artifact:socket-authoritative-document-session-status',
+      ownerStepId: 'open-socket-authoritative-document-session',
       channel:
-        'RenderApp file-scoped canonical document loaded from the database or file-specific initial source',
-      consumerStepIds: ['evaluate-performance-and-equivalence'],
-      terminal: false
-    },
-    {
-      id: 'artifact:document-database-status',
-      ownerStepId: 'load-file-scoped-demo-document',
-      channel: 'visible available or unavailable document database status',
+        'RenderApp socket checkpoint, activation, connection, sync, and provisional-local status',
       consumerStepIds: ['evaluate-performance-and-equivalence'],
       terminal: false
     },
@@ -2374,16 +2389,16 @@
         'The required fileId selects only the App document and collaboration session. A backend response exists only after Actor A submits the ordinary conversation request; it remains noncanonical and nonshared, never enters Core.load, and creates no canonical or CRDT state until the returned action executes.',
       stepIds: [
         'request-backend-action-batch',
-        'load-file-scoped-demo-document',
+        'open-socket-authoritative-document-session',
         'resolve-server-prepared-action-batch'
       ],
       artifactIds: [
         'artifact:server-prepared-action-batch',
-        'artifact:file-scoped-demo-document-snapshot'
+        'artifact:socket-authoritative-document-session-status'
       ],
       specRefs: [
         '#request-time-backend-action-batch-contract',
-        '#file-scoped-demo-persistence'
+        '#socket-authoritative-7076-sample'
       ]
     },
     {
@@ -2455,23 +2470,22 @@
       ]
     },
     {
-      id: 'document-database-persists-originating-client-outcomes',
+      id: 'socket-session-publishes-originating-client-outcomes',
       statement:
-        'Ordinary local and AI actions, Undo, and Redo reuse Core autosave through the same-origin document database from the originating client. Each accepted remote publication updates canonical, Render, and UI state with zero persistence, Undo, or echo; peer-applied acknowledges canonical apply, and database failure stays visible without taking down the App.',
+        'Ordinary local and AI actions, Undo, and Redo publish trusted canonical evidence from the originating client through the same socket document session or its durable provisional outbox. Each accepted remote publication exposes ordered source slices through cooperative projection with zero repeated product-payload validation, receiver persistence, Undo, or echo; peer-applied acknowledges complete canonical apply and projection settlement, and socket unavailability never selects a second startup path.',
       stepIds: [
-        'load-file-scoped-demo-document',
+        'open-socket-authoritative-document-session',
         'evaluate-endpoint-performance',
         'apply-remote-publication-batches',
         'project-visible-canonical-slices',
         'evaluate-performance-and-equivalence'
       ],
       artifactIds: [
-        'artifact:file-scoped-demo-document-snapshot',
-        'artifact:document-database-status',
+        'artifact:socket-authoritative-document-session-status',
         'artifact:remote-factory-mutation-batch',
         'artifact:visible-canonical-slices'
       ],
-      specRefs: ['#remote-apply-contract', '#file-scoped-demo-persistence']
+      specRefs: ['#remote-apply-contract', '#socket-authoritative-7076-sample']
     }
   ]
 
@@ -2480,16 +2494,16 @@
       id: 'request-time-backend-action-batch',
       title: 'Actor A requests one backend action batch after Send',
       assertions: [
-        'App navigation and Agent readiness perform no action-payload preload. Required fileId selects the document and any configured collaboration session; the deployed crdt-7076 document bootstrap may load the checked-in canonical sample, while the local full-flow Agent request still mutates only after Actor A sends.',
+        'App navigation and Agent readiness perform no action-payload preload. Required fileId always selects one socket-authoritative document and Collaboration session; crdt-7076-sample uses that same startup, while the HTTP-intercepted Agent request mutates only after Actor A sends.',
         'requestActionBatch() performs exactly one same-origin HTTP request carrying Actor A intent, exact attachment, App context, and registered actions, then returns one server-prepared AiActionBatch with one batchId.',
-        'The checked-in crdt-7076 sample accepts only its exact image and instruction, reads its previously converted 7,075-vector data on the backend without VTracer, and returns one Group plus those vectors for 7,076 total canonical elements.',
+        'The checked-in crdt-7076 sample accepts only its exact image and instruction, reads its ordered versioned AiActionBatch instruction file directly, retains no SVG or alternate drawing source, and returns one Group plus 7,075 Vectors for 7,076 total canonical elements.',
         'Production has one Agent provider path and no startup response inbox, URL-selected action payload, resident batch, artificial delay, failure simulation, frontend action-fixture I/O, frontend model validation, frontend normalization, frontend materialization, compatibility format, or lazy action fallback.',
         'resolveAiActionBatch() produces one ResolvedAiActionBatch, permission receives one PermissionReadyAiActionBatch, and confirmation receives one AiActionBatchPreview without a plan API alias or compatibility wrapper.',
         'Actor B never requests or executes Actor A backend response and obtains the resulting drawing only through canonical CRDT publications.'
       ],
       stepIds: [
         'request-backend-action-batch',
-        'load-file-scoped-demo-document',
+        'open-socket-authoritative-document-session',
         'resolve-server-prepared-action-batch'
       ],
       specRefs: [
@@ -2533,8 +2547,9 @@
       title: 'Binary relay, backpressure, and remote apply',
       assertions: [
         'Versioned binary publication data round-trips through workers and an opaque relay without byte drift.',
+        'Codec integrity is checked during the ordinary encode/decode traversal, while the trusted product payload is not recursively revalidated after canonical owner admission.',
         'Each peer queue remains within the exact 2 MiB unretired-byte capacity and separates server-accepted, frame-consumed, and peer-applied receipts.',
-        'One remote transaction and one batch observer delivery apply each source publication without Undo, echo, or client persistence.'
+        'One remote transaction applies each source publication in ordered source slices, crosses cooperative paint boundaries for progressive visibility, and creates no Undo, echo, or client persistence.'
       ],
       stepIds: [
         'encode-publication-frames',
@@ -2603,7 +2618,7 @@
         'Synchronized live Actor A and Actor B output is complete, uncropped, and semantically equivalent; generated artifacts are never committed.'
       ],
       stepIds: [
-        'load-file-scoped-demo-document',
+        'open-socket-authoritative-document-session',
         'evaluate-performance-and-equivalence'
       ],
       specRefs: ['#performance-budgets', '#final-gates', '#definition-of-done']
@@ -2617,7 +2632,7 @@
       kind: 'feature',
       title: 'Asyra Design Conversational AI Drawing Performance Inspector',
       subtitle:
-        'One request-time backend AiActionBatch, prepared Group and child descriptor slices, one existing Factory journal and Undo entry, one separate minimal transport wire artifact, visible ordinary Vector slices, binary backpressured collaboration, a formal file-scoped database boundary, and exact performance-equivalence proof.'
+        'One request-time backend AiActionBatch, prepared Group and child descriptor slices, one existing Factory journal and Undo entry, one separate minimal transport wire artifact, visible ordinary Vector slices, binary backpressured collaboration, one socket-authoritative document session, and exact performance-equivalence proof.'
     },
     authority: {
       specPath,

@@ -21,6 +21,7 @@ export interface FileDocumentMaterializationStore
   readCheckpoint(
     documentId: string
   ): Promise<MaterializedDocumentRecord<CoreRawData>>
+  resetCheckpoint(documentId: string): Promise<void>
 }
 
 const createInitialRecord = (): MaterializedDocumentRecord<CoreRawData> => ({
@@ -114,8 +115,13 @@ export const createFileDocumentMaterializationStore = (
     await rename(temporaryPath, filePath)
   }
 
-  return {
+  const store: FileDocumentMaterializationStore = {
     readCheckpoint: load,
+    resetCheckpoint: async (documentId) => {
+      await store.transact(documentId, async (_current, commit) => {
+        commit(createInitialRecord())
+      })
+    },
     async transact<Result>(
       documentId: string,
       execute: (
@@ -155,4 +161,5 @@ export const createFileDocumentMaterializationStore = (
       }
     }
   }
+  return store
 }

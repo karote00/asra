@@ -24,7 +24,8 @@ Feature: Conversational AI drawing performance
     Then "resolveAiActionBatch()" should return one "ResolvedAiActionBatch" without a public or internal client prepare, normalize, or validate phase
     And the complete control envelope should reject empty, duplicate, or unknown actions without traversing item, path, point, style, bounds, or geometry arguments
     And each action definition should expose one backend-facing inputSchema and one executor without a client action schema, parse, or prepare API
-    And the server should validate and normalize every item, path, point, role, style, and bound before returning the batch
+    And the production provider output should prepare every item, path, point, role, style, and bound before returning the batch
+    And the 7076 sample instruction file should already contain that complete prepared output without request-time geometry reconstruction
     And the server-prepared action should contain one PreparedDrawingArtifact with one prepared Group descriptor and ordered child descriptor slices containing complete source creation data, stable ids, relationships, point counts, and roles
     And it should contain one bounded redaction-ready summary rather than a parallel point-object graph
     And permission resolution should return one "PermissionReadyAiActionBatch"
@@ -462,6 +463,7 @@ Feature: Conversational AI drawing performance
     And publication payloads should remain ArrayBuffer values inside that Worker-owned data plane without JSON pre-serialization
     And outbound binary frames should be written directly by the Worker instead of returning to a main-thread socket
     And the server should relay canonical payload bytes without decode or re-encode
+    And the codec should verify wire integrity during its ordinary encode or decode traversal without a separate recursive product-payload validation pass
     And the receiver should admit frames into a bounded 2 MiB worker ingress window
     And the worker should validate header, order, and duplicate identity before emitting "frame-consumed"
     And each peer should enforce an exact 2 MiB unretired byte capacity
@@ -486,30 +488,49 @@ Feature: Conversational AI drawing performance
     Given Actor B receives one valid property-only source publication
     When the required async consumer opens the remote Factory transaction
     Then Actor B should open exactly one remote Factory transaction for that publication
-    And the App should submit one ordered "CanonicalChange" request through "Core.applyCanonicalChanges"
+    And the App should consume the wire-decoded trusted publication without recursive route or payload schema validation
+    And the App should submit the ordered source slices through "Core.applyCanonicalChanges"
     And different source publications should not be merged
-    And App policy should validate the publication before Core canonical apply
     And Actor B should apply "UPDATE_PROPERTY" without receiving "UPDATE_COMPUTED_DATA" through CRDT
     And Actor B should derive computed state locally and update ordinary Render output
-    And the consumer promise should resolve only after canonical apply completes
+    And Actor B should cross a cooperative host-and-paint boundary between visible source slices
+    And the consumer promise should resolve only after all ordered source slices and cooperative projection settlements complete
     And Actor B should create no Undo action
     And Actor B should create no echo publication
     And Actor B should perform zero persistence after canonical apply
-    And peer-applied should settle immediately after that canonical apply completes
+    And peer-applied should settle after canonical and projection completion without waiting for receiver durability
 
-  Scenario: Documents use the formal database boundary without making availability fatal
-    Given an App document session starts from one required fileId URL
-    When RenderApp starts Core for the document
-    Then the App should inject one same-origin document database provider before Core starts
-    And it should load the database snapshot or the file-specific initial canonical document
-    And a database connection failure should display an error message
-    But that failure should not stop the App and Canvas
-    And local actions and AI actions should reuse Core autosave
-    And Undo and Redo should reuse Core autosave
-    And a successful database connection should let refresh restore the latest snapshot for that fileId
-    But request-time Agent transport should remain separate from document persistence
-    And no IndexedDB, localStorage, or demo-only persistence fallback should exist
-    And future App developers should implement the matching production database server without replacing the frontend client
+  Scenario: Remote removal batches preserve container lifecycle
+    Given Actor B receives one source publication with adjacent ordered element removals
+    When the App derives the remote canonical request
+    Then adjacent non-container removals should use one ordered Core canonical request
+    But a removal whose canonical element data owns children should remain a lifecycle barrier
+    And an earlier valid child-removal projection should consume its owner event and computed mirror when a later event already removed the canonical parent
+    And the App should not merge removal requests across source publications
+
+  Scenario: The 7076 sample uses the ordinary socket-authoritative document session
+    Given the required URL is "/?fileId=crdt-7076-sample"
+    When RenderApp starts the document
+    Then it should create the same socket document and Collaboration identity as every other fileId
+    And it should open the socket handshake before Core starts
+    And it should supply only the socket checkpoint through "SocketDocumentSession"
+    And it should activate live publication delivery after Core and Canvas start
+    And a missing or empty fileId should not open a document session
+    But no direct compressed-document bootstrap should exist
+    And no localStorage Reset should exist
+    And no sample-specific socket bypass should exist
+
+  Scenario: Reset remains a permanent standalone stored-file utility
+    Given Asyra Design opens any required fileId
+    Then the toolbar should always expose Reset before the primary tools
+    And sample, persistence, startup, or Collaboration changes must not remove, hide, or disable Reset
+    When the user presses Reset
+    Then the browser should DELETE only "/api/documents/{encoded fileId}"
+    And an available backend should replace that stored checkpoint with the formal empty document at durable sequence zero
+    And the browser should always refresh after the DELETE attempt settles
+    But Reset should not call Core, Feature System, a transaction, History, Undo Redo, Selection, Factory publication, Collaboration, or CRDT apply
+    And an unavailable or failed DELETE should report its error without blocking refresh
+    And a storage-free demo should therefore reload the formal empty App
 
   Scenario: Remote apply never persists on the receiving client
     Given Actor A originated and persisted one committed canonical operation
@@ -517,47 +538,86 @@ Feature: Conversational AI drawing performance
     Then Actor B should perform zero persistence
     And Actor B should create no Undo
     And Actor B should create no echo publication
-    And peer-applied should acknowledge canonical apply rather than durability
+    And peer-applied should acknowledge canonical apply and cooperative projection settlement rather than durability
 
-  Scenario: The deployed 7076 sample loads without CRDT
-    Given the deployed URL is "/?fileId=crdt-7076-sample"
-    And no WebSocket endpoint is configured
-    When the formal database request fails
-    Then the App should display the database error
-    And it should load the checked-in compressed canonical document
-    And Core should receive exactly 7076 non-workspace elements
-    And the Canvas should remain usable without Collaboration
+  Scenario: The 7076 sample stays usable while the socket is unavailable
+    Given the required URL is "/?fileId=crdt-7076-sample"
+    And the WebSocket endpoint is unavailable
+    When RenderApp opens the document
+    Then the Collaboration lifecycle should return its provisional local checkpoint
+    And Core and Canvas should remain usable
+    When Actor A submits the exact sample through the HTTP action-batch interceptor
+    Then Actor A should execute and render all 7076 canonical elements locally
+    And its publication should remain in the ordinary durable outbox
+    And the connection failure should be reported to the DevTools console
+    But the App should not request "samples/crdt-7076/document.json.gz"
 
-  Scenario: Required fileId selects the document while Collaboration remains optional
+  Scenario: Required fileId always selects the socket document and Collaboration room
     Given RenderApp receives one required fileId URL
-    And that fileId selects the App-owned document session
-    When no WebSocket endpoint is configured
-    Then Core and Canvas should start without Collaboration
+    Then the fileId should select the socket document and Collaboration room
     And root dev:all should start only frontend workspace processes and the App dev server
-    When the explicit collaboration:server command or collaboration Playwright separately supplies the WebSocket endpoint
-    Then the first Actor should connect after the document load
+    And the explicit collaboration:server command or collaboration Playwright should separately supply the WebSocket endpoint
+    When the first Actor connects
     And one Actor in that document session should be classified as single-Actor processing
     When a second Actor opens the same fileId
     Then both Actors should use the same collaboration room
     And the session should be classified as two-Actor CRDT processing
-    And a missing or empty fileId should not open a document session
 
-  Scenario: Reset restarts only the deployed 7076 demo
-    Given the required fileId is crdt-7076-sample
-    And resetData uses the App-owned fresh empty-document factory
-    When resetData is invoked
-    Then it should store the empty document under the file-scoped demo browser key
-    And it should force a page reload only after that write succeeds
-    And the reloaded demo should read the stored empty document before the checked-in sample asset
-    But resetData should create no Core mutation, Factory action, Undo entry, socket publication, or backend persistence request
-    And an ordinary socket fileId should not use this demo Reset path
-    And the formal App should remove this temporary Reset utility
+  Scenario: The 7076 sample publishes from Actor A when the socket is available
+    Given Actor A and Actor B open "/?fileId=crdt-7076-sample"
+    And both Actors complete the ordinary socket-authoritative startup
+    When Actor A submits the exact sample through the HTTP action-batch interceptor
+    Then Actor A should execute the server-prepared batch through ordinary canonical owners
+    And Actor A should publish the resulting canonical changes through CRDT
+    And Actor B should receive the drawing only through Actor A publications
+    And Actor A and Actor B should each finish with 7076 canonical elements
+
+  Scenario: The 7076 remote Undo and Redo remain progressively visible
+    Given Actor A and Actor B have converged on the complete 7076 sample
+    When Actor A performs one Undo
+    Then Actor A should retain the existing one-action History boundary
+    And Actor B should create no Undo, echo publication, or persistence save
+    And Actor B should expose intermediate canonical and Render projection counts before reaching zero
+    And each adjacent distinct Actor B progress observation should be at most 20 seconds apart
+    And both Actors should reach exactly zero canonical and Render projections within 30 seconds
+    When Actor A performs one Redo
+    Then Actor B should expose intermediate canonical and Render projection counts before reaching 7076
+    And each adjacent distinct Actor B progress observation should be at most 20 seconds apart
+    And both Actors should reach exactly 7076 canonical and Render projections within 30 seconds
+    And Actor A and Actor B should retain exact canonical, topology, hierarchy, and style equivalence
+
+  Scenario: Source publications cross the durable outbox without duplicate snapshots
+    Given Factory emits one immutable local SharedPublication
+    When the document lifecycle appends that owner evidence to its durable outbox
+    Then the in-memory outbox record should retain the same Factory publication identity
+    And IndexedDB should complete its durable put before the socket sends that publication
+    But the source should not clone or recursively freeze the publication again before that put
+    And the generic outbox boundary should still snapshot mutable publication input
+
+  Scenario: High-detail source admission remains bounded while durability drains
+    Given one durable publication request is in flight for the source document
+    When one complete high-detail create Undo Redo tail enters the next admission buffer
+    Then the fixed buffer should retain at most 256 publications and 256 MiB of serialized evidence
+    And each durable request should drain only a contiguous prefix within an 8 MiB soft wire-byte limit
+    And one larger indivisible publication should still be allowed to travel alone
+    And accepted source publications should continue to the connected peer while the buffer has capacity
+    But a publication beyond either fixed capacity should wait for durability in original order
+    And that wait should not close the source socket, drop evidence, or bypass persistence
+
+  Scenario: High-detail deletion materializes the exact owned-property closure linearly
+    Given one canonical deletion owns a large shared and cyclic property graph
+    When the socket admits its opaque bytes and the backend later materializes the ordered publication
+    Then it should retain the same complete visited closure and deletion evidence
+    And it should preserve the same persistence save and Undo Redo restoration semantics
+    But it should consume the growing property-reference queue with one monotonic cursor
+    And it should not repeatedly compact the remaining queue by removing its first item
 
   Scenario: Actor A requests the checked-in 7076 backend sample after Send
     Given the required URL is "/?fileId=crdt-7076-sample"
-    And the local action-batch backend, database server, and WebSocket endpoint are configured
-    And fileId selects the persisted document and Collaboration session
-    And the checked-in crdt-7076 sample folder contains the reference image, exact instruction text, and previously converted 7075-vector source
+    And the local action-batch backend and WebSocket endpoint are configured
+    And fileId selects the socket document and Collaboration session
+    And the checked-in crdt-7076 sample folder contains the reference image, exact instruction text, and ordered versioned AiActionBatch instruction file
+    And the sample folder contains no SVG or alternate drawing source
     When App bootstrap and Agent readiness complete
     Then no action payload should be seeded, preloaded, read from a response inbox, or selected by fileId
     And the canonical document should remain unchanged before Actor A sends a conversation request
@@ -565,9 +625,10 @@ Feature: Conversational AI drawing performance
     Then the provider should call only "requestActionBatch()" through one same-origin HTTP request
     And the request should carry the intent, image attachment, App context, registered action descriptions, attempt number, and abort ownership
     And the sample backend should match the exact image and instruction
-    And it should read the previously converted vector source without invoking VTracer, image conversion, or a model
-    And it should return one server-prepared "AiActionBatch" containing one prepared Group and 7075 ordered editable Vector descriptors
-    And Actor A should execute the batch through the ordinary Runtime, App action, Core, Factory, Render, CRDT, and persistence owners
+    And it should read the ordered AiActionBatch instruction file directly without VTracer, image conversion, geometry reconstruction, or a model
+    And it should return that "AiActionBatch" with its prepared Group and 7075 ordered editable Vector descriptors
+    And Runtime should execute its actions and prepared slices in file order
+    And Actor A should execute the batch through the ordinary Runtime, App action, Core, Factory, Render, and CRDT owners
     And Actor B should receive the drawing only through Actor A canonical CRDT publications
     And Actor A and Actor B should each finish with 7076 canonical elements
     But a nonmatching, malformed, or aborted request should fail before Runtime and canonical mutation
@@ -587,7 +648,7 @@ Feature: Conversational AI drawing performance
   Scenario: The guarded endpoint run also proves Actor A local interactivity
     Given two production browser actors share one required fileId and Collaboration is ready
     And the 500-percent frontend and 500-percent aggregate high-performance resource guards own the production App, browser, harness, and WebSocket server processes
-    And the exact checked-in sample image, instruction, and previously converted vector source are used through the ordinary backend request route
+    And the exact checked-in sample image, instruction, and ordered AiActionBatch instruction file are used through the ordinary backend request route
     And Contents, document reload, IndexedDB inspection, VTracer, HMR, media, warm-up, and repeat are absent
     And file-scoped App persistence remains enabled with separate save timing
     When Actor A creates the server-prepared 7076-element high-detail composition once

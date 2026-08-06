@@ -11,7 +11,9 @@ const appEnvironment = resolveEnvironment(loadEnvironment())
 const opensBrowser = process.env.E2E_OWN_SERVERS !== '1'
 const enablesE2eDocumentDatabase =
   process.env.ASYRA_E2E_DOCUMENT_DATABASE === '1'
-const e2eDocumentBackendURL = process.env.ASYRA_E2E_DOCUMENT_BACKEND_URL?.trim()
+const documentBackendURL =
+  process.env.ASYRA_E2E_DOCUMENT_BACKEND_URL?.trim() ||
+  process.env.DOCUMENT_PERSISTENCE_BACKEND_URL?.trim()
 
 const createVTracerPlugin = (): Plugin => ({
   name: 'vtracer-tool',
@@ -57,11 +59,11 @@ export default defineConfig({
     host: appEnvironment.viteHost,
     port: appEnvironment.vitePort,
     open: opensBrowser,
-    ...(e2eDocumentBackendURL
+    ...(documentBackendURL
       ? {
           proxy: {
             '/api/documents': {
-              target: e2eDocumentBackendURL,
+              target: documentBackendURL,
               changeOrigin: true
             }
           }

@@ -7,6 +7,7 @@ import {
   type ProviderStatus
 } from '@asyra/collaboration'
 import type { SharedPublication } from '@asyra/factory'
+import { settleCooperativeRenderSlice } from '@asyra/reactive-events'
 import { idCounter } from '@asyra/utils'
 import core, { factory } from '../contexts'
 import type { CollaborationMode } from '../render-app/collaboration-mode'
@@ -143,15 +144,19 @@ const providerStatusForConnection = (
 }
 
 export const createRemotePublicationHandler = (
-  applyRemotePublication: (publication: SharedPublication) => boolean
+  applyRemotePublication: (
+    publication: SharedPublication
+  ) => boolean | Promise<boolean>,
+  settleProjection: () => Promise<void> = settleCooperativeRenderSlice
 ): ProcessRemotePublication => {
   return async (publication) => {
-    const applied = applyRemotePublication(publication)
+    const applied = await applyRemotePublication(publication)
     if (!applied) {
       throw new Error(
         `[collaboration] remote publication ${publication.publicationId} was rejected`
       )
     }
+    await settleProjection()
   }
 }
 
@@ -470,7 +475,7 @@ class CollaborationSessionController {
   private scheduleLocalPublication(publication: SharedPublication): void {
     void this.schedule(async () => {
       try {
-        await this.outbox.append(publication)
+        await this.outbox.appendFactoryPublication(publication)
       } catch (error) {
         console.error(
           `[collaboration] publication ${publication.publicationId} outbox append failed:`,
@@ -786,8 +791,11 @@ export const prepareCollaborationDocumentSession = async (
   idCounter.setNamespace(mode.actorId)
   const applyRemotePublication = createPublicationProcessor({
     runRemoteTransaction: factory.runRemoteTransaction.bind(factory),
+    runRemoteTransactionProgressively:
+      factory.runRemoteTransactionProgressively.bind(factory),
     decideRemotePublication: (publication) => publication,
-    applyCanonicalChanges: core.applyCanonicalChanges.bind(core)
+    applyCanonicalChanges: core.applyCanonicalChanges.bind(core),
+    settleRemoteSlice: settleCooperativeRenderSlice
   })
   const processRemotePublication = createRemotePublicationHandler(
     applyRemotePublication

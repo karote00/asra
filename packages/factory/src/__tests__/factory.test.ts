@@ -334,6 +334,129 @@ describe('Factory', () => {
     expect(publications).toEqual([])
   })
 
+  it('keeps progressive remote slices in one atomic rollback boundary', async () => {
+    let propsActive = false
+    let sceneActive = false
+    const rollbackOrder: string[] = []
+    const settleAfterSlice = vi.fn(async (completedSliceIndex: number) => {
+      expect(propsActive).toBe(true)
+      expect(sceneActive).toBe(completedSliceIndex === 1)
+      expect(() => factory.startTransaction()).toThrow(
+        'Nested transaction origin action cannot join remote'
+      )
+      await Promise.resolve()
+    })
+    factory.registerTransactionReplayHandler(EventTypes.REMOVE_PROPERTY, () => {
+      propsActive = false
+      rollbackOrder.push('props')
+      return true
+    })
+    factory.registerTransactionReplayHandler(EventTypes.CHANGE_SUBTREE, () => {
+      sceneActive = false
+      rollbackOrder.push('scene')
+      return true
+    })
+
+    await expect(
+      factory.runRemoteTransactionProgressively(
+        [
+          () => {
+            propsActive = true
+            updateTransaction({
+              type: EventTypes.UPDATE_TRANSACTION,
+              eventName: EventTypes.ADD_PROPERTY,
+              payload: {
+                action: PROPS_ACTIONS.ADD_PROPERTY,
+                undoType: EventTypes.REMOVE_PROPERTY,
+                undoAction: PROPS_ACTIONS.REMOVE_PROPERTY,
+                eventName: EventTypes.ADD_PROPERTY,
+                data: [{ id: 'position-group-a', type: 'position' }]
+              }
+            })
+          },
+          () => {
+            sceneActive = true
+            updateTransaction({
+              type: EventTypes.UPDATE_TRANSACTION,
+              eventName: EventTypes.CHANGE_SUBTREE,
+              payload: {
+                action: SCENE_TREE_ACTIONS.RESTORE_SUBTREE,
+                undoAction: SCENE_TREE_ACTIONS.REMOVE_SUBTREE,
+                eventName: EventTypes.CHANGE_SUBTREE,
+                elementId: 'group-a',
+                removed: [
+                  {
+                    elementId: 'group-a',
+                    parentId: 'workspace-a',
+                    index: 0,
+                    data: {
+                      id: 'group-a',
+                      type: 'group',
+                      parentId: 'workspace-a',
+                      children: []
+                    }
+                  }
+                ],
+                rootParentChildrenAfter: []
+              }
+            })
+            throw new Error('second remote slice failed')
+          }
+        ],
+        settleAfterSlice
+      )
+    ).rejects.toThrow('second remote slice failed')
+
+    expect(settleAfterSlice).toHaveBeenCalledOnce()
+    expect(settleAfterSlice).toHaveBeenCalledWith(0)
+    expect({ propsActive, sceneActive }).toEqual({
+      propsActive: false,
+      sceneActive: false
+    })
+    expect(rollbackOrder).toEqual(['scene', 'props'])
+  })
+
+  it('commits progressive remote slices once without Undo or outbound publication', async () => {
+    const statuses: TransactionStatusPayload[] = []
+    const publications: unknown[] = []
+    const settleAfterSlice = vi.fn(async () => Promise.resolve())
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    factory.subscribeToTransactionStatus((status) => statuses.push(status))
+    factory.subscribeToSharedPublication((value) => publications.push(value))
+
+    await factory.runRemoteTransactionProgressively(
+      ['remote-a', 'remote-b'].map(
+        (id): (() => void) =>
+          () =>
+            updateTransaction({
+              type: EventTypes.UPDATE_TRANSACTION,
+              eventName: EventTypes.UPDATE_PROPERTY,
+              payload: { id, before: 0, after: 1 },
+              options: {
+                shared: SharedDataChannelNames.SCENE_TREE,
+                undoable: true
+              }
+            })
+      ),
+      settleAfterSlice
+    )
+
+    expect(settleAfterSlice).toHaveBeenCalledOnce()
+    expect(statuses).toEqual([
+      expect.objectContaining({
+        origin: 'remote',
+        status: 'committed',
+        rollbackableChangeCount: 2,
+        undoableChangeCount: 0
+      })
+    ])
+    expect(factory.getUndoHistoryDepth()).toBe(0)
+    expect(publications).toEqual([])
+  })
+
   it('publishes the remote transaction end after shared projections settle', () => {
     const projection = new LocalSharedDataChannel()
     const order: string[] = []

@@ -55,6 +55,20 @@ const createStorage = (
     databaseName
   })
 
+const freezePublication = (
+  publication: SharedPublication
+): SharedPublication => {
+  const freezeValue = (value: unknown): void => {
+    if (value === null || typeof value !== 'object' || Object.isFrozen(value)) {
+      return
+    }
+    Object.values(value).forEach(freezeValue)
+    Object.freeze(value)
+  }
+  freezeValue(publication)
+  return publication
+}
+
 describe('document publication recovery outbox', () => {
   let factory: IDBFactory
 
@@ -222,5 +236,56 @@ describe('document publication recovery outbox', () => {
       '[collaboration] publication identity was reused with different content'
     )
     expect(outbox.getState().pendingCount).toBe(1)
+  })
+
+  it('retains immutable Factory publication evidence without a second source snapshot', async () => {
+    const storage: PublicationOutboxStorage = {
+      load: vi.fn(async () => []),
+      put: vi.fn(async () => undefined),
+      delete: vi.fn(async () => undefined)
+    }
+    const outbox = new DocumentPublicationOutbox({
+      fileId: 'file-owner-publication',
+      storage
+    })
+    await outbox.initialize()
+    const publication = freezePublication(
+      createPublication('publication-owner-evidence', 3)
+    )
+
+    const record = await outbox.appendFactoryPublication(publication)
+
+    expect(record.publication).toBe(publication)
+    expect(storage.put).toHaveBeenCalledWith(
+      expect.objectContaining({ publication })
+    )
+  })
+
+  it('snapshots mutable publication input before retaining it', async () => {
+    const storage: PublicationOutboxStorage = {
+      load: vi.fn(async () => []),
+      put: vi.fn(async () => undefined),
+      delete: vi.fn(async () => undefined)
+    }
+    const outbox = new DocumentPublicationOutbox({
+      fileId: 'file-mutable-publication',
+      storage
+    })
+    await outbox.initialize()
+    const publication = Object.freeze(
+      createPublication('publication-mutable', 5)
+    )
+
+    const record = await outbox.append(publication)
+    const payload = publication.slices[0]?.batches[0]?.deliveries[0]?.payload
+    if (!payload || payload.action !== 'updateProperty') {
+      throw new Error('expected updateProperty publication payload')
+    }
+    payload.after = 999
+
+    expect(record.publication).not.toBe(publication)
+    expect(
+      record.publication.slices[0]?.batches[0]?.deliveries[0]?.payload
+    ).toMatchObject({ after: 6 })
   })
 })

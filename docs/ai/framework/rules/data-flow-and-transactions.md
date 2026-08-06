@@ -60,6 +60,11 @@
   publication, even when it changes multiple elements or state owners. One
   outer pointer session may therefore emit mouse-down, drag-update, and
   conditional mouse-up publications while still producing one undo commit.
+- Publication batching defaults on. A dependent interaction may explicitly
+  configure `batchPublications: false` before its first mutation so each
+  immediate or transaction-end source boundary settles separately. Factory
+  retains that source-delivery order for Undo/Redo without splitting the
+  action's one History entry.
 - Factory preserves every app-authored semantic change in order. It does not
   collapse or deduplicate sequences such as A -> B -> C -> B by default.
 - A continuous gesture may explicitly opt into local `replace-latest` History
@@ -157,10 +162,13 @@
   Compatible consecutive single-element Scene events inside one source boundary
   return to the plural Scene owner apply in batches of at most 32. Recorded
   progressive boundaries remain exact render boundaries; immediate source
-  publications remain distinct and ordered while the default render slice
-  coalesces their completed projections up to 1,024 distinct canonical ids.
-  `maxItemsPerSlice` may override that positive budget. This does not create
-  per-slice History. Browser scheduling belongs to the reusable
+  boundaries remain ordered while shared evidence is grouped into publication
+  windows of at most 512 distinct work items and the default render slice
+  coalesces completed projection up to 1,024 distinct work items. Ordered ids
+  are the work identity when present and delivery identity is the fallback.
+  `maxItemsPerSlice` may override that positive render budget. This does not
+  create per-slice History.
+  Browser scheduling belongs to the reusable
   `@asyra/reactive-events` adapter, not DataTransact or an app-local duplicate.
 - `cancel`: stop an active session; user-driven interruption defaults to
   commit-current, while its policy may choose rollback or feature-defined

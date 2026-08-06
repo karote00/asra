@@ -51,6 +51,9 @@
 
 ### Update/End
 
+- before the first mutation, configure `batchPublications: false`; structural
+  append and dependent handle frames settle on peers in source order, and
+  Undo/Redo retain that settlement without creating per-frame History
 - pointer-down appends the real anchor/segment topology with
   `sharedDelivery: 'immediate'`; peers receive the new canonical segment before
   any curve-handle drag frame and before pointer-up

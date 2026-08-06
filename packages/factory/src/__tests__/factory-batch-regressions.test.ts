@@ -40,7 +40,130 @@ const payloadId = (value: unknown): string | undefined =>
   (value as { id?: string } | undefined)?.id
 
 describe('Factory batch regression contracts', () => {
-  it('cooperatively groups immediate owner batches by the render item budget', async () => {
+  it('bounds immediate publication windows when canonical ordered IDs are absent', async () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_PROPERTY,
+      () => true
+    )
+    const publications: SharedPublication[] = []
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
+    )
+    const immediateBatch = (start: number, count: number) =>
+      Array.from({ length: count }, (_, index) => ({
+        ...createUpdateEvent(`element-${start + index}`),
+        options: {
+          shared: SharedDataChannelNames.SCENE_TREE,
+          sharedDelivery: 'immediate' as const
+        }
+      }))
+    const publicationDeliveryCounts = () =>
+      publications.map((publication) =>
+        publication.slices.reduce(
+          (publicationCount, slice) =>
+            publicationCount +
+            slice.batches.reduce(
+              (sliceCount, batch) => sliceCount + batch.deliveries.length,
+              0
+            ),
+          0
+        )
+      )
+
+    factory.startTransaction()
+    factory.updateTransactionBatch(immediateBatch(0, 600))
+    await Promise.resolve()
+    factory.updateTransactionBatch(immediateBatch(600, 425))
+    await Promise.resolve()
+    factory.endTransaction()
+
+    expect(publicationDeliveryCounts()).toEqual([600, 425])
+
+    publications.length = 0
+    factory.startTransaction()
+    await factory
+      .getTransactionOwner()
+      .undoProgressively(async () => Promise.resolve())
+    factory.endTransaction()
+
+    expect(publicationDeliveryCounts()).toEqual([425, 600])
+  })
+
+  it('bounds default immediate publication windows before one render slice can monopolize a peer', async () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_PROPERTY,
+      () => true
+    )
+    const publications: SharedPublication[] = []
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
+    )
+    const createImmediateOwnerBatch = (start: number) => {
+      const orderedIds = Array.from(
+        { length: 32 },
+        (_, index) => `element-${start + index}`
+      )
+      return {
+        ...createUpdateEvent(
+          `owner-batch-${start}`,
+          SharedDataChannelNames.SCENE_TREE,
+          EventTypes.UPDATE_PROPERTY,
+          {
+            orderedIds,
+            sharedRecords: orderedIds.map((id) => createRecord(id))
+          }
+        ),
+        options: {
+          shared: SharedDataChannelNames.SCENE_TREE,
+          sharedDelivery: 'immediate' as const
+        }
+      }
+    }
+    const publicationWorkItemCounts = () =>
+      publications.map(
+        ({ slices }) =>
+          new Set(
+            slices.flatMap(({ batches }) =>
+              batches.flatMap(({ deliveries }) =>
+                deliveries.flatMap(({ orderedIds }) => orderedIds)
+              )
+            )
+          ).size
+      )
+
+    factory.startTransaction()
+    for (let start = 0; start < 1_280; start += 32) {
+      factory.updateTransactionBatch([createImmediateOwnerBatch(start)])
+      await Promise.resolve()
+    }
+    factory.endTransaction()
+
+    expect(publicationWorkItemCounts()).toEqual([512, 512, 256])
+
+    publications.length = 0
+    let renderYieldCount = 0
+    factory.startTransaction()
+    await factory.getTransactionOwner().undoProgressively(async () => {
+      renderYieldCount += 1
+      await Promise.resolve()
+    })
+    factory.endTransaction()
+
+    expect(renderYieldCount).toBe(2)
+    expect(publicationWorkItemCounts()).toEqual([512, 512, 256])
+  })
+
+  it('keeps the render item budget independent from publication windows', async () => {
     const factory = new Factory()
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
@@ -115,11 +238,11 @@ describe('Factory batch regression contracts', () => {
 
     expect(settledBatches).toEqual([
       {
-        publicationCount: 2,
+        publicationCount: 0,
         replayedIds: ['element-f', 'element-e', 'element-d', 'element-c']
       },
       {
-        publicationCount: 3,
+        publicationCount: 1,
         replayedIds: [
           'element-f',
           'element-e',
@@ -217,12 +340,12 @@ describe('Factory batch regression contracts', () => {
     expect(undoSlices).toEqual([
       {
         historyDepth: 1,
-        publicationCount: 1,
+        publicationCount: 0,
         replayedIds: ['element-d', 'element-c']
       },
       {
         historyDepth: 1,
-        publicationCount: 2,
+        publicationCount: 1,
         replayedIds: ['element-d', 'element-c', 'element-b', 'element-a']
       }
     ])
@@ -251,12 +374,12 @@ describe('Factory batch regression contracts', () => {
     expect(redoSlices).toEqual([
       {
         historyDepth: 0,
-        publicationCount: 1,
+        publicationCount: 0,
         replayedIds: ['element-a', 'element-b']
       },
       {
         historyDepth: 0,
-        publicationCount: 2,
+        publicationCount: 1,
         replayedIds: ['element-a', 'element-b', 'element-c', 'element-d']
       }
     ])
@@ -341,9 +464,7 @@ describe('Factory batch regression contracts', () => {
     ).toEqual([
       [
         `slice-a:${SharedDataChannelNames.PROPS}`,
-        `slice-a:${SharedDataChannelNames.SCENE_TREE}`
-      ],
-      [
+        `slice-a:${SharedDataChannelNames.SCENE_TREE}`,
         `slice-b:${SharedDataChannelNames.PROPS}`,
         `slice-b:${SharedDataChannelNames.SCENE_TREE}`
       ]
@@ -860,7 +981,7 @@ describe('Factory batch regression contracts', () => {
     ).toEqual([])
   })
 
-  it('selects 16 progressive publication boundaries without rescanning the sequence', () => {
+  it('batches progressive publication slices without rescanning the sequence', () => {
     const phaseNames: string[] = []
     const unsubscribe = subscribeToBrowserDragPhases((name) =>
       phaseNames.push(name)
@@ -869,6 +990,10 @@ describe('Factory batch regression contracts', () => {
     factory.registerSharedDataChannel(
       SharedDataChannelNames.SCENE_TREE,
       new LocalSharedDataChannel()
+    )
+    const publications: SharedPublication[] = []
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
     )
     const orderedIds = Array.from(
       { length: 16 },
@@ -922,12 +1047,58 @@ describe('Factory batch regression contracts', () => {
         (phaseName) =>
           phaseName === 'factory:select-delivery-sequence-boundaries'
       )
-    ).toHaveLength(16)
+    ).toHaveLength(1)
     expect(
       phaseNames.filter(
         (phaseName) => phaseName === 'factory:create-shared-publication'
       )
-    ).toHaveLength(16)
+    ).toHaveLength(1)
+    expect(publications).toHaveLength(1)
+    expect(publications[0]?.slices.map(({ sliceId }) => sliceId)).toEqual(
+      orderedIds.map((_, index) => `slice-${index}`)
+    )
+  })
+
+  it('preserves per-slice publication settlement when batching is disabled', () => {
+    const factory = new Factory()
+    factory.registerSharedDataChannel(
+      SharedDataChannelNames.SCENE_TREE,
+      new LocalSharedDataChannel()
+    )
+    const publications: SharedPublication[] = []
+    factory.subscribeToSharedPublication((publication) =>
+      publications.push(publication)
+    )
+    const orderedIds = ['element-a', 'element-b', 'element-c']
+
+    factory.startTransaction()
+    const handle = factory.updateTransactionBatch([
+      createUpdateEvent(
+        'canonical-sequence',
+        SharedDataChannelNames.SCENE_TREE,
+        EventTypes.UPDATE_PROPERTY,
+        {
+          orderedIds,
+          sharedRecords: orderedIds.map((id) => createRecord(id))
+        }
+      )
+    ])
+    handle?.setDeliverySequence({
+      mode: 'progressive',
+      batchPublications: false,
+      slices: orderedIds.map((id, index) => ({
+        sliceId: `slice-${index}`,
+        orderedIds: [id]
+      }))
+    })
+    orderedIds.forEach((_, index) => handle?.deliverSlice(`slice-${index}`))
+    factory.endTransaction()
+
+    expect(publications.map(({ slices }) => slices[0]?.sliceId)).toEqual([
+      'slice-0',
+      'slice-1',
+      'slice-2'
+    ])
   })
 
   it('delivers 7112 canonical records through one ordered batch callback', () => {
