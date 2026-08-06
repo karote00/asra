@@ -1,6 +1,6 @@
 {
   "name": "@asyra/input-system",
-  "version": "0.2.5",
+  "version": "0.5.0",
   "description": "Keyboard and Mouse event listener plugin",
   "author": "Asa Tsai",
   "license": "MIT",

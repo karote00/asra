@@ -13,6 +13,9 @@ const repositoryRoot = path.resolve(
 const rootManifest = JSON.parse(
   fs.readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
 )
+const changesetConfig = JSON.parse(
+  fs.readFileSync(path.join(repositoryRoot, '.changeset/config.json'), 'utf8')
+)
 const scriptPath = path.join(repositoryRoot, 'scripts/changeset-all-patch.js')
 const scriptSource = fs.readFileSync(scriptPath, 'utf8')
 const hasImportSafeContract =
@@ -43,6 +46,10 @@ test('root script gate includes the exceptional Changeset generator tests', () =
     rootManifest.scripts['test:scripts'],
     /scripts\/__tests__\/changeset-all-patch\.test\.mjs/
   )
+})
+
+test('Changesets never versions or tags private workspaces', () => {
+  assert.equal(changesetConfig.privatePackages, false)
 })
 
 test('release type is required and accepts only Changesets semver types', async (t) => {

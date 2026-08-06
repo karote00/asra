@@ -347,7 +347,7 @@ test('AI agent runtime is an optional zero-runtime-dependency workspace package'
   const turbo = readJSON('turbo.json')
 
   assert.equal(runtime.name, '@asyra/ai-agent-runtime')
-  assert.equal(runtime.version, '0.2.5')
+  assert.equal(runtime.version, '0.5.0')
   assert.equal(runtime.main, 'dist/index.js')
   assert.equal(runtime.types, 'dist/index.d.ts')
   assert.equal(
@@ -428,10 +428,10 @@ test('workspace version planning includes collaboration without changing files',
 
   assert.equal(
     appUpdate?.manifest.dependencies['@asyra/collaboration'],
-    '^0.2.5'
+    '^0.5.0'
   )
   assert.equal(
     collaborationUpdate?.manifest.dependencies['@asyra/factory'],
-    '^0.2.5'
+    '^0.5.0'
   )
 })

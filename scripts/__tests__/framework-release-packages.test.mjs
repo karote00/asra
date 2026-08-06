@@ -52,7 +52,7 @@ test('Framework Release Gate 5 freezes the exact public package set', () => {
     true
   )
   assert.equal(
-    source.packages.every((record) => record.version === '0.2.5'),
+    source.packages.every((record) => record.version === '0.5.0'),
     true
   )
 })

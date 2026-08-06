@@ -1,5 +1,28 @@
 # @asyra/core
 
+## 0.5.0
+
+### Minor Changes
+
+- Exceptional synchronized minor release for the fixed 19-package Framework set.
+
+### Patch Changes
+
+- Updated dependencies
+  - @asyra/factory@0.5.0
+  - @asyra/feature-system@0.5.0
+  - @asyra/input-system@0.5.0
+  - @asyra/persistence@0.5.0
+  - @asyra/props-manager@0.5.0
+  - @asyra/reactive-events@0.5.0
+  - @asyra/render@0.5.0
+  - @asyra/render-engine@0.5.0
+  - @asyra/scene-tree@0.5.0
+  - @asyra/selection@0.5.0
+  - @asyra/system-context@0.5.0
+  - @asyra/ui-context@0.5.0
+  - @asyra/utils@0.5.0
+
 ## 0.2.5
 
 ### Patch Changes
