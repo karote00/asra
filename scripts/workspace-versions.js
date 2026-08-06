@@ -28,6 +28,7 @@ export const resolveWorkspaceDependencyRange = ({
 }) => {
   if (environment === 'dev') return 'workspace:*'
   if (environment === 'prod') return `^${dependencyVersion}`
+  if (environment === 'release') return dependencyVersion
   throw new Error(`Unsupported workspace version environment: ${environment}`)
 }
 

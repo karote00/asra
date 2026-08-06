@@ -414,10 +414,17 @@ test('workspace version planning includes collaboration without changing files',
     }),
     'workspace:*'
   )
+  assert.equal(
+    resolveWorkspaceDependencyRange({
+      environment: 'release',
+      dependencyVersion: '0.5.0'
+    }),
+    '0.5.0'
+  )
 
   const plan = createWorkspaceVersionPlan({
     rootDirectory: repositoryRoot,
-    environment: 'prod'
+    environment: 'release'
   })
   const appUpdate = plan.find(
     ({ packageName }) => packageName === '@asyra/asyra-design'
@@ -428,10 +435,10 @@ test('workspace version planning includes collaboration without changing files',
 
   assert.equal(
     appUpdate?.manifest.dependencies['@asyra/collaboration'],
-    '^0.5.0'
+    '0.5.0'
   )
   assert.equal(
     collaborationUpdate?.manifest.dependencies['@asyra/factory'],
-    '^0.5.0'
+    '0.5.0'
   )
 })

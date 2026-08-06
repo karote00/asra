@@ -9,6 +9,9 @@
  *   # dev mode: restore workspace:* for local development
  *   yarn bump:workspace --env=dev
  *
+ *   # release mode: use exact internal versions for validated publication
+ *   yarn bump:workspace --env=release
+ *
  * Logs each package and which dependencies were updated.
  */
 
