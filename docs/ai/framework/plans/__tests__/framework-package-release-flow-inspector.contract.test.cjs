@@ -206,6 +206,11 @@ test('Inspector owns the exact 0.4.0 to minor to 0.5.0 path', () => {
   assert.match(generator, /ordinary scoped Changesets/i)
   assert.match(version, /0\.4\.0.*0\.5\.0/i)
   assert.match(version, /root.*private.*create-app/i)
+  assert.ok(
+    step('generate-synchronized-changeset').implementationBoundary.includes(
+      'package.json'
+    )
+  )
 })
 
 test('Inspector restricts Changesets publication to the fixed 19-package set', () => {

@@ -204,6 +204,7 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
+        'package.json',
         'scripts/changeset-all-patch.js',
         'scripts/framework-release-packages.js',
         'scripts/__tests__/changeset-all-patch.test.mjs',
