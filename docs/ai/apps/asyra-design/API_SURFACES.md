@@ -48,10 +48,12 @@ Completed plan:
   abort ownership; no fileId, URL parameter, startup branch, resident batch, or
   IndexedDB response inbox selects its payload
 - the checked-in `samples/crdt-7076` reference contains its exact input image,
-  instruction text, and previously converted 7,075-vector source. Its backend
-  accepts only the exact sample input, reads that converted source without
-  invoking VTracer, and returns one prepared Group plus 7,075 ordered Vector
-  children for 7,076 total canonical elements
+  instruction text, and one ordered versioned `AiActionBatch` instruction file
+  as its only drawing authority. Its backend accepts only the exact sample
+  input, reads that instruction file directly, and returns its prepared Group
+  plus 7,075 ordered Vector children for 7,076 total canonical elements. The
+  sample retains no SVG, alternate drawing source, regeneration fallback, or
+  request-time geometry reconstruction
 - production startup always composes that provider, the confirmation broker,
   app-root-local conversation controller, current AI history projection, and
   one isolated `@asyra/ai-agent-runtime` instance. There is no URL activation
@@ -89,9 +91,11 @@ Completed plan:
   describes what the server must prepare; the frontend does not run it against
   returned action arguments and exposes no client model-prepare or
   model-validation path
-- the server validates and normalizes accepted/skipped roles, bounds, styles,
-  paths, and points, then builds one `PreparedDrawingArtifact` before returning
-  the `AiActionBatch`
+- the production provider owns preparation of accepted/skipped roles, bounds,
+  styles, paths, points, and one `PreparedDrawingArtifact` before returning the
+  `AiActionBatch`. The 7,076 sample stores that already-prepared result in its
+  ordered instruction file, so request handling performs no geometry
+  preparation
 - `insert_vector_composition` receives one server-prepared Group descriptor and
   ordered child descriptor slices with complete source creation data, exact
   loading bounds, stable ids, relationships, point counts, roles, and skipped
@@ -158,6 +162,22 @@ Completed plan:
   clone. Render/UI observes the ordinary canonical owner batch, while
   Collaboration receives only the minimal `SharedPublication`; its
   `artifactId` is wire correlation rather than a History reference
+- Scene Tree and Props perform the one semantic data admission for the original
+  local mutation. Factory creates `SharedPublication` only from accepted
+  canonical evidence; after that handoff its payload is trusted product data.
+  Transport validates security and wire integrity but does not recursively
+  revalidate the product payload. The codec rejects unsupported or malformed
+  wire values during its own encode/decode traversal rather than through a
+  separate `isJsonTransportValue(payload)` pre-walk
+- the live socket server sequences, deduplicates by publication identity plus
+  encoded-byte digest, queues, and relays original opaque publication bytes
+  without an admission document, product-payload decode, decoded deep equality,
+  or re-encode. The backend decodes once for ordered atomic materialization
+- a receiving client routes the decoded trusted publication into its recorded
+  source slices. Factory keeps one progressive remote rollback journal open,
+  Core receives one ordered canonical request per source slice, and the
+  framework scheduler crosses a cooperative host-and-paint boundary between
+  slices. The receiver creates no Undo, outbound echo, or browser save
 - the App AI transaction runner acquires one document-interaction lock before
   opening that outer transaction and releases it only after commit or rollback
   plus history correlation. While locked, wheel input on the marked viewport

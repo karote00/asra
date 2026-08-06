@@ -189,7 +189,7 @@ test('production conversational AI uses one ActionBatch contract without compati
     'apps/asyra-design/src/startup.ts',
     'apps/asyra-design/server',
     'apps/asyra-design/samples/crdt-7076',
-    'apps/asyra-design/e2e/server-response-inbox.ts',
+    'apps/asyra-design/e2e/action-batch-interceptor.ts',
     'apps/asyra-design/e2e/test-utils.ts',
     'apps/asyra-design/e2e/conversational-ai.spec.ts'
   ].forEach((boundary) =>
@@ -197,7 +197,7 @@ test('production conversational AI uses one ActionBatch contract without compati
   )
   assert.match(
     providerText,
-    /crdt-7076.*previously converted.*never invokes VTracer/i
+    /crdt-7076.*ordered AiActionBatch instruction file.*without SVG.*VTracer/i
   )
   assert.match(
     providerText,
@@ -221,6 +221,9 @@ test('Actor A requests the exact backend sample only after Send', () => {
   const owner = step('request-backend-action-batch')
   const text = contractText(owner)
   const plan = read(data.authority.specPath)
+  const realignmentPlan = read(
+    'docs/ai/apps/asyra-design/plans/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
+  )
   const feature = read(
     'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
   )
@@ -237,10 +240,7 @@ test('Actor A requests the exact backend sample only after Send', () => {
     text,
     /fileId=crdt-7076-sample.*socket-authoritative document identity.*Collaboration identity/i
   )
-  assert.match(
-    text,
-    /same socket-authoritative startup/i
-  )
+  assert.match(text, /same socket-authoritative startup/i)
   assert.match(text, /socket is unavailable.*provisional local/i)
   assert.match(text, /Actor A HTTP action-batch execution/i)
   assert.doesNotMatch(
@@ -249,7 +249,7 @@ test('Actor A requests the exact backend sample only after Send', () => {
   )
   assert.match(
     text,
-    /previously converted vector source.*never invokes VTracer/i
+    /ordered AiActionBatch instruction file.*without SVG.*VTracer.*geometry reconstruction/i
   )
   assert.match(text, /7,075.*Vector.*Group.*7,076 total canonical elements/i)
   assert.match(
@@ -329,12 +329,12 @@ test('Actor A requests the exact backend sample only after Send', () => {
     /fileId[\s\S]*persisted document and Collaboration session/i
   )
   assert.match(
-    plan,
-    /crdt-7076[\s\S]*previously converted[\s\S]*vector source[\s\S]*does not invoke VTracer/i
+    realignmentPlan,
+    /7,076[\s\S]*ordered AiActionBatch instruction file[\s\S]*removes the SVG/i
   )
   assert.match(
     feature,
-    /Scenario: Actor A requests the checked-in 7076 backend sample after Send[\s\S]*fileId=crdt-7076-sample[\s\S]*exact sample image[\s\S]*exact sample instruction[\s\S]*without invoking VTracer[\s\S]*7075.*Vector[\s\S]*7076 canonical elements/i
+    /Scenario: Actor A requests the checked-in 7076 backend sample after Send[\s\S]*fileId=crdt-7076-sample[\s\S]*exact sample image[\s\S]*exact sample instruction[\s\S]*without VTracer[\s\S]*7075.*Vector[\s\S]*7076 canonical elements/i
   )
 })
 
@@ -384,7 +384,7 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
   )
   assert.match(
     text,
-    /server validates.*normalize.*item.*path.*point.*PreparedDrawingArtifact.*Group descriptor.*child descriptor slices.*before returning.*front.?end.*submits.*createElementsInParent/i
+    /provider output owns preparation.*item.*path.*point.*PreparedDrawingArtifact.*Group descriptor.*child descriptor slices.*complete source creation data.*neither request handling nor the front end repeats.*front-end composition executor.*createElementsInParent/i
   )
   assert.match(
     text,
@@ -470,7 +470,7 @@ test('Runtime resolves one server-prepared ActionBatch without client model vali
   )
   assert.match(
     feature,
-    /sample backend should match[\s\S]*previously converted[\s\S]*vector source/i
+    /sample backend should match[\s\S]*ordered AiActionBatch instruction file directly/i
   )
   assert.match(feature, /server-prepared action.*PreparedDrawingArtifact/i)
   assert.match(
@@ -898,7 +898,11 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /Response inbox seed, read, structured clone, and handoff.*external backend and transport-adapter timing.*recorded separately.*excluded from frontend product execution/i
+    /test-only HTTP action-batch interceptor artifact fetch, decode, and route-install spans.*external harness timing.*recorded separately.*excluded from frontend product execution.*no startup page, IndexedDB inbox, resident action batch, or preload phase/i
+  )
+  assert.match(
+    text,
+    /fixed two-Actor tracked process registry.*document-backend.*one document backend.*test-owned/i
   )
   assert.match(
     text,
@@ -1867,10 +1871,7 @@ test('every document uses socket-authoritative startup while remote apply stays 
     'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing-performance.feature'
   )
 
-  assert.match(
-    text,
-    /fileId.*socket-authoritative.*before Core starts/i
-  )
+  assert.match(text, /fileId.*socket-authoritative.*before Core starts/i)
   assert.match(
     text,
     /socket.*unavailable.*provisional local.*Core.*Canvas.*local actions.*outbox/i

@@ -17,7 +17,8 @@ local document and durable publication outbox.
 Actor A renders the sample by opening the Agent panel, attaching
 `reference-image.png`, pasting `instruction.txt`, and pressing Send. The
 same-origin action-batch HTTP interceptor matches that request and returns the
-checked-in prepared Group plus 7,075 Vector descriptors. Actor A executes all
+checked-in `action-batch.json`, which contains the prepared Group plus 7,075
+ordered Vector descriptors. Actor A executes all
 7,076 elements through the ordinary Runtime, canonical, Factory, and Render
 owners.
 
@@ -91,10 +92,10 @@ In Actor A:
 3. Paste the complete contents of `instruction.txt`.
 4. Press Send.
 
-Opening the URL alone does not create anything. Actor A's ordinary Agent request sends
-the image and instruction to the same-origin action-batch backend. After the
-backend matches both exact inputs, it reads `converted-vector-data.svg` and
-returns one prepared `AiActionBatch`.
+Opening the URL alone does not create anything. Actor A's ordinary Agent request
+sends the image and instruction to the same-origin action-batch backend. After
+the backend matches both exact inputs, it returns the checked-in ordered
+`action-batch.json` without reading or converting SVG source data.
 
 The checked-in conversion contains 7,075 editable Vector children. The ordinary
 App action creates one Group around those children, so Actor A and Actor B each

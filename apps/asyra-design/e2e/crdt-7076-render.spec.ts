@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 import { ACTION_BATCH_ENDPOINT } from '../src/ai/action-batch-endpoint'
-import { seedServerResponse } from './server-response-inbox'
+import { installGeneratedActionBatchInterceptor } from './action-batch-interceptor'
 import { waitForAppReady } from './test-utils'
 
 const SAMPLE_FILE_ID = 'crdt-7076-sample'
@@ -74,7 +74,7 @@ test('renders the complete crdt-7076 HTTP-intercepted action while the socket is
     }
   })
 
-  await seedServerResponse(page.context(), {
+  await installGeneratedActionBatchInterceptor(page.context(), {
     fileId: SAMPLE_FILE_ID,
     itemCount: 7_075
   })

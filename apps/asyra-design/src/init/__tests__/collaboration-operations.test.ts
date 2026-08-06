@@ -1,4 +1,5 @@
 import type { CanonicalChange } from '@asyra/core'
+import { Buffer } from 'node:buffer'
 import type {
   SharedPublication,
   SharedPublicationDelivery
@@ -21,6 +22,10 @@ import {
   createPublicationProcessor,
   type DecideRemotePublication
 } from '../../collaboration/operations'
+import {
+  CollaborationMessageTypes,
+  encodePublicationMessageFrames
+} from '../../collaboration/protocol'
 import {
   createDocumentMaterializationService,
   type DocumentMaterializationStore,
@@ -97,6 +102,22 @@ const publication = (
     ]
   }
 }
+
+const bootstrapTailItem = (
+  sequence: number,
+  item: SharedPublication,
+  fromActorId: string
+) => ({
+  sequence,
+  publicationId: item.publicationId,
+  encodedPublicationFrames: encodePublicationMessageFrames({
+    type: CollaborationMessageTypes.PUBLICATION,
+    publication: item,
+    fromActorId,
+    sequence
+  }).map((frame) => Buffer.from(frame).toString('base64')),
+  fromActorId
+})
 
 const withExplicitCanonicalDeliverySequence = (
   source: SharedPublication,
@@ -402,13 +423,37 @@ const restoreDeliveries = (): readonly TestPublicationDelivery[] => [
 
 interface HarnessOptions {
   readonly runRemoteTransaction?: (mutate: () => void) => void
+  readonly runRemoteTransactionProgressively?: (
+    mutateSlices: readonly (() => void)[],
+    settleAfterSlice: (completedSliceIndex: number) => Promise<void>
+  ) => Promise<void>
   readonly decideRemotePublication?: DecideRemotePublication
   readonly applyCanonicalChanges?: (changes: readonly CanonicalChange[]) => void
+  readonly settleRemoteSlice?: () => Promise<void>
 }
 
 const createHarness = (options: HarnessOptions = {}) => {
   const runRemoteTransaction = vi.fn<(mutate: () => void) => void>(
     options.runRemoteTransaction ?? ((mutate) => mutate())
+  )
+  const runRemoteTransactionProgressively = vi.fn<
+    (
+      mutateSlices: readonly (() => void)[],
+      settleAfterSlice: (completedSliceIndex: number) => Promise<void>
+    ) => Promise<void>
+  >(
+    options.runRemoteTransactionProgressively ??
+      (async (mutateSlices, settleAfterSlice) => {
+        for (let index = 0; index < mutateSlices.length; index += 1) {
+          mutateSlices[index]?.()
+          if (index < mutateSlices.length - 1) {
+            await settleAfterSlice(index)
+          }
+        }
+      })
+  )
+  const settleRemoteSlice = vi.fn(
+    options.settleRemoteSlice ?? (async () => undefined)
   )
   const decideRemotePublication = vi.fn<DecideRemotePublication>(
     options.decideRemotePublication ?? ((item) => item)
@@ -418,15 +463,19 @@ const createHarness = (options: HarnessOptions = {}) => {
   >(options.applyCanonicalChanges ?? (() => undefined))
   const processPublication = createPublicationProcessor({
     runRemoteTransaction,
+    runRemoteTransactionProgressively,
     decideRemotePublication,
-    applyCanonicalChanges
-  })
+    applyCanonicalChanges,
+    settleRemoteSlice
+  } as Parameters<typeof createPublicationProcessor>[0])
 
   return {
     applyCanonicalChanges,
     decideRemotePublication,
     processPublication,
-    runRemoteTransaction
+    runRemoteTransaction,
+    runRemoteTransactionProgressively,
+    settleRemoteSlice
   }
 }
 
@@ -449,8 +498,8 @@ describe('Asyra Design app-owned collaboration processing', () => {
           durableSequence: 4,
           headSequence: 6,
           pendingTail: [
-            { sequence: 5, publication: first, fromActorId: 'actor-a' },
-            { sequence: 6, publication: second, fromActorId: 'actor-b' }
+            bootstrapTailItem(5, first, 'actor-a'),
+            bootstrapTailItem(6, second, 'actor-b')
           ]
         },
         applyPublication: async (item) => {
@@ -464,29 +513,30 @@ describe('Asyra Design app-owned collaboration processing', () => {
     ])
   })
 
-  it('rejects bootstrap gaps, duplicate publication identities, and invalid routes before apply', async () => {
+  it('rejects bootstrap gaps, duplicate publication identities, and invalid encoded frames before apply', async () => {
     const valid = publication(
       propertyUpdateDeliveries('position-a', { x: 10 }),
       'bootstrap-valid'
-    )
-    const invalidRoute = publication(
-      [delivery('selection', 'selection.update', {})],
-      'bootstrap-invalid-route'
     )
     const applyPublication = vi.fn(async () => undefined)
 
     for (const pendingTail of [
       [
-        { sequence: 2, publication: valid, fromActorId: 'actor-a' },
-        { sequence: 4, publication: valid, fromActorId: 'actor-a' }
+        bootstrapTailItem(2, valid, 'actor-a'),
+        bootstrapTailItem(4, valid, 'actor-a')
       ],
       [
-        { sequence: 2, publication: valid, fromActorId: 'actor-a' },
-        { sequence: 3, publication: valid, fromActorId: 'actor-b' }
+        bootstrapTailItem(2, valid, 'actor-a'),
+        bootstrapTailItem(3, valid, 'actor-b')
       ],
       [
-        { sequence: 2, publication: valid, fromActorId: 'actor-a' },
-        { sequence: 3, publication: invalidRoute, fromActorId: 'actor-b' }
+        bootstrapTailItem(2, valid, 'actor-a'),
+        {
+          sequence: 3,
+          publicationId: 'bootstrap-invalid-frame',
+          encodedPublicationFrames: ['AAAA'],
+          fromActorId: 'actor-b'
+        }
       ]
     ]) {
       await expect(
@@ -499,7 +549,7 @@ describe('Asyra Design app-owned collaboration processing', () => {
           },
           applyPublication
         })
-      ).rejects.toThrow(/bootstrap|unsupported collaboration delivery/)
+      ).rejects.toThrow(/bootstrap|publication frame/)
     }
     expect(applyPublication).not.toHaveBeenCalled()
   })
@@ -550,7 +600,7 @@ describe('Asyra Design app-owned collaboration processing', () => {
     ])
   })
 
-  it('rejects remote computed projection before policy or mutation', () => {
+  it('rejects a local-only computed route before canonical mutation', () => {
     const harness = createHarness()
     const computed = delivery(
       SharedDataChannelNames.SCENE_TREE,
@@ -568,8 +618,8 @@ describe('Asyra Design app-owned collaboration processing', () => {
       harness.processPublication(
         publication([computed], 'remote-computed-projection')
       )
-    ).toThrow(/local-only computed projection/i)
-    expect(harness.decideRemotePublication).not.toHaveBeenCalled()
+    ).toThrow(/unsupported canonical Factory batch evidence/i)
+    expect(harness.decideRemotePublication).toHaveBeenCalledOnce()
     expect(harness.runRemoteTransaction).not.toHaveBeenCalled()
     expect(harness.applyCanonicalChanges).not.toHaveBeenCalled()
   })
@@ -1294,8 +1344,21 @@ describe('Asyra Design app-owned collaboration processing', () => {
     ])
   })
 
-  it('applies one bounded progressive publication window in one remote transaction', () => {
-    const harness = createHarness()
+  it('applies each source slice cooperatively inside one progressive remote transaction', async () => {
+    const order: string[] = []
+    const harness = createHarness({
+      applyCanonicalChanges: (changes) => {
+        const elementIds = changes.flatMap((change) =>
+          change.kind === 'element-creation'
+            ? change.elements.map(({ id }) => id)
+            : []
+        )
+        order.push(`apply:${elementIds.join(',')}`)
+      },
+      settleRemoteSlice: async () => {
+        order.push('settle')
+      }
+    })
     const firstElementIds = ['rect-a', 'rect-b']
     const secondElementIds = ['rect-c', 'rect-d']
     const first = publication(
@@ -1324,18 +1387,26 @@ describe('Asyra Design app-owned collaboration processing', () => {
       ]
     }
 
-    expect(harness.processPublication(window)).toBe(true)
-    expect(harness.runRemoteTransaction).toHaveBeenCalledOnce()
-    expect(harness.applyCanonicalChanges).toHaveBeenCalledOnce()
-    expect(harness.applyCanonicalChanges).toHaveBeenCalledWith([
+    await expect(harness.processPublication(window)).resolves.toBe(true)
+    expect(harness.runRemoteTransaction).not.toHaveBeenCalled()
+    expect(harness.runRemoteTransactionProgressively).toHaveBeenCalledOnce()
+    expect(harness.applyCanonicalChanges).toHaveBeenCalledTimes(2)
+    expect(harness.applyCanonicalChanges).toHaveBeenNthCalledWith(1, [
       expect.objectContaining({
         kind: 'element-creation',
         elements: firstElementIds.map((id) => expect.objectContaining({ id }))
-      }),
+      })
+    ])
+    expect(harness.applyCanonicalChanges).toHaveBeenNthCalledWith(2, [
       expect.objectContaining({
         kind: 'element-creation',
         elements: secondElementIds.map((id) => expect.objectContaining({ id }))
       })
+    ])
+    expect(order).toEqual([
+      'apply:rect-a,rect-b',
+      'settle',
+      'apply:rect-c,rect-d'
     ])
   })
 
@@ -1482,7 +1553,6 @@ describe('Asyra Design app-owned collaboration processing', () => {
   it.each([
     [
       'missing direct Factory batches',
-      false,
       () => ({
         ...publication(
           propertyUpdateDeliveries('position-a', { x: 10 }),
@@ -1492,30 +1562,7 @@ describe('Asyra Design app-owned collaboration processing', () => {
       })
     ],
     [
-      'duplicate batch identity',
-      false,
-      () => {
-        const source = publication(
-          propertyUpdateDeliveries('position-a', { x: 10 }),
-          'inconsistent-artifact'
-        )
-        const firstSlice = source.slices[0]
-        if (!firstSlice) throw new Error('Expected publication slice')
-        return {
-          ...source,
-          slices: [
-            firstSlice,
-            {
-              ...firstSlice,
-              sliceId: `${firstSlice.sliceId}:duplicate`
-            }
-          ]
-        }
-      }
-    ],
-    [
       'split canonical creation kinds',
-      true,
       () => {
         const source = publication(
           canonicalCreationDeliveries(['rect-a']),
@@ -1543,11 +1590,42 @@ describe('Asyra Design app-owned collaboration processing', () => {
           ]
         }
       }
-    ],
-    [
-      'malformed hierarchy evidence',
-      false,
-      () =>
+    ]
+  ])('rejects %s before transaction or Core apply', (_name, make) => {
+    const harness = createHarness()
+
+    expect(() => harness.processPublication(make())).toThrow()
+    expect(harness.decideRemotePublication).toHaveBeenCalledOnce()
+    expect(harness.runRemoteTransaction).not.toHaveBeenCalled()
+    expect(harness.applyCanonicalChanges).not.toHaveBeenCalled()
+  })
+
+  it('passes trusted Factory identity and hierarchy evidence to canonical owners without recursive validation', async () => {
+    const duplicateSource = publication(
+      propertyUpdateDeliveries('position-a', { x: 10 }),
+      'trusted-duplicate-artifact'
+    )
+    const firstSlice = duplicateSource.slices[0]
+    if (!firstSlice) throw new Error('Expected publication slice')
+    const duplicateHarness = createHarness()
+
+    await expect(
+      duplicateHarness.processPublication({
+        ...duplicateSource,
+        slices: [
+          firstSlice,
+          {
+            ...firstSlice,
+            sliceId: `${firstSlice.sliceId}:duplicate`
+          }
+        ]
+      })
+    ).resolves.toBe(true)
+    expect(duplicateHarness.applyCanonicalChanges).toHaveBeenCalledTimes(2)
+
+    const hierarchyHarness = createHarness()
+    expect(
+      hierarchyHarness.processPublication(
         publication(
           [
             delivery(
@@ -1569,27 +1647,19 @@ describe('Asyra Design app-owned collaboration processing', () => {
                   }
                 ]
               },
-              'malformed-move'
+              'trusted-owner-move'
             )
           ],
-          'malformed-hierarchy'
+          'trusted-hierarchy'
         )
-    ]
-  ])(
-    'rejects %s before transaction or Core apply',
-    (_name, policyRuns, make) => {
-      const harness = createHarness()
-
-      expect(() => harness.processPublication(make())).toThrow()
-      if (policyRuns) {
-        expect(harness.decideRemotePublication).toHaveBeenCalledOnce()
-      } else {
-        expect(harness.decideRemotePublication).not.toHaveBeenCalled()
-      }
-      expect(harness.runRemoteTransaction).not.toHaveBeenCalled()
-      expect(harness.applyCanonicalChanges).not.toHaveBeenCalled()
-    }
-  )
+      )
+    ).toBe(true)
+    expect(hierarchyHarness.applyCanonicalChanges).toHaveBeenCalledWith([
+      expect.objectContaining({
+        kind: 'hierarchy-moves'
+      })
+    ])
+  })
 })
 
 interface MaterializedTestDocument {
@@ -1673,11 +1743,19 @@ const persistenceBatch = (
   expectedDurableSequence: options.expectedDurableSequence ?? 0,
   firstSequence: entries[0]?.sequence ?? 0,
   lastSequence: entries.at(-1)?.sequence ?? 0,
-  entries: entries.map(({ sequence, publication: item }) => ({
-    documentId: options.documentId ?? 'document-a',
-    sequence,
-    publication: item
-  }))
+  entries: entries.map(({ sequence, publication: item }) => {
+    const encodedPublicationFrames = encodePublicationMessageFrames({
+      type: CollaborationMessageTypes.SEND_PUBLICATION,
+      requestId: `persistence-${item.publicationId}`,
+      publication: item
+    }).map((frame) => Buffer.from(frame).toString('base64'))
+    return {
+      documentId: options.documentId ?? 'document-a',
+      sequence,
+      publicationId: item.publicationId,
+      encodedPublicationFrames
+    }
+  })
 })
 
 describe('Asyra Design backend document materialization', () => {
@@ -1829,7 +1907,7 @@ describe('Asyra Design backend document materialization', () => {
           }
         ])
       )
-    ).rejects.toThrow('unsupported collaboration delivery')
+    ).rejects.toThrow('unsupported canonical Factory batch evidence')
     expect(harness.transact).not.toHaveBeenCalled()
     expect(harness.apply).not.toHaveBeenCalled()
   })

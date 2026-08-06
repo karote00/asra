@@ -142,6 +142,22 @@ const createPublication = ({
 
 const publication = createPublication()
 
+const bootstrapTailItem = (
+  sequence: number,
+  item: SharedPublication,
+  fromActorId: string
+) => ({
+  sequence,
+  publicationId: item.publicationId,
+  encodedPublicationFrames: encodeProtocolPublicationMessageFrames({
+    type: 'publication',
+    publication: item,
+    fromActorId,
+    sequence
+  }).map((frame) => Buffer.from(frame).toString('base64')),
+  fromActorId
+})
+
 const createTwoDeliveryPublication = (
   sourceLength = 2_048,
   {
@@ -548,6 +564,7 @@ afterEach(async () => {
 describe('CollaborationWebSocketProvider real connection contract', () => {
   it('exposes bootstrap before explicitly releasing the reserved live cutoff', async () => {
     const bootstrapCompletions: ClientMessage[] = []
+    const pendingTailItem = bootstrapTailItem(4, publication, 'actor-b')
     const server = await createLoopbackServer(
       (socket, message) => {
         if (message.type === 'hello') {
@@ -558,13 +575,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
                 checkpoint: { elements: [{ id: 'element-a' }] },
                 durableSequence: 3,
                 headSequence: 4,
-                pendingTail: [
-                  {
-                    sequence: 4,
-                    publication,
-                    fromActorId: 'actor-b'
-                  }
-                ]
+                pendingTail: [pendingTailItem]
               }
             })
           )
@@ -602,13 +613,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       checkpoint: { elements: [{ id: 'element-a' }] },
       durableSequence: 3,
       headSequence: 4,
-      pendingTail: [
-        {
-          sequence: 4,
-          publication,
-          fromActorId: 'actor-b'
-        }
-      ]
+      pendingTail: [pendingTailItem]
     })
     expect(bootstrapCompletions).toEqual([])
     await expect(provider.sendPublication(publication)).rejects.toMatchObject({

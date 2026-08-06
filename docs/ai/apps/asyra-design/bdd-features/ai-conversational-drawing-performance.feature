@@ -24,7 +24,8 @@ Feature: Conversational AI drawing performance
     Then "resolveAiActionBatch()" should return one "ResolvedAiActionBatch" without a public or internal client prepare, normalize, or validate phase
     And the complete control envelope should reject empty, duplicate, or unknown actions without traversing item, path, point, style, bounds, or geometry arguments
     And each action definition should expose one backend-facing inputSchema and one executor without a client action schema, parse, or prepare API
-    And the server should validate and normalize every item, path, point, role, style, and bound before returning the batch
+    And the production provider output should prepare every item, path, point, role, style, and bound before returning the batch
+    And the 7076 sample instruction file should already contain that complete prepared output without request-time geometry reconstruction
     And the server-prepared action should contain one PreparedDrawingArtifact with one prepared Group descriptor and ordered child descriptor slices containing complete source creation data, stable ids, relationships, point counts, and roles
     And it should contain one bounded redaction-ready summary rather than a parallel point-object graph
     And permission resolution should return one "PermissionReadyAiActionBatch"
@@ -462,6 +463,7 @@ Feature: Conversational AI drawing performance
     And publication payloads should remain ArrayBuffer values inside that Worker-owned data plane without JSON pre-serialization
     And outbound binary frames should be written directly by the Worker instead of returning to a main-thread socket
     And the server should relay canonical payload bytes without decode or re-encode
+    And the codec should verify wire integrity during its ordinary encode or decode traversal without a separate recursive product-payload validation pass
     And the receiver should admit frames into a bounded 2 MiB worker ingress window
     And the worker should validate header, order, and duplicate identity before emitting "frame-consumed"
     And each peer should enforce an exact 2 MiB unretired byte capacity
@@ -486,12 +488,13 @@ Feature: Conversational AI drawing performance
     Given Actor B receives one valid property-only source publication
     When the required async consumer opens the remote Factory transaction
     Then Actor B should open exactly one remote Factory transaction for that publication
-    And the App should submit one ordered "CanonicalChange" request through "Core.applyCanonicalChanges"
+    And the App should consume the wire-decoded trusted publication without recursive route or payload schema validation
+    And the App should submit the ordered source slices through "Core.applyCanonicalChanges"
     And different source publications should not be merged
-    And App policy should validate the publication before Core canonical apply
     And Actor B should apply "UPDATE_PROPERTY" without receiving "UPDATE_COMPUTED_DATA" through CRDT
     And Actor B should derive computed state locally and update ordinary Render output
-    And the consumer promise should resolve only after canonical apply and one cooperative host-and-paint projection settlement complete
+    And Actor B should cross a cooperative host-and-paint boundary between visible source slices
+    And the consumer promise should resolve only after all ordered source slices and cooperative projection settlements complete
     And Actor B should create no Undo action
     And Actor B should create no echo publication
     And Actor B should perform zero persistence after canonical apply
@@ -603,7 +606,7 @@ Feature: Conversational AI drawing performance
 
   Scenario: High-detail deletion materializes the exact owned-property closure linearly
     Given one canonical deletion owns a large shared and cyclic property graph
-    When the server validates and materializes that deletion before admission
+    When the socket admits its opaque bytes and the backend later materializes the ordered publication
     Then it should retain the same complete visited closure and deletion evidence
     And it should preserve the same persistence save and Undo Redo restoration semantics
     But it should consume the growing property-reference queue with one monotonic cursor
@@ -613,7 +616,8 @@ Feature: Conversational AI drawing performance
     Given the required URL is "/?fileId=crdt-7076-sample"
     And the local action-batch backend and WebSocket endpoint are configured
     And fileId selects the socket document and Collaboration session
-    And the checked-in crdt-7076 sample folder contains the reference image, exact instruction text, and previously converted 7075-vector source
+    And the checked-in crdt-7076 sample folder contains the reference image, exact instruction text, and ordered versioned AiActionBatch instruction file
+    And the sample folder contains no SVG or alternate drawing source
     When App bootstrap and Agent readiness complete
     Then no action payload should be seeded, preloaded, read from a response inbox, or selected by fileId
     And the canonical document should remain unchanged before Actor A sends a conversation request
@@ -621,8 +625,9 @@ Feature: Conversational AI drawing performance
     Then the provider should call only "requestActionBatch()" through one same-origin HTTP request
     And the request should carry the intent, image attachment, App context, registered action descriptions, attempt number, and abort ownership
     And the sample backend should match the exact image and instruction
-    And it should read the previously converted vector source without invoking VTracer, image conversion, or a model
-    And it should return one server-prepared "AiActionBatch" containing one prepared Group and 7075 ordered editable Vector descriptors
+    And it should read the ordered AiActionBatch instruction file directly without VTracer, image conversion, geometry reconstruction, or a model
+    And it should return that "AiActionBatch" with its prepared Group and 7075 ordered editable Vector descriptors
+    And Runtime should execute its actions and prepared slices in file order
     And Actor A should execute the batch through the ordinary Runtime, App action, Core, Factory, Render, and CRDT owners
     And Actor B should receive the drawing only through Actor A canonical CRDT publications
     And Actor A and Actor B should each finish with 7076 canonical elements
@@ -643,7 +648,7 @@ Feature: Conversational AI drawing performance
   Scenario: The guarded endpoint run also proves Actor A local interactivity
     Given two production browser actors share one required fileId and Collaboration is ready
     And the 500-percent frontend and 500-percent aggregate high-performance resource guards own the production App, browser, harness, and WebSocket server processes
-    And the exact checked-in sample image, instruction, and previously converted vector source are used through the ordinary backend request route
+    And the exact checked-in sample image, instruction, and ordered AiActionBatch instruction file are used through the ordinary backend request route
     And Contents, document reload, IndexedDB inspection, VTracer, HMR, media, warm-up, and repeat are absent
     And file-scoped App persistence remains enabled with separate save timing
     When Actor A creates the server-prepared 7076-element high-detail composition once

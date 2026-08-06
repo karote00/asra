@@ -144,11 +144,13 @@ const providerStatusForConnection = (
 }
 
 export const createRemotePublicationHandler = (
-  applyRemotePublication: (publication: SharedPublication) => boolean,
+  applyRemotePublication: (
+    publication: SharedPublication
+  ) => boolean | Promise<boolean>,
   settleProjection: () => Promise<void> = settleCooperativeRenderSlice
 ): ProcessRemotePublication => {
   return async (publication) => {
-    const applied = applyRemotePublication(publication)
+    const applied = await applyRemotePublication(publication)
     if (!applied) {
       throw new Error(
         `[collaboration] remote publication ${publication.publicationId} was rejected`
@@ -789,8 +791,11 @@ export const prepareCollaborationDocumentSession = async (
   idCounter.setNamespace(mode.actorId)
   const applyRemotePublication = createPublicationProcessor({
     runRemoteTransaction: factory.runRemoteTransaction.bind(factory),
+    runRemoteTransactionProgressively:
+      factory.runRemoteTransactionProgressively.bind(factory),
     decideRemotePublication: (publication) => publication,
-    applyCanonicalChanges: core.applyCanonicalChanges.bind(core)
+    applyCanonicalChanges: core.applyCanonicalChanges.bind(core),
+    settleRemoteSlice: settleCooperativeRenderSlice
   })
   const processRemotePublication = createRemotePublicationHandler(
     applyRemotePublication

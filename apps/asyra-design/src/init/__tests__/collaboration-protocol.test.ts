@@ -78,6 +78,22 @@ const createPublication = ({
 
 const publication = createPublication()
 
+const bootstrapTailItem = (
+  sequence: number,
+  item: SharedPublication,
+  fromActorId: string
+) => ({
+  sequence,
+  publicationId: item.publicationId,
+  encodedPublicationFrames: encodePublicationMessageFrames({
+    type: CollaborationMessageTypes.PUBLICATION,
+    publication: item,
+    fromActorId,
+    sequence
+  }).map((frame) => Buffer.from(frame).toString('base64')),
+  fromActorId
+})
+
 const createTwoBatchPublication = (): SharedPublication => {
   const first = createPublication({ suffix: 'first', transactionId: 4 })
   const second = createPublication({ suffix: 'second', transactionId: 4 })
@@ -349,6 +365,31 @@ describe('collaboration wire protocol', () => {
     expect(
       decodeCollaborationMessage(encodeCollaborationMessage(request))
     ).toEqual(request)
+  })
+
+  it('hands a trusted publication payload directly to the compact codec without a validation traversal', () => {
+    let payloadOwnKeyReads = 0
+    const payload = new Proxy(
+      { id: 'element-trusted', value: 'trusted-payload' },
+      {
+        ownKeys: (target) => {
+          payloadOwnKeyReads += 1
+          return Reflect.ownKeys(target)
+        }
+      }
+    )
+    const request: CollaborationRequestMessage = {
+      type: CollaborationMessageTypes.SEND_PUBLICATION,
+      requestId: 'request-trusted-payload',
+      publication: createPublication({
+        payload,
+        suffix: 'trusted-payload'
+      })
+    }
+
+    encodePublicationMessageFrames(request)
+
+    expect(payloadOwnKeyReads).toBe(3)
   })
 
   it('decodes text and base64 binary CDP WebSocket profile frames with exact wire bytes', () => {
@@ -852,7 +893,7 @@ describe('collaboration wire protocol', () => {
     ).toThrow(/duplicate publication identity/)
   })
 
-  it('rejects duplicate batch and delivery identities before framing', () => {
+  it('does not reinterpret trusted canonical batch and delivery identities before framing', () => {
     const base = createTwoBatchPublication()
     const firstSlice = base.slices[0]
     const secondSlice = base.slices[1]
@@ -904,7 +945,7 @@ describe('collaboration wire protocol', () => {
           requestId: 'request-duplicate-canonical-id',
           publication: candidate
         })
-      ).toThrow(/invalid shared publication/)
+      ).not.toThrow()
     }
   })
 
@@ -1370,14 +1411,10 @@ describe('collaboration wire protocol', () => {
         headSequence: 5,
         pendingTail: [
           {
-            sequence: 4,
-            publication,
-            fromActorId: 'actor-a'
+            ...bootstrapTailItem(4, publication, 'actor-a')
           },
           {
-            sequence: 5,
-            publication: secondPublication,
-            fromActorId: 'actor-b'
+            ...bootstrapTailItem(5, secondPublication, 'actor-b')
           }
         ]
       }
@@ -1401,9 +1438,7 @@ describe('collaboration wire protocol', () => {
         headSequence: 1,
         pendingTail: [
           {
-            sequence: 2,
-            publication,
-            fromActorId: 'actor-a'
+            ...bootstrapTailItem(2, publication, 'actor-a')
           }
         ]
       }

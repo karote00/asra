@@ -3,7 +3,7 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { fileURLToPath } from 'node:url'
 import { gunzipSync } from 'node:zlib'
-import type { AiProviderInput } from '@asyra/ai-agent-runtime'
+import type { AiActionBatch, AiProviderInput } from '@asyra/ai-agent-runtime'
 import { describe, expect, it } from 'vitest'
 import {
   ActionBatchServerError,
@@ -13,6 +13,11 @@ import {
 import { ACTION_BATCH_ENDPOINT } from '../../src/ai/action-batch-endpoint'
 
 const sampleRoot = new URL('../../samples/crdt-7076/', import.meta.url)
+
+const sampleActionBatch = async (): Promise<AiActionBatch> =>
+  JSON.parse(
+    await readFile(new URL('action-batch.json', sampleRoot), 'utf8')
+  ) as AiActionBatch
 
 const sampleInput = async (): Promise<AiProviderInput> => {
   const [image, instruction] = await Promise.all([
@@ -44,7 +49,8 @@ const sampleInput = async (): Promise<AiProviderInput> => {
 }
 
 describe('crdt-7076 action-batch backend sample', () => {
-  it('reads the stored conversion after the exact image and instruction match', async () => {
+  it('returns the exact ordered instruction file after the image and instruction match', async () => {
+    const expectedBatch = await sampleActionBatch()
     const batch = await resolveActionBatchRequest(await sampleInput(), {
       requestId: 'request-7076'
     })
@@ -55,6 +61,7 @@ describe('crdt-7076 action-batch backend sample', () => {
       slices: readonly { descriptors: readonly unknown[] }[]
     }
 
+    expect(batch).toEqual(expectedBatch)
     expect(batch.actions).toHaveLength(1)
     expect(batch.batchId).toBe('create-cat-only-white-background')
     expect(artifact.elementCount).toBe(7_075)
@@ -67,7 +74,8 @@ describe('crdt-7076 action-batch backend sample', () => {
     ).toBe(7_075)
   })
 
-  it('returns the stored conversion through the formal HTTP endpoint', async () => {
+  it('returns the exact instruction file through the formal HTTP endpoint', async () => {
+    const expectedBatch = await sampleActionBatch()
     const middleware = createActionBatchMiddleware()
     const server = createServer((request, response) => {
       void middleware(request, response, () => {
@@ -103,6 +111,7 @@ describe('crdt-7076 action-batch backend sample', () => {
       }
 
       expect(response.status).toBe(200)
+      expect(batch).toEqual(expectedBatch)
       expect(batch.actions).toHaveLength(1)
       expect(batch.actions[0].arguments.elementCount).toBe(7_075)
       expect(batch.actions[0].arguments.groupDescriptor.id).toMatch(
@@ -150,10 +159,19 @@ describe('crdt-7076 action-batch backend sample', () => {
     ).rejects.toBeInstanceOf(ActionBatchServerError)
   })
 
-  it('keeps the stored conversion and instruction inside the sample folder', async () => {
+  it('keeps only the ordered instruction file as the sample drawing authority', async () => {
+    const instructionFile = JSON.parse(
+      await readFile(new URL('action-batch.json', sampleRoot), 'utf8')
+    ) as AiActionBatch
+
+    expect(instructionFile.batchId).toBe('create-cat-only-white-background')
+    expect(instructionFile.actions).toHaveLength(1)
+    await expect(
+      readFile(new URL('action-batch.json', sampleRoot), 'utf8')
+    ).resolves.toContain('"insert_vector_composition"')
     await expect(
       readFile(new URL('converted-vector-data.svg', sampleRoot), 'utf8')
-    ).resolves.toMatch(/<svg[\s\S]*<path/)
+    ).rejects.toMatchObject({ code: 'ENOENT' })
     await expect(
       readFile(new URL('instruction.txt', sampleRoot), 'utf8')
     ).resolves.toMatch(/Draw only the cat/)

@@ -4,7 +4,15 @@ Never record completed plans here.
 
 ## Current Status
 
-- No active app plan.
+- Active App plan:
+  `plans/trusted-publication-and-crdt-7076-flow-realignment-plan.md`.
+- The active plan records the accepted target direction for one-time canonical
+  data admission, trusted publication handoff, opaque socket relay, Actor B
+  cooperative presentation, backend-only materialization decode, and a
+  checked-in ordered 7,076 `AiActionBatch` instruction file with no retained
+  SVG source.
+- Production implementation and bounded validation completed on 2026-08-06.
+  The active record is awaiting product-owner review and explicit closeout.
 - Most recently completed canonical App plan:
   `plans/completed/socket-authoritative-document-persistence-plan.md`.
 - Its retained product contract and exact owner flow are:

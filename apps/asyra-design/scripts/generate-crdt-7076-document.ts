@@ -32,7 +32,7 @@ const [
   { initAiDrawingProgress }
 ] = await Promise.all([
   import('@asyra/preset'),
-  import('../e2e/server-response-inbox'),
+  import('../e2e/action-batch-interceptor'),
   import('../src/ai/actions'),
   import('../src/common-apis'),
   import('../src/config/empty-document'),

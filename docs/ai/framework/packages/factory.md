@@ -100,6 +100,11 @@ infrastructure.
 - the reusable framework cooperative render policy defaults to `progressive`;
   callers may explicitly select `atomic` when a complete canonical mutation and
   projection must settle before a dependent mutation starts
+- `runRemoteTransactionProgressively(...)` keeps one remote rollback journal
+  open across ordered synchronous mutation slices and awaits the supplied
+  cooperative settlement only between slices. It creates no local Undo entry
+  or outbound publication, and an ordinary local action transaction cannot join
+  the open remote journal
 - the progressive Undo/Redo route is additive to the synchronous route: when
   the committed History entry carries a progressive delivery sequence or
   already-delivered immediate owner batches, Factory applies the same canonical

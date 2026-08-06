@@ -107,7 +107,7 @@ test('creates deterministic gzip-6 records and a complete bounded manifest', asy
   const productionIndex = Buffer.from(
     '<!doctype html><title>production</title>'
   )
-  const sourceSvg = Buffer.from('<svg><path d="M0 0L1 1"/></svg>')
+  const sourceActionBatch = Buffer.from('{"batchId":"sample"}')
   const calls = []
   const createRecord = async (fileId, itemCount) => {
     calls.push({ fileId, itemCount })
@@ -117,12 +117,12 @@ test('creates deterministic gzip-6 records and a complete bounded manifest', asy
   const first = await createPreparedServerResponseArtifacts({
     createRecord,
     productionIndex,
-    sourceSvg
+    sourceActionBatch
   })
   const second = await createPreparedServerResponseArtifacts({
     createRecord,
     productionIndex,
-    sourceSvg
+    sourceActionBatch
   })
 
   assert.equal(
@@ -130,7 +130,10 @@ test('creates deterministic gzip-6 records and a complete bounded manifest', asy
     PREPARED_SERVER_RESPONSE_MANIFEST_VERSION
   )
   assert.equal(first.manifest.productionIndexSha256, sha256(productionIndex))
-  assert.equal(first.manifest.sourceSvgSha256, sha256(sourceSvg))
+  assert.equal(
+    first.manifest.sourceActionBatchSha256,
+    sha256(sourceActionBatch)
+  )
   assert.deepEqual(first.manifest, second.manifest)
   assert.deepEqual(
     calls.map(({ itemCount }) => itemCount),
@@ -175,15 +178,15 @@ test('copies production output into one atomic current overlay without changing 
   const productionDistPath = path.join(testRoot, 'production-dist')
   const previewRoot = path.join(testRoot, 'preview')
   const productionIndex = '<!doctype html><title>canonical build</title>'
-  const sourceSvg = '<svg><path d="M0 0L2 2"/></svg>'
-  const sourceSvgPath = path.join(testRoot, 'source.svg')
+  const sourceActionBatch = '{"batchId":"sample"}'
+  const sourceActionBatchPath = path.join(testRoot, 'action-batch.json')
 
   try {
     await mkdir(path.join(productionDistPath, 'assets'), { recursive: true })
     await Promise.all([
       writeFile(path.join(productionDistPath, 'index.html'), productionIndex),
       writeFile(path.join(productionDistPath, 'assets/app.js'), 'app()'),
-      writeFile(sourceSvgPath, sourceSvg)
+      writeFile(sourceActionBatchPath, sourceActionBatch)
     ])
     const productionBefore = await readdir(productionDistPath, {
       recursive: true
@@ -194,7 +197,7 @@ test('copies production output into one atomic current overlay without changing 
       previewRoot,
       processId: 4242,
       productionDistPath,
-      sourceSvgPath
+      sourceActionBatchPath
     })
 
     const firstCurrentStat = await lstat(firstSummary.currentPath)
@@ -206,7 +209,7 @@ test('copies production output into one atomic current overlay without changing 
       previewRoot,
       processId: 4243,
       productionDistPath,
-      sourceSvgPath
+      sourceActionBatchPath
     })
 
     const currentStat = await lstat(summary.currentPath)
@@ -229,7 +232,7 @@ test('copies production output into one atomic current overlay without changing 
     const attestation = await attestPreparedServerResponsePreview({
       previewRoot,
       productionDistPath,
-      sourceSvgPath
+      sourceActionBatchPath
     })
     assert.equal(attestation.currentPath, summary.currentPath)
     assert.deepEqual(attestation.manifest, summary.manifest)
@@ -272,7 +275,7 @@ test('copies production output into one atomic current overlay without changing 
       attestPreparedServerResponsePreview({
         previewRoot,
         productionDistPath,
-        sourceSvgPath
+        sourceActionBatchPath
       }),
       /gzip 16 failed attestation/
     )
@@ -291,7 +294,7 @@ test('copies production output into one atomic current overlay without changing 
       attestPreparedServerResponsePreview({
         previewRoot,
         productionDistPath,
-        sourceSvgPath
+        sourceActionBatchPath
       }),
       /does not match the production index/
     )

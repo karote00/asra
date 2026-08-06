@@ -118,6 +118,13 @@ test('Playwright routes the formal backend through the same document-session flo
     collaborationConfig,
     /E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_BACKEND_URL=/
   )
+  assert.match(ordinaryConfig, /process\.env\.ASYRA_E2E_DOCUMENT_BACKEND_URL/)
+  assert.match(
+    collaborationConfig,
+    /process\.env\.ASYRA_E2E_DOCUMENT_BACKEND_URL/
+  )
+  assert.match(ordinaryConfig, /DOCUMENT_BACKEND_PORT=/)
+  assert.match(collaborationConfig, /DOCUMENT_BACKEND_PORT=/)
   assert.match(
     ciScript,
     /ASYRA_E2E_DOCUMENT_BACKEND_URL=.*[\s\\]*yarn workspace @asyra\/asyra-design react:start/
@@ -163,7 +170,10 @@ test('the one 7076 URL uses an HTTP action-batch interceptor on both offline and
   ])
 
   assert.match(offlineSource, /SAMPLE_FILE_ID = 'crdt-7076-sample'/)
-  assert.match(offlineSource, /seedServerResponse\([\s\S]*itemCount: 7_075/)
+  assert.match(
+    offlineSource,
+    /installGeneratedActionBatchInterceptor\([\s\S]*itemCount: 7_075/
+  )
   assert.match(offlineSource, /ACTION_BATCH_ENDPOINT/)
   assert.match(offlineSource, /getByRole\('button', \{ name: 'Send' \}\)/)
   assert.match(offlineSource, /directDocumentRequestCount\)\.toBe\(0\)/)
@@ -381,21 +391,21 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     '../e2e/performance-resource-guard.mjs',
     import.meta.url
   )
-  const serverResponseInboxURL = new URL(
-    '../e2e/server-response-inbox.ts',
+  const actionBatchInterceptorURL = new URL(
+    '../e2e/action-batch-interceptor.ts',
     import.meta.url
   )
   const [
     configSource,
     guardSource,
     specSource,
-    serverResponseInboxSource,
+    actionBatchInterceptorSource,
     manifestSource
   ] = await Promise.all([
     readFile(configURL, 'utf8'),
     readFile(guardURL, 'utf8'),
     readFile(specURL, 'utf8'),
-    readFile(serverResponseInboxURL, 'utf8'),
+    readFile(actionBatchInterceptorURL, 'utf8'),
     readFile(new URL('../package.json', import.meta.url), 'utf8')
   ])
   const connectivityCpuSampleSource = specSource.slice(
@@ -459,7 +469,7 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   )
   assert.match(guarded, /crdt-endpoint-performance\.spec\.ts/)
   assert.doesNotMatch(
-    serverResponseInboxSource,
+    actionBatchInterceptorSource,
     /MAXIMUM_COMPRESSED_RESPONSE_BYTES|maximumCompressedBytes/,
     'the attested response must not gain an arbitrary payload ceiling'
   )
@@ -492,6 +502,13 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     configSource,
     /trackedServerCommand\(\s*['"]websocket-server['"]/
   )
+  assert.match(
+    configSource,
+    /trackedServerCommand\(\s*['"]document-backend['"]/
+  )
+  assert.match(configSource, /yarn document:backend:start/)
+  assert.match(configSource, /DOCUMENT_PERSISTENCE_BACKEND_URL/)
+  assert.match(configSource, /ASYRA_E2E_DOCUMENT_BACKEND_URL/)
   const websocketServerSource = configSource.slice(
     configSource.indexOf("trackedServerCommand(\n      'websocket-server'"),
     configSource.indexOf("trackedServerCommand(\n      'app-server'")
@@ -542,10 +559,30 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(specSource, /proofKind:\s*['"]local-attribution['"]/)
   assert.match(specSource, /actorB:\s*null/)
   assert.match(specSource, /phaseTimeline/)
-  assert.match(specSource, /responseInboxPreload/)
+  assert.match(specSource, /actionBatchInterceptor/)
   assert.ok(
-    specSource.indexOf('const responseInboxPreload = snapshot') <
+    specSource.indexOf('installPreparedActionBatchInterceptor') <
       specSource.indexOf("'profile:reset'")
+  )
+  assert.match(
+    specSource,
+    /case 'loading-at-zero':[\s\S]{0,300}stableLoadingFrames >= 1/,
+    'loading-at-zero must accept the one paint opportunity guaranteed by the product contract'
+  )
+  assert.match(
+    specSource,
+    /case 'first-visible':[\s\S]{0,300}stableLoadingFrames >= 2/,
+    'first-visible progressive evidence remains stable across two frames'
+  )
+  assert.match(
+    specSource,
+    /cooperativeYieldCount\)\.toBeGreaterThan\(0\)/,
+    'cooperative yields prove responsiveness independently of publication batching'
+  )
+  assert.doesNotMatch(
+    specSource,
+    /cooperativeYieldCount\)\.toBe\(\s*completed\.publications\.actorALocalSent/,
+    'cooperative slices and transport publications are different owner units'
   )
   assert.match(specSource, /drawingProgress/)
   assert.doesNotMatch(specSource, /counterTimeline/)
@@ -849,6 +886,10 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(highDetailSource, /\.slice\(-4\)/)
   assert.match(highDetailSource, /drawingProgress\.milestones/)
   assert.match(
+    highDetailSource,
+    /drawingProgress\.cooperativeYieldCount\)\.toBeGreaterThan\(0\)/
+  )
+  assert.doesNotMatch(
     highDetailSource,
     /drawingProgress\.cooperativeYieldCount\)\.toBe\(\s*completed\.publications\.actorALocalSent/
   )

@@ -1,22 +1,19 @@
-import type { SharedPublication } from '@asyra/factory'
+import { Buffer } from 'node:buffer'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createHttpDocumentPersistenceClient } from '../document-persistence-client'
 import { createDocumentPersistenceQueue } from '../document-persistence-queue'
 
-const publication = (publicationId: string): SharedPublication => ({
-  publicationId,
-  artifactId: `artifact-${publicationId}`,
-  transactionId: 1,
-  origin: 'action',
-  mode: 'atomic',
-  slices: []
-})
-
-const entry = (sequence: number, byteLength = 128) => ({
-  sequence,
-  publication: publication(`publication-${sequence}`),
-  byteLength
-})
+const entry = (sequence: number, byteLength = 128) => {
+  const publicationId = `publication-${sequence}`
+  return {
+    sequence,
+    publicationId,
+    encodedPublicationFrames: [
+      Buffer.from(`frame-${publicationId}`).toString('base64')
+    ],
+    byteLength
+  }
+}
 
 afterEach(() => {
   vi.useRealTimers()

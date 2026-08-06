@@ -44,14 +44,19 @@ const collaborationPort = resolveDedicatedPort(
   'ENDPOINT_COLLABORATION_PORT',
   4_121
 )
-if (appPort === collaborationPort) {
+const documentBackendPort = resolveDedicatedPort(
+  'ENDPOINT_DOCUMENT_BACKEND_PORT',
+  4_221
+)
+if (new Set([appPort, collaborationPort, documentBackendPort]).size !== 3) {
   throw new Error(
-    'Endpoint performance App and collaboration ports must be different'
+    'Endpoint performance App, collaboration, and document backend ports must be different'
   )
 }
 
 const appURL = `http://127.0.0.1:${appPort}`
 const collaborationHealthURL = `http://127.0.0.1:${collaborationPort}/health`
+const documentBackendURL = `http://127.0.0.1:${documentBackendPort}`
 const collaborationWebSocketURL =
   `ws://127.0.0.1:${collaborationPort}` + '/collaboration'
 const attestedArtifactEndpoint = requireGuardValue('ENDPOINT_ARTIFACT_ATTESTED')
@@ -89,7 +94,7 @@ const guardLauncherPath = fileURLToPath(
   new URL('./e2e/performance-resource-guard.mjs', import.meta.url)
 )
 const trackedServerCommand = (
-  role: 'app-server' | 'websocket-server',
+  role: 'app-server' | 'document-backend' | 'websocket-server',
   command: string
 ): string =>
   `exec ${JSON.stringify(process.execPath)} ${JSON.stringify(
@@ -103,13 +108,28 @@ const browserLauncherEnvironment = Object.fromEntries(
 const guardedWebServers = [
   {
     command: trackedServerCommand(
+      'document-backend',
+      'yarn document:backend:start'
+    ),
+    env: {
+      DOCUMENT_BACKEND_DATA_DIR: 'test-results/endpoint-document-backend',
+      DOCUMENT_BACKEND_PORT: String(documentBackendPort)
+    },
+    url: `${documentBackendURL}/health`,
+    stdout: 'pipe',
+    reuseExistingServer: false,
+    timeout: 120_000
+  },
+  {
+    command: trackedServerCommand(
       'websocket-server',
       'yarn collaboration:server:start'
     ),
     env: {
       APP_URL: appURL,
       COLLABORATION_WS_HOST: '127.0.0.1',
-      COLLABORATION_WS_PORT: String(collaborationPort)
+      COLLABORATION_WS_PORT: String(collaborationPort),
+      DOCUMENT_PERSISTENCE_BACKEND_URL: documentBackendURL
     },
     url: collaborationHealthURL,
     stdout: 'pipe',
@@ -122,6 +142,9 @@ const guardedWebServers = [
       `yarn preview --host 127.0.0.1 --port ${appPort} --strictPort ` +
         `--outDir ${JSON.stringify(responsePreviewOutDir)}`
     ),
+    env: {
+      ASYRA_E2E_DOCUMENT_BACKEND_URL: documentBackendURL
+    },
     url: appURL,
     reuseExistingServer: false,
     timeout: 120_000

@@ -3,7 +3,9 @@ import { loadEnvironment, resolveEnvironment } from './app-environment.mjs'
 
 const appEnvironment = resolveEnvironment(loadEnvironment())
 const ownsTestServers = process.env.E2E_OWN_SERVERS === '1'
-const documentBackendURL = 'http://127.0.0.1:4201'
+const documentBackendURL =
+  process.env.ASYRA_E2E_DOCUMENT_BACKEND_URL?.trim() || 'http://127.0.0.1:4201'
+const documentBackendPort = new URL(documentBackendURL).port || '80'
 
 export default defineConfig({
   testDir: './e2e',
@@ -23,8 +25,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command:
-        'DOCUMENT_BACKEND_DATA_DIR=test-results/document-backend yarn document:backend',
+      command: `DOCUMENT_BACKEND_PORT=${documentBackendPort} DOCUMENT_BACKEND_DATA_DIR=test-results/document-backend yarn document:backend`,
       url: `${documentBackendURL}/health`,
       reuseExistingServer: !ownsTestServers,
       timeout: 120_000

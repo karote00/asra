@@ -127,10 +127,21 @@ materialization on the fixed three-second dirty window. The browser never
 writes a materialized ordinary document snapshot.
 
 `crdt-7076-sample` uses the same mandatory socket document session as every
-other fileId. The checked-in response enters only through Actor A's same-origin
-HTTP action-batch request. Socket unavailability keeps the ordinary provisional
-local document and outbox active; there is no direct compressed-document load,
-localStorage Reset, or sample-specific Collaboration bypass.
+other fileId. Its checked-in ordered `AiActionBatch` instruction file is the
+only drawing authority and enters only through Actor A's same-origin HTTP
+action-batch request. The sample retains no SVG, alternate drawing source, or
+request-time geometry reconstruction. Socket unavailability keeps the ordinary
+provisional local document and outbox active; there is no direct compressed-
+document load, localStorage Reset, or sample-specific Collaboration bypass.
+
+Scene Tree and Props semantically admit the original local mutation once.
+Factory publication after that boundary is trusted product data. Codec and
+socket owners retain security, byte, frame, ordering, and sequence checks, but
+they do not recursively revalidate the delivery payload. Actor B decodes the
+wire representation once, consumes the typed trusted publication, and applies
+its ordered source slices through one remote transaction with cooperative paint
+between visible slices. The backend alone performs the persistence decode for
+ordered atomic checkpoint materialization.
 
 Authority:
 `../specs/socket-authoritative-document-session.md`.

@@ -12,7 +12,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { decodeProfiledWebSocketFrame } from '../src/collaboration/websocket-profile-frame'
 import { getUndoHistoryDepth, redo, undo, waitForAppReady } from './test-utils'
-import { seedServerResponse } from './server-response-inbox'
+import { installGeneratedActionBatchInterceptor } from './action-batch-interceptor'
 
 interface CanonicalAiDrawingSnapshot {
   readonly blueStrokeIds: readonly string[]
@@ -2578,8 +2578,8 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
 
   try {
     const fileId = CRDT_7076_SAMPLE_FILE_ID
-    await measureHarnessPhase('server-response-inbox-seeded', () =>
-      seedServerResponse(actorAContext, {
+    await measureHarnessPhase('action-batch-interceptor-installed', () =>
+      installGeneratedActionBatchInterceptor(actorAContext, {
         appUrl: profiledCollaborationUrl(fileId),
         fileId,
         itemCount: 7075
@@ -3200,7 +3200,7 @@ test('keeps two connected Actors converged through one complete high-detail cat 
 
   try {
     const fileId = `ai-high-detail-undo-${Date.now()}`
-    await seedServerResponse(actorAContext, {
+    await installGeneratedActionBatchInterceptor(actorAContext, {
       appUrl: collaborationUrl(fileId),
       fileId,
       itemCount: 7075
@@ -3706,7 +3706,7 @@ test('records two live CRDT clients while Agent creates the same cat', async ({}
     actorB = actorBResult.page
 
     const fileId = CRDT_7076_SAMPLE_FILE_ID
-    await seedServerResponse(actorAContext, {
+    await installGeneratedActionBatchInterceptor(actorAContext, {
       appUrl: collaborationUrl(fileId),
       fileId,
       itemCount: 7075

@@ -146,12 +146,12 @@
       title: 'Apply exact bootstrap tail before socket synchronization',
       ownerPackage: 'Asyra Design collaboration publication processor',
       purpose:
-        'Validate and apply checkpoint-following publications through the ordinary remote canonical route until the browser reaches the handshake head sequence.',
+        'Decode and atomically apply trusted checkpoint-following publications through the ordinary remote canonical route until the browser reaches the handshake head sequence.',
       inputs: [
         'artifact:hydrated-checkpoint-state',
         'artifact:bootstrap-pending-tail',
         'artifact:bootstrap-live-cutoff',
-        'shared App publication decoder',
+        'shared App wire decoder and trusted publication handoff',
         'Factory remote transaction boundary'
       ],
       outputs: [
@@ -160,18 +160,18 @@
       ],
       conditions: [
         'The first pending sequence equals durableSequence plus one and the last equals headSequence when the tail is non-empty.',
-        'Every pending publication is validated and applied exactly once in sequence.',
-        'Tail apply reuses the same App decoder and Core canonical apply boundary as live remote publications.',
+        'Every pending publication is wire-decoded once and atomically applied exactly once in sequence without recursive product-payload schema validation.',
+        'Tail apply reuses the same App decoder, trusted publication handoff, and Core canonical apply boundary as live remote publications.',
         'The socket session becomes synchronized only after the cutoff is reached; local editing availability is independent.',
         'Bootstrap apply creates no local Undo, browser save, or outbound echo.'
       ],
       bypasses: [
         'An empty pending tail marks the hydrated checkpoint synchronized when durableSequence equals headSequence.',
-        'A sequence gap, duplicate, invalid route, or apply failure blocks socket synchronization without disabling the local runtime.'
+        'A sequence gap, duplicate, codec-integrity failure, or atomic apply failure blocks socket synchronization and requires authoritative resynchronization without disabling the local runtime.'
       ],
       allowedContributors: [
-        'Asyra Design publication route/payload validation',
-        'Asyra Design shared publication-to-CanonicalChange decoder',
+        'Asyra Design wire codec and trusted publication handoff',
+        'Asyra Design shared publication-to-CanonicalChange organizer',
         '@asyra/factory runRemoteTransaction',
         '@asyra/core applyCanonicalChanges'
       ],
@@ -180,7 +180,8 @@
         'receiver-side persistence save',
         'local Undo History',
         'publication echo',
-        'a bootstrap-specific payload interpretation'
+        'a bootstrap-specific payload interpretation',
+        'recursive product-payload schema validation after decode'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -188,9 +189,11 @@
         'apps/asyra-design/src/collaboration/lifecycle.ts',
         'apps/asyra-design/src/init/__tests__/collaboration-operations.test.ts',
         'apps/asyra-design/src/init/__tests__/collaboration-lifecycle.test.ts',
+        'packages/factory/src/factory.ts',
+        'packages/factory/src/__tests__/factory.test.ts',
         'apps/asyra-design/e2e/collaboration.spec.ts',
         'docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md',
-        'docs/ai/apps/asyra-design/plans/completed/socket-authoritative-document-persistence-plan.md'
+        'docs/ai/apps/asyra-design/plans/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
       ],
       specRefs: [
         '#bootstrap-and-load-handshake',
@@ -285,8 +288,7 @@
         'artifact:recoverable-pending-publication',
         'artifact:reconciled-document-session',
         'artifact:connection-sync-state',
-        'artifact:outbox-storage-failure',
-        'artifact:recovery-publication-conflict'
+        'artifact:outbox-storage-failure'
       ],
       conditions: [
         'Every connected or disconnected local document publication is appended in file-local order before it is eligible for removal.',
@@ -296,12 +298,11 @@
         'One disconnected epoch produces at most one disconnect toast, one recovery transition produces at most one reconnect toast, and publication-level failures remain console-only.',
         'A disconnected lifecycle schedules one non-overlapping reconnect attempt every 30000 ms.',
         'Reconnect obtains the latest checkpoint and socket tail, then applies accepted local recovery and peer publications in server sequence exactly once.',
-        'Same-property conflicts resolve by later server sequence; structurally invalid recovery publications remain retained conflict records.',
+        'Same-property conflicts resolve by later server sequence; an unexpected atomic apply failure advances no sequence and restarts authoritative reconciliation instead of creating a socket semantic-conflict record.',
         'IndexedDB quota or denial enters storage-failed and retains current-runtime memory evidence when possible without evicting older pending entries.'
       ],
       bypasses: [
         'Selection-only and other non-document transactions produce no outbox entry.',
-        'The crdt-7076-sample non-production Agent simulation owns no ordinary socket recovery outbox.',
         'An empty outbox bypasses recovery upload but not the reconnect handshake.',
         'A repeated status or publication failure bypasses toast emission after its transition epoch was already reported.'
       ],
@@ -309,7 +310,7 @@
         'Asyra Design collaboration lifecycle',
         'App-owned native IndexedDB publication outbox',
         'Asyra Design WebSocket Provider and protocol',
-        'App publication decoder and canonical conflict decision',
+        'App trusted publication decoder and authoritative resynchronization decision',
         'quiet App connection and sync status projection'
       ],
       forbiddenContributors: [
@@ -327,7 +328,7 @@
         'apps/asyra-design/src/init/__tests__',
         'apps/asyra-design/e2e/collaboration.spec.ts',
         'docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md',
-        'docs/ai/apps/asyra-design/plans/completed/socket-authoritative-document-persistence-plan.md'
+        'docs/ai/apps/asyra-design/plans/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
       ],
       specRefs: [
         '#connection-local-outbox-and-notifications',
@@ -344,12 +345,13 @@
       title: 'Assign document order and fan out live',
       ownerPackage: 'Asyra Design socket server',
       purpose:
-        'Validate one publication identity, deduplicate retransmission, assign one monotonic document sequence, enqueue persistence, and broadcast in that sequence order.',
+        'Admit one bounded opaque publication envelope, deduplicate exact encoded bytes, assign one monotonic document sequence, enqueue the original payload bytes, and broadcast them in that sequence order.',
       inputs: [
         'artifact:recoverable-pending-publication',
         'ready document-session identity',
+        'bounded outer wire envelope and original encoded publication bytes',
         'current document head sequence',
-        'current publication-id acceptance index'
+        'current publication-id plus encoded-byte-digest acceptance index'
       ],
       outputs: [
         'artifact:sequenced-document-publication',
@@ -358,26 +360,29 @@
       ],
       conditions: [
         'One accepted new publication receives exactly the next document sequence.',
-        'A retransmission of an accepted publication identity resolves to its existing sequence and is not enqueued or broadcast twice.',
+        'A retransmission with the accepted publication identity and exact encoded-byte digest resolves to its existing sequence and is not enqueued or broadcast twice.',
         'The source acceptance response carries the assigned sequence and does not claim peer apply or backend durability.',
-        'Every peer receives publications in the server-assigned document order.',
-        'The sequenced publication is appended to the pending persistence queue before source acceptance completes.'
+        'Every peer receives the original encoded payload bytes in the server-assigned document order; only server-owned outer sequence and actor metadata may be reframed.',
+        'The sequenced opaque publication bytes are appended to the pending persistence queue before source acceptance completes.',
+        'The live socket does not decode product payloads, construct an admission document, or reinterpret App route and payload semantics.'
       ],
       bypasses: [
         'A known retransmission bypasses new sequence allocation and duplicate fan-out.',
-        'An invalid identity, unsupported document channel, or malformed publication is rejected before sequence allocation.'
+        'An invalid session, publication identity, outer wire envelope, byte bound, chunk sequence, or changed payload digest is rejected before sequence allocation.'
       ],
       allowedContributors: [
-        'Asyra Design wire-integrity validation',
+        'Asyra Design outer wire-integrity and byte-bound validation',
         'Asyra Design document-session registry and sequencer',
-        'App document-channel validation',
+        'publication identity plus exact encoded-byte digest',
         'existing bounded WebSocket peer queues'
       ],
       forbiddenContributors: [
         'client timestamp ordering',
         'independent sequence assignment by multiple socket processes',
         'backend durability claim in source or peer acknowledgement',
-        'generic @asyra/collaboration persistence policy'
+        'generic @asyra/collaboration persistence policy',
+        'server product-payload decode, recursive schema validation, or re-encode',
+        'server admissionDocument or decoded deep-equality comparison'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -390,7 +395,7 @@
         'apps/asyra-design/src/init/__tests__/collaboration-protocol.test.ts',
         'apps/asyra-design/src/init/__tests__/collaboration-websocket-provider.test.ts',
         'docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md',
-        'docs/ai/apps/asyra-design/plans/completed/socket-authoritative-document-persistence-plan.md'
+        'docs/ai/apps/asyra-design/plans/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
       ],
       specRefs: [
         '#socket-sequencing-and-live-fan-out',
@@ -406,12 +411,13 @@
       title: 'Apply one sequenced live publication',
       ownerPackage: 'Asyra Design collaboration publication processor',
       purpose:
-        'Validate and apply each peer publication once through the existing remote transaction and canonical owner route without receiver persistence or echo.',
+        'Consume each wire-decoded trusted peer publication once through one atomic remote transaction, ordered canonical owner apply, and cooperative presentation route without receiver persistence or echo.',
       inputs: [
         'artifact:reconciled-document-session',
         'artifact:sequenced-document-publication',
-        'shared App publication decoder',
-        'Factory remote transaction boundary'
+        'shared App wire decoder and trusted publication handoff',
+        'Factory remote transaction boundary',
+        'framework cooperative presentation scheduler'
       ],
       outputs: [
         'artifact:converged-live-client-state',
@@ -419,27 +425,32 @@
       ],
       conditions: [
         'The next live sequence must equal the client-applied sequence plus one.',
-        'One accepted publication maps to one remote transaction and one ordered Core canonical request.',
-        'Remote apply updates ordinary state-owner projections.',
+        'One accepted publication maps to one remote transaction and one ordered source-slice series of Core canonical requests.',
+        'Remote apply preserves source delivery and slice order, updates ordinary state-owner projections, and crosses cooperative paint boundaries so progressive output becomes visible.',
+        'The decoded trusted publication is not recursively revalidated by App routing, Core apply, or projection consumers.',
         'Remote apply creates no receiving-client Undo, browser persistence write, or outbound publication.',
-        'Peer-applied observation remains distinct from socket acceptance and backend durability.'
+        'Peer-applied observation remains distinct from socket acceptance and backend durability.',
+        'An unexpected apply failure commits no prefix, advances no applied sequence, clears later queued publications, and requires authoritative resynchronization.'
       ],
       bypasses: [
         'The sender does not receive an echo publication.',
-        'A duplicate, gap, unsupported route, invalid payload, or failed canonical apply does not advance the client-applied sequence.'
+        'A duplicate, gap, codec-integrity failure, or failed atomic canonical apply does not advance the client-applied sequence.'
       ],
       allowedContributors: [
-        'Asyra Design publication decoder and domain decision',
+        'Asyra Design wire decoder and trusted publication organizer',
         '@asyra/factory runRemoteTransaction',
         '@asyra/core applyCanonicalChanges',
-        'Scene Tree and Props canonical owners'
+        'Scene Tree and Props canonical owners',
+        '@asyra/reactive-events cooperative host-yield and paint adapter'
       ],
       forbiddenContributors: [
         'receiver browser save',
         'receiver local Undo History',
         'Factory transaction persistence status',
         'feature-specific reconstruction',
-        'duplicate backend materialization logic'
+        'duplicate backend materialization logic',
+        'recursive route or product-payload schema validation',
+        'silent failed-sequence skip or partial-prefix commit'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -449,7 +460,7 @@
         'apps/asyra-design/src/init/__tests__/collaboration-lifecycle.test.ts',
         'apps/asyra-design/e2e/collaboration.spec.ts',
         'docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md',
-        'docs/ai/apps/asyra-design/plans/completed/socket-authoritative-document-persistence-plan.md'
+        'docs/ai/apps/asyra-design/plans/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
       ],
       specRefs: [
         '#canonical-publication-boundary',
@@ -465,7 +476,7 @@
       title: 'Flush one fixed-window ordered batch',
       ownerPackage: 'Asyra Design socket server',
       purpose:
-        'Collect sequenced publications in one non-debounced three-second dirty window, serialize one contiguous batch, retry failures, and track the backend durable watermark.',
+        'Collect sequenced opaque publication bytes in one non-debounced three-second dirty window, serialize one contiguous byte-preserving batch, retry the exact batch, and track the backend durable watermark.',
       inputs: [
         'artifact:sequenced-document-publication',
         'artifact:durable-sequence-acknowledgement',
@@ -482,9 +493,10 @@
         'Count, byte, graceful-shutdown, or intentional-session-release policy may flush early.',
         'One document has at most one in-flight backend request.',
         'Entries accepted while a request is in flight remain ordered in the next batch.',
-        'A backend failure retains and retries the exact batch; later sequences cannot overtake it.',
+        'A backend failure retains and retries the exact sequence metadata and opaque encoded publication bytes; later sequences cannot overtake it.',
         'Server source admission stops before the bounded pending policy is violated; later browser publications remain in their App-owned outboxes.',
-        'Only a contiguous durable acknowledgement removes pending entries and advances the durable watermark.'
+        'Only a contiguous durable acknowledgement removes pending entries and advances the durable watermark.',
+        'The flush owner does not decode, validate, normalize, or re-encode product payloads.'
       ],
       bypasses: [
         'An empty pending queue owns no timer and emits no backend request.',
@@ -502,7 +514,8 @@
         'concurrent out-of-order backend requests for one document',
         'new batch identity on ordinary retry',
         'browser persistence queue',
-        'dropping changes after backend timeout or non-success response'
+        'dropping changes after backend timeout or non-success response',
+        'product-payload decode, semantic validation, or re-encode'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -512,7 +525,7 @@
         'apps/asyra-design/__tests__/document-database-middleware.test.mjs',
         'apps/asyra-design/e2e/document-database-middleware.mjs',
         'docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md',
-        'docs/ai/apps/asyra-design/plans/completed/socket-authoritative-document-persistence-plan.md'
+        'docs/ai/apps/asyra-design/plans/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
       ],
       specRefs: [
         '#three-second-persistence-window',
@@ -528,11 +541,11 @@
       title: 'Apply ordered publications to the checkpoint',
       ownerPackage: 'Asyra Design App backend',
       purpose:
-        'Validate and idempotently apply one contiguous publication batch to the materialized document, then acknowledge the highest durable sequence.',
+        'Decode each trusted opaque publication once and idempotently apply one contiguous batch atomically to the materialized document, then acknowledge the highest durable sequence.',
       inputs: [
         'artifact:document-persistence-flush-batch',
         'current materialized document and durable sequence',
-        'shared App publication decoder',
+        'shared App wire decoder and trusted publication organizer',
         'backend authorization and storage transaction'
       ],
       outputs: [
@@ -544,7 +557,7 @@
         'The expected prior durable sequence equals the current durable sequence.',
         'Every entry sequence is contiguous and publication identity is valid.',
         'Batch and publication retry are idempotent.',
-        'The shared App decoder converts each publication to ordered canonical changes without duplicating route/payload semantics.',
+        'The shared App wire decoder reconstructs each trusted publication exactly once and the App organizer converts it to ordered canonical changes without a second recursive product-schema validation or independent route/payload interpretation.',
         'Each publication boundary applies atomically and no acknowledgement advances past a failed publication.',
         'A successful request stores the updated checkpoint and returns the highest contiguous durable sequence.'
       ],
@@ -553,7 +566,8 @@
         'An invalid, unauthorized, gapped, or conflicting request mutates no document prefix past the current durable sequence.'
       ],
       allowedContributors: [
-        'App-owned publication schema and decoder',
+        'App-owned wire decoder and trusted publication organizer',
+        'trusted opaque publication bytes from the socket batch',
         'backend document materializer',
         'backend idempotency and sequence registry',
         'backend storage transaction'
@@ -562,6 +576,7 @@
         'browser Core runtime or Undo History',
         'generic @asyra/collaboration document semantics',
         'independent backend route/payload interpretation',
+        'a second recursive product-payload schema validator after wire decode',
         'Selection, Awareness, computed projection, Render/UI, or diagnostics persistence',
         'acknowledgement beyond a failed or missing sequence'
       ],
@@ -573,7 +588,7 @@
         'apps/asyra-design/src/collaboration/operations.ts',
         'apps/asyra-design/src/init/__tests__/collaboration-operations.test.ts',
         'docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md',
-        'docs/ai/apps/asyra-design/plans/completed/socket-authoritative-document-persistence-plan.md'
+        'docs/ai/apps/asyra-design/plans/trusted-publication-and-crdt-7076-flow-realignment-plan.md'
       ],
       specRefs: [
         '#backend-materialization',
@@ -702,7 +717,7 @@
       to: 'materialize-backend-document',
       kind: 'ordered-persistence-batch',
       predicate:
-        'The fixed deadline or an early threshold fixes one contiguous batch and no earlier batch is in flight.',
+        'The fixed deadline or an early threshold fixes one contiguous opaque-byte batch and no earlier batch is in flight.',
       producedArtifacts: ['artifact:document-persistence-flush-batch']
     },
     {
@@ -743,7 +758,7 @@
       from: 'apply-bootstrap-tail',
       kind: 'terminal-failure',
       predicate:
-        'The pending tail has a sequence or semantic failure before readiness.',
+        'The pending tail has a sequence, codec-integrity, or atomic apply failure before readiness.',
       producedArtifacts: ['artifact:bootstrap-tail-apply-failure']
     },
     {
@@ -760,7 +775,7 @@
       to: 'recover-pending-publications',
       kind: 'source-rejection',
       predicate:
-        'The publication is invalid, conflicts with canonical structural policy, or cannot currently be admitted by the socket sequencer.',
+        'The session identity, publication identity, outer wire envelope, byte bounds, chunk sequence, payload digest, or bounded pending capacity cannot be admitted by the socket sequencer.',
       producedArtifacts: ['artifact:publication-sequence-failure']
     },
     {
@@ -770,14 +785,6 @@
       predicate:
         'IndexedDB append fails and the App enters storage-failed without dropping older pending entries.',
       producedArtifacts: ['artifact:outbox-storage-failure']
-    },
-    {
-      id: 'route-recovery-publication-conflict',
-      from: 'recover-pending-publications',
-      kind: 'terminal-observation',
-      predicate:
-        'A recovery publication cannot pass canonical structural validation and remains retained as conflicted.',
-      producedArtifacts: ['artifact:recovery-publication-conflict']
     },
     {
       id: 'route-connection-sync-state',
@@ -792,7 +799,7 @@
       from: 'apply-live-publication',
       kind: 'terminal-failure',
       predicate:
-        'The live publication is invalid, out of sequence, or fails canonical apply.',
+        'The live publication has a sequence or codec-integrity failure, or its atomic canonical apply fails and requires authoritative resynchronization.',
       producedArtifacts: ['artifact:live-publication-apply-failure']
     },
     {
@@ -883,7 +890,7 @@
     {
       id: 'artifact:sequenced-document-publication',
       ownerStepId: 'sequence-live-publication',
-      channel: 'socket document stream',
+      channel: 'socket opaque encoded document stream',
       consumerStepIds: ['apply-live-publication', 'flush-persistence-window']
     },
     {
@@ -895,7 +902,7 @@
     {
       id: 'artifact:document-persistence-flush-batch',
       ownerStepId: 'flush-persistence-window',
-      channel: 'socket-to-backend persistence request',
+      channel: 'socket-to-backend opaque publication persistence request',
       consumerStepIds: ['materialize-backend-document']
     },
     {
@@ -937,19 +944,13 @@
     {
       id: 'artifact:publication-sequence-failure',
       ownerStepId: 'sequence-live-publication',
-      channel: 'socket source rejection',
+      channel: 'socket source wire, identity, digest, or capacity rejection',
       consumerStepIds: ['recover-pending-publications']
     },
     {
       id: 'artifact:outbox-storage-failure',
       ownerStepId: 'recover-pending-publications',
       channel: 'terminal recovery-storage observation',
-      consumerStepIds: []
-    },
-    {
-      id: 'artifact:recovery-publication-conflict',
-      ownerStepId: 'recover-pending-publications',
-      channel: 'terminal retained-conflict observation',
       consumerStepIds: []
     },
     {
@@ -1017,7 +1018,7 @@
     {
       id: 'history-is-not-persistence',
       statement:
-        'The server receives immutable canonical SharedPublication data and never receives private Factory History or a CoreRawData autosave snapshot.',
+        'The server receives immutable encoded trusted publication bytes and never receives private Factory History or a CoreRawData autosave snapshot.',
       stepIds: [
         'hydrate-core-checkpoint',
         'settle-local-publication',
@@ -1032,6 +1033,27 @@
       specRefs: [
         '#canonical-publication-boundary',
         '#ownership-and-forbidden-boundaries'
+      ]
+    },
+    {
+      id: 'trusted-publication-is-admitted-once',
+      statement:
+        'Scene Tree and Props admit the original local mutation once; Factory publication, socket relay, remote apply, and backend materialization do not repeat recursive product-payload schema validation.',
+      stepIds: [
+        'settle-local-publication',
+        'sequence-live-publication',
+        'apply-live-publication',
+        'materialize-backend-document'
+      ],
+      artifactIds: [
+        'artifact:document-shared-publication',
+        'artifact:sequenced-document-publication',
+        'artifact:durable-document-checkpoint'
+      ],
+      specRefs: [
+        '#canonical-publication-boundary',
+        '#socket-sequencing-and-live-fan-out',
+        '#backend-materialization'
       ]
     },
     {
@@ -1125,8 +1147,9 @@
       assertions: [
         'The permanent toolbar Reset is the one standalone stored-file DELETE exception: it replaces the current checkpoint with the formal empty document when the backend is available and always refreshes after the request attempt settles, including when a storage-free demo has no backend, without entering Core, Feature System, transactions, History, CRDT, Selection, Factory publication, or Collaboration. crdt-7076-sample otherwise uses the same socket session and publishes only after Actor A submits its exact HTTP action-batch request.',
         'Transaction-end, immediate, Undo, Redo, and compensation publications preserve existing Factory semantics.',
+        'One canonical owner admission produces trusted publication data; transport and receivers do not recursively revalidate its product payload.',
         'Selection-only transactions produce no document publication.',
-        'Remote apply creates no receiving Undo, browser save, or echo.',
+        'Remote apply creates no receiving Undo, browser save, or echo; an unexpected atomic failure advances no sequence and requires authoritative resynchronization.',
         'No full document snapshot is captured merely because a transaction commits.'
       ],
       stepIds: [
@@ -1150,7 +1173,7 @@
         'One disconnected epoch and one successful reconnect produce at most one toast each; per-publication failures remain console-only.',
         'Reconnect attempts are non-overlapping and occur no more than once every 30000 ms.',
         'Reconnect loads the latest authoritative state and applies peer plus accepted local recovery publications in server sequence.',
-        'Quota failure and canonical conflict retain explicit evidence and never silently evict an unaccepted publication.'
+        'Quota failure retains explicit evidence and never silently evicts an unaccepted publication; an unexpected apply failure restarts authoritative reconciliation.'
       ],
       stepIds: [
         'open-document-session',
@@ -1172,6 +1195,7 @@
         'The default flush deadline is 3000 ms and only 1000..3000 ms is valid.',
         'Continuous activity never restarts the active dirty deadline.',
         'Backend failure retains the same batch and blocks later sequence overtaking.',
+        'The socket retains and retries exact opaque encoded publication bytes without product-payload decode or re-encode.',
         'Server admission stops before its bounded pending policy is violated while browser editing and outbox retention continue.',
         'With a healthy backend, socket-crash exposure for already accepted publications is the active three-second window plus request latency; a hard outage bound requires a durable server outbox.'
       ],
@@ -1231,8 +1255,8 @@
       {
         id: 'implementation-plan',
         kind: 'plan',
-        label: 'Socket-authoritative persistence plan',
-        href: './completed/socket-authoritative-document-persistence-plan.md'
+        label: 'Trusted publication and CRDT 7,076 realignment plan',
+        href: './trusted-publication-and-crdt-7076-flow-realignment-plan.md'
       },
       {
         id: 'factory-collaboration-inspector',

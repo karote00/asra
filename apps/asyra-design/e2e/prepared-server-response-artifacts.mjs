@@ -133,7 +133,7 @@ const requireManifestShape = (manifest) => {
     typeof manifest !== 'object' ||
     manifest.version !== PREPARED_SERVER_RESPONSE_MANIFEST_VERSION ||
     typeof manifest.productionIndexSha256 !== 'string' ||
-    typeof manifest.sourceSvgSha256 !== 'string' ||
+    typeof manifest.sourceActionBatchSha256 !== 'string' ||
     !Array.isArray(manifest.variants) ||
     manifest.variants.length !== PREPARED_SERVER_RESPONSE_VARIANTS.length
   ) {
@@ -177,11 +177,11 @@ export const resolvePreparedServerResponsePreviewPaths = ({
   previewRoot = path.join(defaultWorkspaceRoot, 'tmp', 'endpoint-preview'),
   processId = process.pid,
   productionDistPath = path.join(defaultWorkspaceRoot, 'dist'),
-  sourceSvgPath = path.join(
+  sourceActionBatchPath = path.join(
     defaultAppRoot,
     'samples',
     'crdt-7076',
-    'converted-vector-data.svg'
+    'action-batch.json'
   )
 } = {}) => {
   if (!Number.isInteger(processId) || processId <= 0) {
@@ -207,7 +207,7 @@ export const resolvePreparedServerResponsePreviewPaths = ({
       stagingPath,
       responseDirectoryRelativePath
     ),
-    sourceSvgPath: path.resolve(sourceSvgPath),
+    sourceActionBatchPath: path.resolve(sourceActionBatchPath),
     stagingPath
   })
 }
@@ -217,7 +217,7 @@ export const createPreparedServerResponseArtifacts = async ({
   onArtifact,
   productionIndex,
   retainArtifacts = true,
-  sourceSvg
+  sourceActionBatch
 }) => {
   if (typeof createRecord !== 'function') {
     throw new Error(
@@ -225,7 +225,7 @@ export const createPreparedServerResponseArtifacts = async ({
     )
   }
   const productionIndexBytes = Buffer.from(productionIndex)
-  const sourceSvgBytes = Buffer.from(sourceSvg)
+  const sourceActionBatchBytes = Buffer.from(sourceActionBatch)
   const artifacts = []
   const manifestEntries = []
 
@@ -264,7 +264,7 @@ export const createPreparedServerResponseArtifacts = async ({
   const manifest = Object.freeze({
     version: PREPARED_SERVER_RESPONSE_MANIFEST_VERSION,
     productionIndexSha256: sha256(productionIndexBytes),
-    sourceSvgSha256: sha256(sourceSvgBytes),
+    sourceActionBatchSha256: sha256(sourceActionBatchBytes),
     variants: Object.freeze(manifestEntries)
   })
 
@@ -291,7 +291,9 @@ export const loadServerResponseRecordFactory = async () => {
   })
 
   try {
-    const loaded = await server.ssrLoadModule('/e2e/server-response-inbox.ts')
+    const loaded = await server.ssrLoadModule(
+      '/e2e/action-batch-interceptor.ts'
+    )
     if (typeof loaded.createServerResponseRecord !== 'function') {
       throw new Error('Vite did not load createServerResponseRecord().')
     }
@@ -358,17 +360,17 @@ export const prepareServerResponsePreview = async ({
   previewRoot,
   processId,
   productionDistPath,
-  sourceSvgPath
+  sourceActionBatchPath
 } = {}) => {
   const paths = resolvePreparedServerResponsePreviewPaths({
     previewRoot,
     processId,
     productionDistPath,
-    sourceSvgPath
+    sourceActionBatchPath
   })
-  const [productionIndex, sourceSvg] = await Promise.all([
+  const [productionIndex, sourceActionBatch] = await Promise.all([
     readFile(paths.productionIndexPath),
-    readFile(paths.sourceSvgPath)
+    readFile(paths.sourceActionBatchPath)
   ])
   let loadedFactory
   let published = false
@@ -411,7 +413,7 @@ export const prepareServerResponsePreview = async ({
         ),
       productionIndex,
       retainArtifacts: false,
-      sourceSvg
+      sourceActionBatch
     })
     await loadedFactory?.close()
     loadedFactory = undefined
@@ -444,12 +446,12 @@ export const prepareServerResponsePreview = async ({
 export const attestPreparedServerResponsePreview = async ({
   previewRoot,
   productionDistPath,
-  sourceSvgPath
+  sourceActionBatchPath
 } = {}) => {
   const paths = resolvePreparedServerResponsePreviewPaths({
     previewRoot,
     productionDistPath,
-    sourceSvgPath
+    sourceActionBatchPath
   })
   const currentStat = await lstat(paths.currentPath)
   if (!currentStat.isSymbolicLink()) {
@@ -470,12 +472,12 @@ export const attestPreparedServerResponsePreview = async ({
     )
   }
 
-  const [manifestBytes, productionIndex, overlayIndex, sourceSvg] =
+  const [manifestBytes, productionIndex, overlayIndex, sourceActionBatch] =
     await Promise.all([
       readFile(paths.manifestPath),
       readFile(paths.productionIndexPath),
       readFile(path.join(paths.currentPath, 'index.html')),
-      readFile(paths.sourceSvgPath)
+      readFile(paths.sourceActionBatchPath)
     ])
   const manifest = JSON.parse(manifestBytes.toString('utf8'))
   requireManifestShape(manifest)
@@ -488,9 +490,9 @@ export const attestPreparedServerResponsePreview = async ({
       'Prepared server response preview does not match the production index.'
     )
   }
-  if (manifest.sourceSvgSha256 !== sha256(sourceSvg)) {
+  if (manifest.sourceActionBatchSha256 !== sha256(sourceActionBatch)) {
     throw new Error(
-      'Prepared server response preview does not match the source SVG.'
+      'Prepared server response preview does not match the source action batch.'
     )
   }
 

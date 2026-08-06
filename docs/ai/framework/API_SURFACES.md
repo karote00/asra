@@ -591,6 +591,10 @@ See `packages/collaboration.md` and
   - `getUndoHistoryDepth()` (read-only exact depth of this Factory instance's
     local undo history; it does not expose mutable history entries)
   - `runRemoteTransaction(callback)` (rollbackable, non-undoable remote origin)
+  - `runRemoteTransactionProgressively(mutateSlices, settleAfterSlice)`
+    (one rollbackable, non-undoable remote transaction whose synchronous
+    mutation slices cross asynchronous cooperative boundaries; ordinary local
+    action transactions cannot join while that remote journal is open)
   - `applyRemoteEvent(event, apply)` (one detached event forwarded unchanged to
     the registered state-owner apply callback)
   - `isRemoteAsyncHandlerError(error)`

@@ -1,4 +1,3 @@
-import type { SharedPublication } from '@asyra/factory'
 import {
   DOCUMENT_PERSISTENCE_PROTOCOL_VERSION,
   type DocumentPersistenceBatch
@@ -18,7 +17,8 @@ type Awaitable<Value> = Value | Promise<Value>
 
 export interface PendingDocumentPublication {
   readonly sequence: number
-  readonly publication: SharedPublication
+  readonly publicationId: string
+  readonly encodedPublicationFrames: readonly string[]
   readonly byteLength: number
 }
 
@@ -303,8 +303,13 @@ export const createDocumentPersistenceQueue = ({
       firstSequence,
       lastSequence,
       entries: Object.freeze(
-        entries.map(({ sequence, publication }) =>
-          Object.freeze({ documentId, sequence, publication })
+        entries.map(({ sequence, publicationId, encodedPublicationFrames }) =>
+          Object.freeze({
+            documentId,
+            sequence,
+            publicationId,
+            encodedPublicationFrames
+          })
         )
       )
     })
@@ -335,7 +340,9 @@ export const createDocumentPersistenceQueue = ({
           !isPositiveSafeInteger(entry.sequence) ||
           entry.sequence !== headSequence + index + 1 ||
           !isPositiveSafeInteger(entry.byteLength) ||
-          !isNonBlankString(entry.publication.publicationId)
+          !isNonBlankString(entry.publicationId) ||
+          !Array.isArray(entry.encodedPublicationFrames) ||
+          entry.encodedPublicationFrames.length === 0
         ) {
           throw new Error(
             '[document-persistence-queue] publication sequence is invalid'

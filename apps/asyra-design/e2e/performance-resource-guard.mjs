@@ -44,6 +44,7 @@ const PROCESS_CPU_ROLES = new Set([
   'app-server',
   'client-a-browser',
   'client-b-browser',
+  'document-backend',
   'test-harness',
   'unknown',
   'websocket-server'
@@ -60,6 +61,7 @@ const TRACKED_PROCESS_ROLES = Object.freeze([
   'client-a-browser',
   'client-b-browser',
   'app-server',
+  'document-backend',
   'websocket-server'
 ])
 const TRACKED_PROCESS_ROLE_SET = new Set(TRACKED_PROCESS_ROLES)
@@ -67,6 +69,7 @@ const PRODUCT_PROCESS_ROLES = Object.freeze([
   'client-a-browser',
   'client-b-browser',
   'app-server',
+  'document-backend',
   'websocket-server'
 ])
 const CLIENT_BROWSER_PROCESS_ROLES = new Set([
@@ -193,6 +196,7 @@ const createEmptyRoleCpuPercent = () => ({
   actorABrowser: 0,
   actorBBrowser: 0,
   appServer: 0,
+  documentBackend: 0,
   testHarness: 0,
   unknown: 0,
   websocketServer: 0
@@ -202,6 +206,7 @@ const createEmptyRoleCpuTimeMs = () => ({
   actorABrowser: 0,
   actorBBrowser: 0,
   appServer: 0,
+  documentBackend: 0,
   testHarness: 0,
   unknown: 0,
   websocketServer: 0
@@ -265,6 +270,9 @@ const classifyProcessCommand = (command) => {
   ) {
     return { executable: 'node', role: 'websocket-server' }
   }
+  if (lowerCommand.includes('dist/document-backend/document-backend.js')) {
+    return { executable: 'node', role: 'document-backend' }
+  }
   if (lowerCommand.includes('vite') && lowerCommand.includes('preview')) {
     return { executable: 'node', role: 'app-server' }
   }
@@ -326,6 +334,8 @@ const roleCpuKey = (role) => {
       return 'actorABrowser'
     case 'client-b-browser':
       return 'actorBBrowser'
+    case 'document-backend':
+      return 'documentBackend'
     case 'test-harness':
       return 'testHarness'
     case 'websocket-server':
@@ -2868,6 +2878,16 @@ export const buildEndpointPerformancePhases = ({
     4_121,
     'ENDPOINT_COLLABORATION_PORT'
   )
+  const documentBackendPort = normalizePort(
+    baseEnv.ENDPOINT_DOCUMENT_BACKEND_PORT,
+    4_221,
+    'ENDPOINT_DOCUMENT_BACKEND_PORT'
+  )
+  if (new Set([appPort, collaborationPort, documentBackendPort]).size !== 3) {
+    throw new Error(
+      'Endpoint App, collaboration, and document backend ports must be different'
+    )
+  }
   const collaborationUrl = `ws://127.0.0.1:${collaborationPort}/collaboration`
   const attributionCase = baseEnv.ENDPOINT_ATTRIBUTION_CASE?.trim() ?? ''
   const validAttributionCases = new Set([
@@ -2896,6 +2916,7 @@ export const buildEndpointPerformancePhases = ({
     'client-a-browser',
     ...(!singleActorAttribution ? ['client-b-browser'] : []),
     'app-server',
+    'document-backend',
     'websocket-server'
   ]
   let selectedPlaywrightTest = 'creation-only high-detail endpoint proof'
@@ -2911,9 +2932,11 @@ export const buildEndpointPerformancePhases = ({
     ...baseEnv,
     ENDPOINT_APP_PORT: String(appPort),
     ENDPOINT_COLLABORATION_PORT: String(collaborationPort),
+    ENDPOINT_DOCUMENT_BACKEND_PORT: String(documentBackendPort),
     ENDPOINT_CONNECTIVITY_ONLY: '0',
     APP_URL: `http://127.0.0.1:${appPort}`,
     COLLABORATION_WS_PORT: String(collaborationPort),
+    DOCUMENT_PERSISTENCE_BACKEND_URL: `http://127.0.0.1:${documentBackendPort}`,
     E2E_OWN_SERVERS: '1',
     COLLABORATION_PROFILE: '1',
     ENDPOINT_ATTRIBUTION_CASE: attributionCase,
@@ -2950,7 +2973,7 @@ export const buildEndpointPerformancePhases = ({
         requiredProcessRoles
       },
       requiresReady: true,
-      ports: [appPort, collaborationPort]
+      ports: [appPort, collaborationPort, documentBackendPort]
     }
   ]
 }
