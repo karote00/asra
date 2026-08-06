@@ -18,11 +18,18 @@ const EXCLUDED_RELEASE_VERSIONS = Object.freeze({
 })
 
 const REQUIRED_DOCUMENT_TOKENS = Object.freeze({
-  'README.md': ['Release support', '0.2.5'],
-  'CHANGELOG.md': ['## [Unreleased]', '0.2.5'],
-  'RELEASE_NOTES.md': ['0.2.5', 'release readiness', 'does not authorize'],
+  'README.md': ['Release support', '0.5.0', 'historical `0.2.5`'],
+  'CHANGELOG.md': ['## [Unreleased]', '0.5.0', '0.2.5'],
+  'RELEASE_NOTES.md': [
+    '0.5.0',
+    'release decision remains `PENDING`',
+    '0.2.5',
+    'does not authorize'
+  ],
   'SECURITY.md': ['private security advisory', 'Framework Security Boundaries'],
   'docs/ai/framework/RELEASE_SUPPORT.md': [
+    '0.5.0',
+    'historical `0.2.5`',
     'Node.js 24.x',
     'Yarn 4.3.1',
     'TypeScript 5.8.3',
@@ -31,6 +38,7 @@ const REQUIRED_DOCUMENT_TOKENS = Object.freeze({
     'CUSTOM',
     '3D',
     'HYBRID',
+    'create-asyra-design-app',
     'setPersistence',
     'RenderGraphics',
     'EngineNeutralRenderStrategy'

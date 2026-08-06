@@ -1,10 +1,14 @@
 # Framework Release Support
 
 This document freezes the public support and migration contract for the
-Framework `0.2.5` release candidate. Framework Release Gate 5 produced a
-reproducible pre-publication artifact `READY` result; it did not prove public
-registry availability, publish packages, create a tag, deploy an app, or grant
-release authority.
+Framework `0.5.0` release candidate. The historical `0.2.5` Framework Release
+Gate 5 produced a reproducible pre-publication artifact `READY` result, but the
+current `0.5.0` release decision remains `PENDING` until the reviewed and merged
+source is reproduced from clean latest `main`, publication is authorized, and
+the registry-only consumer passes.
+
+The candidate record does not authorize merge, tagging, registry publication,
+deployment, or a formal release.
 
 ## Supported package set
 
@@ -39,16 +43,15 @@ dependency hoisting are not part of the public contract.
 | Surface            | Release contract                                                        |
 | ------------------ | ----------------------------------------------------------------------- |
 | Node.js            | Node.js 24.x                                                            |
-| Package manager    | Yarn 4.3.1 for repository and generated-template gates                  |
+| Package manager    | Yarn 4.3.1 for repository release gates                                  |
 | TypeScript         | Declared `^5.7.2`; artifact declarations verified with TypeScript 5.8.3 |
 | React              | React 19 for `@asyra/design-system` and Asyra Design                    |
 | Module format      | ESM package entrypoints and declarations                                |
 | Browser evidence   | Current Playwright Chromium from `@playwright/test` 1.57                |
 | Framework profiles | 2D and engine-neutral CUSTOM composition                                |
 
-The formal artifact and generated-template gates run on Node.js 24.x. A run on
-another Node version is diagnostic evidence only and cannot produce the final
-`READY` decision.
+The formal artifact gates run on Node.js 24.x. A run on another Node version is
+diagnostic evidence only and cannot produce the final `READY` decision.
 
 The official 2D path uses `@asyra/preset` with
 `@asyra/render-engine-pixi`. CUSTOM composition is supported through the
@@ -86,8 +89,8 @@ connected migration chain described by
 [`app-owned-versioned-load-migration.mjs`](../../../docs/examples/app-owned-versioned-load-migration.mjs).
 Package owners validate their fields before any canonical prefix applies.
 
-These compatibility surfaces remain available during the `0.2.x` migration
-window and are planned for removal in the next major release:
+These compatibility surfaces remain available in `0.5.0` and are planned for
+removal in the next major release:
 
 | Deprecated surface              | Replacement                                                                   |
 | ------------------------------- | ----------------------------------------------------------------------------- |
@@ -109,19 +112,28 @@ yarn install --immutable
 yarn react:build
 yarn release:packages --prebuilt
 yarn release:consumer
-yarn release:template --prod=asyra-design
 yarn release:records
 ```
 
-The package and template gates install only packed tarballs in isolated,
-project-local consumers. The final release decision additionally requires the
-formal test, dependency, lint, E2E, performance, visual, and Inspector gates
-owned by the Framework Release Gate 5 plan.
+The package gate installs only the complete packed tarball set in an isolated,
+project-local consumer. The final release decision additionally requires the
+formal test, dependency, lint, E2E, performance, visual, Inspector, and
+registry-only consumer gates owned by the Framework `0.5.0` release plan.
+
+`create-asyra-design-app`, its committed template, root `asyra`, and private
+`@asyra/asyra-design` are excluded from this Framework release. Their
+versioning, template proof, and publication remain separately owned.
 
 ## Publication boundary
 
-Version `0.2.5` is the frozen candidate represented by the root and all 19
-package manifests. No pending changeset is required merely to audit that
-already-versioned candidate. A later explicitly authorized release cut owns
-the immutable release decision snapshot, registry publication, tag, and any
-deployment. Readiness evidence is not permission to perform those operations.
+Version `0.5.0` is the frozen candidate represented by exactly the 19 Framework
+package manifests. Root `asyra` remains `0.2.5`, private
+`@asyra/asyra-design` remains `0.2.5`, and `create-asyra-design-app` remains
+`0.1.0`. The synchronized Changeset has already been consumed by version
+materialization, so no pending Changeset is expected on the version PR.
+
+After user review and merge, publication must run from clean latest `main`
+after `git pull --ff-only` and artifact checksum reproduction. An explicitly
+authorized release cut owns registry publication, the successful package Git
+tags, and any deployment. Readiness evidence is not permission to perform
+those operations.
