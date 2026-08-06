@@ -149,7 +149,7 @@ test('realignment Inspector and completed planning authorities resolve', () => {
   )
   assert.match(
     appPlans,
-    /No active app plan\.[\s\S]*completed\/ai-conversational-drawing-performance-plan\.md/
+    /No highest-priority Asyra Design plan is currently active\.[\s\S]*completed\/ai-conversational-drawing-performance-plan\.md/
   )
   assert.match(
     appPlans,
@@ -1016,7 +1016,7 @@ test('BDD covers the active architecture and retained performance gates', () => 
   )
   assert.match(
     text,
-    /one ordered "CanonicalChange" request.*Core\.applyCanonicalChanges/i
+    /ordered source slices.*Core\.applyCanonicalChanges/i
   )
   assert.match(
     text,
