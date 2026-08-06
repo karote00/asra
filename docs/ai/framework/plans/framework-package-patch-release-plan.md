@@ -161,24 +161,32 @@ Before implementation, create a release Inspector with one owner for:
 - Use scoped commits for Changeset/version output, release documentation, and
   any test-only version synchronization.
 - Do not publish from an unmerged feature branch.
-- After merge, recreate and revalidate the artifacts from clean latest `main`.
+- After the user merges the PR, switch to `main`, run `git pull --ff-only`, and
+  require local `main` to equal the latest remote `main`.
+- Do not publish from the release feature branch even when its reviewed tree is
+  byte-identical to the merged result.
+- Recreate and revalidate the artifacts from that clean latest `main`.
 
 ### 7. Publish the synchronized Framework `0.5.0`
 
 - Present the exact 19-package publication manifest and checksums.
-- Obtain explicit publication authorization.
+- Obtain explicit authorization for npm publication and the later
+  successful-release tag push.
 - Before `changeset publish`, convert workspace-only internal ranges through
   the existing workspace-version owner into the exact publishable `0.5.0`
   ranges validated by the artifact gate. Restore development workspace ranges
   after publication on success or failure.
 - Assert that the unpublished public-workspace selection is exactly the fixed
   19-package allowlist.
-- Run `yarn changeset publish --no-git-tag` once. Changesets owns the
-  multi-package npm publication operation; this release does not create Git
-  tags through that command.
+- Run `yarn changeset publish` once. Changesets owns both the multi-package npm
+  publication operation and creation of one package Git tag for every
+  successful publication.
 - Verify all 19 public registry records immediately after the command returns,
   including name, version, metadata, dependency ranges, dist integrity, and
   installability.
+- Verify the successful package-tag set against the registry result. After all
+  19 registry records pass, push the exact 19 tags and verify that each remote
+  tag resolves to the validated publication commit.
 - Do not publish `create-asyra-design-app`, root `asyra`, or private
   `@asyra/asyra-design` in this step.
 
@@ -196,14 +204,17 @@ Before implementation, create a release Inspector with one owner for:
 Registry publication is irreversible:
 
 - If publication fails before any package succeeds, correct the external or
-  artifact failure and retry the same target version.
+  artifact failure and retry the same target version. No package tag should
+  exist because Changesets tags only successful publications.
 - If some packages succeed, never overwrite them. Resume only the unpublished
   packages at `0.5.0` with `changeset publish` when the artifacts remain
-  correct.
+  correct. Preserve the successful packages and their local tags, and do not
+  push the complete tag set until all 19 packages verify.
 - If a source or artifact defect is discovered after any target package was
   published, fix the canonical owner, generate a new all-package patch
   Changeset, advance the complete suite from `0.5.0` to `0.5.1`, and republish
-  all 19 Framework packages.
+  all 19 Framework packages. Preserve and never retarget any tag belonging to
+  an already published immutable version.
 - Do not create mixed Framework target versions as the final result.
 
 ## Definition of Done
@@ -214,6 +225,9 @@ Registry publication is irreversible:
   Framework packages from local `0.4.0` to `0.5.0` with one `minor` Changeset.
 - The reviewed, merged commit produces the same validated artifacts that are
   published.
+- Changesets creates the exact successful package tags on the clean latest
+  `main` publication commit, and the complete tag set is pushed only after
+  registry verification.
 - All 19 `0.5.0` versions install from the public registry and pass the
   registry-only consumer proof on Node.js 24.
 - Root `asyra` and private `@asyra/asyra-design` remain unchanged.

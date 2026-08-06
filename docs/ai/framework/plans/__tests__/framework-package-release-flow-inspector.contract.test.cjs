@@ -214,15 +214,21 @@ test('Inspector owns the exact 0.4.0 to minor to 0.5.0 path', () => {
 })
 
 test('Inspector restricts Changesets publication to the fixed 19-package set', () => {
+  const mergedSource = contractText(step('accept-merged-publication-source'))
   const publication = contractText(step('publish-framework-packages'))
   const verification = contractText(step('verify-public-registry'))
 
-  assert.match(publication, /changeset publish --no-git-tag/i)
+  assert.match(mergedSource, /main.*pull --ff-only/i)
+  assert.match(mergedSource, /not.*feature branch/i)
+  assert.match(publication, /yarn changeset publish/i)
+  assert.match(publication, /successful.*package.*Git tag/i)
+  assert.doesNotMatch(publication, /--no-git-tag/i)
   assert.match(publication, /exactly the fixed 19-package allowlist/i)
   assert.match(publication, /restore.*workspace ranges/i)
   assert.match(publication, /create-asyra-design-app.*root.*private/i)
   assert.match(verification, /all 19.*0\.5\.0/i)
   assert.match(verification, /dist integrity/i)
+  assert.match(verification, /push.*tag/i)
 })
 
 test('registry-only proof and partial recovery cannot create a mixed final version', () => {

@@ -332,7 +332,9 @@
       conditions: [
         'The PR diff contains only the authorized release contract, Inspector, generator, version, changelog, record, and direct release-test changes.',
         'CI, E2E, Framework readiness, and mergeability pass before the user merges.',
+        'After the user merge, switch to main, run git pull --ff-only, and require local main to equal the latest remote main.',
         'Publication artifacts are rebuilt from clean latest main and compared with the reviewed candidate.',
+        'Publication is not run from the feature branch even when its reviewed tree is byte-identical to main.',
         'Cleanup owner: accept-merged-publication-source owns no merge action; it owns only PR evidence and the clean post-merge source/artifact comparison.'
       ],
       bypasses: [
@@ -372,7 +374,7 @@
       title: 'Publish Framework 0.5.0 through Changesets',
       ownerPackage: 'Changesets multi-package publication owner',
       purpose:
-        'After the irreversible checkpoint is accepted, assert that the unpublished selection is exactly the fixed 19-package allowlist and run yarn changeset publish --no-git-tag once.',
+        'After the irreversible checkpoint is accepted on clean latest main, assert that the unpublished selection is exactly the fixed 19-package allowlist and run yarn changeset publish once so Changesets publishes and tags successful packages.',
       inputs: [
         'artifact:merged-publication-source',
         'validated 19-package publication manifest',
@@ -386,8 +388,10 @@
         'Workspace-only internal ranges are converted to the exact validated 0.5.0 publication ranges before Changesets runs.',
         'Restore development workspace ranges after publication on success or failure.',
         'The registry-diff selection is exactly the fixed 19-package allowlist before the first irreversible npm write.',
+        'Changesets creates one Git tag for every successful package publication; no tag is created for a failed package.',
+        'Keep successful package tags local and unpushed until all 19 public registry records verify.',
         'create-asyra-design-app, root asyra, and private @asyra/asyra-design are excluded.',
-        'Cleanup owner: publish-framework-packages owns the transient publishable range conversion and restoration; npm owns immutable successful publications.'
+        'Cleanup owner: publish-framework-packages owns the transient publishable range conversion, restoration, and successful local release-tag state; npm owns immutable successful publications.'
       ],
       bypasses: [
         'Missing authorization, invalid npm identity/scope, unexpected publish selection, dirty source, or range mismatch produces artifact:publication-finding before publication.',
@@ -402,7 +406,7 @@
       ],
       forbiddenContributors: [
         'manual npm publish loop',
-        'Git tag creation by Changesets',
+        'remote tag push before complete registry verification',
         'unvalidated package or version',
         'create-app, root, or private app publication',
         'credential disclosure'
@@ -414,7 +418,7 @@
         'scripts/__tests__/workspace-automation.test.mjs',
         '.changeset/config.json',
         'packages/*/package.json',
-        'yarn changeset publish --no-git-tag'
+        'yarn changeset publish'
       ],
       specRefs: [
         '#7-publish-the-synchronized-framework-050',
@@ -440,7 +444,8 @@
         'All 19 public name@0.5.0 records exist and match the approved publication identities and metadata.',
         'Registry dist integrity and dependency ranges are recorded for every package.',
         'The registry is queried directly without workspace, proxy cache, or local tarball substitution.',
-        'Cleanup owner: verify-public-registry owns detached registry and installability evidence and no registry mutation.'
+        'After all 19 registry records pass, push the exact package tags and verify each remote tag resolves to the validated publication commit.',
+        'Cleanup owner: verify-public-registry owns detached registry, installability, and remote-tag evidence and no registry mutation.'
       ],
       bypasses: [
         'A missing package, mismatched metadata, invalid integrity, or failed installation produces artifact:registry-verification-finding.',
@@ -450,17 +455,20 @@
         'artifact:changesets-publication-result',
         'public npm registry',
         'validated publication manifest',
-        'clean install probes'
+        'clean install probes',
+        'validated local package tags'
       ],
       forbiddenContributors: [
         'workspace or unpublished tarball proof',
         'registry overwrite',
         'mixed-version READY result',
+        'remote tag push before complete registry verification',
         'cached pre-publication inventory'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'public npm registry',
+        'git remote tag verification',
         'tmp/framework-release-evidence',
         'scripts/framework-release-packages.js',
         'fixtures/framework-release-consumer'

@@ -46,9 +46,13 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
 - For this approved large version realignment, materialize exactly the fixed 19
   Framework packages at local `0.4.0`, generate one all-package `minor`
   Changeset, and advance them together to `0.5.0`.
+- After the reviewed version PR is merged, switch to `main`, run
+  `git pull --ff-only`, require a clean latest `main`, rebuild the accepted
+  artifacts, and revalidate the publication manifest.
 - Publish the 19-package `0.5.0` set through one
-  `changeset publish --no-git-tag` operation after the reviewed version PR is
-  merged and the publication checkpoint is accepted.
+  `changeset publish` operation after the publication checkpoint is accepted.
+  Let Changesets create package Git tags for successful publications, then push
+  the verified tags after registry verification.
 - Treat the all-package generator as exceptional. Normal post-`0.5.0`
   development must add ordinary scoped Changesets as changes are made.
 - Keep root `asyra` and private `@asyra/asyra-design` unchanged.
