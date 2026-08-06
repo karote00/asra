@@ -234,6 +234,15 @@ const targets = [
     filterLaneTitle: 'Package Artifacts'
   },
   {
+    id: 'framework-package-release-0-5-0',
+    entryPath: path.join(
+      projectRoot,
+      'docs/ai/framework/plans/framework-package-release-flow-inspector.html'
+    ),
+    dataScript: './framework-package-release-flow-inspector.data.cjs',
+    filterLaneTitle: 'Public Registry Release'
+  },
+  {
     id: 'node-24-runtime-upgrade',
     entryPath: path.join(
       projectRoot,
