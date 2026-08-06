@@ -801,6 +801,50 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     await provider.destroy()
   })
 
+  it('fails a socket that never completes the document-session handshake', async () => {
+    const server = await createLoopbackServer(() => undefined)
+    const provider = new CollaborationWebSocketProvider({
+      endpoint: server.endpoint,
+      connectionTimeoutMs: 25,
+      transportWorkerFactory: () => {
+        const worker = new TestCollaborationTransportWorker()
+        transportWorkers.push(worker)
+        return worker
+      },
+      identity: {
+        documentId: 'internal-document',
+        roomId: 'internal-room',
+        actorId: 'actor-a',
+        connectionMetadata: { fileId: 'app-file-17' }
+      }
+    })
+    let settlement: 'pending' | 'resolved' | 'rejected' = 'pending'
+    let failure: unknown
+    void provider.openDocumentSession().then(
+      () => {
+        settlement = 'resolved'
+      },
+      (error: unknown) => {
+        settlement = 'rejected'
+        failure = error
+      }
+    )
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 75))
+
+      expect(settlement).toBe('rejected')
+      expect(failure).toMatchObject({
+        code: 'connection-failed',
+        message:
+          '[collaboration] document-session handshake timed out before ready'
+      })
+      expect(provider.getStatus()).toBe('failed')
+    } finally {
+      await provider.destroy()
+    }
+  })
+
   it('keeps the async publication consumer exclusive across its subscription lifecycle', async () => {
     const provider = createProvider('ws://127.0.0.1:1')
     const firstConsumer = vi.fn(

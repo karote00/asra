@@ -1,5 +1,5 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test'
-import { seedServerResponse } from './server-response-inbox'
+import { installGeneratedActionBatchInterceptor } from './action-batch-interceptor'
 import {
   createRectangle,
   createVectorPath,
@@ -24,6 +24,13 @@ const profiledCollaborationUrl = (fileId: string) =>
 const CRDT_COMPLETION_TIMEOUT_MS = 180_000
 const CRDT_CASE_TIMEOUT_MS = 240_000
 const CRDT_ACTION_UNDO_REDO_CASE_TIMEOUT_MS = 600_000
+const sliceElementBudget = (() => {
+  const value = Number(process.env.ASYRA_E2E_SLICE_ELEMENT_BUDGET ?? 32)
+  if (value !== 32 && value !== 64) {
+    throw new Error('ASYRA_E2E_SLICE_ELEMENT_BUDGET must be 32 or 64')
+  }
+  return value
+})() as 32 | 64
 
 const requireAppUrl = (testInfo: TestInfo): string => {
   const appUrl = String(testInfo.project.use.baseURL ?? '')
@@ -343,23 +350,19 @@ const getCanonicalHierarchyGeometry = (page: Page) =>
 
 const getCollaborationDiagnostics = (page: Page) =>
   page.evaluate(async () => {
-    const profiledElements = (await import('../src/testing/runtime-access'))
+    const runtimeAccess = await import('../src/testing/runtime-access')
+    const profiledElements = runtimeAccess
       .getActiveAiDrawingPerformanceProfile()
       ?.readCanonicalElements()
+    const handle = runtimeAccess.getActiveCollaborationHandle()
     return {
-      status:
-        (await import('../src/testing/runtime-access'))
-          .getActiveCollaborationHandle()
-          ?.getStatus() ?? 'missing',
-      identity: (
-        await import('../src/testing/runtime-access')
-      ).getActiveCollaborationHandle()?.identity,
+      status: handle?.getStatus() ?? 'missing',
+      sessionState: handle?.getSessionState(),
+      identity: handle?.identity,
       canonicalElementCount: profiledElements
         ? profiledElements.filter(({ type }) => type !== 'workspace').length
         : Array.from(
-            (
-              await import('../src/testing/runtime-access')
-            ).core?.deps?.sceneTree
+            runtimeAccess.core?.deps?.sceneTree
               ?.getAllElements?.()
               .values?.() ?? []
           ).filter((element) => element.get?.('type') !== 'workspace').length
@@ -590,6 +593,91 @@ const getFactoryPublicationShapes = (page: Page) =>
     return testRuntimeState.get('factory-publication-shapes') ?? []
   })
 
+const captureFactoryPublicationSummaries = (page: Page) =>
+  page.evaluate(async () => {
+    const { core, testRuntimeState } = await import(
+      '../src/testing/runtime-access'
+    )
+    const summaries = testRuntimeState.set<unknown[]>(
+      'factory-publication-summaries',
+      []
+    )
+    core.deps.factory.subscribeToSharedPublication((publication) => {
+      summaries.push({
+        publicationId: publication.publicationId,
+        origin: publication.origin,
+        mode: publication.mode,
+        sliceCount: publication.slices.length,
+        orderedIdCount: publication.slices.reduce(
+          (total, slice) => total + slice.orderedIds.length,
+          0
+        ),
+        deliveryCount: publication.slices.reduce(
+          (sliceTotal, slice) =>
+            sliceTotal +
+            slice.batches.reduce(
+              (batchTotal, batch) => batchTotal + batch.deliveries.length,
+              0
+            ),
+          0
+        )
+      })
+    })
+  })
+
+const getFactoryPublicationSummaries = (page: Page) =>
+  page.evaluate(async () => {
+    const { testRuntimeState } = await import('../src/testing/runtime-access')
+    return testRuntimeState.get('factory-publication-summaries') ?? []
+  })
+
+const getFactoryUndoXChanges = (page: Page) =>
+  page.evaluate(async () => {
+    const { testRuntimeState } = await import('../src/testing/runtime-access')
+    const publications =
+      testRuntimeState.get<
+        {
+          origin?: string
+          publicationId?: string
+          slices?: readonly {
+            batches?: readonly {
+              deliveries?: readonly {
+                eventName?: string
+                payload?: unknown
+              }[]
+            }[]
+          }[]
+        }[]
+      >('factory-publications') ?? []
+    return publications.flatMap((publication) =>
+      publication.origin !== 'undo'
+        ? []
+        : (publication.slices ?? []).flatMap((slice) =>
+            (slice.batches ?? []).flatMap((batch) =>
+              (batch.deliveries ?? []).flatMap((delivery) => {
+                const payload =
+                  delivery.payload &&
+                  typeof delivery.payload === 'object' &&
+                  !Array.isArray(delivery.payload)
+                    ? (delivery.payload as Record<string, unknown>)
+                    : null
+                return delivery.eventName === 'updateProperty' &&
+                  payload?.key === 'x'
+                  ? [
+                      {
+                        after: payload.after,
+                        before: payload.before,
+                        id: payload.id,
+                        publicationId: publication.publicationId
+                      }
+                    ]
+                  : []
+              })
+            )
+          )
+    )
+  })
+
 const classifyFactoryPublicationsInApp = (page: Page) =>
   page.evaluate(async () => {
     const operationsModule = await import('/src/collaboration/operations.ts')
@@ -597,17 +685,29 @@ const classifyFactoryPublicationsInApp = (page: Page) =>
     const canonicalRequests: string[][] = []
     const processor = operationsModule.createPublicationProcessor({
       runRemoteTransaction: (mutate: () => void) => mutate(),
+      runRemoteTransactionProgressively: async (
+        mutateSlices: readonly (() => void)[],
+        settleAfterSlice: (completedSliceIndex: number) => Promise<void>
+      ) => {
+        for (let index = 0; index < mutateSlices.length; index += 1) {
+          mutateSlices[index]?.()
+          if (index < mutateSlices.length - 1) {
+            await settleAfterSlice(index)
+          }
+        }
+      },
       decideRemotePublication: (publication) => publication,
       applyCanonicalChanges: (
         changes: readonly { readonly kind: string }[]
       ) => {
         canonicalRequests.push(changes.map(({ kind }) => kind))
-      }
+      },
+      settleRemoteSlice: async () => undefined
     })
     for (const publication of testRuntimeState.get<
       Parameters<typeof processor>[0][]
     >('factory-publications') ?? []) {
-      processor(publication)
+      await processor(publication)
     }
     return canonicalRequests
   })
@@ -766,7 +866,7 @@ test('16-item server response keeps ordered minimal publications through one Act
   page
 }, testInfo) => {
   const fileId = `single-actor-fast-${Date.now()}-${testInfo.workerIndex}`
-  await seedServerResponse(page.context(), {
+  await installGeneratedActionBatchInterceptor(page.context(), {
     appUrl: requireAppUrl(testInfo),
     fileId,
     itemCount: 16
@@ -800,11 +900,7 @@ test('16-item server response keeps ordered minimal publications through one Act
     body: Buffer.from(JSON.stringify(shapes, null, 2)),
     contentType: 'application/json'
   })
-  expect(shapes.map(({ origin }) => origin)).toEqual([
-    ...Array.from({ length: 9 }, () => 'action'),
-    ...Array.from({ length: 9 }, () => 'undo'),
-    ...Array.from({ length: 9 }, () => 'redo')
-  ])
+  expect(shapes.map(({ origin }) => origin)).toEqual(['action', 'undo', 'redo'])
   expect(JSON.stringify(shapes)).not.toMatch(
     /updateComputedData|updateComputedDataPatch/
   )
@@ -827,7 +923,7 @@ test('16-item AI response converges through the ordinary two-actor publication p
   const actorB = await actorBContext.newPage()
 
   try {
-    await seedServerResponse(actorAContext, {
+    await installGeneratedActionBatchInterceptor(actorAContext, {
       appUrl: requireAppUrl(testInfo),
       fileId,
       itemCount: 16
@@ -1103,12 +1199,21 @@ test('320-item AI response converges through the ordinary cooperative two-actor 
   const actorBContext = await browser.newContext()
   const actorA = await actorAContext.newPage()
   const actorB = await actorBContext.newPage()
+  const actorAPageErrors: string[] = []
+  const actorBPageErrors: string[] = []
+  actorA.on('pageerror', (error) =>
+    actorAPageErrors.push(error.stack ?? error.message)
+  )
+  actorB.on('pageerror', (error) =>
+    actorBPageErrors.push(error.stack ?? error.message)
+  )
 
   try {
-    await seedServerResponse(actorAContext, {
+    await installGeneratedActionBatchInterceptor(actorAContext, {
       appUrl: requireAppUrl(testInfo),
       fileId,
-      itemCount: 320
+      itemCount: 320,
+      sliceElementBudget
     })
     await Promise.all([
       actorA.goto(collaborationUrl(fileId)),
@@ -1119,6 +1224,13 @@ test('320-item AI response converges through the ordinary cooperative two-actor 
       waitForAppReady(actorB),
       waitForCollaboration(actorA),
       waitForCollaboration(actorB)
+    ])
+    await Promise.all([
+      capturePublicationOutcomes(actorA),
+      capturePublicationOutcomes(actorB),
+      captureTransactionStatuses(actorA),
+      captureFactoryPublicationSummaries(actorA),
+      captureTransactionStatuses(actorB)
     ])
 
     const [actorAUndoDepthBefore, actorBUndoDepthBefore] = await Promise.all([
@@ -1220,7 +1332,8 @@ test('320-item AI response converges through the ordinary cooperative two-actor 
             actorAFirstVisibleMs,
             actorBCompleteMs,
             actorBFirstVisibleMs,
-            convergenceCompleteMs
+            convergenceCompleteMs,
+            sliceElementBudget
           },
           null,
           2
@@ -1237,11 +1350,37 @@ test('320-item AI response converges through the ordinary cooperative two-actor 
       })
       .toBe(0)
     const actorAUndoCompleteMs = Date.now() - undoStartedAt
-    await expect
-      .poll(() => getCanonicalCount(actorB), {
-        timeout: CRDT_COMPLETION_TIMEOUT_MS
+    try {
+      await expect
+        .poll(() => getCanonicalCount(actorB), {
+          timeout: CRDT_COMPLETION_TIMEOUT_MS
+        })
+        .toBe(0)
+    } catch (error) {
+      const diagnostics = {
+        actorACollaboration: await getCollaborationDiagnostics(actorA),
+        actorAOutcomes: (await getPublicationOutcomes(actorA)).slice(-24),
+        actorAPageErrors,
+        actorAPublications: (
+          await getFactoryPublicationSummaries(actorA)
+        ).slice(-24),
+        actorATransactions: (await getTransactionStatuses(actorA)).slice(-24),
+        actorBCanonicalCount: await getCanonicalCount(actorB),
+        actorBCollaboration: await getCollaborationDiagnostics(actorB),
+        actorBOutcomes: (await getPublicationOutcomes(actorB)).slice(-24),
+        actorBPageErrors,
+        actorBTransactions: (await getTransactionStatuses(actorB)).slice(-24),
+        sliceElementBudget
+      }
+      await testInfo.attach('320-item-actor-b-undo-failure.json', {
+        body: Buffer.from(JSON.stringify(diagnostics, null, 2)),
+        contentType: 'application/json'
       })
-      .toBe(0)
+      throw new Error(
+        `320-item Actor B Undo failed: ${JSON.stringify(diagnostics)}`,
+        { cause: error }
+      )
+    }
     const actorBUndoCompleteMs = Date.now() - undoStartedAt
     expect(await getUndoDepth(actorB)).toBe(actorBUndoDepthBefore)
 
@@ -1273,23 +1412,23 @@ test('320-item AI response converges through the ordinary cooperative two-actor 
     ).toBe(true)
     expect(await getUndoDepth(actorB)).toBe(actorBUndoDepthBefore)
 
+    const timings = {
+      actorACompleteMs,
+      actorAFirstVisibleMs,
+      actorARedoCompleteMs,
+      actorAUndoCompleteMs,
+      actorBCompleteMs,
+      actorBFirstVisibleMs,
+      actorBRedoCompleteMs,
+      actorBUndoCompleteMs,
+      sliceElementBudget
+    }
+    testInfo.annotations.push({
+      description: JSON.stringify(timings),
+      type: '320-item CRDT timings'
+    })
     await testInfo.attach('320-item-ai-crdt-timings.json', {
-      body: Buffer.from(
-        JSON.stringify(
-          {
-            actorACompleteMs,
-            actorAFirstVisibleMs,
-            actorARedoCompleteMs,
-            actorAUndoCompleteMs,
-            actorBCompleteMs,
-            actorBFirstVisibleMs,
-            actorBRedoCompleteMs,
-            actorBUndoCompleteMs
-          },
-          null,
-          2
-        )
-      ),
+      body: Buffer.from(JSON.stringify(timings, null, 2)),
       contentType: 'application/json'
     })
   } finally {
@@ -1307,12 +1446,21 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
   const actorBContext = await browser.newContext()
   const actorA = await actorAContext.newPage()
   const actorB = await actorBContext.newPage()
+  const actorAPageErrors: string[] = []
+  const actorBPageErrors: string[] = []
+  actorA.on('pageerror', (error) =>
+    actorAPageErrors.push(error.stack ?? error.message)
+  )
+  actorB.on('pageerror', (error) =>
+    actorBPageErrors.push(error.stack ?? error.message)
+  )
 
   try {
-    await seedServerResponse(actorAContext, {
+    await installGeneratedActionBatchInterceptor(actorAContext, {
       appUrl: requireAppUrl(testInfo),
       fileId,
-      itemCount: 1280
+      itemCount: 1280,
+      sliceElementBudget
     })
     await Promise.all([actorA.goto(profiledUrl), actorB.goto(profiledUrl)])
     await Promise.all([
@@ -1346,6 +1494,34 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
         }
         return profile.readCounterTotal('render-projection-outcome-applied')
       })
+    const getActorProgressDiagnostics = (page: Page) =>
+      page.evaluate(async () => {
+        const runtimeAccess = await import('../src/testing/runtime-access')
+        const profile = runtimeAccess.getActiveAiDrawingPerformanceProfile()
+        if (!profile) {
+          throw new Error('AI drawing performance profile is unavailable')
+        }
+        const snapshot = profile.snapshot()
+        const runtimeEvidence = profile.getRuntimeEvidence()
+        return {
+          canonicalElementCount: profile.readCanonicalElementCount(),
+          collaborationStatus:
+            runtimeAccess.getActiveCollaborationHandle()?.getStatus() ??
+            'missing',
+          factoryPublicationCount: profile.readFactoryPublicationCount(),
+          factoryPublications: runtimeEvidence.factoryPublications,
+          factoryStatuses: runtimeEvidence.factoryStatuses,
+          historyDepth: profile.readHistoryDepth(),
+          latestFactoryTransactionStatus:
+            profile.readLatestFactoryTransactionStatus(),
+          latestOwnerTiming: profile.readLatestPhaseSample(),
+          latestTurnSettlement: profile.readLatestTurnSettlement(),
+          renderProjectionElementCount:
+            profile.readRenderProjectionElementCount(),
+          retainedCounters: snapshot.counters,
+          retainedPhases: snapshot.phases
+        }
+      })
     const [
       actorAUndoDepthBefore,
       actorBUndoDepthBefore,
@@ -1358,15 +1534,61 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
       getCanonicalCount(actorB)
     ])
 
+    const firstVectorTimeoutMs = 30_000
     let startedAt = 0
     const waitForFirstVector = async (
+      actor: 'actor-a' | 'actor-b',
       page: Page,
-      canonicalBaseline: number
+      canonicalBaseline: number,
+      pageErrors: readonly string[]
     ) => {
-      await expect
-        .poll(() => getCanonicalCount(page), { timeout: 30_000 })
-        .toBeGreaterThan(canonicalBaseline + 1)
-      return Date.now() - startedAt
+      try {
+        await expect
+          .poll(() => getCanonicalCount(page), {
+            timeout: firstVectorTimeoutMs
+          })
+          .toBeGreaterThan(canonicalBaseline + 1)
+        return Date.now() - startedAt
+      } catch (error) {
+        const finalCanonicalCount = await getCanonicalCount(page)
+        const finalElapsedMs = Date.now() - startedAt
+        if (
+          finalCanonicalCount > canonicalBaseline + 1 &&
+          finalElapsedMs <= firstVectorTimeoutMs
+        ) {
+          return finalElapsedMs
+        }
+        const diagnostics = {
+          actor,
+          elapsedMs: finalElapsedMs,
+          pageErrors,
+          progress: await getActorProgressDiagnostics(page)
+        }
+        await testInfo.attach(`1280-item-${actor}-first-vector-timeout.json`, {
+          body: Buffer.from(JSON.stringify(diagnostics, null, 2)),
+          contentType: 'application/json'
+        })
+        throw new Error(
+          `${actor} did not apply its first canonical vector within 30 seconds: ${JSON.stringify(
+            {
+              canonicalElementCount: diagnostics.progress.canonicalElementCount,
+              collaborationStatus: diagnostics.progress.collaborationStatus,
+              elapsedMs: diagnostics.elapsedMs,
+              factoryPublicationCount:
+                diagnostics.progress.factoryPublicationCount,
+              historyDepth: diagnostics.progress.historyDepth,
+              latestFactoryTransactionStatus:
+                diagnostics.progress.latestFactoryTransactionStatus,
+              latestOwnerTiming: diagnostics.progress.latestOwnerTiming,
+              latestTurnSettlement: diagnostics.progress.latestTurnSettlement,
+              pageErrorCount: diagnostics.pageErrors.length,
+              renderProjectionElementCount:
+                diagnostics.progress.renderProjectionElementCount
+            }
+          )}`,
+          { cause: error }
+        )
+      }
     }
     const waitForCompleteProjection = async (
       page: Page,
@@ -1388,13 +1610,24 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
         renderedCompleteMs: Date.now() - startedAt
       }
     }
+
+    await actorA.getByTestId('ai-agent-toolbar-button').click()
+    await expect(actorA.getByTestId('ai-agent-panel')).toBeVisible()
+    await actorA
+      .getByLabel('Message Agent')
+      .fill('create the 1280-item CRDT performance fixture')
+    startedAt = Date.now()
     const actorAFirstVector = waitForFirstVector(
+      'actor-a',
       actorA,
-      actorACanonicalBaseline
+      actorACanonicalBaseline,
+      actorAPageErrors
     )
     const actorBFirstVector = waitForFirstVector(
+      'actor-b',
       actorB,
-      actorBCanonicalBaseline
+      actorBCanonicalBaseline,
+      actorBPageErrors
     )
     const actorAComplete = waitForCompleteProjection(
       actorA,
@@ -1404,13 +1637,6 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
       actorB,
       actorBCanonicalBaseline
     )
-
-    await actorA.getByTestId('ai-agent-toolbar-button').click()
-    await expect(actorA.getByTestId('ai-agent-panel')).toBeVisible()
-    await actorA
-      .getByLabel('Message Agent')
-      .fill('create the 1280-item CRDT performance fixture')
-    startedAt = Date.now()
     await actorA.getByRole('button', { name: 'Send' }).click()
 
     const settledTurn = actorA.getByTestId('ai-agent-message').last()
@@ -1480,7 +1706,8 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
       actorBCanonicalCompleteMs: actorBCompletion.canonicalCompleteMs,
       actorBFirstVectorMs,
       actorBRenderedCompleteMs: actorBCompletion.renderedCompleteMs,
-      convergenceCompleteMs
+      convergenceCompleteMs,
+      sliceElementBudget
     }
     testInfo.annotations.push({
       description: JSON.stringify(timings),
@@ -2404,17 +2631,52 @@ test('pen drag-to-add publishes real topology and curve frames before pointer-up
     }
 
     await undo(first)
-    await expect
-      .poll(() => getVectorTopologySummary(second))
-      .toMatchObject({
-        anchorCount: 1,
-        controlCount: 0,
-        segmentCount: 0,
-        curvedSegmentCount: 0
+    try {
+      await expect
+        .poll(() => getVectorTopologySummary(second))
+        .toMatchObject({
+          anchorCount: 1,
+          controlCount: 0,
+          segmentCount: 0,
+          curvedSegmentCount: 0
+        })
+      await expect
+        .poll(() => getCanonicalSnapshot(second))
+        .toEqual(await getCanonicalSnapshot(first))
+    } catch (error) {
+      const [firstSnapshot, secondSnapshot, firstOutcomes, secondOutcomes] =
+        await Promise.all([
+          getCanonicalSnapshot(first),
+          getCanonicalSnapshot(second),
+          getPublicationOutcomes(first),
+          getPublicationOutcomes(second)
+        ])
+      const publications = await getFactoryPublicationShapes(first)
+      const undoXChanges = await getFactoryUndoXChanges(first)
+      const firstHistoryState = await first.evaluate(async () => {
+        const transact = (await import('../src/testing/runtime-access')).core
+          ?.deps?.factory?.transact
+        return {
+          inRedo: transact?.inRedo,
+          inUndo: transact?.inUndo,
+          redoDepth: transact?.redoStack?.length ?? 0,
+          undoDepth: transact?.undoStack?.length ?? 0
+        }
       })
-    await expect
-      .poll(() => getCanonicalSnapshot(second))
-      .toEqual(await getCanonicalSnapshot(first))
+      throw new Error(
+        `Pen Undo convergence failed: ${JSON.stringify({
+          firstSnapshot,
+          secondSnapshot,
+          firstHistoryState,
+          firstPageErrors: firstPageErrors.slice(-8),
+          firstOutcomes: firstOutcomes.slice(-16),
+          publications: publications.slice(-16),
+          undoXChanges,
+          secondOutcomes: secondOutcomes.slice(-16)
+        })}`,
+        { cause: error }
+      )
+    }
 
     await redo(first)
     try {

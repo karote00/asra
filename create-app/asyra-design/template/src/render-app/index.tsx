@@ -4,12 +4,8 @@ import {
   AiDocumentInteractionTargetProps,
   CANVAS_BACKGROUND_COLOR
 } from '../constants'
-import type {
-  CollaborationSessionNotification,
-  PreparedCollaborationDocumentSession
-} from '../collaboration/lifecycle'
-import { createInitialDocumentForFile } from '../config/demo-document'
-import { getCollaborationMode, getRequiredFileId } from './collaboration-mode'
+import type { CollaborationSessionNotification } from '../collaboration/lifecycle'
+import { getCollaborationMode } from './collaboration-mode'
 import AiDrawingProgressIndicator from './ai-drawing-progress-indicator'
 import { StatusToastStack } from './status-toast-stack'
 
@@ -71,31 +67,19 @@ const RenderApp: React.FC<RenderAppProps> = ({
         if (!container) {
           return
         }
-        const fileId = getRequiredFileId()
         const collaborationMode = getCollaborationMode()
-        let preparedCollaboration:
-          | PreparedCollaborationDocumentSession
-          | undefined
-
-        if (collaborationMode) {
-          const collaborationLifecycle = await import(
-            '../collaboration/lifecycle'
+        const collaborationLifecycle = await import(
+          '../collaboration/lifecycle'
+        )
+        collaborationDisposer = collaborationLifecycle.disposeCollaboration
+        const preparedCollaboration =
+          await collaborationLifecycle.prepareCollaborationDocumentSession(
+            collaborationMode
           )
-          collaborationDisposer = collaborationLifecycle.disposeCollaboration
-          preparedCollaboration =
-            await collaborationLifecycle.prepareCollaborationDocumentSession(
-              collaborationMode
-            )
-          core.setLoadSource({
-            name: 'SocketDocumentSession',
-            load: async () => preparedCollaboration?.bootstrap.checkpoint
-          })
-        } else {
-          core.setLoadSource({
-            name: 'Crdt7076AgentSimulation',
-            load: () => createInitialDocumentForFile(fileId)
-          })
-        }
+        core.setLoadSource({
+          name: 'SocketDocumentSession',
+          load: async () => preparedCollaboration.bootstrap.checkpoint
+        })
 
         await core.start(container, {
           width: window.innerWidth,
@@ -108,13 +92,6 @@ const RenderApp: React.FC<RenderAppProps> = ({
           return
         }
 
-        if (!preparedCollaboration) {
-          return
-        }
-        if (!active) {
-          await disposeCollaboration()
-          return
-        }
         const handle = await preparedCollaboration.activate()
         if (!active) {
           await disposeCollaboration()

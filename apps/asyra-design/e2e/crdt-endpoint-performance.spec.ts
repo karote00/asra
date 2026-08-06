@@ -8,7 +8,10 @@ import {
   type Page
 } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
-import { summarizeRendererPerformanceWindow } from './performance-resource-guard.mjs'
+import {
+  resolveEndpointBrowserExecutablePath,
+  summarizeRendererPerformanceWindow
+} from './performance-resource-guard.mjs'
 import {
   captureBrowserErrors,
   getCapturedBrowserErrors,
@@ -2350,9 +2353,13 @@ const launchTrackedActorBBrowser = async (): Promise<Browser> => {
     )
   )
   return await chromium.launch({
+    channel: 'chrome',
     env: {
       ...env,
-      TRACKED_EXECUTABLE: chromium.executablePath(),
+      TRACKED_EXECUTABLE: resolveEndpointBrowserExecutablePath({
+        attributionCase: endpointAttributionCase,
+        bundledChromiumExecutablePath: chromium.executablePath()
+      }),
       TRACKED_ROLE: 'client-b-browser'
     },
     headless: true,

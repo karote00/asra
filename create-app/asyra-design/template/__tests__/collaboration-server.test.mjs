@@ -126,7 +126,7 @@ after(async () => {
   )
 })
 
-test('reference server is a TypeScript build with a validated uncompressed publication route', async () => {
+test('reference server is a TypeScript build with an opaque uncompressed publication route', async () => {
   const source = await readFile(
     new URL('../collaboration-server.ts', import.meta.url),
     'utf8'
@@ -144,8 +144,12 @@ test('reference server is a TypeScript build with a validated uncompressed publi
   assert.match(source, /from ['"].*collaboration\/protocol['"]/)
   assert.match(providerSource, /from ['"].*protocol['"]/)
   assert.doesNotMatch(source, /MemoryHub|MemoryProvider/)
-  assert.match(source, /\bdecodePublicationMessageFrames\b/)
-  assert.match(source, /\bdecodeDocumentPublication\b/)
+  assert.doesNotMatch(source, /\bdecodePublicationMessageFrames\b/)
+  assert.doesNotMatch(source, /\bdecodeDocumentPublication\b/)
+  assert.doesNotMatch(source, /\bapplyCanonicalChangesToDocument\b/)
+  assert.doesNotMatch(source, /\badmissionDocument\b/)
+  assert.doesNotMatch(source, /\bisDeepStrictEqual\b/)
+  assert.match(source, /createHash/)
   assert.doesNotMatch(source, /from ['"]vite['"]|ssrLoadModule/)
   assert.match(
     source,
@@ -641,17 +645,27 @@ const createOpaquePublicationFrame = ({
   chunkIndex = 0,
   chunkCount = 1
 }) => {
-  const bytes = createCanonicalPublicationFrame({
+  const canonical = createCanonicalPublicationFrame({
     requestId,
     publicationId,
-    value: 'x'.repeat(payload.byteLength)
+    value: 'opaque-envelope'
   })
+  const canonicalView = new DataView(
+    canonical.buffer,
+    canonical.byteOffset,
+    canonical.byteLength
+  )
+  const headerByteLength = canonicalView.getUint32(8, true)
+  const bytes = new Uint8Array(headerByteLength + payload.byteLength)
+  bytes.set(canonical.subarray(0, headerByteLength))
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  view.setUint32(12, payload.byteLength, true)
   bytes[7] = publicationCount === 1 ? 1 : 2
   view.setUint32(16, publicationIndex, true)
   view.setUint32(20, publicationCount, true)
   view.setUint32(24, chunkIndex, true)
   view.setUint32(28, chunkCount, true)
+  bytes.set(payload, headerByteLength)
   return bytes
 }
 
@@ -967,9 +981,15 @@ test('bootstrap returns the gap-free pending tail and withholds post-cutoff live
     assert.equal(requested.result.type, 'ready')
     assert.deepEqual(
       requested.result.bootstrap.pendingTail.map(
-        ({ sequence, publication, fromActorId }) => ({
+        ({
           sequence,
-          publicationId: publication.publicationId,
+          publicationId,
+          encodedPublicationFrames,
+          fromActorId
+        }) => ({
+          sequence,
+          publicationId,
+          encodedFrameCount: encodedPublicationFrames.length,
           fromActorId
         })
       ),
@@ -977,6 +997,7 @@ test('bootstrap returns the gap-free pending tail and withholds post-cutoff live
         {
           sequence: 1,
           publicationId: 'bootstrap-first-publication',
+          encodedFrameCount: 1,
           fromActorId: 'bootstrap-source'
         }
       ]
@@ -1038,19 +1059,22 @@ test('bootstrap returns the gap-free pending tail and withholds post-cutoff live
     assert.equal(reconnected.result.bootstrap.headSequence, 2)
     assert.deepEqual(
       reconnected.result.bootstrap.pendingTail.map(
-        ({ sequence, publication }) => ({
+        ({ sequence, publicationId, encodedPublicationFrames }) => ({
           sequence,
-          publicationId: publication.publicationId
+          publicationId,
+          encodedFrameCount: encodedPublicationFrames.length
         })
       ),
       [
         {
           sequence: 1,
-          publicationId: 'bootstrap-first-publication'
+          publicationId: 'bootstrap-first-publication',
+          encodedFrameCount: 1
         },
         {
           sequence: 2,
-          publicationId: 'bootstrap-second-publication'
+          publicationId: 'bootstrap-second-publication',
+          encodedFrameCount: 1
         }
       ]
     )
@@ -1365,7 +1389,7 @@ test('socket server assigns one room sequence, deduplicates publication retries,
   }
 })
 
-test('socket server rejects unsupported document channels before sequence allocation or peer fan-out', async () => {
+test('socket server assigns order without interpreting product channels or canonical payload state', async () => {
   const port = await getAvailablePort()
   const origin = 'http://localhost:4339'
   const child = startServer({ port, origin })
@@ -1403,22 +1427,26 @@ test('socket server rejects unsupported document channels before sequence alloca
       publication: invalidPublication
     })
     assert.equal(invalidFrames.length, 1)
-    const rejectedResponse = waitForMessage(
+    const firstAccepted = responseFor(
       invalidSource,
-      (message) =>
-        message.type === 'response' &&
-        message.requestId === 'invalid-selection-request',
-      'unsupported channel rejection'
+      'invalid-selection-request'
     )
-    const noInvalidFanOut = expectNoBinaryMessage(observer)
+    const firstRelayed = waitForBinaryMessage(
+      observer,
+      'opaque unsupported channel relay'
+    )
     invalidSource.send(invalidFrames[0], { binary: true })
 
-    const rejected = await rejectedResponse
-    assert.equal(rejected.ok, false)
-    assert.equal(rejected.error.code, 'acknowledgement-failed')
-    assert.match(rejected.error.message, /unsupported|selection/i)
-    await noInvalidFanOut
-    assert.equal(invalidSource.readyState, WebSocket.OPEN)
+    assert.deepEqual(await firstAccepted, {
+      type: 'response',
+      requestId: 'invalid-selection-request',
+      ok: true,
+      acceptedSequences: [1]
+    })
+    assert.equal(
+      inspectProtocolPublicationFrame(await firstRelayed).sequence,
+      1
+    )
 
     const structurallyInvalidPublication = createCanonicalPropertyPublication(
       'invalid-structural-publication',
@@ -1432,19 +1460,26 @@ test('socket server rejects unsupported document channels before sequence alloca
       publication: structurallyInvalidPublication
     })
     assert.equal(structurallyInvalidFrames.length, 1)
-    const structurallyRejected = responseFor(
+    const secondAccepted = responseFor(
       invalidSource,
       'invalid-structural-request'
     )
-    const noStructuralFanOut = expectNoBinaryMessage(observer)
+    const secondRelayed = waitForBinaryMessage(
+      observer,
+      'opaque product payload relay'
+    )
     invalidSource.send(structurallyInvalidFrames[0], { binary: true })
 
-    const structuralResponse = await structurallyRejected
-    assert.equal(structuralResponse.ok, false)
-    assert.equal(structuralResponse.error.code, 'acknowledgement-failed')
-    assert.match(structuralResponse.error.message, /missing-position|missing/i)
-    await noStructuralFanOut
-    assert.equal(invalidSource.readyState, WebSocket.OPEN)
+    assert.deepEqual(await secondAccepted, {
+      type: 'response',
+      requestId: 'invalid-structural-request',
+      ok: true,
+      acceptedSequences: [2]
+    })
+    assert.equal(
+      inspectProtocolPublicationFrame(await secondRelayed).sequence,
+      2
+    )
 
     const validFrame = createCanonicalPublicationFrame({
       requestId: 'valid-after-selection',
@@ -1462,9 +1497,9 @@ test('socket server rejects unsupported document channels before sequence alloca
       type: 'response',
       requestId: 'valid-after-selection',
       ok: true,
-      acceptedSequences: [1]
+      acceptedSequences: [3]
     })
-    assert.equal(inspectProtocolPublicationFrame(await relayed).sequence, 1)
+    assert.equal(inspectProtocolPublicationFrame(await relayed).sequence, 3)
   } finally {
     await Promise.all(sockets.map((socket) => closeSocket(socket)))
     await stopServer(child)
@@ -1546,13 +1581,11 @@ test('socket server retries the exact ordered backend batch after a non-success 
     })
     sockets.push(socket, blockedSource)
     const accepted = responseFor(socket, 'backend-retry-request')
-    socket.send(
-      createCanonicalPublicationFrame({
-        requestId: 'backend-retry-request',
-        publicationId: 'backend-retry-publication'
-      }),
-      { binary: true }
-    )
+    const backendRetryFrame = createCanonicalPublicationFrame({
+      requestId: 'backend-retry-request',
+      publicationId: 'backend-retry-publication'
+    })
+    socket.send(backendRetryFrame, { binary: true })
 
     assert.deepEqual(await accepted, {
       type: 'response',
@@ -1605,9 +1638,10 @@ test('socket server retries the exact ordered backend batch after a non-success 
         {
           documentId: 'backend-retry-file',
           sequence: 1,
-          publication: createCanonicalPropertyPublication(
-            'backend-retry-publication'
-          )
+          publicationId: 'backend-retry-publication',
+          encodedPublicationFrames: [
+            Buffer.from(backendRetryFrame).toString('base64')
+          ]
         }
       ]
     })
@@ -1641,7 +1675,119 @@ test('socket server retries the exact ordered backend batch after a non-success 
   }
 })
 
-test('public reference server validates canonical publication bytes and bypasses a stalled binary queue for JSON controls', async () => {
+test('socket server waits for durable persistence capacity without disconnecting the source', async () => {
+  let resolveFirstPersistence
+  const firstPersistenceReleased = new Promise((resolve) => {
+    resolveFirstPersistence = resolve
+  })
+  let resolveFirstRequestStarted
+  const firstRequestStarted = new Promise((resolve) => {
+    resolveFirstRequestStarted = resolve
+  })
+  let persistenceRequestCount = 0
+  const backend = createHttpBackendServer(async (request, response) => {
+    response.setHeader('content-type', 'application/json')
+    if (
+      request.method === 'GET' &&
+      request.url?.endsWith('/bootstrap-checkpoint')
+    ) {
+      response.end(
+        JSON.stringify({
+          checkpoint: createTransportCheckpointDocument(),
+          durableSequence: 0
+        })
+      )
+      return
+    }
+    const chunks = []
+    for await (const chunk of request) chunks.push(Buffer.from(chunk))
+    const batch = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+    persistenceRequestCount += 1
+    if (persistenceRequestCount === 1) {
+      resolveFirstRequestStarted()
+      await firstPersistenceReleased
+    }
+    response.end(JSON.stringify({ durableSequence: batch.lastSequence }))
+  })
+  await new Promise((resolve, reject) => {
+    backend.once('error', reject)
+    backend.listen(0, '127.0.0.1', resolve)
+  })
+  const backendAddress = backend.address()
+  assert.ok(backendAddress && typeof backendAddress === 'object')
+
+  const port = await getAvailablePort()
+  const origin = 'http://localhost:4341'
+  const child = startServer({
+    port,
+    origin,
+    persistenceBackendURL: `http://127.0.0.1:${backendAddress.port}`,
+    persistenceMaxPublicationCount: 1
+  })
+  const sockets = []
+  try {
+    await waitForServer(child)
+    const source = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'durable-capacity-file',
+      actorId: 'durable-capacity-source'
+    })
+    sockets.push(source)
+
+    for (const suffix of ['a', 'b']) {
+      const requestId = `durable-capacity-${suffix}`
+      const frame = createCanonicalPublicationFrame({
+        requestId,
+        publicationId: `${requestId}-publication`,
+        after: suffix === 'a' ? 2 : 3
+      })
+      const accepted = responseFor(source, requestId)
+      await sendPublicationFrameAndWaitForAdmission(source, frame)
+      assert.deepEqual(await accepted, {
+        type: 'response',
+        requestId,
+        ok: true,
+        acceptedSequences: [suffix === 'a' ? 1 : 2]
+      })
+      if (suffix === 'a') await firstRequestStarted
+    }
+
+    const waitingRequestId = 'durable-capacity-c'
+    const waitingFrame = createCanonicalPublicationFrame({
+      requestId: waitingRequestId,
+      publicationId: `${waitingRequestId}-publication`,
+      after: 4
+    })
+    const waitingAdmission = sourceFrameAdmissionFor(source, waitingFrame)
+    const waitingResponse = responseFor(source, waitingRequestId)
+    source.send(waitingFrame, { binary: true })
+
+    await noMessageBefore(waitingAdmission)
+    await noMessageBefore(waitingResponse)
+    assert.equal(source.readyState, WebSocket.OPEN)
+
+    resolveFirstPersistence()
+    assert.deepEqual(
+      await waitingAdmission,
+      expectedSourceFrameAdmission(waitingFrame)
+    )
+    assert.deepEqual(await waitingResponse, {
+      type: 'response',
+      requestId: waitingRequestId,
+      ok: true,
+      acceptedSequences: [3]
+    })
+    assert.equal(source.readyState, WebSocket.OPEN)
+  } finally {
+    resolveFirstPersistence()
+    await Promise.all(sockets.map((socket) => closeSocket(socket)))
+    await stopServer(child)
+    await new Promise((resolve) => backend.close(() => resolve()))
+  }
+})
+
+test('public reference server relays opaque publication bytes and bypasses a stalled binary queue for JSON controls', async () => {
   const port = await getAvailablePort()
   const origin = 'http://localhost:4320'
   const child = startServer({ port, origin })

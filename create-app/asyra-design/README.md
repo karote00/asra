@@ -2,80 +2,57 @@
 
 ⚠️ **Experimental project. APIs and structure may change before 1.0.**
 
-Official CLI to quickly scaffold the **Asyra Design** starter kit.  
-Install, create a new project, and start designing immediately—no setup required.
+Official CLI for scaffolding the standalone **Asyra Design** reference app.
 
----
+## Requirements
 
-## Features
+- Node.js 24.x
+- Yarn, npm, or pnpm
 
-- Installs the latest stable `asyra-design` with all dependencies (`@asyra/core`, `@asyra/renderer`)  
-- Provides a ready-to-run template project  
-- Perfect for beginners or teams wanting to quickly prototype with Asyra  
-- Safe and stable: isolated from main UI development branch
+## Create a project
 
----
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js >= 18  
-- Yarn
-
-### Installation
-
-Install globally:
-
-```bash
-npm install -g create-asyra-design-app
-# or
-yarn global add create-asyra-design-app
-```
-
-### Create a New Project
-
-```bash
-yarn create asyra-design my-project
-# or
+```shell
 npx create-asyra-design-app my-project
 ```
 
-This will:
+The CLI copies its bundled template, asks which package manager to use, and
+installs the generated app dependencies.
 
-1. Create the `my-project` folder  
-2. Install the official stable `asyra-design` package  
-3. Copy the starter template with a ready-to-run index file  
+## Start the project
 
-### Start the Project
-
-```bash
+```shell
 cd my-project
-yarn start
+yarn react:start
 ```
 
-Now you have a fully working Asyra Design environment, ready to experiment and create.
+Open `http://localhost:3000/?fileId=my-design`. The `fileId` is required as the
+document-session identity.
 
----
+For npm or pnpm, use the command printed by the CLI:
 
-## Updating the Official Starter
-
-- The CLI always installs the latest stable version of `asyra-design`  
-- To update your project to the newest stable version:
-
-```bash
-yarn upgrade asyra-design
+```shell
+npm run react:start
+pnpm react:start
 ```
 
----
+## Document-session behavior
+
+The generated app always attempts its socket-authoritative document-session
+path. Its default empty `VITE_COLLABORATION_WS_URL` uses the same-origin
+`/collaboration` route. When that service is unavailable, the app enters the
+disconnected state and local editing remains available through the provisional
+document and recovery outbox.
+
+To run the complete reference persistence and collaboration composition, set
+`VITE_COLLABORATION_WS_URL` and start `document:backend`,
+`collaboration:server`, and `react:start` in separate terminals. The generated
+app README contains the complete commands.
 
 ## Contributing
 
-- This repo only manages the CLI and the official starter template  
-- Main UI development happens in the `asyra-design` repo  
-- To contribute to the starter template, open a PR here
-
----
+- `apps/asyra-design` is the canonical app source.
+- `create-app/asyra-design/template` is generated output and must not receive
+  hand-written product fixes.
 
 ## License
 

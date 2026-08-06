@@ -28,7 +28,7 @@ yarn react:start
 ```
 
 Open `http://localhost:3000/?fileId=my-design`. A non-empty `fileId` is
-required so an optional collaboration session has a stable document identity.
+required as the document-session identity.
 
 ## Framework flows demonstrated here
 
@@ -45,10 +45,16 @@ required so an optional collaboration session has a stable document identity.
   action plan through app-registered actions, permission or confirmation,
   the app-owned Feature lifecycle, and one undo commit.
 
-## Optional Collaboration
+## Document session and local services
 
-Collaboration is disabled in the generated `.env`. To opt in to Collaboration,
-set:
+Every `fileId` uses the socket-authoritative document-session path. When
+`VITE_COLLABORATION_WS_URL` is empty, the app attempts the same-origin
+`/collaboration` WebSocket route. If that service is unavailable or does not
+complete its handshake, the app enters its disconnected state, starts with the
+formal provisional document, and local editing remains available. Local
+publications remain in the app-owned recovery outbox for a later reconnect.
+
+To exercise the complete reference collaboration and persistence flow, set:
 
 ```dotenv
 VITE_COLLABORATION_WS_URL=ws://127.0.0.1:4101/collaboration
@@ -62,8 +68,9 @@ yarn collaboration:server
 yarn react:start
 ```
 
-Without that endpoint, the app does not create a collaboration provider, join
-a room, publish awareness, or open a collaboration socket.
+The explicit endpoint keeps the frontend and reference WebSocket service
+separate during local development. It does not select a different document
+mode.
 
 ## Optional AI
 

@@ -97,8 +97,11 @@ interface TransportWorkerListeners {
 export interface CollaborationWebSocketProviderOptions {
   readonly endpoint: string
   readonly identity: ProviderIdentity
+  readonly connectionTimeoutMs?: number
   readonly transportWorkerFactory?: () => CollaborationTransportWorkerLike
 }
+
+const DEFAULT_DOCUMENT_SESSION_HANDSHAKE_TIMEOUT_MS = 5_000
 
 const toFailure = (
   code: unknown,
@@ -124,6 +127,7 @@ export class CollaborationWebSocketProvider implements Provider {
   readonly identity: ProviderIdentity
 
   private readonly endpoint: string
+  private readonly connectionTimeoutMs: number
   private readonly transportWorkerFactory: () => CollaborationTransportWorkerLike
   private status: ProviderStatus = 'idle'
   private connectionGeneration = 0
@@ -131,6 +135,7 @@ export class CollaborationWebSocketProvider implements Provider {
   private transportWorker: CollaborationTransportWorkerLike | null = null
   private transportWorkerGeneration = 0
   private transportWorkerListeners: TransportWorkerListeners | null = null
+  private connectionTimeout: ReturnType<typeof setTimeout> | null = null
   private connectPromise: Promise<void> | null = null
   private pendingConnection: PendingConnection | null = null
   private documentSessionBootstrap: DocumentSessionBootstrap | null = null
@@ -162,6 +167,17 @@ export class CollaborationWebSocketProvider implements Provider {
   constructor(options: CollaborationWebSocketProviderOptions) {
     this.endpoint = options.endpoint
     this.identity = createProviderIdentitySnapshot(options.identity)
+    this.connectionTimeoutMs =
+      options.connectionTimeoutMs ??
+      DEFAULT_DOCUMENT_SESSION_HANDSHAKE_TIMEOUT_MS
+    if (
+      !Number.isFinite(this.connectionTimeoutMs) ||
+      this.connectionTimeoutMs <= 0
+    ) {
+      throw new Error(
+        '[collaboration] document-session handshake timeout must be positive'
+      )
+    }
     this.transportWorkerFactory =
       options.transportWorkerFactory ??
       (() =>
@@ -276,6 +292,7 @@ export class CollaborationWebSocketProvider implements Provider {
         generation
       )
     }
+    this.startConnectionTimeout(generation)
 
     return connection
   }
@@ -597,6 +614,7 @@ export class CollaborationWebSocketProvider implements Provider {
   }
 
   private stopTransportWorker(): void {
+    this.clearConnectionTimeout()
     const worker = this.transportWorker
     const listeners = this.transportWorkerListeners
     this.transportWorker = null
@@ -652,6 +670,7 @@ export class CollaborationWebSocketProvider implements Provider {
       ) {
         return
       }
+      this.clearConnectionTimeout()
       this.pendingConnection = null
       this.connectPromise = null
       this.documentSessionBootstrap = response.bootstrap
@@ -985,9 +1004,36 @@ export class CollaborationWebSocketProvider implements Provider {
   ): void {
     const pending = this.pendingConnection
     if (!pending || pending.generation !== generation) return
+    this.clearConnectionTimeout()
     this.pendingConnection = null
     this.connectPromise = null
     pending.reject(failure)
+  }
+
+  private startConnectionTimeout(generation: number): void {
+    if (
+      this.pendingConnection?.generation !== generation ||
+      this.status !== 'connecting'
+    ) {
+      return
+    }
+    this.clearConnectionTimeout()
+    this.connectionTimeout = setTimeout(() => {
+      this.connectionTimeout = null
+      this.failTransportWorker(
+        new ProviderFailure(
+          'connection-failed',
+          '[collaboration] document-session handshake timed out before ready'
+        ),
+        generation
+      )
+    }, this.connectionTimeoutMs)
+  }
+
+  private clearConnectionTimeout(): void {
+    if (!this.connectionTimeout) return
+    clearTimeout(this.connectionTimeout)
+    this.connectionTimeout = null
   }
 
   private resolvePendingDisconnect(generation: number): void {

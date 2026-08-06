@@ -4,7 +4,9 @@ import { resolveOrdinaryPlaywrightRuntimePolicy } from './playwright-runtime-pol
 
 const appEnvironment = resolveEnvironment(loadEnvironment())
 const runtimePolicy = resolveOrdinaryPlaywrightRuntimePolicy(process.env)
-const documentBackendURL = 'http://127.0.0.1:4201'
+const documentBackendURL =
+  process.env.ASYRA_E2E_DOCUMENT_BACKEND_URL?.trim() || 'http://127.0.0.1:4201'
+const documentBackendPort = new URL(documentBackendURL).port || '80'
 const ordinaryTestIgnore = [
   'collaboration-ai-agent-video.spec.ts',
   'collaboration.spec.ts',
@@ -48,7 +50,10 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] }
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: 'chrome'
+      }
     }
 
     // Uncomment to test in other browsers
@@ -68,8 +73,7 @@ export default defineConfig({
     ? undefined
     : [
         {
-          command:
-            'DOCUMENT_BACKEND_DATA_DIR=test-results/document-backend yarn document:backend',
+          command: `DOCUMENT_BACKEND_PORT=${documentBackendPort} DOCUMENT_BACKEND_DATA_DIR=test-results/document-backend yarn document:backend`,
           url: `${documentBackendURL}/health`,
           reuseExistingServer: true,
           timeout: 120 * 1000

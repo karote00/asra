@@ -383,7 +383,81 @@ test.describe('Element Creation', () => {
     expect(finalUndoCount).toBe(initialUndoCount + 1)
 
     await undo(page)
-    await expect.poll(() => getElementCount(page)).toBe(initialCount)
+    try {
+      await expect.poll(() => getElementCount(page)).toBe(initialCount)
+    } catch (error) {
+      const diagnostics = await page.evaluate(async () => {
+        const { core, testRuntimeState } = await import(
+          '../src/testing/runtime-access'
+        )
+        const transact = core?.deps?.factory?.transact as unknown as {
+          inRedo?: boolean
+          inUndo?: boolean
+          isTransacting?: number
+          redoStack?: readonly unknown[]
+          undoStack?: readonly {
+            entries?: readonly {
+              event?: { type?: string }
+              options?: { sharedDelivery?: string }
+              shared?: {
+                records?: readonly {
+                  batch?: {
+                    batchId?: string
+                    deliveries?: readonly {
+                      deliveryId?: string
+                      eventName?: string
+                    }[]
+                    sliceId?: string
+                  }
+                  delivered?: boolean
+                }[]
+              }
+            }[]
+            progressiveDeliverySequence?: {
+              batchPublications?: boolean
+              mode?: string
+              slices?: readonly {
+                orderedIds?: readonly string[]
+                sliceId?: string
+              }[]
+            }
+          }[]
+        }
+        const history = transact?.undoStack?.at(-1)
+        return {
+          history: {
+            entries: (history?.entries ?? []).map((entry) => ({
+              eventType: entry.event?.type,
+              records: (entry.shared?.records ?? []).map((record) => ({
+                batchId: record.batch?.batchId,
+                delivered: record.delivered,
+                deliveries: (record.batch?.deliveries ?? []).map(
+                  ({ deliveryId, eventName }) => ({
+                    deliveryId,
+                    eventName
+                  })
+                ),
+                sliceId: record.batch?.sliceId
+              })),
+              sharedDelivery: entry.options?.sharedDelivery
+            })),
+            sequence: history?.progressiveDeliverySequence
+          },
+          inRedo: transact?.inRedo,
+          inUndo: transact?.inUndo,
+          isTransacting: transact?.isTransacting,
+          redoDepth: transact?.redoStack?.length ?? 0,
+          statuses:
+            testRuntimeState.get<unknown[]>('create-transaction-statuses') ??
+            [],
+          undoDepth: transact?.undoStack?.length ?? 0
+        }
+      })
+      throw new Error(
+        `Interrupted create Undo failed: ${JSON.stringify(diagnostics)}`,
+        { cause: error }
+      )
+    }
     await expect.poll(() => getCreateProjectionSnapshot(page)).toBeNull()
   })
 

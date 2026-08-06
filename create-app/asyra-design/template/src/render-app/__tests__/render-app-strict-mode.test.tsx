@@ -2,7 +2,6 @@ import React, { StrictMode, act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { providers } from '@asyra/reactive-events'
 import type { ProviderStatus } from '@asyra/collaboration'
-import { gzipSync } from 'node:zlib'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import core from '../../contexts'
 import { documentInteractionLock } from '../../ai/document-interaction-lock'
@@ -18,15 +17,6 @@ const ACTOR_UUID = '12345678-1234-4123-8123-123456789abc'
 const EMPTY_DOCUMENT = {
   version: '1.0.0',
   sceneTree: { workspace: '', workspaceList: [], elements: {} },
-  props: {}
-} as const
-const SAMPLE_DOCUMENT = {
-  version: '1.0.0',
-  sceneTree: {
-    workspace: 'sample-workspace',
-    workspaceList: ['sample-workspace'],
-    elements: {}
-  },
   props: {}
 } as const
 let collaborationSessionState: CollaborationSessionState
@@ -240,57 +230,40 @@ describe('RenderApp StrictMode lifecycle', () => {
     await act(async () => root.unmount())
   })
 
-  it('creates an independent load-only document for every 7076 Agent simulation lifetime', async () => {
+  it('opens the 7076 sample through the ordinary socket checkpoint and activation', async () => {
     vi.stubEnv('VITE_COLLABORATION_WS_URL', '')
     window.history.replaceState({}, '', '/?fileId=crdt-7076-sample')
-    const fetch = vi.fn(async () => {
-      return new Response(gzipSync(JSON.stringify(SAMPLE_DOCUMENT)), {
-        status: 200
-      })
-    })
+    const fetch = vi.fn()
     vi.stubGlobal('fetch', fetch)
-    const firstHost = document.createElement('div')
-    document.body.append(firstHost)
-    const firstRoot = createRoot(firstHost)
+    const host = document.createElement('div')
+    document.body.append(host)
+    const root = createRoot(host)
 
     await act(async () => {
-      firstRoot.render(<RenderApp />)
+      root.render(<RenderApp />)
       await Promise.resolve()
       await Promise.resolve()
       await Promise.resolve()
     })
-    await vi.waitFor(() => expect(core.setLoadSource).toHaveBeenCalledTimes(1))
-    await act(async () => firstRoot.unmount())
 
-    const secondHost = document.createElement('div')
-    document.body.append(secondHost)
-    const secondRoot = createRoot(secondHost)
-    await act(async () => {
-      secondRoot.render(<RenderApp />)
-      await Promise.resolve()
-      await Promise.resolve()
-      await Promise.resolve()
+    await vi.waitFor(() =>
+      expect(
+        collaborationLifecycle.prepareCollaborationDocumentSession
+      ).toHaveBeenCalledWith({
+        fileId: 'crdt-7076-sample',
+        actorId: `actor-${ACTOR_UUID}`,
+        endpoint: 'ws://localhost:3000/collaboration'
+      })
+    )
+    expect(core.setLoadSource).toHaveBeenCalledWith({
+      name: 'SocketDocumentSession',
+      load: expect.any(Function)
     })
-    await vi.waitFor(() => expect(core.setLoadSource).toHaveBeenCalledTimes(2))
-
-    const firstLoadSource = vi.mocked(core.setLoadSource).mock.calls[0]?.[0]
-    const secondLoadSource = vi.mocked(core.setLoadSource).mock.calls[1]?.[0]
-    let firstDocument: unknown
-    let secondDocument: unknown
-    await act(async () => {
-      firstDocument = await firstLoadSource?.load()
-      secondDocument = await secondLoadSource?.load()
-    })
-    expect(firstLoadSource?.name).toBe('Crdt7076AgentSimulation')
-    expect(secondLoadSource?.name).toBe('Crdt7076AgentSimulation')
-    expect(firstDocument).toEqual(SAMPLE_DOCUMENT)
-    expect(secondDocument).toEqual(SAMPLE_DOCUMENT)
-    expect(firstDocument).not.toBe(secondDocument)
-    expect(firstDocument?.sceneTree).not.toBe(secondDocument?.sceneTree)
-    expect(firstDocument?.props).not.toBe(secondDocument?.props)
+    expect(preparedCollaborationSession.activate).toHaveBeenCalledOnce()
+    expect(fetch).not.toHaveBeenCalled()
     expect(core.setPersistence).not.toHaveBeenCalled()
 
-    await act(async () => secondRoot.unmount())
+    await act(async () => root.unmount())
   })
 
   it('does not open a document when fileId is missing', async () => {
@@ -322,42 +295,6 @@ describe('RenderApp StrictMode lifecycle', () => {
     expect(
       collaborationLifecycle.prepareCollaborationDocumentSession
     ).not.toHaveBeenCalled()
-
-    await act(async () => root.unmount())
-  })
-
-  it('loads the bundled 7076 Agent simulation without a browser persistence request', async () => {
-    vi.stubEnv('VITE_COLLABORATION_WS_URL', '')
-    window.history.replaceState({}, '', '/?fileId=crdt-7076-sample')
-    const fetch = vi.fn(async () => {
-      return new Response(gzipSync(JSON.stringify(SAMPLE_DOCUMENT)), {
-        status: 200
-      })
-    })
-    vi.stubGlobal('fetch', fetch)
-    let loadedDocument: unknown
-    vi.mocked(core.start).mockImplementationOnce(async () => {
-      const loadSource = vi.mocked(core.setLoadSource).mock.calls[0]?.[0]
-      loadedDocument = await loadSource?.load()
-    })
-    const host = document.createElement('div')
-    document.body.append(host)
-    const root = createRoot(host)
-
-    await act(async () => {
-      root.render(<RenderApp />)
-      await Promise.resolve()
-      await Promise.resolve()
-      await Promise.resolve()
-    })
-
-    await vi.waitFor(() => expect(loadedDocument).toEqual(SAMPLE_DOCUMENT))
-    expect(loadedDocument).toEqual(SAMPLE_DOCUMENT)
-    expect(fetch).toHaveBeenCalledOnce()
-    expect(String(fetch.mock.calls[0]?.[0])).not.toContain('/api/documents/')
-    expect(host.querySelector('[role="alert"]')).toBeNull()
-    expect(core.setPersistence).not.toHaveBeenCalled()
-    expect(collaborationLifecycle.startCollaboration).not.toHaveBeenCalled()
 
     await act(async () => root.unmount())
   })

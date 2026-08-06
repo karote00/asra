@@ -53,24 +53,32 @@ const parseDocumentRoute = (
 ):
   | Readonly<{
       documentId: string
-      operation: 'bootstrap-checkpoint' | 'persistence-batch'
+      operation: 'bootstrap-checkpoint' | 'persistence-batch' | 'reset'
     }>
   | undefined => {
   const url = new URL(request.url ?? '/', 'http://document-backend.local')
   if (!url.pathname.startsWith(DOCUMENT_ENDPOINT_PREFIX)) return
   const encoded = url.pathname.slice(DOCUMENT_ENDPOINT_PREFIX.length)
-  let operation: 'bootstrap-checkpoint' | 'persistence-batch' | undefined
+  let operation:
+    | 'bootstrap-checkpoint'
+    | 'persistence-batch'
+    | 'reset'
+    | undefined
   if (encoded.endsWith(BOOTSTRAP_CHECKPOINT_SUFFIX)) {
     operation = 'bootstrap-checkpoint'
   } else if (encoded.endsWith(PERSISTENCE_BATCH_SUFFIX)) {
     operation = 'persistence-batch'
+  } else if (!encoded.includes('/')) {
+    operation = 'reset'
+  } else {
+    return
   }
-  if (!operation) return
-  const suffix =
-    operation === 'bootstrap-checkpoint'
-      ? BOOTSTRAP_CHECKPOINT_SUFFIX
-      : PERSISTENCE_BATCH_SUFFIX
-  const encodedDocumentId = encoded.slice(0, -suffix.length)
+  let encodedDocumentId = encoded
+  if (operation === 'bootstrap-checkpoint') {
+    encodedDocumentId = encoded.slice(0, -BOOTSTRAP_CHECKPOINT_SUFFIX.length)
+  } else if (operation === 'persistence-batch') {
+    encodedDocumentId = encoded.slice(0, -PERSISTENCE_BATCH_SUFFIX.length)
+  }
   if (!encodedDocumentId) {
     throw new Error('[document-backend] documentId is required')
   }
@@ -100,6 +108,16 @@ export const createDocumentBackendServer = ({
       const route = parseDocumentRoute(request)
       if (!route) {
         sendJson(response, 404, { error: 'Not found' })
+        return
+      }
+      if (route.operation === 'reset') {
+        if (request.method !== 'DELETE') {
+          response.setHeader('allow', 'DELETE')
+          sendJson(response, 405, { error: 'Method not allowed' })
+          return
+        }
+        await store.resetCheckpoint(route.documentId)
+        sendJson(response, 200, { ok: true })
         return
       }
       if (route.operation === 'bootstrap-checkpoint') {

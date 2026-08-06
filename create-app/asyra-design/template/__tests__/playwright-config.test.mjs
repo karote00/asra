@@ -64,6 +64,25 @@ test('ordinary and collaboration Playwright suites have separate discovery', () 
   assert.match(statusToast, /status-toast-visual\.spec\.ts/)
 })
 
+test('functional Playwright suites use the installed Google Chrome channel', async () => {
+  const configSources = await Promise.all(
+    [
+      '../playwright.config.ts',
+      '../playwright.collaboration.config.ts',
+      '../playwright.status-toast.config.ts'
+    ].map((configPath) =>
+      readFile(new URL(configPath, import.meta.url), 'utf8')
+    )
+  )
+
+  configSources.forEach((configSource) => {
+    assert.match(
+      configSource,
+      /use:\s*\{\s*\.\.\.devices\['Desktop Chrome'\],\s*channel:\s*'chrome'\s*\}/
+    )
+  })
+})
+
 test('owned E2E servers never ask Vite to open a desktop browser', async () => {
   const viteSource = await readFile(
     new URL('../vite.config.ts', import.meta.url),
@@ -118,6 +137,13 @@ test('Playwright routes the formal backend through the same document-session flo
     collaborationConfig,
     /E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_BACKEND_URL=/
   )
+  assert.match(ordinaryConfig, /process\.env\.ASYRA_E2E_DOCUMENT_BACKEND_URL/)
+  assert.match(
+    collaborationConfig,
+    /process\.env\.ASYRA_E2E_DOCUMENT_BACKEND_URL/
+  )
+  assert.match(ordinaryConfig, /DOCUMENT_BACKEND_PORT=/)
+  assert.match(collaborationConfig, /DOCUMENT_BACKEND_PORT=/)
   assert.match(
     ciScript,
     /ASYRA_E2E_DOCUMENT_BACKEND_URL=.*[\s\\]*yarn workspace @asyra\/asyra-design react:start/
@@ -129,6 +155,11 @@ test('Playwright routes the formal backend through the same document-session flo
     /yarn workspace @asyra\/asyra-design test:e2e:status-toast/
   )
   assert.match(viteConfig, /process\.env\.ASYRA_E2E_DOCUMENT_BACKEND_URL/)
+  assert.match(
+    viteConfig,
+    /process\.env\.DOCUMENT_PERSISTENCE_BACKEND_URL/,
+    'ordinary development must proxy the permanent Reset DELETE to the formal backend'
+  )
   assert.match(viteConfig, /['"]\/api\/documents['"]/)
   assert.match(viteConfig, /process\.env\.ASYRA_E2E_DOCUMENT_DATABASE === '1'/)
   assert.match(viteConfig, /createDocumentDatabaseTestPlugin/)
@@ -142,6 +173,52 @@ test('CI can exclude the isolated render performance gate from the functional su
 
   assert.match(ordinary, /render-delta-performance\.spec\.ts/)
   assert.doesNotMatch(functional, /render-delta-performance\.spec\.ts/)
+})
+
+test('the one 7076 URL uses an HTTP action-batch interceptor on both offline and CRDT gates', async () => {
+  const [offlineSource, collaborationSource, packageJson] = await Promise.all([
+    readFile(
+      new URL('../e2e/crdt-7076-render.spec.ts', import.meta.url),
+      'utf8'
+    ),
+    readFile(
+      new URL('../e2e/collaboration-ai-agent-video.spec.ts', import.meta.url),
+      'utf8'
+    ),
+    readFile(new URL('../package.json', import.meta.url), 'utf8')
+  ])
+
+  assert.match(offlineSource, /SAMPLE_FILE_ID = 'crdt-7076-sample'/)
+  assert.match(
+    offlineSource,
+    /installGeneratedActionBatchInterceptor\([\s\S]*itemCount: 7_075/
+  )
+  assert.match(offlineSource, /ACTION_BATCH_ENDPOINT/)
+  assert.match(offlineSource, /getByRole\('button', \{ name: 'Send' \}\)/)
+  assert.match(offlineSource, /directDocumentRequestCount\)\.toBe\(0\)/)
+  assert.doesNotMatch(offlineSource, /createInitialDocumentForFile/)
+  assert.match(
+    collaborationSource,
+    /CRDT_7076_SAMPLE_FILE_ID = 'crdt-7076-sample'/
+  )
+  assert.equal(
+    collaborationSource.match(/const fileId = CRDT_7076_SAMPLE_FILE_ID/g)
+      ?.length,
+    2
+  )
+  assert.match(
+    collaborationSource,
+    /getPerformanceProfileCounterTotal[\s\S]*readCounterTotal/
+  )
+  assert.doesNotMatch(collaborationSource, /const sumProfileCounter/)
+  assert.doesNotMatch(
+    collaborationSource,
+    /make the whiskers blue|make the pupils red/
+  )
+  assert.match(
+    packageJson,
+    /VITE_COLLABORATION_WS_URL=ws:\/\/127\.0\.0\.1:4199/
+  )
 })
 
 test('ordinary AI profiling stays low-load while high detail remains guarded', async () => {
@@ -333,21 +410,21 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     '../e2e/performance-resource-guard.mjs',
     import.meta.url
   )
-  const serverResponseInboxURL = new URL(
-    '../e2e/server-response-inbox.ts',
+  const actionBatchInterceptorURL = new URL(
+    '../e2e/action-batch-interceptor.ts',
     import.meta.url
   )
   const [
     configSource,
     guardSource,
     specSource,
-    serverResponseInboxSource,
+    actionBatchInterceptorSource,
     manifestSource
   ] = await Promise.all([
     readFile(configURL, 'utf8'),
     readFile(guardURL, 'utf8'),
     readFile(specURL, 'utf8'),
-    readFile(serverResponseInboxURL, 'utf8'),
+    readFile(actionBatchInterceptorURL, 'utf8'),
     readFile(new URL('../package.json', import.meta.url), 'utf8')
   ])
   const connectivityCpuSampleSource = specSource.slice(
@@ -398,6 +475,17 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     'playwright.endpoint-performance.config.ts',
     endpointPerformanceEnvironment
   )
+  const longPreviewOutDir =
+    `/project/${'generated-consumer-segment-'.repeat(8)}` +
+    'tmp/endpoint-preview/current'
+  const guardedWithLongArtifactPaths = listTests(
+    'playwright.endpoint-performance.config.ts',
+    {
+      ...endpointPerformanceEnvironment,
+      ENDPOINT_PREVIEW_OUT_DIR: longPreviewOutDir,
+      ENDPOINT_RESPONSE_MANIFEST_PATH: `${longPreviewOutDir}/__endpoint-test__/server-responses/manifest.json`
+    }
+  )
 
   assert.notEqual(unguarded.status, 0)
   assert.match(
@@ -410,8 +498,12 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     /response artifact attestation must be one SHA-256 digest/i
   )
   assert.match(guarded, /crdt-endpoint-performance\.spec\.ts/)
+  assert.match(
+    guardedWithLongArtifactPaths,
+    /crdt-endpoint-performance\.spec\.ts/
+  )
   assert.doesNotMatch(
-    serverResponseInboxSource,
+    actionBatchInterceptorSource,
     /MAXIMUM_COMPRESSED_RESPONSE_BYTES|maximumCompressedBytes/,
     'the attested response must not gain an arbitrary payload ceiling'
   )
@@ -444,6 +536,13 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     configSource,
     /trackedServerCommand\(\s*['"]websocket-server['"]/
   )
+  assert.match(
+    configSource,
+    /trackedServerCommand\(\s*['"]document-backend['"]/
+  )
+  assert.match(configSource, /yarn document:backend:start/)
+  assert.match(configSource, /DOCUMENT_PERSISTENCE_BACKEND_URL/)
+  assert.match(configSource, /ASYRA_E2E_DOCUMENT_BACKEND_URL/)
   const websocketServerSource = configSource.slice(
     configSource.indexOf("trackedServerCommand(\n      'websocket-server'"),
     configSource.indexOf("trackedServerCommand(\n      'app-server'")
@@ -473,6 +572,14 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(configSource, /launchOptions/)
   assert.match(configSource, /client-a-browser/)
   assert.doesNotMatch(configSource, /client-b-browser/)
+  assert.match(
+    configSource,
+    /endpointBrowserChannel[\s\S]{0,200}['"]27471-maximum['"][\s\S]{0,200}['"]chrome['"]/
+  )
+  assert.match(
+    configSource,
+    /TRACKED_EXECUTABLE:\s*resolveEndpointBrowserExecutablePath\(/
+  )
 
   assert.match(specSource, /ENDPOINT_GUARD_URL/)
   assert.match(specSource, /ENDPOINT_GUARD_TOKEN/)
@@ -490,14 +597,38 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     specSource,
     /chromium\.launch\(\{[\s\S]{0,500}headless:\s*true[\s\S]{0,500}executablePath:\s*guardLauncherPath/
   )
+  assert.match(
+    specSource,
+    /chromium\.launch\(\{[\s\S]{0,700}channel:\s*['"]chrome['"][\s\S]{0,700}TRACKED_EXECUTABLE:\s*resolveEndpointBrowserExecutablePath\(/
+  )
   assert.match(specSource, /postPhaseBoundary/)
   assert.match(specSource, /proofKind:\s*['"]local-attribution['"]/)
   assert.match(specSource, /actorB:\s*null/)
   assert.match(specSource, /phaseTimeline/)
-  assert.match(specSource, /responseInboxPreload/)
+  assert.match(specSource, /actionBatchInterceptor/)
   assert.ok(
-    specSource.indexOf('const responseInboxPreload = snapshot') <
+    specSource.indexOf('installPreparedActionBatchInterceptor') <
       specSource.indexOf("'profile:reset'")
+  )
+  assert.match(
+    specSource,
+    /case 'loading-at-zero':[\s\S]{0,300}stableLoadingFrames >= 1/,
+    'loading-at-zero must accept the one paint opportunity guaranteed by the product contract'
+  )
+  assert.match(
+    specSource,
+    /case 'first-visible':[\s\S]{0,300}stableLoadingFrames >= 2/,
+    'first-visible progressive evidence remains stable across two frames'
+  )
+  assert.match(
+    specSource,
+    /cooperativeYieldCount\)\.toBeGreaterThan\(0\)/,
+    'cooperative yields prove responsiveness independently of publication batching'
+  )
+  assert.doesNotMatch(
+    specSource,
+    /cooperativeYieldCount\)\.toBe\(\s*completed\.publications\.actorALocalSent/,
+    'cooperative slices and transport publications are different owner units'
   )
   assert.match(specSource, /drawingProgress/)
   assert.doesNotMatch(specSource, /counterTimeline/)
@@ -802,6 +933,10 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(highDetailSource, /drawingProgress\.milestones/)
   assert.match(
     highDetailSource,
+    /drawingProgress\.cooperativeYieldCount\)\.toBeGreaterThan\(0\)/
+  )
+  assert.doesNotMatch(
+    highDetailSource,
     /drawingProgress\.cooperativeYieldCount\)\.toBe\(\s*completed\.publications\.actorALocalSent/
   )
   assert.doesNotMatch(
@@ -1060,6 +1195,25 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
     manifest.scripts['prepare:e2e:endpoint-performance'],
     /VITE_COLLABORATION_WS_URL=ws:\/\/127\.0\.0\.1:4121\/collaboration yarn react:build/
   )
+  const endpointPreparation =
+    manifest.scripts['prepare:e2e:endpoint-performance']
+  const clientBuildIndex = endpointPreparation.indexOf('yarn react:build')
+  const collaborationBuildIndex = endpointPreparation.indexOf(
+    'yarn build:collaboration-server'
+  )
+  const documentBackendBuildIndex = endpointPreparation.indexOf(
+    'yarn build:document-backend'
+  )
+  const responseOverlayIndex = endpointPreparation.indexOf(
+    'node e2e/prepare-server-response-preview.mjs'
+  )
+  assert.ok(clientBuildIndex >= 0)
+  assert.ok(
+    collaborationBuildIndex > clientBuildIndex,
+    'standalone client build must finish before its app-local server bundles'
+  )
+  assert.ok(documentBackendBuildIndex > collaborationBuildIndex)
+  assert.ok(responseOverlayIndex > documentBackendBuildIndex)
   ;[
     ['test:e2e:ai-attribution:16', '16'],
     ['test:e2e:ai-attribution:16-reduced-motion', '16-reduced-motion'],

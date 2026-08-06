@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer'
 import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import {
   cp,
   lstat,
@@ -27,6 +28,27 @@ const responseDirectoryRelativePath = path.join(
 const manifestFilename = 'manifest.json'
 
 export const PREPARED_SERVER_RESPONSE_MANIFEST_VERSION = 1
+
+export const resolvePreparedServerResponseLayoutRoot = ({
+  appRoot = defaultAppRoot,
+  manifest = JSON.parse(
+    readFileSync(path.join(appRoot, 'package.json'), 'utf8')
+  ),
+  workspaceRoot = defaultWorkspaceRoot
+} = {}) => {
+  const dependencySpecifiers = Object.values({
+    ...(manifest.dependencies ?? {}),
+    ...(manifest.devDependencies ?? {}),
+    ...(manifest.peerDependencies ?? {})
+  })
+  const usesWorkspacePackages = dependencySpecifiers.some(
+    (specifier) =>
+      typeof specifier === 'string' && specifier.startsWith('workspace:')
+  )
+  return path.resolve(usesWorkspacePackages ? workspaceRoot : appRoot)
+}
+
+const defaultLayoutRoot = resolvePreparedServerResponseLayoutRoot()
 
 export const PREPARED_SERVER_RESPONSE_VARIANTS = Object.freeze(
   [16, 320, 1280, 7075, 27471].map((itemCount) =>
@@ -174,9 +196,9 @@ export const getPreparedServerResponseVariant = (itemCount) => {
 }
 
 export const resolvePreparedServerResponsePreviewPaths = ({
-  previewRoot = path.join(defaultWorkspaceRoot, 'tmp', 'endpoint-preview'),
+  previewRoot = path.join(defaultLayoutRoot, 'tmp', 'endpoint-preview'),
   processId = process.pid,
-  productionDistPath = path.join(defaultWorkspaceRoot, 'dist'),
+  productionDistPath = path.join(defaultLayoutRoot, 'dist'),
   sourceActionBatchPath = path.join(
     defaultAppRoot,
     'samples',

@@ -56,8 +56,25 @@ test('production bundle keeps the deployable collaboration reference composition
     'browser document persistence must not be bundled'
   )
   assert.equal(
+    moduleIds.some((moduleId) =>
+      /[/\\]src[/\\]toolbar[/\\]reset-stored-document\.ts$/.test(moduleId)
+    ),
+    true,
+    'the permanent standalone Reset utility is missing from the production graph'
+  )
+  assert.equal(
     bundledCode.includes('/api/documents/'),
+    true,
+    'the browser bundle is missing the permanent Reset DELETE endpoint'
+  )
+  assert.equal(
+    bundledCode.includes('/bootstrap-checkpoint'),
     false,
-    'the browser bundle must not contain a direct document persistence route'
+    'browser bootstrap persistence must not be bundled'
+  )
+  assert.equal(
+    bundledCode.includes('/persistence-batches'),
+    false,
+    'browser persistence batches must not be bundled'
   )
 })

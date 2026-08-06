@@ -89,7 +89,7 @@ Use this file to route a new framework request to the right docs first.
   - `plans/completed/framework-release-readiness-and-closeout-plan.md`
   - `plans/framework-release-readiness-flow-inspector.data.cjs`
   - `plans/node-24-runtime-upgrade-and-vercel-validation-plan.md`
-  - `plans/local-versioned-package-install-research-plan.md`
+  - `plans/completed/local-versioned-package-install-research-plan.md`
   - `plans/framework-package-patch-release-plan.md`
   - `plans/create-asyra-design-app-release-plan.md`
   - `plans/asyra-framework-website-plan.md`

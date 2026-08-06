@@ -1,19 +1,16 @@
 import console from 'node:console'
+import { createHash } from 'node:crypto'
 import { createServer as createHttpServer } from 'node:http'
 import { resolve } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import process from 'node:process'
 import { clearTimeout, setTimeout } from 'node:timers'
-import { isDeepStrictEqual } from 'node:util'
 import { WebSocket, WebSocketServer, type RawData } from 'ws'
 import { ProviderFailure } from '@asyra/collaboration'
-import type { SharedPublication } from '@asyra/factory'
-import type { CoreRawData } from '@asyra/utils'
 import { loadEnvironment, resolveEnvironment } from './app-environment.mjs'
 import {
   CollaborationMessageTypes,
   decodeCollaborationControlMessage,
-  decodePublicationMessageFrames,
   encodeCollaborationControlMessage,
   inspectPublicationFrameHeader,
   parseCollaborationClientMessage,
@@ -27,7 +24,6 @@ import {
   type PublicationFrameHeader,
   type SendAwarenessRequest
 } from './src/collaboration/protocol'
-import { decodeDocumentPublication } from './src/collaboration/operations'
 import { createFormalInitialDocument } from './src/collaboration/initial-document'
 import { isNonBlankString } from './src/collaboration/wire-values'
 import {
@@ -42,7 +38,6 @@ import {
   createDocumentPersistenceQueue,
   type DocumentPersistenceQueue
 } from './server/document-persistence-queue'
-import { applyCanonicalChangesToDocument } from './server/document-canonical-reducer'
 
 const appEnvironment = resolveEnvironment(
   loadEnvironment(process.env, resolve(process.cwd(), '.env'))
@@ -138,7 +133,13 @@ interface CollaborationProfileBatch {
 const collaborationProfileMaximumKeys: Readonly<
   Record<CollaborationProfilePrefix, readonly string[]>
 > = {
-  AI_COLLABORATION_SERVER_PROFILE: ['queueWaitMs', 'totalMs'],
+  AI_COLLABORATION_SERVER_PROFILE: [
+    'digestMs',
+    'persistenceCapacityMs',
+    'peerAdmissionMs',
+    'queueWaitMs',
+    'totalMs'
+  ],
   AI_COLLABORATION_SERVER_PEER_WRITE: ['writeCallbackMs', 'queueBytes'],
   AI_COLLABORATION_SERVER_PEER_DRAIN: ['drainMs', 'queueBytes'],
   AI_COLLABORATION_SERVER_PEER_APPLIED: []
@@ -216,20 +217,17 @@ interface RoomState {
   readonly peers: Map<string, PeerSession>
   readonly acceptedPublications: Map<string, SequencedDocumentPublication>
   readonly persistenceQueue: DocumentPersistenceQueue
-  admissionDocument: CoreRawData
   bootstrapCheckpointSeed?: DocumentBootstrapCheckpoint
   pendingPublications: SequencedDocumentPublication[]
-  acceptingPublications: boolean
   headSequence: number
   admissionTail: Promise<void>
 }
 
-interface AcceptedDocumentPublication {
+interface SequencedDocumentPublication {
   readonly sequence: number
-  readonly publication: SharedPublication
-}
-
-interface SequencedDocumentPublication extends AcceptedDocumentPublication {
+  readonly publicationId: string
+  readonly encodedPublicationFrames: readonly string[]
+  readonly encodedPayloadDigest: string
   readonly fromActorId: string
   readonly byteLength: number
 }
@@ -254,6 +252,9 @@ interface InboundPublicationRequest {
   currentChunkCount?: number
   frameCount: number
   frameBytes: number
+  digestMs: number
+  persistenceCapacityMs: number
+  peerAdmissionMs: number
   queueWaitMs: number
 }
 
@@ -453,6 +454,36 @@ const reframePublicationForPeer = (
   return { bytes: peer, header }
 }
 
+const sourcePublicationPayloadDigest = (
+  frames: readonly InboundPublicationFrame[]
+): string => {
+  const digest = createHash('sha256')
+  for (const { bytes } of frames) {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+    const headerByteLength = view.getUint32(
+      PUBLICATION_FRAME_HEADER_LENGTH_OFFSET,
+      true
+    )
+    const payload = bytes.subarray(headerByteLength)
+    const payloadLength = new Uint8Array(4)
+    new DataView(payloadLength.buffer).setUint32(0, payload.byteLength, true)
+    digest.update(payloadLength)
+    digest.update(payload)
+  }
+  return digest.digest('hex')
+}
+
+const encodePublicationFramesForStorage = (
+  frames: readonly InboundPublicationFrame[]
+): readonly string[] =>
+  Object.freeze(
+    frames.map(({ bytes }) =>
+      Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString(
+        'base64'
+      )
+    )
+  )
+
 const getOrCreateRoom = async (fileId: string): Promise<RoomState> => {
   const existing = rooms.get(fileId)
   if (existing) return existing
@@ -471,11 +502,6 @@ const getOrCreateRoom = async (fileId: string): Promise<RoomState> => {
       maxPublicationCount: persistenceMaxPublicationCount,
       maxSerializedBytes: persistenceMaxSerializedBytes,
       sendBatch: (batch) => documentPersistenceClient.sendBatch(batch),
-      onEditabilityChange: (editable) => {
-        const room = roomReference.current
-        if (!room) return
-        room.acceptingPublications = editable
-      },
       onDurableSequenceChange: (durableSequence) => {
         const room = roomReference.current
         if (!room) return
@@ -498,12 +524,7 @@ const getOrCreateRoom = async (fileId: string): Promise<RoomState> => {
       acceptedPublications: new Map(),
       pendingPublications: [],
       persistenceQueue,
-      admissionDocument:
-        bootstrapCheckpoint.checkpoint === null
-          ? createFormalInitialDocument()
-          : (bootstrapCheckpoint.checkpoint as CoreRawData),
       bootstrapCheckpointSeed: bootstrapCheckpoint,
-      acceptingPublications: true,
       headSequence: bootstrapCheckpoint.durableSequence,
       admissionTail: Promise.resolve()
     }
@@ -792,8 +813,29 @@ const createDocumentSessionBootstrap = async (
     durableSequence: checkpoint.durableSequence,
     headSequence: room.headSequence,
     pendingTail: Object.freeze(
-      pendingTail.map(({ sequence, publication, fromActorId }) =>
-        Object.freeze({ sequence, publication, fromActorId })
+      pendingTail.map(
+        ({ sequence, publicationId, encodedPublicationFrames, fromActorId }) =>
+          Object.freeze({
+            sequence,
+            publicationId,
+            encodedPublicationFrames: Object.freeze(
+              encodedPublicationFrames.map((encodedFrame) => {
+                const sourceBytes = new Uint8Array(
+                  Buffer.from(encodedFrame, 'base64')
+                )
+                const sourceHeader = inspectPublicationFrameHeader(sourceBytes)
+                return Buffer.from(
+                  reframePublicationForPeer(
+                    sourceBytes,
+                    sourceHeader,
+                    fromActorId,
+                    sequence
+                  ).bytes
+                ).toString('base64')
+              })
+            ),
+            fromActorId
+          })
       )
     )
   })
@@ -1149,52 +1191,43 @@ webSocketServer.on('connection', (socket) => {
         '[collaboration] provider handshake is incomplete'
       )
     }
-    let decoded
-    try {
-      decoded = decodePublicationMessageFrames(
-        request.frames.map(({ bytes }) => bytes)
-      )
-    } catch (error) {
-      throw new ProviderFailure(
-        'acknowledgement-failed',
-        error instanceof Error
-          ? error.message
-          : '[collaboration] invalid publication request',
-        error,
-        request.frames[0]?.header.publicationId
-      )
-    }
-    if (
-      decoded.type !== CollaborationMessageTypes.SEND_PUBLICATION &&
-      decoded.type !== CollaborationMessageTypes.SEND_PUBLICATIONS
-    ) {
-      throw new ProviderFailure(
-        'transport-failed',
-        '[collaboration] client binary frame must send a publication'
-      )
-    }
-    const publications =
-      decoded.type === CollaborationMessageTypes.SEND_PUBLICATION
-        ? [decoded.publication]
-        : decoded.publications
-    const canonicalChanges = publications.map((publication) => {
-      try {
-        return decodeDocumentPublication(publication)
-      } catch (error) {
-        throw new ProviderFailure(
-          'acknowledgement-failed',
-          error instanceof Error
-            ? error.message
-            : '[collaboration] unsupported document publication',
-          error,
-          publication.publicationId
+    const digestStartedAtMs = performance.now()
+    const publications = Array.from(
+      { length: request.publicationCount },
+      (_, publicationIndex) => {
+        const frames = request.frames.filter(
+          ({ header }) => header.publicationIndex === publicationIndex
         )
+        const publicationId = frames[0]?.header.publicationId
+        if (
+          !publicationId ||
+          frames.length === 0 ||
+          frames.some(({ header }) => header.publicationId !== publicationId)
+        ) {
+          throw new ProviderFailure(
+            'transport-failed',
+            '[collaboration] publication frame identity is inconsistent'
+          )
+        }
+        const encodedPublicationFrames =
+          encodePublicationFramesForStorage(frames)
+        return Object.freeze({
+          publicationId,
+          frames,
+          encodedPublicationFrames,
+          encodedPayloadDigest: sourcePublicationPayloadDigest(frames),
+          byteLength: encodedPublicationFrames.reduce(
+            (total, frame) => total + frame.length,
+            0
+          )
+        })
       }
-    })
+    )
+    request.digestMs += elapsed(digestStartedAtMs)
 
     return enqueueRoomAdmission(room, async () => {
-      const accepted = publications.map((publication) =>
-        room.acceptedPublications.get(publication.publicationId)
+      const accepted = publications.map(({ publicationId }) =>
+        room.acceptedPublications.get(publicationId)
       )
       const acceptedCount = accepted.filter(Boolean).length
       if (acceptedCount > 0 && acceptedCount !== publications.length) {
@@ -1209,7 +1242,8 @@ webSocketServer.on('connection', (socket) => {
         accepted.forEach((entry, index) => {
           if (
             !entry ||
-            !isDeepStrictEqual(entry.publication, publications[index])
+            entry.encodedPayloadDigest !==
+              publications[index]?.encodedPayloadDigest
           ) {
             throw new ProviderFailure(
               'acknowledgement-failed',
@@ -1221,32 +1255,6 @@ webSocketServer.on('connection', (socket) => {
         })
         return accepted.map((entry) => entry?.sequence as number)
       }
-      if (!room.acceptingPublications) {
-        throw new ProviderFailure(
-          'transport-failed',
-          '[collaboration] document persistence is unavailable until accepted changes are durable'
-        )
-      }
-
-      let nextAdmissionDocument = room.admissionDocument
-      try {
-        canonicalChanges.forEach((changes) => {
-          nextAdmissionDocument = applyCanonicalChangesToDocument(
-            nextAdmissionDocument,
-            changes
-          )
-        })
-      } catch (error) {
-        throw new ProviderFailure(
-          'acknowledgement-failed',
-          error instanceof Error
-            ? error.message
-            : '[collaboration] document publication cannot be applied',
-          error,
-          publications[0]?.publicationId
-        )
-      }
-
       const firstSequence = room.headSequence + 1
       const lastSequence = room.headSequence + publications.length
       if (!Number.isSafeInteger(lastSequence)) {
@@ -1256,28 +1264,46 @@ webSocketServer.on('connection', (socket) => {
         )
       }
       const sequenced = publications.map((publication, index) => ({
-        publication,
+        publicationId: publication.publicationId,
+        encodedPublicationFrames: publication.encodedPublicationFrames,
+        encodedPayloadDigest: publication.encodedPayloadDigest,
         fromActorId: actorId,
         sequence: firstSequence + index,
-        byteLength: request.frames
-          .filter(({ header }) => header.publicationIndex === index)
-          .reduce((total, { header }) => total + header.frameByteLength, 0)
+        byteLength: publication.byteLength
       }))
-      room.persistenceQueue.enqueueBatch(
-        sequenced.map(({ sequence, publication, byteLength }) => ({
-          sequence,
-          publication,
-          byteLength
-        }))
-      )
+      const persistenceCapacityStartedAtMs = performance.now()
+      try {
+        await room.persistenceQueue.enqueueBatchWhenAvailable(
+          sequenced.map(
+            ({
+              sequence,
+              publicationId,
+              encodedPublicationFrames,
+              byteLength
+            }) => ({
+              sequence,
+              publicationId,
+              encodedPublicationFrames,
+              byteLength
+            })
+          )
+        )
+      } catch (error) {
+        throw new ProviderFailure(
+          'transport-failed',
+          '[collaboration] document persistence is unavailable until accepted changes are durable',
+          error
+        )
+      }
+      request.persistenceCapacityMs += elapsed(persistenceCapacityStartedAtMs)
       sequenced.forEach((entry) => {
-        room.acceptedPublications.set(entry.publication.publicationId, entry)
+        room.acceptedPublications.set(entry.publicationId, entry)
         room.pendingPublications.push(entry)
       })
-      room.admissionDocument = nextAdmissionDocument
       room.headSequence = lastSequence
 
       const sequences = sequenced.map(({ sequence }) => sequence)
+      const peerAdmissionStartedAtMs = performance.now()
       for (const frame of request.frames) {
         const sequence = sequences[frame.header.publicationIndex]
         if (!sequence) {
@@ -1299,6 +1325,7 @@ webSocketServer.on('connection', (socket) => {
           signal
         )
       }
+      request.peerAdmissionMs += elapsed(peerAdmissionStartedAtMs)
       return sequences
     })
   }
@@ -1361,6 +1388,9 @@ webSocketServer.on('connection', (socket) => {
         nextChunkIndex: 0,
         frameCount: 0,
         frameBytes: 0,
+        digestMs: 0,
+        persistenceCapacityMs: 0,
+        peerAdmissionMs: 0,
         queueWaitMs: 0
       }
     } else {
@@ -1445,6 +1475,9 @@ webSocketServer.on('connection', (socket) => {
           frameCount: request.frameCount,
           frameBytes: request.frameBytes,
           peerCount: request.recipients.filter(({ closed }) => !closed).length,
+          digestMs: rounded(request.digestMs),
+          persistenceCapacityMs: rounded(request.persistenceCapacityMs),
+          peerAdmissionMs: rounded(request.peerAdmissionMs),
           queueWaitMs: rounded(request.queueWaitMs),
           totalMs: rounded(elapsed(request.receivedAtMs))
         })

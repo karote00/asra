@@ -1,4 +1,3 @@
-import type { SharedPublication } from '@asyra/factory'
 import {
   DOCUMENT_PERSISTENCE_PROTOCOL_VERSION,
   type DocumentPersistenceBatch
@@ -9,13 +8,17 @@ export const MIN_DOCUMENT_PERSISTENCE_FLUSH_INTERVAL_MS = 1_000
 export const MAX_DOCUMENT_PERSISTENCE_FLUSH_INTERVAL_MS = 3_000
 export const DEFAULT_DOCUMENT_PERSISTENCE_RETRY_INTERVAL_MS = 1_000
 export const DEFAULT_DOCUMENT_PERSISTENCE_MAX_PUBLICATIONS = 256
-export const DEFAULT_DOCUMENT_PERSISTENCE_MAX_SERIALIZED_BYTES = 4 * 1024 * 1024
+export const DEFAULT_DOCUMENT_PERSISTENCE_MAX_SERIALIZED_BYTES =
+  256 * 1024 * 1024
+export const DEFAULT_DOCUMENT_PERSISTENCE_MAX_BATCH_SERIALIZED_BYTES =
+  8 * 1024 * 1024
 
 type Awaitable<Value> = Value | Promise<Value>
 
 export interface PendingDocumentPublication {
   readonly sequence: number
-  readonly publication: SharedPublication
+  readonly publicationId: string
+  readonly encodedPublicationFrames: readonly string[]
   readonly byteLength: number
 }
 
@@ -30,6 +33,9 @@ export interface DocumentPersistenceQueueState {
 export interface DocumentPersistenceQueue {
   enqueue(entry: PendingDocumentPublication): void
   enqueueBatch(entries: readonly PendingDocumentPublication[]): void
+  enqueueBatchWhenAvailable(
+    entries: readonly PendingDocumentPublication[]
+  ): Promise<void>
   flushNow(): Promise<void>
   flushForShutdown(): Promise<void>
   getState(): DocumentPersistenceQueueState
@@ -48,10 +54,25 @@ export interface DocumentPersistenceQueueOptions {
   readonly retryIntervalMs?: number
   readonly maxPublicationCount?: number
   readonly maxSerializedBytes?: number
+  readonly maxBatchSerializedBytes?: number
 }
 
 interface InFlightBatch {
   readonly batch: DocumentPersistenceBatch
+}
+
+interface CapacityWaiter {
+  readonly reject: (error: Error) => void
+  readonly resolve: () => void
+}
+
+class PersistenceCapacityUnavailableError extends Error {
+  constructor() {
+    super(
+      '[document-persistence-queue] pending capacity is unavailable until accepted changes are durable'
+    )
+    this.name = 'PersistenceCapacityUnavailableError'
+  }
 }
 
 const isNonBlankString = (value: unknown): value is string =>
@@ -86,7 +107,8 @@ export const createDocumentPersistenceQueue = ({
   flushIntervalMs = DEFAULT_DOCUMENT_PERSISTENCE_FLUSH_INTERVAL_MS,
   retryIntervalMs = DEFAULT_DOCUMENT_PERSISTENCE_RETRY_INTERVAL_MS,
   maxPublicationCount = DEFAULT_DOCUMENT_PERSISTENCE_MAX_PUBLICATIONS,
-  maxSerializedBytes = DEFAULT_DOCUMENT_PERSISTENCE_MAX_SERIALIZED_BYTES
+  maxSerializedBytes = DEFAULT_DOCUMENT_PERSISTENCE_MAX_SERIALIZED_BYTES,
+  maxBatchSerializedBytes = DEFAULT_DOCUMENT_PERSISTENCE_MAX_BATCH_SERIALIZED_BYTES
 }: DocumentPersistenceQueueOptions): DocumentPersistenceQueue => {
   if (!isNonBlankString(documentId)) {
     throw new Error(
@@ -110,6 +132,14 @@ export const createDocumentPersistenceQueue = ({
   requirePositivePolicy(retryIntervalMs, 'retry interval')
   requirePositivePolicy(maxPublicationCount, 'publication count limit')
   requirePositivePolicy(maxSerializedBytes, 'serialized byte limit')
+  requirePositivePolicy(
+    maxBatchSerializedBytes,
+    'durable batch serialized byte limit'
+  )
+  const effectiveMaxBatchSerializedBytes = Math.min(
+    maxBatchSerializedBytes,
+    maxSerializedBytes
+  )
 
   let durableSequence = initialDurableSequence
   let headSequence = initialDurableSequence
@@ -123,6 +153,25 @@ export const createDocumentPersistenceQueue = ({
   let retryTimer: ReturnType<typeof setTimeout> | undefined
   let inFlight: InFlightBatch | undefined
   let activeAttempt: Promise<void> | undefined
+  let backendUnavailable = false
+  const capacityWaiters = new Set<CapacityWaiter>()
+
+  const unavailableError = (): Error =>
+    new Error(
+      '[document-persistence-queue] document is unavailable until pending changes are durable'
+    )
+
+  const resolveCapacityWaiters = (): void => {
+    const waiters = [...capacityWaiters]
+    capacityWaiters.clear()
+    waiters.forEach(({ resolve }) => resolve())
+  }
+
+  const rejectCapacityWaiters = (error: Error): void => {
+    const waiters = [...capacityWaiters]
+    capacityWaiters.clear()
+    waiters.forEach(({ reject }) => reject(error))
+  }
 
   const setEditable = (next: boolean): void => {
     if (editable === next) return
@@ -172,6 +221,7 @@ export const createDocumentPersistenceQueue = ({
       )
     }
     const wasBlocked = !editable
+    backendUnavailable = false
     durableSequence = acknowledgement.durableSequence
     onDurableSequenceChange?.(durableSequence)
     inFlight = undefined
@@ -179,6 +229,7 @@ export const createDocumentPersistenceQueue = ({
       dirtyStartedAt = undefined
       clearDirtyTimer()
       setEditable(true)
+      resolveCapacityWaiters()
       return
     }
     const deadlineElapsed =
@@ -186,9 +237,12 @@ export const createDocumentPersistenceQueue = ({
       dirtyStartedAt + flushIntervalMs <= Date.now()
     if (wasBlocked || deadlineElapsed || stopping) {
       void beginPendingBatch()
+      setEditable(true)
+      resolveCapacityWaiters()
       return
     }
     scheduleDirtyTimer()
+    resolveCapacityWaiters()
   }
 
   async function attemptInFlight(): Promise<void> {
@@ -200,7 +254,9 @@ export const createDocumentPersistenceQueue = ({
       completeSuccessfulBatch(active, acknowledgement)
     } catch {
       if (inFlight !== active) return
+      backendUnavailable = true
       setEditable(false)
+      rejectCapacityWaiters(unavailableError())
       scheduleRetry()
     }
   }
@@ -210,10 +266,24 @@ export const createDocumentPersistenceQueue = ({
       return activeAttempt ?? Promise.resolve()
     }
     clearDirtyTimer()
-    const entries = pending
-    pending = []
-    pendingBytes = 0
-    dirtyStartedAt = undefined
+    let batchBytes = 0
+    let batchEntryCount = 0
+    for (const entry of pending) {
+      if (
+        batchEntryCount > 0 &&
+        batchBytes + entry.byteLength > effectiveMaxBatchSerializedBytes
+      ) {
+        break
+      }
+      batchBytes += entry.byteLength
+      batchEntryCount += 1
+    }
+    const entries = pending.slice(0, batchEntryCount)
+    pending = pending.slice(batchEntryCount)
+    pendingBytes -= batchBytes
+    if (pending.length === 0) {
+      dirtyStartedAt = undefined
+    }
     const firstSequence = entries[0]?.sequence
     const lastSequence = entries.at(-1)?.sequence
     if (
@@ -233,8 +303,13 @@ export const createDocumentPersistenceQueue = ({
       firstSequence,
       lastSequence,
       entries: Object.freeze(
-        entries.map(({ sequence, publication }) =>
-          Object.freeze({ documentId, sequence, publication })
+        entries.map(({ sequence, publicationId, encodedPublicationFrames }) =>
+          Object.freeze({
+            documentId,
+            sequence,
+            publicationId,
+            encodedPublicationFrames
+          })
         )
       )
     })
@@ -254,11 +329,7 @@ export const createDocumentPersistenceQueue = ({
       if (disposed) {
         throw new Error('[document-persistence-queue] queue is disposed')
       }
-      if (!editable) {
-        throw new Error(
-          '[document-persistence-queue] document is unavailable until pending changes are durable'
-        )
-      }
+      if (backendUnavailable) throw unavailableError()
       if (entries.length === 0) {
         throw new Error(
           '[document-persistence-queue] publication batch is empty'
@@ -269,7 +340,9 @@ export const createDocumentPersistenceQueue = ({
           !isPositiveSafeInteger(entry.sequence) ||
           entry.sequence !== headSequence + index + 1 ||
           !isPositiveSafeInteger(entry.byteLength) ||
-          !isNonBlankString(entry.publication.publicationId)
+          !isNonBlankString(entry.publicationId) ||
+          !Array.isArray(entry.encodedPublicationFrames) ||
+          entry.encodedPublicationFrames.length === 0
         ) {
           throw new Error(
             '[document-persistence-queue] publication sequence is invalid'
@@ -282,9 +355,7 @@ export const createDocumentPersistenceQueue = ({
         (pending.length + entries.length > maxPublicationCount ||
           pendingBytes + addedBytes > maxSerializedBytes)
       ) {
-        throw new Error(
-          '[document-persistence-queue] pending capacity is unavailable until accepted changes are durable'
-        )
+        throw new PersistenceCapacityUnavailableError()
       }
       headSequence = entries.at(-1)?.sequence as number
       if (pending.length === 0) {
@@ -302,6 +373,25 @@ export const createDocumentPersistenceQueue = ({
         } else {
           void beginPendingBatch()
         }
+      }
+    },
+    async enqueueBatchWhenAvailable(entries) {
+      while (true) {
+        if (disposed) {
+          throw new Error('[document-persistence-queue] queue is disposed')
+        }
+        if (backendUnavailable) throw unavailableError()
+        try {
+          queue.enqueueBatch(entries)
+          return
+        } catch (error) {
+          if (!(error instanceof PersistenceCapacityUnavailableError)) {
+            throw error
+          }
+        }
+        await new Promise<void>((resolve, reject) => {
+          capacityWaiters.add({ reject, resolve })
+        })
       }
     },
     flushNow() {
@@ -338,6 +428,9 @@ export const createDocumentPersistenceQueue = ({
       pending = []
       pendingBytes = 0
       dirtyStartedAt = undefined
+      rejectCapacityWaiters(
+        new Error('[document-persistence-queue] queue is disposed')
+      )
     }
   }
 

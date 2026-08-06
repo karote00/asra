@@ -132,8 +132,32 @@ test('generated template documents its verified standalone commands and opt-ins'
   assert.match(generated, /Preset/)
   assert.match(generated, /migration/i)
   assert.match(generated, /Group/)
-  assert.match(generated, /opt in to Collaboration/i)
+  assert.match(generated, /same-origin\s+`\/collaboration`/)
+  assert.match(generated, /local editing remains available/i)
+  assert.doesNotMatch(generated, /Collaboration is disabled/i)
   assert.match(generated, /opt in to AI/i)
+})
+
+test('create-app hands the selected package manager a runnable standalone start command', () => {
+  const cli = readFileSync(
+    path.join(repositoryRoot, 'create-app/asyra-design/bin/index.js'),
+    'utf8'
+  )
+
+  assert.doesNotMatch(cli, /console\.log\('\x20{2}yarn dev'\)/)
+  assert.match(cli, /yarn:\s*'yarn react:start'/)
+  assert.match(cli, /npm:\s*'npm run react:start'/)
+  assert.match(cli, /pnpm:\s*'pnpm react:start'/)
+  assert.match(cli, /http:\/\/localhost:3000\/\?fileId=my-design/)
+
+  const readme = readFileSync(
+    path.join(repositoryRoot, 'create-app/asyra-design/README.md'),
+    'utf8'
+  )
+  assert.match(readme, /Node\.js 24\.x/)
+  assert.match(readme, /yarn react:start/)
+  assert.match(readme, /http:\/\/localhost:3000\/\?fileId=my-design/)
+  assert.doesNotMatch(readme, /yarn start/)
 })
 
 test('release validation copies only repository source into an isolated workspace', async () => {

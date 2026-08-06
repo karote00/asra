@@ -15,6 +15,7 @@ import {
   setTimeout
 } from 'node:timers'
 import { fileURLToPath, URL } from 'node:url'
+import { resolvePreparedServerResponseLayoutRoot } from './prepared-server-response-artifacts.mjs'
 
 export const DEFAULT_RESOURCE_GUARD_CONFIG = Object.freeze({
   maximumCpuPercent: 400,
@@ -83,6 +84,12 @@ const ENDPOINT_ARTIFACT_ENV = 'ENDPOINT_ARTIFACT_ATTESTED'
 const ENDPOINT_PREVIEW_OUT_DIR_ENV = 'ENDPOINT_PREVIEW_OUT_DIR'
 const ENDPOINT_RESPONSE_ARTIFACT_ENV = 'ENDPOINT_RESPONSE_ARTIFACT_ATTESTED'
 const ENDPOINT_RESPONSE_MANIFEST_PATH_ENV = 'ENDPOINT_RESPONSE_MANIFEST_PATH'
+const GOOGLE_CHROME_EXECUTABLE_PATH_ENV =
+  'ASYRA_E2E_GOOGLE_CHROME_EXECUTABLE_PATH'
+const GOOGLE_CHROME_EXECUTABLE_PATH_BY_PLATFORM = Object.freeze({
+  darwin: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  linux: '/usr/bin/google-chrome'
+})
 const GUARD_ENVIRONMENT_KEYS = Object.freeze([
   'ENDPOINT_GUARD_TOKEN',
   'ENDPOINT_GUARD_URL',
@@ -191,6 +198,46 @@ const isFiniteNonNegativeNumber = (value) =>
 
 const isNonEmptyBoundedString = (value) =>
   typeof value === 'string' && value.length > 0 && value.length <= 160
+
+export const ENDPOINT_GUARD_ABSOLUTE_PATH_LIMIT = 1_024
+
+export const isEndpointGuardAbsolutePath = (value) =>
+  typeof value === 'string' &&
+  value.length > 0 &&
+  value.length <= ENDPOINT_GUARD_ABSOLUTE_PATH_LIMIT &&
+  isAbsolute(value)
+
+export const resolveEndpointBrowserExecutablePath = ({
+  attributionCase = process.env.ENDPOINT_ATTRIBUTION_CASE?.trim() ?? '',
+  bundledChromiumExecutablePath,
+  googleChromeExecutablePath = process.env[
+    GOOGLE_CHROME_EXECUTABLE_PATH_ENV
+  ]?.trim(),
+  platform = process.platform
+} = {}) => {
+  if (attributionCase === '27471-maximum') {
+    if (!isNonEmptyBoundedString(bundledChromiumExecutablePath)) {
+      throw new Error(
+        'Maximum-detail performance requires the Playwright Chrome for Testing executable'
+      )
+    }
+    return bundledChromiumExecutablePath
+  }
+
+  const executablePath =
+    googleChromeExecutablePath ??
+    GOOGLE_CHROME_EXECUTABLE_PATH_BY_PLATFORM[platform] ??
+    ''
+  if (!isEndpointGuardAbsolutePath(executablePath)) {
+    throw new Error(
+      `Endpoint performance requires an absolute ${GOOGLE_CHROME_EXECUTABLE_PATH_ENV}`
+    )
+  }
+  return executablePath
+}
+
+export const resolveEndpointBuildAssetsDirectory = (options = {}) =>
+  resolve(resolvePreparedServerResponseLayoutRoot(options), 'dist', 'assets')
 
 const createEmptyRoleCpuPercent = () => ({
   actorABrowser: 0,
@@ -819,9 +866,7 @@ const normalizeCollaborationEndpoint = (value) => {
 
 export const attestEndpointBuildArtifact = async ({
   expectedEndpoint,
-  assetsDirectory = fileURLToPath(
-    new URL('../../../dist/assets/', import.meta.url)
-  ),
+  assetsDirectory = resolveEndpointBuildAssetsDirectory(),
   readdirImpl = readdir,
   readFileImpl = readFile
 }) => {
@@ -878,12 +923,12 @@ const normalizePreparedResponsePreviewAttestation = (attestation) => {
     )
   }
   const { currentPath, manifestPath, productionIndexSha256 } = attestation
-  if (!isNonEmptyBoundedString(currentPath) || !isAbsolute(currentPath)) {
+  if (!isEndpointGuardAbsolutePath(currentPath)) {
     throw new TypeError(
       'Prepared response preview attestation requires one bounded absolute output path'
     )
   }
-  if (!isNonEmptyBoundedString(manifestPath) || !isAbsolute(manifestPath)) {
+  if (!isEndpointGuardAbsolutePath(manifestPath)) {
     throw new TypeError(
       'Prepared response preview attestation requires one bounded absolute manifest path'
     )

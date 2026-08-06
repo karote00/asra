@@ -1,6 +1,10 @@
 import { chromium, defineConfig, devices } from '@playwright/test'
 import { isAbsolute, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  isEndpointGuardAbsolutePath,
+  resolveEndpointBrowserExecutablePath
+} from './e2e/performance-resource-guard.mjs'
 
 const requireGuardValue = (name: string): string => {
   const value = process.env[name]?.trim()
@@ -22,7 +26,7 @@ const resolveDedicatedPort = (name: string, fallback: number): number => {
 
 const requireGuardPath = (name: string): string => {
   const value = requireGuardValue(name)
-  if (value.length > 160 || !isAbsolute(value)) {
+  if (!isEndpointGuardAbsolutePath(value)) {
     throw new Error(
       `Endpoint performance resource guard requires bounded absolute ${name}`
     )
@@ -105,6 +109,10 @@ const browserLauncherEnvironment = Object.fromEntries(
     (entry): entry is [string, string] => typeof entry[1] === 'string'
   )
 )
+const endpointAttributionCase =
+  process.env.ENDPOINT_ATTRIBUTION_CASE?.trim() ?? ''
+const endpointBrowserChannel =
+  endpointAttributionCase === '27471-maximum' ? undefined : 'chrome'
 const guardedWebServers = [
   {
     command: trackedServerCommand(
@@ -175,10 +183,16 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
+        ...(endpointBrowserChannel
+          ? { channel: endpointBrowserChannel }
+          : undefined),
         launchOptions: {
           env: {
             ...browserLauncherEnvironment,
-            TRACKED_EXECUTABLE: chromium.executablePath(),
+            TRACKED_EXECUTABLE: resolveEndpointBrowserExecutablePath({
+              attributionCase: endpointAttributionCase,
+              bundledChromiumExecutablePath: chromium.executablePath()
+            }),
             TRACKED_ROLE: 'client-a-browser'
           },
           executablePath: guardLauncherPath

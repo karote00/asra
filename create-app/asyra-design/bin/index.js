@@ -161,9 +161,15 @@ yarn-error.log*
   }
 
   console.log('\n🎉 Asyra Design project is ready!\n')
+  const startCommand = {
+    yarn: 'yarn react:start',
+    npm: 'npm run react:start',
+    pnpm: 'pnpm react:start'
+  }[packageManager]
   console.log('Next steps:')
   console.log(`  cd ${targetName}`)
-  console.log('  yarn dev')
+  console.log(`  ${startCommand}`)
+  console.log('  Open http://localhost:3000/?fileId=my-design')
 }
 
 main()
