@@ -9,6 +9,7 @@ import {
   DEFAULT_RELEASE_ARTIFACT_DIRECTORY,
   validateFrameworkReleasePackageArtifacts
 } from './release-package-artifacts.js'
+import { readFrameworkReleaseSource } from './framework-release-packages.js'
 
 export const DEFAULT_CLEAN_CONSUMER_DIRECTORY = 'tmp/framework-release-consumer'
 export const DEFAULT_RELEASE_EVIDENCE_DIRECTORY =
@@ -183,7 +184,11 @@ const assertSupportedRuntime = ({ allowUnsupportedNode }) => {
   }
 }
 
-const verifyInstalledPackages = ({ consumerDirectory, packageNames }) => {
+const verifyInstalledPackages = ({
+  consumerDirectory,
+  packageNames,
+  expectedVersions
+}) => {
   const packages = packageNames.map((packageName) => {
     const packageDirectory = path.join(
       consumerDirectory,
@@ -199,7 +204,12 @@ const verifyInstalledPackages = ({ consumerDirectory, packageNames }) => {
     const manifest = JSON.parse(
       fs.readFileSync(path.join(packageDirectory, 'package.json'), 'utf8')
     )
-    if (manifest.name !== packageName || manifest.version !== '0.2.5') {
+    const expectedVersion = expectedVersions.get(packageName)
+    if (
+      !expectedVersion ||
+      manifest.name !== packageName ||
+      manifest.version !== expectedVersion
+    ) {
       throw new Error(`${packageName} installed identity is invalid`)
     }
     if (/workspace:|(?:link|portal|patch):/.test(JSON.stringify(manifest))) {
@@ -223,6 +233,12 @@ export const verifyCleanConsumer = ({
 }) => {
   const resolvedRoot = path.resolve(repositoryRoot)
   assertSupportedRuntime({ allowUnsupportedNode })
+  const releaseSource = readFrameworkReleaseSource({
+    repositoryRoot: resolvedRoot
+  })
+  const expectedVersions = new Map(
+    releaseSource.packages.map((record) => [record.name, record.version])
+  )
   const prepared = prepareCleanConsumer({
     repositoryRoot: resolvedRoot,
     consumerDirectory,
@@ -252,7 +268,8 @@ export const verifyCleanConsumer = ({
       .sort()
     const installedPackages = verifyInstalledPackages({
       consumerDirectory: prepared.consumerDirectory,
-      packageNames
+      packageNames,
+      expectedVersions
     })
     const evidence = freeze({
       status: allowUnsupportedNode ? 'DIAGNOSTIC' : 'READY',
