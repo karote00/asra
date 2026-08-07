@@ -9,8 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Framework `0.2.5` release-readiness automation for exact package artifacts,
-  clean consumers, the generated Asyra Design template, and release records.
+- Framework `0.5.0` synchronized release automation for exact package
+  artifacts, clean consumers, release records, and registry-only proof while
+  retaining the historical `0.2.5` readiness record.
 - Public support, migration, security, and package entrypoint documentation for
   all 19 release packages.
 
@@ -25,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deprecated
 
 - `Core.setPersistence(...)` remains a warn-once, load-only adapter for
-  `Core.setLoadSource(...)` during the `0.2.x` migration window.
+  `Core.setLoadSource(...)` in `0.5.0`.
 - `PixiJSRenderer`, `RenderStrategyGraphic`, and `RenderStrategy` remain
   compatibility surfaces for `RenderAdapter`, `RenderGraphics`, and
   `EngineNeutralRenderStrategy`, respectively.

@@ -24,7 +24,7 @@
     "rebuild:design-system": "yarn workspace @asyra/design-system rebuild:design-system",
     "react:build": "yarn gen:turbo:check && turbo run react:build",
     "test": "turbo run test",
-    "test:scripts": "node --test scripts/__tests__/deps-validate.test.mjs scripts/__tests__/workspace-automation.test.mjs scripts/__tests__/release-automation.test.mjs scripts/__tests__/release-records.test.mjs scripts/__tests__/test-file-placement.test.mjs",
+    "test:scripts": "node --test scripts/__tests__/deps-validate.test.mjs scripts/__tests__/workspace-automation.test.mjs scripts/__tests__/release-automation.test.mjs scripts/__tests__/release-records.test.mjs scripts/__tests__/changeset-all-patch.test.mjs scripts/__tests__/test-file-placement.test.mjs",
     "test:local": "yarn test:scripts && turbo run test:local",
     "test:ci": "yarn test:scripts && turbo run test:ci",
     "test:e2e": "yarn workspace @asyra/asyra-design test:e2e",

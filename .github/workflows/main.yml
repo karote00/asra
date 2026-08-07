@@ -70,9 +70,6 @@ jobs:
       - name: Verify packed clean consumer
         run: yarn release:consumer
 
-      - name: Verify generated template from packed artifacts
-        run: yarn release:template --prod=asyra-design
-
       - name: Verify release records
         run: yarn release:records
 

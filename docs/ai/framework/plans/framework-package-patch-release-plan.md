@@ -1,10 +1,10 @@
-# Framework Package Patch Release Plan
+# Framework Package 0.5.0 Release Plan
 
 ## Status
 
-Queued after:
+Active after:
 
-1. PR #106 is reviewed and merged;
+1. PR #110 is owner-reviewed and merged;
 2. the Node.js 24 runtime and Vercel validation plan is `READY`;
 3. the local exact-version installation research result is accepted; and
 4. work starts from a clean feature branch based on the latest local `main`
@@ -13,66 +13,90 @@ Queued after:
 If Node.js 24 fails locally, in CI, or on Vercel, this plan must not begin
 publication.
 
+The public `0.2.5` packages are a historical partial release from before the
+current cross-package changes. Their manifests are not expected to match the
+current `main` manifests that still carry the same local version. Record that
+registry state as release-history evidence; do not reconstruct or publish the
+seven historically missing `0.2.5` packages from the current source.
+
 ## Goal
 
-Establish one consistent public baseline for every Framework package, then use
-the repository's intentional all-package Changeset flow to advance patch
-versions together and publish a reproducible, registry-installable Framework
-package set.
+Establish `0.5.0` as the first public baseline produced from the current
+19-package Framework source set. The current source represents a deliberately
+accumulated large change whose local manifests were not incremented during
+development.
 
-Until the complete process is proven, every release increment is patch-only.
-The first synchronized Framework target after `0.2.5` is `0.2.6`. A correct
-minor release is deferred until the release process is stable and separately
-approved.
+For this exceptional release only, materialize the fixed 19 Framework packages
+at local baseline `0.4.0`, generate one synchronized `minor` Changeset, and let
+the canonical Changesets version command advance the complete Framework set to
+`0.5.0`.
+
+After `0.5.0`, normal development must add ordinary scoped Changesets as changes
+are made. The all-package generator is not a routine versioning shortcut. It
+may be used again only for an explicitly approved large version realignment or
+the complete-suite recovery required after a defective partial publication.
 
 ## Release Set
 
 The Framework publication set is the fixed 19-package allowlist owned by
-`scripts/framework-release-packages.js`.
+`scripts/framework-release-packages.js`. Re-query all 19 names directly from
+the public npm registry during each publication run. No dated registry
+inventory may be reused as current evidence.
 
-Public npm registry state verified on 2026-08-05:
+The initial inventory must separately record:
 
-- already available at `0.2.5`: `core`, `design-system`, `factory`,
-  `input-system`, `props-manager`, `reactive-events`, `render`, `scene-tree`,
-  `selection`, `system-context`, `ui-context`, and `utils`;
-- not yet available at `0.2.5`: `ai-agent-runtime`, `collaboration`,
-  `feature-system`, `persistence`, `preset`, `render-engine`, and
-  `render-engine-pixi`.
+- the 12 historical Framework packages that already expose `0.2.5`;
+- the seven Framework packages that do not expose `0.2.5`; and
+- manifest or dependency-contract differences between public `0.2.5` records
+  and the current source.
+
+This inventory is evidence only. No `0.2.5` package is published by this plan.
 
 The root `asyra` version and private `@asyra/asyra-design` version are excluded.
 Their versions remain unchanged until the user specifies them after Framework
 package publication succeeds.
 
-`create-asyra-design-app` is a public workspace and is intentionally discovered
-by `scripts/changeset-all-patch.js`. Its patch version may therefore be
-materialized by the synchronized Changeset, but its template verification and
-registry publication belong exclusively to the later create-app release plan.
+`create-asyra-design-app` is excluded from the generator, version
+materialization, artifact set, and publication. Its existing version and
+committed template remain unchanged; template verification and publication
+belong exclusively to the later create-app release plan.
 
 ## Changeset Contract
 
-- The absence of pending Changesets before this release is intentional.
-- `scripts/changeset-all-patch.js` is the canonical one-shot generator for the
-  synchronized patch Changeset after a long interval of cross-package changes.
+- The absence of pending Changesets before this exceptional release is
+  intentional.
+- `scripts/changeset-all-patch.js` is the canonical one-shot generator only for
+  an explicitly approved large version realignment or complete-suite recovery.
+- The script requires an explicit `--type patch|minor|major` argument and reads
+  exactly the fixed 19-package allowlist. It must reject missing, duplicate,
+  private, root, create-app, or other workspace entries.
+- This release runs
+  `node scripts/changeset-all-patch.js --type minor` exactly once after all 19
+  Framework manifests have been materialized at `0.4.0`.
 - Do not replace it with manually accumulated per-package Changesets.
 - Review the generated Changeset and `yarn changeset status` before versioning.
+- Every generated entry must be `minor`, and `yarn changeset version` must
+  produce exactly `0.5.0` for all 19 packages.
 - Root `asyra` and private `@asyra/asyra-design` must not appear.
-- No package outside the script's declared public-workspace behavior may be
-  silently added or removed.
+- `create-asyra-design-app` and every package outside the fixed allowlist must
+  not appear.
+- After this release, use ordinary scoped Changesets during normal development;
+  do not invoke this generator merely to avoid maintaining Changesets.
 
 ## Required Inspector
 
 Before implementation, create a release Inspector with one owner for:
 
 1. public registry inventory;
-2. missing-`0.2.5` package artifact preparation;
-3. initial `0.2.5` publication;
-4. registry verification;
-5. all-package Changeset generation;
-6. version materialization and changelogs;
-7. patch artifact validation;
-8. Framework package publication;
-9. registry-only clean consumer;
-10. partial-publication recovery;
+2. historical `0.2.5` mismatch classification;
+3. exact local `0.4.0` baseline materialization;
+4. special all-package `minor` Changeset generation;
+5. `0.5.0` version materialization and changelogs;
+6. `0.5.0` artifact validation;
+7. reviewed and merged publication source;
+8. Framework package publication through Changesets;
+9. public registry verification;
+10. registry-only clean consumer and partial-publication recovery; and
 11. release records and final decision.
 
 ## Execution Plan
@@ -83,41 +107,37 @@ Before implementation, create a release Inspector with one owner for:
 - Verify npm authentication and scope access without exposing credentials.
 - Query every package/version directly from the public registry.
 - Freeze one Git commit and one exact package list.
+- Record the historical 12-present/seven-missing `0.2.5` split and compare
+  public manifests with the current source.
+- Treat expected differences as evidence that `0.5.0` is the next coherent
+  public baseline. Do not publish or overwrite any `0.2.5` package.
 
-### 2. Validate the seven unpublished `0.2.5` packages
+### 2. Materialize the exceptional local baseline
 
-- Build and pack the seven missing packages from their current `0.2.5`
-  manifests.
-- Validate contents, exports, types, licenses, internal dependency ranges, and
-  clean installation.
-- Publish in dependency-safe order, including `render-engine` before
-  `render-engine-pixi`, and both before `preset`.
-- Registry publication requires an explicit final authorization immediately
-  before the first publish command.
-- After each publish, verify registry name, version, metadata, tarball
-  integrity, and installability.
+- Change exactly the fixed 19 Framework package versions from `0.2.5` to
+  `0.4.0` in one bounded version-materialization operation.
+- Do not change root `asyra`, private `@asyra/asyra-design`, or
+  `create-asyra-design-app`.
+- Verify that every Framework manifest is exactly `0.4.0`, excluded versions
+  are unchanged, and no registry command has run.
+- `0.4.0` is a local Changesets input baseline only and must never be
+  published.
 
-### 3. Prove the common `0.2.5` baseline
+### 3. Generate the synchronized minor Changeset
 
-- Require all 19 Framework packages to resolve as `0.2.5` from the public
-  registry.
-- Install all 19 by package name and version in a clean consumer with no
-  workspace, `file:`, link, portal, or resolution substitution.
-- Run typecheck, build, public Core/Preset/Collaboration/AI flows, and
-  side-effect isolation checks.
-- Do not continue to patch bump until this common baseline passes.
-
-### 4. Generate the synchronized patch Changeset
-
-- Run `scripts/changeset-all-patch.js` once.
+- Run
+  `node scripts/changeset-all-patch.js --type minor`
+  exactly once.
 - Inspect the generated package list and summary.
 - Run `yarn changeset status`.
-- Reject duplicate, missing, private, root, or unintended release entries.
+- Reject duplicate, missing, private, root, create-app, or unintended release
+  entries.
+- Require exactly 19 entries and require every entry to be `minor`.
 
-### 5. Materialize patch versions
+### 4. Materialize `0.5.0`
 
 - Run `yarn changeset version`.
-- Expect the 19 Framework packages to move from `0.2.5` to `0.2.6`.
+- Expect the 19 Framework packages to move from `0.4.0` to `0.5.0`.
 - Preserve generated package changelogs and internal dependency updates.
 - Keep root `asyra` and private `@asyra/asyra-design` unchanged.
 - Test-first re-scope the Gate 5 release-record validator so the Framework
@@ -126,7 +146,7 @@ Before implementation, create a release Inspector with one owner for:
   excluded owner merely to satisfy the old validator assumption.
 - Do not regenerate the create-app template in this plan.
 
-### 6. Validate the new patch artifacts before publication
+### 5. Validate the `0.5.0` artifacts before publication
 
 - Run the accepted local exact-version test method.
 - Build and pack exactly the 19 Framework packages.
@@ -136,25 +156,43 @@ Before implementation, create a release Inspector with one owner for:
 - Run required package/root tests, lint, dependency checks, Inspectors, E2E,
   performance, and visual gates.
 
-### 7. Review and merge the version PR
+### 6. Review and merge the version PR
 
 - Use scoped commits for Changeset/version output, release documentation, and
   any test-only version synchronization.
 - Do not publish from an unmerged feature branch.
-- After merge, recreate and revalidate the artifacts from clean latest `main`.
+- After the user merges the PR, switch to `main`, run `git pull --ff-only`, and
+  require local `main` to equal the latest remote `main`.
+- Do not publish from the release feature branch even when its reviewed tree is
+  byte-identical to the merged result.
+- Recreate and revalidate the artifacts from that clean latest `main`.
 
-### 8. Publish the synchronized Framework patch
+### 7. Publish the synchronized Framework `0.5.0`
 
 - Present the exact 19-package publication manifest and checksums.
-- Obtain explicit publication authorization.
-- Publish only the 19 validated Framework artifacts.
-- Verify each public registry record before advancing.
+- Obtain explicit authorization for npm publication and the later
+  successful-release tag push.
+- Before `changeset publish`, convert workspace-only internal ranges through
+  the existing workspace-version owner into the exact publishable `0.5.0`
+  ranges validated by the artifact gate. Restore development workspace ranges
+  after publication on success or failure.
+- Assert that the unpublished public-workspace selection is exactly the fixed
+  19-package allowlist.
+- Run `yarn changeset publish` once. Changesets owns both the multi-package npm
+  publication operation and creation of one package Git tag for every
+  successful publication.
+- Verify all 19 public registry records immediately after the command returns,
+  including name, version, metadata, dependency ranges, dist integrity, and
+  installability.
+- Verify the successful package-tag set against the registry result. After all
+  19 registry records pass, push the exact 19 tags and verify that each remote
+  tag resolves to the validated publication commit.
 - Do not publish `create-asyra-design-app`, root `asyra`, or private
   `@asyra/asyra-design` in this step.
 
-### 9. Run registry-only consumer proof
+### 8. Run registry-only consumer proof
 
-- Install the new patch versions by package name from the public registry.
+- Install all 19 packages as public `name@0.5.0` from the registry.
 - Use no local tarballs, workspace aliases, hoisting assumptions, or
   resolutions.
 - Run install, typecheck, build, initialization, transaction/undo/redo,
@@ -166,23 +204,33 @@ Before implementation, create a release Inspector with one owner for:
 Registry publication is irreversible:
 
 - If publication fails before any package succeeds, correct the external or
-  artifact failure and retry the same target version.
+  artifact failure and retry the same target version. No package tag should
+  exist because Changesets tags only successful publications.
 - If some packages succeed, never overwrite them. Resume only the unpublished
-  packages at the same target version when the artifacts remain correct.
+  packages at `0.5.0` with `changeset publish` when the artifacts remain
+  correct. Preserve the successful packages and their local tags, and do not
+  push the complete tag set until all 19 packages verify.
 - If a source or artifact defect is discovered after any target package was
   published, fix the canonical owner, generate a new all-package patch
-  Changeset, advance the complete suite again (for example `0.2.6` to
-  `0.2.7`), and republish all Framework packages.
+  Changeset, advance the complete suite from `0.5.0` to `0.5.1`, and republish
+  all 19 Framework packages. Preserve and never retarget any tag belonging to
+  an already published immutable version.
 - Do not create mixed Framework target versions as the final result.
 
 ## Definition of Done
 
-- All 19 Framework packages first have a verified public `0.2.5` baseline.
-- The canonical all-package Changeset flow advances the Framework suite by one
-  patch.
+- The current public `0.2.5` inventory and source mismatch are recorded without
+  publishing any additional `0.2.5` artifact.
+- The exceptional all-package Changeset flow advances exactly the fixed 19
+  Framework packages from local `0.4.0` to `0.5.0` with one `minor` Changeset.
 - The reviewed, merged commit produces the same validated artifacts that are
   published.
-- All 19 new patch versions install from the public registry and pass the
+- Changesets creates the exact successful package tags on the clean latest
+  `main` publication commit, and the complete tag set is pushed only after
+  registry verification.
+- All 19 `0.5.0` versions install from the public registry and pass the
   registry-only consumer proof on Node.js 24.
 - Root `asyra` and private `@asyra/asyra-design` remain unchanged.
 - Generated template and create-app publication remain deferred.
+- Normal post-`0.5.0` development uses ordinary scoped Changesets rather than
+  the exceptional all-package generator.

@@ -3,14 +3,33 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FRAMEWORK_RELEASE_PACKAGE_NAMES } from './framework-release-packages.js'
 
-export const FRAMEWORK_RELEASE_CANDIDATE_VERSION = '0.2.5'
+export const FRAMEWORK_RELEASE_CANDIDATE_VERSION = '0.5.0'
+
+const EXCLUDED_RELEASE_VERSIONS = Object.freeze({
+  root: Object.freeze({ name: 'asyra', version: '0.2.5' }),
+  privateApp: Object.freeze({
+    name: '@asyra/asyra-design',
+    version: '0.2.5'
+  }),
+  createApp: Object.freeze({
+    name: 'create-asyra-design-app',
+    version: '0.1.0'
+  })
+})
 
 const REQUIRED_DOCUMENT_TOKENS = Object.freeze({
-  'README.md': ['Release support', '0.2.5'],
-  'CHANGELOG.md': ['## [Unreleased]', '0.2.5'],
-  'RELEASE_NOTES.md': ['0.2.5', 'release readiness', 'does not authorize'],
+  'README.md': ['Release support', '0.5.0', 'historical `0.2.5`'],
+  'CHANGELOG.md': ['## [Unreleased]', '0.5.0', '0.2.5'],
+  'RELEASE_NOTES.md': [
+    '0.5.0',
+    'release decision remains `PENDING`',
+    '0.2.5',
+    'does not authorize'
+  ],
   'SECURITY.md': ['private security advisory', 'Framework Security Boundaries'],
   'docs/ai/framework/RELEASE_SUPPORT.md': [
+    '0.5.0',
+    'historical `0.2.5`',
     'Node.js 24.x',
     'Yarn 4.3.1',
     'TypeScript 5.8.3',
@@ -19,6 +38,7 @@ const REQUIRED_DOCUMENT_TOKENS = Object.freeze({
     'CUSTOM',
     '3D',
     'HYBRID',
+    'create-asyra-design-app',
     'setPersistence',
     'RenderGraphics',
     'EngineNeutralRenderStrategy'
@@ -82,12 +102,26 @@ export const validateFrameworkReleaseRecords = ({ repositoryRoot }) => {
     'publication'
   ])
 
-  const rootManifest = readJson(path.join(resolvedRoot, 'package.json'))
-  if (rootManifest.version !== FRAMEWORK_RELEASE_CANDIDATE_VERSION) {
-    throw new Error(
-      `Root release candidate must be ${FRAMEWORK_RELEASE_CANDIDATE_VERSION}, found ${rootManifest.version}`
-    )
+  const excludedManifestPaths = {
+    root: 'package.json',
+    privateApp: 'apps/asyra-design/package.json',
+    createApp: 'create-app/asyra-design/package.json'
   }
+  const excludedVersions = Object.fromEntries(
+    Object.entries(excludedManifestPaths).map(([owner, relativePath]) => {
+      const manifest = readJson(path.join(resolvedRoot, relativePath))
+      const expected = EXCLUDED_RELEASE_VERSIONS[owner]
+      if (
+        manifest.name !== expected.name ||
+        manifest.version !== expected.version
+      ) {
+        throw new Error(
+          `Excluded release owner ${expected.name} must remain ${expected.version}, found ${manifest.name}@${manifest.version}`
+        )
+      }
+      return [owner, { name: manifest.name, version: manifest.version }]
+    })
+  )
 
   const packages = FRAMEWORK_RELEASE_PACKAGE_NAMES.map((name) => {
     const directory = name.slice('@asyra/'.length)
@@ -149,9 +183,11 @@ export const validateFrameworkReleaseRecords = ({ repositoryRoot }) => {
     status: 'PASS',
     candidateVersion: FRAMEWORK_RELEASE_CANDIDATE_VERSION,
     packages,
+    excludedVersions,
     pendingChangesets: readPendingChangesets(resolvedRoot),
     releaseSnapshot: null,
-    readinessStatus: 'READY',
+    gate5ReadinessStatus: 'READY',
+    releaseDecision: 'PENDING',
     publicationAuthorized: false
   }
 }
@@ -177,6 +213,6 @@ if (isDirectExecution) {
     `${JSON.stringify(evidence, null, 2)}\n`
   )
   console.log(
-    `Framework release readiness ${evidence.readinessStatus}: ${evidence.packages.length} packages at ${evidence.candidateVersion}; publication not authorized`
+    `Framework release records ${evidence.status}: ${evidence.packages.length} packages at ${evidence.candidateVersion}; Gate 5 ${evidence.gate5ReadinessStatus}; publication not authorized`
   )
 }

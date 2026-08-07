@@ -160,7 +160,7 @@ test('CI, E2E, and release validation own their bounded integration gates', () =
   assert.match(releaseValidation, /yarn release:app:check --prod=\$\{appName\}/)
 })
 
-test('CI reproduces Framework Release Gate 5 from packed artifacts on Node 24', () => {
+test('CI validates the active Framework package release from packed artifacts on Node 24', () => {
   const ci = readText('.github/workflows/main.yml')
   const releaseJob = ci.slice(ci.indexOf('framework-release-readiness:'))
 
@@ -170,7 +170,7 @@ test('CI reproduces Framework Release Gate 5 from packed artifacts on Node 24', 
   assert.match(releaseJob, /yarn react:build/)
   assert.match(releaseJob, /yarn release:packages --prebuilt/)
   assert.match(releaseJob, /yarn release:consumer/)
-  assert.match(releaseJob, /yarn release:template --prod=asyra-design/)
+  assert.doesNotMatch(releaseJob, /yarn release:template/)
   assert.match(releaseJob, /yarn release:records/)
   assert.doesNotMatch(
     releaseJob,
@@ -347,7 +347,7 @@ test('AI agent runtime is an optional zero-runtime-dependency workspace package'
   const turbo = readJSON('turbo.json')
 
   assert.equal(runtime.name, '@asyra/ai-agent-runtime')
-  assert.equal(runtime.version, '0.2.5')
+  assert.equal(runtime.version, '0.5.0')
   assert.equal(runtime.main, 'dist/index.js')
   assert.equal(runtime.types, 'dist/index.d.ts')
   assert.equal(
@@ -414,10 +414,17 @@ test('workspace version planning includes collaboration without changing files',
     }),
     'workspace:*'
   )
+  assert.equal(
+    resolveWorkspaceDependencyRange({
+      environment: 'release',
+      dependencyVersion: '0.5.0'
+    }),
+    '0.5.0'
+  )
 
   const plan = createWorkspaceVersionPlan({
     rootDirectory: repositoryRoot,
-    environment: 'prod'
+    environment: 'release'
   })
   const appUpdate = plan.find(
     ({ packageName }) => packageName === '@asyra/asyra-design'
@@ -428,10 +435,10 @@ test('workspace version planning includes collaboration without changing files',
 
   assert.equal(
     appUpdate?.manifest.dependencies['@asyra/collaboration'],
-    '^0.2.5'
+    '0.5.0'
   )
   assert.equal(
     collaborationUpdate?.manifest.dependencies['@asyra/factory'],
-    '^0.2.5'
+    '0.5.0'
   )
 })

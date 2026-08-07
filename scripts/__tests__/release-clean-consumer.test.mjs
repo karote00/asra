@@ -50,7 +50,7 @@ test('clean consumer replaces every frozen package with one packed artifact', ()
   assert.equal(packageDependencies.length, 19)
   packageDependencies.forEach(([name, specifier]) => {
     assert.match(specifier, /^file:\.\.\/framework-release-artifacts\//)
-    assert.match(specifier, /-0\.2\.5\.tgz$/)
+    assert.match(specifier, /-0\.5\.0\.tgz$/)
     assert.doesNotMatch(specifier, /packages\/|workspace:|node_modules/)
     assert.ok(name.startsWith('@asyra/'))
     assert.equal(manifest.resolutions[name], specifier)
@@ -95,7 +95,7 @@ test('clean consumer runner owns install, compile, build, test, and cleanup', ()
             fs.mkdirSync(packageDirectory, { recursive: true })
             fs.writeFileSync(
               path.join(packageDirectory, 'package.json'),
-              `${JSON.stringify({ name, version: '0.2.5' })}\n`
+              `${JSON.stringify({ name, version: '0.5.0' })}\n`
             )
             installedPackageDirectories.push(packageDirectory)
           })

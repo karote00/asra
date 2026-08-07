@@ -1,5 +1,18 @@
 # @asyra/ui-context
 
+## 0.5.0
+
+### Minor Changes
+
+- Exceptional synchronized minor release for the fixed 19-package Framework set.
+
+### Patch Changes
+
+- Updated dependencies
+  - @asyra/scene-tree@0.5.0
+  - @asyra/selection@0.5.0
+  - @asyra/utils@0.5.0
+
 ## 0.2.5
 
 ### Patch Changes
