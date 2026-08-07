@@ -6,11 +6,14 @@ import { fileURLToPath } from 'node:url'
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repositoryRoot = path.resolve(appRoot, '../..')
-const sourceRoots = [
-  path.join(repositoryRoot, 'apps/asyra-design'),
-  path.join(repositoryRoot, 'packages'),
-  path.join(repositoryRoot, 'scripts')
-]
+const workspaceAppRoot = path.join(repositoryRoot, 'apps/asyra-design')
+const sourceRoots = fs.existsSync(workspaceAppRoot)
+  ? [
+      workspaceAppRoot,
+      path.join(repositoryRoot, 'packages'),
+      path.join(repositoryRoot, 'scripts')
+    ]
+  : [appRoot]
 const sourceExtensions = new Set(['.cjs', '.js', '.mjs', '.ts', '.tsx'])
 const ignoredDirectories = new Set([
   '.turbo',
@@ -29,11 +32,11 @@ const debugHandleNames = [
 ].map((name) => `__${name}__`)
 const hiddenGlobalPattern = /__[A-Z][A-Za-z0-9_]*__/g
 const allowedDefinitionFiles = new Set([
-  'apps/asyra-design/src/collaboration/lifecycle.ts',
-  'apps/asyra-design/src/contexts/core.ts',
-  'apps/asyra-design/src/init/diagnostics/init-canvas-pipeline-debugger.ts',
-  'apps/asyra-design/src/init/performance/ai-drawing-performance-profile.ts',
-  'apps/asyra-design/src/types.d.ts'
+  'src/collaboration/lifecycle.ts',
+  'src/contexts/core.ts',
+  'src/init/diagnostics/init-canvas-pipeline-debugger.ts',
+  'src/init/performance/ai-drawing-performance-profile.ts',
+  'src/types.d.ts'
 ])
 
 const collectSourceFiles = (directory) =>
@@ -49,10 +52,11 @@ test('debug Window handles are defined for human DevTools but never consumed by 
     .flatMap(collectSourceFiles)
     .flatMap((filePath) => {
       const relativePath = path.relative(repositoryRoot, filePath)
+      const appRelativePath = path.relative(appRoot, filePath)
       if (relativePath.endsWith('debug-global-boundary.test.mjs')) return []
       const source = fs.readFileSync(filePath, 'utf8')
       const names = source.match(hiddenGlobalPattern) ?? []
-      const allowedNames = allowedDefinitionFiles.has(relativePath)
+      const allowedNames = allowedDefinitionFiles.has(appRelativePath)
         ? new Set(debugHandleNames)
         : new Set()
       return names

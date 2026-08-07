@@ -7,6 +7,11 @@ const runtimePolicy = resolveOrdinaryPlaywrightRuntimePolicy(process.env)
 const documentBackendURL =
   process.env.E2E_DOCUMENT_BACKEND_URL?.trim() || 'http://127.0.0.1:4201'
 const documentBackendPort = new URL(documentBackendURL).port || '80'
+const collaborationWebSocketURL = new URL(
+  '/collaboration',
+  appEnvironment.collaborationHealthURL
+)
+collaborationWebSocketURL.protocol = 'ws:'
 const ordinaryTestIgnore = [
   'collaboration-ai-agent-video.spec.ts',
   'collaboration.spec.ts',
@@ -17,7 +22,7 @@ const ordinaryTestIgnore = [
     ? ['render-delta-performance.spec.ts']
     : [])
 ]
-const visualReviewWebServerCommand = `E2E_OWN_SERVERS=1 E2E_DOCUMENT_BACKEND_URL=${documentBackendURL} yarn react:start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`
+const visualReviewWebServerCommand = `E2E_OWN_SERVERS=1 E2E_DOCUMENT_BACKEND_URL=${documentBackendURL} VITE_COLLABORATION_WS_URL=${collaborationWebSocketURL} yarn react:start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`
 
 /**
  * See https://playwright.dev/docs/test-configuration.

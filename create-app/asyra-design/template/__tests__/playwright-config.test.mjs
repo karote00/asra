@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import process from 'node:process'
 import test from 'node:test'
@@ -118,16 +119,18 @@ test('ordinary Playwright starts the backend and always-on collaboration service
 })
 
 test('Playwright routes the formal backend through the same document-session flow', async () => {
-  const [ordinaryConfig, collaborationConfig, viteConfig, ciScript] =
-    await Promise.all([
-      readFile(new URL('../playwright.config.ts', import.meta.url), 'utf8'),
-      readFile(
-        new URL('../playwright.collaboration.config.ts', import.meta.url),
-        'utf8'
-      ),
-      readFile(new URL('../vite.config.ts', import.meta.url), 'utf8'),
-      readFile(new URL('../../../scripts/run-e2e.sh', import.meta.url), 'utf8')
-    ])
+  const [ordinaryConfig, collaborationConfig, viteConfig] = await Promise.all([
+    readFile(new URL('../playwright.config.ts', import.meta.url), 'utf8'),
+    readFile(
+      new URL('../playwright.collaboration.config.ts', import.meta.url),
+      'utf8'
+    ),
+    readFile(new URL('../vite.config.ts', import.meta.url), 'utf8')
+  ])
+  const ciScriptUrl = new URL('../../../scripts/run-e2e.sh', import.meta.url)
+  const ciScript = existsSync(fileURLToPath(ciScriptUrl))
+    ? await readFile(ciScriptUrl, 'utf8')
+    : null
 
   assert.match(ordinaryConfig, /E2E_OWN_SERVERS=1 E2E_DOCUMENT_BACKEND_URL=/)
   assert.match(
@@ -139,15 +142,22 @@ test('Playwright routes the formal backend through the same document-session flo
   assert.match(ordinaryConfig, /DOCUMENT_BACKEND_PORT=/)
   assert.match(collaborationConfig, /DOCUMENT_BACKEND_PORT=/)
   assert.match(
-    ciScript,
-    /E2E_DOCUMENT_BACKEND_URL=.*[\s\\]*yarn workspace @asyra\/asyra-design react:start/
+    ordinaryConfig,
+    /VITE_COLLABORATION_WS_URL=\$\{collaborationWebSocketURL\}/,
+    'ordinary E2E must point the App at the collaboration server it starts'
   )
-  assert.match(ciScript, /document:backend:start/)
-  assert.match(ciScript, /DOCUMENT_PERSISTENCE_BACKEND_URL=/)
-  assert.match(
-    ciScript,
-    /yarn workspace @asyra\/asyra-design test:e2e:status-toast/
-  )
+  if (ciScript !== null) {
+    assert.match(
+      ciScript,
+      /E2E_DOCUMENT_BACKEND_URL=.*[\s\\]*yarn workspace @asyra\/asyra-design react:start/
+    )
+    assert.match(ciScript, /document:backend:start/)
+    assert.match(ciScript, /DOCUMENT_PERSISTENCE_BACKEND_URL=/)
+    assert.match(
+      ciScript,
+      /yarn workspace @asyra\/asyra-design test:e2e:status-toast/
+    )
+  }
   assert.match(viteConfig, /process\.env\.E2E_DOCUMENT_BACKEND_URL/)
   assert.match(
     viteConfig,
