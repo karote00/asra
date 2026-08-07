@@ -22,6 +22,15 @@ Feature: Conversational Agent drawing
     And the frontend should not rebuild, normalize, clone, freeze, or compare the complete drawing geometry
     And no alternate provider or URL-selected execution route should exist
 
+  Scenario: Domain knowledge remains backend-only while the 7076 sample bypasses it
+    Given the browser sends bounded App context without a domain prompt or image-tool catalog
+    When an ordinary Agent request reaches the same-origin action-batch backend
+    Then the backend should require a provider endpoint, model, and API key before calling the configured model
+    And only the backend should add the Asyra Design domain prompt and registered image-tool catalog
+    And the API key should remain in the backend authorization header and never enter the browser or provider request body
+    But an exact 7076 sample request should return its checked-in ordered AiActionBatch before loading the prompt, provider configuration, or model path
+    And a partially matching 7076 request should fail without falling back to the configured model
+
   Scenario: One bulk action creates independently editable elements
     Given one prepared action contains 100 Vector descriptors and one Group descriptor
     When the registered insert action executes

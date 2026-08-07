@@ -45,15 +45,29 @@ Completed plan:
   `AiActionBatch`
 - that request carries the submitted intent, exact image attachment, App
   context, registered backend-facing action descriptions, attempt number, and
-  abort ownership; no fileId, URL parameter, startup branch, resident batch, or
-  IndexedDB response inbox selects its payload
+  abort ownership. The browser context never contains the Asyra Design domain
+  prompt, image-tool catalog, provider endpoint, model setting, or API key; no
+  fileId, URL parameter, startup branch, resident batch, or IndexedDB response
+  inbox selects its payload
+- ordinary requests require complete server-only
+  `ASYRA_AI_PROVIDER_ENDPOINT`, `ASYRA_AI_PROVIDER_MODEL`, and
+  `ASYRA_AI_PROVIDER_API_KEY` settings. The server adds the App domain prompt
+  and registered image-tool catalog, then uses Node.js native `fetch` to call
+  the configured action-batch endpoint. The API key is sent only as a Bearer
+  authorization header and never enters the browser or upstream JSON body
+- the configured endpoint must return one JSON `AiActionBatch`. Missing
+  configuration fails with HTTP 503 before an upstream request; upstream
+  transport, status, or malformed-response failure returns HTTP 502 before
+  Runtime receives a batch
 - the checked-in `samples/crdt-7076` reference contains its exact input image,
   instruction text, and one ordered versioned `AiActionBatch` instruction file
   as its only drawing authority. Its backend accepts only the exact sample
-  input, reads that instruction file directly, and returns its prepared Group
-  plus 7,075 ordered Vector children for 7,076 total canonical elements. The
-  sample retains no SVG, alternate drawing source, regeneration fallback, or
-  request-time geometry reconstruction
+  input, reads that instruction file directly before loading the prompt,
+  provider configuration, or model path, and returns its prepared Group plus
+  7,075 ordered Vector children for 7,076 total canonical elements. A partial
+  sample match fails without model fallback. The sample retains no SVG,
+  alternate drawing source, regeneration fallback, or request-time geometry
+  reconstruction
 - production startup always composes that provider, the confirmation broker,
   app-root-local conversation controller, current AI history projection, and
   one isolated `@asyra/ai-agent-runtime` instance. There is no URL activation

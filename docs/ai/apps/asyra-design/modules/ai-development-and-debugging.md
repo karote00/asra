@@ -59,6 +59,30 @@ The server owns vendor credentials, model execution, input-image analysis, and
 construction of the action arguments. The browser must not hold a provider API
 key or rebuild the server's drawing artifact.
 
+## Backend AI Model Configuration
+
+The ordinary model-backed route is disabled until all three server-only values
+are present:
+
+- `ASYRA_AI_PROVIDER_ENDPOINT`: the HTTPS action-batch adapter endpoint
+  (loopback HTTP is allowed for local development);
+- `ASYRA_AI_PROVIDER_MODEL`: the model identifier passed to that adapter;
+- `ASYRA_AI_PROVIDER_API_KEY`: the credential sent only as a Bearer
+  authorization header.
+
+The backend sends protocol version `1`, the configured model, the
+backend-owned App domain prompt and image-tool catalog, and the original
+`AiProviderInput` as JSON. The credential is never part of that JSON. The
+adapter must return one JSON `AiActionBatch`; missing configuration fails
+before network access, and upstream transport, status, or malformed response
+fails before Runtime or canonical mutation.
+
+The exact `crdt-7076` image and instruction are intentionally handled first.
+That route reads and returns the checked-in ordered `AiActionBatch` without
+loading the prompt module, provider configuration, or model path. A request
+matching only the sample image or only the sample instruction fails and does
+not fall back to the configured model.
+
 ## Canonical Preflight
 
 Preflight is not a document snapshot and does not build Render topology. It is
