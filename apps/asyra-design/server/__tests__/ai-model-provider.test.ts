@@ -1,4 +1,7 @@
-import type { AiActionBatch, AiProviderInput } from '@asyra/ai-agent-runtime'
+import type {
+  AiActionBatch,
+  AiProviderInput
+} from '../../src/ai/action-batch-protocol'
 import { describe, expect, it, vi } from 'vitest'
 import { requestConfiguredAiActionBatch } from '../ai-model-provider'
 

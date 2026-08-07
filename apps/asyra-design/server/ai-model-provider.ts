@@ -1,4 +1,7 @@
-import type { AiActionBatch, AiProviderInput } from '@asyra/ai-agent-runtime'
+import type {
+  AiActionBatch,
+  AiProviderInput
+} from '../src/ai/action-batch-protocol'
 import { AI_APP_PROMPT, AI_IMAGE_TOOL_CATALOG } from './ai-domain-prompt'
 
 export type AiModelBackendErrorCode =

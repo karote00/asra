@@ -50,14 +50,14 @@
         "@asyra/collaboration#build:collaboration",
         "@asyra/core#build:core",
         "@asyra/design-system#build:design-system",
+        "@asyra/preset#build:preset",
+        "@asyra/ui-context#build:ui-context",
+        "@asyra/utils#build:utils",
         "@asyra/factory#build:factory",
         "@asyra/feature-system#build:feature-system",
         "@asyra/input-system#build:input-system",
-        "@asyra/preset#build:preset",
         "@asyra/reactive-events#build:reactive-events",
-        "@asyra/render#build:render",
-        "@asyra/ui-context#build:ui-context",
-        "@asyra/utils#build:utils"
+        "@asyra/render#build:render"
       ]
     },
     "@asyra/collaboration#build:collaboration": {

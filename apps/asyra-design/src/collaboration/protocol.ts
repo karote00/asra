@@ -1,15 +1,12 @@
 import type {
+  ProviderAwarenessDisconnect,
+  ProviderAwarenessMessage,
+  ProviderIdentity,
   SharedPublication,
   SharedPublicationBatch,
   SharedPublicationDelivery,
   SharedPublicationSlice
-} from '@asyra/factory'
-import type {
-  ProviderAwarenessDisconnect,
-  ProviderAwarenessMessage,
-  ProviderIdentity
-} from '@asyra/collaboration'
-import { isRecord } from '@asyra/utils'
+} from './app-protocol-types'
 import {
   decodeCompactBinary,
   encodeCompactBinary,
@@ -18,7 +15,7 @@ import {
   prepareCompactBinaryEncoding
 } from './compact-binary'
 import { decodeCompactJson, encodeCompactJsonIfSmaller } from './compact-json'
-import { isNonBlankString } from './wire-values'
+import { isNonBlankString, isRecord } from './wire-values'
 
 export const CollaborationMessageTypes = {
   HELLO: 'hello',

@@ -286,7 +286,7 @@ test('ordinary Playwright runtime policy is local-friendly and CI fail-fast', as
       maxFailures: 1,
       reporter: 'line',
       retries: 0,
-      workers: 2
+      workers: 1
     }
   )
   assert.deepEqual(
@@ -298,7 +298,7 @@ test('ordinary Playwright runtime policy is local-friendly and CI fail-fast', as
       maxFailures: undefined,
       reporter: 'line',
       retries: 1,
-      workers: 2
+      workers: 1
     }
   )
 })

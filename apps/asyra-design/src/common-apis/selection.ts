@@ -14,7 +14,7 @@ import {
  * Used in: selection, and future features like delete, copy, paste, move, resize
  */
 
-import core, { selection } from '../contexts'
+import core from '../contexts'
 
 export {
   decodeVectorPointSelectionId,
@@ -38,7 +38,7 @@ export const selectionApis = {
    * Get currently selected element IDs
    */
   getSelectedIds: () => {
-    return selection.getElementSelectionIds()
+    return core.getSelectedElementIds()
   },
 
   getVectorPointSelectionIds: () => {
@@ -74,7 +74,7 @@ export const selectionApis = {
    * Toggle selection of an element
    */
   toggleSelection: (elementId: string, options?: EVENT_OPTIONS) => {
-    const currentIds = selection.getElementSelectionIds()
+    const currentIds = core.getSelectedElementIds()
     const newIds = currentIds.includes(elementId)
       ? currentIds.filter((id: string) => id !== elementId)
       : [...currentIds, elementId]

@@ -228,10 +228,10 @@ describe('initApp preset composition', () => {
   it('attaches and disposes exact-profile runtime evidence through read-only owners', async () => {
     const detachRuntimeEvidence = vi.fn()
     const readProjectedElementCount = vi
-      .spyOn(core.deps.render, 'getProjectedElementCount')
+      .spyOn(core, 'getProjectedElementCount')
       .mockReturnValue(7)
     const readUndoHistoryDepth = vi
-      .spyOn(core.deps.factory, 'getUndoHistoryDepth')
+      .spyOn(core, 'getUndoHistoryDepth')
       .mockReturnValue(3)
     const readViewportPosition = vi
       .spyOn(viewportApis, 'getPosition')

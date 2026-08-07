@@ -6,7 +6,6 @@ import { performance } from 'node:perf_hooks'
 import process from 'node:process'
 import { clearTimeout, setTimeout } from 'node:timers'
 import { WebSocket, WebSocketServer, type RawData } from 'ws'
-import { ProviderFailure } from '@asyra/collaboration'
 import { loadEnvironment, resolveEnvironment } from './app-environment.mjs'
 import {
   CollaborationMessageTypes,
@@ -38,6 +37,31 @@ import {
   createDocumentPersistenceQueue,
   type DocumentPersistenceQueue
 } from './server/document-persistence-queue'
+
+type SocketServerFailureCode =
+  | 'acknowledgement-failed'
+  | 'connection-rejected'
+  | 'not-connected'
+  | 'transport-failed'
+
+class SocketServerFailure extends Error {
+  readonly code: SocketServerFailureCode
+  readonly cause?: unknown
+  readonly publicationId?: string
+
+  constructor(
+    code: SocketServerFailureCode,
+    message: string,
+    cause?: unknown,
+    publicationId?: string
+  ) {
+    super(message)
+    this.name = 'SocketServerFailure'
+    this.code = code
+    this.cause = cause
+    this.publicationId = publicationId
+  }
+}
 
 const appEnvironment = resolveEnvironment(
   loadEnvironment(process.env, resolve(process.cwd(), '.env'))
@@ -273,7 +297,7 @@ const rooms = new Map<string, RoomState>()
 const roomInitializations = new Map<string, Promise<RoomState>>()
 
 const failureMessage = (error: unknown): CollaborationFailurePayload => ({
-  code: error instanceof ProviderFailure ? error.code : 'transport-failed',
+  code: error instanceof SocketServerFailure ? error.code : 'transport-failed',
   message:
     error instanceof Error
       ? error.message
@@ -373,7 +397,7 @@ const reframePublicationForPeer = (
     true
   )
   if (sourceActorIdByteLength !== 0 || sourceHeader.fromActorId !== undefined) {
-    throw new ProviderFailure(
+    throw new SocketServerFailure(
       'transport-failed',
       '[collaboration] source publication frame cannot supply fromActorId'
     )
@@ -769,13 +793,13 @@ const createDocumentSessionBootstrap = async (
     checkpoint.durableSequence <
     room.persistenceQueue.getState().durableSequence
   ) {
-    throw new ProviderFailure(
+    throw new SocketServerFailure(
       'connection-rejected',
       '[collaboration] backend checkpoint is behind acknowledged durability'
     )
   }
   if (checkpoint.durableSequence > room.headSequence) {
-    throw new ProviderFailure(
+    throw new SocketServerFailure(
       'connection-rejected',
       '[collaboration] backend checkpoint is ahead of the document session'
     )
@@ -783,7 +807,7 @@ const createDocumentSessionBootstrap = async (
   let checkpointDocument = checkpoint.checkpoint
   if (checkpointDocument == null) {
     if (checkpoint.durableSequence !== 0) {
-      throw new ProviderFailure(
+      throw new SocketServerFailure(
         'connection-rejected',
         '[collaboration] a durable document checkpoint is missing'
       )
@@ -803,7 +827,7 @@ const createDocumentSessionBootstrap = async (
         sequence !== checkpoint.durableSequence + index + 1
     )
   ) {
-    throw new ProviderFailure(
+    throw new SocketServerFailure(
       'connection-rejected',
       '[collaboration] document bootstrap tail is not gap-free'
     )
@@ -854,14 +878,14 @@ const admitFrameToRecipients = async (
       signal
     )
     if (!available && signal.aborted) {
-      throw new ProviderFailure(
+      throw new SocketServerFailure(
         'transport-failed',
         '[collaboration] publication admission was cancelled'
       )
     }
   }
   if (signal.aborted) {
-    throw new ProviderFailure(
+    throw new SocketServerFailure(
       'transport-failed',
       '[collaboration] publication admission was cancelled'
     )
@@ -964,7 +988,7 @@ webSocketServer.on('connection', (socket) => {
     message: CollaborationHelloMessage
   ): Promise<void> => {
     if (peer.identified) {
-      throw new ProviderFailure(
+      throw new SocketServerFailure(
         'connection-rejected',
         '[collaboration] identity hello can only be sent once'
       )
@@ -973,7 +997,7 @@ webSocketServer.on('connection', (socket) => {
     const { identity } = message
     const fileId = identity.connectionMetadata?.fileId
     if (!isNonBlankString(fileId)) {
-      throw new ProviderFailure(
+      throw new SocketServerFailure(
         'connection-rejected',
         '[collaboration] app-defined fileId and actor identity are required'
       )
@@ -981,7 +1005,7 @@ webSocketServer.on('connection', (socket) => {
     const room = await getOrCreateRoom(fileId)
     const bootstrap = await enqueueRoomAdmission(room, async () => {
       if (room.peers.has(identity.actorId)) {
-        throw new ProviderFailure(
+        throw new SocketServerFailure(
           'connection-rejected',
           '[collaboration] actor is already connected to this room'
         )
@@ -1009,7 +1033,7 @@ webSocketServer.on('connection', (socket) => {
       peer.bootstrapHeadSequence === undefined ||
       message.headSequence !== peer.bootstrapHeadSequence
     ) {
-      throw new ProviderFailure(
+      throw new SocketServerFailure(
         'connection-rejected',
         '[collaboration] document bootstrap completion does not match the reserved cutoff'
       )
@@ -1026,7 +1050,7 @@ webSocketServer.on('connection', (socket) => {
   const handleAwareness = (message: SendAwarenessRequest): void => {
     const room = peer.room
     if (!room || !peer.actorId || message.message.actorId !== peer.actorId) {
-      throw new ProviderFailure(
+      throw new SocketServerFailure(
         'transport-failed',
         '[collaboration] awareness actor must match the connected identity'
       )
@@ -1048,7 +1072,7 @@ webSocketServer.on('connection', (socket) => {
   const handlePeerApplied = (message: PeerAppliedRequest): void => {
     const room = peer.room
     if (!room || !peer.actorId || message.fromActorId === peer.actorId) {
-      throw new ProviderFailure(
+      throw new SocketServerFailure(
         'transport-failed',
         '[collaboration] peer-applied source must be another room actor'
       )
@@ -1082,7 +1106,7 @@ webSocketServer.on('connection', (socket) => {
     }
     if (!peer.identified) {
       if (message.type !== CollaborationMessageTypes.HELLO) {
-        throw new ProviderFailure(
+        throw new SocketServerFailure(
           'connection-rejected',
           '[collaboration] hello must be the first message'
         )
@@ -1095,7 +1119,7 @@ webSocketServer.on('connection', (socket) => {
         handleBootstrapConsumed(message)
         return
       }
-      throw new ProviderFailure(
+      throw new SocketServerFailure(
         'connection-rejected',
         '[collaboration] document bootstrap must complete before live collaboration'
       )
@@ -1118,7 +1142,7 @@ webSocketServer.on('connection', (socket) => {
         return
       case CollaborationMessageTypes.SEND_PUBLICATION:
       case CollaborationMessageTypes.SEND_PUBLICATIONS:
-        throw new ProviderFailure(
+        throw new SocketServerFailure(
           'transport-failed',
           '[collaboration] publication data requires binary framed transport'
         )
@@ -1149,7 +1173,7 @@ webSocketServer.on('connection', (socket) => {
       header.publicationIndex !== request.nextPublicationIndex ||
       header.chunkIndex !== request.nextChunkIndex
     ) {
-      throw new ProviderFailure(
+      throw new SocketServerFailure(
         'transport-failed',
         '[collaboration] publication frames are out of order'
       )
@@ -1161,7 +1185,7 @@ webSocketServer.on('connection', (socket) => {
       header.publicationId !== request.currentPublicationId ||
       header.chunkCount !== request.currentChunkCount
     ) {
-      throw new ProviderFailure(
+      throw new SocketServerFailure(
         'transport-failed',
         '[collaboration] publication chunk metadata changed'
       )
@@ -1186,7 +1210,7 @@ webSocketServer.on('connection', (socket) => {
     const room = peer.room
     const actorId = peer.actorId
     if (!room || !actorId) {
-      throw new ProviderFailure(
+      throw new SocketServerFailure(
         'not-connected',
         '[collaboration] provider handshake is incomplete'
       )
@@ -1204,7 +1228,7 @@ webSocketServer.on('connection', (socket) => {
           frames.length === 0 ||
           frames.some(({ header }) => header.publicationId !== publicationId)
         ) {
-          throw new ProviderFailure(
+          throw new SocketServerFailure(
             'transport-failed',
             '[collaboration] publication frame identity is inconsistent'
           )
@@ -1231,7 +1255,7 @@ webSocketServer.on('connection', (socket) => {
       )
       const acceptedCount = accepted.filter(Boolean).length
       if (acceptedCount > 0 && acceptedCount !== publications.length) {
-        throw new ProviderFailure(
+        throw new SocketServerFailure(
           'acknowledgement-failed',
           '[collaboration] publication request mixes accepted and new identities',
           undefined,
@@ -1245,7 +1269,7 @@ webSocketServer.on('connection', (socket) => {
             entry.encodedPayloadDigest !==
               publications[index]?.encodedPayloadDigest
           ) {
-            throw new ProviderFailure(
+            throw new SocketServerFailure(
               'acknowledgement-failed',
               '[collaboration] publication identity was reused with different content',
               undefined,
@@ -1258,7 +1282,7 @@ webSocketServer.on('connection', (socket) => {
       const firstSequence = room.headSequence + 1
       const lastSequence = room.headSequence + publications.length
       if (!Number.isSafeInteger(lastSequence)) {
-        throw new ProviderFailure(
+        throw new SocketServerFailure(
           'transport-failed',
           '[collaboration] document publication sequence overflow'
         )
@@ -1289,7 +1313,7 @@ webSocketServer.on('connection', (socket) => {
           )
         )
       } catch (error) {
-        throw new ProviderFailure(
+        throw new SocketServerFailure(
           'transport-failed',
           '[collaboration] document persistence is unavailable until accepted changes are durable',
           error
@@ -1307,7 +1331,7 @@ webSocketServer.on('connection', (socket) => {
       for (const frame of request.frames) {
         const sequence = sequences[frame.header.publicationIndex]
         if (!sequence) {
-          throw new ProviderFailure(
+          throw new SocketServerFailure(
             'transport-failed',
             '[collaboration] publication sequence is missing'
           )
@@ -1336,7 +1360,7 @@ webSocketServer.on('connection', (socket) => {
     signal: AbortSignal
   ): Promise<InboundFrameAdmissionResult> => {
     if (!peer.ready || !peer.room || !peer.actorId) {
-      throw new ProviderFailure(
+      throw new SocketServerFailure(
         'not-connected',
         '[collaboration] provider handshake is incomplete'
       )
@@ -1345,7 +1369,7 @@ webSocketServer.on('connection', (socket) => {
       header.messageType !== CollaborationMessageTypes.SEND_PUBLICATION &&
       header.messageType !== CollaborationMessageTypes.SEND_PUBLICATIONS
     ) {
-      throw new ProviderFailure(
+      throw new SocketServerFailure(
         'transport-failed',
         '[collaboration] client binary frame must send a publication'
       )
@@ -1354,14 +1378,14 @@ webSocketServer.on('connection', (socket) => {
       header.messageType === CollaborationMessageTypes.SEND_PUBLICATION &&
       header.publicationCount !== 1
     ) {
-      throw new ProviderFailure(
+      throw new SocketServerFailure(
         'transport-failed',
         '[collaboration] single-publication frame kind requires publicationCount 1'
       )
     }
     const requestId = header.requestId
     if (!requestId) {
-      throw new ProviderFailure(
+      throw new SocketServerFailure(
         'transport-failed',
         '[collaboration] publication frame request identity is required'
       )
@@ -1370,7 +1394,7 @@ webSocketServer.on('connection', (socket) => {
     let request: InboundPublicationRequest
     if (!existingRequest) {
       if (header.publicationIndex !== 0 || header.chunkIndex !== 0) {
-        throw new ProviderFailure(
+        throw new SocketServerFailure(
           'transport-failed',
           '[collaboration] publication request must start at its first frame'
         )
@@ -1415,7 +1439,7 @@ webSocketServer.on('connection', (socket) => {
     )
     request.queueWaitMs += elapsed(queueStartedAtMs)
     if (signal.aborted) {
-      throw new ProviderFailure(
+      throw new SocketServerFailure(
         'transport-failed',
         '[collaboration] publication admission was cancelled'
       )
@@ -1430,7 +1454,7 @@ webSocketServer.on('connection', (socket) => {
   ): void => {
     if (sourceFrameAdmission) {
       rejectConnection(
-        new ProviderFailure(
+        new SocketServerFailure(
           'transport-failed',
           '[collaboration] multiple uncredited source publication frames are not allowed'
         ),
@@ -1486,7 +1510,7 @@ webSocketServer.on('connection', (socket) => {
         if (sourceFrameAdmission !== admission || inboundFailed) return
         sourceFrameAdmission = null
         if (
-          error instanceof ProviderFailure &&
+          error instanceof SocketServerFailure &&
           error.code === 'acknowledgement-failed'
         ) {
           const rejectedRequestId = header.requestId
@@ -1519,7 +1543,7 @@ webSocketServer.on('connection', (socket) => {
     if (inboundFailed) return
     if (isBinary && sourceFrameAdmission) {
       rejectConnection(
-        new ProviderFailure(
+        new SocketServerFailure(
           'transport-failed',
           '[collaboration] multiple uncredited source publication frames are not allowed'
         ),

@@ -10,7 +10,7 @@ import {
   type PositionData
 } from '@asyra/utils'
 import { FILL_PATCH_KEYS, type FillWritableKey } from '../constants'
-import core, { render, sceneTree } from '../contexts'
+import core from '../contexts'
 import { getChangedDefinedPatchEntries } from './property-patch'
 import { transactionApis } from './transaction'
 
@@ -48,17 +48,6 @@ const createFillRecordPatch = (
       }
     ]
   }
-}
-
-interface RenderElementShape {
-  toGlobal: (point: PositionData) => PositionData
-  toLocal: (
-    point: PositionData,
-    from?: unknown,
-    targetPoint?: PositionData,
-    skipUpdate?: boolean
-  ) => PositionData
-  parent?: unknown
 }
 
 export type GradientHandleIndex = 0 | 1
@@ -187,16 +176,12 @@ const getElementFill = (
   elementId: string,
   fillId: string
 ): { fill: FillAttrs; width: number; height: number } | null => {
-  const element = sceneTree.getElementById(elementId)
-  if (!element) {
-    return null
-  }
-
-  const computed = element.getAllComputedData() as Partial<{
+  const computed = core.getElementComputedData(elementId) as Partial<{
     fills: FillAttrs[]
     width: number
     height: number
-  }>
+  }> | null
+  if (!computed) return null
   const fills = Array.isArray(computed.fills) ? computed.fills : []
   const fill = fills.find((entry) => entry?.id === fillId)
   if (!fill) {
@@ -224,14 +209,10 @@ const getElementFill = (
 }
 
 const getPrimaryFill = (elementId: string): FillAttrs | null => {
-  const element = sceneTree.getElementById(elementId)
-  if (!element) {
-    return null
-  }
-  const computed = element.getAllComputedData() as {
+  const computed = core.getElementComputedData(elementId) as {
     fills?: unknown
-  }
-  if (!Array.isArray(computed.fills)) {
+  } | null
+  if (!Array.isArray(computed?.fills)) {
     return null
   }
   const fill = computed.fills[0]
@@ -239,7 +220,7 @@ const getPrimaryFill = (elementId: string): FillAttrs | null => {
 }
 
 const getCanvasPositionFromClient = (clientPos: PositionData): PositionData => {
-  const canvasBounds = render.app?.canvas?.getBoundingClientRect()
+  const canvasBounds = core.getCanvasBounds()
   if (!canvasBounds) {
     return clientPos
   }
@@ -252,7 +233,7 @@ const getCanvasPositionFromClient = (clientPos: PositionData): PositionData => {
 
 export const fillApis = {
   addFill: (elementId: string, options?: EVENT_OPTIONS): string | null => {
-    if (!sceneTree.getElementById(elementId)) {
+    if (!core.getElementData(elementId)) {
       return null
     }
     const fill = createDefaultFill({ id: id('fill') })
@@ -270,8 +251,7 @@ export const fillApis = {
     fillId: string,
     options?: EVENT_OPTIONS
   ): boolean => {
-    const element = sceneTree.getElementById(elementId)
-    const computed = element?.getAllComputedData?.() as
+    const computed = core.getElementComputedData(elementId) as
       | { fills?: unknown }
       | undefined
     const fills = computed?.fills
@@ -308,7 +288,7 @@ export const fillApis = {
   },
 
   getCanvasBounds: (): DOMRect | null => {
-    return render.app?.canvas?.getBoundingClientRect() ?? null
+    return core.getCanvasBounds()
   },
 
   getCanvasPositionFromClient: (
@@ -362,18 +342,12 @@ export const fillApis = {
       return null
     }
 
-    const renderElement = render.getElementById(
-      elementId
-    ) as RenderElementShape | null
-    if (!renderElement) {
-      return null
-    }
-
-    const workspacePos = render.getMousePosInWorkspace({
+    const workspacePos = core.getMousePosInWorkspace({
       clientX: clientPos.x,
       clientY: clientPos.y
     })
-    const localPos = renderElement.toLocal(workspacePos, renderElement.parent)
+    const localPos = core.workspaceToElementLocal(elementId, workspacePos)
+    if (!localPos) return null
     const displayHandle = {
       x: localPos.x / geometry.width,
       y: localPos.y / geometry.height
@@ -432,24 +406,22 @@ export const fillApis = {
       return null
     }
 
-    const renderElement = render.getElementById(
-      elementId
-    ) as RenderElementShape | null
-    if (!renderElement) {
-      return null
-    }
-
     const [, endHandle] = fillData.fill.gradient.gradientHandles
     const displayStartHandle = getDisplayStartHandle(fillData.fill.gradient)
+    const startWorkspace = core.elementLocalToWorkspace(elementId, {
+      x: displayStartHandle.x * fillData.width,
+      y: displayStartHandle.y * fillData.height
+    })
+    const endWorkspace = core.elementLocalToWorkspace(elementId, {
+      x: endHandle.x * fillData.width,
+      y: endHandle.y * fillData.height
+    })
+    if (!startWorkspace || !endWorkspace) {
+      return null
+    }
     const canvasHandles: [PositionData, PositionData] = [
-      renderElement.toGlobal({
-        x: displayStartHandle.x * fillData.width,
-        y: displayStartHandle.y * fillData.height
-      }),
-      renderElement.toGlobal({
-        x: endHandle.x * fillData.width,
-        y: endHandle.y * fillData.height
-      })
+      core.workspaceToCanvas(startWorkspace),
+      core.workspaceToCanvas(endWorkspace)
     ]
 
     return {

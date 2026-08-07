@@ -680,29 +680,18 @@ const getFactoryUndoXChanges = (page: Page) =>
 
 const classifyFactoryPublicationsInApp = (page: Page) =>
   page.evaluate(async () => {
-    const operationsModule = await import('/src/collaboration/operations.ts')
+    const operationsModule = await import(
+      '/src/collaboration/publication-processor.ts'
+    )
     const { testRuntimeState } = await import('../src/testing/runtime-access')
     const canonicalRequests: string[][] = []
     const processor = operationsModule.createPublicationProcessor({
-      runRemoteTransaction: (mutate: () => void) => mutate(),
-      runRemoteTransactionProgressively: async (
-        mutateSlices: readonly (() => void)[],
-        settleAfterSlice: (completedSliceIndex: number) => Promise<void>
-      ) => {
-        for (let index = 0; index < mutateSlices.length; index += 1) {
-          mutateSlices[index]?.()
-          if (index < mutateSlices.length - 1) {
-            await settleAfterSlice(index)
-          }
-        }
-      },
       decideRemotePublication: (publication) => publication,
-      applyCanonicalChanges: (
-        changes: readonly { readonly kind: string }[]
-      ) => {
-        canonicalRequests.push(changes.map(({ kind }) => kind))
-      },
-      settleRemoteSlice: async () => undefined
+      applyRemoteCanonicalChangeSlices: ({ slices }) => {
+        slices.forEach((changes) => {
+          canonicalRequests.push(changes.map(({ kind }) => kind))
+        })
+      }
     })
     for (const publication of testRuntimeState.get<
       Parameters<typeof processor>[0][]

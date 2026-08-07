@@ -140,7 +140,8 @@ test('reference server is a TypeScript build with an opaque uncompressed publica
   )
 
   assert.doesNotMatch(source, /\.\.\/\.\.\/packages\/collaboration/)
-  assert.match(source, /from ['"]@asyra\/collaboration['"]/)
+  assert.doesNotMatch(source, /from ['"]@asyra\//)
+  assert.match(source, /class SocketServerFailure extends Error/)
   assert.match(source, /from ['"].*collaboration\/protocol['"]/)
   assert.match(providerSource, /from ['"].*protocol['"]/)
   assert.doesNotMatch(source, /MemoryHub|MemoryProvider/)
@@ -172,6 +173,10 @@ test('reference server is a TypeScript build with an opaque uncompressed publica
   assert.match(
     manifest.scripts['build:collaboration-server'],
     /tsc -p tsconfig\.collaboration-server\.json/
+  )
+  assert.doesNotMatch(
+    manifest.scripts['build:collaboration-server'],
+    /build:collaboration|@asyra\/collaboration/
   )
   assert.match(
     manifest.scripts['build:collaboration-server'],

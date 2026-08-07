@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import * as collaborationModule from '@asyra/collaboration'
 import { ProviderFailure } from '@asyra/collaboration'
-import type { SharedPublication } from '@asyra/factory'
+import factory, { type SharedPublication } from '@asyra/factory'
 import { EventTypes } from '@asyra/reactive-events'
 import {
   IDTypes,
@@ -11,7 +11,7 @@ import {
   SharedDataChannelNames,
   idCounter
 } from '@asyra/utils'
-import * as collaborationOperations from '../../collaboration/operations'
+import * as collaborationOperations from '../../collaboration/publication-processor'
 import { createFormalInitialDocument } from '../../collaboration/initial-document'
 import { CollaborationWebSocketProvider } from '../../collaboration/websocket-provider'
 import {
@@ -25,7 +25,7 @@ import {
   prepareCollaborationDocumentSession,
   startCollaboration
 } from '../../collaboration/lifecycle'
-import core, { factory } from '../../contexts'
+import core from '../../contexts'
 
 const collaborationModuleState = vi.hoisted(() => ({
   actualCreateCollaboration:
@@ -797,11 +797,8 @@ it('binds source-sliced remote canonical requests to one Factory coordinator', a
   expect(createPublicationProcessor).toHaveBeenCalledOnce()
   const options = createPublicationProcessor.mock.calls[0]?.[0]
   expect(options).toEqual({
-    runRemoteTransaction: expect.any(Function),
-    runRemoteTransactionProgressively: expect.any(Function),
     decideRemotePublication: expect.any(Function),
-    applyCanonicalChanges: expect.any(Function),
-    settleRemoteSlice: expect.any(Function)
+    applyRemoteCanonicalChangeSlices: expect.any(Function)
   })
   expect(options).not.toHaveProperty('applyRemoteEvent')
   expect(options).not.toHaveProperty('owners')

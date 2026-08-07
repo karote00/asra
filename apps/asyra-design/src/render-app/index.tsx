@@ -48,13 +48,11 @@ const RenderApp: React.FC<RenderAppProps> = ({
 
   useEffect(() => {
     let active = true
-    let collaborationDisposer: (() => Promise<void>) | undefined
-    let collaborationDisposePromise: Promise<void> | undefined
+    let runtimeDestroyPromise: Promise<void> | undefined
     let unsubscribeCollaborationState: (() => void) | undefined
-    const disposeCollaboration = (): Promise<void> => {
-      if (!collaborationDisposer) return Promise.resolve()
-      collaborationDisposePromise ??= collaborationDisposer()
-      return collaborationDisposePromise
+    const destroyRuntime = (): Promise<void> => {
+      runtimeDestroyPromise ??= core.destroy()
+      return runtimeDestroyPromise
     }
 
     const lifecycle = lifecycleRef.current
@@ -71,15 +69,11 @@ const RenderApp: React.FC<RenderAppProps> = ({
         const collaborationLifecycle = await import(
           '../collaboration/lifecycle'
         )
-        collaborationDisposer = collaborationLifecycle.disposeCollaboration
-        const preparedCollaboration =
-          await collaborationLifecycle.prepareCollaborationDocumentSession(
+        core.registerCollaborationSession(
+          collaborationLifecycle.createCollaborationDocumentSession(
             collaborationMode
           )
-        core.setLoadSource({
-          name: 'SocketDocumentSession',
-          load: async () => preparedCollaboration.bootstrap.checkpoint
-        })
+        )
 
         await core.start(container, {
           width: window.innerWidth,
@@ -88,14 +82,15 @@ const RenderApp: React.FC<RenderAppProps> = ({
           backgroundColorAlpha: 1
         })
         if (!active) {
-          core.destroyRenderer()
+          await destroyRuntime()
           return
         }
 
-        const handle = await preparedCollaboration.activate()
-        if (!active) {
-          await disposeCollaboration()
-          return
+        const handle = collaborationLifecycle.getActiveCollaborationHandle()
+        if (!handle) {
+          throw new Error(
+            '[RenderApp] collaboration session did not activate through Core'
+          )
         }
         setCollaborationNotification(handle.getSessionState().notification)
         unsubscribeCollaborationState = handle.onSessionStateChange((state) => {
@@ -103,7 +98,7 @@ const RenderApp: React.FC<RenderAppProps> = ({
             setCollaborationNotification(state.notification)
           }
         })
-        if (!active) await disposeCollaboration()
+        if (!active) await destroyRuntime()
       })
     lifecycleRef.current = lifecycle
     void lifecycle.catch((error: unknown) => {
@@ -115,9 +110,8 @@ const RenderApp: React.FC<RenderAppProps> = ({
     return () => {
       active = false
       unsubscribeCollaborationState?.()
-      core.destroyRenderer()
-      void disposeCollaboration().catch((error: unknown) => {
-        console.error('[RenderApp] collaboration teardown failed:', error)
+      void destroyRuntime().catch((error: unknown) => {
+        console.error('[RenderApp] runtime teardown failed:', error)
       })
     }
   }, [])
