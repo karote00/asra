@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { AiActionNames } from '../actions'
 import { createAiRuntimeInput } from '../runtime-input'
 
-describe('Design App Agent runtime input', () => {
+describe('Asyra Design Agent runtime input', () => {
   it('builds one concrete server-provider runtime input without a delivery mode', () => {
     const provider: AiProvider = {
       requestActionBatch: vi.fn()

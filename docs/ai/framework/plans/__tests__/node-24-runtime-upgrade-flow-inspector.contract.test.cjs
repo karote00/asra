@@ -129,7 +129,7 @@ test('Node.js 24 Inspector assigns every required owner once', () => {
   )
   assert.equal(
     step('validate-generated-template').ownerPackage,
-    'Official Design App template generator'
+    'Official Asyra Design template generator'
   )
   assert.equal(
     step('validate-ci-runtime').ownerPackage,
@@ -137,15 +137,15 @@ test('Node.js 24 Inspector assigns every required owner once', () => {
   )
   assert.equal(
     step('validate-asyra-design-runtime').ownerPackage,
-    'Design App local runtime validation'
+    'Asyra Design local runtime validation'
   )
   assert.equal(
     step('validate-vercel-runtime').ownerPackage,
-    'Linked Design App Vercel project'
+    'Linked Asyra Design Vercel project'
   )
   assert.equal(
     step('synchronize-runtime-support').ownerPackage,
-    'Framework and Design App support documentation'
+    'Framework and Asyra Design support documentation'
   )
   assert.equal(
     step('decide-node-24-readiness').ownerPackage,
@@ -263,7 +263,7 @@ test('implementation boundaries preserve generator, CI, Vercel, and closeout own
   )
   assert.ok(
     step('validate-vercel-runtime').implementationBoundary.includes(
-      'existing linked Design App Vercel Project Settings'
+      'existing linked Asyra Design Vercel Project Settings'
     )
   )
   assert.ok(

@@ -16,7 +16,7 @@ import {
 
 const runsStorageFreeReset = process.env.E2E_STORAGE_FREE_RESET === 'true'
 
-test.describe('Design App Tool', () => {
+test.describe('Asyra Design Tool', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(createTestDocumentURL())
   })
@@ -26,7 +26,7 @@ test.describe('Design App Tool', () => {
     await page.waitForLoadState('domcontentloaded')
 
     // Check that the page title is correct
-    await expect(page).toHaveTitle(/Design App/)
+    await expect(page).toHaveTitle(/Asyra Design/)
 
     // Check that the root element is present
     const rootElement = page.locator('#root')

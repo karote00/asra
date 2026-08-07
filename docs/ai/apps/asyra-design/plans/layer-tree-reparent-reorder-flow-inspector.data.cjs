@@ -918,14 +918,14 @@
     target: {
       id: 'asyra-design-layer-tree-reparent-reorder',
       kind: 'feature',
-      title: 'Design App Layer Tree Reparent and Reorder Inspector',
+      title: 'Asyra Design Layer Tree Reparent and Reorder Inspector',
       subtitle:
         'Layers pointer intent through one app feature session, canonical Gate 3 move settlement, identity-safe projection, and app-owned remote policy.'
     },
     authority: {
       specPath,
       inspectorPath,
-      semanticOwner: 'Design App Layer Tree Reparent and Reorder Plan',
+      semanticOwner: 'Asyra Design Layer Tree Reparent and Reorder Plan',
       inspectorOwner: 'Layer Tree Reparent and Reorder owner flow'
     },
     links: [

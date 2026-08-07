@@ -89,9 +89,16 @@ test('generated template replaces framework resolution with packed artifacts', (
     })
 
     for (const packageName of prepared.contract.packageNames) {
+      const version = prepared.contract.packageVersions[packageName]
       assert.match(
         prepared.manifest.dependencies[packageName],
-        /^file:\.\.\/framework-release-artifacts\/.*-0\.2\.5\.tgz$/
+        new RegExp(
+          `^file:\\.\\./framework-release-artifacts/.*-${version.replace(
+            /[.*+?^${}()|[\]\\]/gu,
+            '\\$&'
+          )}\\.tgz$`,
+          'u'
+        )
       )
     }
     assert.equal(Object.keys(prepared.manifest.resolutions).length, 19)
@@ -115,6 +122,10 @@ test('generated template runner owns install, compile, build, test, smoke, and c
     'tmp',
     'framework-template-evidence-test'
   )
+  const contract = validateGeneratedTemplateContract({
+    repositoryRoot,
+    appName: 'asyra-design'
+  })
   const commands = []
   let smokeDirectory
 
@@ -142,7 +153,10 @@ test('generated template runner owns install, compile, build, test, smoke, and c
           fs.mkdirSync(packageDirectory, { recursive: true })
           fs.writeFileSync(
             path.join(packageDirectory, 'package.json'),
-            `${JSON.stringify({ name, version: '0.2.5' })}\n`
+            `${JSON.stringify({
+              name,
+              version: contract.packageVersions[name]
+            })}\n`
           )
         })
     },

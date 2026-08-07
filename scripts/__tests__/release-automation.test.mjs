@@ -123,8 +123,23 @@ test('generated template manifest is standalone on the supported release runtime
   assert.equal(manifest.packageManager, 'yarn@4.3.1')
   assert.doesNotMatch(serializedScripts, /(?:\.\.\/){2}|--cwd\s+\.\.\/\.\./)
   assert.doesNotMatch(JSON.stringify(manifest), /workspace:|(?:link|portal):/)
-  assert.equal(manifest.dependencies['@asyra/core'], '0.2.5')
-  assert.equal(manifest.dependencies['@asyra/preset'], '0.2.5')
+  for (const [packageName, version] of Object.entries(
+    manifest.dependencies ?? {}
+  )) {
+    if (!packageName.startsWith('@asyra/')) continue
+    const sourceManifest = JSON.parse(
+      readFileSync(
+        path.join(
+          repositoryRoot,
+          'packages',
+          packageName.slice('@asyra/'.length),
+          'package.json'
+        ),
+        'utf8'
+      )
+    )
+    assert.equal(version, sourceManifest.version)
+  }
 
   const environment = readFileSync(
     path.join(repositoryRoot, 'create-app/asyra-design/template/.env'),

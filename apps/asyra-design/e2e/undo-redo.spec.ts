@@ -384,7 +384,7 @@ test.describe('Undo/Redo Actions', () => {
       const elementApis = (await import('../src/testing/runtime-access'))
         .elementApis
       if (!core || !elementApis) {
-        throw new Error('Design App E2E APIs are not available')
+        throw new Error('Asyra Design E2E APIs are not available')
       }
 
       const points = {
@@ -546,7 +546,7 @@ test.describe('Undo/Redo Actions', () => {
       const elementApis = (await import('../src/testing/runtime-access'))
         .elementApis
       if (!core || !elementApis) {
-        throw new Error('Design App E2E APIs are not available')
+        throw new Error('Asyra Design E2E APIs are not available')
       }
 
       const elementId = elementApis.createElement(

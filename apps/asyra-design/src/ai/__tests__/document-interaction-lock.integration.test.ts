@@ -25,7 +25,7 @@ import { createAiTransactionRunner } from '../transaction'
 
 const TEST_WHEEL_INPUT = 'test.ai-document-interaction-lock.wheel'
 
-describe('Design App AI document interaction integration', () => {
+describe('Asyra Design AI document interaction integration', () => {
   beforeEach(() => {
     mocks.core.getSystemProperty.mockImplementation((key: string) => {
       if (key === PresetSystemPropertyKeys.ZOOM) {

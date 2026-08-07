@@ -266,7 +266,7 @@
       order: 2,
       laneId: 'app',
       title: 'Classify and authorize the complete restore',
-      ownerPackage: 'Design App collaboration adapter',
+      ownerPackage: 'Asyra Design collaboration adapter',
       purpose:
         'Validate the complete publication before the first canonical mutation, classify the typed restore, and apply app/backend permission, domain-order, duplicate, stale, and conflict policy.',
       inputs: [
@@ -677,7 +677,7 @@
       order: 3,
       laneId: 'projection',
       title: 'Project the canonical Layers hierarchy',
-      ownerPackage: 'Design App Layers/UI',
+      ownerPackage: 'Asyra Design Layers/UI',
       purpose:
         'Consume ordinary flattenedElementIds and elementDataMap projection so Layers displays the exact restored hierarchy with no restore-only state or fallback.',
       inputs: [

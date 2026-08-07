@@ -1012,7 +1012,7 @@
       ],
       specRefs: ['#product-cases'],
       assertions: [
-        'applyPreset(core) starts the same Pixi-backed Design App surface without app-level concrete engine import'
+        'applyPreset(core) starts the same Pixi-backed Asyra Design surface without app-level concrete engine import'
       ]
     },
     {

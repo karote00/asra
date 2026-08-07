@@ -135,7 +135,7 @@ const dragLayerToWorkspace = async (page: Page, sourceId: string) => {
   await page.mouse.up()
 }
 
-test.describe('Design App Layer Tree reparent and reorder', () => {
+test.describe('Asyra Design Layer Tree reparent and reorder', () => {
   test('moves canonical identities through Layers pointer interactions without canvas jump', async ({
     page
   }) => {

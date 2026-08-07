@@ -36,7 +36,7 @@
       order: 1,
       laneId: 'intent-orchestration',
       title: 'Prepare one composition request',
-      ownerPackage: 'Design App AI actions and common APIs',
+      ownerPackage: 'Asyra Design AI actions and common APIs',
       purpose:
         'Translate one accepted AI composition into one Group and one all-children plural Core request inside one outer Factory transaction.',
       inputs: [
@@ -63,8 +63,8 @@
         'A fatal canonical failure rolls back the complete outer action.'
       ],
       allowedContributors: [
-        'registered Design App AI actions',
-        'Design App common element APIs',
+        'registered Asyra Design AI actions',
+        'Asyra Design common element APIs',
         '@asyra/core public plural element API',
         '@asyra/factory active shared-delivery handle'
       ],
@@ -402,7 +402,7 @@
         'Ordinary and AI element creation already route descriptor property overrides through prepared canonical Props mutations before this switch.',
         'A future animation tick may update computed state locally without touching a property component.',
         'The local producer switch and ordinary Preset consumer registration form one semantic handoff with no dual computed delivery.',
-        'Design App computed derived-state consumers normalize scalar, ordered batch, and patch events and perform each required continuation or icon synchronization exactly once per event.',
+        'Asyra Design computed derived-state consumers normalize scalar, ordered batch, and patch events and perform each required continuation or icon synchronization exactly once per event.',
         'Preset declares its existing @asyra/reactive-events workspace package as a runtime dependency because the production consumer imports its subscriber directly.',
         'Computed projection creates no history, SharedDataChannel batch, Collaboration publication, or persistence snapshot.'
       ],
@@ -418,9 +418,9 @@
         'ordinary local reactive event delivery',
         'direct local animation-to-computed input',
         '@asyra/core mission-specific local computed facade',
-        'Design App transient vector preview caller',
+        'Asyra Design transient vector preview caller',
         'Pen Tool forced-rollback cancel cleanup',
-        'Design App computed derived-state consumers',
+        'Asyra Design computed derived-state consumers',
         '@asyra/preset local computed projection registration'
       ],
       forbiddenContributors: [
@@ -685,7 +685,7 @@
       order: 2,
       laneId: 'collaboration-transport',
       title: 'Transport publication bytes',
-      ownerPackage: 'Design App WebSocket Provider',
+      ownerPackage: 'Asyra Design WebSocket Provider',
       purpose:
         'Accept publications into one bounded ordered Provider queue and transport versioned binary data through workers and an opaque relay without changing publication semantics.',
       inputs: [
@@ -745,7 +745,7 @@
       order: 3,
       laneId: 'collaboration-transport',
       title: 'Apply one remote publication',
-      ownerPackage: 'Design App Collaboration adapter',
+      ownerPackage: 'Asyra Design Collaboration adapter',
       purpose:
         'Validate one inbound publication, open one remote Factory transaction, reuse the Core canonical owner flow, and settle the Provider consumer Promise without local-only side effects.',
       inputs: ['artifact:inbound-publication-callback'],
@@ -769,7 +769,7 @@
       ],
       allowedContributors: [
         'artifact:inbound-publication-callback',
-        'Design App App policy',
+        'Asyra Design App policy',
         '@asyra/core public canonical facade',
         '@asyra/factory remote transaction boundary'
       ],
@@ -1068,7 +1068,7 @@
     {
       id: 'artifact:local-composition-request',
       ownerStepId: 'prepare-one-composition-request',
-      channel: 'Design App common API',
+      channel: 'Asyra Design common API',
       consumerStepIds: ['coordinate-canonical-owner-preparations'],
       terminal: false
     },
@@ -1214,7 +1214,7 @@
     {
       id: 'artifact:remote-canonical-request',
       ownerStepId: 'apply-remote-publication',
-      channel: 'Design App App policy and Core request',
+      channel: 'Asyra Design App policy and Core request',
       consumerStepIds: ['coordinate-canonical-owner-preparations'],
       terminal: false
     },
@@ -1454,7 +1454,7 @@
       specPath,
       inspectorPath,
       semanticOwner:
-        'Design App Pre-Release Canonical Projection and Collaboration Contract Realignment Plan',
+        'Asyra Design Pre-Release Canonical Projection and Collaboration Contract Realignment Plan',
       inspectorOwner:
         'Canonical projection and collaboration owner handoff flow'
     },
@@ -1468,7 +1468,7 @@
       {
         id: 'performance-plan',
         kind: 'completed-successor',
-        label: 'Completed Design App drawing performance plan',
+        label: 'Completed Asyra Design drawing performance plan',
         href: '../../apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md'
       },
       {

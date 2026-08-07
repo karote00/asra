@@ -1,7 +1,7 @@
 {
   "name": "@asyra/render-engine",
   "version": "0.5.0",
-  "description": "Engine-independent render engine contracts for canvas applications",
+  "description": "Engine-independent render engine contracts for Asyra",
   "author": "Asa Tsai",
   "license": "MIT",
   "type": "module",

@@ -17,12 +17,16 @@ export const AI_IMAGE_TOOL_CATALOG: readonly AiImageToolDescriptor[] =
     Object.freeze({
       capabilities: Object.freeze(['whole-image-raster-vectorization']),
       id: AiImageToolIds.VTRACER,
-      inputMediaTypes: Object.freeze(['image/jpeg', 'image/png', 'image/webp'])
+      inputMediaTypes: Object.freeze([
+        'image/jpeg',
+        'image/png',
+        'image/webp'
+      ] as const)
     })
   ])
 
 export const AI_APP_PROMPT = `
-You operate the current design application only through the registered App actions and image tools
+You operate Asyra Design only through the registered App actions and image tools
 supplied with the current request.
 
 For an image-related request:

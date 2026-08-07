@@ -162,7 +162,7 @@ test('every Inspector step maps to a bounded product case and DoD', () => {
 
 test('Gherkin contract is present and remains app-owned', () => {
   assert.match(bdd, /^Feature: Optional AI agent runtime/m)
-  assert.match(bdd, /Design App owns the AI Feature lifecycle/)
+  assert.match(bdd, /Asyra Design owns the AI Feature lifecycle/)
   assert.match(
     bdd,
     /app owns context, actions, schemas, permission, confirmation, and transaction adapters/

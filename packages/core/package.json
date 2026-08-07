@@ -1,7 +1,7 @@
 {
   "name": "@asyra/core",
   "version": "0.5.0",
-  "description": "Core runtime for canvas applications.",
+  "description": "Core of Asyra.",
   "author": "Asa Tsai",
   "license": "MIT",
   "type": "module",

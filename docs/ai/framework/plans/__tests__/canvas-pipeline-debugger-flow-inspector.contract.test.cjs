@@ -51,7 +51,7 @@ test('app DEV bootstrap is separate from E2E and production bypasses import', ()
   assert.equal(bootstrap.ownerPackage, '@asyra/asyra-design')
   assert.match(contract, /import\.meta\.env\.DEV/)
   assert.match(contract, /Production builds bypass/i)
-  assert.match(contract, /__Design AppE2E__/)
+  assert.match(contract, /app E2E debug global/i)
   assert.match(contract, /direct app import/i)
   assert.ok(
     bootstrap.implementationBoundary.includes('apps/asyra-design/tsconfig.json')

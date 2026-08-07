@@ -6,7 +6,7 @@ import {
 } from '../transaction'
 import { documentInteractionLock } from '../document-interaction-lock'
 
-describe('Design App AI transaction adapter', () => {
+describe('Asyra Design AI transaction adapter', () => {
   it('measures the complete common transaction without changing its result', async () => {
     const phaseNames: string[] = []
     const unsubscribe = subscribeToBrowserDragPhases((name) =>

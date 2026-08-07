@@ -2,7 +2,7 @@
 
 ⚠️ **Experimental project. APIs and structure may change before 1.0.**
 
-Official CLI for scaffolding the standalone **Design App** reference app.
+Official CLI for scaffolding the standalone **Asyra Design** reference app.
 
 ## Requirements
 

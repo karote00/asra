@@ -23,7 +23,7 @@ const readCanonicalDrawingSummary = async (
     const sceneTree = (await import('../src/testing/runtime-access')).core?.deps
       ?.sceneTree
     if (!sceneTree) {
-      throw new Error('Design App scene tree is unavailable')
+      throw new Error('Asyra Design scene tree is unavailable')
     }
 
     let groupCount = 0
@@ -50,7 +50,7 @@ const selectFirstEditableFill = async (
     const core = (await import('../src/testing/runtime-access')).core
     const sceneTree = core?.deps.sceneTree
     if (!core || !sceneTree) {
-      throw new Error('Design App canonical state is unavailable')
+      throw new Error('Asyra Design canonical state is unavailable')
     }
 
     for (const element of sceneTree.getAllElements().values()) {

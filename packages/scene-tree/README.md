@@ -1,7 +1,7 @@
 # `@asyra/scene-tree`
 
 Canonical hierarchy, element records, ownership relations, and detached scene
-serialization for canvas documents.
+serialization for Asyra documents.
 
 ```ts
 import sceneTree from '@asyra/scene-tree'

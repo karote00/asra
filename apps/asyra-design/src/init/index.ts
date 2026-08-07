@@ -1,7 +1,7 @@
 /**
  * App initialization exports
  *
- * This folder contains all initialization logic for the Design App framework,
+ * This folder contains all initialization logic for the Asyra framework,
  * grouped by foundation, capability, derived-state, and diagnostics concerns.
  * The main entry point is `initApp()` which sets up all framework components.
  *

@@ -19,7 +19,7 @@
       order: 1,
       laneId: 'canonical',
       title: 'Apply bounded existing element values',
-      ownerPackage: 'Design App element common API',
+      ownerPackage: 'Asyra Design element common API',
       purpose:
         'Apply a whole-element Vector transform through existing scalar/dimension values with no point or handle record mutation.',
       inputs: [
@@ -44,7 +44,7 @@
       ],
       allowedContributors: [
         'move-elements and existing transform feature intent',
-        'Design App element common API',
+        'Asyra Design element common API',
         'public Core plural property update APIs',
         'existing transaction mutation options'
       ],
@@ -150,7 +150,7 @@
       laneId: 'interaction',
       title: 'Keep visible and interactive projection aligned',
       ownerPackage:
-        '@asyra/render, @asyra/preset, and the existing Design App Vector interaction adapter',
+        '@asyra/render, @asyra/preset, and the existing Asyra Design Vector interaction adapter',
       purpose:
         'Project hit geometry, bounds, selection, stroke/fill, and path-edit overlays from the same current Render result without redefining canonical Vector data.',
       inputs: [
@@ -177,7 +177,7 @@
       allowedContributors: [
         '@asyra/render engine-neutral element projection',
         '@asyra/preset selection and path-edit render layers',
-        'Design App existing Vector common-API coordinate adapter',
+        'Asyra Design existing Vector common-API coordinate adapter',
         'existing canonical Selection and System Context state'
       ],
       forbiddenContributors: [
@@ -213,7 +213,7 @@
       laneId: 'settlement',
       title: 'Settle through existing action owners',
       ownerPackage:
-        'Design App move-elements feature with @asyra/factory and Core persistence',
+        'Asyra Design move-elements feature with @asyra/factory and Core persistence',
       purpose:
         'Settle the point-free canvas drag through opt-in first-before/latest-after History staging, ordinary rollback, publication, remote apply, and persistence without storing Render cache state.',
       inputs: [
@@ -243,7 +243,7 @@
         'Rollback reverses the complete rollbackable action.'
       ],
       allowedContributors: [
-        'Design App move-elements feature mutation options',
+        'Asyra Design move-elements feature mutation options',
         '@asyra/factory transaction journal and shared channels',
         '@asyra/core persistence queue',
         'existing collaboration remote-apply adapter',
@@ -558,14 +558,14 @@
     target: {
       id: 'vector-render-geometry-cache-transform',
       kind: 'feature',
-      title: 'Design App Vector Render Geometry Cache Inspector',
+      title: 'Asyra Design Vector Render Geometry Cache Inspector',
       subtitle:
         'Unchanged persisted Vector data through bounded transform, retained Render geometry, interaction, and settlement routes.'
     },
     authority: {
       specPath,
       inspectorPath,
-      semanticOwner: 'Design App product contract',
+      semanticOwner: 'Asyra Design product contract',
       inspectorOwner: 'Render-owned Vector geometry projection architecture'
     },
     links: [

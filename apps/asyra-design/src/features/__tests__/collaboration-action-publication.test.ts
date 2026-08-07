@@ -17,7 +17,7 @@ const createStartSnapshot = {
   mouseDragging: true
 }
 
-describe('Design App canonical collaboration delivery timeline', () => {
+describe('Asyra Design canonical collaboration delivery timeline', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.spyOn(elementApis, 'updateElementProperties').mockImplementation(

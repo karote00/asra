@@ -439,7 +439,7 @@ const startWebSocketPayloadProfile = async (
 const prepareCompleteCatViewport = async (page: Page) => {
   const viewport = await page.locator('#viewport-anchor').boundingBox()
   if (!viewport) {
-    throw new Error('The Design App viewport bounds are unavailable')
+    throw new Error('The Asyra Design viewport bounds are unavailable')
   }
   const output = {
     height: 941,

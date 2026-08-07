@@ -1102,15 +1102,15 @@
     target: {
       id: 'asyra-design-group-interaction-mvp',
       kind: 'feature',
-      title: 'Design App Group Interaction MVP Inspector',
+      title: 'Asyra Design Group Interaction MVP Inspector',
       subtitle:
         'Exact app command, transaction, hierarchy-scoped canvas targeting, Layers projection, world-space bounds, collaboration, persistence, and Render handoffs for official Group operations.'
     },
     authority: {
       specPath,
       inspectorPath,
-      semanticOwner: 'Design App Group Interaction MVP Plan',
-      inspectorOwner: 'Design App Group Interaction owner flow'
+      semanticOwner: 'Asyra Design Group Interaction MVP Plan',
+      inspectorOwner: 'Asyra Design Group Interaction owner flow'
     },
     links: [
       {

@@ -1,6 +1,6 @@
 # `@asyra/collaboration`
 
-Optional, provider-replaceable live transport for completed Factory
+Optional, provider-replaceable live transport for completed Asyra Factory
 publications and ephemeral Awareness.
 
 The package owns connection lifecycle and FIFO publication handoff only. Apps

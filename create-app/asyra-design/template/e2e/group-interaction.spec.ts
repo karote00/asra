@@ -128,7 +128,7 @@ const getCanonicalGeometries = (
     return geometries
   }, elementIds)
 
-test.describe('Design App Group interaction MVP', () => {
+test.describe('Asyra Design Group interaction MVP', () => {
   test('undoes and redoes a basic two-rectangle Group without losing either rectangle', async ({
     page
   }) => {

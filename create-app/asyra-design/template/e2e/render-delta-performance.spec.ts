@@ -136,7 +136,7 @@ test.describe('Render delta performance budget', () => {
           subscribeToDiagnosticCounters
         } = await import('../src/testing/runtime-access')
         if (!core || !elementApis) {
-          throw new Error('Design App E2E runtime is unavailable')
+          throw new Error('Asyra Design E2E runtime is unavailable')
         }
 
         const center = { x: 420, y: 300 }
@@ -618,7 +618,7 @@ test.describe('Render delta performance budget', () => {
         '../src/testing/runtime-access'
       )
       if (!core || !elementApis) {
-        throw new Error('Design App E2E runtime is unavailable')
+        throw new Error('Asyra Design E2E runtime is unavailable')
       }
 
       const center = { x: 420, y: 300 }
@@ -971,7 +971,7 @@ test.describe('Render delta performance budget', () => {
         typeof factory?.undo !== 'function' ||
         typeof factory?.redo !== 'function'
       ) {
-        throw new Error('Design App replay runtime is unavailable')
+        throw new Error('Asyra Design replay runtime is unavailable')
       }
 
       const waitForStableFrame = () =>

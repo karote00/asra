@@ -321,7 +321,7 @@ const executePrepared = async (
     context
   )
 
-describe('Design App AI composition action catalog', () => {
+describe('Asyra Design AI composition action catalog', () => {
   it('registers the six server-facing actions in deterministic order', () => {
     expect(createAiActions(actionApis()).map(({ name }) => name)).toEqual([
       AiActionNames.REQUEST_DRAWING_DETAIL_CHOICE,
@@ -334,7 +334,7 @@ describe('Design App AI composition action catalog', () => {
   })
 })
 
-describe('Design App AI composition action execution', () => {
+describe('Asyra Design AI composition action execution', () => {
   it('consumes server-prepared composition evidence without client preparation', async () => {
     const apis = actionApis()
     const action = actionByName(AiActionNames.INSERT_VECTOR_COMPOSITION, apis)

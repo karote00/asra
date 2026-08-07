@@ -21,7 +21,7 @@ const validSvg = `
   </svg>
 `
 
-describe('Design App VTracer adapter', () => {
+describe('Asyra Design VTracer adapter', () => {
   it('validates VTracer polygon SVG into finite generic-role editable vectors', () => {
     const result = parseVTracerSvg(validSvg)
 

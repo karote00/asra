@@ -146,7 +146,7 @@
       ],
       forbiddenContributors: [
         'root package version',
-        'private Design App version',
+        'private Asyra Design version',
         'create-app version or generated template',
         'npm publication'
       ],
@@ -246,7 +246,7 @@
       ],
       forbiddenContributors: [
         'root asyra version bump',
-        'private Design App version bump',
+        'private Asyra Design version bump',
         'create-app version or template materialization',
         'manual changelog substitution'
       ],

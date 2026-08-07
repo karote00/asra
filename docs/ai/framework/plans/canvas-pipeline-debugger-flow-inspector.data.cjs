@@ -22,22 +22,22 @@
       ownerPackage: '@asyra/asyra-design',
       purpose:
         'Dynamically load the optional Core facade in development and expose one disabled runtime console handle.',
-      inputs: ['Design App DEV environment', 'explicit app-owned Core instance'],
+      inputs: ['Asyra Design DEV environment', 'explicit app-owned Core instance'],
       outputs: ['artifact:dev-session-request'],
       conditions: [
         'Only import the optional debugger subpath when import.meta.env.DEV is true.',
-        'Expose the handle independently from __Design AppE2E__ and dispose it during HMR replacement.'
+        'Expose the handle independently from any app E2E debug global and dispose it during HMR replacement.'
       ],
       bypasses: [
         'Production builds bypass the import, session creation, console handle, trace, and overlay completely.'
       ],
       allowedContributors: [
         '@asyra/core/canvas-pipeline-debugger public API',
-        'Design App DEV bootstrap',
+        'Asyra Design DEV bootstrap',
         'the app-owned Core instance'
       ],
       forbiddenContributors: [
-        '__Design AppE2E__',
+        'any app E2E debug global',
         '@asyra/render/canvas-pipeline-debugger direct app import',
         'Pixi or concrete-engine imports',
         'production environment detection inside framework packages'
@@ -503,7 +503,7 @@
       stepIds: ['bootstrap-dev-debugger'],
       specRefs: ['#product-cases', '#definition-of-done'],
       assertions: [
-        'Design App production wiring contains no optional debugger implementation or overlay chunk.'
+        'Asyra Design production wiring contains no optional debugger implementation or overlay chunk.'
       ]
     }
   ]

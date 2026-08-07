@@ -24,7 +24,7 @@ const anchorForHeading = (heading) =>
 test('Vector Render Geometry Cache Inspector authorities resolve', () => {
   assert.equal(
     data.target.title,
-    'Design App Vector Render Geometry Cache Inspector'
+    'Asyra Design Vector Render Geometry Cache Inspector'
   )
   assert.equal(
     data.authority.specPath,

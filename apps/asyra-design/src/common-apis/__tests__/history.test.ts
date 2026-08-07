@@ -57,7 +57,7 @@ const createHistoryHarness = () => {
   }
 }
 
-describe('Design App current AI history projection', () => {
+describe('Asyra Design current AI history projection', () => {
   it('correlates only the active turn commit and invokes canonical Undo or Redo', async () => {
     const harness = createHistoryHarness()
     harness.projection.beginTurn('conversation-a:turn:1')

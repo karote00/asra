@@ -102,7 +102,7 @@ test('root commands validate the committed Turbo graph without rewriting it', ()
   assert.match(rootManifest.scripts['test:ci'], /test:scripts/)
 })
 
-test('Design App keeps frontend startup, live transport, and local persistence separate', () => {
+test('Asyra Design keeps frontend startup, live transport, and local persistence separate', () => {
   const rootManifest = readJSON('package.json')
   const appReadme = readText('apps/asyra-design/README.md')
   const devAllRunner = readText('scripts/dev-all.js')
@@ -364,7 +364,7 @@ test('AI agent runtime is an optional zero-runtime-dependency workspace package'
   assert.equal(
     app.dependencies['@asyra/ai-agent-runtime'],
     'workspace:*',
-    'Design App must opt into the optional runtime explicitly'
+    'Asyra Design must opt into the optional runtime explicitly'
   )
   assert.deepEqual(
     turbo.tasks['@asyra/ai-agent-runtime#build:ai-agent-runtime']?.dependsOn,

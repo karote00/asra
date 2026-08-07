@@ -44,7 +44,7 @@ const anchorsIn = (markdown) =>
 test('Layer Tree move Inspector authorities resolve', () => {
   assert.equal(
     data.target.title,
-    'Design App Layer Tree Reparent and Reorder Inspector'
+    'Asyra Design Layer Tree Reparent and Reorder Inspector'
   )
   assert.equal(
     data.authority.specPath,

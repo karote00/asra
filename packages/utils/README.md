@@ -1,7 +1,7 @@
 # `@asyra/utils`
 
 Shared public data types, validation helpers, geometry contracts, and
-registration primitives used across framework packages.
+registration primitives used across Asyra packages.
 
 ```ts
 import { isRecord } from '@asyra/utils'

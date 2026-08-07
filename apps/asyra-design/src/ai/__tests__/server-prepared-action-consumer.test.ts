@@ -104,7 +104,7 @@ const preparedDrawingArtifact = (): PreparedDrawingArtifact => {
   })
 }
 
-describe('server-prepared Design App action consumers', () => {
+describe('server-prepared Asyra Design action consumers', () => {
   it('publishes only the backend input schema and executor contract', () => {
     const actions = createAiActions(actionApis())
 

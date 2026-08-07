@@ -30,7 +30,7 @@
         'Node.js 24 migration product contract',
         'local Node, Corepack, Yarn, OS, and architecture evidence',
         'official Node.js LTS support evidence',
-        'linked Design App Vercel project identity and current runtime metadata'
+        'linked Asyra Design Vercel project identity and current runtime metadata'
       ],
       outputs: ['artifact:runtime-contract', 'artifact:runtime-source-finding'],
       conditions: [
@@ -80,7 +80,7 @@
       title: 'Validate workspace and package manifests',
       ownerPackage: 'Workspace manifest runtime contract',
       purpose:
-        'Require the root-selected Node.js 24.x contract in all 19 Framework packages, Design App, the packed-only consumer fixture, and every supported manifest consumer without changing package versions or dependencies.',
+        'Require the root-selected Node.js 24.x contract in all 19 Framework packages, Asyra Design, the packed-only consumer fixture, and every supported manifest consumer without changing package versions or dependencies.',
       inputs: ['artifact:runtime-contract'],
       outputs: [
         'artifact:manifest-compatibility',
@@ -88,7 +88,7 @@
       ],
       conditions: [
         'All 19 public Framework manifests declare exactly Node.js 24.x.',
-        'Design App declares Node.js 24.x at the Vercel project root package and the durable clean-consumer fixture declares the same major.',
+        'Asyra Design declares Node.js 24.x at the Vercel project root package and the durable clean-consumer fixture declares the same major.',
         'Package names, versions, dependency ranges, packageManager fields, and Yarn 4.3.1 remain otherwise unchanged.',
         'Cleanup owner: validate-manifest-compatibility owns no generated output, install directory, tarball, server, browser, or port.'
       ],
@@ -98,7 +98,7 @@
       ],
       allowedContributors: [
         'artifact:runtime-contract',
-        'root, Framework package, Design App, and clean-consumer manifests',
+        'root, Framework package, Asyra Design, and clean-consumer manifests',
         'formal manifest compatibility assertions'
       ],
       forbiddenContributors: [
@@ -181,7 +181,7 @@
       order: 4,
       laneId: 'automation',
       title: 'Validate the generated template contract',
-      ownerPackage: 'Official Design App template generator',
+      ownerPackage: 'Official Asyra Design template generator',
       purpose:
         'Make the official generator produce the Node.js 24.x template contract, regenerate committed create-app output only through that generator, and prove the packed-only generated consumer under Node.js 24.',
       inputs: [
@@ -289,10 +289,10 @@
       id: 'validate-asyra-design-runtime',
       order: 6,
       laneId: 'application',
-      title: 'Validate Design App locally',
-      ownerPackage: 'Design App local runtime validation',
+      title: 'Validate Asyra Design locally',
+      ownerPackage: 'Asyra Design local runtime validation',
       purpose:
-        'Prove the complete workspace and Design App build, Node server paths, browser flows, collaboration, performance budgets, and visual gates on Node.js 24 without treating browser execution as Node execution.',
+        'Prove the complete workspace and Asyra Design build, Node server paths, browser flows, collaboration, performance budgets, and visual gates on Node.js 24 without treating browser execution as Node execution.',
       inputs: [
         'artifact:runtime-contract',
         'artifact:manifest-compatibility',
@@ -306,8 +306,8 @@
         'artifact:asyra-design-runtime-finding'
       ],
       conditions: [
-        'Immutable install, Turbo graph, dependency boundaries, full workspace build/tests/lint, Inspector tests, tarballs, clean consumer, generated template, and Design App production build execute under local Node.js 24.',
-        'Design App ordinary E2E, collaboration E2E, performance gates, and current formal visual gates produce separate browser-runtime evidence.',
+        'Immutable install, Turbo graph, dependency boundaries, full workspace build/tests/lint, Inspector tests, tarballs, clean consumer, generated template, and Asyra Design production build execute under local Node.js 24.',
+        'Asyra Design ordinary E2E, collaboration E2E, performance gates, and current formal visual gates produce separate browser-runtime evidence.',
         'Browser pass does not waive a local build, server, package, artifact, or template failure.',
         'Cleanup owner: validate-asyra-design-runtime PID-tracks and removes every agent-started server, browser, child process, temporary project-local artifact, and extra port.'
       ],
@@ -350,7 +350,7 @@
       order: 7,
       laneId: 'deployment',
       title: 'Validate Vercel build and function runtime',
-      ownerPackage: 'Linked Design App Vercel project',
+      ownerPackage: 'Linked Asyra Design Vercel project',
       purpose:
         'Set the existing project build/runtime to Node.js 24.x, create a feature-branch preview, and separately prove the build runtime, deployed frontend, and every project-owned Vercel function or middleware route.',
       inputs: [
@@ -367,7 +367,7 @@
         'artifact:vercel-runtime-finding'
       ],
       conditions: [
-        'The existing linked Design App project setting is Node.js 24.x and apps/asyra-design/package.json independently selects the same major.',
+        'The existing linked Asyra Design project setting is Node.js 24.x and apps/asyra-design/package.json independently selects the same major.',
         'The preview build log reports the actual Node.js 24.x patch used by the Vercel build runtime.',
         'The deployed frontend passes smoke verification independently from build success.',
         'Every project-owned Vercel function or middleware route is exercised; when none exists, artifact:vercel-function-evidence explicitly records not-applicable rather than borrowing frontend evidence.',
@@ -399,8 +399,8 @@
         'apps/asyra-design/package.json',
         'vercel.json',
         '.vercel/project.json read-only linked-project metadata',
-        'existing linked Design App Vercel Project Settings',
-        'existing linked Design App Vercel preview deployments',
+        'existing linked Asyra Design Vercel Project Settings',
+        'existing linked Asyra Design Vercel preview deployments',
         'scripts/__tests__/node-runtime-contract.test.mjs'
       ],
       specRefs: [
@@ -416,7 +416,7 @@
       order: 8,
       laneId: 'support',
       title: 'Synchronize runtime support documentation',
-      ownerPackage: 'Framework and Design App support documentation',
+      ownerPackage: 'Framework and Asyra Design support documentation',
       purpose:
         'Replace current Node.js 20 support claims with Node.js 24.x only after local, CI, package, generated-template, app, and Vercel evidence all agree, while leaving historical point-in-time evidence intact.',
       inputs: [
@@ -481,7 +481,7 @@
       title: 'Decide READY or owner-specific BLOCKED',
       ownerPackage: 'Node.js 24 migration readiness decision',
       purpose:
-        'Emit READY only from same-branch local, CI, package, template, Design App, and Vercel preview evidence with no unresolved P0/P1/P2 finding; otherwise preserve an exact owner-specific BLOCKED result.',
+        'Emit READY only from same-branch local, CI, package, template, Asyra Design, and Vercel preview evidence with no unresolved P0/P1/P2 finding; otherwise preserve an exact owner-specific BLOCKED result.',
       inputs: [
         'artifact:runtime-contract',
         'artifact:manifest-compatibility',
@@ -602,7 +602,7 @@
       to: 'validate-vercel-runtime',
       kind: 'browser evidence',
       predicate:
-        'Design App browser, collaboration, performance, and visual gates pass',
+        'Asyra Design browser, collaboration, performance, and visual gates pass',
       producedArtifacts: ['artifact:browser-runtime-evidence']
     },
     {
@@ -900,7 +900,7 @@
       id: 'manifest-and-release-case',
       title: 'Workspace, package, artifact, and consumer contract',
       assertions: [
-        'Root, 19 Framework packages, Design App, and the durable consumer fixture require Node.js 24.x without version or dependency changes.',
+        'Root, 19 Framework packages, Asyra Design, and the durable consumer fixture require Node.js 24.x without version or dependency changes.',
         'Package artifacts and packed-only clean consumers enforce the same runtime.'
       ],
       stepIds: [

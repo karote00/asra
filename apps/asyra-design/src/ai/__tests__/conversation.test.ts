@@ -27,7 +27,7 @@ const createFeature = (
   execute: vi.fn(execute)
 })
 
-describe('Design App AI conversation controller', () => {
+describe('Asyra Design AI conversation controller', () => {
   it('retains ordered safe progress with the settled turn and brackets history correlation', async () => {
     const history = {
       beginTurn: vi.fn(),

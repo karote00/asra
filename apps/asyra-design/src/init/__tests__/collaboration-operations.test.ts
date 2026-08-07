@@ -479,7 +479,7 @@ const createHarness = (options: HarnessOptions = {}) => {
   }
 }
 
-describe('Design App app-owned collaboration processing', () => {
+describe('Asyra Design app-owned collaboration processing', () => {
   it('applies a gap-free bootstrap tail exactly once in document sequence order', async () => {
     const first = publication(
       propertyUpdateDeliveries('position-a', { x: 10 }),
@@ -1758,7 +1758,7 @@ const persistenceBatch = (
   })
 })
 
-describe('Design App backend document materialization', () => {
+describe('Asyra Design backend document materialization', () => {
   it('decodes and applies every publication in sequence before acknowledging the contiguous durable sequence', async () => {
     const harness = createMaterializationHarness()
     const batch = persistenceBatch([

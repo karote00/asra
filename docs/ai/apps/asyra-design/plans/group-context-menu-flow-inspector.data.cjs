@@ -20,19 +20,19 @@
       order: 1,
       laneId: 'host-input',
       title: 'Accept one canvas-scoped native context event',
-      ownerPackage: 'Design App canvas adapter',
+      ownerPackage: 'Asyra Design canvas adapter',
       purpose:
         'Replace Input System global browser-menu suppression with one canvas-host contextmenu intake that accepts pointer client coordinates and prevents browser default only for the handled app invocation.',
       inputs: [
         'native contextmenu event target and client coordinates',
-        'Design App canvas interaction host identity'
+        'Asyra Design canvas interaction host identity'
       ],
       outputs: [
         'artifact:accepted-canvas-context-invocation',
         'artifact:native-context-menu-bypass'
       ],
       conditions: [
-        'A native contextmenu event whose target belongs to the mounted Design App canvas interaction host is accepted once with exact client coordinates and invoking host identity.',
+        'A native contextmenu event whose target belongs to the mounted Asyra Design canvas interaction host is accepted once with exact client coordinates and invoking host identity.',
         'The canvas adapter calls preventDefault only after it accepts the canvas invocation.',
         'Input System removes its unconditional window contextmenu suppression and retains only typed keyboard and pointer normalization.',
         'Opening intake does not hit test, retarget selection, transact, publish, save, or write canonical document state.'
@@ -43,7 +43,7 @@
       ],
       allowedContributors: [
         'native browser contextmenu event',
-        'mounted Design App canvas host',
+        'mounted Asyra Design canvas host',
         '@asyra/input-system removal of unconditional suppression'
       ],
       forbiddenContributors: [
@@ -76,7 +76,7 @@
       order: 1,
       laneId: 'app-policy',
       title: 'Own the app-local menu session',
-      ownerPackage: 'Design App menu session',
+      ownerPackage: 'Asyra Design menu session',
       purpose:
         'Own one app-root-local open, replacement, positioning-input, dismissal, and focus-return session without copying hierarchy, selection, or document state.',
       inputs: [
@@ -133,7 +133,7 @@
       order: 2,
       laneId: 'app-policy',
       title: 'Project shared Group and Ungroup command descriptors',
-      ownerPackage: 'Design App command layer',
+      ownerPackage: 'Asyra Design command layer',
       purpose:
         'Project one fixed-order Group/Ungroup descriptor source into visible labels, actual key bindings, platform shortcut labels, current eligibility, and the existing feature execution callback.',
       inputs: [
@@ -225,7 +225,7 @@
         'browser layout measurement for generic viewport fit'
       ],
       forbiddenContributors: [
-        'Design App selection or hierarchy reads',
+        'Asyra Design selection or hierarchy reads',
         'Core, Factory, Feature, Preset, Render, or Input System imports',
         'platform detection or Group command eligibility',
         'canonical document mutation or app-owned menu session'
@@ -250,7 +250,7 @@
       order: 1,
       laneId: 'execution',
       title: 'Handoff one enabled command to the existing feature',
-      ownerPackage: 'Design App Group command routing',
+      ownerPackage: 'Asyra Design Group command routing',
       purpose:
         'Close an activated menu session and dispatch exactly one existing Group/Ungroup feature command, while the registered shortcut route dispatches that same feature contract without creating a parallel mutation path.',
       inputs: [
@@ -306,7 +306,7 @@
       order: 1,
       laneId: 'lifecycle',
       title: 'Dispose menu resources and preserve app-root isolation',
-      ownerPackage: 'Design App and Design System menu lifecycle',
+      ownerPackage: 'Asyra Design and Design System menu lifecycle',
       purpose:
         'Dispose the current app-root menu session, portal, listeners, and focus handles without sharing open state or platform presentation across app instances.',
       inputs: [
@@ -565,7 +565,7 @@
   const invariants = [
     {
       id: 'app-owns-menu-policy',
-      title: 'Design App owns menu state and command policy',
+      title: 'Asyra Design owns menu state and command policy',
       statement:
         'Input System normalizes input and Design System presents props; neither owns which menu opens, which command is enabled, or which Group feature executes.',
       stepIds: [
@@ -720,15 +720,15 @@
     target: {
       id: 'asyra-design-group-context-menu',
       kind: 'feature',
-      title: 'Design App Group Context Menu Inspector',
+      title: 'Asyra Design Group Context Menu Inspector',
       subtitle:
         'Canvas-scoped native intake, app-local session and shared Group command descriptors, reusable Design System presentation, existing feature execution, and isolated teardown.'
     },
     authority: {
       specPath,
       inspectorPath,
-      semanticOwner: 'Design App Group Context Menu Plan',
-      inspectorOwner: 'Design App Group Context Menu owner flow'
+      semanticOwner: 'Asyra Design Group Context Menu Plan',
+      inspectorOwner: 'Asyra Design Group Context Menu owner flow'
     },
     links: [
       {

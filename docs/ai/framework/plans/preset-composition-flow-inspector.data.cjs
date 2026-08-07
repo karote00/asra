@@ -349,7 +349,7 @@
         'All composition completes before core.start().'
       ],
       bypasses: [
-        'The default Design App route performs no registration customization or custom provider binding.'
+        'The default Asyra Design route performs no registration customization or custom provider binding.'
       ],
       allowedContributors: [
         'public Core APIs',

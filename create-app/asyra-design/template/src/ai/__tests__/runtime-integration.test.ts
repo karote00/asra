@@ -197,7 +197,7 @@ const executeBatch = async (batch: AiActionBatch) => {
   }
 }
 
-describe('Design App server action-batch runtime integration', () => {
+describe('Asyra Design server action-batch runtime integration', () => {
   beforeEach(() => {
     prepareCommonApis()
   })
