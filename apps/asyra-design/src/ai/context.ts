@@ -5,11 +5,6 @@ import {
   selectionApis,
   systemContextApis
 } from '../common-apis'
-import {
-  AI_APP_PROMPT,
-  AI_IMAGE_TOOL_CATALOG,
-  type AiImageToolDescriptor
-} from './app-prompt'
 
 export const AI_CONTEXT_SELECTED_ELEMENT_LIMIT = 50
 
@@ -47,8 +42,6 @@ export interface AiElementContext {
 }
 
 export interface AiContext {
-  readonly appPrompt: string
-  readonly imageTools: readonly AiImageToolDescriptor[]
   readonly workspaceId: string | null
   readonly primaryTool: string
   readonly systemMode: string
@@ -173,8 +166,6 @@ export const createAiContextProvider = (
       assertNotAborted(signal)
 
       return Object.freeze({
-        appPrompt: AI_APP_PROMPT,
-        imageTools: AI_IMAGE_TOOL_CATALOG,
         workspaceId:
           typeof workspaceIdValue === 'string' && workspaceIdValue.length > 0
             ? workspaceIdValue
