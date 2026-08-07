@@ -1121,9 +1121,9 @@ const renderVectorGraphic = (
 ): void => {
   const renderData = normalizeVectorRenderData(data)
   const cache = graphic as typeof graphic & {
-    __asyraVectorFillCache?: FillFaceCache
-    __asyraEvenOddFillCache?: EvenOddFillCache
-    __asyraVectorFillHitCache?: VectorFillHitCache
+    __vectorFillCache?: FillFaceCache
+    __evenOddFillCache?: EvenOddFillCache
+    __vectorFillHitCache?: VectorFillHitCache
   }
 
   graphic.clear()
@@ -1206,7 +1206,7 @@ const renderVectorGraphic = (
 
   if (hasRenderableFill) {
     const preparedFillShape = prepareEvenOddShape(shape)
-    const hitCache = cache.__asyraVectorFillHitCache
+    const hitCache = cache.__vectorFillHitCache
     const reuseHitArea =
       hitCache?.points === points &&
       hitCache.segments === segments &&
@@ -1223,7 +1223,7 @@ const renderVectorGraphic = (
               preparedFillShape
             )
         }
-    cache.__asyraVectorFillHitCache = {
+    cache.__vectorFillHitCache = {
       preparedFillShape,
       points,
       segments,
@@ -1235,13 +1235,13 @@ const renderVectorGraphic = (
     }
     ;(graphic as { hitArea: typeof hitArea }).hitArea = hitArea
   } else {
-    cache.__asyraVectorFillHitCache = undefined
+    cache.__vectorFillHitCache = undefined
   }
 
   if (fillPayload.length === 0) {
-    if (cache.__asyraEvenOddFillCache?.fill) {
-      cache.__asyraEvenOddFillCache.fill.dispose()
-      cache.__asyraEvenOddFillCache = undefined
+    if (cache.__evenOddFillCache?.fill) {
+      cache.__evenOddFillCache.fill.dispose()
+      cache.__evenOddFillCache = undefined
     }
     applyBaseVectorStroke(graphic, renderData.strokes ?? [], () =>
       drawVectorPath(graphic, orderedNetworks, points, segments, pointOffset)
@@ -1252,7 +1252,7 @@ const renderVectorGraphic = (
   const hasGradient = fillPayload.some((fill) => fill.kind === 'gradient')
   let previewFill = false
   if (hasGradient) {
-    const evenOddCache = cache.__asyraEvenOddFillCache ?? { fill: null }
+    const evenOddCache = cache.__evenOddFillCache ?? { fill: null }
     const reuseEvenOddFill =
       evenOddCache.fill &&
       evenOddCache.width === renderData.width &&
@@ -1283,7 +1283,7 @@ const renderVectorGraphic = (
       evenOddCache.pointOffsetX = pointOffset.x
       evenOddCache.pointOffsetY = pointOffset.y
     }
-    cache.__asyraEvenOddFillCache = evenOddCache
+    cache.__evenOddFillCache = evenOddCache
 
     if (evenOddCache.fill) {
       graphic.rect(0, 0, renderData.width, renderData.height)
@@ -1294,10 +1294,10 @@ const renderVectorGraphic = (
       previewFill = true
     }
   } else {
-    cache.__asyraEvenOddFillCache?.fill?.dispose()
-    cache.__asyraEvenOddFillCache = undefined
+    cache.__evenOddFillCache?.fill?.dispose()
+    cache.__evenOddFillCache = undefined
     if (renderData.fillRule === 'nonzero' && hasClosedNetwork) {
-      cache.__asyraVectorFillCache = undefined
+      cache.__vectorFillCache = undefined
       drawVectorPath(graphic, orderedNetworks, points, segments, pointOffset)
       applyRenderableFill(graphic as { fill: unknown }, fillPayload, {
         replayPath: () =>
@@ -1310,7 +1310,7 @@ const renderVectorGraphic = (
           )
       })
     } else {
-      const fillCache = cache.__asyraVectorFillCache ?? { faces: [] }
+      const fillCache = cache.__vectorFillCache ?? { faces: [] }
       const {
         flattenedSegments,
         directedSegments,
@@ -1327,7 +1327,7 @@ const renderVectorGraphic = (
       fillCache.faces = fillFaces
       fillCache.segmentKeyMap = segmentKeyMap
       fillCache.segmentLinesMap = segmentLinesMap
-      cache.__asyraVectorFillCache = fillCache
+      cache.__vectorFillCache = fillCache
 
       if (fillFaces.length > 0) {
         drawFillFaces(graphic, fillFaces)

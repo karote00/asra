@@ -17,7 +17,11 @@ export const AI_IMAGE_TOOL_CATALOG: readonly AiImageToolDescriptor[] =
     Object.freeze({
       capabilities: Object.freeze(['whole-image-raster-vectorization']),
       id: AiImageToolIds.VTRACER,
-      inputMediaTypes: Object.freeze(['image/jpeg', 'image/png', 'image/webp'])
+      inputMediaTypes: Object.freeze([
+        'image/jpeg',
+        'image/png',
+        'image/webp'
+      ] as const)
     })
   ])
 

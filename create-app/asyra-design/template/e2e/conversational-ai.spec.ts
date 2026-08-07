@@ -82,7 +82,7 @@ const readElementFillProjection = async (
     const computed = element?.getAllComputedData() as
       | { fills?: readonly { readonly color?: unknown }[] }
       | undefined
-    const rendered = renderElement?.__asyraLastRenderDataSnapshot as
+    const rendered = renderElement?.__renderDataSnapshot as
       | { fills?: readonly { readonly color?: unknown }[] }
       | undefined
     const computedColor = computed?.fills?.[0]?.color

@@ -25,9 +25,9 @@ const CRDT_COMPLETION_TIMEOUT_MS = 180_000
 const CRDT_CASE_TIMEOUT_MS = 240_000
 const CRDT_ACTION_UNDO_REDO_CASE_TIMEOUT_MS = 600_000
 const sliceElementBudget = (() => {
-  const value = Number(process.env.ASYRA_E2E_SLICE_ELEMENT_BUDGET ?? 32)
+  const value = Number(process.env.E2E_SLICE_ELEMENT_BUDGET ?? 32)
   if (value !== 32 && value !== 64) {
-    throw new Error('ASYRA_E2E_SLICE_ELEMENT_BUDGET must be 32 or 64')
+    throw new Error('E2E_SLICE_ELEMENT_BUDGET must be 32 or 64')
   }
   return value
 })() as 32 | 64

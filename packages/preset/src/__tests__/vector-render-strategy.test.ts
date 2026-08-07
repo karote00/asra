@@ -459,9 +459,9 @@ describe('vector render strategy', () => {
     const group = new RenderContainer({ x: 142, y: 158 })
     ;(
       group as RenderContainer & {
-        __asyraType?: string
+        __renderElementType?: string
       }
-    ).__asyraType = 'group'
+    ).__renderElementType = 'group'
     const graphic = group.addChild(new RenderGraphics())
 
     VECTOR_RENDER_STRATEGY(graphic, {

@@ -106,7 +106,7 @@ const collectSourceFiles = (directory) => {
   return files
 }
 
-const collectAsyraImports = (templateDirectory) => {
+const collectFrameworkImports = (templateDirectory) => {
   const imports = []
   const importPattern =
     /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s*)['"](@asyra\/[^'"]+)['"]/gu
@@ -160,7 +160,7 @@ export const validateGeneratedTemplateContract = ({
     throw new Error('Generated template contains a monorepo-only script')
   }
 
-  const imports = collectAsyraImports(templateDirectory)
+  const imports = collectFrameworkImports(templateDirectory)
   for (const record of imports) {
     const packageName = packageNameForSpecifier(record.specifier)
     const releasePackage = packagesByName.get(packageName)
@@ -193,6 +193,10 @@ export const validateGeneratedTemplateContract = ({
     }
   }
 
+  const packageNames = Object.keys(manifest.dependencies ?? {})
+    .filter((packageName) => packagesByName.has(packageName))
+    .sort()
+
   return freeze({
     appName,
     importCount: imports.length,
@@ -201,9 +205,13 @@ export const validateGeneratedTemplateContract = ({
         imports.map(({ specifier }) => packageNameForSpecifier(specifier))
       )
     ].sort(),
-    packageNames: Object.keys(manifest.dependencies ?? {})
-      .filter((packageName) => packagesByName.has(packageName))
-      .sort(),
+    packageNames,
+    packageVersions: Object.fromEntries(
+      packageNames.map((packageName) => [
+        packageName,
+        packagesByName.get(packageName).version
+      ])
+    ),
     templateDirectory
   })
 }
@@ -309,8 +317,10 @@ const assertSupportedRuntime = ({ allowUnsupportedNode }) => {
   }
 }
 
-const verifyInstalledPackages = ({ consumerDirectory, packageNames }) => {
-  for (const packageName of packageNames) {
+const verifyInstalledPackages = ({ consumerDirectory, packageVersions }) => {
+  for (const [packageName, expectedVersion] of Object.entries(
+    packageVersions
+  )) {
     const packageDirectory = path.join(
       consumerDirectory,
       'node_modules',
@@ -323,7 +333,7 @@ const verifyInstalledPackages = ({ consumerDirectory, packageNames }) => {
       throw new Error(`${packageName} resolved through a symlink`)
     }
     const manifest = readJson(path.join(packageDirectory, 'package.json'))
-    if (manifest.name !== packageName || manifest.version !== '0.2.5') {
+    if (manifest.name !== packageName || manifest.version !== expectedVersion) {
       throw new Error(`${packageName} installed identity is invalid`)
     }
   }
@@ -449,7 +459,7 @@ export const verifyGeneratedTemplate = async ({
     }
     verifyInstalledPackages({
       consumerDirectory: prepared.consumerDirectory,
-      packageNames: prepared.contract.packageNames
+      packageVersions: prepared.contract.packageVersions
     })
     await runStartupSmoke({
       consumerDirectory: prepared.consumerDirectory

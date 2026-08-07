@@ -120,8 +120,12 @@
       `Flow Inspector target has invalid collections: ${invalidCollections.join(', ')}`
     )
   }
-  if (schema?.id !== 'asyra.flow-inspector' || schema.version !== 2) {
-    throw new Error('Flow Inspector requires schema asyra.flow-inspector/v2.')
+  const schemaId = schema?.id
+  const recognizedSchemaId =
+    schemaId === 'flow-inspector' ||
+    (typeof schemaId === 'string' && schemaId.endsWith('.flow-inspector'))
+  if (!recognizedSchemaId || schema.version !== 2) {
+    throw new Error('Flow Inspector requires the flow-inspector/v2 schema.')
   }
 
   const flow = document.getElementById('flow')

@@ -30,13 +30,14 @@
       title: 'Request one backend action batch',
       ownerPackage: 'App server action-batch route',
       purpose:
-        'After Actor A submits an ordinary Agent turn, send its intent, exact image attachment, App context, registered actions, and abort signal through the one same-origin requestActionBatch() transport; the sample backend directly reads and returns the checked-in ordered AiActionBatch instruction file before Runtime resolution.',
+        'After Actor A submits an ordinary Agent turn, send its intent, exact image attachment, bounded App context, registered actions, and abort signal through the one same-origin requestActionBatch() transport; the backend owns the Asyra Design domain prompt and provider request, while the exact crdt-7076 sample directly returns its checked-in ordered AiActionBatch instruction file before loading prompt or model work and before Runtime resolution.',
       inputs: [
         'artifact:precanonical-owner-attribution',
         'Actor A Agent intent',
         'one accepted image attachment',
         'App context and registered backend-facing action descriptions',
-        'request abort signal'
+        'request abort signal',
+        'server-only provider endpoint, model, and API key for ordinary model-backed requests'
       ],
       outputs: [
         'artifact:server-prepared-action-batch',
@@ -46,14 +47,16 @@
       conditions: [
         'This step starts only when Actor A presses Send on an ordinary Agent turn; App navigation, required fileId resolution, document load, Agent readiness, and attachment selection do not request or execute a drawing.',
         'requestActionBatch() is the only public provider request and performs exactly one same-origin HTTP POST for the accepted turn.',
-        'The request carries the submitted intent, attachment metadata and data URL, App context, registered action descriptions, attempt number, and abort ownership without reading canonical document persistence.',
-        'The backend owns input matching and ordinary provider response construction. requestActionBatch() returns the crdt-7076 checked-in ordered AiActionBatch instruction file with its batchId and already-prepared arguments.',
+        'The browser request carries the submitted intent, attachment metadata and data URL, bounded App context without a domain prompt or image-tool catalog, registered action descriptions, attempt number, and abort ownership without reading canonical document persistence.',
+        'The backend-only Asyra Design domain prompt and image-tool catalog are added only after complete server configuration supplies the provider endpoint, model, and API key for an ordinary request.',
+        'The backend sends the API key only in the provider authorization header; it never enters the browser, App context, logs, provider request body, action batch, canonical state, persistence, or Collaboration.',
+        'The backend owns input matching and ordinary provider response construction. An ordinary request uses the configured backend model path and returns one AiActionBatch with its batchId and already-prepared arguments.',
         'The checked-in crdt-7076 backend sample remains the local full-flow request path: its documented URL uses fileId=crdt-7076-sample as both socket-authoritative document identity and Collaboration identity; the backend accepts its exact checked-in image and instruction through the ordinary request body.',
         'The crdt-7076 sample uses the same socket-authoritative startup as every other fileId. When the socket is unavailable, the formal provisional local document still accepts Actor A HTTP action-batch execution and retains publications in the ordinary outbox; there is no compressed-document Core.load bootstrap, sample-only Reset behavior, or socket bypass. The permanent standalone Reset remains available for every fileId.',
-        'After the exact image and instruction match, the crdt-7076 sample backend reads the checked-in ordered AiActionBatch instruction file directly and returns it without SVG, VTracer, image conversion, geometry reconstruction, normalization, or model work.',
+        'After the exact image and instruction match, the exact crdt-7076 sample backend reads the checked-in ordered AiActionBatch instruction file directly before loading the domain prompt, provider configuration, or model path and returns it without SVG, VTracer, image conversion, geometry reconstruction, normalization, or model work.',
         'Runtime executes the instruction file actions in order, and each registered action executes its prepared slices in file order through ordinary App common APIs and plural Core routes.',
         'The crdt-7076 sample returns 7,075 ordered editable Vector descriptors inside one prepared Group descriptor, for 7,076 total canonical elements; no route, fileId, query parameter, or startup branch is named or counted as 7,075.',
-        'A nonmatching sample request fails explicitly at the backend. It never falls back to a frontend action payload, URL-selected response, prompt-only size selection, response inbox, or client-side action fixture import.',
+        'A partially matching crdt-7076 sample request fails explicitly at the backend without a configured model fallback. It never falls back to a frontend action payload, URL-selected response, prompt-only size selection, response inbox, or client-side action fixture import.',
         'The production client contains no server-response inbox, response seeding, response preload, resident batch, or fileId-selected action payload.',
         'Actor B never calls the backend for Actor A turn and receives drawing state only through Actor A canonical publications and the ordinary CRDT route.',
         'Full-detail output preserves every item, point, role, order, bound, transform, style, stable ID, and relationship prepared by the backend.',
@@ -63,6 +66,7 @@
       bypasses: [
         'An aborted request cancels the same provider/backend attempt and creates no Runtime, canonical, history, persistence, or CRDT result.',
         'A malformed or unsupported request fails at the provider/backend boundary before Runtime resolution.',
+        'An ordinary model-backed request with incomplete server-only provider endpoint, model, or API key configuration fails with 503 before an upstream request; an upstream transport, status, or response failure returns 502 before Runtime resolution.',
         'An Actor that only opens the sample URL performs ordinary socket document startup with zero action-batch request. Socket unavailability selects the existing provisional local session and never a second App startup route.'
       ],
       allowedContributors: [
@@ -70,6 +74,9 @@
         'single same-origin server action-batch provider',
         'App server action-batch middleware',
         'backend-owned action-batch preparation',
+        'backend-owned Asyra Design domain prompt and registered image-tool catalog',
+        'completely configured server-only provider endpoint, model, and API key',
+        'Node.js native fetch with the API key in the authorization header',
         'checked-in crdt-7076 sample input',
         'checked-in ordered crdt-7076 AiActionBatch instruction file',
         'required fileId as socket document and Collaboration identity only'
@@ -82,6 +89,9 @@
         'retained SVG, VTracer input, alternate drawing source, regeneration fallback, or request-time geometry reconstruction',
         'frontend item, path, point, style, bounds, role, or model semantic validation',
         'frontend model normalization or drawing-artifact encoding',
+        'frontend domain prompt, image-tool catalog, provider endpoint, model setting, or API key',
+        'provider prompt, configuration, or model work for the exact crdt-7076 sample',
+        'model fallback for a partially matching crdt-7076 sample',
         'frontend replacement IDs for server-issued stable descriptor IDs',
         'a second provider, request method, payload format, compatibility alias, or plan API alias',
         'artificial provider delay or failure simulation',
@@ -97,11 +107,12 @@
         'apps/asyra-design/src/init/__tests__/init-app.test.ts',
         'apps/asyra-design/src/ai/startup.ts',
         'apps/asyra-design/src/ai/server-action-batch-provider.ts',
-        'apps/asyra-design/src/ai/app-prompt.ts',
         'apps/asyra-design/src/ai/context.ts',
         'apps/asyra-design/src/ai/__tests__',
         'apps/asyra-design/src/startup.ts',
         'apps/asyra-design/server',
+        'apps/asyra-design/server/ai-domain-prompt.ts',
+        'apps/asyra-design/server/ai-model-provider.ts',
         'apps/asyra-design/samples/crdt-7076',
         'apps/asyra-design/e2e/action-batch-interceptor.ts',
         'apps/asyra-design/e2e/test-utils.ts',
@@ -2626,7 +2637,7 @@
   ]
 
   const flowInspectorData = {
-    schema: { id: 'asyra.flow-inspector', version: 2 },
+    schema: { id: 'flow-inspector', version: 2 },
     target: {
       id: 'asyra-design-ai-conversational-drawing-performance',
       kind: 'feature',

@@ -43,7 +43,7 @@ const getCreateProjectionSnapshot = async (
     const [elementId, element] = entry
     const computed = element.getAllComputedData?.() ?? {}
     const graphic = core?.deps?.render?.getElementById?.(elementId)
-    const renderData = graphic?.__asyraLastRenderDataSnapshot
+    const renderData = graphic?.__renderDataSnapshot
 
     return {
       type: String(element.get?.('type') ?? ''),

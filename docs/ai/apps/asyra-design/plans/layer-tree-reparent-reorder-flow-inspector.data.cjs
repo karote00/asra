@@ -914,7 +914,7 @@
   ]
 
   const data = {
-    schema: { id: 'asyra.flow-inspector', version: 2 },
+    schema: { id: 'flow-inspector', version: 2 },
     target: {
       id: 'asyra-design-layer-tree-reparent-reorder',
       kind: 'feature',

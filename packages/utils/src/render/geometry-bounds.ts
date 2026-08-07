@@ -9,7 +9,7 @@ export type { GeometryTransformMatrix } from './geometry.js'
 export type GeometryBounds = Rect
 
 export interface GeometryBoundsCarrier {
-  __asyraGeometryLocalBounds?: GeometryBounds | null
+  __geometryLocalBounds?: GeometryBounds | null
 }
 
 interface GeometryBoundsReadable extends GeometryBoundsCarrier {
@@ -34,13 +34,13 @@ export const setElementGeometryLocalBounds = (
   target: GeometryBoundsCarrier,
   bounds: GeometryBounds | null
 ) => {
-  target.__asyraGeometryLocalBounds = bounds ? cloneBounds(bounds) : null
+  target.__geometryLocalBounds = bounds ? cloneBounds(bounds) : null
 }
 
 export const getElementGeometryLocalBounds = (
   element: GeometryBoundsReadable
 ): GeometryBounds => {
-  const geometryBounds = element.__asyraGeometryLocalBounds
+  const geometryBounds = element.__geometryLocalBounds
   if (geometryBounds) {
     return cloneBounds(geometryBounds)
   }
@@ -59,7 +59,7 @@ export const getElementGeometryLocalBounds = (
 export const getElementGeometryWorldBounds = (
   element: GeometryBoundsReadable
 ): GeometryBounds => {
-  const geometryBounds = element.__asyraGeometryLocalBounds
+  const geometryBounds = element.__geometryLocalBounds
   if (geometryBounds) {
     const localCorners = [
       { x: geometryBounds.x, y: geometryBounds.y },

@@ -44,7 +44,7 @@ test('ordinary and collaboration Playwright suites have separate discovery', () 
     endpointPerformanceEnvironment
   )
   const crdt7076 = listTests('playwright.config.ts', {
-    ASYRA_E2E_CRDT_7076: 'true'
+    E2E_CRDT_7076: 'true'
   })
   const collaboration = listTests('playwright.collaboration.config.ts')
   const statusToast = listTests('playwright.status-toast.config.ts')
@@ -129,24 +129,18 @@ test('Playwright routes the formal backend through the same document-session flo
       readFile(new URL('../../../scripts/run-e2e.sh', import.meta.url), 'utf8')
     ])
 
-  assert.match(
-    ordinaryConfig,
-    /E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_BACKEND_URL=/
-  )
+  assert.match(ordinaryConfig, /E2E_OWN_SERVERS=1 E2E_DOCUMENT_BACKEND_URL=/)
   assert.match(
     collaborationConfig,
-    /E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_BACKEND_URL=/
+    /E2E_OWN_SERVERS=1 E2E_DOCUMENT_BACKEND_URL=/
   )
-  assert.match(ordinaryConfig, /process\.env\.ASYRA_E2E_DOCUMENT_BACKEND_URL/)
-  assert.match(
-    collaborationConfig,
-    /process\.env\.ASYRA_E2E_DOCUMENT_BACKEND_URL/
-  )
+  assert.match(ordinaryConfig, /process\.env\.E2E_DOCUMENT_BACKEND_URL/)
+  assert.match(collaborationConfig, /process\.env\.E2E_DOCUMENT_BACKEND_URL/)
   assert.match(ordinaryConfig, /DOCUMENT_BACKEND_PORT=/)
   assert.match(collaborationConfig, /DOCUMENT_BACKEND_PORT=/)
   assert.match(
     ciScript,
-    /ASYRA_E2E_DOCUMENT_BACKEND_URL=.*[\s\\]*yarn workspace @asyra\/asyra-design react:start/
+    /E2E_DOCUMENT_BACKEND_URL=.*[\s\\]*yarn workspace @asyra\/asyra-design react:start/
   )
   assert.match(ciScript, /document:backend:start/)
   assert.match(ciScript, /DOCUMENT_PERSISTENCE_BACKEND_URL=/)
@@ -154,21 +148,21 @@ test('Playwright routes the formal backend through the same document-session flo
     ciScript,
     /yarn workspace @asyra\/asyra-design test:e2e:status-toast/
   )
-  assert.match(viteConfig, /process\.env\.ASYRA_E2E_DOCUMENT_BACKEND_URL/)
+  assert.match(viteConfig, /process\.env\.E2E_DOCUMENT_BACKEND_URL/)
   assert.match(
     viteConfig,
     /process\.env\.DOCUMENT_PERSISTENCE_BACKEND_URL/,
     'ordinary development must proxy the permanent Reset DELETE to the formal backend'
   )
   assert.match(viteConfig, /['"]\/api\/documents['"]/)
-  assert.match(viteConfig, /process\.env\.ASYRA_E2E_DOCUMENT_DATABASE === '1'/)
+  assert.match(viteConfig, /process\.env\.E2E_DOCUMENT_DATABASE === '1'/)
   assert.match(viteConfig, /createDocumentDatabaseTestPlugin/)
 })
 
 test('CI can exclude the isolated render performance gate from the functional suite', () => {
   const ordinary = listTests('playwright.config.ts')
   const functional = listTests('playwright.config.ts', {
-    ASYRA_E2E_SKIP_PERFORMANCE: 'true'
+    E2E_SKIP_PERFORMANCE: 'true'
   })
 
   assert.match(ordinary, /render-delta-performance\.spec\.ts/)
@@ -542,7 +536,7 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   )
   assert.match(configSource, /yarn document:backend:start/)
   assert.match(configSource, /DOCUMENT_PERSISTENCE_BACKEND_URL/)
-  assert.match(configSource, /ASYRA_E2E_DOCUMENT_BACKEND_URL/)
+  assert.match(configSource, /E2E_DOCUMENT_BACKEND_URL/)
   const websocketServerSource = configSource.slice(
     configSource.indexOf("trackedServerCommand(\n      'websocket-server'"),
     configSource.indexOf("trackedServerCommand(\n      'app-server'")
@@ -812,7 +806,11 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(specSource, /readZoom/)
   const coreDebugHandle = ['__', 'Core', '__'].join('')
   assert.equal(specSource.includes(coreDebugHandle), false)
-  assert.match(specSource, /runtime-diagnostic-request/)
+  assert.match(specSource, /RuntimeDiagnosticEvents\.REQUEST/)
+  assert.match(
+    specSource,
+    /RuntimeDiagnosticEvents\.LOCAL_INTERACTION_PROBE_REQUEST/
+  )
   assert.match(specSource, /samples[/\\]crdt-7076[/\\]reference-image\.png/)
   assert.match(specSource, /totalCount:\s*7076/)
   assert.match(specSource, /vectorCount:\s*7075/)

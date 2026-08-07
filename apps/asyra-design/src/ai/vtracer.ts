@@ -364,7 +364,7 @@ export const createVTracerClient = (
           body: requestBody,
           headers: {
             'content-type': normalizedWebp ? 'image/png' : attachment.mediaType,
-            'x-asyra-vtracer-profile': profile
+            'x-vtracer-profile': profile
           },
           method: 'POST',
           signal

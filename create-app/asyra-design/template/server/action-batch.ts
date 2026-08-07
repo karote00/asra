@@ -27,6 +27,8 @@ export class ActionBatchServerError extends Error {
   readonly code:
     | 'ACTION_BATCH_ABORTED'
     | 'ACTION_BATCH_INVALID_INPUT'
+    | 'ACTION_BATCH_MODEL_CONFIGURATION_REQUIRED'
+    | 'ACTION_BATCH_MODEL_FAILED'
     | 'ACTION_BATCH_UNSUPPORTED_SAMPLE'
 
   constructor(code: ActionBatchServerError['code'], message: string) {
@@ -46,18 +48,15 @@ const unsupportedSample = (): never => {
   )
 }
 
-const readImageAttachment = (
+const matchesSampleImageAttachment = (
   metadata: AiJsonValue | undefined
-): {
-  readonly bytes: Buffer
-  readonly size: number
-} => {
+): boolean => {
   if (
     !isRecord(metadata) ||
     !Array.isArray(metadata.imageAttachments) ||
     metadata.imageAttachments.length !== 1
   ) {
-    return unsupportedSample()
+    return false
   }
   const attachment = metadata.imageAttachments[0]
   if (
@@ -69,19 +68,16 @@ const readImageAttachment = (
     !Number.isSafeInteger(attachment.size) ||
     attachment.size <= 0
   ) {
-    return unsupportedSample()
+    return false
   }
 
   const encoded = attachment.dataUrl.slice('data:image/png;base64,'.length)
   const bytes = Buffer.from(encoded, 'base64')
-  if (
-    bytes.byteLength !== attachment.size ||
-    bytes.byteLength !== sampleImage.byteLength ||
-    createHash('sha256').update(bytes).digest('hex') !== sampleImageDigest
-  ) {
-    return unsupportedSample()
-  }
-  return { bytes, size: attachment.size }
+  return (
+    bytes.byteLength === attachment.size &&
+    bytes.byteLength === sampleImage.byteLength &&
+    createHash('sha256').update(bytes).digest('hex') === sampleImageDigest
+  )
 }
 
 const assertRequestId = (value: string): string => {
@@ -102,9 +98,26 @@ const readSampleActionBatch = (): Promise<AiActionBatch> => {
   return sampleActionBatchPromise
 }
 
+export type RequestModelActionBatch = (
+  input: AiProviderInput,
+  options: { readonly signal?: AbortSignal }
+) => Promise<AiActionBatch>
+
+const requestDefaultModelActionBatch: RequestModelActionBatch = async (
+  input,
+  options
+) => {
+  const { requestConfiguredAiActionBatch } = await import('./ai-model-provider')
+  return requestConfiguredAiActionBatch(input, options)
+}
+
+const readErrorCode = (error: unknown): string | undefined =>
+  isRecord(error) && typeof error.code === 'string' ? error.code : undefined
+
 export const resolveActionBatchRequest = async (
   input: AiProviderInput,
   options: {
+    readonly requestModelActionBatch?: RequestModelActionBatch
     readonly requestId?: string
     readonly signal?: AbortSignal
   } = {}
@@ -115,16 +128,61 @@ export const resolveActionBatchRequest = async (
       'The action-batch request was aborted.'
     )
   }
-  if (
-    !isRecord(input) ||
-    typeof input.intent !== 'string' ||
-    input.intent.trim() !== sampleInstruction
-  ) {
+  if (!isRecord(input) || typeof input.intent !== 'string') {
+    throw new ActionBatchServerError(
+      'ACTION_BATCH_INVALID_INPUT',
+      'The action-batch input is invalid.'
+    )
+  }
+  const matchesSampleInstruction = input.intent.trim() === sampleInstruction
+  const matchesSampleImage = matchesSampleImageAttachment(input.metadata)
+  assertRequestId(options.requestId ?? randomUUID())
+
+  if (matchesSampleInstruction && matchesSampleImage) {
+    const batch = await readSampleActionBatch()
+    if (options.signal?.aborted) {
+      throw new ActionBatchServerError(
+        'ACTION_BATCH_ABORTED',
+        'The action-batch request was aborted.'
+      )
+    }
+    return batch
+  }
+  if (matchesSampleInstruction || matchesSampleImage) {
     return unsupportedSample()
   }
-  readImageAttachment(input.metadata)
-  assertRequestId(options.requestId ?? randomUUID())
-  const batch = await readSampleActionBatch()
+
+  const requestModelActionBatch =
+    options.requestModelActionBatch ?? requestDefaultModelActionBatch
+  let batch: AiActionBatch
+  try {
+    batch = await requestModelActionBatch(input, { signal: options.signal })
+  } catch (error) {
+    const code = readErrorCode(error)
+    if (code === 'AI_MODEL_BACKEND_ABORTED') {
+      throw new ActionBatchServerError(
+        'ACTION_BATCH_ABORTED',
+        'The action-batch request was aborted.'
+      )
+    }
+    if (code === 'AI_MODEL_BACKEND_INVALID_CONFIGURATION') {
+      throw new ActionBatchServerError(
+        'ACTION_BATCH_MODEL_CONFIGURATION_REQUIRED',
+        'The action-batch model backend is not fully configured.'
+      )
+    }
+    if (
+      code === 'AI_MODEL_BACKEND_HTTP_STATUS' ||
+      code === 'AI_MODEL_BACKEND_INVALID_RESPONSE' ||
+      code === 'AI_MODEL_BACKEND_TRANSPORT_FAILED'
+    ) {
+      throw new ActionBatchServerError(
+        'ACTION_BATCH_MODEL_FAILED',
+        'The action-batch model backend failed.'
+      )
+    }
+    throw error
+  }
   if (options.signal?.aborted) {
     throw new ActionBatchServerError(
       'ACTION_BATCH_ABORTED',
@@ -180,7 +238,11 @@ const readJsonBody = async (
 }
 
 export const createActionBatchMiddleware =
-  () =>
+  (
+    options: {
+      readonly requestModelActionBatch?: RequestModelActionBatch
+    } = {}
+  ) =>
   async (
     request: IncomingMessage,
     response: ServerResponse,
@@ -214,6 +276,7 @@ export const createActionBatchMiddleware =
         input as unknown as AiProviderInput,
         {
           requestId: randomUUID(),
+          requestModelActionBatch: options.requestModelActionBatch,
           signal: controller.signal
         }
       )
@@ -229,8 +292,23 @@ export const createActionBatchMiddleware =
         error.code === 'ACTION_BATCH_UNSUPPORTED_SAMPLE'
       ) {
         sendJson(response, 422, { code: error.code })
+      } else if (
+        error instanceof ActionBatchServerError &&
+        error.code === 'ACTION_BATCH_MODEL_CONFIGURATION_REQUIRED'
+      ) {
+        sendJson(response, 503, { code: error.code })
+      } else if (
+        error instanceof ActionBatchServerError &&
+        error.code === 'ACTION_BATCH_MODEL_FAILED'
+      ) {
+        sendJson(response, 502, { code: error.code })
+      } else if (
+        error instanceof ActionBatchServerError &&
+        error.code === 'ACTION_BATCH_INVALID_INPUT'
+      ) {
+        sendJson(response, 400, { code: error.code })
       } else {
-        sendJson(response, 400, { code: 'ACTION_BATCH_INVALID_INPUT' })
+        sendJson(response, 500, { code: 'ACTION_BATCH_INTERNAL_ERROR' })
       }
     } finally {
       request.removeListener('aborted', abort)

@@ -80,9 +80,9 @@ export class RenderLayer {
   private renderGraphic(graphic: RenderGraphics, data: RenderElementData) {
     ;(
       graphic as RenderGraphics & {
-        __asyraLastRenderDataSnapshot?: RenderElementData
+        __renderDataSnapshot?: RenderElementData
       }
-    ).__asyraLastRenderDataSnapshot = data
+    ).__renderDataSnapshot = data
     const strategy = renderStrategyRegistry.get(data.type) || defaultStrategy
     try {
       measureBrowserDragPhase(`render-layer:strategy:${data.type}`, () =>
@@ -219,8 +219,8 @@ export class RenderLayer {
       const existingElement = this.getElementById(data.id)
       if (existingElement) {
         ;(
-          existingElement as SceneElement & { __asyraType?: string }
-        ).__asyraType = data.type
+          existingElement as SceneElement & { __renderElementType?: string }
+        ).__renderElementType = data.type
 
         this.placeElement(existingElement, data, siblingIndex)
         const didRender =
@@ -233,8 +233,9 @@ export class RenderLayer {
 
       const graphic = new RenderGraphics()
       graphic.label = data.id
-      ;(graphic as SceneElement & { __asyraType?: string }).__asyraType =
-        data.type
+      ;(
+        graphic as SceneElement & { __renderElementType?: string }
+      ).__renderElementType = data.type
 
       this.addToMap(data.id, graphic)
       this.placeElement(graphic, data, siblingIndex)

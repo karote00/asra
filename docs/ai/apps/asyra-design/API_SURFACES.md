@@ -45,15 +45,29 @@ Completed plan:
   `AiActionBatch`
 - that request carries the submitted intent, exact image attachment, App
   context, registered backend-facing action descriptions, attempt number, and
-  abort ownership; no fileId, URL parameter, startup branch, resident batch, or
-  IndexedDB response inbox selects its payload
+  abort ownership. The browser context never contains the Asyra Design domain
+  prompt, image-tool catalog, provider endpoint, model setting, or API key; no
+  fileId, URL parameter, startup branch, resident batch, or IndexedDB response
+  inbox selects its payload
+- ordinary requests require complete server-only
+  `AI_PROVIDER_ENDPOINT`, `AI_PROVIDER_MODEL`, and `AI_PROVIDER_API_KEY`
+  settings. The server adds the App domain prompt
+  and registered image-tool catalog, then uses Node.js native `fetch` to call
+  the configured action-batch endpoint. The API key is sent only as a Bearer
+  authorization header and never enters the browser or upstream JSON body
+- the configured endpoint must return one JSON `AiActionBatch`. Missing
+  configuration fails with HTTP 503 before an upstream request; upstream
+  transport, status, or malformed-response failure returns HTTP 502 before
+  Runtime receives a batch
 - the checked-in `samples/crdt-7076` reference contains its exact input image,
   instruction text, and one ordered versioned `AiActionBatch` instruction file
   as its only drawing authority. Its backend accepts only the exact sample
-  input, reads that instruction file directly, and returns its prepared Group
-  plus 7,075 ordered Vector children for 7,076 total canonical elements. The
-  sample retains no SVG, alternate drawing source, regeneration fallback, or
-  request-time geometry reconstruction
+  input, reads that instruction file directly before loading the prompt,
+  provider configuration, or model path, and returns its prepared Group plus
+  7,075 ordered Vector children for 7,076 total canonical elements. A partial
+  sample match fails without model fallback. The sample retains no SVG,
+  alternate drawing source, regeneration fallback, or request-time geometry
+  reconstruction
 - production startup always composes that provider, the confirmation broker,
   app-root-local conversation controller, current AI history projection, and
   one isolated `@asyra/ai-agent-runtime` instance. There is no URL activation
@@ -239,7 +253,8 @@ Accepted socket-authoritative target:
 
 - the Asyra Design collaboration lifecycle owns a native IndexedDB outbox of
   immutable local `SharedPublication` values awaiting socket acceptance; this
-  is transport recovery, not Core document persistence
+  is transport recovery, not Core document persistence. Its default database
+  name is the brand-neutral `collaboration-publications`
 - the lifecycle uses the outbox's explicit Factory-owned append boundary for
   immutable local publication evidence. The in-memory record retains that
   owner identity without a second source-side clone or recursive freeze, while
@@ -276,8 +291,11 @@ Semantic authority:
   unreachable, or non-success backend still reports its error but cannot block
   refresh; a storage-free demo therefore returns to the formal empty App.
 - Ordinary Vite development proxies that same-origin document route to
-  `DOCUMENT_PERSISTENCE_BACKEND_URL`; the `ASYRA_E2E_DOCUMENT_BACKEND_URL`
+  `DOCUMENT_PERSISTENCE_BACKEND_URL`; the `E2E_DOCUMENT_BACKEND_URL`
   override remains test-only and takes precedence when explicitly configured.
+- Direct document-backend startup stores records under
+  `.app-data/documents` by default. `DOCUMENT_BACKEND_DATA_DIR` selects an
+  explicit existing or deployment-owned storage directory.
 - The document backend handles that DELETE by replacing the stored record with
   the formal empty checkpoint at durable sequence zero. Reset performs no Core
   mutation, transaction, History, Undo/Redo, Factory publication, CRDT,

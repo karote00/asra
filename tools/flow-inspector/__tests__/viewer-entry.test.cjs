@@ -106,7 +106,7 @@ const createViewerDom = (entryPath, dataScript, data) => {
 
 const targets = [
   {
-    id: 'asyra-design-ai-conversational-drawing-performance',
+    id: 'design-app-ai-conversational-drawing-performance',
     entryPath: path.join(
       projectRoot,
       'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.html'
@@ -116,7 +116,7 @@ const targets = [
     filterLaneTitle: 'Shared Delivery'
   },
   {
-    id: 'asyra-design-group-context-menu',
+    id: 'design-app-group-context-menu',
     entryPath: path.join(
       projectRoot,
       'docs/ai/apps/asyra-design/plans/group-context-menu-flow-inspector.html'
@@ -134,7 +134,7 @@ const targets = [
     filterLaneTitle: 'Retained Render Geometry'
   },
   {
-    id: 'asyra-design-remote-subtree-restore-snapshot',
+    id: 'design-app-remote-subtree-restore-snapshot',
     entryPath: path.join(
       projectRoot,
       'docs/ai/apps/asyra-design/plans/remote-subtree-restore-snapshot-flow-inspector.html'
@@ -143,7 +143,7 @@ const targets = [
     filterLaneTitle: 'Canonical Owner Restore'
   },
   {
-    id: 'asyra-design-group-interaction-mvp',
+    id: 'design-app-group-interaction-mvp',
     entryPath: path.join(
       projectRoot,
       'docs/ai/apps/asyra-design/plans/group-interaction-mvp-flow-inspector.html'
@@ -266,7 +266,7 @@ for (const target of targets) {
     assert.deepEqual(Object.keys(data), expectedTopLevelKeys)
     assert.doesNotMatch(dataSource, /\brequire\s*\(/)
     assert.ok(isDeeplyFrozen(data))
-    assert.equal(data.schema.id, 'asyra.flow-inspector')
+    assert.equal(data.schema.id, 'flow-inspector')
     assert.equal(data.schema.version, 2)
     assert.ok(Array.isArray(data.steps))
     assert.equal(Object.hasOwn(data, 'stages'), false)

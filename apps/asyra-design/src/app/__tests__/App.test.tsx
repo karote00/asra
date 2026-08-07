@@ -56,7 +56,7 @@ test('renders the always-on Agent shell and opens its panel', () => {
 
   const { container } = render(<App ai={ai} />)
 
-  expect(container.querySelector('[data-asyra-ai-root="true"]')).not.toBeNull()
+  expect(container.querySelector('[data-ai-root="true"]')).not.toBeNull()
   expect(screen.getByTestId('contents-panel')).not.toBeNull()
   expect(screen.getByTestId('agent-history')).not.toBeNull()
   expect(toolbarProps).toHaveBeenLastCalledWith(

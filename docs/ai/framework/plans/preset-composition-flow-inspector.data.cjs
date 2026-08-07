@@ -789,7 +789,7 @@
   ]
 
   const data = {
-    schema: 'asyra.flow-inspector.v1',
+    schema: 'flow-inspector.v1',
     target: {
       id: 'preset-profile-selectable-defaults',
       title: 'Preset Profile and Selectable Defaults Flow',

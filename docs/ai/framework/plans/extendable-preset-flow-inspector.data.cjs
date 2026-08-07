@@ -913,7 +913,7 @@
   ]
 
   const data = {
-    schema: 'asyra.flow-inspector.v1',
+    schema: 'flow-inspector.v1',
     target: {
       id: 'extendable-preset',
       title: 'Extendable Preset Relation and Unregister Flow',

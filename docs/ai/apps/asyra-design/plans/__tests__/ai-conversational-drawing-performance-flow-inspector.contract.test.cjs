@@ -183,11 +183,12 @@ test('production conversational AI uses one ActionBatch contract without compati
     'apps/asyra-design/src/init/__tests__/init-app.test.ts',
     'apps/asyra-design/src/ai/startup.ts',
     'apps/asyra-design/src/ai/server-action-batch-provider.ts',
-    'apps/asyra-design/src/ai/app-prompt.ts',
     'apps/asyra-design/src/ai/context.ts',
     'apps/asyra-design/src/ai/__tests__',
     'apps/asyra-design/src/startup.ts',
     'apps/asyra-design/server',
+    'apps/asyra-design/server/ai-domain-prompt.ts',
+    'apps/asyra-design/server/ai-model-provider.ts',
     'apps/asyra-design/samples/crdt-7076',
     'apps/asyra-design/e2e/action-batch-interceptor.ts',
     'apps/asyra-design/e2e/test-utils.ts',
@@ -254,7 +255,7 @@ test('Actor A requests the exact backend sample only after Send', () => {
   assert.match(text, /7,075.*Vector.*Group.*7,076 total canonical elements/i)
   assert.match(
     text,
-    /nonmatching sample request fails.*never falls back.*URL-selected response/i
+    /partially matching.*sample request fails.*never falls back.*URL-selected response/i
   )
   assert.match(
     text,
@@ -335,6 +336,39 @@ test('Actor A requests the exact backend sample only after Send', () => {
   assert.match(
     feature,
     /Scenario: Actor A requests the checked-in 7076 backend sample after Send[\s\S]*fileId=crdt-7076-sample[\s\S]*exact sample image[\s\S]*exact sample instruction[\s\S]*without VTracer[\s\S]*7075.*Vector[\s\S]*7076 canonical elements/i
+  )
+})
+
+test('backend owns AI domain knowledge and exact 7076 bypasses the model path', () => {
+  const owner = step('request-backend-action-batch')
+  const text = contractText(owner)
+  const feature = read(
+    'docs/ai/apps/asyra-design/bdd-features/ai-conversational-drawing.feature'
+  )
+
+  assert.match(
+    text,
+    /backend-only.*domain prompt.*image-tool catalog.*provider endpoint.*model.*API key/i
+  )
+  assert.match(
+    text,
+    /API key.*authorization header.*never.*browser.*request body/i
+  )
+  assert.match(
+    text,
+    /exact.*crdt-7076.*before.*prompt.*provider configuration.*model/i
+  )
+  assert.match(text, /partially matching.*crdt-7076.*without.*model fallback/i)
+  assert.doesNotMatch(text, /apps\/asyra-design\/src\/ai\/app-prompt\.ts/)
+  ;[
+    'apps/asyra-design/server/ai-domain-prompt.ts',
+    'apps/asyra-design/server/ai-model-provider.ts'
+  ].forEach((boundary) =>
+    assert.ok(owner.implementationBoundary.includes(boundary), boundary)
+  )
+  assert.match(
+    feature,
+    /Scenario: Domain knowledge remains backend-only while the 7076 sample bypasses it[\s\S]*provider endpoint, model, and API key[\s\S]*authorization header[\s\S]*exact 7076 sample request[\s\S]*before loading the prompt, provider configuration, or model path/i
   )
 })
 

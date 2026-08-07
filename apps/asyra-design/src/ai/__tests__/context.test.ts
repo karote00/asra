@@ -5,7 +5,6 @@ import {
   createAiContextProvider,
   type AiContextQueries
 } from '../context'
-import { AI_APP_PROMPT, AI_IMAGE_TOOL_CATALOG } from '../app-prompt'
 
 const createQueries = (
   overrides: Partial<AiContextQueries> = {}
@@ -41,8 +40,6 @@ describe('Asyra Design AI context disclosure', () => {
     })
 
     expect(result).toEqual({
-      appPrompt: AI_APP_PROMPT,
-      imageTools: AI_IMAGE_TOOL_CATALOG,
       workspaceId: 'workspace-1',
       primaryTool: 'rectangle',
       systemMode: 'editing',
@@ -75,7 +72,7 @@ describe('Asyra Design AI context disclosure', () => {
       )
     ).toBe(true)
     expect(JSON.stringify(result)).not.toMatch(
-      /accessToken|apiKey|must-not-leak/
+      /accessToken|apiKey|must-not-leak|appPrompt|imageTools/
     )
   })
 

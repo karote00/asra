@@ -4,7 +4,7 @@ import { loadEnvironment, resolveEnvironment } from './app-environment.mjs'
 const appEnvironment = resolveEnvironment(loadEnvironment())
 const ownsTestServers = process.env.E2E_OWN_SERVERS === '1'
 const documentBackendURL =
-  process.env.ASYRA_E2E_DOCUMENT_BACKEND_URL?.trim() || 'http://127.0.0.1:4201'
+  process.env.E2E_DOCUMENT_BACKEND_URL?.trim() || 'http://127.0.0.1:4201'
 const documentBackendPort = new URL(documentBackendURL).port || '80'
 
 export default defineConfig({
@@ -40,7 +40,7 @@ export default defineConfig({
       timeout: 120_000
     },
     {
-      command: `E2E_OWN_SERVERS=1 ASYRA_E2E_DOCUMENT_BACKEND_URL=${documentBackendURL} yarn react:start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`,
+      command: `E2E_OWN_SERVERS=1 E2E_DOCUMENT_BACKEND_URL=${documentBackendURL} yarn react:start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`,
       url: appEnvironment.appURL,
       reuseExistingServer: !ownsTestServers,
       timeout: 120_000

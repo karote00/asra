@@ -119,7 +119,7 @@ describe('Asyra Design VTracer adapter', () => {
         body: expect.any(Uint8Array),
         headers: {
           'content-type': 'image/png',
-          'x-asyra-vtracer-profile': 'photo-faithful'
+          'x-vtracer-profile': 'photo-faithful'
         },
         method: 'POST'
       })

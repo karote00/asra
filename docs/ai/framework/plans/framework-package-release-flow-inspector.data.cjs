@@ -1086,7 +1086,7 @@
   ]
 
   const data = {
-    schema: { id: 'asyra.flow-inspector', version: 2 },
+    schema: { id: 'flow-inspector', version: 2 },
     target: {
       id: 'framework-package-release-0-5-0',
       kind: 'system',

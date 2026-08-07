@@ -81,6 +81,32 @@ test('release template exposes a non-mutating synchronization check', () => {
   )
 })
 
+test('release template excludes local runtime data directories', () => {
+  const config = JSON.parse(
+    readFileSync(
+      path.join(repositoryRoot, 'release-configs/asyra-design.json'),
+      'utf8'
+    )
+  )
+
+  assert.ok(
+    config.cleanFiles.includes('.*-data'),
+    'local runtime data directories must never enter the generated template'
+  )
+
+  const releaseTemplate = readFileSync(
+    path.join(repositoryRoot, 'scripts/release-template.js'),
+    'utf8'
+  )
+  assert.match(releaseTemplate, /\{\s+nodir: true,\s+dot: true\s+\}/)
+  assert.match(releaseTemplate, /\{\s+onlyDirectories: true,\s+dot: true\s+\}/)
+  assert.match(
+    releaseTemplate,
+    /const isIgnoredComparisonDirectory = \(name\) =>/
+  )
+  assert.match(releaseTemplate, /\/\^\\\..\+-data\$\/u\.test\(name\)/)
+})
+
 test('generated template manifest is standalone on the supported release runtime', () => {
   const manifest = JSON.parse(
     readFileSync(
@@ -97,8 +123,23 @@ test('generated template manifest is standalone on the supported release runtime
   assert.equal(manifest.packageManager, 'yarn@4.3.1')
   assert.doesNotMatch(serializedScripts, /(?:\.\.\/){2}|--cwd\s+\.\.\/\.\./)
   assert.doesNotMatch(JSON.stringify(manifest), /workspace:|(?:link|portal):/)
-  assert.equal(manifest.dependencies['@asyra/core'], '0.2.5')
-  assert.equal(manifest.dependencies['@asyra/preset'], '0.2.5')
+  for (const [packageName, version] of Object.entries(
+    manifest.dependencies ?? {}
+  )) {
+    if (!packageName.startsWith('@asyra/')) continue
+    const sourceManifest = JSON.parse(
+      readFileSync(
+        path.join(
+          repositoryRoot,
+          'packages',
+          packageName.slice('@asyra/'.length),
+          'package.json'
+        ),
+        'utf8'
+      )
+    )
+    assert.equal(version, sourceManifest.version)
+  }
 
   const environment = readFileSync(
     path.join(repositoryRoot, 'create-app/asyra-design/template/.env'),

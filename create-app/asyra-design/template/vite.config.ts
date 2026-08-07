@@ -8,10 +8,9 @@ import { createActionBatchMiddleware } from './server/action-batch'
 
 const appEnvironment = resolveEnvironment(loadEnvironment())
 const opensBrowser = process.env.E2E_OWN_SERVERS !== '1'
-const enablesE2eDocumentDatabase =
-  process.env.ASYRA_E2E_DOCUMENT_DATABASE === '1'
+const enablesE2eDocumentDatabase = process.env.E2E_DOCUMENT_DATABASE === '1'
 const documentBackendURL =
-  process.env.ASYRA_E2E_DOCUMENT_BACKEND_URL?.trim() ||
+  process.env.E2E_DOCUMENT_BACKEND_URL?.trim() ||
   process.env.DOCUMENT_PERSISTENCE_BACKEND_URL?.trim()
 
 const createVTracerPlugin = (): Plugin => ({

@@ -1,5 +1,5 @@
 Feature: Optional AI agent runtime
-  As an Asyra Design user
+  As a Asyra Design user
   I want natural-language actions to follow ordinary app and framework boundaries
   So that AI planning cannot bypass validation, permission, undo, collaboration, or cleanup
 

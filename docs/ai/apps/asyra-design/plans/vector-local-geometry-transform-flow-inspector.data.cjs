@@ -554,7 +554,7 @@
   ]
 
   const data = {
-    schema: { id: 'asyra.flow-inspector', version: 2 },
+    schema: { id: 'flow-inspector', version: 2 },
     target: {
       id: 'vector-render-geometry-cache-transform',
       kind: 'feature',

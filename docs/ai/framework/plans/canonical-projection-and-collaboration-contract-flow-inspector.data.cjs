@@ -1442,7 +1442,7 @@
   ]
 
   const data = {
-    schema: { id: 'asyra.flow-inspector', version: 2 },
+    schema: { id: 'flow-inspector', version: 2 },
     target: {
       id: 'canonical-projection-and-collaboration-contract-realignment',
       kind: 'system',
@@ -1454,7 +1454,7 @@
       specPath,
       inspectorPath,
       semanticOwner:
-        'Asyra Pre-Release Canonical Projection and Collaboration Contract Realignment Plan',
+        'Asyra Design Pre-Release Canonical Projection and Collaboration Contract Realignment Plan',
       inspectorOwner:
         'Canonical projection and collaboration owner handoff flow'
     },

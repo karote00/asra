@@ -1098,7 +1098,7 @@
   ]
 
   const flowInspectorData = {
-    schema: { id: 'asyra.flow-inspector', version: 2 },
+    schema: { id: 'flow-inspector', version: 2 },
     target: {
       id: 'asyra-design-group-interaction-mvp',
       kind: 'feature',

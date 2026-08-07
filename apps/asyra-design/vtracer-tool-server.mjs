@@ -185,7 +185,7 @@ export const createVTracerMiddleware =
         .split(';', 1)[0]
         .trim()
         .toLocaleLowerCase('en-US')
-      const profileHeader = request.headers['x-asyra-vtracer-profile']
+      const profileHeader = request.headers['x-vtracer-profile']
       const profile = Array.isArray(profileHeader)
         ? profileHeader[0]
         : profileHeader

@@ -24,8 +24,9 @@
 - Run this when the task explicitly includes template synchronization, or before publishing a new version that must include updated `create-app/*` templates.
 - For normal feature/refactor tasks, avoid touching `create-app/*`.
 - `release:app:check` generates under project-local `tmp/`, compares file
-  contents while excluding build/test outputs, and removes its temporary
-  output on exit.
+  contents while excluding build/test outputs and dot-prefixed local runtime
+  data directories matching `.*-data`, and removes its temporary output on
+  exit.
 
 ## Evidence And Test Artifacts
 

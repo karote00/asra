@@ -199,7 +199,7 @@ test('ordinary E2E uses the diagnostic-enabled app runtime after the workspace b
   const collaborationBuild = runner.indexOf('build:collaboration-server')
   const collaborationStart = runner.indexOf('collaboration:server:start')
   const collaborationReady = runner.indexOf(
-    'npx wait-on "http-get://${ASYRA_E2E_COLLABORATION_HEALTH_URL#http://}"'
+    'npx wait-on "http-get://${E2E_COLLABORATION_HEALTH_URL#http://}"'
   )
   const appStart = runner.indexOf(
     'yarn workspace @asyra/asyra-design react:start'
@@ -222,15 +222,15 @@ test('ordinary E2E uses the diagnostic-enabled app runtime after the workspace b
   )
   assert.match(
     runner,
-    /npx wait-on "http-get:\/\/\$\{ASYRA_E2E_COLLABORATION_HEALTH_URL#http:\/\/\}"/,
+    /npx wait-on "http-get:\/\/\$\{E2E_COLLABORATION_HEALTH_URL#http:\/\/\}"/,
     'Collaboration readiness must use the server GET-only health contract'
   )
   assert.ok(
     appStart > collaborationReady,
     'ordinary E2E must start the App only after collaboration is ready'
   )
-  assert.match(runner, /ASYRA_E2E_COLLABORATION_SERVER_PID/)
-  assert.match(runner, /kill "\$ASYRA_E2E_COLLABORATION_SERVER_PID"/)
+  assert.match(runner, /E2E_COLLABORATION_SERVER_PID/)
+  assert.match(runner, /kill "\$E2E_COLLABORATION_SERVER_PID"/)
 })
 
 test('CI isolates the render performance budget before parallel functional E2E', () => {
@@ -240,7 +240,7 @@ test('CI isolates the render performance budget before parallel functional E2E',
     runner,
     /playwright test --config playwright\.config\.ts e2e\/render-delta-performance\.spec\.ts --workers=1/
   )
-  assert.match(runner, /ASYRA_E2E_SKIP_PERFORMANCE=true yarn test:e2e/)
+  assert.match(runner, /E2E_SKIP_PERFORMANCE=true yarn test:e2e/)
 })
 
 test('CI runs balanced AI correctness only for related changes or explicit dispatch', async () => {
