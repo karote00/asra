@@ -8,6 +8,12 @@ verified from the public registry.
 The user will separately specify the next root `asyra` and private
 `@asyra/asyra-design` versions before this plan changes either version.
 
+The current pre-publication candidate keeps the root, private app, and CLI
+identity versions unchanged while updating the canonical app's Framework
+dependency set to the already published `0.5.0` baseline. Missing identity
+version decisions block publication, not bounded template and clean-consumer
+candidate validation.
+
 ## Goal
 
 Generate the Asyra Design template only from its canonical source, prove that a
@@ -36,6 +42,10 @@ Framework package versions, and formally publish
 - The intended CLI version from the synchronized Changeset is confirmed.
 - Work starts from reviewed, merged, latest `main`.
 
+The root, private app, and CLI identity-version prerequisites must be satisfied
+before the publication segment. They are not permission to infer or materialize
+an identity-version bump during candidate preparation.
+
 ## Required Inspector
 
 Before implementation, create a create-app release Inspector with one owner
@@ -53,12 +63,20 @@ for:
 10. post-publication `npm create` smoke;
 11. release records and final decision.
 
+The executable Inspector authority is
+`create-asyra-design-app-release-flow-inspector.data.cjs`. Candidate work must
+stop at the matching owner boundary; publication owners remain unexecuted until
+their explicit prerequisites and authorization are satisfied.
+
 ## Execution Plan
 
 ### 1. Apply user-specified versions
 
 - Update root `asyra` and private `@asyra/asyra-design` only to the versions
   explicitly selected by the user.
+- For the current candidate, keep those identity versions and the CLI identity
+  version unchanged, and update the canonical app's required `@asyra/*`
+  Framework dependencies to exact public `0.5.0`.
 - Confirm the CLI package version produced or selected by the release sequence.
 - Keep Framework package versions equal to the already published patch set.
 
@@ -121,7 +139,8 @@ for:
 - The generator requires a manual template repair.
 - The CLI tarball omits required files or includes repository-only state.
 - Real registry install, build, tests, or startup fails.
-- Root or Asyra Design version has not been explicitly selected.
+- Root, Asyra Design, or CLI identity version has not been explicitly selected
+  when the publication segment begins.
 - Any P0/P1/P2 finding remains.
 
 ## Definition of Done
