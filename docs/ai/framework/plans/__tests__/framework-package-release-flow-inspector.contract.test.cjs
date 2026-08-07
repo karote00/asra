@@ -213,6 +213,26 @@ test('Inspector owns the exact 0.4.0 to minor to 0.5.0 path', () => {
   )
 })
 
+test('Framework artifact validation owns CI scope and excludes create-app template proof', () => {
+  const validationStep = step('validate-framework-artifacts')
+  const validation = contractText(validationStep)
+
+  assert.match(validation, /generated create-app template/i)
+  assert.ok(validationStep.forbiddenContributors.includes(
+    'generated create-app template'
+  ))
+  assert.ok(
+    validationStep.implementationBoundary.includes(
+      '.github/workflows/main.yml'
+    )
+  )
+  assert.ok(
+    validationStep.implementationBoundary.includes(
+      'scripts/__tests__/workspace-automation.test.mjs'
+    )
+  )
+})
+
 test('Inspector restricts Changesets publication to the fixed 19-package set', () => {
   const mergedSource = contractText(step('accept-merged-publication-source'))
   const publication = contractText(step('publish-framework-packages'))

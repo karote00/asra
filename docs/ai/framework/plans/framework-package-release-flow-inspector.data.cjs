@@ -307,6 +307,8 @@
         'scripts/__tests__/release-package-artifacts.test.mjs',
         'scripts/__tests__/release-clean-consumer.test.mjs',
         'scripts/__tests__/release-records.test.mjs',
+        'scripts/__tests__/workspace-automation.test.mjs',
+        '.github/workflows/main.yml',
         'fixtures/framework-release-consumer',
         'packages/*'
       ],
