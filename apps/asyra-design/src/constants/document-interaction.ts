@@ -1,5 +1,5 @@
 export const AI_DOCUMENT_INTERACTION_TARGET_ATTRIBUTE =
-  'data-asyra-ai-interaction-target'
+  'data-ai-interaction-target'
 
 export const AiDocumentInteractionTargets = Object.freeze({
   AGENT_CANCEL: 'agent-cancel',

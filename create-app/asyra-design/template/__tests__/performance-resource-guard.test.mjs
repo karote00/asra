@@ -82,7 +82,7 @@ test('endpoint browser resolution rejects a relative executable override', () =>
         googleChromeExecutablePath: 'google-chrome',
         platform: 'linux'
       }),
-    /requires an absolute ASYRA_E2E_GOOGLE_CHROME_EXECUTABLE_PATH/
+    /requires an absolute E2E_GOOGLE_CHROME_EXECUTABLE_PATH/
   )
 })
 
@@ -119,7 +119,7 @@ test('endpoint build attestation resolves workspace and standalone assets from t
   )
   assert.equal(
     resolveEndpointBuildAssetsDirectory({
-      appRoot: '/project/tmp/standalone-asyra-design',
+      appRoot: '/project/tmp/standalone-design-app',
       manifest: {
         dependencies: {
           '@asyra/core': 'file:../framework-artifacts/asyra-core-0.2.5.tgz'
@@ -127,7 +127,7 @@ test('endpoint build attestation resolves workspace and standalone assets from t
       },
       workspaceRoot: '/project'
     }),
-    '/project/tmp/standalone-asyra-design/dist/assets'
+    '/project/tmp/standalone-design-app/dist/assets'
   )
 })
 
@@ -227,8 +227,8 @@ test('retains the bounded CPU profile aggregate when a guarded child stops abrup
   state = recordProfileOutput(
     state,
     [
-      'ASYRA_CPU_PROFILE_SLICE {"samples":20,"top":[{"columnNumber":100,"functionName":"render","lineNumber":10,"samples":4,"url":"app.js"}]}',
-      'ASYRA_CPU_PROFILE_SLICE {"samples":30,"top":[{"columnNumber":100,"functionName":"render","lineNumber":10,"samples":6,"url":"app.js"},{"columnNumber":-1,"functionName":"bindVertexArray","lineNumber":-1,"samples":3,"url":""}]}',
+      'CPU_PROFILE_SLICE {"samples":20,"top":[{"columnNumber":100,"functionName":"render","lineNumber":10,"samples":4,"url":"app.js"}]}',
+      'CPU_PROFILE_SLICE {"samples":30,"top":[{"columnNumber":100,"functionName":"render","lineNumber":10,"samples":6,"url":"app.js"},{"columnNumber":-1,"functionName":"bindVertexArray","lineNumber":-1,"samples":3,"url":""}]}',
       ''
     ].join('\n')
   )

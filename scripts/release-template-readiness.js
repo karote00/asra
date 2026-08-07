@@ -106,7 +106,7 @@ const collectSourceFiles = (directory) => {
   return files
 }
 
-const collectAsyraImports = (templateDirectory) => {
+const collectFrameworkImports = (templateDirectory) => {
   const imports = []
   const importPattern =
     /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s*)['"](@asyra\/[^'"]+)['"]/gu
@@ -160,7 +160,7 @@ export const validateGeneratedTemplateContract = ({
     throw new Error('Generated template contains a monorepo-only script')
   }
 
-  const imports = collectAsyraImports(templateDirectory)
+  const imports = collectFrameworkImports(templateDirectory)
   for (const record of imports) {
     const packageName = packageNameForSpecifier(record.specifier)
     const releasePackage = packagesByName.get(packageName)

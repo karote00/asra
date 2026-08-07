@@ -72,7 +72,7 @@ const VIEWPORT_PADDING = 8
 const VIEWPORT_VERTICAL_PADDING = 16
 const SLIDER_THUMB_SIZE = 16
 const SLIDER_THUMB_RADIUS = SLIDER_THUMB_SIZE / 2
-const POPUP_ROOT_ID = 'asyra-color-picker-popup-root'
+const POPUP_ROOT_ID = 'color-picker-popup-root'
 
 const normalizeColorToken = (value: string) => value.trim().toLowerCase()
 

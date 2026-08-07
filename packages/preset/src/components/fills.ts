@@ -105,9 +105,9 @@ export const toRenderableGradient = (
 
     return {
       ...core.createRenderGradientFillStyle(radialOptions),
-      __asyraGradientOptions: radialOptions
+      __gradientOptions: radialOptions
     } as RenderFillStyle & {
-      __asyraGradientOptions: CreateRenderGradientFillOptions
+      __gradientOptions: CreateRenderGradientFillOptions
     }
   }
 
@@ -122,9 +122,9 @@ export const toRenderableGradient = (
 
     return {
       ...core.createRenderGradientFillStyle(angularOptions),
-      __asyraGradientOptions: angularOptions
+      __gradientOptions: angularOptions
     } as RenderFillStyle & {
-      __asyraGradientOptions: CreateRenderGradientFillOptions
+      __gradientOptions: CreateRenderGradientFillOptions
     }
   }
 
@@ -139,9 +139,9 @@ export const toRenderableGradient = (
 
     return {
       ...core.createRenderGradientFillStyle(diamondOptions),
-      __asyraGradientOptions: diamondOptions
+      __gradientOptions: diamondOptions
     } as RenderFillStyle & {
-      __asyraGradientOptions: CreateRenderGradientFillOptions
+      __gradientOptions: CreateRenderGradientFillOptions
     }
   }
 
@@ -156,9 +156,9 @@ export const toRenderableGradient = (
 
   return {
     ...core.createRenderGradientFillStyle(linearOptions),
-    __asyraGradientOptions: linearOptions
+    __gradientOptions: linearOptions
   } as RenderFillStyle & {
-    __asyraGradientOptions: CreateRenderGradientFillOptions
+    __gradientOptions: CreateRenderGradientFillOptions
   }
 }
 

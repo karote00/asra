@@ -100,16 +100,12 @@ if (isMainModule) {
   const eventName = process.env.GITHUB_EVENT_NAME ?? ''
   const changedPaths =
     eventName === 'pull_request'
-      ? changedPathsBetween(
-          process.env.ASYRA_E2E_BASE_SHA,
-          process.env.ASYRA_E2E_HEAD_SHA
-        )
+      ? changedPathsBetween(process.env.E2E_BASE_SHA, process.env.E2E_HEAD_SHA)
       : []
   const runBalancedAiCorrectness = resolveBalancedAiCorrectnessScope({
     changedPaths,
     eventName,
-    manualRequested:
-      process.env.ASYRA_E2E_MANUAL_BALANCED_AI_CORRECTNESS === 'true'
+    manualRequested: process.env.E2E_MANUAL_BALANCED_AI_CORRECTNESS === 'true'
   })
   process.stdout.write(
     `run_balanced_ai_correctness=${runBalancedAiCorrectness ? '1' : '0'}\n`

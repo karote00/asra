@@ -14,9 +14,9 @@ import {
  * E2E Tests for basic application loading and layout
  */
 
-const runsStorageFreeReset = process.env.ASYRA_E2E_STORAGE_FREE_RESET === 'true'
+const runsStorageFreeReset = process.env.E2E_STORAGE_FREE_RESET === 'true'
 
-test.describe('Asyra Design Tool', () => {
+test.describe('Design App Tool', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(createTestDocumentURL())
   })
@@ -26,7 +26,7 @@ test.describe('Asyra Design Tool', () => {
     await page.waitForLoadState('domcontentloaded')
 
     // Check that the page title is correct
-    await expect(page).toHaveTitle(/Asyra/)
+    await expect(page).toHaveTitle(/Design App/)
 
     // Check that the root element is present
     const rootElement = page.locator('#root')

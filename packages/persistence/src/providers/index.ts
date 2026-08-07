@@ -5,7 +5,7 @@ import {
 } from '@asyra/utils'
 import type { IPersistenceProvider } from '../persistence.js'
 
-const INDEXED_DB_DATABASE_NAME = 'asyra-documents'
+const INDEXED_DB_DATABASE_NAME = 'framework-documents'
 const INDEXED_DB_OBJECT_STORE_NAME = 'documents'
 const INDEXED_DB_VERSION = 1
 

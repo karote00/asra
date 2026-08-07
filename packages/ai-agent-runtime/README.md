@@ -1,6 +1,6 @@
 # `@asyra/ai-agent-runtime`
 
-Optional AI action-plan orchestration for Asyra applications. The app owns the
+Optional AI action-plan orchestration for framework applications. The app owns the
 model provider, permissions, confirmation, registered public action executors,
 and enclosing transaction.
 

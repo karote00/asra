@@ -41,7 +41,7 @@ interface DocumentPublicationOutboxOptions {
   readonly storage?: PublicationOutboxStorage
 }
 
-const DEFAULT_DATABASE_NAME = 'asyra-design-collaboration'
+const DEFAULT_DATABASE_NAME = 'collaboration-publications'
 const DATABASE_VERSION = 1
 const PUBLICATION_STORE_NAME = 'pending-publications'
 const FILE_ID_INDEX_NAME = 'file-id'

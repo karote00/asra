@@ -67,7 +67,7 @@ describe('LocalStoragePersistence', () => {
 describe('IndexedDbPersistence', () => {
   it('attributes open, structured-clone put, and transaction acknowledgement separately', async () => {
     const persistence = new IndexedDbPersistence('FILE', {
-      databaseName: 'asyra-persistence-attribution-test',
+      databaseName: 'persistence-attribution-test',
       factory: indexedDB
     })
     const phases: string[] = []
@@ -107,7 +107,7 @@ describe('IndexedDbPersistence', () => {
     expect(JSON.stringify(document).length).toBeGreaterThan(5 * 1024 * 1024)
 
     const persistence = new IndexedDbPersistence('FILE', {
-      databaseName: 'asyra-persistence-large-document-test',
+      databaseName: 'persistence-large-document-test',
       factory: indexedDB
     })
 
@@ -118,7 +118,7 @@ describe('IndexedDbPersistence', () => {
   })
 
   it('isolates keys and clears only the selected document', async () => {
-    const databaseName = 'asyra-persistence-isolation-test'
+    const databaseName = 'persistence-isolation-test'
     const persistenceA = new IndexedDbPersistence('FILE:file-a', {
       databaseName,
       factory: indexedDB

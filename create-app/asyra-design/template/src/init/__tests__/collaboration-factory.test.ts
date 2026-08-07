@@ -29,7 +29,7 @@ const createDelivery = (
   payload: { id: orderedIds[0] }
 })
 
-describe('Asyra Design collaboration composition', () => {
+describe('Design App collaboration composition', () => {
   it('forwards an already document-only minimal publication by identity', () => {
     let publicationSubscriber: ((publication: unknown) => void) | undefined
     const owner = {

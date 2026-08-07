@@ -40,7 +40,7 @@ const executionContext = () => ({
   signal: new AbortController().signal
 })
 
-describe('Asyra Design AI actions', () => {
+describe('Design App AI actions', () => {
   it('publishes one deterministic backend-facing action catalog', () => {
     const actions = createAiActions(actionApis())
 

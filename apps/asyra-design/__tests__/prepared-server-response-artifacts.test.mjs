@@ -77,7 +77,7 @@ test('resolves workspace and standalone production output from the package contr
   const standaloneAppRoot = path.join(
     workspaceRoot,
     'tmp',
-    'standalone-asyra-design'
+    'standalone-design-app'
   )
 
   assert.equal(

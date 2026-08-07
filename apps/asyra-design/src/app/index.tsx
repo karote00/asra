@@ -69,7 +69,7 @@ const App: React.FC<AppProps> = ({
   const getCanvasHost = useCallback(
     () =>
       appRootRef.current?.querySelector<HTMLElement>(
-        '[data-testid="asyra-canvas-host"]'
+        '[data-testid="canvas-host"]'
       ) ?? null,
     []
   )
@@ -154,7 +154,7 @@ const App: React.FC<AppProps> = ({
         !root ||
         (eventTarget && !targetIsDocumentBody && !root.contains(eventTarget)) ||
         (targetIsDocumentBody &&
-          document.querySelectorAll('[data-asyra-ai-root="true"]').length !== 1)
+          document.querySelectorAll('[data-ai-root="true"]').length !== 1)
       ) {
         return
       }
@@ -186,7 +186,7 @@ const App: React.FC<AppProps> = ({
     <div
       ref={appRootRef}
       className="absolute grid h-screen w-full z-20"
-      data-asyra-ai-root="true"
+      data-ai-root="true"
       style={{
         gridTemplateAreas: `
         "header header header"

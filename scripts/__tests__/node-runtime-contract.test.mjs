@@ -41,7 +41,7 @@ test('the repository root manifest requires Node.js 24 and Yarn 4.3.1', () => {
   assert.equal(rootManifest.packageManager, 'yarn@4.3.1')
 })
 
-test('Framework packages, Asyra Design, and clean consumer require Node.js 24', () => {
+test('Framework packages, Design App, and clean consumer require Node.js 24', () => {
   const manifestPaths = [
     ...FRAMEWORK_RELEASE_PACKAGE_NAMES.map(
       (name) => `packages/${name.slice('@asyra/'.length)}/package.json`

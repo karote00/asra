@@ -1,8 +1,8 @@
 import { getActiveCollaborationHandle } from '../../collaboration/lifecycle'
+import { RuntimeDiagnosticEvents } from '../../constants'
 import { getActiveAiDrawingPerformanceProfile } from '../performance/ai-drawing-performance-profile'
 
-export const RUNTIME_DIAGNOSTIC_REQUEST_EVENT =
-  'asyra:runtime-diagnostic-request'
+export const RUNTIME_DIAGNOSTIC_REQUEST_EVENT = RuntimeDiagnosticEvents.REQUEST
 
 export interface RuntimeDiagnosticRequest {
   readonly args?: readonly unknown[]

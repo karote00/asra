@@ -136,7 +136,7 @@ test.describe('Render delta performance budget', () => {
           subscribeToDiagnosticCounters
         } = await import('../src/testing/runtime-access')
         if (!core || !elementApis) {
-          throw new Error('Asyra E2E runtime is unavailable')
+          throw new Error('Design App E2E runtime is unavailable')
         }
 
         const center = { x: 420, y: 300 }
@@ -489,8 +489,7 @@ test.describe('Render delta performance budget', () => {
       const element = core?.deps?.sceneTree?.getElementById?.(elementId)
       const computed = element?.getAllComputedData?.() ?? {}
       const renderElement = core?.deps?.render?.getElementById?.(elementId)
-      const renderedSnapshot =
-        renderElement?.__asyraLastRenderDataSnapshot ?? {}
+      const renderedSnapshot = renderElement?.__renderDataSnapshot ?? {}
       const zoom = core?.getSystemProperty?.('zoom') ?? 1
       const viewportPosition = core?.getSystemProperty?.(
         'viewportPosition'
@@ -619,7 +618,7 @@ test.describe('Render delta performance budget', () => {
         '../src/testing/runtime-access'
       )
       if (!core || !elementApis) {
-        throw new Error('Asyra E2E runtime is unavailable')
+        throw new Error('Design App E2E runtime is unavailable')
       }
 
       const center = { x: 420, y: 300 }
@@ -972,7 +971,7 @@ test.describe('Render delta performance budget', () => {
         typeof factory?.undo !== 'function' ||
         typeof factory?.redo !== 'function'
       ) {
-        throw new Error('Asyra replay runtime is unavailable')
+        throw new Error('Design App replay runtime is unavailable')
       }
 
       const waitForStableFrame = () =>
@@ -1058,7 +1057,7 @@ test.describe('Render delta performance budget', () => {
           ...element.save(),
           ...element.getAllComputedData()
         }
-        const rendered = renderElement.__asyraLastRenderDataSnapshot
+        const rendered = renderElement.__renderDataSnapshot
         if (!rendered) {
           throw new Error(`Missing strategy snapshot during ${phase}`)
         }

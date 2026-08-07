@@ -52,7 +52,7 @@ const requireSetting = (
 ): string => {
   const value = environment[name]?.trim()
   if (!value) {
-    return invalidConfiguration(`The Asyra Design AI backend requires ${name}.`)
+    return invalidConfiguration(`The AI backend requires ${name}.`)
   }
   return value
 }
@@ -66,19 +66,16 @@ const isLoopbackHost = (hostname: string): boolean =>
 export const resolveAiModelBackendConfiguration = (
   environment: Readonly<Record<string, string | undefined>> = process.env
 ): AiModelBackendConfiguration => {
-  const endpointValue = requireSetting(
-    environment,
-    'ASYRA_AI_PROVIDER_ENDPOINT'
-  )
-  const model = requireSetting(environment, 'ASYRA_AI_PROVIDER_MODEL')
-  const apiKey = requireSetting(environment, 'ASYRA_AI_PROVIDER_API_KEY')
+  const endpointValue = requireSetting(environment, 'AI_PROVIDER_ENDPOINT')
+  const model = requireSetting(environment, 'AI_PROVIDER_MODEL')
+  const apiKey = requireSetting(environment, 'AI_PROVIDER_API_KEY')
 
   let endpoint: URL
   try {
     endpoint = new URL(endpointValue)
   } catch {
     return invalidConfiguration(
-      'ASYRA_AI_PROVIDER_ENDPOINT must be an absolute HTTP(S) URL.'
+      'AI_PROVIDER_ENDPOINT must be an absolute HTTP(S) URL.'
     )
   }
   if (
@@ -89,7 +86,7 @@ export const resolveAiModelBackendConfiguration = (
     endpoint.hash.length > 0
   ) {
     return invalidConfiguration(
-      'ASYRA_AI_PROVIDER_ENDPOINT must use HTTPS, except for loopback development, and cannot contain credentials or a fragment.'
+      'AI_PROVIDER_ENDPOINT must use HTTPS, except for loopback development, and cannot contain credentials or a fragment.'
     )
   }
 

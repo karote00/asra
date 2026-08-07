@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { AI_APP_PROMPT, AI_IMAGE_TOOL_CATALOG } from '../ai-domain-prompt'
 
-describe('Asyra Design backend-owned AI domain prompt', () => {
+describe('Design App backend-owned AI domain prompt', () => {
   it('defines the registered App action and image-tool policy on the server', () => {
     expect(AI_APP_PROMPT).toMatch(
       /registered App actions and image tools\s+supplied with the current request/i

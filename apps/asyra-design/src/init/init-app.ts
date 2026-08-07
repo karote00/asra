@@ -34,7 +34,7 @@ export interface AppInitialization {
 /**
  * Initializes all framework components and configurations.
  *
- * This is the single entry point for setting up the Asyra framework in your app.
+ * This is the single entry point for setting up the Design App framework in your app.
  * Users can extend this function to add custom initialization logic, runtime scripts,
  * or redefine behaviors.
  *

@@ -7,7 +7,7 @@ const preview: AiActionBatchPreview = Object.freeze({
   actions: Object.freeze([])
 })
 
-describe('Asyra Design AI confirmation adapter', () => {
+describe('Design App AI confirmation adapter', () => {
   it('defaults to safe cancellation when no UI callback is composed', async () => {
     const handler = createAiConfirmationHandler()
 

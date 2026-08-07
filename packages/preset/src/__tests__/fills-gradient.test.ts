@@ -134,7 +134,7 @@ describe('toRenderableGradient', () => {
       ]
     })
     expect(result).toEqual({
-      __asyraGradientOptions: {
+      __gradientOptions: {
         type: 'linear',
         start: { x: 0.5, y: 0 },
         end: { x: 0.5, y: 1 },

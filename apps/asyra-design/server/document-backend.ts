@@ -185,7 +185,7 @@ const isDirectExecution = process.argv[1]?.endsWith('document-backend.js')
 if (isDirectExecution) {
   const dataDirectory = resolve(
     process.env.DOCUMENT_BACKEND_DATA_DIR?.trim() ||
-      resolve(process.cwd(), '.asyra-data/documents')
+      resolve(process.cwd(), '.app-data/documents')
   )
   const host = process.env.DOCUMENT_BACKEND_HOST?.trim() || '127.0.0.1'
   const port = Number(process.env.DOCUMENT_BACKEND_PORT?.trim() || '4201')

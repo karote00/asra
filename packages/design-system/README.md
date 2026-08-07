@@ -1,6 +1,6 @@
 # `@asyra/design-system`
 
-React components and styles for Asyra application interfaces.
+React components and styles for framework application interfaces.
 
 ```ts
 import { Button } from '@asyra/design-system'

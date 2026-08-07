@@ -12,7 +12,7 @@ import {
   installPreparedActionBatchInterceptor
 } from '../../../e2e/action-batch-interceptor'
 
-describe('Asyra Design action-batch interceptor harness', () => {
+describe('Design App action-batch interceptor harness', () => {
   it('serves a prepared action batch through the formal HTTP endpoint without a startup inbox', async () => {
     const record = await createServerResponseRecord(
       'file-http-interceptor-16',

@@ -69,7 +69,7 @@
     "test:server-response-harness": "vitest run --environment node --no-file-parallelism server/__tests__/ai-domain-prompt.test.ts server/__tests__/ai-model-provider.test.ts server/__tests__/action-batch.test.ts server/__tests__/document-backend-reset.test.ts server/__tests__/document-canonical-reducer.test.ts server/__tests__/document-persistence-queue.test.ts test-data/ai-drawing/__tests__/action-batch-interceptor.test.ts src/ai/__tests__/detailed-tabby.test.ts",
     "test:ci": "yarn test:ai && yarn test:server-response-harness && yarn test:local",
     "test:e2e": "playwright test",
-    "test:e2e:crdt-7076": "APP_URL=http://127.0.0.1:3012 VITE_COLLABORATION_WS_URL=ws://127.0.0.1:4199/collaboration ASYRA_E2E_CRDT_7076=true ASYRA_E2E_SKIP_PERFORMANCE=true playwright test e2e/crdt-7076-render.spec.ts --workers=1",
+    "test:e2e:crdt-7076": "APP_URL=http://127.0.0.1:3012 VITE_COLLABORATION_WS_URL=ws://127.0.0.1:4199/collaboration E2E_CRDT_7076=true E2E_SKIP_PERFORMANCE=true playwright test e2e/crdt-7076-render.spec.ts --workers=1",
     "test:e2e:collaboration": "playwright test --config playwright.collaboration.config.ts",
     "test:e2e:status-toast": "APP_URL=http://127.0.0.1:3013 playwright test --config playwright.status-toast.config.ts",
     "prepare:e2e:endpoint-performance": "VITE_COLLABORATION_WS_URL=ws://127.0.0.1:4121/collaboration yarn react:build && yarn build:collaboration-server && yarn build:document-backend && node e2e/prepare-server-response-preview.mjs",

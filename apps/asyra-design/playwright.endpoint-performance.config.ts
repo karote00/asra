@@ -151,7 +151,7 @@ const guardedWebServers = [
         `--outDir ${JSON.stringify(responsePreviewOutDir)}`
     ),
     env: {
-      ASYRA_E2E_DOCUMENT_BACKEND_URL: documentBackendURL
+      E2E_DOCUMENT_BACKEND_URL: documentBackendURL
     },
     url: appURL,
     reuseExistingServer: false,

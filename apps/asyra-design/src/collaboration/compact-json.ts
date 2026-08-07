@@ -1,4 +1,4 @@
-const COMPACT_JSON_MARKER = 'asyra-collaboration-json-v1'
+const COMPACT_JSON_MARKER = 'collaboration-compact-json-v1'
 const COMPACT_JSON_MIN_LENGTH = 32 * 1024
 const COMPACT_ARRAY_TAG = 0
 const COMPACT_OBJECT_TAG = 1

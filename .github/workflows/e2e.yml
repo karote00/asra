@@ -46,9 +46,9 @@ jobs:
       - name: Resolve balanced AI correctness scope
         id: balanced_ai_scope
         env:
-          ASYRA_E2E_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          ASYRA_E2E_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          ASYRA_E2E_MANUAL_BALANCED_AI_CORRECTNESS: ${{ inputs.run_balanced_ai_correctness }}
+          E2E_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          E2E_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          E2E_MANUAL_BALANCED_AI_CORRECTNESS: ${{ inputs.run_balanced_ai_correctness }}
         run: node scripts/balanced-ai-correctness-scope.mjs >> "$GITHUB_OUTPUT"
 
       - name: Run E2E Tests

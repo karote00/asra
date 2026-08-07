@@ -46,7 +46,7 @@ describe('render fill resources', () => {
 
     expect(createRenderGradientFillStyle(options)).toEqual({
       fill: {
-        __asyraRenderResourceDescriptor: {
+        __renderResourceDescriptor: {
           kind: 'gradient',
           data: options
         }
@@ -110,7 +110,7 @@ describe('render fill resources', () => {
 
     expect(result).not.toBeNull()
     expect(result?.style.fill).toEqual({
-      __asyraRenderResourceDescriptor: {
+      __renderResourceDescriptor: {
         kind: 'raster-pattern',
         data: {
           source: expect.any(TestOffscreenCanvas),

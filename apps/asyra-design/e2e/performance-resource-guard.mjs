@@ -84,8 +84,7 @@ const ENDPOINT_ARTIFACT_ENV = 'ENDPOINT_ARTIFACT_ATTESTED'
 const ENDPOINT_PREVIEW_OUT_DIR_ENV = 'ENDPOINT_PREVIEW_OUT_DIR'
 const ENDPOINT_RESPONSE_ARTIFACT_ENV = 'ENDPOINT_RESPONSE_ARTIFACT_ATTESTED'
 const ENDPOINT_RESPONSE_MANIFEST_PATH_ENV = 'ENDPOINT_RESPONSE_MANIFEST_PATH'
-const GOOGLE_CHROME_EXECUTABLE_PATH_ENV =
-  'ASYRA_E2E_GOOGLE_CHROME_EXECUTABLE_PATH'
+const GOOGLE_CHROME_EXECUTABLE_PATH_ENV = 'E2E_GOOGLE_CHROME_EXECUTABLE_PATH'
 const GOOGLE_CHROME_EXECUTABLE_PATH_BY_PLATFORM = Object.freeze({
   darwin: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   linux: '/usr/bin/google-chrome'
@@ -2273,7 +2272,7 @@ export const summarizeCpuProfileDiagnosticAggregate = (aggregate) => {
   }
 }
 
-const CPU_PROFILE_SLICE_PREFIX = 'ASYRA_CPU_PROFILE_SLICE '
+const CPU_PROFILE_SLICE_PREFIX = 'CPU_PROFILE_SLICE '
 
 const parseCpuProfileDiagnosticLine = (line) => {
   const prefixIndex = line.indexOf(CPU_PROFILE_SLICE_PREFIX)
@@ -3987,7 +3986,7 @@ if (isMain) {
     .catch((error) => {
       process.stderr.write(
         `${JSON.stringify({
-          type: 'asyra-performance-resource-guard-error',
+          type: 'performance-resource-guard-error',
           message: String(error?.message ?? error).slice(0, 500)
         })}\n`
       )

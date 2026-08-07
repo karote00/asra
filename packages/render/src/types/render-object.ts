@@ -17,11 +17,11 @@ import type {
 export type RenderBounds = Rect
 
 export interface RenderResourceStyle {
-  readonly __asyraRenderResourceDescriptor: RenderEngineResourceDescriptor
-  readonly __asyraSubscribeRenderResourceRelease?: (
+  readonly __renderResourceDescriptor: RenderEngineResourceDescriptor
+  readonly __subscribeRenderResourceRelease?: (
     listener: () => void
   ) => () => void
-  readonly __asyraIsRenderResourceReleased?: () => boolean
+  readonly __isRenderResourceReleased?: () => boolean
 }
 
 export const createRenderResourceStyle = (
@@ -30,11 +30,11 @@ export const createRenderResourceStyle = (
   const listeners = new Set<() => void>()
   let released = false
   const style = {
-    __asyraRenderResourceDescriptor: descriptor
+    __renderResourceDescriptor: descriptor
   } as RenderResourceStyle
 
   Object.defineProperties(style, {
-    __asyraSubscribeRenderResourceRelease: {
+    __subscribeRenderResourceRelease: {
       enumerable: false,
       value: (listener: () => void) => {
         if (released) {
@@ -45,7 +45,7 @@ export const createRenderResourceStyle = (
         return () => listeners.delete(listener)
       }
     },
-    __asyraIsRenderResourceReleased: {
+    __isRenderResourceReleased: {
       enumerable: false,
       value: () => released
     }
@@ -365,10 +365,10 @@ export class RenderObjectRuntime {
     if (
       typeof resourceCandidate === 'object' &&
       resourceCandidate !== null &&
-      '__asyraRenderResourceDescriptor' in resourceCandidate
+      '__renderResourceDescriptor' in resourceCandidate
     ) {
       const resourceStyle = resourceCandidate as RenderResourceStyle
-      if (resourceStyle.__asyraIsRenderResourceReleased?.()) {
+      if (resourceStyle.__isRenderResourceReleased?.()) {
         throw new Error('Cannot use a disposed render resource style')
       }
       let record = this.resourceByStyle.get(resourceCandidate)
@@ -376,8 +376,8 @@ export class RenderObjectRuntime {
         const result = this.execute(
           {
             type: 'create-resource',
-            requestId: resourceStyle.__asyraRenderResourceDescriptor.kind,
-            descriptor: resourceStyle.__asyraRenderResourceDescriptor
+            requestId: resourceStyle.__renderResourceDescriptor.kind,
+            descriptor: resourceStyle.__renderResourceDescriptor
           },
           owner
         )
@@ -390,10 +390,11 @@ export class RenderObjectRuntime {
         }
         record = createdRecord
         this.resourceByStyle.set(resourceCandidate, createdRecord)
-        const unsubscribe =
-          resourceStyle.__asyraSubscribeRenderResourceRelease?.(() => {
+        const unsubscribe = resourceStyle.__subscribeRenderResourceRelease?.(
+          () => {
             this.destroyResourceRecord(resourceCandidate, createdRecord)
-          })
+          }
+        )
         if (unsubscribe) {
           createdRecord.unsubscribe = unsubscribe
           this.resourceReleaseSubscriptions.add(unsubscribe)
@@ -704,9 +705,9 @@ export class RenderNode {
   private getDimensionScaleX(): number {
     const geometryBounds = (
       this as RenderNode & {
-        __asyraGeometryLocalBounds?: RenderBounds | null
+        __geometryLocalBounds?: RenderBounds | null
       }
-    ).__asyraGeometryLocalBounds
+    ).__geometryLocalBounds
     return geometryBounds &&
       geometryBounds.width > 0 &&
       Number.isFinite(geometryBounds.width) &&
@@ -718,9 +719,9 @@ export class RenderNode {
   private getDimensionScaleY(): number {
     const geometryBounds = (
       this as RenderNode & {
-        __asyraGeometryLocalBounds?: RenderBounds | null
+        __geometryLocalBounds?: RenderBounds | null
       }
-    ).__asyraGeometryLocalBounds
+    ).__geometryLocalBounds
     return geometryBounds &&
       geometryBounds.height > 0 &&
       Number.isFinite(geometryBounds.height) &&

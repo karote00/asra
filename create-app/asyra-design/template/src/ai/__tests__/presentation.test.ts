@@ -29,7 +29,7 @@ const turn = (
   turnId: 'conversation-a:turn:1'
 })
 
-describe('Asyra Design AI presentation summaries', () => {
+describe('Design App AI presentation summaries', () => {
   it('uses distinct safe summaries for every terminal outcome', () => {
     const summaries = [
       'success',

@@ -23,6 +23,7 @@ import {
   type ServerResponseItemCount
 } from './action-batch-interceptor'
 import { getPreparedServerResponseVariant } from './prepared-server-response-artifacts.mjs'
+import { RuntimeDiagnosticEvents } from '../src/constants/runtime-diagnostics'
 
 const expectedFixture = Object.freeze({
   groupCount: 1,
@@ -154,7 +155,7 @@ const startRotatingCpuProfileDiagnostic = async (
       }
       // Diagnostic output is intentionally bounded and no profile file exists.
       // eslint-disable-next-line no-console
-      console.log(`ASYRA_CPU_PROFILE_SLICE ${JSON.stringify(summary)}`)
+      console.log(`CPU_PROFILE_SLICE ${JSON.stringify(summary)}`)
       if (!active) {
         break
       }
@@ -623,7 +624,7 @@ const postHeartbeat = async (
   }
   // Keep runner output bounded and never print the guard token.
   // eslint-disable-next-line no-console
-  console.log(`ASYRA_ENDPOINT_HEARTBEAT ${JSON.stringify({ heartbeat, kind })}`)
+  console.log(`ENDPOINT_HEARTBEAT ${JSON.stringify({ heartbeat, kind })}`)
   return result
 }
 
@@ -728,8 +729,9 @@ const singleActorAppURL = (fileId: string) =>
 const profiledSingleActorAppURL = (fileId: string) =>
   `${singleActorAppURL(fileId)}&aiPerformance=profile`
 
-const runtimeDiagnosticEvent = 'asyra:runtime-diagnostic-request'
-const localInteractionProbeEvent = 'asyra:local-interaction-probe-request'
+const runtimeDiagnosticEvent = RuntimeDiagnosticEvents.REQUEST
+const localInteractionProbeEvent =
+  RuntimeDiagnosticEvents.LOCAL_INTERACTION_PROBE_REQUEST
 
 const requestRuntimeDiagnostic = <T>(
   page: Page,
@@ -1655,7 +1657,7 @@ const openAgentAndAttachReference = async (page: Page): Promise<void> => {
 const installLocalInteractionProbe = async (
   page: Page
 ): Promise<PreparedLocalInteractionProbe> => {
-  const canvasHost = page.getByTestId('asyra-canvas-host')
+  const canvasHost = page.getByTestId('canvas-host')
   const rectangleTool = page.getByTestId('tool-rectangle')
   const selectTool = page.getByTestId('tool-select')
   await expect(canvasHost).toBeVisible()
@@ -1928,7 +1930,7 @@ const installLocalInteractionProbe = async (
       }
 
       const probeRoot = document.querySelector<HTMLElement>(
-        '[data-testid="asyra-canvas-host"]'
+        '[data-testid="canvas-host"]'
       )
       if (!probeRoot) {
         throw new Error('Local interaction probe root is unavailable')
@@ -2797,7 +2799,7 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
       report
     })
     // eslint-disable-next-line no-console
-    console.log(`ASYRA_ENDPOINT_REPORT ${JSON.stringify(report)}`)
+    console.log(`ENDPOINT_REPORT ${JSON.stringify(report)}`)
   } catch (error) {
     await heartbeat.stop()
     const latest =
@@ -3078,7 +3080,7 @@ test('two-Actor operation and idle attribution', async ({
       report
     })
     // eslint-disable-next-line no-console
-    console.log(`ASYRA_ENDPOINT_REPORT ${JSON.stringify(report)}`)
+    console.log(`ENDPOINT_REPORT ${JSON.stringify(report)}`)
   } catch (error) {
     await (heartbeatStop ?? heartbeat.stop())
     const latest =
@@ -3539,7 +3541,7 @@ test('creation-only high-detail endpoint proof', async ({
       report
     })
     // eslint-disable-next-line no-console
-    console.log(`ASYRA_ENDPOINT_REPORT ${JSON.stringify(report)}`)
+    console.log(`ENDPOINT_REPORT ${JSON.stringify(report)}`)
   } catch (error) {
     const heartbeatStopped = await settleFailureEvidenceWithin(
       heartbeat.stop(),
@@ -3653,7 +3655,7 @@ test('creation-only high-detail endpoint proof', async ({
     }).catch(() => undefined)
     // eslint-disable-next-line no-console
     console.log(
-      `ASYRA_ENDPOINT_REPORT ${JSON.stringify({
+      `ENDPOINT_REPORT ${JSON.stringify({
         error: failureError,
         browserErrors,
         failureTimeEvidence,

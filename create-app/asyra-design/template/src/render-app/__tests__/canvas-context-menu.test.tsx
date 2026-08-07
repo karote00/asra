@@ -84,9 +84,7 @@ describe('Render canvas context-menu intake', () => {
     })
     await vi.waitFor(() => expect(core.start).toHaveBeenCalledTimes(1))
 
-    const canvasHost = rootHost.querySelector(
-      '[data-testid="asyra-canvas-host"]'
-    )
+    const canvasHost = rootHost.querySelector('[data-testid="canvas-host"]')
     expect(canvasHost).toBeInstanceOf(HTMLDivElement)
     expect(
       canvasHost?.getAttribute(AI_DOCUMENT_INTERACTION_TARGET_ATTRIBUTE)
@@ -126,9 +124,7 @@ describe('Render canvas context-menu intake', () => {
     })
     await vi.waitFor(() => expect(core.start).toHaveBeenCalledTimes(1))
 
-    const canvasHost = rootHost.querySelector(
-      '[data-testid="asyra-canvas-host"]'
-    )
+    const canvasHost = rootHost.querySelector('[data-testid="canvas-host"]')
     const editable = document.createElement('input')
     canvasHost?.append(editable)
     const editableEvent = new MouseEvent('contextmenu', {

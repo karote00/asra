@@ -119,7 +119,7 @@ test.describe('Group hierarchy product projection', () => {
     const contentsBounds = await getContentsPanel(page).boundingBox()
     const propertiesBounds = await getPropertiesPanel(page).boundingBox()
     if (!contentsBounds || !propertiesBounds) {
-      throw new Error('Asyra canvas viewport bounds are unavailable')
+      throw new Error('Design App canvas viewport bounds are unavailable')
     }
     const canvasLeft = Math.ceil(contentsBounds.x + contentsBounds.width)
     const canvasTop = Math.ceil(Math.max(contentsBounds.y, propertiesBounds.y))

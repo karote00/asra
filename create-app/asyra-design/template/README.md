@@ -1,6 +1,6 @@
-# Asyra Design standalone template
+# Design App standalone template
 
-This generated app is the reference Framework consumer for the Asyra 0.2.5
+This generated app is the reference Framework consumer for the Design App 0.2.5
 release set. It installs Framework packages through their public package
 artifacts and imports only declared public entrypoints.
 

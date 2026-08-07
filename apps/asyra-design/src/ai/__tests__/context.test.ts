@@ -30,7 +30,7 @@ const createQueries = (
   ...overrides
 })
 
-describe('Asyra Design AI context disclosure', () => {
+describe('Design App AI context disclosure', () => {
   it('returns a detached immutable whitelist without raw props or secrets', async () => {
     const queries = createQueries()
     const provider = createAiContextProvider(queries)

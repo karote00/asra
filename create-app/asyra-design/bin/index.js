@@ -160,7 +160,7 @@ yarn-error.log*
     process.exit(1)
   }
 
-  console.log('\n🎉 Asyra Design project is ready!\n')
+  console.log('\n🎉 Your design app is ready!\n')
   const startCommand = {
     yarn: 'yarn react:start',
     npm: 'npm run react:start',

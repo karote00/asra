@@ -4,7 +4,7 @@
  *
  * Usage:
  *   yarn release --prod=asyra-design
- *   yarn release --prod=asyra-whiteboard
+ *   yarn release --prod=whiteboard
  *   yarn release --prod=asyra-design --verbose
  *
  * Features:
@@ -103,13 +103,19 @@ fse.copySync(SRC_DIR, DEST_DIR, {
 // ----------------------
 if (VERBOSE) console.log('Removing unnecessary files...')
 for (const pattern of CLEAN_FILES) {
-  const files = globSync(`${DEST_DIR}/**/${pattern}`, { nodir: true })
+  const files = globSync(`${DEST_DIR}/**/${pattern}`, {
+    nodir: true,
+    dot: true
+  })
   for (const file of files) {
     fs.unlinkSync(file)
     if (VERBOSE) console.log(`Deleted file: ${file}`)
   }
 
-  const dirs = globSync(`${DEST_DIR}/**/${pattern}`, { onlyDirectories: true })
+  const dirs = globSync(`${DEST_DIR}/**/${pattern}`, {
+    onlyDirectories: true,
+    dot: true
+  })
   for (const dir of dirs) {
     fse.removeSync(dir)
     if (VERBOSE) console.log(`Deleted dir: ${dir}`)
@@ -424,12 +430,15 @@ const IGNORED_COMPARISON_DIRECTORIES = new Set([
   'test-results'
 ])
 
+const isIgnoredComparisonDirectory = (name) =>
+  IGNORED_COMPARISON_DIRECTORIES.has(name) || /^\..+-data$/u.test(name)
+
 const collectFiles = (directory, prefix = '') => {
   if (!fs.existsSync(directory)) return new Map()
   const files = new Map()
 
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    if (entry.isDirectory() && IGNORED_COMPARISON_DIRECTORIES.has(entry.name)) {
+    if (entry.isDirectory() && isIgnoredComparisonDirectory(entry.name)) {
       continue
     }
     const relativePath = path.join(prefix, entry.name)

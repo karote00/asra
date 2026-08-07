@@ -1,7 +1,7 @@
-# Asyra Design
+# Design App
 
-Asyra Design is the open-source reference app built on the Asyra Framework. It
-provides a usable design canvas and demonstrates how an app can compose Asyra's
+Design App is the open-source reference app built on the Design App Framework. It
+provides a usable design canvas and demonstrates how an app can compose Design App's
 state, rendering, interaction, and collaboration APIs.
 
 ## Requirements

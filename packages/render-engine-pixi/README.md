@@ -1,6 +1,6 @@
 # `@asyra/render-engine-pixi`
 
-Official Pixi-backed render-engine provider for the supported Asyra 2D
+Official Pixi-backed render-engine provider for the supported 2D
 composition.
 
 ```ts

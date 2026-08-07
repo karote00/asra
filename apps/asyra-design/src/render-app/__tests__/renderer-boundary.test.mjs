@@ -13,7 +13,7 @@ const packageJson = JSON.parse(
   readFileSync(path.resolve(testDirectory, '../../../package.json'), 'utf8')
 )
 
-test('Asyra Design delegates default renderer ownership to Core', () => {
+test('Design App delegates default renderer ownership to Core', () => {
   assert.doesNotMatch(renderAppSource, /RenderAdapter|core\.setRenderer/)
   assert.doesNotMatch(renderAppSource, /from ['"]@asyra\/render['"]/)
   assert.doesNotMatch(
@@ -30,7 +30,7 @@ test('Asyra Design delegates default renderer ownership to Core', () => {
   assert.equal(packageJson.dependencies['@types/pixi.js'], undefined)
 })
 
-test('Asyra Design tears down the Core-owned renderer lifecycle', () => {
+test('Design App tears down the Core-owned renderer lifecycle', () => {
   assert.match(renderAppSource, /core\.destroyRenderer\(\)/)
   assert.doesNotMatch(renderAppSource, /renderer\.destroy\(\)/)
   assert.match(renderAppSource, /lifecycleRef\.current/)
@@ -39,7 +39,7 @@ test('Asyra Design tears down the Core-owned renderer lifecycle', () => {
   assert.doesNotMatch(renderAppSource, /destroyRenderApp/)
 })
 
-test('Asyra Design reports active render startup failures', () => {
+test('Design App reports active render startup failures', () => {
   assert.doesNotMatch(
     renderAppSource,
     /void lifecycle\.catch\(\(\) => undefined\)/

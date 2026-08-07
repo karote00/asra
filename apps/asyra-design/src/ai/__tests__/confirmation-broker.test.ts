@@ -17,7 +17,7 @@ const removalPreview: AiActionBatchPreview = Object.freeze({
   batchId: 'remove-batch'
 })
 
-describe('Asyra Design AI confirmation broker', () => {
+describe('Design App AI confirmation broker', () => {
   it('resolves false immediately when no mounted presentation consumer exists', async () => {
     const broker = createAiConfirmationBroker()
     broker.beginTurn('conversation-1:turn:1')

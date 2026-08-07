@@ -133,14 +133,14 @@ const RenderApp: React.FC<RenderAppProps> = ({
     <div
       {...AiDocumentInteractionTargetProps.VIEWPORT_NAVIGATION}
       className="absolute inset-0"
-      data-testid="asyra-canvas-host"
+      data-testid="canvas-host"
       tabIndex={-1}
       onContextMenu={handleContextMenu}
     >
       <div
         ref={renderContainerRef}
         className="absolute inset-0"
-        data-testid="asyra-canvas-render-container"
+        data-testid="canvas-render-container"
       />
       <StatusToastStack
         toasts={[

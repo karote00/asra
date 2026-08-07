@@ -13,7 +13,7 @@ const markTarget = (
   return element
 }
 
-describe('Asyra Design AI document interaction lock', () => {
+describe('Design App AI document interaction lock', () => {
   afterEach(() => {
     document.body.replaceChildren()
   })

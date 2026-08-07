@@ -1,7 +1,7 @@
 {
   "name": "@asyra/preset",
   "version": "0.5.0",
-  "description": "Framework preset package for Asyra",
+  "description": "Default framework composition package",
   "author": "Asa Tsai",
   "license": "MIT",
   "type": "module",

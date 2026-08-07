@@ -30,7 +30,7 @@ const batch: AiActionBatch = {
   batchId: 'batch-1'
 }
 
-describe('Asyra Design configured AI model backend', () => {
+describe('Design App configured AI model backend', () => {
   it('requires endpoint, model, and API key before any upstream request', async () => {
     const fetchImpl = vi.fn(
       async (_input: string | URL | Request, _init?: RequestInit) =>
@@ -40,8 +40,8 @@ describe('Asyra Design configured AI model backend', () => {
     await expect(
       requestConfiguredAiActionBatch(input, {
         environment: {
-          ASYRA_AI_PROVIDER_API_KEY: 'secret',
-          ASYRA_AI_PROVIDER_ENDPOINT: 'https://provider.example/actions'
+          AI_PROVIDER_API_KEY: 'secret',
+          AI_PROVIDER_ENDPOINT: 'https://provider.example/actions'
         },
         fetch: fetchImpl
       })
@@ -63,9 +63,9 @@ describe('Asyra Design configured AI model backend', () => {
     await expect(
       requestConfiguredAiActionBatch(input, {
         environment: {
-          ASYRA_AI_PROVIDER_API_KEY: 'backend-only-secret',
-          ASYRA_AI_PROVIDER_ENDPOINT: 'https://provider.example/actions',
-          ASYRA_AI_PROVIDER_MODEL: 'configured-model'
+          AI_PROVIDER_API_KEY: 'backend-only-secret',
+          AI_PROVIDER_ENDPOINT: 'https://provider.example/actions',
+          AI_PROVIDER_MODEL: 'configured-model'
         },
         fetch: fetchImpl
       })
@@ -106,9 +106,9 @@ describe('Asyra Design configured AI model backend', () => {
     await expect(
       requestConfiguredAiActionBatch(input, {
         environment: {
-          ASYRA_AI_PROVIDER_API_KEY: 'secret',
-          ASYRA_AI_PROVIDER_ENDPOINT: 'https://provider.example/actions',
-          ASYRA_AI_PROVIDER_MODEL: 'configured-model'
+          AI_PROVIDER_API_KEY: 'secret',
+          AI_PROVIDER_ENDPOINT: 'https://provider.example/actions',
+          AI_PROVIDER_MODEL: 'configured-model'
         },
         fetch: fetchImpl
       })

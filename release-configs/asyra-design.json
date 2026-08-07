@@ -17,6 +17,7 @@
     ".pnp.loader.mjs",
     ".DS_Store",
     ".env*",
+    ".*-data",
     "crdt-ai-agent",
     "e2e-full",
     "e2e-reference",

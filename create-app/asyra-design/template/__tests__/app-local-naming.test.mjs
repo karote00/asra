@@ -22,7 +22,18 @@ const ignoredDirectories = new Set([
   'playwright-report',
   'test-results'
 ])
-const redundantNamePattern = /\basyra_?design[A-Za-z0-9_]*\b/gi
+const localPackageName = JSON.parse(
+  fs.readFileSync(path.join(appRoot, 'package.json'), 'utf8')
+)
+  .name.split('/')
+  .at(-1)
+const escapedLocalNameSegments = localPackageName
+  .split(/[-_]/u)
+  .map((segment) => segment.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'))
+const redundantNamePattern = new RegExp(
+  `\\b${escapedLocalNameSegments.join('_?')}[A-Za-z0-9_]*\\b`,
+  'giu'
+)
 
 const collectSourceFiles = (directory) =>
   fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {

@@ -5,7 +5,7 @@ import {
   AiImageToolIds
 } from '../app-prompt'
 
-describe('Asyra Design App-owned AI prompt', () => {
+describe('Design App App-owned AI prompt', () => {
   it('defines the complete registered image-tool decision pipeline without hidden reasoning', () => {
     expect(AI_APP_PROMPT).toMatch(
       /analyze the user request, accepted attachments, and current canonical context/i

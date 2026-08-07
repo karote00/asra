@@ -25,9 +25,9 @@ const CRDT_COMPLETION_TIMEOUT_MS = 180_000
 const CRDT_CASE_TIMEOUT_MS = 240_000
 const CRDT_ACTION_UNDO_REDO_CASE_TIMEOUT_MS = 600_000
 const sliceElementBudget = (() => {
-  const value = Number(process.env.ASYRA_E2E_SLICE_ELEMENT_BUDGET ?? 32)
+  const value = Number(process.env.E2E_SLICE_ELEMENT_BUDGET ?? 32)
   if (value !== 32 && value !== 64) {
-    throw new Error('ASYRA_E2E_SLICE_ELEMENT_BUDGET must be 32 or 64')
+    throw new Error('E2E_SLICE_ELEMENT_BUDGET must be 32 or 64')
   }
   return value
 })() as 32 | 64
@@ -35,7 +35,7 @@ const sliceElementBudget = (() => {
 const requireAppUrl = (testInfo: TestInfo): string => {
   const appUrl = String(testInfo.project.use.baseURL ?? '')
   if (!appUrl) {
-    throw new Error('Asyra Design App URL is unavailable')
+    throw new Error('Design App App URL is unavailable')
   }
   return appUrl
 }
@@ -1722,7 +1722,7 @@ test('1,280-item cat prefix measures ordinary cooperative two-actor creation', a
   }
 })
 
-test('two real Asyra Design windows converge while connected and catch up through reconnect bootstrap', async ({
+test('two real Design App windows converge while connected and catch up through reconnect bootstrap', async ({
   browser
 }, testInfo) => {
   const fileId = `e2e-${Date.now()}-${testInfo.workerIndex}`

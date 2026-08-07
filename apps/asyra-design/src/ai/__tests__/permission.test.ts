@@ -19,7 +19,7 @@ const action = (name: string): AiPreparedAction =>
     execute: async () => null
   })
 
-describe('Asyra Design AI permission policy', () => {
+describe('Design App AI permission policy', () => {
   it('defaults every action to deny', async () => {
     const policy = createAiPermissionPolicy()
 
