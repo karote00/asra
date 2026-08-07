@@ -329,12 +329,21 @@ The backend owns:
 - checkpoint/revision update; and
 - acknowledgement of the highest contiguous durable sequence.
 
+The socket server and backend consume only the App-owned versioned wire,
+document, and Agent protocols. They import no `@asyra/*` package, including
+type-only contract imports, and never construct or call Core, Factory,
+Collaboration, or another framework runtime. The browser frontend is the sole
+framework adapter: it observes the Core publication/event surfaces, encodes the
+App wire artifact, decodes remote artifacts, and returns accepted canonical
+slices through the Core remote-apply facade.
+
 The browser and generic `@asyra/collaboration` package do not implement backend
 merge policy. App-owned publication decoding must be shared by the live remote
 processor and backend materializer so route/payload meaning is not duplicated
-in two hand-maintained special implementations. Decode reconstructs the
-in-memory publication and enforces codec integrity; it does not authorize a
-second recursive product-schema validation pass.
+in two hand-maintained special implementations. That shared decoder is an
+App-protocol module with no framework dependency. Decode reconstructs the
+in-memory App publication and enforces codec integrity; it does not authorize
+a second recursive product-schema validation pass.
 
 If one batch cannot be applied, the backend does not acknowledge a sequence
 past the failure. The socket server retains the exact unacknowledged batch and

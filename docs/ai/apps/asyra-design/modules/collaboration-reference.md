@@ -178,6 +178,8 @@ generic Collaboration for a state vector or semantic publication history.
 `collaboration-server.ts` owns one file-scoped room, sequencer, pending tail,
 and persistence queue plus one session record per accepted socket. It:
 
+- imports only App-owned protocol/infrastructure modules and no `@asyra/*`
+  package; the frontend adapter is the sole Core/Factory-facing boundary;
 - accepts the App-owned document session identity carried by the wire protocol;
 - prevents two simultaneous connections from claiming the same actor in one
   file; each accepted socket owns its reservation until its own cleanup, and a
@@ -199,6 +201,10 @@ and persistence queue plus one session record per accepted socket. It:
 - flushes one fixed three-second dirty window to the App backend and retries an
   unacknowledged contiguous batch; and
 - retains the not-yet-durable ordered tail needed by reconnect bootstrap.
+
+The document backend follows the same dependency rule. It materializes the
+App-owned canonical document protocol and persists checkpoints, but it neither
+imports framework contracts nor calls a framework runtime.
 
 If a peer disconnects, its old Peer queue receives no later live frames.
 Reconnect creates a new Peer session and recovers through the latest backend

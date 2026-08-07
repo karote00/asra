@@ -187,6 +187,10 @@ Completed plan:
   encoded-byte digest, queues, and relays original opaque publication bytes
   without an admission document, product-payload decode, decoded deep equality,
   or re-encode. The backend decodes once for ordered atomic materialization
+- the socket server and backend use only App-owned wire/document/Agent
+  protocols and import no `@asyra/*` package. The frontend adapter alone
+  observes Core publications/events and submits decoded remote slices through
+  the Core facade
 - a receiving client routes the decoded trusted publication into its recorded
   source slices. Factory keeps one progressive remote rollback journal open,
   Core receives one ordered canonical request per source slice, and the

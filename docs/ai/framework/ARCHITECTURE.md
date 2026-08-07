@@ -168,9 +168,10 @@ Canonical shorthand:
 ### Optional network collaboration composition
 
 `@asyra/collaboration` is an optional sibling composition, not a Core or Preset
-startup dependency. Construction is inert; `Collaboration.start()` explicitly
-binds observers and connects the Provider. Reconnect restores live transport
-only.
+package dependency. Construction is inert. An app may start it explicitly, or
+register an app-owned neutral collaboration-session lifecycle with Core when it
+must participate in startup/load/ready ordering. Core never imports or
+interprets Collaboration, Provider, wire, recovery, or policy types.
 
 ```text
 Local canonical state-owner mutation
@@ -183,7 +184,8 @@ Local canonical state-owner mutation
 Live Provider publication
 -> Collaboration inbound callback once
 -> app route/payload/permission/domain-policy validation
--> app-owned Factory remote transaction and canonical apply
+-> app submits canonical slices through Core
+-> Core-owned Factory remote transaction/replay and canonical apply
 -> state owner -> Render/UI projection
 ```
 
@@ -234,6 +236,11 @@ applyPreset(core, { profile?, defaults? })
 - Core owns an engine-neutral `RenderAdapter` by default. An exact missing
   provider becomes headless only in Core startup; direct Render and real engine
   failures remain strict.
+- An optional app-owned collaboration session registers through Core's neutral
+  lifecycle contract. Core owns prepare -> renderer -> observers -> checkpoint
+  load -> Feature initialization -> activation -> ready and disposes the
+  session before the renderer. The session retains all transport and product
+  policy.
 - Package registries remain definition source-of-truth; the graph stores only
   stable `{ kind, key }` identities, owner metadata, declared relations, and
   package-local cleanup handlers.

@@ -9,7 +9,7 @@ It is not a document data owner, CRDT store, operation policy engine, or backend
 An app opts in by explicitly creating `Collaboration` with:
 
 - non-empty `documentId`, `roomId`, and `actorId`;
-- a Factory-facing `subscribeToSharedPublication` source;
+- an optional neutral `publicationSource.subscribe(...)` source;
 - an app-owned `processRemotePublication` callback;
 - an optional replaceable `Provider`;
 - optional Awareness;
@@ -19,6 +19,12 @@ Construction is inert. `start()` binds observers and connects the Provider.
 Apps that omit this composition create no room, Provider, Awareness runtime, or
 collaboration network side effect. Their ordinary HTTP/load/save behavior is
 unchanged.
+
+The deprecated Factory-shaped input remains a compatibility adapter only.
+New composition supplies `publicationSource`. An app may wrap the resulting
+session in Core's package-neutral collaboration lifecycle when checkpoint load,
+Feature initialization, activation, ready, and teardown must share one order;
+the generic Collaboration package still has no Core dependency.
 
 Default-created Awareness is owned. Injected Provider and Awareness resources
 default to borrowed unless composition says otherwise. `dispose()` detaches
@@ -149,8 +155,9 @@ app/backend must accept, reject, or transform the publication before Scene Tree
 performs canonical validation and mutation.
 
 When remote work must stay out of ordinary local undo and must not echo, the app
-callback uses its Factory `runRemoteTransaction` boundary. Factory owns that
-origin behavior; Collaboration does not infer it from app routes.
+callback submits its validated canonical slices through the owning runtime
+facade. Core then uses its injected Factory remote-transaction boundary.
+Factory owns origin behavior; Collaboration does not infer it from app routes.
 
 ## Intentionally Absent Behavior
 
@@ -188,7 +195,8 @@ Composition:
 - `createCollaboration(input)`
 - `Collaboration`
 - `CreateCollaborationInput`
-- `CollaborationFactory`
+- `CollaborationPublicationSource`
+- `CollaborationFactory` (deprecated compatibility input)
 - `ProcessRemotePublication`
 - `CollaborationResourceOwnershipMap`
 - `CollaborationPublicationOutcome`
@@ -219,7 +227,7 @@ package.
 Factory types. Generic Collaboration forwards that artifact without cloning;
 real transport adapters own serialization and receive-side isolation. Loading
 the Collaboration package does not activate or load the Factory runtime.
-App-supplied Factory composition remains explicit.
+App-supplied publication-source composition remains explicit.
 
 ## Reference App
 
