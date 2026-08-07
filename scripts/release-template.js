@@ -65,6 +65,9 @@ const DEST_DIR = CHECK ? CHECK_DIRECTORY : CONFIGURED_DEST_DIR
 const CLEAN_FILES = config.cleanFiles || []
 const GENERATED_ENVIRONMENT = config.environment || {}
 const TEMPLATE_README = config.readme ? path.resolve(config.readme) : undefined
+const TEMPLATE_LICENSE = config.license
+  ? path.resolve(config.license)
+  : undefined
 
 if (CHECK) {
   process.on('exit', () => {
@@ -146,6 +149,14 @@ if (TEMPLATE_README) {
     fse.removeSync(copiedReadmeSource)
   }
   if (VERBOSE) console.log('Created standalone template README')
+}
+
+if (TEMPLATE_LICENSE) {
+  if (!fs.existsSync(TEMPLATE_LICENSE)) {
+    throw new Error('Template license must be an existing file')
+  }
+  fse.copySync(TEMPLATE_LICENSE, path.join(DEST_DIR, 'LICENSE'))
+  if (VERBOSE) console.log('Created standalone template license')
 }
 
 // ----------------------

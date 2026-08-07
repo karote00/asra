@@ -18,6 +18,15 @@ npx create-asyra-design-app my-project
 The CLI copies its bundled template, asks which package manager to use, and
 installs the generated app dependencies.
 
+For automation, select the package manager without an interactive prompt:
+
+```shell
+npx create-asyra-design-app my-project --package-manager=yarn
+```
+
+Supported values are `yarn`, `npm`, and `pnpm`. The project name must be one
+directory name; absolute paths and parent-directory traversal are rejected.
+
 ## Start the project
 
 ```shell

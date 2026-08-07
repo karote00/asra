@@ -255,7 +255,7 @@ export const fillApis = {
     if (!sceneTree.getElementById(elementId)) {
       return null
     }
-    const fill = createDefaultFill({ id: id() })
+    const fill = createDefaultFill({ id: id('fill') })
     transactionApis.runTransaction(() => {
       core.patchElementProperties(
         [createFillRecordPatch(elementId, fill.id, fill)],
@@ -271,7 +271,10 @@ export const fillApis = {
     options?: EVENT_OPTIONS
   ): boolean => {
     const element = sceneTree.getElementById(elementId)
-    const fills = element?.getAllComputedData?.()?.fills
+    const computed = element?.getAllComputedData?.() as
+      | { fills?: unknown }
+      | undefined
+    const fills = computed?.fills
     if (
       !fillId ||
       !Array.isArray(fills) ||

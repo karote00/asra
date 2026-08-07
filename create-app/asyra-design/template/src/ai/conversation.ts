@@ -444,16 +444,31 @@ export const createAiConversationController = (
 
       let result: unknown
       try {
+        const metadata: AiJsonValue = {
+          aiTargets: {
+            compositionId: aiTargets.compositionId,
+            roleToElementIds: Object.fromEntries(
+              Object.entries(aiTargets.roleToElementIds).map(
+                ([role, elementIds]) => [role, [...elementIds]]
+              )
+            )
+          },
+          conversationId,
+          ...(attachments.length > 0
+            ? {
+                imageAttachments: attachments.map((attachment) => ({
+                  dataUrl: attachment.dataUrl,
+                  mediaType: attachment.mediaType,
+                  name: attachment.name,
+                  size: attachment.size
+                }))
+              }
+            : {}),
+          turnId: currentTurn.turnId
+        }
         const featureSettlement = options.feature.execute({
           intent,
-          metadata: {
-            aiTargets,
-            conversationId,
-            ...(attachments.length > 0
-              ? { imageAttachments: attachments }
-              : {}),
-            turnId: currentTurn.turnId
-          },
+          metadata,
           progressObserver
         })
         activeSettlement = featureSettlement

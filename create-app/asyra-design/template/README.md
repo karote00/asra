@@ -1,8 +1,8 @@
 # Asyra Design standalone template
 
-This generated app is the reference Framework consumer for the Asyra 0.2.5
-release set. It installs Framework packages through their public package
-artifacts and imports only declared public entrypoints.
+This generated app is the reference Framework consumer for the Asyra 0.5.0
+release set. It installs exact Framework package versions from the public npm
+registry and imports only declared public entrypoints.
 
 ## Requirements
 
@@ -13,13 +13,16 @@ artifacts and imports only declared public entrypoints.
 
 ```bash
 yarn install
+yarn typecheck
 yarn react:build
 yarn test
 ```
 
-The release gate runs those commands in a clean directory with every
-`@asyra/*` dependency resolved from a packed tarball. It also starts the
-production preview and verifies the root document response.
+The release gate invokes the packed create-app CLI in an isolated directory,
+lets every `@asyra/*` dependency resolve from the public npm registry, and then
+runs those commands. It does not use workspace packages, local Framework
+tarballs, or dependency resolutions. It also starts the app and verifies the
+document and interaction flows.
 
 ## Start the app
 
@@ -75,10 +78,26 @@ mode.
 ## Optional AI
 
 AI execution is user-initiated. To opt in to AI, open the AI control and submit
-an intent. App initialization creates no model request, reads no provider
-secret, and opens no AI network connection. Provider execution begins only
-after that explicit action and remains behind the app-owned action,
-permission, Feature, and transaction boundaries.
+an intent. Ordinary model-backed execution is disabled until the app server
+process has all three server-only settings:
+
+```dotenv
+AI_PROVIDER_ENDPOINT=https://your-adapter.example/actions
+AI_PROVIDER_MODEL=your-model
+AI_PROVIDER_API_KEY=your-secret
+```
+
+The endpoint must be HTTPS, except for loopback development. The browser
+receives none of these values; the API key is sent only by the server as a
+Bearer credential. The adapter receives the backend-owned App domain prompt,
+image-tool catalog, and input, and must return one compatible action batch.
+
+App initialization creates no model request, reads no provider secret, and
+opens no AI network connection. Provider execution begins only after the
+explicit user action and remains behind the app-owned action, permission,
+Feature, and transaction boundaries. The checked-in `crdt-7076` sample is a
+separate deterministic backend interceptor route and does not load provider
+configuration or the App domain prompt.
 
 ## Release boundary
 

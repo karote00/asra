@@ -6,6 +6,7 @@ import type {
   VectorAnchorPoint,
   VectorEndpointSide,
   VectorPathStyle,
+  VectorPointNode,
   VectorTopology
 } from '@asyra/core'
 import {
@@ -941,7 +942,7 @@ const getVectorGeometryMutationValues = (
   previousComputed: Partial<VectorComputedData> | null,
   previousTopology: VectorTopology,
   nextTopology: VectorTopology
-): Pick<VectorComputedData, 'x' | 'y' | 'width' | 'height'> => {
+): Required<Pick<VectorComputedData, 'x' | 'y' | 'width' | 'height'>> => {
   const nextBounds = calculateVectorBounds(nextTopology)
   if (
     !previousComputed ||
@@ -1509,16 +1510,16 @@ const getNearestVectorSegmentHit = (
 
 const createVectorElementAtWorkspacePos = (
   workspacePos: PositionData,
-  data: Record<string, DataTypes>,
+  data: CreateElementData,
   options?: EVENT_OPTIONS
 ): string => {
   return runTransaction(() =>
     core.createElement(
       {
+        ...data,
         type: 'vector',
         x: workspacePos.x,
-        y: workspacePos.y,
-        ...data
+        y: workspacePos.y
       },
       undefined,
       undefined,
@@ -1593,7 +1594,10 @@ export const vectorApis = {
           `[Vector APIs] Transient preview cancellation requires active vector "${elementId}"`
         )
       }
-      element.props.getCanonicalRootPropertyIds().forEach((propertyId) => {
+      const props = element.props as typeof element.props & {
+        getCanonicalRootPropertyIds: () => readonly string[]
+      }
+      props.getCanonicalRootPropertyIds().forEach((propertyId) => {
         if (!seenPropertyIds.has(propertyId)) {
           seenPropertyIds.add(propertyId)
           propertyIds.push(propertyId)

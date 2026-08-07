@@ -2,21 +2,56 @@
 
 import fs from 'fs'
 import path from 'path'
-import { execSync } from 'child_process'
+import { execFileSync } from 'child_process'
 import inquirer from 'inquirer'
 import { fileURLToPath } from 'url'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-function resolveTargetName(argv) {
-  const args = argv.slice(2)
-  if (args[0]?.startsWith('create-')) return args[1]
-  return args[0]
+const supportedPackageManagers = ['yarn', 'npm', 'pnpm']
+
+function parseArguments(argv) {
+  const rawArgs = argv.slice(2)
+  const args = rawArgs[0]?.startsWith('create-') ? rawArgs.slice(1) : rawArgs
+  let packageManager
+  let targetName
+
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index]
+    if (argument === '--package-manager') {
+      packageManager = args[index + 1]
+      index += 1
+      continue
+    }
+    if (argument?.startsWith('--package-manager=')) {
+      packageManager = argument.slice('--package-manager='.length)
+      continue
+    }
+    if (!argument?.startsWith('-') && targetName === undefined) {
+      targetName = argument
+    }
+  }
+
+  return { packageManager, targetName }
+}
+
+function isSafeTargetName(value) {
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    value === value.trim() &&
+    value !== '.' &&
+    value !== '..' &&
+    !path.isAbsolute(value) &&
+    path.basename(value) === value &&
+    !value.includes('/') &&
+    !value.includes('\\')
+  )
 }
 
 async function main() {
-  let targetName = resolveTargetName(process.argv)
+  let { packageManager, targetName } = parseArguments(process.argv)
 
   if (!targetName) {
     const answer = await inquirer.prompt([
@@ -24,10 +59,27 @@ async function main() {
         type: 'input',
         name: 'projectName',
         message: 'Project name:',
-        validate: (input) => (input ? true : 'Project name cannot be empty')
+        validate: (input) =>
+          isSafeTargetName(input)
+            ? true
+            : 'Project name must be one directory name'
       }
     ])
     targetName = answer.projectName
+  }
+
+  if (!isSafeTargetName(targetName)) {
+    console.error('❌ Project name must be one directory name.')
+    process.exit(1)
+  }
+  if (
+    packageManager !== undefined &&
+    !supportedPackageManagers.includes(packageManager)
+  ) {
+    console.error(
+      `❌ Unsupported package manager "${packageManager}". Choose yarn, npm, or pnpm.`
+    )
+    process.exit(1)
   }
 
   const cwd = process.cwd()
@@ -44,15 +96,18 @@ async function main() {
     process.exit(1)
   }
 
-  const { packageManager } = await inquirer.prompt([
-    {
-      type: 'list',
-      name: 'packageManager',
-      message: 'Choose a package manager',
-      choices: ['yarn', 'npm', 'pnpm'],
-      default: 'yarn'
-    }
-  ])
+  if (!packageManager) {
+    const answer = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'packageManager',
+        message: 'Choose a package manager',
+        choices: supportedPackageManagers,
+        default: 'yarn'
+      }
+    ])
+    packageManager = answer.packageManager
+  }
 
   console.log(`\n🚀 Creating project "${targetName}"...\n`)
 
@@ -145,13 +200,10 @@ yarn-error.log*
   // 4️⃣ Install dependencies
   try {
     console.log('📦 Installing dependencies...')
-    const installCmd = {
-      yarn: 'yarn install',
-      npm: 'npm install',
-      pnpm: 'pnpm install'
-    }[packageManager]
-
-    execSync(installCmd, { cwd: targetDir, stdio: 'inherit' })
+    execFileSync(packageManager, ['install'], {
+      cwd: targetDir,
+      stdio: 'inherit'
+    })
   } catch {
     console.error('\n❌ Failed to install dependencies.')
     console.error('You can try manually:')

@@ -93,6 +93,19 @@ test('release template excludes local runtime data directories', () => {
     config.cleanFiles.includes('.*-data'),
     'local runtime data directories must never enter the generated template'
   )
+  for (const repositoryOnlyPath of [
+    '.turbo',
+    'coverage',
+    'dist',
+    'playwright-report',
+    'test-results',
+    'visual-review-records'
+  ]) {
+    assert.ok(
+      config.cleanFiles.includes(repositoryOnlyPath),
+      `${repositoryOnlyPath} must never enter the generated template`
+    )
+  }
 
   const releaseTemplate = readFileSync(
     path.join(repositoryRoot, 'scripts/release-template.js'),
@@ -105,6 +118,83 @@ test('release template excludes local runtime data directories', () => {
     /const isIgnoredComparisonDirectory = \(name\) =>/
   )
   assert.match(releaseTemplate, /\/\^\\\..\+-data\$\/u\.test\(name\)/)
+})
+
+test('generated template contains required public files and no repository-only state', () => {
+  const templateRoot = path.join(
+    repositoryRoot,
+    'create-app/asyra-design/template'
+  )
+  const expectedLicense = readFileSync(
+    path.join(repositoryRoot, 'create-app/asyra-design/LICENSE'),
+    'utf8'
+  )
+
+  assert.equal(
+    readFileSync(path.join(templateRoot, 'LICENSE'), 'utf8'),
+    expectedLicense
+  )
+  for (const repositoryOnlyPath of [
+    '.turbo',
+    'coverage',
+    'dist',
+    'playwright-report',
+    'test-results',
+    'visual-review-records'
+  ]) {
+    assert.equal(
+      existsSync(path.join(templateRoot, repositoryOnlyPath)),
+      false,
+      repositoryOnlyPath
+    )
+  }
+})
+
+test('packed create-app inventory excludes repository-only generated state', () => {
+  const result = spawnSync(
+    'npm',
+    ['pack', './create-app/asyra-design', '--dry-run', '--json'],
+    {
+      cwd: repositoryRoot,
+      encoding: 'utf8'
+    }
+  )
+  assert.equal(result.status, 0, result.stderr || result.stdout)
+  const [pack] = JSON.parse(result.stdout)
+  const packedPaths = pack.files.map(({ path: packedPath }) => packedPath)
+
+  assert.ok(packedPaths.includes('README.md'))
+  assert.ok(packedPaths.includes('LICENSE'))
+  assert.ok(packedPaths.includes('bin/index.js'))
+  assert.ok(packedPaths.includes('template/LICENSE'))
+  for (const segment of [
+    '.turbo/',
+    'coverage/',
+    'dist/',
+    'playwright-report/',
+    'test-results/',
+    'visual-review-records/'
+  ]) {
+    assert.equal(
+      packedPaths.some((packedPath) => packedPath.includes(segment)),
+      false,
+      segment
+    )
+  }
+})
+
+test('create-app package metadata matches the supported public CLI contract', () => {
+  const manifest = JSON.parse(
+    readFileSync(
+      path.join(repositoryRoot, 'create-app/asyra-design/package.json'),
+      'utf8'
+    )
+  )
+
+  assert.equal(manifest.description, 'Create a standalone Asyra Design app')
+  assert.equal(manifest.license, 'MIT')
+  assert.deepEqual(manifest.engines, { node: '24.x' })
+  assert.equal(manifest.packageManager, 'yarn@4.3.1')
 })
 
 test('generated template manifest is standalone on the supported release runtime', () => {
@@ -227,6 +317,41 @@ test('create-app hands the selected package manager a runnable standalone start 
   assert.match(readme, /yarn react:start/)
   assert.match(readme, /http:\/\/localhost:3000\/\?fileId=my-design/)
   assert.doesNotMatch(readme, /yarn start/)
+})
+
+test('create-app supports deterministic package-manager selection and rejects unsafe targets', () => {
+  const cliPath = path.join(
+    repositoryRoot,
+    'create-app/asyra-design/bin/index.js'
+  )
+  const cli = readFileSync(cliPath, 'utf8')
+
+  assert.match(cli, /--package-manager/)
+  assert.match(cli, /yarn.*npm.*pnpm/s)
+
+  mkdirSync(path.join(repositoryRoot, 'tmp'), { recursive: true })
+  const testRoot = mkdtempSync(
+    path.join(repositoryRoot, 'tmp', 'create-app-target-test-')
+  )
+  const invocationRoot = path.join(testRoot, 'invocation')
+  mkdirSync(invocationRoot)
+
+  try {
+    const result = spawnSync(
+      process.execPath,
+      [cliPath, '../escaped', '--package-manager=yarn'],
+      {
+        cwd: invocationRoot,
+        encoding: 'utf8'
+      }
+    )
+
+    assert.notEqual(result.status, 0)
+    assert.match(`${result.stderr}${result.stdout}`, /project name.*directory/i)
+    assert.equal(existsSync(path.join(testRoot, 'escaped')), false)
+  } finally {
+    rmSync(testRoot, { recursive: true, force: true })
+  }
 })
 
 test('release validation copies only repository source into an isolated workspace', async () => {
