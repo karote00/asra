@@ -426,6 +426,7 @@ test('workspace version planning includes collaboration without changing files',
     rootDirectory: repositoryRoot,
     environment: 'release'
   })
+  const appManifest = readJSON('apps/asyra-design/package.json')
   const appUpdate = plan.find(
     ({ packageName }) => packageName === '@asyra/asyra-design'
   )
@@ -433,10 +434,8 @@ test('workspace version planning includes collaboration without changing files',
     ({ packageName }) => packageName === '@asyra/collaboration'
   )
 
-  assert.equal(
-    appUpdate?.manifest.dependencies['@asyra/collaboration'],
-    '0.5.0'
-  )
+  assert.equal(appManifest.dependencies['@asyra/collaboration'], '0.5.0')
+  assert.equal(appUpdate, undefined)
   assert.equal(
     collaborationUpdate?.manifest.dependencies['@asyra/factory'],
     '0.5.0'
