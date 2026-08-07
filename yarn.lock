@@ -42,7 +42,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@asyra/ai-agent-runtime@workspace:*, @asyra/ai-agent-runtime@workspace:packages/ai-agent-runtime":
+"@asyra/ai-agent-runtime@npm:0.5.0, @asyra/ai-agent-runtime@workspace:packages/ai-agent-runtime":
   version: 0.0.0-use.local
   resolution: "@asyra/ai-agent-runtime@workspace:packages/ai-agent-runtime"
   dependencies:
@@ -56,18 +56,18 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asyra/asyra-design@workspace:apps/asyra-design"
   dependencies:
-    "@asyra/ai-agent-runtime": "workspace:*"
-    "@asyra/collaboration": "workspace:*"
-    "@asyra/core": "workspace:*"
-    "@asyra/design-system": "workspace:*"
-    "@asyra/factory": "workspace:*"
-    "@asyra/feature-system": "workspace:*"
-    "@asyra/input-system": "workspace:*"
-    "@asyra/preset": "workspace:*"
-    "@asyra/reactive-events": "workspace:*"
-    "@asyra/render": "workspace:*"
-    "@asyra/ui-context": "workspace:*"
-    "@asyra/utils": "workspace:*"
+    "@asyra/ai-agent-runtime": "npm:0.5.0"
+    "@asyra/collaboration": "npm:0.5.0"
+    "@asyra/core": "npm:0.5.0"
+    "@asyra/design-system": "npm:0.5.0"
+    "@asyra/factory": "npm:0.5.0"
+    "@asyra/feature-system": "npm:0.5.0"
+    "@asyra/input-system": "npm:0.5.0"
+    "@asyra/preset": "npm:0.5.0"
+    "@asyra/reactive-events": "npm:0.5.0"
+    "@asyra/render": "npm:0.5.0"
+    "@asyra/ui-context": "npm:0.5.0"
+    "@asyra/utils": "npm:0.5.0"
     "@playwright/test": "npm:^1.57.0"
     "@preact/signals-react": "npm:^2.2.0"
     "@tanstack/react-virtual": "npm:^3.13.6"
@@ -101,7 +101,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asyra/collaboration@workspace:*, @asyra/collaboration@workspace:packages/collaboration":
+"@asyra/collaboration@npm:0.5.0, @asyra/collaboration@workspace:packages/collaboration":
   version: 0.0.0-use.local
   resolution: "@asyra/collaboration@workspace:packages/collaboration"
   dependencies:
@@ -113,7 +113,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asyra/core@workspace:*, @asyra/core@workspace:packages/core":
+"@asyra/core@npm:0.5.0, @asyra/core@workspace:*, @asyra/core@workspace:packages/core":
   version: 0.0.0-use.local
   resolution: "@asyra/core@workspace:packages/core"
   dependencies:
@@ -137,7 +137,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asyra/design-system@workspace:*, @asyra/design-system@workspace:packages/design-system":
+"@asyra/design-system@npm:0.5.0, @asyra/design-system@workspace:packages/design-system":
   version: 0.0.0-use.local
   resolution: "@asyra/design-system@workspace:packages/design-system"
   dependencies:
@@ -175,7 +175,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asyra/factory@workspace:*, @asyra/factory@workspace:packages/factory":
+"@asyra/factory@npm:0.5.0, @asyra/factory@workspace:*, @asyra/factory@workspace:packages/factory":
   version: 0.0.0-use.local
   resolution: "@asyra/factory@workspace:packages/factory"
   dependencies:
@@ -187,7 +187,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asyra/feature-system@workspace:*, @asyra/feature-system@workspace:packages/feature-system":
+"@asyra/feature-system@npm:0.5.0, @asyra/feature-system@workspace:*, @asyra/feature-system@workspace:packages/feature-system":
   version: 0.0.0-use.local
   resolution: "@asyra/feature-system@workspace:packages/feature-system"
   dependencies:
@@ -199,7 +199,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asyra/input-system@workspace:*, @asyra/input-system@workspace:packages/input-system":
+"@asyra/input-system@npm:0.5.0, @asyra/input-system@workspace:*, @asyra/input-system@workspace:packages/input-system":
   version: 0.0.0-use.local
   resolution: "@asyra/input-system@workspace:packages/input-system"
   dependencies:
@@ -223,7 +223,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asyra/preset@workspace:*, @asyra/preset@workspace:packages/preset":
+"@asyra/preset@npm:0.5.0, @asyra/preset@workspace:packages/preset":
   version: 0.0.0-use.local
   resolution: "@asyra/preset@workspace:packages/preset"
   dependencies:
@@ -257,7 +257,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asyra/reactive-events@workspace:*, @asyra/reactive-events@workspace:packages/reactive-events":
+"@asyra/reactive-events@npm:0.5.0, @asyra/reactive-events@workspace:*, @asyra/reactive-events@workspace:packages/reactive-events":
   version: 0.0.0-use.local
   resolution: "@asyra/reactive-events@workspace:packages/reactive-events"
   dependencies:
@@ -299,7 +299,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asyra/render@workspace:*, @asyra/render@workspace:packages/render":
+"@asyra/render@npm:0.5.0, @asyra/render@workspace:*, @asyra/render@workspace:packages/render":
   version: 0.0.0-use.local
   resolution: "@asyra/render@workspace:packages/render"
   dependencies:
@@ -354,7 +354,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asyra/ui-context@workspace:*, @asyra/ui-context@workspace:packages/ui-context":
+"@asyra/ui-context@npm:0.5.0, @asyra/ui-context@workspace:*, @asyra/ui-context@workspace:packages/ui-context":
   version: 0.0.0-use.local
   resolution: "@asyra/ui-context@workspace:packages/ui-context"
   dependencies:
@@ -370,7 +370,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@asyra/utils@workspace:*, @asyra/utils@workspace:packages/utils":
+"@asyra/utils@npm:0.5.0, @asyra/utils@workspace:*, @asyra/utils@workspace:packages/utils":
   version: 0.0.0-use.local
   resolution: "@asyra/utils@workspace:packages/utils"
   dependencies:

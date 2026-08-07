@@ -651,7 +651,7 @@ export const elementApis = {
     runTransaction(() => {
       const propertyUpdates: {
         elementId: string
-        values: PositionData
+        values: Readonly<Record<string, unknown>>
       }[] = []
 
       entries.forEach(([elementId, position]) => {

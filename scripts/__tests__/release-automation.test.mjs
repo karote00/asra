@@ -150,6 +150,34 @@ test('generated template manifest is standalone on the supported release runtime
   assert.doesNotMatch(environment, /(?:SECRET|TOKEN|PASSWORD|API_KEY)=/i)
 })
 
+test('canonical Asyra Design source targets the public Framework 0.5.0 baseline', () => {
+  const manifest = JSON.parse(
+    readFileSync(
+      path.join(repositoryRoot, 'apps/asyra-design/package.json'),
+      'utf8'
+    )
+  )
+  const frameworkDependencies = Object.entries(
+    manifest.dependencies ?? {}
+  ).filter(([packageName]) => packageName.startsWith('@asyra/'))
+
+  assert.ok(frameworkDependencies.length > 0)
+  for (const [packageName, version] of frameworkDependencies) {
+    assert.equal(version, '0.5.0', packageName)
+  }
+  assert.equal(manifest.scripts?.typecheck, 'tsc -p tsconfig.typecheck.json')
+
+  const typecheckConfig = JSON.parse(
+    readFileSync(
+      path.join(repositoryRoot, 'apps/asyra-design/tsconfig.typecheck.json'),
+      'utf8'
+    )
+  )
+  assert.equal(typecheckConfig.extends, './tsconfig.json')
+  assert.ok(typecheckConfig.exclude.includes('src/**/__tests__/**'))
+  assert.ok(typecheckConfig.exclude.includes('src/**/*.test.*'))
+})
+
 test('generated template documents its verified standalone commands and opt-ins', () => {
   const source = readFileSync(
     path.join(repositoryRoot, 'apps/asyra-design/TEMPLATE.md'),

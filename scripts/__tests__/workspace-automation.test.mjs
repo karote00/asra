@@ -363,7 +363,7 @@ test('AI agent runtime is an optional zero-runtime-dependency workspace package'
   assert.deepEqual(runtimeTypeScript.exclude, factoryTypeScript.exclude)
   assert.equal(
     app.dependencies['@asyra/ai-agent-runtime'],
-    'workspace:*',
+    '0.5.0',
     'Asyra Design must opt into the optional runtime explicitly'
   )
   assert.deepEqual(

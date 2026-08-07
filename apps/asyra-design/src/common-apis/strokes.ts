@@ -137,10 +137,10 @@ export const strokeApis = {
     if (!core.deps.sceneTree.getElementById(elementId)) {
       return null
     }
-    const stroke = createDefaultStroke({ id: id() })
+    const stroke = createDefaultStroke({ id: id('stroke') })
     transactionApis.runTransaction(() => {
       core.patchElementProperties(
-        [createStrokeRecordPatch(elementId, stroke.id, stroke)],
+        [createStrokeRecordPatch(elementId, stroke.id, { ...stroke })],
         options
       )
     })
@@ -153,7 +153,10 @@ export const strokeApis = {
     options?: EVENT_OPTIONS
   ): boolean => {
     const element = core.deps.sceneTree.getElementById(elementId)
-    const strokes = element?.getAllComputedData?.()?.strokes
+    const computed = element?.getAllComputedData?.() as
+      | { strokes?: unknown }
+      | undefined
+    const strokes = computed?.strokes
     if (
       !strokeId ||
       !Array.isArray(strokes) ||

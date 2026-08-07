@@ -397,7 +397,10 @@ const Contents: React.FC = () => {
       if (!dropIntent || dropIntent.targetElementId !== elementId) {
         return null
       }
-      return dropIntent.kind === 'invalid' ? 'invalid' : dropIntent.zone
+      if (dropIntent.kind === 'invalid') {
+        return 'invalid'
+      }
+      return dropIntent.zone === 'workspace' ? null : dropIntent.zone
     },
     [dropIntent]
   )
