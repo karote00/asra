@@ -36,6 +36,7 @@ export type { MemoryHubOptions } from './providers/memory/index.js'
 
 export type {
   CollaborationFactory,
+  CollaborationPublicationSource,
   CollaborationResourceOwnership,
   CollaborationResourceOwnershipMap,
   CreateCollaborationInput,

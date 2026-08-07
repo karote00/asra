@@ -1144,6 +1144,38 @@ describe('Render', () => {
     ).toBeNull()
   })
 
+  it('converts between strategy source space and workspace through the last projected source origin', () => {
+    const element = new RenderGraphics()
+    element.x = 10
+    element.y = 20
+    element.setSourceSpaceOrigin({ x: 30, y: 40 })
+    render.viewport.view.addChild(element)
+    vi.spyOn(render.viewport, 'getElementById').mockImplementation(
+      (elementId) => (elementId === 'vector-1' ? element : undefined)
+    )
+
+    expect(
+      render.elementSourceToWorkspace('vector-1', { x: 35, y: 47 })
+    ).toEqual({ x: 15, y: 27 })
+    expect(
+      render.workspaceToElementSource('vector-1', { x: 15, y: 27 })
+    ).toEqual({ x: 35, y: 47 })
+    expect(
+      render.elementSourceToWorkspace('missing', { x: 35, y: 47 })
+    ).toBeNull()
+  })
+
+  it('projects workspace coordinates into the renderer canvas', () => {
+    render.viewport.view.x = 100
+    render.viewport.view.y = 50
+    render.viewport.view.scale.set(2, 2)
+
+    expect(render.workspaceToCanvas({ x: 15, y: 27 })).toEqual({
+      x: 130,
+      y: 104
+    })
+  })
+
   it('passes complete vector and non-vector snapshots through the same strategy signature', () => {
     const vectorStrategy = vi.fn()
     const rectangleStrategy = vi.fn()

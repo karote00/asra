@@ -102,6 +102,59 @@ describe('Core render startup', () => {
     ).toBeLessThan(vi.mocked(core.renderIsReady).mock.invocationCallOrder[0])
   })
 
+  it('owns collaboration prepare, load, activation, ready, and disposal order', async () => {
+    const core = createCoreForTest()
+    const order: string[] = []
+    const checkpoint = {
+      version: '1.0.0',
+      props: {},
+      sceneTree: {
+        workspace: '',
+        workspaceList: [],
+        elements: {}
+      }
+    }
+    core.load = vi.fn(() => {
+      order.push('load')
+    })
+    core.initFeatureSystem = vi.fn(() => {
+      order.push('features')
+    })
+    core.renderIsReady = vi.fn(() => {
+      order.push('ready')
+    })
+    const session = {
+      prepare: vi.fn(async () => {
+        order.push('prepare')
+        return {
+          loadSource: {
+            name: 'test-collaboration',
+            load: async () => checkpoint
+          }
+        }
+      }),
+      activate: vi.fn(async () => {
+        order.push('activate')
+      }),
+      dispose: vi.fn(async () => {
+        order.push('dispose')
+      })
+    }
+    core.registerCollaborationSession(session)
+
+    await core.start(document.createElement('div'), { width: 1, height: 1 })
+    await core.destroy()
+
+    expect(order).toEqual([
+      'prepare',
+      'load',
+      'features',
+      'activate',
+      'ready',
+      'dispose'
+    ])
+  })
+
   it('owns a default RenderAdapter without requiring setRenderer', async () => {
     const canvas = document.createElement('canvas')
     const init = vi.fn(async () => ({ canvas, instance: { name: 'engine' } }))

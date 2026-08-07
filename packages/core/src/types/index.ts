@@ -38,6 +38,12 @@ export type {
   CanonicalChange,
   CanonicalChangeAPIs
 } from './canonical-changes.js'
+export type {
+  ApplyRemoteCanonicalChangeSlicesInput,
+  CoreCollaborationBridge,
+  CoreCollaborationPreparation,
+  CoreCollaborationSession
+} from './app-runtime.js'
 
 export type CoreAPIs = InputSystemAPIs &
   PropsAPIs &

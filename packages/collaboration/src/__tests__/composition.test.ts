@@ -31,6 +31,35 @@ const baseInput = (): CreateCollaborationInput => ({
 })
 
 describe('optional collaboration composition', () => {
+  it('accepts a neutral publication source without a Factory runtime', async () => {
+    const subscribe = vi.fn(() => () => undefined)
+    const input: CreateCollaborationInput = {
+      ...baseInput(),
+      factory: undefined,
+      publicationSource: {
+        subscribe
+      }
+    }
+
+    const instance = createCollaboration(input)
+    await instance.start()
+
+    expect(subscribe).toHaveBeenCalledOnce()
+    await instance.dispose()
+  })
+
+  it('supports an explicit inbound-only composition', async () => {
+    const input: CreateCollaborationInput = {
+      ...baseInput(),
+      factory: undefined,
+      publicationSource: undefined
+    }
+
+    const instance = createCollaboration(input)
+    await expect(instance.start()).resolves.toBeUndefined()
+    await instance.dispose()
+  })
+
   it('exports Provider-neutral building blocks without creating them', () => {
     ;[
       AwarenessValidationError,
@@ -99,7 +128,7 @@ describe('optional collaboration composition', () => {
       awareness
     })
     expect('yDoc' in collaboration).toBe(false)
-    expect(input.factory.subscribeToSharedPublication).not.toHaveBeenCalled()
+    expect(input.factory?.subscribeToSharedPublication).not.toHaveBeenCalled()
     expect(input.processRemotePublication).not.toHaveBeenCalled()
 
     await collaboration.dispose()

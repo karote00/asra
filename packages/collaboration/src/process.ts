@@ -3,6 +3,7 @@ import type { SharedPublication } from '@asyra/factory'
 import { Awareness, type AwarenessStateInput } from './awareness.js'
 import type {
   CollaborationFactory,
+  CollaborationPublicationSource,
   CollaborationResourceOwnership,
   CollaborationResourceOwnershipMap,
   CreateCollaborationInput,
@@ -26,10 +27,16 @@ interface LifecycleResource {
 }
 
 type Definition = Readonly<
-  Omit<CreateCollaborationInput, 'resourceOwnership'> & {
+  Omit<
+    CreateCollaborationInput,
+    'factory' | 'publicationSource' | 'resourceOwnership'
+  > & {
+    publicationSource?: CollaborationPublicationSource
     resourceOwnership: Readonly<CollaborationResourceOwnershipMap>
   }
 >
+
+let didWarnAboutFactoryComposition = false
 
 export type CollaborationPublicationOutcome =
   | Readonly<{
@@ -89,10 +96,34 @@ const define = (input: CreateCollaborationInput): Definition => {
   const documentId = requireIdentity('documentId', input.documentId)
   const roomId = requireIdentity('roomId', input.roomId)
   const actorId = requireIdentity('actorId', input.actorId)
-  if (typeof input.factory?.subscribeToSharedPublication !== 'function') {
+  if (
+    input.publicationSource !== undefined &&
+    typeof input.publicationSource.subscribe !== 'function'
+  ) {
+    throw new Error('[collaboration] publicationSource.subscribe is required')
+  }
+  if (
+    input.factory !== undefined &&
+    typeof input.factory.subscribeToSharedPublication !== 'function'
+  ) {
     throw new Error(
       '[collaboration] factory.subscribeToSharedPublication is required'
     )
+  }
+  const publicationSource =
+    input.publicationSource ??
+    (input.factory
+      ? {
+          subscribe: input.factory.subscribeToSharedPublication.bind(
+            input.factory
+          )
+        }
+      : undefined)
+  if (input.factory && !didWarnAboutFactoryComposition) {
+    console.warn(
+      'CreateCollaborationInput.factory is deprecated. Pass publicationSource instead.'
+    )
+    didWarnAboutFactoryComposition = true
   }
   if (typeof input.processRemotePublication !== 'function') {
     throw new Error('[collaboration] processRemotePublication is required')
@@ -101,7 +132,7 @@ const define = (input: CreateCollaborationInput): Definition => {
     documentId,
     roomId,
     actorId,
-    factory: input.factory,
+    ...(publicationSource ? { publicationSource } : {}),
     processRemotePublication: input.processRemotePublication,
     ...(input.provider ? { provider: input.provider } : {}),
     ...(input.awareness ? { awareness: input.awareness } : {}),
@@ -142,7 +173,11 @@ export class Collaboration {
     roomId: string
     actorId: string
   }>
-  readonly factory: CollaborationFactory
+  readonly publicationSource?: CollaborationPublicationSource
+  /**
+   * @deprecated Use `publicationSource`.
+   */
+  readonly factory?: CollaborationFactory
   readonly provider?: Provider
   readonly awareness: Awareness
 
@@ -169,7 +204,8 @@ export class Collaboration {
       roomId: composition.roomId,
       actorId: composition.actorId
     })
-    this.factory = composition.factory
+    this.publicationSource = composition.publicationSource
+    this.factory = input.factory
     this.provider = composition.provider
     assertProviderIdentity(this.provider, this.identity)
     this.awareness =
@@ -273,11 +309,13 @@ export class Collaboration {
   private bindObservers(): void {
     if (this.observersBound) return
     this.observersBound = true
-    this.addDisposer(
-      this.factory.subscribeToSharedPublication((publication) => {
-        this.scheduleOutbound(publication)
-      })
-    )
+    if (this.publicationSource) {
+      this.addDisposer(
+        this.publicationSource.subscribe((publication) => {
+          this.scheduleOutbound(publication)
+        })
+      )
+    }
     if (!this.provider) return
     this.addDisposer(
       this.provider.onPublication((publication) =>

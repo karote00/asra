@@ -526,6 +526,14 @@ class Render {
     return this.viewport.getMousePosInWorkspace(mousePos)
   }
 
+  workspaceToCanvas(workspacePosition: PositionData): PositionData {
+    const canvasPosition = this.viewport.view.toGlobal(workspacePosition)
+    return {
+      x: canvasPosition.x,
+      y: canvasPosition.y
+    }
+  }
+
   getElementIdAtClientPos(clientPos: { x: number; y: number }): string | null {
     if (!this.engine || !this.runtime) {
       return null
@@ -573,6 +581,40 @@ class Render {
     return Number.isFinite(workspacePosition.x) &&
       Number.isFinite(workspacePosition.y)
       ? workspacePosition
+      : null
+  }
+
+  elementSourceToWorkspace(
+    elementId: string,
+    sourcePosition: PositionData
+  ): PositionData | null {
+    const element = this.viewport.getElementById(elementId)
+    if (!element) {
+      return null
+    }
+    const localPosition = element.sourceToLocal(sourcePosition)
+    const canvasPosition = element.toGlobal(localPosition)
+    const workspacePosition = this.viewport.view.toLocal(canvasPosition)
+    return Number.isFinite(workspacePosition.x) &&
+      Number.isFinite(workspacePosition.y)
+      ? workspacePosition
+      : null
+  }
+
+  workspaceToElementSource(
+    elementId: string,
+    workspacePosition: PositionData
+  ): PositionData | null {
+    const element = this.viewport.getElementById(elementId)
+    if (!element) {
+      return null
+    }
+    const canvasPosition = this.viewport.view.toGlobal(workspacePosition)
+    const localPosition = element.toLocal(canvasPosition)
+    const sourcePosition = element.localToSource(localPosition)
+    return Number.isFinite(sourcePosition.x) &&
+      Number.isFinite(sourcePosition.y)
+      ? sourcePosition
       : null
   }
 
