@@ -30,7 +30,7 @@
       title: 'Request one backend action batch',
       ownerPackage: 'App server action-batch route',
       purpose:
-        'After Actor A submits an ordinary Agent turn, send its intent, exact image attachment, bounded App context, registered actions, and abort signal through the one same-origin requestActionBatch() transport; the backend owns the Asyra Design domain prompt and provider request, while the exact crdt-7076 sample directly returns its checked-in ordered AiActionBatch instruction file before loading prompt or model work and before Runtime resolution.',
+        'After Actor A submits an ordinary Agent turn, send its intent, exact image attachment, bounded App context, registered actions, and abort signal through the one same-origin requestActionBatch() transport; the backend owns the Design App domain prompt and provider request, while the exact crdt-7076 sample directly returns its checked-in ordered AiActionBatch instruction file before loading prompt or model work and before Runtime resolution.',
       inputs: [
         'artifact:precanonical-owner-attribution',
         'Actor A Agent intent',
@@ -48,7 +48,7 @@
         'This step starts only when Actor A presses Send on an ordinary Agent turn; App navigation, required fileId resolution, document load, Agent readiness, and attachment selection do not request or execute a drawing.',
         'requestActionBatch() is the only public provider request and performs exactly one same-origin HTTP POST for the accepted turn.',
         'The browser request carries the submitted intent, attachment metadata and data URL, bounded App context without a domain prompt or image-tool catalog, registered action descriptions, attempt number, and abort ownership without reading canonical document persistence.',
-        'The backend-only Asyra Design domain prompt and image-tool catalog are added only after complete server configuration supplies the provider endpoint, model, and API key for an ordinary request.',
+        'The backend-only Design App domain prompt and image-tool catalog are added only after complete server configuration supplies the provider endpoint, model, and API key for an ordinary request.',
         'The backend sends the API key only in the provider authorization header; it never enters the browser, App context, logs, provider request body, action batch, canonical state, persistence, or Collaboration.',
         'The backend owns input matching and ordinary provider response construction. An ordinary request uses the configured backend model path and returns one AiActionBatch with its batchId and already-prepared arguments.',
         'The checked-in crdt-7076 backend sample remains the local full-flow request path: its documented URL uses fileId=crdt-7076-sample as both socket-authoritative document identity and Collaboration identity; the backend accepts its exact checked-in image and instruction through the ordinary request body.',
@@ -74,7 +74,7 @@
         'single same-origin server action-batch provider',
         'App server action-batch middleware',
         'backend-owned action-batch preparation',
-        'backend-owned Asyra Design domain prompt and registered image-tool catalog',
+        'backend-owned Design App domain prompt and registered image-tool catalog',
         'completely configured server-only provider endpoint, model, and API key',
         'Node.js native fetch with the API key in the authorization header',
         'checked-in crdt-7076 sample input',
@@ -173,7 +173,7 @@
       allowedContributors: [
         '@asyra/ai-agent-runtime AiActionBatch and action-registry owners',
         'server-prepared action arguments and bounded summaries',
-        'registered Asyra Design action definitions and inputSchema descriptions',
+        'registered Design App action definitions and inputSchema descriptions',
         'runtime redaction of bounded summaries',
         'artifact:precanonical-owner-attribution'
       ],
@@ -238,7 +238,7 @@
       order: 2,
       laneId: 'projection-ui',
       title: 'Yield one bounded AI loading paint',
-      ownerPackage: 'Asyra Design AI progress presentation',
+      ownerPackage: 'Design App AI progress presentation',
       purpose:
         'Show the confirmed drawing bounds and progress state without an unbounded loading animation while keeping pan and zoom responsive before canonical slices begin.',
       inputs: [
@@ -264,7 +264,7 @@
       allowedContributors: [
         'artifact:precanonical-owner-attribution',
         'artifact:resolved-ai-action-batch',
-        'Asyra Design drawing progress state',
+        'Design App drawing progress state',
         'dedicated pan and zoom interaction bus'
       ],
       forbiddenContributors: [
@@ -294,7 +294,7 @@
       order: 3,
       laneId: 'projection-ui',
       title: 'Project a scrollable Contents window',
-      ownerPackage: 'Asyra Design Contents',
+      ownerPackage: 'Design App Contents',
       purpose:
         'Bind the real Contents virtualizer to the actual inner scroll element so every canonical hierarchy row is reachable while mounted DOM rows remain bounded.',
       inputs: [
@@ -316,7 +316,7 @@
       ],
       allowedContributors: [
         'artifact:ui-context-batch-projection',
-        'Asyra Design Contents hierarchy projection',
+        'Design App Contents hierarchy projection',
         'the existing virtualizer dependency',
         'ordinary selection and disclosure state'
       ],
@@ -557,7 +557,7 @@
       order: 3,
       laneId: 'app-canonical',
       title: 'Stage one local interactive composition',
-      ownerPackage: 'Asyra Design AI composition interaction',
+      ownerPackage: 'Design App AI composition interaction',
       purpose:
         'Commit one server-prepared PreparedDrawingArtifact containing one Group descriptor and ordered child descriptor slices through an exact-bounds runtime loading state and one ordered Group-plus-children composition batch sequence whose bounded work units return control to the browser without changing accepted geometry data, stable descriptor IDs, transaction intent, or failure semantics.',
       inputs: [
@@ -580,7 +580,7 @@
         'artifact:app-bulk-timing'
       ],
       conditions: [
-        'The production Asyra Design entry always exposes one formal server-backed Conversational AI provider without an ai or delivery query; ordinary startup and measurement use the same cooperative progressive route.',
+        'The production Design App entry always exposes one formal server-backed Conversational AI provider without an ai or delivery query; ordinary startup and measurement use the same cooperative progressive route.',
         'Contents is fixed as mounted in the production App; an opt-in detached performance profile may observe evidence but never configures the App, provider, Runtime, composition route, or Contents projection.',
         'Server-prepared Group and child descriptors provide exact bounds, stable IDs, relationships, complete source creation data, geometry data, point counts, roles, and slice boundaries; the App builds no intermediate point-object graph and performs no repeated vector validation, bounds, or normalization.',
         'After those prepared descriptors provide exact bounds, the App publishes a runtime-only loading state, commits a connected App DOM overlay, and crosses a browser paint opportunity before the first canonical mutation.',
@@ -599,7 +599,7 @@
         'Recoverable item failures retain accepted siblings in one partial batch; a fatal error rolls back the complete turn.'
       ],
       allowedContributors: [
-        'registered Asyra Design AI action schemas',
+        'registered Design App AI action schemas',
         'apps/asyra-design common APIs',
         '@asyra/core public plural creation facade',
         'App-owned runtime System Context state',
@@ -702,7 +702,7 @@
         '@asyra/preset ordinary Vector strategy',
         '@asyra/render scene scheduling',
         '@asyra/render-engine-pixi owned frame scheduler and explicit flush',
-        'Asyra Design UI context and Contents/Layers hierarchy projection'
+        'Design App UI context and Contents/Layers hierarchy projection'
       ],
       forbiddenContributors: [
         'AI-only renderer or bitmap replacement',
@@ -757,7 +757,7 @@
       order: 1,
       laneId: 'wire-transport',
       title: 'Encode publication frames',
-      ownerPackage: 'Asyra Design Collaboration codec worker',
+      ownerPackage: 'Design App Collaboration codec worker',
       purpose:
         'Encode outbound shared publication batches and decode inbound opaque frames as versioned binary data in a worker while retaining JSON control frames and existing ProviderFailure semantics.',
       inputs: [
@@ -827,7 +827,7 @@
       laneId: 'wire-transport',
       title: 'Admit receiver publication frames',
       ownerPackage:
-        'Asyra Design Dedicated Worker WebSocket receiver scheduler',
+        'Design App Dedicated Worker WebSocket receiver scheduler',
       purpose:
         'Admit wire-verified inbound publication bytes independently from main-thread canonical apply, expose one decoded trusted publication to one required async consumer, and keep wire credit, App settlement, and teardown distinct.',
       inputs: [
@@ -904,7 +904,7 @@
       order: 4,
       laneId: 'wire-transport',
       title: 'Relay frames with byte backpressure',
-      ownerPackage: 'Asyra Design reference WebSocket server',
+      ownerPackage: 'Design App reference WebSocket server',
       purpose:
         'Relay canonical publication payloads opaquely and enforce bounded per-peer byte queues with distinct acceptance, wire-consumption, and peer-apply receipts.',
       inputs: [
@@ -973,7 +973,7 @@
       order: 3,
       laneId: 'wire-transport',
       title: 'Apply remote publication batches',
-      ownerPackage: 'Asyra Design Collaboration adapter',
+      ownerPackage: 'Design App Collaboration adapter',
       purpose:
         'Apply each decoded trusted source publication through one remote Factory transaction, ordered source-slice canonical batches, and framework cooperative presentation without creating local-only side effects.',
       inputs: ['artifact:decoded-publication-batches'],
@@ -1004,7 +1004,7 @@
       allowedContributors: [
         'artifact:decoded-publication-batches',
         '@asyra/collaboration public process contract',
-        'Asyra Design App policy',
+        'Design App App policy',
         '@asyra/core and @asyra/factory public batch boundaries'
       ],
       forbiddenContributors: [
@@ -1047,12 +1047,12 @@
       order: 1,
       laneId: 'persistence-proof',
       title: 'Open one socket-authoritative document session',
-      ownerPackage: 'Asyra Design RenderApp Collaboration composition',
+      ownerPackage: 'Design App RenderApp Collaboration composition',
       purpose:
         'Require fileId to select one socket-authoritative document and Collaboration identity, prepare its checkpoint before Core starts, activate live delivery after Core hydration, and preserve the ordinary provisional local action path when the socket is unavailable.',
       inputs: [
         'required fileId URL',
-        'Asyra Design RenderApp startup policy',
+        'Design App RenderApp startup policy',
         'configured or same-deployment Collaboration WebSocket endpoint',
         'artifact:remote-publication-settlement'
       ],
@@ -1086,8 +1086,8 @@
       allowedContributors: [
         'required fileId App startup',
         'fileId-selected socket document and Collaboration identity',
-        'Asyra Design RenderApp startup',
-        'Asyra Design Collaboration lifecycle checkpoint, pending-tail, live-delivery, and durable-outbox owners',
+        'Design App RenderApp startup',
+        'Design App Collaboration lifecycle checkpoint, pending-tail, live-delivery, and durable-outbox owners',
         'single same-origin HTTP action-batch interceptor',
         'checked-in crdt-7076 request input and ordered AiActionBatch instruction file',
         'ordinary Collaboration connection and operation diagnostics'
@@ -1155,7 +1155,7 @@
       order: 2,
       laneId: 'persistence-proof',
       title: 'Evaluate one refactored endpoint safely',
-      ownerPackage: 'Asyra Design guarded endpoint performance E2E',
+      ownerPackage: 'Design App guarded endpoint performance E2E',
       purpose:
         'Run one guarded 16-item safety proof after each completed endpoint refactor, permit exactly one production two-Actor 7,076-element creation proof only at the named local-source, relay, and final checkpoints, compare only owned evidence with the preceding accepted baseline, and stop all owned work before raw system CPU overload can continue.',
       inputs: [
@@ -1267,7 +1267,7 @@
         'Contents is outside this endpoint proof; App-local persistence stays enabled and is reported as a separate owner span rather than removed from product behavior.'
       ],
       allowedContributors: [
-        'production Asyra Design App and collaboration server',
+        'production Design App App and collaboration server',
         'authenticated guard-ready handshake',
         'detached O(1) runtime counters',
         'detached Actor-target task and script timing',
@@ -1348,7 +1348,7 @@
       order: 3,
       laneId: 'persistence-proof',
       title: 'Evaluate performance and equivalence',
-      ownerPackage: 'Asyra Design performance E2E',
+      ownerPackage: 'Design App performance E2E',
       purpose:
         'Run the complete formal closure once, report separated product-owner and harness spans, prove canonical and history equivalence, and inspect synchronized live App output.',
       inputs: [
@@ -2093,7 +2093,7 @@
     {
       id: 'artifact:composition-batch-sequence',
       ownerStepId: 'stage-local-interactive-composition',
-      channel: 'Asyra Design common API',
+      channel: 'Design App common API',
       consumerStepIds: ['apply-canonical-property-scene-batch'],
       terminal: false
     },
@@ -2637,20 +2637,20 @@
   ]
 
   const flowInspectorData = {
-    schema: { id: 'asyra.flow-inspector', version: 2 },
+    schema: { id: 'flow-inspector', version: 2 },
     target: {
       id: 'asyra-design-ai-conversational-drawing-performance',
       kind: 'feature',
-      title: 'Asyra Design Conversational AI Drawing Performance Inspector',
+      title: 'Design App Conversational AI Drawing Performance Inspector',
       subtitle:
         'One request-time backend AiActionBatch, prepared Group and child descriptor slices, one existing Factory journal and Undo entry, one separate minimal transport wire artifact, visible ordinary Vector slices, binary backpressured collaboration, one socket-authoritative document session, and exact performance-equivalence proof.'
     },
     authority: {
       specPath,
       inspectorPath,
-      semanticOwner: 'Asyra Design Conversational AI Drawing Performance Plan',
+      semanticOwner: 'Design App Conversational AI Drawing Performance Plan',
       inspectorOwner:
-        'Asyra Design Conversational AI drawing performance owner flow'
+        'Design App Conversational AI drawing performance owner flow'
     },
     links: [
       {

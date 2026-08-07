@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Asyra Design Conversational AI Drawing Performance Inspector</title>
+    <title>Design App Conversational AI Drawing Performance Inspector</title>
     <style>
       :root {
         color-scheme: dark;
@@ -180,7 +180,7 @@
         <section
           id="flow"
           class="flow"
-          aria-label="Asyra Design Conversational AI Drawing Performance flow"
+          aria-label="Design App Conversational AI Drawing Performance flow"
         ></section>
       </main>
       <aside id="detail" class="detail" aria-label="step detail"></aside>
@@ -229,8 +229,12 @@
       `Flow Inspector target has invalid collections: ${invalidCollections.join(', ')}`
     )
   }
-  if (schema?.id !== 'asyra.flow-inspector' || schema.version !== 2) {
-    throw new Error('Flow Inspector requires schema asyra.flow-inspector/v2.')
+  const schemaId = schema?.id
+  const recognizedSchemaId =
+    schemaId === 'flow-inspector' ||
+    (typeof schemaId === 'string' && schemaId.endsWith('.flow-inspector'))
+  if (!recognizedSchemaId || schema.version !== 2) {
+    throw new Error('Flow Inspector requires the flow-inspector/v2 schema.')
   }
 
   const flow = document.getElementById('flow')

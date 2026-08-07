@@ -349,7 +349,7 @@
         'All composition completes before core.start().'
       ],
       bypasses: [
-        'The default Asyra Design route performs no registration customization or custom provider binding.'
+        'The default Design App route performs no registration customization or custom provider binding.'
       ],
       allowedContributors: [
         'public Core APIs',
@@ -789,7 +789,7 @@
   ]
 
   const data = {
-    schema: 'asyra.flow-inspector.v1',
+    schema: 'flow-inspector.v1',
     target: {
       id: 'preset-profile-selectable-defaults',
       title: 'Preset Profile and Selectable Defaults Flow',

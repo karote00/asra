@@ -2277,3 +2277,37 @@ unregister -> app migration -> core.start()` as the public app route.
   - `02a6ba7bfa4b1cf56f7c35f49e8179650dab2a71`
 - Related Plan:
   - `docs/ai/framework/plans/completed/local-versioned-package-install-research-plan.md`
+
+## 2026-08-07 - Remove product branding from Framework implementation identifiers
+
+- Context:
+  - Render-resource metadata, geometry caches, vector-fill caches, gradient
+    options, the ColorPicker portal root, persistence defaults, release helper
+    identifiers, and diagnostic automation still used the repository name as
+    a programmatic prefix.
+  - Those names leak project identity into public source and make downstream
+    forks rename implementation details that do not belong to the package API.
+- Decision:
+  - Rename the affected internal fields and runtime identifiers by their
+    semantic owners, without changing package boundaries, public
+    `@asyra/*` coordinates, versions, or runtime behavior.
+  - Make `framework-documents` the neutral default IndexedDB database name;
+    consumers may continue to select another name through
+    `IndexedDbPersistenceOptions.databaseName`.
+  - Enforce the repository-wide rule through the root script-test gate while
+    preserving exact package, executable, tarball, and repository identities.
+  - Use the neutral `flow-inspector` schema identifier for maintained
+    executable Inspector contracts while retaining suffix-based viewer
+    compatibility for immutable historical records.
+  - Exclude dot-prefixed local runtime data directories from generated
+    create-app candidates and from non-mutating template comparisons.
+- Consequences:
+  - New default persistence instances do not automatically read data stored
+    under the former branded default database name. Apps that require a stable
+    existing database must continue to pass an explicit `databaseName`.
+  - The change introduces no dependency, package version, npm namespace,
+    Changeset, publication, tag, or release action.
+- Related Pull Request:
+  - [#112](https://github.com/karote00/asyra/pull/112)
+- Related Commit:
+  - `20e359709` (`refactor: neutralize fork-facing identifiers`)

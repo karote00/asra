@@ -146,7 +146,7 @@
       ],
       forbiddenContributors: [
         'root package version',
-        'private Asyra Design version',
+        'private Design App version',
         'create-app version or generated template',
         'npm publication'
       ],
@@ -246,7 +246,7 @@
       ],
       forbiddenContributors: [
         'root asyra version bump',
-        'private Asyra Design version bump',
+        'private Design App version bump',
         'create-app version or template materialization',
         'manual changelog substitution'
       ],
@@ -1086,7 +1086,7 @@
   ]
 
   const data = {
-    schema: { id: 'asyra.flow-inspector', version: 2 },
+    schema: { id: 'flow-inspector', version: 2 },
     target: {
       id: 'framework-package-release-0-5-0',
       kind: 'system',

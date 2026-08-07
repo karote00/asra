@@ -42,7 +42,7 @@ const contractText = (value) =>
   ].join(' ')
 
 test('authority resolves to the active product contract and dedicated viewer', () => {
-  assert.deepEqual(data.schema, { id: 'asyra.flow-inspector', version: 2 })
+  assert.deepEqual(data.schema, { id: 'flow-inspector', version: 2 })
   assert.equal(
     data.authority.specPath,
     'docs/ai/framework/plans/completed/render-delta-update-plan.md'

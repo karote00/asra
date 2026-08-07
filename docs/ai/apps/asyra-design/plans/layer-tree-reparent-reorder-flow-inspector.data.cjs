@@ -914,18 +914,18 @@
   ]
 
   const data = {
-    schema: { id: 'asyra.flow-inspector', version: 2 },
+    schema: { id: 'flow-inspector', version: 2 },
     target: {
       id: 'asyra-design-layer-tree-reparent-reorder',
       kind: 'feature',
-      title: 'Asyra Design Layer Tree Reparent and Reorder Inspector',
+      title: 'Design App Layer Tree Reparent and Reorder Inspector',
       subtitle:
         'Layers pointer intent through one app feature session, canonical Gate 3 move settlement, identity-safe projection, and app-owned remote policy.'
     },
     authority: {
       specPath,
       inspectorPath,
-      semanticOwner: 'Asyra Design Layer Tree Reparent and Reorder Plan',
+      semanticOwner: 'Design App Layer Tree Reparent and Reorder Plan',
       inspectorOwner: 'Layer Tree Reparent and Reorder owner flow'
     },
     links: [

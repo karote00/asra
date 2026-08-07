@@ -1012,7 +1012,7 @@
       ],
       specRefs: ['#product-cases'],
       assertions: [
-        'applyPreset(core) starts the same Pixi-backed Asyra Design surface without app-level concrete engine import'
+        'applyPreset(core) starts the same Pixi-backed Design App surface without app-level concrete engine import'
       ]
     },
     {
@@ -1051,7 +1051,7 @@
   ]
 
   const data = {
-    schema: { id: 'asyra.flow-inspector', version: 2 },
+    schema: { id: 'flow-inspector', version: 2 },
     target: {
       id: 'render-engine-boundary',
       kind: 'system',

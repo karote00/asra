@@ -4,7 +4,7 @@ Never record completed plans here.
 
 ## Current Status
 
-- No highest-priority Asyra Design plan is currently active.
+- No highest-priority Design App plan is currently active.
 - Most recently completed canonical App plan:
   `plans/completed/trusted-publication-and-crdt-7076-flow-realignment-plan.md`.
 - The completed plan retains the accepted one-time canonical data admission,

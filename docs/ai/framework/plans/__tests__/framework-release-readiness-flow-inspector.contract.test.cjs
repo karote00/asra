@@ -215,7 +215,7 @@ test('Inspector assigns each required Gate 5 owner exactly once', () => {
   )
   assert.equal(
     step('verify-generated-template').ownerPackage,
-    'Asyra Design release-template generator'
+    'Design App release-template generator'
   )
   assert.equal(
     step('run-formal-release-gates').ownerPackage,
@@ -223,7 +223,7 @@ test('Inspector assigns each required Gate 5 owner exactly once', () => {
   )
   assert.equal(
     step('synchronize-release-docs').ownerPackage,
-    'Framework and Asyra Design documentation owners'
+    'Framework and Design App documentation owners'
   )
   assert.equal(
     step('verify-versioning-contract').ownerPackage,

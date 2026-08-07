@@ -860,7 +860,7 @@
     {
       id: 'startup-compatibility',
       summary:
-        'Existing applyPreset(core), Asyra Design startup, engine boundary, and public framework APIs remain compatible.'
+        'Existing applyPreset(core), Design App startup, engine boundary, and public framework APIs remain compatible.'
     },
     {
       id: 'render-mode-non-inference',
@@ -913,7 +913,7 @@
   ]
 
   const data = {
-    schema: 'asyra.flow-inspector.v1',
+    schema: 'flow-inspector.v1',
     target: {
       id: 'extendable-preset',
       title: 'Extendable Preset Relation and Unregister Flow',

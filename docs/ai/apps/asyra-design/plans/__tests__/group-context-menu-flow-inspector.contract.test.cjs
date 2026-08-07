@@ -34,7 +34,7 @@ const anchorForHeading = (heading) =>
     .replace(/-+/g, '-')
 
 test('Group Context Menu Inspector authorities resolve', () => {
-  assert.equal(data.target.title, 'Asyra Design Group Context Menu Inspector')
+  assert.equal(data.target.title, 'Design App Group Context Menu Inspector')
   assert.equal(
     data.authority.specPath,
     'docs/ai/apps/asyra-design/plans/completed/group-context-menu-plan.md'

@@ -50,8 +50,8 @@ Completed plan:
   fileId, URL parameter, startup branch, resident batch, or IndexedDB response
   inbox selects its payload
 - ordinary requests require complete server-only
-  `ASYRA_AI_PROVIDER_ENDPOINT`, `ASYRA_AI_PROVIDER_MODEL`, and
-  `ASYRA_AI_PROVIDER_API_KEY` settings. The server adds the App domain prompt
+  `AI_PROVIDER_ENDPOINT`, `AI_PROVIDER_MODEL`, and `AI_PROVIDER_API_KEY`
+  settings. The server adds the App domain prompt
   and registered image-tool catalog, then uses Node.js native `fetch` to call
   the configured action-batch endpoint. The API key is sent only as a Bearer
   authorization header and never enters the browser or upstream JSON body
@@ -253,7 +253,8 @@ Accepted socket-authoritative target:
 
 - the Asyra Design collaboration lifecycle owns a native IndexedDB outbox of
   immutable local `SharedPublication` values awaiting socket acceptance; this
-  is transport recovery, not Core document persistence
+  is transport recovery, not Core document persistence. Its default database
+  name is the brand-neutral `collaboration-publications`
 - the lifecycle uses the outbox's explicit Factory-owned append boundary for
   immutable local publication evidence. The in-memory record retains that
   owner identity without a second source-side clone or recursive freeze, while
@@ -290,8 +291,11 @@ Semantic authority:
   unreachable, or non-success backend still reports its error but cannot block
   refresh; a storage-free demo therefore returns to the formal empty App.
 - Ordinary Vite development proxies that same-origin document route to
-  `DOCUMENT_PERSISTENCE_BACKEND_URL`; the `ASYRA_E2E_DOCUMENT_BACKEND_URL`
+  `DOCUMENT_PERSISTENCE_BACKEND_URL`; the `E2E_DOCUMENT_BACKEND_URL`
   override remains test-only and takes precedence when explicitly configured.
+- Direct document-backend startup stores records under
+  `.app-data/documents` by default. `DOCUMENT_BACKEND_DATA_DIR` selects an
+  explicit existing or deployment-owned storage directory.
 - The document backend handles that DELETE by replacing the stored record with
   the formal empty checkpoint at durable sequence zero. Reset performs no Core
   mutation, transaction, History, Undo/Redo, Factory publication, CRDT,

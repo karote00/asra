@@ -128,7 +128,7 @@
     <script src="./app-level-migration-flow-inspector.data.cjs"></script>
     <script>
       const data = globalThis.FLOW_INSPECTOR_DATA
-      if (!data || data.schema?.id !== 'asyra.flow-inspector')
+      if (!data || data.schema?.id !== 'flow-inspector')
         throw new Error('Missing App-level Migration Inspector data')
       document.querySelector('#title').textContent = data.target.title
       document.querySelector('#subtitle').textContent = data.target.subtitle

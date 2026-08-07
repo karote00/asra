@@ -64,10 +64,10 @@ key or rebuild the server's drawing artifact.
 The ordinary model-backed route is disabled until all three server-only values
 are present:
 
-- `ASYRA_AI_PROVIDER_ENDPOINT`: the HTTPS action-batch adapter endpoint
+- `AI_PROVIDER_ENDPOINT`: the HTTPS action-batch adapter endpoint
   (loopback HTTP is allowed for local development);
-- `ASYRA_AI_PROVIDER_MODEL`: the model identifier passed to that adapter;
-- `ASYRA_AI_PROVIDER_API_KEY`: the credential sent only as a Bearer
+- `AI_PROVIDER_MODEL`: the model identifier passed to that adapter;
+- `AI_PROVIDER_API_KEY`: the credential sent only as a Bearer
   authorization header.
 
 The backend sends protocol version `1`, the configured model, the

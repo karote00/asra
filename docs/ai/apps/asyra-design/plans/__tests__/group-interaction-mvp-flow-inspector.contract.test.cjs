@@ -36,7 +36,7 @@ const anchorForHeading = (heading) =>
 test('Group Interaction Inspector authorities resolve', () => {
   assert.equal(
     data.target.title,
-    'Asyra Design Group Interaction MVP Inspector'
+    'Design App Group Interaction MVP Inspector'
   )
   assert.equal(
     data.authority.specPath,

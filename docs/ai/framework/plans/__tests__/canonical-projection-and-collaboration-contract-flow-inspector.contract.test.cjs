@@ -149,7 +149,7 @@ test('realignment Inspector and completed planning authorities resolve', () => {
   )
   assert.match(
     appPlans,
-    /No highest-priority Asyra Design plan is currently active\.[\s\S]*completed\/ai-conversational-drawing-performance-plan\.md/
+    /No highest-priority Design App plan is currently active\.[\s\S]*completed\/ai-conversational-drawing-performance-plan\.md/
   )
   assert.match(
     appPlans,

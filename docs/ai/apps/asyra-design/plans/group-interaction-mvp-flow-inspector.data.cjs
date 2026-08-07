@@ -1098,19 +1098,19 @@
   ]
 
   const flowInspectorData = {
-    schema: { id: 'asyra.flow-inspector', version: 2 },
+    schema: { id: 'flow-inspector', version: 2 },
     target: {
       id: 'asyra-design-group-interaction-mvp',
       kind: 'feature',
-      title: 'Asyra Design Group Interaction MVP Inspector',
+      title: 'Design App Group Interaction MVP Inspector',
       subtitle:
         'Exact app command, transaction, hierarchy-scoped canvas targeting, Layers projection, world-space bounds, collaboration, persistence, and Render handoffs for official Group operations.'
     },
     authority: {
       specPath,
       inspectorPath,
-      semanticOwner: 'Asyra Design Group Interaction MVP Plan',
-      inspectorOwner: 'Asyra Design Group Interaction owner flow'
+      semanticOwner: 'Design App Group Interaction MVP Plan',
+      inspectorOwner: 'Design App Group Interaction owner flow'
     },
     links: [
       {

@@ -33,10 +33,12 @@ synchronous serialization/load transformation hooks.
   versioned document. App-owned migrations belong in this hook chain.
 - Provider writers are not scheduled by Core transaction settlement and their
   failure cannot redefine whether a runtime transaction committed.
-- `IndexedDbPersistence` stores structured-clone documents under an
-  app-selected key, defaults to `FILE`, and accepts an injected `IDBFactory`
-  for isolated runtimes and tests. It is the capacity-appropriate offline
-  browser reference for high-detail documents.
+- `IndexedDbPersistence` stores structured-clone documents in the
+  `framework-documents` database by default, accepts an app-selected
+  `databaseName`, stores each document under an app-selected key that defaults
+  to `FILE`, and accepts an injected `IDBFactory` for isolated runtimes and
+  tests. It is the capacity-appropriate offline browser reference for
+  high-detail documents.
 - `MemoryPersistence` is ephemeral. `LocalStoragePersistence` accepts an
   app-selected browser storage key and defaults to `FILE`; it remains suitable
   only for small prototypes. None of the reference providers is a production

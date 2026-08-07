@@ -7504,3 +7504,40 @@ join` constrained dashed product path across: - shape-generated `rect` - closed 
   - `docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-flow-inspector.data.cjs`
 - Related Commit(s):
   - `4fa0d09a5` (`fix: realign 7076 trusted collaboration flow`)
+
+## 2026-08-07 - Make App runtime and fork-facing identifiers brand-neutral
+
+- Context:
+  - Runtime configuration, E2E controls, diagnostic records, DOM hooks,
+    storage names, and VTracer request metadata still embedded the repository
+    or product name.
+  - The backend AI model adapter initially introduced another branded
+    environment-variable prefix even though a forked App must be able to keep
+    the same implementation without inheriting this product name.
+- Decision:
+  - Reserve the existing product and `@asyra/*` names for package, repository,
+    and documentation identity only.
+  - Use `AI_PROVIDER_ENDPOINT`, `AI_PROVIDER_MODEL`, and
+    `AI_PROVIDER_API_KEY` for the server-only model adapter.
+  - Use neutral `E2E_*`, diagnostic event, DOM/test hook, HTTP header,
+    collaboration codec, local outbox, and backend data-directory names in the
+    App and the maintained create-app template.
+  - Centralize browser diagnostic CustomEvent names under
+    `RuntimeDiagnosticEvents` with neutral `runtime.*` values.
+  - Keep the exact 7,076 sample bypass, server-only prompt ownership,
+    Authorization-header credential boundary, canonical action flow, and
+    Collaboration behavior unchanged.
+- Consequences:
+  - Deployments and local automation must use the new environment-variable
+    names; branded compatibility aliases are intentionally absent.
+  - Existing local data remains on disk or in IndexedDB, but renamed defaults
+    do not discover the former branded locations automatically. Operators that
+    must retain an existing backend store must set
+    `DOCUMENT_BACKEND_DATA_DIR` to that existing directory before startup.
+  - A repository-wide formal test now rejects new brand-coupled programmatic
+    identifiers while allowing only exact published package, command, tarball,
+    and repository slugs.
+- Related Pull Request:
+  - [#112](https://github.com/karote00/asyra/pull/112)
+- Related Commit:
+  - `20e359709` (`refactor: neutralize fork-facing identifiers`)

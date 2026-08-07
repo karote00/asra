@@ -1,16 +1,16 @@
 Feature: Optional AI agent runtime
-  As an Asyra Design user
+  As a Design App user
   I want natural-language actions to follow ordinary app and framework boundaries
   So that AI planning cannot bypass validation, permission, undo, collaboration, or cleanup
 
   Background:
-    Given Asyra Design owns the AI Feature lifecycle
+    Given Design App owns the AI Feature lifecycle
     And the app owns context, actions, schemas, permission, confirmation, and transaction adapters
     And deterministic providers require no live API key
 
   Scenario: AI-disabled startup has zero AI side effects
     Given AI activation is disabled
-    When Asyra Design starts
+    When Design App starts
     Then no AI runtime or provider is constructed
     And no AI Feature, network request, secret read, listener, or timer is created
 
@@ -101,7 +101,7 @@ Feature: Optional AI agent runtime
     Then registry, provider, policy, abort, timeout, retry, audit, and disposal state do not cross instances
 
   Scenario: Collaboration uses the ordinary canonical publication route
-    Given Asyra Design already enabled Collaboration
+    Given Design App already enabled Collaboration
     And an accepted app action uses its ordinary shared mutation options
     When the AI plan transaction commits
     Then Factory emits the ordinary shared publication

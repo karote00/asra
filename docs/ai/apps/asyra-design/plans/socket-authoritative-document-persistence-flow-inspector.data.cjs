@@ -20,7 +20,7 @@
       order: 1,
       laneId: 'bootstrap',
       title: 'Open one authoritative document session',
-      ownerPackage: 'Asyra Design socket server',
+      ownerPackage: 'Design App socket server',
       purpose:
         'Authorize one Actor, reserve the document stream, and return one gap-free checkpoint plus pending-tail bootstrap through a fixed head-sequence cutoff.',
       inputs: [
@@ -48,8 +48,8 @@
         'Opening crdt-7076-sample without submitting its exact Agent request performs the ordinary document handshake but bypasses action-batch execution and canonical mutation.'
       ],
       allowedContributors: [
-        'Asyra Design collaboration wire protocol',
-        'Asyra Design socket document-session registry',
+        'Design App collaboration wire protocol',
+        'Design App socket document-session registry',
         'App backend checkpoint reader',
         'replaceable App authentication/authorization adapter'
       ],
@@ -144,7 +144,7 @@
       order: 2,
       laneId: 'client-state',
       title: 'Apply exact bootstrap tail before socket synchronization',
-      ownerPackage: 'Asyra Design collaboration publication processor',
+      ownerPackage: 'Design App collaboration publication processor',
       purpose:
         'Decode and atomically apply trusted checkpoint-following publications through the ordinary remote canonical route until the browser reaches the handshake head sequence.',
       inputs: [
@@ -170,8 +170,8 @@
         'A sequence gap, duplicate, codec-integrity failure, or atomic apply failure blocks socket synchronization and requires authoritative resynchronization without disabling the local runtime.'
       ],
       allowedContributors: [
-        'Asyra Design wire codec and trusted publication handoff',
-        'Asyra Design shared publication-to-CanonicalChange organizer',
+        'Design App wire codec and trusted publication handoff',
+        'Design App shared publication-to-CanonicalChange organizer',
         '@asyra/factory runRemoteTransaction',
         '@asyra/core applyCanonicalChanges'
       ],
@@ -271,7 +271,7 @@
       order: 2,
       laneId: 'publication',
       title: 'Retain and reconcile unaccepted local publications',
-      ownerPackage: 'Asyra Design collaboration lifecycle and outbox',
+      ownerPackage: 'Design App collaboration lifecycle and outbox',
       purpose:
         'Durably retain every unaccepted local publication, keep local editing available across connection loss, and reconcile pending publications into one server-assigned order after a fresh handshake.',
       inputs: [
@@ -307,9 +307,9 @@
         'A repeated status or publication failure bypasses toast emission after its transition epoch was already reported.'
       ],
       allowedContributors: [
-        'Asyra Design collaboration lifecycle',
+        'Design App collaboration lifecycle',
         'App-owned native IndexedDB publication outbox',
-        'Asyra Design WebSocket Provider and protocol',
+        'Design App WebSocket Provider and protocol',
         'App trusted publication decoder and authoritative resynchronization decision',
         'quiet App connection and sync status projection'
       ],
@@ -343,7 +343,7 @@
       order: 1,
       laneId: 'socket',
       title: 'Assign document order and fan out live',
-      ownerPackage: 'Asyra Design socket server',
+      ownerPackage: 'Design App socket server',
       purpose:
         'Admit one bounded opaque publication envelope, deduplicate exact encoded bytes, assign one monotonic document sequence, enqueue the original payload bytes, and broadcast them in that sequence order.',
       inputs: [
@@ -371,8 +371,8 @@
         'An invalid session, publication identity, outer wire envelope, byte bound, chunk sequence, or changed payload digest is rejected before sequence allocation.'
       ],
       allowedContributors: [
-        'Asyra Design outer wire-integrity and byte-bound validation',
-        'Asyra Design document-session registry and sequencer',
+        'Design App outer wire-integrity and byte-bound validation',
+        'Design App document-session registry and sequencer',
         'publication identity plus exact encoded-byte digest',
         'existing bounded WebSocket peer queues'
       ],
@@ -409,7 +409,7 @@
       order: 3,
       laneId: 'client-state',
       title: 'Apply one sequenced live publication',
-      ownerPackage: 'Asyra Design collaboration publication processor',
+      ownerPackage: 'Design App collaboration publication processor',
       purpose:
         'Consume each wire-decoded trusted peer publication once through one atomic remote transaction, ordered canonical owner apply, and cooperative presentation route without receiver persistence or echo.',
       inputs: [
@@ -437,7 +437,7 @@
         'A duplicate, gap, codec-integrity failure, or failed atomic canonical apply does not advance the client-applied sequence.'
       ],
       allowedContributors: [
-        'Asyra Design wire decoder and trusted publication organizer',
+        'Design App wire decoder and trusted publication organizer',
         '@asyra/factory runRemoteTransaction',
         '@asyra/core applyCanonicalChanges',
         'Scene Tree and Props canonical owners',
@@ -474,7 +474,7 @@
       order: 2,
       laneId: 'socket',
       title: 'Flush one fixed-window ordered batch',
-      ownerPackage: 'Asyra Design socket server',
+      ownerPackage: 'Design App socket server',
       purpose:
         'Collect sequenced opaque publication bytes in one non-debounced three-second dirty window, serialize one contiguous byte-preserving batch, retry the exact batch, and track the backend durable watermark.',
       inputs: [
@@ -504,7 +504,7 @@
         'Unexpected process failure may discard the in-memory tail after the last durable sequence; three seconds is the healthy-backend cadence, not a hard bound during backend outage.'
       ],
       allowedContributors: [
-        'Asyra Design socket document queue',
+        'Design App socket document queue',
         'named server flush policy',
         'monotonic document sequence',
         'App backend persistence client'
@@ -539,7 +539,7 @@
       order: 1,
       laneId: 'backend',
       title: 'Apply ordered publications to the checkpoint',
-      ownerPackage: 'Asyra Design App backend',
+      ownerPackage: 'Design App App backend',
       purpose:
         'Decode each trusted opaque publication once and idempotently apply one contiguous batch atomically to the materialized document, then acknowledge the highest durable sequence.',
       inputs: [
@@ -1230,20 +1230,20 @@
   ]
 
   const data = {
-    schema: { id: 'asyra.flow-inspector', version: 2 },
+    schema: { id: 'flow-inspector', version: 2 },
     target: {
       id: 'asyra-design-socket-authoritative-document-persistence',
       kind: 'system',
-      title: 'Asyra Design Socket-Authoritative Persistence Inspector',
+      title: 'Design App Socket-Authoritative Persistence Inspector',
       subtitle:
         'Mandatory socket bootstrap, canonical publication sequencing, fixed-window batching, and backend materialization.'
     },
     authority: {
       specPath,
       inspectorPath,
-      semanticOwner: 'Asyra Design document-session product contract',
+      semanticOwner: 'Design App document-session product contract',
       inspectorOwner:
-        'Asyra Design socket sequencing and backend persistence architecture'
+        'Design App socket sequencing and backend persistence architecture'
     },
     links: [
       {

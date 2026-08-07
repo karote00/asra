@@ -244,7 +244,7 @@
       order: 5,
       laneId: 'consumers',
       title: 'Regenerate and verify the official app template',
-      ownerPackage: 'Asyra Design release-template generator',
+      ownerPackage: 'Design App release-template generator',
       purpose:
         'Regenerate create-app output only through the official release script and prove the generated consumer uses current public APIs for migration, Preset, Group, optional Collaboration, and optional AI.',
       inputs: ['artifact:release-source-set'],
@@ -253,7 +253,7 @@
         'artifact:generated-template-finding'
       ],
       conditions: [
-        'Generated output is traceable to Asyra Design source and the official release configuration.',
+        'Generated output is traceable to Design App source and the official release configuration.',
         'Template synchronization, install/build/test, startup smoke, and public-import boundary checks use formal scripts.',
         'Generated package versions resolve to the frozen release package versions and contain no workspace or package-internal dependency.',
         'Cleanup owner: verify-generated-template owns project-local comparison/build output and any smoke server or port and removes them on exit.'
@@ -309,7 +309,7 @@
       ],
       conditions: [
         'Affected package tests/builds, root tests/build, lint, dependency boundaries, and every release-flow Inspector test pass.',
-        'Exact Asyra Design E2E covers startup, load, undo/redo, Group hierarchy, Collaboration, Render, AI action execution, cleanup, and instance isolation.',
+        'Exact Design App E2E covers startup, load, undo/redo, Group hierarchy, Collaboration, Render, AI action execution, cleanup, and instance isolation.',
         'Completed-plan performance budgets and synchronized visual cases pass with bounded evidence and no unresolved P0/P1/P2 review finding.',
         'Cleanup owner: run-formal-release-gates PID-tracks and disposes every server, browser, port, and test process it starts.'
       ],
@@ -354,7 +354,7 @@
       order: 7,
       laneId: 'evidence',
       title: 'Synchronize public release documentation',
-      ownerPackage: 'Framework and Asyra Design documentation owners',
+      ownerPackage: 'Framework and Design App documentation owners',
       purpose:
         'Align public API, package, environment, migration, deprecation, license, attribution, security/contact, release-note, Golden Path, and generated-template documentation with validated behavior.',
       inputs: ['artifact:release-source-set'],
@@ -375,7 +375,7 @@
       allowedContributors: [
         'artifact:release-source-set',
         'validated public API and environment evidence',
-        'framework and Asyra Design current authority docs',
+        'framework and Design App current authority docs',
         'root and package release documentation'
       ],
       forbiddenContributors: [
@@ -538,7 +538,7 @@
       from: 'freeze-release-source',
       to: 'verify-generated-template',
       kind: 'artifact',
-      predicate: 'The frozen source inventory identifies Asyra Design.',
+      predicate: 'The frozen source inventory identifies Design App.',
       producedArtifacts: ['artifact:release-source-set']
     },
     {
@@ -985,7 +985,7 @@
   ]
 
   const data = {
-    schema: { id: 'asyra.flow-inspector', version: 2 },
+    schema: { id: 'flow-inspector', version: 2 },
     target: {
       id: 'framework-release-readiness',
       kind: 'system',

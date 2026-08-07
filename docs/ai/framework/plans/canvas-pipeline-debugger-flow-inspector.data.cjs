@@ -22,22 +22,22 @@
       ownerPackage: '@asyra/asyra-design',
       purpose:
         'Dynamically load the optional Core facade in development and expose one disabled runtime console handle.',
-      inputs: ['Asyra Design DEV environment', 'explicit app-owned Core instance'],
+      inputs: ['Design App DEV environment', 'explicit app-owned Core instance'],
       outputs: ['artifact:dev-session-request'],
       conditions: [
         'Only import the optional debugger subpath when import.meta.env.DEV is true.',
-        'Expose the handle independently from __AsyraE2E__ and dispose it during HMR replacement.'
+        'Expose the handle independently from __Design AppE2E__ and dispose it during HMR replacement.'
       ],
       bypasses: [
         'Production builds bypass the import, session creation, console handle, trace, and overlay completely.'
       ],
       allowedContributors: [
         '@asyra/core/canvas-pipeline-debugger public API',
-        'Asyra Design DEV bootstrap',
+        'Design App DEV bootstrap',
         'the app-owned Core instance'
       ],
       forbiddenContributors: [
-        '__AsyraE2E__',
+        '__Design AppE2E__',
         '@asyra/render/canvas-pipeline-debugger direct app import',
         'Pixi or concrete-engine imports',
         'production environment detection inside framework packages'
@@ -503,13 +503,13 @@
       stepIds: ['bootstrap-dev-debugger'],
       specRefs: ['#product-cases', '#definition-of-done'],
       assertions: [
-        'Asyra Design production wiring contains no optional debugger implementation or overlay chunk.'
+        'Design App production wiring contains no optional debugger implementation or overlay chunk.'
       ]
     }
   ]
 
   const data = {
-    schema: { id: 'asyra.flow-inspector', version: 2 },
+    schema: { id: 'flow-inspector', version: 2 },
     target: {
       id: 'canvas-pipeline-debugger',
       kind: 'system',

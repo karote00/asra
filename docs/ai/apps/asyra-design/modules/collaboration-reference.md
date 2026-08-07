@@ -219,6 +219,10 @@ Factory SharedPublication
 -> remove outbox entry only after matching source acceptance
 ```
 
+The default outbox database name is `collaboration-publications`; a composed
+App may provide another name without changing the Collaboration transport
+contract.
+
 The outbox stores only immutable local publications and file-local append
 order. It stores no Core snapshot, private History, remote publication,
 Selection, Awareness, or Render/UI projection. Generic

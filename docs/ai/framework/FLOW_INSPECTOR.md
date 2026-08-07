@@ -48,7 +48,7 @@ Every target supplies exactly these top-level contract collections:
 
 ```js
 {
-  schema: { id: 'asyra.flow-inspector', version: 2 },
+  schema: { id: 'flow-inspector', version: 2 },
   target: { id, kind, title, subtitle },
   authority: { specPath, inspectorPath, semanticOwner, inspectorOwner },
   links,

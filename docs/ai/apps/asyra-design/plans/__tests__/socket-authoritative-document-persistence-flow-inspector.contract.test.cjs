@@ -152,18 +152,18 @@ test('the exact persistence owner chain remains explicit', () => {
   assert.equal(step('settle-local-publication').ownerPackage, '@asyra/factory')
   assert.equal(
     step('recover-pending-publications').ownerPackage,
-    'Asyra Design collaboration lifecycle and outbox'
+    'Design App collaboration lifecycle and outbox'
   )
   assert.equal(
     step('sequence-live-publication').ownerPackage,
-    'Asyra Design socket server'
+    'Design App socket server'
   )
   assert.equal(
     step('flush-persistence-window').ownerPackage,
-    'Asyra Design socket server'
+    'Design App socket server'
   )
   assert.equal(
     step('materialize-backend-document').ownerPackage,
-    'Asyra Design App backend'
+    'Design App App backend'
   )
 })
