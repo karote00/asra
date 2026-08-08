@@ -46,6 +46,7 @@ describe('backend canonical document reducer', () => {
       store.readCheckpoint('formal-initial-document')
     ).resolves.toEqual({
       document: createFormalInitialDocument(),
+      documentGeneration: 0,
       durableSequence: 0,
       publicationSequences: {},
       batches: {}

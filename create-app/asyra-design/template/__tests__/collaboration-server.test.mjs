@@ -931,6 +931,7 @@ test('single-actor handshake returns the formal sequence-zero document bootstrap
           },
           props: {}
         },
+        documentGeneration: 0,
         durableSequence: 0,
         headSequence: 0,
         pendingTail: []
@@ -945,6 +946,7 @@ test('single-actor handshake returns the formal sequence-zero document bootstrap
 test('document Reset discards the accepted room tail before the next bootstrap', async () => {
   let checkpoint = createTransportCheckpointDocument()
   let durableSequence = 0
+  let documentGeneration = 0
   let resetCount = 0
   const backend = createHttpBackendServer(async (request, response) => {
     response.setHeader('content-type', 'application/json')
@@ -952,7 +954,9 @@ test('document Reset discards the accepted room tail before the next bootstrap',
       request.method === 'GET' &&
       request.url?.endsWith('/bootstrap-checkpoint')
     ) {
-      response.end(JSON.stringify({ checkpoint, durableSequence }))
+      response.end(
+        JSON.stringify({ checkpoint, durableSequence, documentGeneration })
+      )
       return
     }
     if (request.method === 'DELETE') {
@@ -976,8 +980,9 @@ test('document Reset discards the accepted room tail before the next bootstrap',
         props: {}
       }
       durableSequence = 0
+      documentGeneration += 1
       resetCount += 1
-      response.end(JSON.stringify({ ok: true }))
+      response.end(JSON.stringify({ ok: true, documentGeneration }))
       return
     }
     if (
@@ -1059,6 +1064,7 @@ test('document Reset discards the accepted room tail before the next bootstrap',
     sockets.push(reconnected.socket)
     assert.deepEqual(reconnected.result.bootstrap, {
       checkpoint,
+      documentGeneration: 1,
       durableSequence: 0,
       headSequence: 0,
       pendingTail: []

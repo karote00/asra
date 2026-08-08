@@ -1407,6 +1407,7 @@ describe('collaboration wire protocol', () => {
       type: CollaborationMessageTypes.READY,
       bootstrap: {
         checkpoint: { elements: [{ id: 'element-a' }] },
+        documentGeneration: 3,
         durableSequence: 3,
         headSequence: 5,
         pendingTail: [
@@ -1457,6 +1458,19 @@ describe('collaboration wire protocol', () => {
     }
 
     expect(parseCollaborationServerMessage(ready)).toBeUndefined()
+    expect(
+      parseCollaborationServerMessage({
+        ...ready,
+        bootstrap: {
+          ...ready.bootstrap,
+          checkpoint: {},
+          documentGeneration: -1,
+          durableSequence: 0,
+          headSequence: 0,
+          pendingTail: []
+        }
+      })
+    ).toBeUndefined()
     expect(
       parseCollaborationServerMessage({
         type: CollaborationMessageTypes.READY,

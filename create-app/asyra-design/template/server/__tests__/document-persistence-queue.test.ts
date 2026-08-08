@@ -486,6 +486,7 @@ describe('document persistence queue', () => {
 
     await expect(client.readCheckpoint('file/a')).resolves.toEqual({
       checkpoint: { elements: [{ id: 'element-a' }] },
+      documentGeneration: 0,
       durableSequence: 7
     })
     expect(fetchImplementation).toHaveBeenCalledWith(
@@ -501,14 +502,17 @@ describe('document persistence queue', () => {
     const fetchImplementation = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      json: vi.fn()
+      json: vi.fn().mockResolvedValue({
+        ok: true,
+        documentGeneration: 1
+      })
     })
     const client = createHttpDocumentPersistenceClient({
       baseURL: 'http://127.0.0.1:4317',
       fetchImplementation
     })
 
-    await expect(client.resetCheckpoint('file/a')).resolves.toBeUndefined()
+    await expect(client.resetCheckpoint('file/a')).resolves.toBe(1)
     expect(fetchImplementation).toHaveBeenCalledWith(
       'http://127.0.0.1:4317/api/documents/file%2Fa',
       {

@@ -611,6 +611,7 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
 
     await expect(provider.openDocumentSession()).resolves.toEqual({
       checkpoint: { elements: [{ id: 'element-a' }] },
+      documentGeneration: 0,
       durableSequence: 3,
       headSequence: 4,
       pendingTail: [pendingTailItem]

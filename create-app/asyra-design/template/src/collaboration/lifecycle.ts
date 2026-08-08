@@ -169,6 +169,7 @@ const createPublicationOutbox = (fileId: string): DocumentPublicationOutbox => {
 const createInitialBootstrap = (): DocumentSessionBootstrap =>
   Object.freeze({
     checkpoint: createFormalInitialDocument(),
+    documentGeneration: 0,
     durableSequence: 0,
     headSequence: 0,
     pendingTail: Object.freeze([])
@@ -291,7 +292,6 @@ class CollaborationSessionController {
     } catch (error) {
       console.error('[collaboration] publication outbox load failed:', error)
     }
-    this.recoveryApplyCutoff = this.outbox.getLastAppendOrder()
     const documentPublicationSource =
       createDocumentCollaborationPublicationSource(this.bridge)
     this.unsubscribePublicationSource = documentPublicationSource.subscribe(
@@ -302,6 +302,10 @@ class CollaborationSessionController {
 
     try {
       const prepared = await this.openSocketComposition()
+      await this.outbox.bindDocumentGeneration(
+        prepared.bootstrap.documentGeneration ?? 0
+      )
+      this.recoveryApplyCutoff = this.outbox.getLastAppendOrder()
       this.preparedSocket = prepared
       return prepared.bootstrap
     } catch (error) {
@@ -682,6 +686,9 @@ class CollaborationSessionController {
         await this.releaseCurrentComposition()
         next = await this.openSocketComposition()
         await this.operationQueue
+        await this.outbox.bindDocumentGeneration(
+          next.bootstrap.documentGeneration ?? 0
+        )
         const recoveryCutoff = this.outbox.getLastAppendOrder()
         this.bridge.load(next.bootstrap.checkpoint)
         this.recoveryApplyCutoff = recoveryCutoff

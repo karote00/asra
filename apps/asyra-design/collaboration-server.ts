@@ -837,6 +837,7 @@ const createDocumentSessionBootstrap = async (
   }
   return Object.freeze({
     checkpoint: checkpointDocument,
+    documentGeneration: checkpoint.documentGeneration,
     durableSequence: checkpoint.durableSequence,
     headSequence: room.headSequence,
     pendingTail: Object.freeze(
@@ -1119,13 +1120,15 @@ webSocketServer.on('connection', (socket) => {
         }
         room.resetting = true
         await room.persistenceQueue.discardForReset()
-        await documentPersistenceClient.resetCheckpoint(room.fileId)
+        const documentGeneration =
+          await documentPersistenceClient.resetCheckpoint(room.fileId)
         room.acceptedPublications.clear()
         room.pendingPublications = []
         room.headSequence = 0
         room.bootstrapCheckpointSeed = {
           checkpoint: createFormalInitialDocument(),
-          durableSequence: 0
+          durableSequence: 0,
+          documentGeneration
         }
       })
     } finally {

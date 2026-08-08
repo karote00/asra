@@ -116,8 +116,8 @@ export const createDocumentBackendServer = ({
           sendJson(response, 405, { error: 'Method not allowed' })
           return
         }
-        await store.resetCheckpoint(route.documentId)
-        sendJson(response, 200, { ok: true })
+        const documentGeneration = await store.resetCheckpoint(route.documentId)
+        sendJson(response, 200, { ok: true, documentGeneration })
         return
       }
       if (route.operation === 'bootstrap-checkpoint') {
@@ -129,7 +129,8 @@ export const createDocumentBackendServer = ({
         const record = await store.readCheckpoint(route.documentId)
         sendJson(response, 200, {
           checkpoint: record.document,
-          durableSequence: record.durableSequence
+          durableSequence: record.durableSequence,
+          documentGeneration: record.documentGeneration ?? 0
         })
         return
       }

@@ -10,6 +10,7 @@ export interface PendingDocumentPublication {
   readonly fileId: string
   readonly publicationId: string
   readonly appendOrder: number
+  readonly documentGeneration: number | null
   readonly publication: SharedPublication
   readonly status: PendingDocumentPublicationStatus
   readonly failureReason?: string
@@ -65,12 +66,14 @@ const createRecord = (
   fileId: string,
   publication: SharedPublication,
   appendOrder: number,
+  documentGeneration: number | null,
   retainFactoryPublication: boolean
 ): PendingDocumentPublication =>
   Object.freeze({
     fileId,
     publicationId: publication.publicationId,
     appendOrder,
+    documentGeneration,
     publication: retainFactoryPublication
       ? publication
       : snapshotPublication(publication),
@@ -82,6 +85,12 @@ const snapshotRecord = (
 ): PendingDocumentPublication =>
   freezeValue({
     ...structuredClone(record),
+    documentGeneration:
+      record.documentGeneration === null ||
+      (Number.isSafeInteger(record.documentGeneration) &&
+        record.documentGeneration >= 0)
+        ? record.documentGeneration
+        : 0,
     publication: structuredClone(record.publication)
   })
 
@@ -248,6 +257,7 @@ export class DocumentPublicationOutbox {
   private initialized = false
   private storageFailed = false
   private nextAppendOrder = 1
+  private documentGeneration: number | null = null
 
   constructor(options: DocumentPublicationOutboxOptions) {
     if (!options.fileId.trim()) {
@@ -293,6 +303,42 @@ export class DocumentPublicationOutbox {
     return this.appendPublication(publication, false)
   }
 
+  bindDocumentGeneration(documentGeneration: number): Promise<void> {
+    if (!Number.isSafeInteger(documentGeneration) || documentGeneration < 0) {
+      return Promise.reject(
+        new Error('[collaboration] document generation must be non-negative')
+      )
+    }
+    return this.schedule(async () => {
+      this.requireInitialized()
+      try {
+        for (const record of this.sortedRecords()) {
+          if (record.documentGeneration === documentGeneration) continue
+          if (record.documentGeneration === null) {
+            const bound = freezeValue({
+              ...record,
+              documentGeneration
+            })
+            await this.storage.put(bound)
+            this.records.set(bound.publicationId, bound)
+            continue
+          }
+          await this.storage.delete(this.fileId, record.publicationId)
+          this.records.delete(record.publicationId)
+        }
+        this.documentGeneration = documentGeneration
+        this.storageFailed = false
+        this.emitState()
+      } catch (error) {
+        this.markStorageFailed()
+        throw new PublicationOutboxStorageError(
+          `[collaboration] publication outbox for ${this.fileId} could not bind document generation ${String(documentGeneration)}`,
+          error
+        )
+      }
+    })
+  }
+
   appendFactoryPublication(
     publication: SharedPublication
   ): Promise<PendingDocumentPublication> {
@@ -324,6 +370,7 @@ export class DocumentPublicationOutbox {
         this.fileId,
         publication,
         this.nextAppendOrder++,
+        this.documentGeneration,
         retainFactoryPublication
       )
       this.records.set(record.publicationId, record)

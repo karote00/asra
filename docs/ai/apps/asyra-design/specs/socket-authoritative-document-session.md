@@ -79,11 +79,14 @@ database writes rather than coexisting with them as a second autosave mode.
 - **Durable sequence**: the highest contiguous sequence acknowledged as
   materialized by the backend.
 - **Checkpoint**: one backend-owned materialized document snapshot labeled with
-  its durable sequence.
+  its durable sequence and destructive Reset generation.
+- **Document generation**: a non-negative backend-owned identity that starts at
+  zero and advances exactly once for every successful destructive Reset.
 - **Pending tail**: accepted sequenced publications after the checkpoint's
   durable sequence and through the current head sequence.
 - **Local outbox**: App-owned IndexedDB records containing immutable local
-  `SharedPublication` values that have not received socket acceptance.
+  `SharedPublication` values, their document generation, and correlation data
+  that have not received socket acceptance.
 - **Connection state**: `connecting`, `connected`, `disconnected`, or
   `retrying`; this reports transport reachability only.
 - **Sync state**: `synced`, `pending`, `reconciling`, `conflicted`, or
@@ -160,10 +163,10 @@ adapter, and socket protocol own this file-scoped recovery policy.
 The socket server owns one gap-free bootstrap boundary:
 
 1. Authorize the Actor and reserve the document session identity.
-2. Read the backend checkpoint and its durable sequence.
+2. Read the backend checkpoint, durable sequence, and document generation.
 3. Capture the ordered pending tail through one head-sequence cutoff.
-4. Return the checkpoint, durable sequence, pending tail, and head sequence as
-   one bootstrap result.
+4. Return the checkpoint, document generation, durable sequence, pending tail,
+   and head sequence as one bootstrap result.
 5. Queue later live publications behind that cutoff until the browser confirms
    bootstrap consumption.
 
@@ -175,7 +178,10 @@ The browser then:
    through the same app-owned remote canonical processor used for live
    publications, without repeating product-payload schema validation;
 3. submits durable local outbox publications in append order for wire/security
-   admission, dedupe, and socket sequencing;
+   admission, dedupe, and socket sequencing only when their document
+   generation matches the authoritative bootstrap; Reset-invalidated prior
+   generations are cleared before send or recovery apply, while publications
+   created before the first successful handshake bind to that first generation;
 4. applies accepted local recovery publications and interleaved peer
    publications in the server-assigned sequence, without creating duplicate
    local History or outbound echo;
@@ -412,7 +418,8 @@ authoritative checkpoint and contiguous tail.
   admission to that room, stops and awaits any current persistence attempt,
   discards the accepted room tail and retries, and asks the backend to replace
   the stored checkpoint with the formal initial document at durable sequence
-  zero. Only after that barrier succeeds may the App dispose the matching
+  zero and the next document generation. Only after that barrier succeeds may
+  the App dispose the matching
   session, clear that file's pending and conflicted recovery publications, and
   refresh. The browser always refreshes after the Reset attempt settles,
   including when a storage-free demo has no backend.

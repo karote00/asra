@@ -296,6 +296,45 @@ it('runs the server Reset barrier before disposing the active file session and c
   expect(getActiveCollaborationHandle()).toBeUndefined()
 })
 
+it('clears reset-invalidated recovery before it can enter the new document generation', async () => {
+  const fileId = 'file-reset-generation-recovery'
+  const legacyOutbox = new DocumentPublicationOutbox({ fileId })
+  await legacyOutbox.initialize()
+  await legacyOutbox.bindDocumentGeneration(0)
+  await legacyOutbox.append(remotePublication('publication-before-reset'))
+  vi.mocked(
+    CollaborationWebSocketProvider.prototype.openDocumentSession
+  ).mockResolvedValue({
+    checkpoint: EMPTY_DOCUMENT,
+    documentGeneration: 1,
+    durableSequence: 0,
+    headSequence: 0,
+    pendingTail: []
+  })
+  const sendPublication = vi.spyOn(
+    CollaborationWebSocketProvider.prototype,
+    'sendPublicationWithAcceptance'
+  )
+  const applyCanonicalChanges = vi.spyOn(core, 'applyCanonicalChanges')
+
+  const prepared = await prepareCollaborationDocumentSession({
+    fileId,
+    actorId: 'actor-after-reset',
+    endpoint: 'ws://127.0.0.1:4101/collaboration'
+  })
+  const handle = await prepared.activate()
+  await handle.whenIdle()
+
+  expect(sendPublication).not.toHaveBeenCalled()
+  expect(applyCanonicalChanges).not.toHaveBeenCalled()
+  expect(handle.getSessionState()).toEqual({
+    connection: 'connected',
+    sync: 'synced',
+    pendingCount: 0,
+    disconnectedEpoch: 0
+  })
+})
+
 it('rejects the consumer promise for a policy-rejected publication outcome', async () => {
   const processRemotePublication = createRemotePublicationHandler(() => false)
 
@@ -530,6 +569,7 @@ it('keeps a provisional local session active and retries an unavailable socket a
 
   expect(prepared.bootstrap).toEqual({
     checkpoint: createFormalInitialDocument(),
+    documentGeneration: 0,
     durableSequence: 0,
     headSequence: 0,
     pendingTail: []

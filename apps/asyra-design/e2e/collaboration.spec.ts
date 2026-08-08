@@ -110,6 +110,83 @@ const waitForCollaboration = async (page: Page) => {
     .toBe('connected')
 }
 
+const seedPriorGenerationRemoval = async (page: Page, fileId: string) => {
+  await page.evaluate(async (documentId) => {
+    const publicationId = 'stale-removal-before-reset'
+    const publication = {
+      publicationId,
+      artifactId: 'stale-removal-artifact',
+      transactionId: 1,
+      origin: 'action',
+      mode: 'atomic',
+      slices: [
+        {
+          sliceId: 'stale-removal-slice',
+          orderedIds: ['stale-removal-delivery'],
+          batches: [
+            {
+              batchId: 'stale-removal-batch',
+              channel: 'sceneTree',
+              deliveries: [
+                {
+                  deliveryId: 'stale-removal-delivery',
+                  eventName: 'removeElements',
+                  orderedIds: ['vector-before-reset'],
+                  payload: {
+                    action: 'removeElements',
+                    eventName: 'removeElements',
+                    undoType: 'addElements',
+                    undoAction: 'addElements',
+                    entries: [
+                      {
+                        data: {
+                          id: 'vector-before-reset',
+                          type: 'vector',
+                          parentId: 'group-before-reset',
+                          props: {}
+                        },
+                        parentId: 'group-before-reset',
+                        index: 0
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('collaboration-publications', 1)
+      request.addEventListener('success', () => resolve(request.result), {
+        once: true
+      })
+      request.addEventListener('error', () => reject(request.error), {
+        once: true
+      })
+    })
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(
+        'pending-publications',
+        'readwrite'
+      )
+      transaction.objectStore('pending-publications').put({
+        fileId: documentId,
+        publicationId,
+        appendOrder: 1,
+        publication,
+        status: 'pending'
+      })
+      transaction.addEventListener('complete', () => resolve(), { once: true })
+      transaction.addEventListener('error', () => reject(transaction.error), {
+        once: true
+      })
+    })
+    database.close()
+  }, fileId)
+}
+
 test('keeps only the initial none-to-connected transition silent', async ({
   page
 }, testInfo) => {
@@ -149,6 +226,52 @@ test('keeps only the initial none-to-connected transition silent', async ({
   await expect(alerts).toHaveCount(2)
   await expect(alerts.last()).toHaveText(
     'The document session is connected and changes are syncing.'
+  )
+})
+
+test('does not replay a prior-generation removal after document Reset', async ({
+  page
+}, testInfo) => {
+  const fileId = `reset-generation-${Date.now()}-${testInfo.workerIndex}`
+  const startupErrors: string[] = []
+  page.on('console', (message) => {
+    if (message.type() === 'error') startupErrors.push(message.text())
+  })
+
+  await page.goto(collaborationUrl(fileId))
+  await waitForAppReady(page)
+  await waitForCollaboration(page)
+  await Promise.all([
+    page.waitForEvent('load'),
+    page.getByRole('button', { name: 'Reset document' }).click()
+  ])
+  await waitForAppReady(page)
+  await waitForCollaboration(page)
+  await seedPriorGenerationRemoval(page, fileId)
+
+  await page.reload()
+  await waitForAppReady(page)
+  await waitForCollaboration(page)
+
+  await expect(page.locator('[role="alert"]')).toHaveCount(0)
+  await expect
+    .poll(() =>
+      page.evaluate(async () =>
+        (await import('../src/testing/runtime-access'))
+          .getActiveCollaborationHandle()
+          ?.getSessionState()
+      )
+    )
+    .toEqual({
+      connection: 'connected',
+      sync: 'synced',
+      pendingCount: 0,
+      disconnectedEpoch: 0
+    })
+  expect(startupErrors).not.toEqual(
+    expect.arrayContaining([
+      expect.stringContaining('[RenderApp] Render startup failed:')
+    ])
   )
 })
 

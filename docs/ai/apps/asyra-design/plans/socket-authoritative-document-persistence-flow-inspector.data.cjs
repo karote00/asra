@@ -28,10 +28,12 @@
         'replaceable authorization result',
         'artifact:durable-document-checkpoint',
         'artifact:reset-document-checkpoint',
+        'artifact:reset-document-generation',
         'current socket-owned pending publication tail'
       ],
       outputs: [
         'artifact:bootstrap-checkpoint',
+        'artifact:bootstrap-document-generation',
         'artifact:bootstrap-pending-tail',
         'artifact:bootstrap-live-cutoff',
         'artifact:document-session-open-failure'
@@ -39,6 +41,7 @@
       conditions: [
         'The same handshake is mandatory for one Actor and multiple Actors.',
         'A present backend checkpoint and its durable sequence are read before the pending-tail cutoff is fixed.',
+        'The backend-owned document generation is returned with the checkpoint and advances only after a successful destructive Reset.',
         'The pending tail contains every sequence after durableSequence through headSequence exactly once and in order.',
         'Publications accepted after headSequence remain queued behind bootstrap consumption.',
         'An absent checkpoint yields the formal initial document at durable sequence zero.'
@@ -278,6 +281,7 @@
       inputs: [
         'artifact:document-shared-publication',
         'artifact:socket-synchronized-session',
+        'artifact:bootstrap-document-generation',
         'artifact:source-publication-acceptance',
         'artifact:document-session-open-failure',
         'artifact:publication-sequence-failure',
@@ -294,6 +298,7 @@
       conditions: [
         'Every connected or disconnected local document publication is appended in file-local order before it is eligible for removal.',
         'The durable record contains the immutable SharedPublication and correlation metadata, never a Core snapshot or private Factory History.',
+        'Each durable record is bound to one document generation; a successful handshake clears prior-generation Reset artifacts before any socket send or recovery apply, while records created before their first successful handshake bind to that generation.',
         'A matching socket source acceptance removes exactly one pending publication; response loss retransmits the same publication identity.',
         'Initial connection failure and later disconnection leave Core, Canvas, actions, Undo, and Redo available.',
         'Connection starts at none and never returns to it; only none-to-connected is silent, while none-to-disconnected and connected-to-disconnected each produce one disconnect toast, disconnected-to-connected produces one reconnect toast, repeated same-state observations publish no new connection state, and publication-level failures remain console-only.',
@@ -552,6 +557,7 @@
       ],
       outputs: [
         'artifact:reset-document-checkpoint',
+        'artifact:reset-document-generation',
         'artifact:document-reset-failure'
       ],
       conditions: [
@@ -560,6 +566,7 @@
         'The persistence queue stops retries, discards queued publications, and awaits the one active backend attempt before backend Reset begins.',
         'Only the socket server calls the backend DELETE for this document.',
         'Backend Reset writes the Asyra Design formal initial document with workspace root, durable sequence zero, and empty publication and batch records.',
+        'Backend Reset advances the document generation exactly once and returns it to the socket-owned next-bootstrap seed.',
         'The old room accepted tail is cleared and removed before Reset acknowledgement; the next handshake has headSequence zero and an empty pending tail.',
         'After acknowledgement the initiating App disposes its session, clears only the matching recovery outbox, and reloads.'
       ],
@@ -677,6 +684,15 @@
       predicate:
         'A new or reconnecting Actor opens the document after a backend checkpoint is available.',
       producedArtifacts: ['artifact:durable-document-checkpoint']
+    },
+    {
+      id: 'route-bootstrap-generation-to-recovery',
+      from: 'open-document-session',
+      to: 'recover-pending-publications',
+      kind: 'document-generation-alignment',
+      predicate:
+        'The authorized bootstrap generation is available before local outbox recovery can send or apply any retained publication.',
+      producedArtifacts: ['artifact:bootstrap-document-generation']
     },
     {
       id: 'route-bootstrap-checkpoint-to-core',
@@ -901,6 +917,18 @@
       ownerStepId: 'open-document-session',
       channel: 'socket bootstrap',
       consumerStepIds: ['hydrate-core-checkpoint']
+    },
+    {
+      id: 'artifact:bootstrap-document-generation',
+      ownerStepId: 'open-document-session',
+      channel: 'socket bootstrap',
+      consumerStepIds: ['recover-pending-publications']
+    },
+    {
+      id: 'artifact:reset-document-generation',
+      ownerStepId: 'reset-document-session',
+      channel: 'backend Reset acknowledgement and next-bootstrap seed',
+      consumerStepIds: ['open-document-session']
     },
     {
       id: 'artifact:bootstrap-pending-tail',
