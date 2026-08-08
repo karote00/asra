@@ -242,7 +242,12 @@ test('generated template manifest is standalone on the supported release runtime
     'utf8'
   )
   assert.match(environment, /^APP_URL=http:\/\/localhost:3000$/m)
-  assert.match(environment, /^VITE_COLLABORATION_WS_URL=$/m)
+  assert.match(environment, /^COLLABORATION_WS_HOST=127\.0\.0\.1$/m)
+  assert.match(environment, /^COLLABORATION_WS_PORT=4101$/m)
+  assert.match(
+    environment,
+    /^VITE_COLLABORATION_WS_URL=ws:\/\/127\.0\.0\.1:4101\/collaboration$/m
+  )
   assert.doesNotMatch(environment, /(?:SECRET|TOKEN|PASSWORD|API_KEY)=/i)
 })
 

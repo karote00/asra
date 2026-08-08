@@ -50,15 +50,14 @@ pnpm start
 ## Document-session behavior
 
 The generated app always attempts its socket-authoritative document-session
-path. Its default empty `VITE_COLLABORATION_WS_URL` uses the same-origin
-`/collaboration` route. When that service is unavailable, the app enters the
-disconnected state and local editing remains available through the provisional
-document and recovery outbox.
-
-To run the complete reference persistence and collaboration composition, set
-`VITE_COLLABORATION_WS_URL` and start `document:backend`,
-`collaboration:server`, and `start` in separate terminals. The generated
-app README contains the complete commands.
+path. Its default `VITE_COLLABORATION_WS_URL` points to the local reference
+WebSocket service at `ws://127.0.0.1:4101/collaboration`. Start
+`document:backend`, `collaboration:server`, and `start` in separate terminals
+to run the complete reference persistence and collaboration composition
+without another environment edit. When that service is unavailable, the app
+enters the disconnected state and local editing remains available through the
+provisional document and recovery outbox. Clearing the endpoint intentionally
+uses the same-origin `/collaboration` deployment route.
 
 ## Contributing
 

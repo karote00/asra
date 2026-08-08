@@ -50,20 +50,15 @@ required as the document-session identity.
 
 ## Document session and local services
 
-Every `fileId` uses the socket-authoritative document-session path. When
-`VITE_COLLABORATION_WS_URL` is empty, the app attempts the same-origin
-`/collaboration` WebSocket route. If that service is unavailable or does not
-complete its handshake, the app enters its disconnected state, starts with the
-formal provisional document, and local editing remains available. Local
-publications remain in the app-owned recovery outbox for a later reconnect.
-
-To exercise the complete reference collaboration and persistence flow, set:
+Every `fileId` uses the socket-authoritative document-session path. The
+generated local environment points `VITE_COLLABORATION_WS_URL` at the reference
+WebSocket service:
 
 ```dotenv
 VITE_COLLABORATION_WS_URL=ws://127.0.0.1:4101/collaboration
 ```
 
-Then start the reference services in separate terminals:
+Start the reference services in separate terminals before starting the app:
 
 ```bash
 yarn document:backend
@@ -72,8 +67,12 @@ yarn start
 ```
 
 The explicit endpoint keeps the frontend and reference WebSocket service
-separate during local development. It does not select a different document
-mode.
+separate during local development. If that service is unavailable or does not
+complete its handshake, the app enters its disconnected state, starts with the
+formal provisional document, and local editing remains available. Local
+publications remain in the app-owned recovery outbox for a later reconnect.
+Clearing the endpoint intentionally selects the same-origin `/collaboration`
+deployment route; it does not select a different document mode.
 
 ## Optional AI
 

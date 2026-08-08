@@ -8,7 +8,7 @@
     "COLLABORATION_WS_HOST": "127.0.0.1",
     "COLLABORATION_WS_PORT": "4101",
     "DOCUMENT_PERSISTENCE_BACKEND_URL": "http://127.0.0.1:4201",
-    "VITE_COLLABORATION_WS_URL": ""
+    "VITE_COLLABORATION_WS_URL": "ws://127.0.0.1:4101/collaboration"
   },
   "cleanFiles": [
     "node_modules",
