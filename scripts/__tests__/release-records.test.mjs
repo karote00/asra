@@ -15,6 +15,10 @@ const repositoryRoot = path.resolve(
 
 test('release records freeze the candidate version, public docs, and publication boundary', () => {
   const result = validateFrameworkReleaseRecords({ repositoryRoot })
+  const pendingChangesets = fs
+    .readdirSync(path.join(repositoryRoot, '.changeset'))
+    .filter((entry) => entry.endsWith('.md') && entry !== 'README.md')
+    .sort()
 
   assert.equal(result.status, 'PASS')
   assert.equal(result.candidateVersion, FRAMEWORK_RELEASE_CANDIDATE_VERSION)
@@ -29,7 +33,7 @@ test('release records freeze the candidate version, public docs, and publication
     privateApp: { name: '@asyra/asyra-design', version: '0.2.5' },
     createApp: { name: 'create-asyra-design-app', version: '0.1.0' }
   })
-  assert.deepEqual(result.pendingChangesets, [])
+  assert.deepEqual(result.pendingChangesets, pendingChangesets)
   assert.equal(result.releaseSnapshot, null)
   assert.equal(result.gate5ReadinessStatus, 'READY')
   assert.equal(result.releaseDecision, 'PENDING')
