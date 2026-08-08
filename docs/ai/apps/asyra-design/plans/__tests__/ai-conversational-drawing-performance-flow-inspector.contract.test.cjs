@@ -928,7 +928,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /phase-boundary HTTP handoff.*7,000-millisecond client deadline.*one serialized 3,000-millisecond current-CPU sample.*own 3,000-millisecond sample.*heartbeat and resource-status.*3,000 milliseconds.*never extends product execution.*300-second CRDT flow/i
+    /phase-boundary HTTP handoff.*7,000-millisecond client deadline.*one serialized 3,000-millisecond current-CPU sample.*own 3,000-millisecond sample.*heartbeat and resource-status.*3,000 milliseconds.*never extends product execution.*45-second 7,076-element creation flow/i
   )
   assert.match(
     text,
@@ -1021,7 +1021,15 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /300-second product-flow deadline.*360-second guarded Playwright ceiling.*terminates the current benchmark action.*never terminates the implementation task.*first blocker.*root-cause analysis.*new iteration.*before any downstream owner/i
+    /Actor A.*15-second.*Actor B.*30-second.*attachment and prompt preparation.*45-second.*120-second guarded Playwright ceiling.*terminates the current benchmark action.*never terminates the implementation task.*first blocker.*root-cause analysis.*new iteration.*before any downstream owner/i
+  )
+  assert.match(
+    text,
+    /fail-fast.*Actor A.*Actor B.*total creation flow.*Undo.*Redo.*later phase.*must not start/i
+  )
+  assert.match(
+    text,
+    /Actor B trusts.*accepted canonical publication.*no per-item.*revalidation.*O\(1\).*canonical and Render convergence/i
   )
   assert.match(
     text,
@@ -1045,7 +1053,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /hard CRDT product-flow deadline.*300 seconds.*Playwright ceiling.*360 seconds.*cannot preempt/i
+    /hard 7,076 creation budgets.*Actor A.*15 seconds.*Actor B.*30 seconds.*attachment and prompt preparation.*45 seconds.*Playwright ceiling.*120 seconds.*cannot preempt/i
   )
   assert.match(
     text,
@@ -1073,7 +1081,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     feature,
-    /CRDT product flow.*Actor A request.*Actor B convergence.*300-second deadline[\s\S]*Playwright test.*360-second ceiling.*cannot preempt/i
+    /7076 creation flow.*Actor A.*15-second deadline[\s\S]*Actor B.*30-second deadline[\s\S]*attachment and prompt preparation.*45-second deadline[\s\S]*Playwright test.*120-second ceiling.*cannot preempt/i
   )
   assert.match(
     feature,
@@ -1756,7 +1764,7 @@ test('local source endpoint keeps canonical records while removing repeated sing
   )
   assert.match(
     proofText,
-    /exact canonical work-unit phase count.*exact Actor A local-sent publication count.*bounded retained phase and counter sample lengths.*never exact totals/i
+    /exact canonical work-unit phase count.*independent(?:ly)? from.*exact visible-element progress sample count.*Actor A local-sent publication count.*canonical work.*sampled visible progress.*coalesced transport windows.*bounded retained phase and counter sample lengths.*never exact totals/i
   )
   assert.match(
     proofText,
