@@ -16,6 +16,8 @@ Finalize a DONE plan with deterministic closeout records.
 - `docs/ai/framework/plans/completed/README.md`
 - `docs/ai/framework/decisions/releases/unreleased.md` (or app counterpart)
 - `docs/ai/workflows/README.md`
+- `docs/ai/skills/plan-done-closeout/SKILL.md`
+- `.changeset/config.json`
 
 ## Execution
 
@@ -23,6 +25,12 @@ Finalize a DONE plan with deterministic closeout records.
 2. move/record DONE plan under `plans/completed/` with completion summary
 3. append one decision-history entry linking the completed plan
 4. validate links/paths and remove stale active-plan references
+5. after every other closeout edit and gate passes, create and review the one
+   required Changeset record, then run `yarn changeset status --since
+   <base-ref>`
+6. block merge readiness when the Changeset is absent unless the PR carries
+   exactly one valid `changeset-skip:docs-only` or
+   `changeset-skip:hotfix` flag under the skill's exception contract
 
 ## Output
 
