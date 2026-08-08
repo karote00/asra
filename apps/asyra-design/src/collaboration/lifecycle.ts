@@ -30,11 +30,51 @@ import type { ApplyRemoteCanonicalChangeSlicesInput as AppRemoteCanonicalChangeS
 
 const RECONNECT_INTERVAL_MS = 30_000
 
-export type CollaborationConnectionState =
-  | 'connecting'
-  | 'connected'
-  | 'disconnected'
-  | 'retrying'
+export type CollaborationConnectionState = 'none' | 'connected' | 'disconnected'
+
+type SettledCollaborationConnectionState = Exclude<
+  CollaborationConnectionState,
+  'none'
+>
+
+export const INITIAL_COLLABORATION_CONNECTION_STATE = 'none' as const
+
+export const resolveCollaborationConnectionTransition = (
+  current: CollaborationConnectionState,
+  next: SettledCollaborationConnectionState
+): Readonly<{
+  changed: boolean
+  connection: SettledCollaborationConnectionState
+  notificationType: 'disconnected' | 'reconnected' | undefined
+}> => {
+  if ((next as CollaborationConnectionState) === 'none') {
+    throw new Error('Collaboration connection state cannot return to none')
+  }
+
+  if (current === next) {
+    return Object.freeze({
+      changed: false,
+      connection: next,
+      notificationType: undefined
+    })
+  }
+
+  let notificationType: 'disconnected' | 'reconnected' | undefined
+  if (
+    (current === 'none' || current === 'connected') &&
+    next === 'disconnected'
+  ) {
+    notificationType = 'disconnected'
+  }
+  if (current === 'disconnected' && next === 'connected') {
+    notificationType = 'reconnected'
+  }
+  return Object.freeze({
+    changed: true,
+    connection: next,
+    notificationType
+  })
+}
 
 export type CollaborationSyncState =
   | 'synced'
@@ -139,10 +179,8 @@ const providerStatusForConnection = (
   disposed: boolean
 ): ProviderStatus => {
   if (disposed) return 'disposed'
+  if (connection === 'none') return 'idle'
   if (connection === 'connected') return 'connected'
-  if (connection === 'connecting' || connection === 'retrying') {
-    return 'connecting'
-  }
   return 'disconnected'
 }
 
@@ -215,8 +253,6 @@ class CollaborationSessionController {
   private operationQueue: Promise<void> = Promise.resolve()
   private activated = false
   private disposed = false
-  private hasConnected = false
-  private disconnectedEpochActive = false
   private disconnectedEpoch = 0
   private reconciling = false
   private recoveryApplyCutoff = 0
@@ -224,7 +260,7 @@ class CollaborationSessionController {
   private storageFailureReported = false
   private conflictReported = false
   private state: CollaborationSessionState = Object.freeze({
-    connection: 'connecting',
+    connection: INITIAL_COLLABORATION_CONNECTION_STATE,
     sync: 'synced',
     pendingCount: 0,
     disconnectedEpoch: 0
@@ -619,7 +655,6 @@ class CollaborationSessionController {
     if (this.disposed) return Promise.resolve()
     this.reconciling = true
     this.setState({
-      connection: 'retrying',
       sync: 'reconciling'
     })
     const reconnecting = (async () => {
@@ -677,51 +712,48 @@ class CollaborationSessionController {
   }
 
   private enterDisconnectedEpoch(): void {
-    if (!this.hasConnected) {
-      this.setState({
-        connection: 'disconnected',
-        notification: undefined
-      })
-      return
-    }
-    if (!this.disconnectedEpochActive) {
-      this.disconnectedEpochActive = true
-      this.disconnectedEpoch += 1
-      this.setState({
-        connection: 'disconnected',
-        disconnectedEpoch: this.disconnectedEpoch,
-        notification: Object.freeze({
-          id: `collaboration-disconnected-${this.disconnectedEpoch}`,
-          message:
-            'The document session is offline. Local editing remains available and changes will sync after reconnection.',
-          type: 'disconnected'
-        })
-      })
-      return
-    }
-    this.setState({
-      connection: 'disconnected',
-      disconnectedEpoch: this.disconnectedEpoch
-    })
+    this.transitionConnection('disconnected')
   }
 
   private setConnected(): void {
-    const recovered = this.disconnectedEpochActive
-    this.hasConnected = true
-    this.disconnectedEpochActive = false
     this.clearReconnectTimer()
-    const notification = recovered
-      ? Object.freeze({
-          id: `collaboration-reconnected-${this.disconnectedEpoch}`,
-          message: 'The document session is connected and changes are syncing.',
-          type: 'reconnected' as const
-        })
-      : undefined
-    this.setState({
-      connection: 'connected',
-      ...(notification ? { notification } : {})
-    })
+    this.transitionConnection('connected')
     this.applyOutboxState(this.outbox.getState())
+  }
+
+  private transitionConnection(
+    nextConnection: SettledCollaborationConnectionState
+  ): boolean {
+    const transition = resolveCollaborationConnectionTransition(
+      this.state.connection,
+      nextConnection
+    )
+    if (!transition.changed) return false
+
+    if (nextConnection === 'disconnected') {
+      this.disconnectedEpoch += 1
+    }
+    let notification: CollaborationSessionNotification | undefined
+    if (transition.notificationType === 'disconnected') {
+      notification = Object.freeze({
+        id: `collaboration-disconnected-${this.disconnectedEpoch}`,
+        message:
+          'The document session is offline. Local editing remains available and changes will sync after reconnection.',
+        type: 'disconnected'
+      })
+    } else if (transition.notificationType === 'reconnected') {
+      notification = Object.freeze({
+        id: `collaboration-reconnected-${this.disconnectedEpoch}`,
+        message: 'The document session is connected and changes are syncing.',
+        type: 'reconnected'
+      })
+    }
+    this.setState({
+      connection: transition.connection,
+      disconnectedEpoch: this.disconnectedEpoch,
+      notification
+    })
+    return true
   }
 
   private applyOutboxState(outboxState: PublicationOutboxState): void {
@@ -761,6 +793,15 @@ class CollaborationSessionController {
       ...this.state,
       ...update
     })
+    if (
+      next.connection === this.state.connection &&
+      next.sync === this.state.sync &&
+      next.pendingCount === this.state.pendingCount &&
+      next.disconnectedEpoch === this.state.disconnectedEpoch &&
+      next.notification === this.state.notification
+    ) {
+      return
+    }
     this.state = next
     const nextStatus = this.getStatus()
     if (nextStatus !== previousStatus) {

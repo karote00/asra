@@ -19,10 +19,12 @@ import {
   encodePublicationMessageFrames
 } from '../../collaboration/protocol'
 import {
+  INITIAL_COLLABORATION_CONNECTION_STATE,
   createRemotePublicationHandler,
   disposeCollaboration,
   getActiveCollaborationHandle,
   prepareCollaborationDocumentSession,
+  resolveCollaborationConnectionTransition,
   startCollaboration
 } from '../../collaboration/lifecycle'
 import core from '../../contexts'
@@ -202,6 +204,69 @@ afterEach(async () => {
   vi.useRealTimers()
   idCounter.clear()
   vi.restoreAllMocks()
+})
+
+it('starts at none and suppresses only the none-to-connected transition', () => {
+  expect(INITIAL_COLLABORATION_CONNECTION_STATE).toBe('none')
+  expect(resolveCollaborationConnectionTransition('none', 'connected')).toEqual(
+    {
+      changed: true,
+      connection: 'connected',
+      notificationType: undefined
+    }
+  )
+  expect(
+    resolveCollaborationConnectionTransition('none', 'disconnected')
+  ).toEqual({
+    changed: true,
+    connection: 'disconnected',
+    notificationType: 'disconnected'
+  })
+  expect(
+    resolveCollaborationConnectionTransition('connected', 'disconnected')
+  ).toEqual({
+    changed: true,
+    connection: 'disconnected',
+    notificationType: 'disconnected'
+  })
+  expect(
+    resolveCollaborationConnectionTransition('disconnected', 'connected')
+  ).toEqual({
+    changed: true,
+    connection: 'connected',
+    notificationType: 'reconnected'
+  })
+  expect(
+    resolveCollaborationConnectionTransition('connected', 'connected')
+  ).toEqual({
+    changed: false,
+    connection: 'connected',
+    notificationType: undefined
+  })
+  expect(() =>
+    resolveCollaborationConnectionTransition('connected', 'none' as never)
+  ).toThrow('Collaboration connection state cannot return to none')
+})
+
+it('does not publish a new session state when the connection state is unchanged', async () => {
+  const prepared = await prepareCollaborationDocumentSession({
+    fileId: 'file-connection-state-deduplication',
+    actorId: 'actor-lifecycle',
+    endpoint: 'ws://127.0.0.1:4101/collaboration'
+  })
+  const handle = await prepared.activate()
+  const publishedStates: unknown[] = []
+  const unsubscribe = handle.onSessionStateChange((state) => {
+    publishedStates.push(state)
+  })
+
+  await handle.disconnect()
+  expect(publishedStates).toHaveLength(1)
+
+  await handle.disconnect()
+  expect(publishedStates).toHaveLength(1)
+
+  unsubscribe()
 })
 
 it('rejects the consumer promise for a policy-rejected publication outcome', async () => {
@@ -405,6 +470,12 @@ it('reopens the socket bootstrap and hydrates checkpoint plus tail before reconn
     'core-apply',
     'bootstrap-consumed'
   ])
+  expect(handle.getSessionState()).toEqual(
+    expect.objectContaining({
+      connection: 'connected',
+      sync: 'synced'
+    })
+  )
 })
 
 it('keeps a provisional local session active and retries an unavailable socket at one non-overlapping 30-second cadence', async () => {
@@ -441,7 +512,9 @@ it('keeps a provisional local session active and retries an unavailable socket a
       connection: 'disconnected',
       pendingCount: 0,
       sync: 'synced',
-      notification: undefined
+      notification: expect.objectContaining({
+        type: 'disconnected'
+      })
     })
   )
   expect(
@@ -490,7 +563,10 @@ it('keeps a provisional local session active and retries an unavailable socket a
     expect.objectContaining({
       connection: 'connected',
       pendingCount: 0,
-      sync: 'synced'
+      sync: 'synced',
+      notification: expect.objectContaining({
+        type: 'reconnected'
+      })
     })
   )
   expect(consoleError).toHaveBeenCalledWith(

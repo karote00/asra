@@ -235,13 +235,16 @@ Selection, Awareness, or Render/UI projection. Generic
 `@asyra/collaboration`, the Peer queue, and the backend checkpoint remain three
 different owners.
 
-Socket failure leaves local editing available. Initial reachability failure
-before the first successful connection remains quiet; a later disconnected
-epoch emits one toast. Repeated publication failures remain console-only, and
-the App retries at most once every 30 seconds. Reconnect
-loads the latest checkpoint/tail and reconciles the pending local publications
-in server order. IndexedDB storage failure and invalid structural recovery
-become explicit sync states; neither permits silent eviction.
+Socket failure leaves local editing available. Connection starts at `none` and
+never returns to it. Only `none -> connected` is silent;
+`none -> disconnected` and `connected -> disconnected` each emit one
+disconnected notification, and `disconnected -> connected` emits one
+reconnected notification. Repeated same-state observations publish no new
+connection state. Repeated publication failures remain console-only, and the
+App retries at most once every 30 seconds. Reconnect loads the latest
+checkpoint/tail and reconciles the pending local publications in server order.
+IndexedDB storage failure and invalid structural recovery become explicit sync
+states; neither permits silent eviction.
 
 The response to `send-publication` is socket source acceptance with its
 assigned sequence. It does not prove peer canonical apply or backend

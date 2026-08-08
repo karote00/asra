@@ -275,7 +275,10 @@ Accepted socket-authoritative target:
   not incur repeated array-head compaction
 - connection state and sync state remain distinct; disconnected local editing
   continues, fixed reconnect attempts occur at most once every 30 seconds, and
-  ordinary toasts are limited to disconnected/reconnected transitions
+  ordinary toasts follow the connection state machine: only initial
+  `none -> connected` is silent, while transitions into `disconnected` and
+  `disconnected -> connected` notify once; same-state observations publish no
+  new connection state
 - the server's 2 MiB connected-Peer frame queue remains live backpressure only;
   it is cleared on disconnect and never substitutes for the App outbox
 - reconnect performs the authoritative checkpoint/tail handshake and

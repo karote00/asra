@@ -109,6 +109,48 @@ const waitForCollaboration = async (page: Page) => {
     .toBe('connected')
 }
 
+test('keeps only the initial none-to-connected transition silent', async ({
+  page
+}, testInfo) => {
+  const fileId = `connection-notification-${Date.now()}-${testInfo.workerIndex}`
+  const alerts = page.locator('[role="alert"]')
+
+  await page.goto(collaborationUrl(fileId))
+  await waitForAppReady(page)
+  await waitForCollaboration(page)
+  await expect(alerts).toHaveCount(0)
+
+  await page.evaluate(async () =>
+    (await import('../src/testing/runtime-access'))
+      .getActiveCollaborationHandle()
+      ?.disconnect()
+  )
+  await expect
+    .poll(() =>
+      page.evaluate(
+        async () =>
+          (await import('../src/testing/runtime-access'))
+            .getActiveCollaborationHandle()
+            ?.getStatus() ?? 'missing'
+      )
+    )
+    .toBe('disconnected')
+  await expect(alerts).toHaveText(
+    'The document session is offline. Local editing remains available and changes will sync after reconnection.'
+  )
+
+  await page.evaluate(async () =>
+    (await import('../src/testing/runtime-access'))
+      .getActiveCollaborationHandle()
+      ?.reconnect()
+  )
+  await waitForCollaboration(page)
+  await expect(alerts).toHaveCount(2)
+  await expect(alerts.last()).toHaveText(
+    'The document session is connected and changes are syncing.'
+  )
+})
+
 const getCanonicalSnapshot = (page: Page) =>
   page.evaluate(async () => {
     const runtimeAccess = await import('../src/testing/runtime-access')

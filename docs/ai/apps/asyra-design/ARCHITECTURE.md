@@ -199,10 +199,13 @@ mandatory socket handshake
 - The App owns a native IndexedDB transport-recovery outbox containing only
   immutable local publications that have not received socket acceptance.
 - A disconnected or incomplete socket session remains locally editable.
-  Initial failure before the first successful connection remains quiet; a
-  later loss of an established connection enters one stateful disconnected
-  epoch. Both retry at most once every 30 seconds and do not emit
-  per-operation failure toasts.
+  Connection starts at `none` and never returns to it. Only
+  `none -> connected` is silent; both `none -> disconnected` and
+  `connected -> disconnected` emit one disconnected transition notification,
+  while `disconnected -> connected` emits one reconnected notification.
+  Repeated same-state observations publish no new connection state. Retries
+  occur at most once every 30 seconds and do not emit per-operation failure
+  toasts.
 - Reconnect reloads the authoritative checkpoint/tail, reconciles the durable
   local outbox in server sequence, and removes each entry only after matching
   source acceptance. Conflict and recovery-storage failure remain explicit

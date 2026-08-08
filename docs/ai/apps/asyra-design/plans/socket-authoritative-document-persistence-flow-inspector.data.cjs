@@ -295,7 +295,7 @@
         'The durable record contains the immutable SharedPublication and correlation metadata, never a Core snapshot or private Factory History.',
         'A matching socket source acceptance removes exactly one pending publication; response loss retransmits the same publication identity.',
         'Initial connection failure and later disconnection leave Core, Canvas, actions, Undo, and Redo available.',
-        'Initial reachability failure before the first successful connection remains quiet; after a successful connection, one disconnected epoch produces at most one disconnect toast, one recovery transition produces at most one reconnect toast, and publication-level failures remain console-only.',
+        'Connection starts at none and never returns to it; only none-to-connected is silent, while none-to-disconnected and connected-to-disconnected each produce one disconnect toast, disconnected-to-connected produces one reconnect toast, repeated same-state observations publish no new connection state, and publication-level failures remain console-only.',
         'A disconnected lifecycle schedules one non-overlapping reconnect attempt every 30000 ms.',
         'Reconnect obtains the latest checkpoint and socket tail, then applies accepted local recovery and peer publications in server sequence exactly once.',
         'Same-property conflicts resolve by later server sequence; an unexpected atomic apply failure advances no sequence and restarts authoritative reconciliation instead of creating a socket semantic-conflict record.',
@@ -743,7 +743,7 @@
       to: 'recover-pending-publications',
       kind: 'connection-failure-observation',
       predicate:
-        'Initial connection, authorization, reservation, checkpoint read, or cutoff creation fails; retryable reachability failures enter quiet provisional offline state until a connection has succeeded.',
+        'Initial connection, authorization, reservation, checkpoint read, or cutoff creation fails; retryable reachability failures transition from none to disconnected, emit one disconnected notification, and retain the provisional local document.',
       producedArtifacts: ['artifact:document-session-open-failure']
     },
     {
@@ -1170,7 +1170,7 @@
         'Connection loss does not interrupt local editing or lose pending publications',
       assertions: [
         'Connected and disconnected local publications enter the same durable App outbox.',
-        'Initial reachability failure remains quiet; after one successful connection, one disconnected epoch and one successful reconnect produce at most one toast each while per-publication failures remain console-only.',
+        'Connection starts at none and never returns to it; only none-to-connected is silent, while transitions into disconnected and the disconnected-to-connected recovery each notify once, repeated same-state observations publish no new connection state, and per-publication failures remain console-only.',
         'Reconnect attempts are non-overlapping and occur no more than once every 30000 ms.',
         'Reconnect loads the latest authoritative state and applies peer plus accepted local recovery publications in server sequence.',
         'Quota failure retains explicit evidence and never silently evicts an unaccepted publication; an unexpected apply failure restarts authoritative reconciliation.'

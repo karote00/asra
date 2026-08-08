@@ -26,8 +26,9 @@ database writes rather than coexisting with them as a second autosave mode.
   document. Because that deployment does not provide the socket server or
   backend, its handshake fails, the App enters the disconnected state, and
   local editing continues through the same durable pending-publication path.
-  A session that has never connected remains quiet while retrying rather than
-  reporting that an established connection was lost.
+  The initial connection state is `none`; only `none -> connected` is silent.
+  An initial `none -> disconnected` transition reports that the document
+  session is offline.
 - `crdt-7076-sample` uses this same full-stack client path. Actor A's exact
   image and instruction receive the checked-in ordered `AiActionBatch`
   instruction file through the same-origin HTTP action-batch interceptor; the
@@ -132,21 +133,23 @@ While disconnected:
 
 - Core, Canvas, features, Undo, and Redo remain available;
 - new local publications continue to enter the outbox in append order;
-- initial reachability failure before the first successful connection remains
-  quiet;
-- after a session has connected, one transition into a disconnected epoch
-  produces at most one toast;
+- the initial connection state is `none`, and no later transition returns to
+  `none`;
+- only `none -> connected` is silent;
+- `none -> disconnected` and `connected -> disconnected` each produce one
+  disconnected toast for that transition;
 - publication-level skip/send/write failures go to the console and diagnostics
   only; and
 - the App schedules at most one reconnect attempt every `30000 ms`, with no
   overlapping retry.
 
-A successful transition from `disconnected` or `retrying` to `connected`
-produces at most one reconnect toast for that epoch. Repeated connected,
-disconnected, retry, publication-send, and acknowledgement events do not
-produce repeated toasts. Pending count and sync state use a quiet persistent
-status surface. A conflict or recovery-storage failure may produce one
-additional transition notification because it requires user awareness.
+A successful transition from `disconnected` to `connected` produces one
+reconnect toast. A repeated observation of the current connection state
+publishes no new connection state and produces no toast. Retry,
+publication-send, and acknowledgement events likewise do not produce repeated
+toasts. Pending count and sync state use a quiet persistent status surface. A
+conflict or recovery-storage failure may produce one additional transition
+notification because it requires user awareness.
 
 The generic `@asyra/collaboration` package remains live transport and retains
 no App outbox. The Asyra Design collaboration lifecycle, native IndexedDB
@@ -531,7 +534,8 @@ Forbidden paths:
   removed only after matching socket acceptance.
 - The socket handshake loads checkpoint plus pending tail without a race.
 - Initial failure and later disconnect leave local editing available, retry at
-  a fixed 30-second cadence, and emit only transition-level notifications.
+  a fixed 30-second cadence, and follow the exact connection notification
+  state machine: only `none -> connected` is silent.
 - Reconnect reconciles the latest server state and durable local publications
   into one server-assigned order, with explicit conflict and storage-failure
   states.
