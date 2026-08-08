@@ -292,21 +292,31 @@ Semantic authority:
   tool controls for every `fileId`. This control is permanent unless the
   product owner explicitly requests its removal.
 - `resetStoredDocument()` is a standalone stored-document utility, not an App
-  controller or Feature API. It reads the required `fileId`, sends
-  `DELETE /api/documents/{encoded fileId}`, and always calls
-  `window.location.reload()` after that request attempt settles. A missing,
-  unreachable, or non-success backend still reports its error but cannot block
-  refresh; a storage-free demo therefore returns to the formal empty App.
-- Ordinary Vite development proxies that same-origin document route to
-  `DOCUMENT_PERSISTENCE_BACKEND_URL`; the `E2E_DOCUMENT_BACKEND_URL`
-  override remains test-only and takes precedence when explicitly configured.
+  controller or Feature API. It reads the required `fileId`, requests one
+  destructive Reset barrier through the active App collaboration socket, and
+  always calls `window.location.reload()` after the Reset attempt settles. The
+  barrier serializes behind prior room admission, stops and awaits any current
+  persistence attempt, discards the accepted room tail and retries, replaces
+  the backend checkpoint with the formal initial document at sequence zero,
+  and only then acknowledges the browser. The App subsequently disposes the
+  matching session and clears that file's pending and conflicted IndexedDB
+  recovery publications. A missing or unreachable collaboration/backend
+  service still reports its error but cannot block refresh; a storage-free demo
+  therefore returns to its local formal empty App.
+- The browser bundle and ordinary Vite server expose no direct document-backend
+  Reset route. Only the collaboration server uses
+  `DOCUMENT_PERSISTENCE_BACKEND_URL`; `E2E_DOCUMENT_BACKEND_URL` remains a
+  test-owned backend origin supplied to the collaboration server.
 - Direct document-backend startup stores records under
   `.app-data/documents` by default. `DOCUMENT_BACKEND_DATA_DIR` selects an
   explicit existing or deployment-owned storage directory.
 - The document backend handles that DELETE by replacing the stored record with
   the formal empty checkpoint at durable sequence zero. Reset performs no Core
   mutation, transaction, History, Undo/Redo, Factory publication, CRDT,
-  Selection, or Collaboration operation.
+  or Selection operation. The collaboration server owns the room/backend
+  barrier; App lifecycle participation is limited to requesting that barrier,
+  quiescing the matching session, and clearing its file-scoped recovery outbox.
+  Reset never replays or publishes those records.
 
 - `APP_URL` is the one app-origin contract shared by Vite,
   ordinary Playwright, visual review, collaboration E2E, and the reference

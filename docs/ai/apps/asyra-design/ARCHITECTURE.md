@@ -188,14 +188,16 @@ mandatory socket handshake
   document-change unit; private Undo History never reaches the server.
 - Selection, Awareness, computed projection, Render/UI state, and diagnostics
   remain outside document persistence.
-- The browser performs no canonical document persistence write during ordinary
-  App operation. The permanent toolbar Reset is the one standalone exception:
-  it attempts to delete only the current stored checkpoint and always refreshes
-  after that attempt settles, including when a storage-free demo has no
-  backend, without Core, Feature, transaction, History, CRDT, Selection, or
-  Collaboration participation. `crdt-7076-sample` otherwise uses the same
-  socket-authoritative document session and request-time HTTP action-batch as
-  its only prepared sample source.
+- The browser performs no direct canonical document persistence write. The
+  permanent toolbar Reset is a standalone App lifecycle request through the
+  active socket: the collaboration server serializes a destructive room reset,
+  discards its accepted tail only after any active persistence attempt settles,
+  and resets the backend to the formal sequence-zero document before
+  acknowledgement. The browser then clears the file-scoped recovery outbox and
+  always refreshes, including when a storage-free demo has no backend, without
+  Core, Feature, transaction, History, CRDT apply, or Selection participation.
+  `crdt-7076-sample` otherwise uses the same socket-authoritative document
+  session and request-time HTTP action-batch as its only prepared sample source.
 - The App owns a native IndexedDB transport-recovery outbox containing only
   immutable local publications that have not received socket acceptance.
 - A disconnected or incomplete socket session remains locally editable.

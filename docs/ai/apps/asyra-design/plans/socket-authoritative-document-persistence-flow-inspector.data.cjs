@@ -27,6 +27,7 @@
         'non-empty fileId, roomId, and Actor identity',
         'replaceable authorization result',
         'artifact:durable-document-checkpoint',
+        'artifact:reset-document-checkpoint',
         'current socket-owned pending publication tail'
       ],
       outputs: [
@@ -304,6 +305,7 @@
       bypasses: [
         'Selection-only and other non-document transactions produce no outbox entry.',
         'An empty outbox bypasses recovery upload but not the reconnect handshake.',
+        'Explicit toolbar Reset asks the active socket session to complete the server-owned room/backend barrier, then disposes the matching App session and clears that file-scoped outbox; those records bypass socket send and recovery apply.',
         'A repeated status or publication failure bypasses toast emission after its transition epoch was already reported.'
       ],
       allowedContributors: [
@@ -533,6 +535,73 @@
         '#product-cases'
       ],
       failureOwnerStepId: 'flush-persistence-window'
+    },
+    {
+      id: 'reset-document-session',
+      order: 3,
+      laneId: 'socket',
+      title: 'Reset one complete document session barrier',
+      ownerPackage: 'Asyra Design socket server',
+      purpose:
+        'Serialize one destructive toolbar Reset against room admission and persistence so the next socket bootstrap can observe only the formal sequence-zero document with an empty accepted tail.',
+      inputs: [
+        'authenticated live document-session Reset control request',
+        'current room admission tail and accepted publication tail',
+        'current pending and in-flight persistence queue',
+        'current backend checkpoint'
+      ],
+      outputs: [
+        'artifact:reset-document-checkpoint',
+        'artifact:document-reset-failure'
+      ],
+      conditions: [
+        'Reset enters the same per-room admission serialization as publication acceptance.',
+        'Once Reset begins, later room admission is rejected and cannot enter the discarded generation.',
+        'The persistence queue stops retries, discards queued publications, and awaits the one active backend attempt before backend Reset begins.',
+        'Only the socket server calls the backend DELETE for this document.',
+        'Backend Reset writes the Asyra Design formal initial document with workspace root, durable sequence zero, and empty publication and batch records.',
+        'The old room accepted tail is cleared and removed before Reset acknowledgement; the next handshake has headSequence zero and an empty pending tail.',
+        'After acknowledgement the initiating App disposes its session, clears only the matching recovery outbox, and reloads.'
+      ],
+      bypasses: [
+        'A storage-free App with no live collaboration session clears only its local recovery records and reloads because no remote document exists.',
+        'A failed server/backend Reset produces no success acknowledgement but never blocks the toolbar reload.'
+      ],
+      allowedContributors: [
+        'Asyra Design toolbar Reset utility',
+        'Asyra Design collaboration lifecycle, Provider, and control protocol',
+        'Asyra Design socket room admission and persistence queue',
+        'Asyra Design document persistence client and backend store',
+        'App-owned file-scoped publication outbox'
+      ],
+      forbiddenContributors: [
+        'browser direct document-backend request',
+        '@asyra/core mutation or load fallback',
+        'Feature System, transaction, History, Undo, Redo, or Selection operation',
+        'Factory publication or CRDT apply',
+        'partial tail retention, retry after Reset, or mixed-generation bootstrap'
+      ],
+      cacheDimensions: [],
+      implementationBoundary: [
+        'apps/asyra-design/src/toolbar/reset-stored-document.ts',
+        'apps/asyra-design/src/collaboration',
+        'apps/asyra-design/collaboration-server.ts',
+        'apps/asyra-design/server/document-persistence-client.ts',
+        'apps/asyra-design/server/document-persistence-queue.ts',
+        'apps/asyra-design/server/document-backend.ts',
+        'apps/asyra-design/server/document-backend-store.ts',
+        'apps/asyra-design/src/toolbar/__tests__/reset-stored-document.test.ts',
+        'apps/asyra-design/src/init/__tests__',
+        'apps/asyra-design/server/__tests__',
+        'apps/asyra-design/__tests__/collaboration-server.test.mjs',
+        'docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md'
+      ],
+      specRefs: [
+        '#reset-import-export-and-serialization',
+        '#bootstrap-and-load-handshake',
+        '#product-cases'
+      ],
+      failureOwnerStepId: 'reset-document-session'
     },
     {
       id: 'materialize-backend-document',
@@ -966,6 +1035,18 @@
       consumerStepIds: []
     },
     {
+      id: 'artifact:reset-document-checkpoint',
+      ownerStepId: 'reset-document-session',
+      channel: 'socket Reset acknowledgement and next-bootstrap authority',
+      consumerStepIds: ['open-document-session']
+    },
+    {
+      id: 'artifact:document-reset-failure',
+      ownerStepId: 'reset-document-session',
+      channel: 'terminal Reset failure',
+      consumerStepIds: []
+    },
+    {
       id: 'artifact:backend-materialization-failure',
       ownerStepId: 'materialize-backend-document',
       channel: 'terminal failure',
@@ -1145,7 +1226,7 @@
       id: 'publication-and-undo-contract',
       title: 'Canonical changes, not undo History, cross the socket',
       assertions: [
-        'The permanent toolbar Reset is the one standalone stored-file DELETE exception: it replaces the current checkpoint with the formal empty document when the backend is available and always refreshes after the request attempt settles, including when a storage-free demo has no backend, without entering Core, Feature System, transactions, History, CRDT, Selection, Factory publication, or Collaboration. crdt-7076-sample otherwise uses the same socket session and publishes only after Actor A submits its exact HTTP action-batch request.',
+        'The permanent toolbar Reset is the one standalone destructive document exception: the active App asks the socket server to serialize Reset after prior admission, stop and await persistence, discard the old accepted tail, and replace the backend checkpoint with the formal sequence-zero document before acknowledgement; the App then disposes the session, clears that file-scoped recovery outbox without replay or publication, and always refreshes after the attempt settles, including when a storage-free demo has no backend, without entering Core, Feature System, transactions, History, CRDT apply, Selection, or Factory publication. crdt-7076-sample otherwise uses the same socket session and publishes only after Actor A submits its exact HTTP action-batch request.',
         'Transaction-end, immediate, Undo, Redo, and compensation publications preserve existing Factory semantics.',
         'One canonical owner admission produces trusted publication data; transport and receivers do not recursively revalidate its product payload.',
         'Selection-only transactions produce no document publication.',
@@ -1161,6 +1242,23 @@
       specRefs: [
         '#canonical-publication-boundary',
         '#product-cases',
+        '#definition-of-done'
+      ]
+    },
+    {
+      id: 'document-reset-barrier-contract',
+      title: 'Reset cannot mix a formal empty checkpoint with an old room tail',
+      assertions: [
+        'The browser has no direct document-backend Reset route.',
+        'The socket Reset barrier awaits any active persistence attempt and prevents every retry before backend deletion.',
+        'Successful Reset removes the old room generation and accepted tail before acknowledgement.',
+        'The next handshake returns the formal workspace document at durableSequence zero, headSequence zero, and an empty pending tail.',
+        'Reset never enters Core mutation, Feature System, transactions, History, Undo, Redo, Factory publication, CRDT apply, or Selection.'
+      ],
+      stepIds: ['reset-document-session', 'open-document-session'],
+      specRefs: [
+        '#reset-import-export-and-serialization',
+        '#bootstrap-and-load-handshake',
         '#definition-of-done'
       ]
     },

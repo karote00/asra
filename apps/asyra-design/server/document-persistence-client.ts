@@ -9,7 +9,7 @@ interface PersistenceFetchResponse {
 type PersistenceFetch = (
   input: string,
   init: Readonly<{
-    method: 'GET' | 'POST'
+    method: 'DELETE' | 'GET' | 'POST'
     headers: Readonly<Record<string, string>>
     body?: string
   }>
@@ -22,6 +22,7 @@ export interface DocumentBootstrapCheckpoint {
 
 export interface HttpDocumentPersistenceClient {
   readCheckpoint(documentId: string): Promise<DocumentBootstrapCheckpoint>
+  resetCheckpoint(documentId: string): Promise<void>
   sendBatch(
     batch: DocumentPersistenceBatch
   ): Promise<Readonly<{ durableSequence: number }>>
@@ -90,6 +91,21 @@ export const createHttpDocumentPersistenceClient = ({
         checkpoint: checkpoint.checkpoint,
         durableSequence: Number(checkpoint.durableSequence)
       })
+    },
+    async resetCheckpoint(documentId) {
+      const endpoint = new URL(
+        `/api/documents/${encodeURIComponent(documentId)}`,
+        base
+      )
+      const response = await send(endpoint.toString(), {
+        method: 'DELETE',
+        headers: { accept: 'application/json' }
+      })
+      if (!response.ok) {
+        throw new Error(
+          `[document-persistence-client] backend rejected document Reset (${response.status})`
+        )
+      }
     },
     async sendBatch(batch) {
       const endpoint = new URL(

@@ -407,19 +407,27 @@ authoritative checkpoint and contiguous tail.
   sample, persistence, startup, or Collaboration work must not hide, disable,
   or delete it.
 - Reset is an intentionally standalone destructive stored-file utility. One
-  click sends `DELETE /api/documents/{encoded fileId}`. When the backend is
-  available, it replaces the stored checkpoint with the formal empty document
-  and resets its durable sequence. The browser always refreshes after the
-  request attempt settles, including when a storage-free demo has no backend.
-- In ordinary development, Vite must proxy this exact same-origin route to
-  `DOCUMENT_PERSISTENCE_BACKEND_URL`; Reset must not depend on an E2E-only
-  backend override.
+  click requests one Reset barrier through the active App collaboration socket.
+  The socket server serializes Reset behind prior room admission, blocks later
+  admission to that room, stops and awaits any current persistence attempt,
+  discards the accepted room tail and retries, and asks the backend to replace
+  the stored checkpoint with the formal initial document at durable sequence
+  zero. Only after that barrier succeeds may the App dispose the matching
+  session, clear that file's pending and conflicted recovery publications, and
+  refresh. The browser always refreshes after the Reset attempt settles,
+  including when a storage-free demo has no backend.
+- The browser and ordinary Vite server expose no direct document-backend Reset
+  route. `DOCUMENT_PERSISTENCE_BACKEND_URL` belongs only to the collaboration
+  server; an E2E backend override must not create a browser-owned delete path.
 - Reset must not call Core, Feature System, a common mutation API, transaction,
-  History, Undo/Redo, Selection, Factory publication, Collaboration, or a CRDT
-  apply path. Backend absence or failure reports the error but never blocks the
-  refresh; the storage-free demo reloads its formal empty App.
-- This exact Reset endpoint is the only browser document-delete exception.
-  It creates no localStorage bootstrap and no second document startup route.
+  History, Undo/Redo, Selection, Factory publication, or a CRDT apply path. Its
+  only App collaboration lifecycle work is to request the socket-owned Reset
+  barrier, dispose the matching document session, and clear that file's
+  recovery outbox; it must not send or replay those records. Backend absence or
+  failure reports the error but never blocks the refresh; the storage-free demo
+  reloads its formal empty App.
+- The collaboration server is the only Reset caller of the document backend.
+  Reset creates no localStorage bootstrap and no second document startup route.
 - Any future import must produce canonical document changes through the normal
   publication path. It cannot call a browser snapshot `PUT`, another `DELETE`,
   or hidden save fallback.

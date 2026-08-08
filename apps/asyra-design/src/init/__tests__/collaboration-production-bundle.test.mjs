@@ -64,8 +64,8 @@ test('production bundle keeps the deployable collaboration reference composition
   )
   assert.equal(
     bundledCode.includes('/api/documents/'),
-    true,
-    'the browser bundle is missing the permanent Reset DELETE endpoint'
+    false,
+    'the browser bundle must not contain a direct document-backend route'
   )
   assert.equal(
     bundledCode.includes('/bootstrap-checkpoint'),

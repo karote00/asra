@@ -527,11 +527,14 @@ Feature: Conversational AI drawing performance
     Then the toolbar should always expose Reset before the primary tools
     And sample, persistence, startup, or Collaboration changes must not remove, hide, or disable Reset
     When the user presses Reset
-    Then the browser should DELETE only "/api/documents/{encoded fileId}"
-    And an available backend should replace that stored checkpoint with the formal empty document at durable sequence zero
-    And the browser should always refresh after the DELETE attempt settles
-    But Reset should not call Core, Feature System, a transaction, History, Undo Redo, Selection, Factory publication, Collaboration, or CRDT apply
-    And an unavailable or failed DELETE should report its error without blocking refresh
+    Then the App should request one Reset barrier through the matching collaboration document session
+    And the collaboration server should stop admission, await any active persistence attempt, and discard that room's accepted tail and retries
+    And only the collaboration server should ask the backend to replace that stored checkpoint with the formal empty document at durable sequence zero
+    And the App should dispose the acknowledged session and clear only that fileId's recovery outbox
+    And the browser should always refresh after the Reset attempt settles
+    But Reset should not call Core, Feature System, a transaction, History, Undo Redo, Selection, Factory publication, or CRDT apply
+    And Reset should not send or replay the cleared recovery publications
+    And an unavailable or failed Reset barrier should report its error without blocking refresh
     And a storage-free demo should therefore reload the formal empty App
 
   Scenario: Remote apply never persists on the receiving client

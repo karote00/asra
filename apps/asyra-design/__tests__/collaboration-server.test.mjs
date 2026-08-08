@@ -942,6 +942,134 @@ test('single-actor handshake returns the formal sequence-zero document bootstrap
   }
 })
 
+test('document Reset discards the accepted room tail before the next bootstrap', async () => {
+  let checkpoint = createTransportCheckpointDocument()
+  let durableSequence = 0
+  let resetCount = 0
+  const backend = createHttpBackendServer(async (request, response) => {
+    response.setHeader('content-type', 'application/json')
+    if (
+      request.method === 'GET' &&
+      request.url?.endsWith('/bootstrap-checkpoint')
+    ) {
+      response.end(JSON.stringify({ checkpoint, durableSequence }))
+      return
+    }
+    if (request.method === 'DELETE') {
+      checkpoint = {
+        version: '1.0.0',
+        sceneTree: {
+          workspace: 'workspace',
+          workspaceList: ['workspace'],
+          elements: {
+            workspace: {
+              id: 'workspace',
+              name: 'Workspace',
+              type: 'workspace',
+              parentId: '',
+              visible: true,
+              lock: false,
+              children: []
+            }
+          }
+        },
+        props: {}
+      }
+      durableSequence = 0
+      resetCount += 1
+      response.end(JSON.stringify({ ok: true }))
+      return
+    }
+    if (
+      request.method === 'POST' &&
+      request.url?.endsWith('/persistence-batches')
+    ) {
+      const chunks = []
+      for await (const chunk of request) chunks.push(Buffer.from(chunk))
+      const batch = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+      durableSequence = batch.lastSequence
+      response.end(JSON.stringify({ durableSequence }))
+      return
+    }
+    response.statusCode = 404
+    response.end(JSON.stringify({ error: 'not found' }))
+  })
+  await new Promise((resolve, reject) => {
+    backend.once('error', reject)
+    backend.listen(0, '127.0.0.1', resolve)
+  })
+  const backendAddress = backend.address()
+  assert.ok(backendAddress && typeof backendAddress === 'object')
+
+  const port = await getAvailablePort()
+  const origin = 'http://localhost:4346'
+  const child = startServer({
+    port,
+    origin,
+    persistenceBackendURL: `http://127.0.0.1:${backendAddress.port}`
+  })
+  const sockets = []
+  try {
+    await waitForServer(child)
+    const source = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'reset-room-tail-file',
+      actorId: 'reset-room-tail-source'
+    })
+    sockets.push(source)
+
+    const accepted = responseFor(source, 'reset-room-tail-publication')
+    source.send(
+      createCanonicalPublicationFrame({
+        requestId: 'reset-room-tail-publication',
+        publicationId: 'reset-room-tail-publication',
+        after: 1
+      }),
+      { binary: true }
+    )
+    assert.deepEqual(await accepted, {
+      type: 'response',
+      requestId: 'reset-room-tail-publication',
+      ok: true,
+      acceptedSequences: [1]
+    })
+
+    const resetRequestId = 'reset-room-tail-document'
+    const reset = responseFor(source, resetRequestId)
+    source.send(
+      JSON.stringify({
+        type: 'reset-document',
+        requestId: resetRequestId
+      })
+    )
+    assert.deepEqual(await reset, {
+      type: 'response',
+      requestId: resetRequestId,
+      ok: true
+    })
+    assert.equal(resetCount, 1)
+
+    const reconnected = await requestPublicClient({
+      port,
+      origin,
+      fileId: 'reset-room-tail-file',
+      actorId: 'reset-room-tail-observer'
+    })
+    sockets.push(reconnected.socket)
+    assert.deepEqual(reconnected.result.bootstrap, {
+      checkpoint,
+      durableSequence: 0,
+      headSequence: 0,
+      pendingTail: []
+    })
+  } finally {
+    await Promise.all(sockets.map((socket) => closeSocket(socket)))
+    await stopServer(child)
+    await new Promise((resolve) => backend.close(() => resolve()))
+  }
+})
+
 test('bootstrap returns the gap-free pending tail and withholds post-cutoff live publications until completion', async () => {
   const port = await getAvailablePort()
   const origin = 'http://localhost:4315'

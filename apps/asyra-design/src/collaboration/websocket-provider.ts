@@ -462,6 +462,16 @@ export class CollaborationWebSocketProvider implements Provider {
     )
   }
 
+  async resetDocument(): Promise<void> {
+    this.requireDocumentSessionLive()
+    await this.request(
+      {
+        type: CollaborationMessageTypes.RESET_DOCUMENT
+      },
+      this.connectionGeneration
+    )
+  }
+
   onAwareness(subscriber: Subscriber<ProviderAwarenessMessage>): () => void {
     return this.subscribe(this.awarenessSubscribers, subscriber)
   }

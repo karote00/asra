@@ -158,13 +158,11 @@ test('Playwright routes the formal backend through the same document-session flo
       /yarn workspace @asyra\/asyra-design test:e2e:status-toast/
     )
   }
-  assert.match(viteConfig, /process\.env\.E2E_DOCUMENT_BACKEND_URL/)
-  assert.match(
+  assert.doesNotMatch(
     viteConfig,
-    /process\.env\.DOCUMENT_PERSISTENCE_BACKEND_URL/,
-    'ordinary development must proxy the permanent Reset DELETE to the formal backend'
+    /['"]\/api\/documents['"]|DOCUMENT_PERSISTENCE_BACKEND_URL/,
+    'the browser dev server must not expose the document backend Reset route'
   )
-  assert.match(viteConfig, /['"]\/api\/documents['"]/)
   assert.match(viteConfig, /process\.env\.E2E_DOCUMENT_DATABASE === '1'/)
   assert.match(viteConfig, /createDocumentDatabaseTestPlugin/)
 })

@@ -21,6 +21,7 @@ import {
   type FrameConsumedRequest,
   type PeerAppliedRequest,
   type PublicationFrameHeader,
+  type ResetDocumentRequest,
   type SendAwarenessRequest
 } from './src/collaboration/protocol'
 import { createFormalInitialDocument } from './src/collaboration/initial-document'
@@ -245,6 +246,7 @@ interface RoomState {
   pendingPublications: SequencedDocumentPublication[]
   headSequence: number
   admissionTail: Promise<void>
+  resetting: boolean
 }
 
 interface SequencedDocumentPublication {
@@ -550,7 +552,8 @@ const getOrCreateRoom = async (fileId: string): Promise<RoomState> => {
       persistenceQueue,
       bootstrapCheckpointSeed: bootstrapCheckpoint,
       headSequence: bootstrapCheckpoint.durableSequence,
-      admissionTail: Promise.resolve()
+      admissionTail: Promise.resolve(),
+      resetting: false
     }
     roomReference.current = room
     rooms.set(fileId, room)
@@ -1004,6 +1007,12 @@ webSocketServer.on('connection', (socket) => {
     }
     const room = await getOrCreateRoom(fileId)
     const bootstrap = await enqueueRoomAdmission(room, async () => {
+      if (room.resetting) {
+        throw new SocketServerFailure(
+          'connection-rejected',
+          '[collaboration] document Reset is in progress'
+        )
+      }
       if (room.peers.has(identity.actorId)) {
         throw new SocketServerFailure(
           'connection-rejected',
@@ -1090,6 +1099,53 @@ webSocketServer.on('connection', (socket) => {
     })
   }
 
+  const handleResetDocument = async (
+    message: ResetDocumentRequest
+  ): Promise<void> => {
+    const room = peer.room
+    if (!room || !peer.actorId) {
+      throw new SocketServerFailure(
+        'not-connected',
+        '[collaboration] provider handshake is incomplete'
+      )
+    }
+    try {
+      await enqueueRoomAdmission(room, async () => {
+        if (room.resetting) {
+          throw new SocketServerFailure(
+            'transport-failed',
+            '[collaboration] document Reset is already in progress'
+          )
+        }
+        room.resetting = true
+        await room.persistenceQueue.discardForReset()
+        await documentPersistenceClient.resetCheckpoint(room.fileId)
+        room.acceptedPublications.clear()
+        room.pendingPublications = []
+        room.headSequence = 0
+        room.bootstrapCheckpointSeed = {
+          checkpoint: createFormalInitialDocument(),
+          durableSequence: 0
+        }
+      })
+    } finally {
+      if (room.resetting && rooms.get(room.fileId) === room) {
+        rooms.delete(room.fileId)
+      }
+      if (room.resetting) {
+        for (const roomPeer of room.peers.values()) {
+          if (roomPeer === peer || roomPeer.closed) continue
+          roomPeer.socket.close(1012, 'document reset')
+        }
+      }
+    }
+    sendControl(socket, {
+      type: CollaborationMessageTypes.RESPONSE,
+      requestId: message.requestId,
+      ok: true
+    })
+  }
+
   const handleControl = async (encoded: string): Promise<void> => {
     let message
     try {
@@ -1139,6 +1195,9 @@ webSocketServer.on('connection', (socket) => {
         return
       case CollaborationMessageTypes.PEER_APPLIED:
         handlePeerApplied(message)
+        return
+      case CollaborationMessageTypes.RESET_DOCUMENT:
+        await handleResetDocument(message)
         return
       case CollaborationMessageTypes.SEND_PUBLICATION:
       case CollaborationMessageTypes.SEND_PUBLICATIONS:
@@ -1250,6 +1309,12 @@ webSocketServer.on('connection', (socket) => {
     request.digestMs += elapsed(digestStartedAtMs)
 
     return enqueueRoomAdmission(room, async () => {
+      if (room.resetting) {
+        throw new SocketServerFailure(
+          'transport-failed',
+          '[collaboration] document Reset is in progress'
+        )
+      }
       const accepted = publications.map(({ publicationId }) =>
         room.acceptedPublications.get(publicationId)
       )
