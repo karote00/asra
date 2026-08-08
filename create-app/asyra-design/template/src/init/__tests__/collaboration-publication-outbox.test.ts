@@ -146,6 +146,46 @@ describe('document publication recovery outbox', () => {
     ).toEqual(['publication-b'])
   })
 
+  it('clears every recovery record for one file without touching another file', async () => {
+    const databaseName = 'publication-outbox-file-reset'
+    const firstFile = new DocumentPublicationOutbox({
+      fileId: 'file-a',
+      storage: createStorage(factory, databaseName)
+    })
+    const secondFile = new DocumentPublicationOutbox({
+      fileId: 'file-b',
+      storage: createStorage(factory, databaseName)
+    })
+    await firstFile.initialize()
+    await secondFile.initialize()
+    await firstFile.append(createPublication('publication-a', 1))
+    await firstFile.append(createPublication('publication-b', 2))
+    await secondFile.append(createPublication('publication-c', 3))
+
+    await firstFile.clear()
+
+    expect(firstFile.getState()).toEqual({
+      pendingCount: 0,
+      status: 'synced'
+    })
+    const reloadedFirstFile = new DocumentPublicationOutbox({
+      fileId: 'file-a',
+      storage: createStorage(factory, databaseName)
+    })
+    const reloadedSecondFile = new DocumentPublicationOutbox({
+      fileId: 'file-b',
+      storage: createStorage(factory, databaseName)
+    })
+    await reloadedFirstFile.initialize()
+    await reloadedSecondFile.initialize()
+    expect(reloadedFirstFile.getRecoverablePublications()).toEqual([])
+    expect(
+      reloadedSecondFile
+        .getRecoverablePublications()
+        .map(({ publicationId }) => publicationId)
+    ).toEqual(['publication-c'])
+  })
+
   it('retains in-memory evidence and enters storage-failed when IndexedDB append fails', async () => {
     const failure = new DOMException('quota exceeded', 'QuotaExceededError')
     const storage: PublicationOutboxStorage = {

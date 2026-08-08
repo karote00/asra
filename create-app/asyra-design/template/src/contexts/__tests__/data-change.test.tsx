@@ -3,51 +3,32 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  fileLoadComplete: vi.fn(),
   fileLoadSubscribers: [] as (() => void)[],
   fileLoadUnsubscribe: vi.fn(),
   getFeature: vi.fn(),
-  renderReadySubscribers: [] as (() => void)[],
-  renderReadyUnsubscribe: vi.fn(),
-  zoomFit: vi.fn()
-}))
-
-vi.mock('@asyra/reactive-events', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@asyra/reactive-events')>()),
-  fileLoadComplete: mocks.fileLoadComplete,
   subscribeToFileLoadComplete: vi.fn((subscriber: () => void) => {
     mocks.fileLoadSubscribers.push(subscriber)
     return {
       unsubscribe: mocks.fileLoadUnsubscribe
     }
   }),
-  subscribeToRenderIsReady: vi.fn((subscriber: () => void) => {
-    mocks.renderReadySubscribers.push(subscriber)
-    return {
-      unsubscribe: mocks.renderReadyUnsubscribe
-    }
-  })
+  zoomFit: vi.fn()
 }))
 
 vi.mock('@asyra/core', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@asyra/core')>()),
-  getFeature: mocks.getFeature
+  getFeature: mocks.getFeature,
+  subscribeToFileLoadComplete: mocks.subscribeToFileLoadComplete
 }))
 
-import {
-  subscribeToFileLoadComplete,
-  subscribeToRenderIsReady
-} from '@asyra/reactive-events'
 import DataContexts from '../data-change'
 
 describe('App data-change context', () => {
   beforeEach(() => {
-    mocks.fileLoadComplete.mockClear()
     mocks.fileLoadSubscribers.length = 0
     mocks.fileLoadUnsubscribe.mockClear()
     mocks.getFeature.mockReset()
-    mocks.renderReadySubscribers.length = 0
-    mocks.renderReadyUnsubscribe.mockClear()
+    mocks.subscribeToFileLoadComplete.mockClear()
     mocks.zoomFit.mockClear()
     mocks.getFeature.mockReturnValue({
       zoomFit: mocks.zoomFit
@@ -79,9 +60,7 @@ describe('App data-change context', () => {
       root.render(<DataContexts />)
     })
 
-    expect(subscribeToRenderIsReady).not.toHaveBeenCalled()
-    expect(mocks.fileLoadComplete).not.toHaveBeenCalled()
-    expect(subscribeToFileLoadComplete).toHaveBeenCalledOnce()
+    expect(mocks.subscribeToFileLoadComplete).toHaveBeenCalledOnce()
     expect(mocks.fileLoadSubscribers).toHaveLength(1)
 
     act(() => {
@@ -94,6 +73,5 @@ describe('App data-change context', () => {
     await act(async () => root.unmount())
 
     expect(mocks.fileLoadUnsubscribe).toHaveBeenCalledOnce()
-    expect(mocks.renderReadyUnsubscribe).not.toHaveBeenCalled()
   })
 })

@@ -13,6 +13,7 @@ import {
 } from '@asyra/utils'
 import * as collaborationOperations from '../../collaboration/publication-processor'
 import { createFormalInitialDocument } from '../../collaboration/initial-document'
+import { DocumentPublicationOutbox } from '../../collaboration/publication-outbox'
 import { CollaborationWebSocketProvider } from '../../collaboration/websocket-provider'
 import {
   CollaborationMessageTypes,
@@ -24,6 +25,7 @@ import {
   disposeCollaboration,
   getActiveCollaborationHandle,
   prepareCollaborationDocumentSession,
+  resetCollaborationDocument,
   resolveCollaborationConnectionTransition,
   startCollaboration
 } from '../../collaboration/lifecycle'
@@ -188,6 +190,10 @@ beforeEach(async () => {
     CollaborationWebSocketProvider.prototype,
     'completeDocumentBootstrap'
   ).mockResolvedValue(undefined)
+  vi.spyOn(
+    CollaborationWebSocketProvider.prototype,
+    'resetDocument'
+  ).mockResolvedValue(undefined)
   harness.collaboration.updateAwareness.mockReset()
   harness.collaboration.observePublicationOutcomes
     .mockReset()
@@ -267,6 +273,27 @@ it('does not publish a new session state when the connection state is unchanged'
   expect(publishedStates).toHaveLength(1)
 
   unsubscribe()
+})
+
+it('runs the server Reset barrier before disposing the active file session and clearing recovery', async () => {
+  const clear = vi
+    .spyOn(DocumentPublicationOutbox.prototype, 'clear')
+    .mockResolvedValue(undefined)
+  const resetDocument = vi.mocked(
+    CollaborationWebSocketProvider.prototype.resetDocument
+  )
+  const prepared = await prepareCollaborationDocumentSession({
+    fileId: 'file-reset-recovery',
+    actorId: 'actor-lifecycle',
+    endpoint: 'ws://127.0.0.1:4101/collaboration'
+  })
+  await prepared.activate()
+
+  await resetCollaborationDocument('file-reset-recovery')
+
+  expect(resetDocument).toHaveBeenCalledOnce()
+  expect(clear).toHaveBeenCalledOnce()
+  expect(getActiveCollaborationHandle()).toBeUndefined()
 })
 
 it('rejects the consumer promise for a policy-rejected publication outcome', async () => {

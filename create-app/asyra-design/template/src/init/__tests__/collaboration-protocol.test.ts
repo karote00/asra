@@ -1429,6 +1429,18 @@ describe('collaboration wire protocol', () => {
     expect(parseCollaborationClientMessage(consumed)).toEqual(consumed)
   })
 
+  it('parses only identified document Reset control requests', () => {
+    const reset = {
+      type: CollaborationMessageTypes.RESET_DOCUMENT,
+      requestId: 'reset-document-1'
+    }
+
+    expect(parseCollaborationClientMessage(reset)).toEqual(reset)
+    expect(
+      parseCollaborationClientMessage({ ...reset, requestId: '' })
+    ).toBeUndefined()
+  })
+
   it('rejects document-session bootstrap sequence gaps and stale completion cutoffs', () => {
     const ready = {
       type: CollaborationMessageTypes.READY,

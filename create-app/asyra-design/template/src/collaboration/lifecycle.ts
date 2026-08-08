@@ -433,6 +433,24 @@ class CollaborationSessionController {
     this.outcomeSubscribers.clear()
   }
 
+  async resetDocument(): Promise<void> {
+    const composition = this.current
+    if (!composition) {
+      throw new ProviderFailure(
+        'not-connected',
+        '[collaboration] document Reset requires a live collaboration session'
+      )
+    }
+    this.clearReconnectTimer()
+    this.unsubscribePublicationSource?.()
+    this.unsubscribePublicationSource = undefined
+    await this.operationQueue
+    await composition.collaboration.whenIdle()
+    await composition.provider.resetDocument()
+    await this.dispose()
+    await this.outbox.clear()
+  }
+
   private createHandle(): CollaborationDebugHandle {
     return {
       identity: this.identity,
@@ -728,8 +746,8 @@ class CollaborationSessionController {
       this.state.connection,
       nextConnection
     )
-    if (!transition.changed) return false
 
+    if (!transition.changed) return false
     if (nextConnection === 'disconnected') {
       this.disconnectedEpoch += 1
     }
@@ -1000,6 +1018,33 @@ export const disposeCollaboration = async (): Promise<void> => {
   startPromise = undefined
   delete window.__Collaboration__
   await controller?.dispose()
+}
+
+export const resetCollaborationDocument = async (
+  fileId: string
+): Promise<void> => {
+  const normalizedFileId = fileId.trim()
+  if (!normalizedFileId) {
+    throw new Error('[collaboration] document Reset fileId is required')
+  }
+  const controller = activeController
+  if (controller) {
+    if (controller.identity.documentId !== normalizedFileId) {
+      throw new Error(
+        '[collaboration] document Reset does not match the active session'
+      )
+    }
+    activeController = undefined
+    activeHandle = undefined
+    startPromise = undefined
+    delete window.__Collaboration__
+    await controller.resetDocument()
+    return
+  }
+
+  const outbox = createPublicationOutbox(normalizedFileId)
+  await outbox.initialize()
+  await outbox.clear()
 }
 
 if (import.meta.hot) {

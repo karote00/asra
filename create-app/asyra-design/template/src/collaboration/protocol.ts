@@ -25,6 +25,7 @@ export const CollaborationMessageTypes = {
   FRAME_CONSUMED: 'frame-consumed',
   PEER_APPLIED: 'peer-applied',
   BOOTSTRAP_CONSUMED: 'bootstrap-consumed',
+  RESET_DOCUMENT: 'reset-document',
   SOURCE_FRAME_ADMITTED: 'source-frame-admitted',
   READY: 'ready',
   RESPONSE: 'response',
@@ -80,6 +81,11 @@ export interface BootstrapConsumedRequest {
   readonly headSequence: number
 }
 
+export interface ResetDocumentRequest {
+  readonly type: typeof CollaborationMessageTypes.RESET_DOCUMENT
+  readonly requestId: string
+}
+
 export type CollaborationRequestMessage =
   | SendPublicationRequest
   | SendPublicationsRequest
@@ -87,6 +93,7 @@ export type CollaborationRequestMessage =
   | FrameConsumedRequest
   | PeerAppliedRequest
   | BootstrapConsumedRequest
+  | ResetDocumentRequest
 
 type WithoutRequestId<T> = T extends CollaborationRequestMessage
   ? Omit<T, 'requestId'>
@@ -1550,6 +1557,7 @@ const collaborationControlMessageTypes = new Set<string>([
   CollaborationMessageTypes.FRAME_CONSUMED,
   CollaborationMessageTypes.PEER_APPLIED,
   CollaborationMessageTypes.BOOTSTRAP_CONSUMED,
+  CollaborationMessageTypes.RESET_DOCUMENT,
   CollaborationMessageTypes.SOURCE_FRAME_ADMITTED,
   CollaborationMessageTypes.READY,
   CollaborationMessageTypes.RESPONSE,
@@ -1787,6 +1795,13 @@ export const parseCollaborationClientMessage = (
             type: value.type,
             requestId: value.requestId,
             headSequence: value.headSequence
+          }
+        : undefined
+    case CollaborationMessageTypes.RESET_DOCUMENT:
+      return isNonBlankString(value.requestId)
+        ? {
+            type: value.type,
+            requestId: value.requestId
           }
         : undefined
   }

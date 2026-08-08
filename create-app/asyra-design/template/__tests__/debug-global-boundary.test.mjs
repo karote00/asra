@@ -7,7 +7,9 @@ import { fileURLToPath } from 'node:url'
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repositoryRoot = path.resolve(appRoot, '../..')
 const workspaceAppRoot = path.join(repositoryRoot, 'apps/asyra-design')
-const sourceRoots = fs.existsSync(workspaceAppRoot)
+const runsFromWorkspaceApp = appRoot === workspaceAppRoot
+const reportRoot = runsFromWorkspaceApp ? repositoryRoot : appRoot
+const sourceRoots = runsFromWorkspaceApp
   ? [
       workspaceAppRoot,
       path.join(repositoryRoot, 'packages'),
@@ -51,7 +53,7 @@ test('debug Window handles are defined for human DevTools but never consumed by 
   const violations = sourceRoots
     .flatMap(collectSourceFiles)
     .flatMap((filePath) => {
-      const relativePath = path.relative(repositoryRoot, filePath)
+      const relativePath = path.relative(reportRoot, filePath)
       const appRelativePath = path.relative(appRoot, filePath)
       if (relativePath.endsWith('debug-global-boundary.test.mjs')) return []
       const source = fs.readFileSync(filePath, 'utf8')

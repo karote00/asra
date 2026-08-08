@@ -12,8 +12,7 @@ const __dirname = path.dirname(__filename)
 const supportedPackageManagers = ['yarn', 'npm', 'pnpm']
 
 function parseArguments(argv) {
-  const rawArgs = argv.slice(2)
-  const args = rawArgs[0]?.startsWith('create-') ? rawArgs.slice(1) : rawArgs
+  const args = argv.slice(2)
   let packageManager
   let targetName
 
@@ -198,9 +197,14 @@ yarn-error.log*
   console.log(`📝 Created empty ${lockfileName}`)
 
   // 4️⃣ Install dependencies
+  const installArguments = {
+    yarn: ['install', '--no-immutable'],
+    npm: ['install'],
+    pnpm: ['install', '--no-frozen-lockfile']
+  }
   try {
     console.log('📦 Installing dependencies...')
-    execFileSync(packageManager, ['install'], {
+    execFileSync(packageManager, installArguments[packageManager], {
       cwd: targetDir,
       stdio: 'inherit'
     })

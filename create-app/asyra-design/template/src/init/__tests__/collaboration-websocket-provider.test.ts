@@ -1549,6 +1549,39 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
     await provider.destroy()
   })
 
+  it('requests document Reset through the live collaboration control path', async () => {
+    let receivedReset: unknown
+    const server = await createLoopbackServer((socket, message) => {
+      if (message.type === 'hello') {
+        socket.send(JSON.stringify({ type: 'ready' }))
+        return
+      }
+      if (message.type !== 'reset-document' || !message.requestId) return
+      receivedReset = message
+      socket.send(
+        JSON.stringify({
+          type: 'response',
+          requestId: message.requestId,
+          ok: true
+        })
+      )
+    })
+    const provider = createProvider(server.endpoint)
+    await provider.connect()
+
+    await provider.resetDocument()
+
+    expect(receivedReset).toMatchObject({ type: 'reset-document' })
+    expect(
+      transportWorkers[0]?.posted.filter(
+        ({ message }) =>
+          message.type === 'send-request' &&
+          message.message.type === 'reset-document'
+      )
+    ).toHaveLength(1)
+    await provider.destroy()
+  })
+
   it('exposes no public batch, lease, or max-capability publication modes', async () => {
     const provider = createProvider('ws://127.0.0.1:1')
 

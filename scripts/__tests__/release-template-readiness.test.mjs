@@ -63,12 +63,7 @@ test('generated template uses only frozen public framework entrypoints', () => {
     '@asyra/collaboration',
     '@asyra/core',
     '@asyra/design-system',
-    '@asyra/factory',
-    '@asyra/feature-system',
-    '@asyra/input-system',
     '@asyra/preset',
-    '@asyra/reactive-events',
-    '@asyra/render',
     '@asyra/ui-context',
     '@asyra/utils'
   ])

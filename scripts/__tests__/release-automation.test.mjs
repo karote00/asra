@@ -328,6 +328,8 @@ test('create-app supports deterministic package-manager selection and rejects un
 
   assert.match(cli, /--package-manager/)
   assert.match(cli, /yarn.*npm.*pnpm/s)
+  assert.match(cli, /yarn:\s*\['install', '--no-immutable'\]/)
+  assert.match(cli, /pnpm:\s*\['install', '--no-frozen-lockfile'\]/)
 
   mkdirSync(path.join(repositoryRoot, 'tmp'), { recursive: true })
   const testRoot = mkdtempSync(
@@ -337,6 +339,22 @@ test('create-app supports deterministic package-manager selection and rejects un
   mkdirSync(invocationRoot)
 
   try {
+    const createPrefixedTarget = spawnSync(
+      process.execPath,
+      [cliPath, 'create-valid-app', '--package-manager=unsupported'],
+      {
+        cwd: invocationRoot,
+        encoding: 'utf8'
+      }
+    )
+
+    assert.notEqual(createPrefixedTarget.status, 0)
+    assert.match(
+      `${createPrefixedTarget.stderr}${createPrefixedTarget.stdout}`,
+      /unsupported package manager/i,
+      'a legitimate create-* project name must remain the target argument'
+    )
+
     const result = spawnSync(
       process.execPath,
       [cliPath, '../escaped', '--package-manager=yarn'],

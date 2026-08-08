@@ -364,6 +364,27 @@ export class DocumentPublicationOutbox {
     })
   }
 
+  clear(): Promise<void> {
+    return this.schedule(async () => {
+      this.requireInitialized()
+      try {
+        for (const record of this.sortedRecords()) {
+          await this.storage.delete(this.fileId, record.publicationId)
+          this.records.delete(record.publicationId)
+        }
+        this.nextAppendOrder = 1
+        this.storageFailed = false
+        this.emitState()
+      } catch (error) {
+        this.markStorageFailed()
+        throw new PublicationOutboxStorageError(
+          `[collaboration] publication outbox for ${this.fileId} could not be cleared`,
+          error
+        )
+      }
+    })
+  }
+
   retainConflict(
     publicationId: string,
     failureReason: string
