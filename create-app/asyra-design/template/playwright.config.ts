@@ -22,7 +22,7 @@ const ordinaryTestIgnore = [
     ? ['render-delta-performance.spec.ts']
     : [])
 ]
-const visualReviewWebServerCommand = `E2E_OWN_SERVERS=1 E2E_DOCUMENT_BACKEND_URL=${documentBackendURL} VITE_COLLABORATION_WS_URL=${collaborationWebSocketURL} yarn react:start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`
+const visualReviewWebServerCommand = `E2E_OWN_SERVERS=1 E2E_DOCUMENT_BACKEND_URL=${documentBackendURL} VITE_COLLABORATION_WS_URL=${collaborationWebSocketURL} yarn start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`
 
 /**
  * See https://playwright.dev/docs/test-configuration.

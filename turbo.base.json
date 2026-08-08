@@ -20,7 +20,7 @@
       ],
       "persistent": true
     },
-    "react:start": {
+    "start": {
       "cache": false,
       "outputs": [
         "dist/**"

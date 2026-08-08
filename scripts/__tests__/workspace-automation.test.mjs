@@ -201,12 +201,10 @@ test('ordinary E2E uses the diagnostic-enabled app runtime after the workspace b
   const collaborationReady = runner.indexOf(
     'npx wait-on "http-get://${E2E_COLLABORATION_HEALTH_URL#http://}"'
   )
-  const appStart = runner.indexOf(
-    'yarn workspace @asyra/asyra-design react:start'
-  )
+  const appStart = runner.indexOf('yarn workspace @asyra/asyra-design start')
 
   assert.match(runner, /yarn react:build/)
-  assert.match(runner, /yarn workspace @asyra\/asyra-design react:start/)
+  assert.match(runner, /yarn workspace @asyra\/asyra-design start/)
   assert.doesNotMatch(runner, /workspace @asyra\/asyra-design preview/)
   assert.ok(
     collaborationBuild >= 0,
@@ -395,7 +393,7 @@ test('dev:all discovers all package watchers without scheduling builds', async (
   assert.equal('services' in plan, false)
   assert.deepEqual(plan.app, {
     dir: 'apps/asyra-design',
-    cmd: 'yarn react:start'
+    cmd: 'yarn start'
   })
 })
 

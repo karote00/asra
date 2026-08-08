@@ -179,7 +179,13 @@ yarn-error.log*
 
   fs.writeFileSync(path.join(targetDir, '.gitignore'), gitignoreContent)
   fs.writeFileSync(path.join(targetDir, '.prettierrc'), prettierConfigContent)
-  console.log('✓ Created .gitignore and .prettierrc')
+  if (packageManager === 'yarn') {
+    fs.writeFileSync(
+      path.join(targetDir, '.yarnrc.yml'),
+      'nodeLinker: node-modules\n'
+    )
+  }
+  console.log('✓ Created project configuration files')
 
   // 4️⃣ Create empty lockfile based on package manager
   const lockfileMap = {
@@ -202,6 +208,11 @@ yarn-error.log*
     npm: ['install'],
     pnpm: ['install', '--no-frozen-lockfile']
   }
+  const installCommand = {
+    yarn: 'yarn install',
+    npm: 'npm install',
+    pnpm: 'pnpm install'
+  }[packageManager]
   try {
     console.log('📦 Installing dependencies...')
     execFileSync(packageManager, installArguments[packageManager], {
@@ -212,18 +223,19 @@ yarn-error.log*
     console.error('\n❌ Failed to install dependencies.')
     console.error('You can try manually:')
     console.error(`  cd ${targetName}`)
-    console.error(`  ${packageManager} install`)
+    console.error(`  ${installCommand}`)
     process.exit(1)
   }
 
   console.log('\n🎉 Asyra Design project is ready!\n')
   const startCommand = {
-    yarn: 'yarn react:start',
-    npm: 'npm run react:start',
-    pnpm: 'pnpm react:start'
+    yarn: 'yarn start',
+    npm: 'npm run start',
+    pnpm: 'pnpm start'
   }[packageManager]
   console.log('Next steps:')
   console.log(`  cd ${targetName}`)
+  console.log(`  ${installCommand}`)
   console.log(`  ${startCommand}`)
   console.log('  Open http://localhost:3000/?fileId=my-design')
 }

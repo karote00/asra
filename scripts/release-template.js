@@ -230,6 +230,7 @@ if (!fs.existsSync(pkgPath)) {
     'eslint-config-prettier': '^10.1.8',
     'eslint-plugin-prettier': '^5.5.5',
     'eslint-plugin-react': '^7.37.5',
+    prettier: '^3.4.2',
     'typescript-eslint': '^8.54.0'
   }
   pkg.devDependencies = pkg.devDependencies || {}

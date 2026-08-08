@@ -31,7 +31,8 @@ directory name; absolute paths and parent-directory traversal are rejected.
 
 ```shell
 cd my-project
-yarn react:start
+yarn install
+yarn start
 ```
 
 Open `http://localhost:3000/?fileId=my-design`. The `fileId` is required as the
@@ -40,8 +41,10 @@ document-session identity.
 For npm or pnpm, use the command printed by the CLI:
 
 ```shell
-npm run react:start
-pnpm react:start
+npm install
+npm run start
+pnpm install
+pnpm start
 ```
 
 ## Document-session behavior
@@ -54,7 +57,7 @@ document and recovery outbox.
 
 To run the complete reference persistence and collaboration composition, set
 `VITE_COLLABORATION_WS_URL` and start `document:backend`,
-`collaboration:server`, and `react:start` in separate terminals. The generated
+`collaboration:server`, and `start` in separate terminals. The generated
 app README contains the complete commands.
 
 ## Contributing

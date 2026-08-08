@@ -149,7 +149,7 @@ test('Playwright routes the formal backend through the same document-session flo
   if (ciScript !== null) {
     assert.match(
       ciScript,
-      /E2E_DOCUMENT_BACKEND_URL=.*[\s\\]*yarn workspace @asyra\/asyra-design react:start/
+      /E2E_DOCUMENT_BACKEND_URL=.*[\s\\]*yarn workspace @asyra\/asyra-design start/
     )
     assert.match(ciScript, /document:backend:start/)
     assert.match(ciScript, /DOCUMENT_PERSISTENCE_BACKEND_URL=/)

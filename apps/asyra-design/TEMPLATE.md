@@ -27,7 +27,7 @@ document and interaction flows.
 ## Start the app
 
 ```bash
-yarn react:start
+yarn start
 ```
 
 Open `http://localhost:3000/?fileId=my-design`. A non-empty `fileId` is
@@ -68,7 +68,7 @@ Then start the reference services in separate terminals:
 ```bash
 yarn document:backend
 yarn collaboration:server
-yarn react:start
+yarn start
 ```
 
 The explicit endpoint keeps the frontend and reference WebSocket service

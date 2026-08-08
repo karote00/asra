@@ -97,9 +97,12 @@ test('release template excludes local runtime data directories', () => {
     '.turbo',
     'coverage',
     'dist',
+    'package-lock.json',
+    'pnpm-lock.yaml',
     'playwright-report',
     'test-results',
-    'visual-review-records'
+    'visual-review-records',
+    'yarn.lock'
   ]) {
     assert.ok(
       config.cleanFiles.includes(repositoryOnlyPath),
@@ -211,6 +214,9 @@ test('generated template manifest is standalone on the supported release runtime
 
   assert.deepEqual(manifest.engines, { node: '24.x' })
   assert.equal(manifest.packageManager, 'yarn@4.3.1')
+  assert.equal(manifest.scripts?.start, 'vite dev')
+  assert.equal(manifest.scripts?.['react:start'], undefined)
+  assert.equal(manifest.devDependencies?.prettier, '^3.4.2')
   assert.doesNotMatch(serializedScripts, /(?:\.\.\/){2}|--cwd\s+\.\.\/\.\./)
   assert.doesNotMatch(JSON.stringify(manifest), /workspace:|(?:link|portal):/)
   for (const [packageName, version] of Object.entries(
@@ -284,7 +290,7 @@ test('generated template documents its verified standalone commands and opt-ins'
     'yarn install',
     'yarn react:build',
     'yarn test',
-    'yarn react:start'
+    'yarn start'
   ]) {
     assert.match(generated, new RegExp(command.replace(' ', String.raw`\s+`)))
   }
@@ -304,9 +310,16 @@ test('create-app hands the selected package manager a runnable standalone start 
   )
 
   assert.doesNotMatch(cli, /console\.log\('\x20{2}yarn dev'\)/)
-  assert.match(cli, /yarn:\s*'yarn react:start'/)
-  assert.match(cli, /npm:\s*'npm run react:start'/)
-  assert.match(cli, /pnpm:\s*'pnpm react:start'/)
+  assert.match(cli, /yarn:\s*'yarn start'/)
+  assert.match(cli, /npm:\s*'npm run start'/)
+  assert.match(cli, /pnpm:\s*'pnpm start'/)
+  assert.match(cli, /yarn:\s*'yarn install'/)
+  assert.match(cli, /npm:\s*'npm install'/)
+  assert.match(cli, /pnpm:\s*'pnpm install'/)
+  assert.match(
+    cli,
+    /packageManager === 'yarn'[\s\S]*\.yarnrc\.yml[\s\S]*nodeLinker: node-modules/
+  )
   assert.match(cli, /http:\/\/localhost:3000\/\?fileId=my-design/)
 
   const readme = readFileSync(
@@ -314,9 +327,11 @@ test('create-app hands the selected package manager a runnable standalone start 
     'utf8'
   )
   assert.match(readme, /Node\.js 24\.x/)
-  assert.match(readme, /yarn react:start/)
+  assert.match(readme, /yarn install[\s\S]*yarn start/)
+  assert.match(readme, /npm install[\s\S]*npm run start/)
+  assert.match(readme, /pnpm install[\s\S]*pnpm start/)
   assert.match(readme, /http:\/\/localhost:3000\/\?fileId=my-design/)
-  assert.doesNotMatch(readme, /yarn start/)
+  assert.doesNotMatch(readme, /react:start/)
 })
 
 test('create-app supports deterministic package-manager selection and rejects unsafe targets', () => {

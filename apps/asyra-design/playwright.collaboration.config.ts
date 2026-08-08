@@ -40,7 +40,7 @@ export default defineConfig({
       timeout: 120_000
     },
     {
-      command: `E2E_OWN_SERVERS=1 E2E_DOCUMENT_BACKEND_URL=${documentBackendURL} yarn react:start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`,
+      command: `E2E_OWN_SERVERS=1 E2E_DOCUMENT_BACKEND_URL=${documentBackendURL} yarn start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`,
       url: appEnvironment.appURL,
       reuseExistingServer: !ownsTestServers,
       timeout: 120_000

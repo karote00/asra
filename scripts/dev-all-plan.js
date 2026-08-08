@@ -13,7 +13,7 @@ export const createDevAllPlan = (packageNames) => ({
   })),
   app: {
     dir: 'apps/asyra-design',
-    cmd: 'yarn react:start'
+    cmd: 'yarn start'
   }
 })
 

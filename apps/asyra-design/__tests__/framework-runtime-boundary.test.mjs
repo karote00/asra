@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { builtinModules } from 'node:module'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
@@ -36,6 +37,34 @@ const runtimePackagesOwnedByCore = [
   'reactive-events',
   'render'
 ]
+
+const nodeBuiltins = new Set([
+  ...builtinModules,
+  ...builtinModules.map((moduleName) => `node:${moduleName}`)
+])
+const externalPackageName = (specifier) =>
+  specifier.startsWith('@')
+    ? specifier.split('/').slice(0, 2).join('/')
+    : specifier.split('/')[0]
+const collectExternalImports = (absolutePath) => {
+  const source = readFileSync(absolutePath, 'utf8')
+  const imports = new Set()
+  const pattern =
+    /(?:import|export)\s+(?:[^'";]*?\s+from\s*)?['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)|require\(\s*['"]([^'"]+)['"]\s*\)/gu
+
+  for (const match of source.matchAll(pattern)) {
+    const specifier = match[1] ?? match[2] ?? match[3]
+    if (
+      specifier.startsWith('.') ||
+      specifier.startsWith('/') ||
+      nodeBuiltins.has(specifier)
+    ) {
+      continue
+    }
+    imports.add(externalPackageName(specifier))
+  }
+  return imports
+}
 
 test('Asyra Design production code uses Core for framework-owned runtime capabilities', () => {
   const failures = []
@@ -74,6 +103,44 @@ test('Asyra Design declares only independently composed framework packages', () 
     typeof packageJson.dependencies['@asyra/collaboration'],
     'string',
     'Provider and wire adapters remain independently composed'
+  )
+  assert.equal(packageJson.scripts.start, 'vite dev')
+  assert.equal(packageJson.scripts['react:start'], undefined)
+})
+
+test('Asyra Design declares every production import as a direct runtime dependency', () => {
+  const missingDependencies = new Map()
+  for (const absolutePath of [...sourceFiles, ...backendSourceFiles]) {
+    for (const packageName of collectExternalImports(absolutePath)) {
+      if (packageJson.dependencies[packageName] !== undefined) continue
+      const consumers = missingDependencies.get(packageName) ?? []
+      consumers.push(path.relative(appDirectory, absolutePath))
+      missingDependencies.set(packageName, consumers)
+    }
+  }
+
+  assert.deepEqual(
+    Object.fromEntries(
+      [...missingDependencies]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([packageName, consumers]) => [
+          packageName,
+          [...new Set(consumers)].sort()
+        ])
+    ),
+    {},
+    'production imports must not rely on a hoisted or transitive dependency'
+  )
+})
+
+test('Asyra Design declares the browser-like test environment used by Vitest', () => {
+  assert.match(packageJson.scripts['test:ai'], /--environment jsdom/)
+  assert.match(packageJson.scripts['test:local'], /--environment jsdom/)
+  assert.equal(packageJson.devDependencies.jsdom, '16.7.0')
+  assert.equal(
+    packageJson.dependencies['@testing-library/dom'],
+    '^8.20.1',
+    '@testing-library/user-event must not rely on a transitive DOM test peer'
   )
 })
 

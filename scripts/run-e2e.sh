@@ -85,7 +85,7 @@ npx wait-on "http-get://${E2E_COLLABORATION_HEALTH_URL#http://}" --timeout 60000
 echo "Step 8: Starting E2E App server at $E2E_APP_URL..."
 E2E_OWN_SERVERS=1 \
   E2E_DOCUMENT_BACKEND_URL="$E2E_DOCUMENT_BACKEND_URL" \
-  yarn workspace @asyra/asyra-design react:start \
+  yarn workspace @asyra/asyra-design start \
   --port "$E2E_PORT" \
   --host "$E2E_HOST" \
   --strictPort &
