@@ -1,7 +1,7 @@
 ---
-'create-asyra-design-app': minor
-'@asyra/collaboration': minor
-'@asyra/core': minor
+'create-asyra-design-app': patch
+'@asyra/collaboration': patch
+'@asyra/core': patch
 '@asyra/preset': patch
 '@asyra/render': patch
 ---
