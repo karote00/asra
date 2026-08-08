@@ -474,18 +474,12 @@ describe('RenderApp StrictMode lifecycle', () => {
     expect(coreCollaborationSession.activate).not.toHaveBeenCalled()
   })
 
-  it('starts the local document and reports one initial disconnected epoch without locking editing', async () => {
+  it('starts a provisional local document quietly when the socket was never connected', async () => {
     collaborationSessionState = Object.freeze({
       connection: 'disconnected',
       sync: 'synced',
       pendingCount: 0,
-      disconnectedEpoch: 1,
-      notification: Object.freeze({
-        id: 'collaboration-disconnected-1',
-        message:
-          'The document session is offline. Local editing remains available and changes will sync after reconnection.',
-        type: 'disconnected'
-      })
+      disconnectedEpoch: 0
     })
     const host = document.createElement('div')
     document.body.append(host)
@@ -497,11 +491,8 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
     })
 
-    await vi.waitFor(() =>
-      expect(host.querySelector('[role="alert"]')?.textContent).toBe(
-        'The document session is offline. Local editing remains available and changes will sync after reconnection.'
-      )
-    )
+    await vi.waitFor(() => expect(core.start).toHaveBeenCalledOnce())
+    expect(host.querySelector('[role="alert"]')).toBeNull()
     expect(core.start).toHaveBeenCalledOnce()
     expect(core.destroy).not.toHaveBeenCalled()
     expect(documentInteractionLock.acquire).not.toHaveBeenCalled()

@@ -101,14 +101,7 @@ export const initApp = (): AppInitialization => {
   const performanceProfile = getActiveAiDrawingPerformanceProfile()
   const detachPerformanceRuntimeEvidence = performanceProfile
     ? attachAiDrawingPerformanceRuntimeEvidence(performanceProfile, {
-        readCanonicalElementCount: () => {
-          const document = core.getCanonicalOwnerSnapshot()
-          return Math.max(
-            0,
-            core.getAllElementData().length -
-              document.sceneTree.workspaceList.length
-          )
-        },
+        readCanonicalElementCount: () => core.getCanonicalElementCount(),
         readCanonicalElements: () =>
           core.getAllElementData().map(({ elementId, data, computed }) => ({
             computed,

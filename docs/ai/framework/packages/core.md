@@ -58,6 +58,9 @@ System orchestrator and lifecycle coordinator.
 - register one optional app-owned collaboration session before startup
 - register App key combinations and expose detached state/render/publication
   queries without exposing the dependency container
+- expose `getCanonicalElementCount()` as the exact O(1) canonical registry
+  count excluding workspace roots; diagnostics and heartbeats must use it
+  instead of serializing the document or every element
 - apply App-validated remote canonical slices through the injected Factory's
   remote transaction and replay owner
 

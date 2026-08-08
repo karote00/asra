@@ -405,6 +405,14 @@ class Core implements CoreAPIs {
     )
   }
 
+  getCanonicalElementCount(): number {
+    return Math.max(
+      0,
+      this.deps.sceneTree.getAllElements().size -
+        this.deps.sceneTree.workspaceList.length
+    )
+  }
+
   getCanonicalOwnerSnapshot() {
     return cloneLoadObservation({
       props: this.deps.props.save(),

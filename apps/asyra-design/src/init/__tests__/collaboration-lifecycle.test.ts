@@ -440,7 +440,8 @@ it('keeps a provisional local session active and retries an unavailable socket a
     expect.objectContaining({
       connection: 'disconnected',
       pendingCount: 0,
-      sync: 'synced'
+      sync: 'synced',
+      notification: undefined
     })
   )
   expect(

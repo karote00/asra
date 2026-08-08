@@ -215,6 +215,7 @@ class CollaborationSessionController {
   private operationQueue: Promise<void> = Promise.resolve()
   private activated = false
   private disposed = false
+  private hasConnected = false
   private disconnectedEpochActive = false
   private disconnectedEpoch = 0
   private reconciling = false
@@ -676,6 +677,13 @@ class CollaborationSessionController {
   }
 
   private enterDisconnectedEpoch(): void {
+    if (!this.hasConnected) {
+      this.setState({
+        connection: 'disconnected',
+        notification: undefined
+      })
+      return
+    }
     if (!this.disconnectedEpochActive) {
       this.disconnectedEpochActive = true
       this.disconnectedEpoch += 1
@@ -699,6 +707,7 @@ class CollaborationSessionController {
 
   private setConnected(): void {
     const recovered = this.disconnectedEpochActive
+    this.hasConnected = true
     this.disconnectedEpochActive = false
     this.clearReconnectTimer()
     const notification = recovered

@@ -26,8 +26,8 @@ database writes rather than coexisting with them as a second autosave mode.
   document. Because that deployment does not provide the socket server or
   backend, its handshake fails, the App enters the disconnected state, and
   local editing continues through the same durable pending-publication path.
-  The App reports the transition once rather than creating a separate
-  frontend-only document mode.
+  A session that has never connected remains quiet while retrying rather than
+  reporting that an established connection was lost.
 - `crdt-7076-sample` uses this same full-stack client path. Actor A's exact
   image and instruction receive the checked-in ordered `AiActionBatch`
   instruction file through the same-origin HTTP action-batch interceptor; the
@@ -132,7 +132,10 @@ While disconnected:
 
 - Core, Canvas, features, Undo, and Redo remain available;
 - new local publications continue to enter the outbox in append order;
-- one transition into a disconnected epoch produces at most one toast;
+- initial reachability failure before the first successful connection remains
+  quiet;
+- after a session has connected, one transition into a disconnected epoch
+  produces at most one toast;
 - publication-level skip/send/write failures go to the console and diagnostics
   only; and
 - the App schedules at most one reconnect attempt every `30000 ms`, with no

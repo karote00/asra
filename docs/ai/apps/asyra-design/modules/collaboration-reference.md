@@ -235,9 +235,10 @@ Selection, Awareness, or Render/UI projection. Generic
 `@asyra/collaboration`, the Peer queue, and the backend checkpoint remain three
 different owners.
 
-Socket failure leaves local editing available. One
-disconnected epoch emits one toast, repeated publication failures remain
-console-only, and the App retries at most once every 30 seconds. Reconnect
+Socket failure leaves local editing available. Initial reachability failure
+before the first successful connection remains quiet; a later disconnected
+epoch emits one toast. Repeated publication failures remain console-only, and
+the App retries at most once every 30 seconds. Reconnect
 loads the latest checkpoint/tail and reconciles the pending local publications
 in server order. IndexedDB storage failure and invalid structural recovery
 become explicit sync states; neither permits silent eviction.
@@ -331,9 +332,10 @@ document-session contract.
    checkpoint/tail bootstrap catches the returning window up before later live
    delivery.
 8. After the accepted outbox slice is implemented, stop the socket, continue
-   local actions/Undo/Redo, and verify one disconnect toast, console-only
-   publication failures, 30-second retry, reload-safe pending entries, and
-   server-order reconciliation after restart.
+   local actions/Undo/Redo, and verify quiet initial offline startup, one toast
+   only after losing an established connection, console-only publication
+   failures, 30-second retry, reload-safe pending entries, and server-order
+   reconciliation after restart.
 
 ## Validation
 

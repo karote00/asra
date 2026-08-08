@@ -227,6 +227,16 @@ describe('initApp preset composition', () => {
 
   it('attaches and disposes exact-profile runtime evidence through read-only owners', async () => {
     const detachRuntimeEvidence = vi.fn()
+    const readCanonicalElementCount = vi.fn(() => 7_076)
+    Object.defineProperty(core, 'getCanonicalElementCount', {
+      configurable: true,
+      value: readCanonicalElementCount
+    })
+    const readCanonicalOwnerSnapshot = vi.spyOn(
+      core,
+      'getCanonicalOwnerSnapshot'
+    )
+    const readAllElementData = vi.spyOn(core, 'getAllElementData')
     const readProjectedElementCount = vi
       .spyOn(core, 'getProjectedElementCount')
       .mockReturnValue(7)
@@ -260,12 +270,15 @@ describe('initApp preset composition', () => {
       subscribeToTransactionStatus: expect.any(Function)
     })
     const runtimeSource = attachRuntimeEvidence.mock.calls[0][1]
-    expect(runtimeSource.readCanonicalElementCount()).toBe(0)
+    expect(runtimeSource.readCanonicalElementCount()).toBe(7_076)
     expect(runtimeSource.readHistoryDepth()).toBe(3)
     expect(runtimeSource.readRenderProjectionElementCount()).toBe(7)
     expect(runtimeSource.readViewportPosition()).toEqual({ x: 12, y: 34 })
     expect(runtimeSource.readZoom()).toBe(1.25)
     expect(readUndoHistoryDepth).toHaveBeenCalledOnce()
+    expect(readCanonicalElementCount).toHaveBeenCalledOnce()
+    expect(readCanonicalOwnerSnapshot).not.toHaveBeenCalled()
+    expect(readAllElementData).not.toHaveBeenCalled()
     expect(readProjectedElementCount).toHaveBeenCalledOnce()
     expect(readViewportPosition).toHaveBeenCalledOnce()
     expect(readZoom).toHaveBeenCalledOnce()
@@ -273,5 +286,6 @@ describe('initApp preset composition', () => {
     await initialization.dispose()
 
     expect(detachRuntimeEvidence).toHaveBeenCalledOnce()
+    Reflect.deleteProperty(core, 'getCanonicalElementCount')
   })
 })

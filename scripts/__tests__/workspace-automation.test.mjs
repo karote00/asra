@@ -363,8 +363,8 @@ test('AI agent runtime is an optional zero-runtime-dependency workspace package'
   assert.deepEqual(runtimeTypeScript.exclude, factoryTypeScript.exclude)
   assert.equal(
     app.dependencies['@asyra/ai-agent-runtime'],
-    '0.5.0',
-    'Asyra Design must opt into the optional runtime explicitly'
+    'workspace:*',
+    'Asyra Design must opt into the optional workspace runtime explicitly'
   )
   assert.deepEqual(
     turbo.tasks['@asyra/ai-agent-runtime#build:ai-agent-runtime']?.dependsOn,
@@ -399,7 +399,7 @@ test('dev:all discovers all package watchers without scheduling builds', async (
   })
 })
 
-test('workspace version planning includes collaboration without changing files', () => {
+test('workspace version planning materializes release ranges without changing files', () => {
   assert.equal(
     resolveWorkspaceDependencyRange({
       environment: 'prod',
@@ -434,8 +434,12 @@ test('workspace version planning includes collaboration without changing files',
     ({ packageName }) => packageName === '@asyra/collaboration'
   )
 
-  assert.equal(appManifest.dependencies['@asyra/collaboration'], '0.5.0')
-  assert.equal(appUpdate, undefined)
+  assert.equal(appManifest.dependencies['@asyra/collaboration'], 'workspace:*')
+  assert.equal(
+    appUpdate?.manifest.dependencies['@asyra/collaboration'],
+    '0.5.0'
+  )
+  assert.equal(appUpdate?.manifest.devDependencies['@asyra/factory'], '0.5.0')
   assert.equal(
     collaborationUpdate?.manifest.dependencies['@asyra/factory'],
     '0.5.0'

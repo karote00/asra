@@ -302,6 +302,7 @@ type CoreBasicApiKeys =
   | 'getElementData'
   | 'getCurrentWorkspaceId'
   | 'getAllElementData'
+  | 'getCanonicalElementCount'
   | 'getCanonicalOwnerSnapshot'
   | 'projectLocalComputedDataForElements'
   | 'updateElementData'

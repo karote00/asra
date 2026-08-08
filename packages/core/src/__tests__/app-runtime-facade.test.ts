@@ -51,6 +51,7 @@ const createCoreForTest = () => {
     orderedElementIds: ['element-1']
   }))
   const projectLocalComputedDataFromPropertyIds = vi.fn()
+  const getAllElements = vi.fn(() => new Map([['element-1', sceneElement]]))
   const core = new Core({
     inputSystem: { registry: inputRegistry } as never,
     factory: {
@@ -86,7 +87,7 @@ const createCoreForTest = () => {
       getElementById: vi.fn((id: string) =>
         id === 'element-1' ? sceneElement : undefined
       ),
-      getAllElements: vi.fn(() => new Map([['element-1', sceneElement]])),
+      getAllElements,
       save: vi.fn(() => ({
         workspace: 'workspace-1',
         workspaceList: ['workspace-1'],
@@ -106,6 +107,8 @@ const createCoreForTest = () => {
   core.applyCanonicalChanges = vi.fn()
   return {
     core,
+    getAllElements,
+    sceneElement,
     inputRegistry,
     prepareElementDataMutation,
     applyPreparedElementMutation,
@@ -182,6 +185,27 @@ describe('Core app runtime facade', () => {
       { kind: 'prepared-element-data-mutation' },
       { undoable: true }
     )
+  })
+
+  it('reports the exact canonical element count without serializing element data', () => {
+    const { core, getAllElements, sceneElement } = createCoreForTest()
+    const readCanonicalElementCount = Reflect.get(
+      core,
+      'getCanonicalElementCount'
+    ) as (() => number) | undefined
+
+    expect(readCanonicalElementCount).toBeTypeOf('function')
+    getAllElements.mockReturnValue(
+      new Map([
+        ['workspace-1', sceneElement],
+        ['element-1', sceneElement],
+        ['element-2', sceneElement]
+      ])
+    )
+    sceneElement.save.mockClear()
+
+    expect(readCanonicalElementCount?.call(core)).toBe(2)
+    expect(sceneElement.save).not.toHaveBeenCalled()
   })
 
   it('projects local computed data through element-owned canonical properties', () => {

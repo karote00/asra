@@ -240,7 +240,7 @@ test('generated template manifest is standalone on the supported release runtime
   assert.doesNotMatch(environment, /(?:SECRET|TOKEN|PASSWORD|API_KEY)=/i)
 })
 
-test('canonical Asyra Design source targets the public Framework 0.5.0 baseline', () => {
+test('canonical Asyra Design source uses workspace Framework dependencies during development', () => {
   const manifest = JSON.parse(
     readFileSync(
       path.join(repositoryRoot, 'apps/asyra-design/package.json'),
@@ -253,7 +253,7 @@ test('canonical Asyra Design source targets the public Framework 0.5.0 baseline'
 
   assert.ok(frameworkDependencies.length > 0)
   for (const [packageName, version] of frameworkDependencies) {
-    assert.equal(version, '0.5.0', packageName)
+    assert.equal(version, 'workspace:*', packageName)
   }
   assert.equal(manifest.scripts?.typecheck, 'tsc -p tsconfig.typecheck.json')
 
