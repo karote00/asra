@@ -226,14 +226,19 @@ test('behavior proof covers tests, build, startup, interactions, and disabled si
   assert.match(behavior, /screenshot/i)
 })
 
-test('publication and public smoke are isolated irreversible checkpoints', () => {
+test('publication and exact public npx proof are isolated irreversible checkpoints', () => {
   const publication = contractText(step('publish-cli'))
   const smoke = contractText(step('smoke-public-cli'))
   const decision = contractText(step('record-release-decision'))
 
   assert.match(publication, /only create-asyra-design-app/i)
   assert.match(publication, /first npm publish.*explicit authorization/i)
-  assert.match(smoke, /published.*npm create|npm create.*published/i)
+  assert.match(smoke, /exact published.*npx|npx.*exact published/i)
+  assert.match(smoke, /typecheck.*production build.*formal tests.*E2E.*startup/i)
+  assert.match(smoke, /create.*drag.*property.*undo.*redo/i)
+  assert.match(smoke, /Collaboration.*AI.*disabled side effects/i)
+  assert.match(smoke, /visual evidence/i)
+  assert.match(smoke, /reduced.*cannot replace/i)
   assert.match(decision, /READY.*BLOCKED/i)
   assert.match(decision, /user acceptance/i)
 })

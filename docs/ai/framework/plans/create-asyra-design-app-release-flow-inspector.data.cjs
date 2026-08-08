@@ -519,23 +519,25 @@
       id: 'smoke-public-cli',
       order: 11,
       laneId: 'publication',
-      title: 'Smoke the public CLI',
+      title: 'Prove the public CLI',
       ownerPackage: 'Public create-app command verification owner',
       purpose:
-        'Invoke the published CLI version through the documented npm create or npx command and independently repeat registry-only generated-app install, build, tests, and startup.',
+        'Invoke the exact published CLI version through npx and independently repeat the complete registry-only generated-app behavior matrix without a reduced post-publication smoke path.',
       inputs: ['artifact:cli-publication-result', 'public npm registry'],
       outputs: [
         'artifact:public-cli-smoke-proof',
         'artifact:public-cli-smoke-finding'
       ],
       conditions: [
-        'The documented public command resolves the exact published CLI version.',
+        'The npx command names the exact published create-asyra-design-app version and resolves that version from the public registry.',
         'Generated identity and Framework dependency declarations match the reviewed candidate.',
-        'Registry-only install, typecheck, build, formal tests, and startup pass independently.',
+        'Registry-only install, typecheck, production build, all formal tests, maintained E2E, startup, and documented initialization pass independently.',
+        'The same functional matrix as prove-generated-app-behavior creates elements, drags them, changes property inputs, verifies undo/redo, exercises relevant Collaboration and AI behavior, checks disabled side effects, and inspects visual evidence.',
         'Cleanup owner: smoke-public-cli owns and removes its independent project-local smoke directory after recording evidence.'
       ],
       bypasses: [
         'A local CLI tarball cannot stand in for post-publication npm create proof.',
+        'A reduced install/build/startup smoke cannot replace the complete post-publication generated-app behavior matrix.',
         'Registry propagation delay produces artifact:public-cli-smoke-finding and no duplicate publication.'
       ],
       allowedContributors: [
@@ -799,7 +801,7 @@
       title: 'Validated CLI publication and independent public smoke',
       assertions: [
         'The validated candidate is reproduced from a clean exact source commit on main or a feature branch and publication waits for explicit authorization.',
-        'The published command independently passes before the single final READY or BLOCKED decision.'
+        'The exact published npx command independently passes the complete generated-app behavior matrix before the single final READY or BLOCKED decision.'
       ],
       stepIds: [
         'publish-cli',

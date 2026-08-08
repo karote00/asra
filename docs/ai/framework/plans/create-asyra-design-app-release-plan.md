@@ -120,10 +120,14 @@ The executable authority is
 
 ### 8. Verify public CLI behavior
 
-- Invoke the documented public command at the published CLI version from a
-  clean project-local directory.
+- Invoke the exact published CLI version through `npx` from a clean
+  project-local directory; a local CLI source or tarball is forbidden.
 - Confirm generated identity and Framework dependencies.
-- Repeat registry-only install, typecheck, build, tests, and startup.
+- Repeat the complete pre-publication generated-app behavior matrix without a
+  reduced smoke path: registry-only install, typecheck, production build, all
+  formal tests, maintained E2E, startup, documented initialization, live
+  element creation, drag, property edits, undo/redo, relevant Collaboration and
+  AI behavior, disabled-side-effect checks, and inspected visual evidence.
 
 ## Stop Conditions
 
@@ -147,6 +151,7 @@ The executable authority is
 - Generated dependencies resolve only to the reviewed public Framework
   versions.
 - The packed CLI creates a usable clean project through the real user path.
-- The reviewed CLI is published and its public command passes independently.
+- The reviewed CLI is published and its exact public `npx` command independently
+  passes the complete generated-app behavior matrix.
 - No generated-template hand edit, registry substitution, merge, deployment, or
   unrelated release is hidden in the result.
