@@ -8,10 +8,17 @@ import {
 } from '@playwright/test'
 import { Buffer } from 'node:buffer'
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { decodeProfiledWebSocketFrame } from '../src/collaboration/websocket-profile-frame'
-import { getUndoHistoryDepth, redo, undo, waitForAppReady } from './test-utils'
+import {
+  getPersistedDocumentCheckpoint,
+  getUndoHistoryDepth,
+  redo,
+  undo,
+  waitForAppReady
+} from './test-utils'
 import { installGeneratedActionBatchInterceptor } from './action-batch-interceptor'
 
 interface CanonicalAiDrawingSnapshot {
@@ -1705,175 +1712,154 @@ const waitForAppliedRenderProjection = async (
   return observed
 }
 
-const getPersistedAiDrawingEvidence = (
-  page: Page,
+const getPersistedAiDrawingEvidence = async (
   fileId: string
-): Promise<PersistedAiDrawingEvidence | null> =>
-  page.evaluate(
-    async ({ requestedFileId }) => {
-      interface SavedElement {
-        children?: readonly string[]
-        id?: string
-        props?: Record<string, string>
-        type?: unknown
-        [key: string]: unknown
-      }
-      type SavedProperty = Record<string, unknown>
-      const response = await fetch(
-        `/api/documents/${encodeURIComponent(
-          requestedFileId
-        )}/bootstrap-checkpoint`,
-        {
-          credentials: 'same-origin',
-          headers: { accept: 'application/json' }
+): Promise<PersistedAiDrawingEvidence | null> => {
+  interface SavedElement {
+    children?: readonly string[]
+    id?: string
+    props?: Record<string, string>
+    type?: unknown
+    [key: string]: unknown
+  }
+  type SavedProperty = Record<string, unknown>
+  const payload = await getPersistedDocumentCheckpoint(fileId)
+  const saved = payload.checkpoint as
+    | {
+        props?: Record<string, SavedProperty>
+        sceneTree?: {
+          elements?: Record<string, SavedElement>
         }
-      )
-      if (!response.ok) {
-        throw new Error(
-          `Document database load failed with status ${String(response.status)}`
-        )
       }
-      const payload = (await response.json()) as {
-        checkpoint?: {
-          props?: Record<string, SavedProperty>
-          sceneTree?: {
-            elements?: Record<string, SavedElement>
-          }
-        } | null
-      }
-      const saved = payload.checkpoint ?? null
-      if (!saved) return null
+    | null
+    | undefined
+  if (!saved) return null
 
-      const properties = saved.props ?? {}
-      const elements = Object.entries(saved.sceneTree?.elements ?? {})
-        .filter(([, element]) => element.type !== 'workspace')
-        .sort(([left], [right]) => left.localeCompare(right))
-      const reachablePropertyIds = new Set<string>()
-      const pendingPropertyIds = elements.flatMap(([, element]) =>
-        Object.values(element.props ?? {})
-      )
-      const discoverPropertyIds = (value: unknown): void => {
-        if (typeof value === 'string') {
-          if (
-            Object.hasOwn(properties, value) &&
-            !reachablePropertyIds.has(value)
-          ) {
-            pendingPropertyIds.push(value)
-          }
-          return
-        }
-        if (Array.isArray(value)) {
-          value.forEach(discoverPropertyIds)
-          return
-        }
-        if (value && typeof value === 'object') {
-          Object.values(value).forEach(discoverPropertyIds)
-        }
-      }
-      while (pendingPropertyIds.length > 0) {
-        const propertyId = pendingPropertyIds.shift()
-        if (!propertyId || reachablePropertyIds.has(propertyId)) continue
-        const property = properties[propertyId]
-        if (!property) continue
-        reachablePropertyIds.add(propertyId)
-        discoverPropertyIds(property)
-      }
-
-      const normalize = (value: unknown): unknown => {
-        if (Array.isArray(value)) return value.map(normalize)
-        if (!value || typeof value !== 'object') return value
-        return Object.fromEntries(
-          Object.entries(value)
-            .sort(([left], [right]) => left.localeCompare(right))
-            .map(([childKey, child]) => [childKey, normalize(child)])
-        )
-      }
-      const canonical = normalize({
-        elements: elements.map(([id, element]) => ({ id, ...element })),
-        props: [...reachablePropertyIds]
-          .sort((left, right) => left.localeCompare(right))
-          .map((id) => ({ id, ...properties[id] }))
-      })
-      const bytes = new TextEncoder().encode(JSON.stringify(canonical))
-      const digest = await crypto.subtle.digest('SHA-256', bytes)
-
-      const blueStrokeIds: string[] = []
-      const ids: string[] = []
-      const redFillIds: string[] = []
-      const whiteBackgrounds: {
-        height: number
-        id: string
-        width: number
-      }[] = []
-      let groupCount = 0
-      let pointCount = 0
-      let vectorCount = 0
-      for (const [id, element] of elements) {
-        ids.push(id)
-        if (element.type === 'group') {
-          groupCount += 1
-          continue
-        }
-        if (element.type !== 'vector') continue
-        vectorCount += 1
-        const elementProperties = element.props ?? {}
-        const points = properties[elementProperties.points] as
-          | { points?: readonly string[] }
-          | undefined
-        pointCount += points?.points?.length ?? 0
-        const fills = properties[elementProperties.fills] as
-          | { fills?: readonly string[] }
-          | undefined
-        const primaryFill = properties[fills?.fills?.[0] ?? ''] as
-          | { color?: unknown }
-          | undefined
-        if (primaryFill?.color === '#DC2626') {
-          redFillIds.push(id)
-        }
-        const dimension = properties[elementProperties.dimension] as
-          | { height?: unknown; width?: unknown }
-          | undefined
-        if (
-          primaryFill?.color === '#FFFFFF' &&
-          dimension?.width === 1672 &&
-          dimension.height === 941
-        ) {
-          whiteBackgrounds.push({
-            height: dimension.height,
-            id,
-            width: dimension.width
-          })
-        }
-        const strokes = properties[elementProperties.strokes] as
-          | { strokes?: readonly string[] }
-          | undefined
-        const primaryStroke = properties[strokes?.strokes?.[0] ?? ''] as
-          | { fill?: { color?: unknown } }
-          | undefined
-        if (primaryStroke?.fill?.color === '#2563EB') {
-          blueStrokeIds.push(id)
-        }
-      }
-
-      return {
-        blueStrokeIds: blueStrokeIds.sort(),
-        byteLength: bytes.byteLength,
-        groupCount,
-        ids: ids.sort(),
-        pointCount,
-        redFillIds: redFillIds.sort(),
-        sha256: [...new Uint8Array(digest)]
-          .map((value) => value.toString(16).padStart(2, '0'))
-          .join(''),
-        totalCount: ids.length,
-        vectorCount,
-        whiteBackgrounds: whiteBackgrounds.sort((left, right) =>
-          left.id.localeCompare(right.id)
-        )
-      }
-    },
-    { requestedFileId: fileId }
+  const properties = saved.props ?? {}
+  const elements = Object.entries(saved.sceneTree?.elements ?? {})
+    .filter(([, element]) => element.type !== 'workspace')
+    .sort(([left], [right]) => left.localeCompare(right))
+  const reachablePropertyIds = new Set<string>()
+  const pendingPropertyIds = elements.flatMap(([, element]) =>
+    Object.values(element.props ?? {})
   )
+  const discoverPropertyIds = (value: unknown): void => {
+    if (typeof value === 'string') {
+      if (
+        Object.hasOwn(properties, value) &&
+        !reachablePropertyIds.has(value)
+      ) {
+        pendingPropertyIds.push(value)
+      }
+      return
+    }
+    if (Array.isArray(value)) {
+      value.forEach(discoverPropertyIds)
+      return
+    }
+    if (value && typeof value === 'object') {
+      Object.values(value).forEach(discoverPropertyIds)
+    }
+  }
+  while (pendingPropertyIds.length > 0) {
+    const propertyId = pendingPropertyIds.shift()
+    if (!propertyId || reachablePropertyIds.has(propertyId)) continue
+    const property = properties[propertyId]
+    if (!property) continue
+    reachablePropertyIds.add(propertyId)
+    discoverPropertyIds(property)
+  }
+
+  const normalize = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(normalize)
+    if (!value || typeof value !== 'object') return value
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([childKey, child]) => [childKey, normalize(child)])
+    )
+  }
+  const canonical = normalize({
+    elements: elements.map(([id, element]) => ({ id, ...element })),
+    props: [...reachablePropertyIds]
+      .sort((left, right) => left.localeCompare(right))
+      .map((id) => ({ id, ...properties[id] }))
+  })
+  const bytes = Buffer.from(JSON.stringify(canonical))
+
+  const blueStrokeIds: string[] = []
+  const ids: string[] = []
+  const redFillIds: string[] = []
+  const whiteBackgrounds: {
+    height: number
+    id: string
+    width: number
+  }[] = []
+  let groupCount = 0
+  let pointCount = 0
+  let vectorCount = 0
+  for (const [id, element] of elements) {
+    ids.push(id)
+    if (element.type === 'group') {
+      groupCount += 1
+      continue
+    }
+    if (element.type !== 'vector') continue
+    vectorCount += 1
+    const elementProperties = element.props ?? {}
+    const points = properties[elementProperties.points] as
+      | { points?: readonly string[] }
+      | undefined
+    pointCount += points?.points?.length ?? 0
+    const fills = properties[elementProperties.fills] as
+      | { fills?: readonly string[] }
+      | undefined
+    const primaryFill = properties[fills?.fills?.[0] ?? ''] as
+      | { color?: unknown }
+      | undefined
+    if (primaryFill?.color === '#DC2626') {
+      redFillIds.push(id)
+    }
+    const dimension = properties[elementProperties.dimension] as
+      | { height?: unknown; width?: unknown }
+      | undefined
+    if (
+      primaryFill?.color === '#FFFFFF' &&
+      dimension?.width === 1672 &&
+      dimension.height === 941
+    ) {
+      whiteBackgrounds.push({
+        height: dimension.height,
+        id,
+        width: dimension.width
+      })
+    }
+    const strokes = properties[elementProperties.strokes] as
+      | { strokes?: readonly string[] }
+      | undefined
+    const primaryStroke = properties[strokes?.strokes?.[0] ?? ''] as
+      | { fill?: { color?: unknown } }
+      | undefined
+    if (primaryStroke?.fill?.color === '#2563EB') {
+      blueStrokeIds.push(id)
+    }
+  }
+
+  return {
+    blueStrokeIds: blueStrokeIds.sort(),
+    byteLength: bytes.byteLength,
+    groupCount,
+    ids: ids.sort(),
+    pointCount,
+    redFillIds: redFillIds.sort(),
+    sha256: createHash('sha256').update(bytes).digest('hex'),
+    totalCount: ids.length,
+    vectorCount,
+    whiteBackgrounds: whiteBackgrounds.sort((left, right) =>
+      left.id.localeCompare(right.id)
+    )
+  }
+}
 
 const waitForPersistedAiDrawingEvidence = async (
   page: Page,
@@ -1885,7 +1871,7 @@ const waitForPersistedAiDrawingEvidence = async (
   let attempt = 0
   while (Date.now() < deadline) {
     const attemptStartedAtMs = Date.now()
-    const evidence = await getPersistedAiDrawingEvidence(page, fileId)
+    const evidence = await getPersistedAiDrawingEvidence(fileId)
     attempt += 1
     // eslint-disable-next-line no-console
     console.log(

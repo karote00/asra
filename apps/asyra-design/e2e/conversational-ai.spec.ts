@@ -186,7 +186,7 @@ test.describe('Conversational AI drawing', () => {
     await expect
       .poll(async () => ({
         current: await getCoreDocumentDigest(page),
-        persisted: await getPersistedDocumentDigest(page, identity.fileId)
+        persisted: await getPersistedDocumentDigest(identity.fileId)
       }))
       .toEqual({
         current: finalDocumentDigest,

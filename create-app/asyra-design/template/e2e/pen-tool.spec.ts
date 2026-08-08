@@ -1912,9 +1912,7 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     const finalDocumentDigest = await getCoreDocumentDigest(page)
     await expect
-      .poll(() =>
-        getPersistedDocumentDigest(page, getCurrentDocumentFileId(page))
-      )
+      .poll(() => getPersistedDocumentDigest(getCurrentDocumentFileId(page)))
       .toEqual(finalDocumentDigest)
 
     await page.reload()

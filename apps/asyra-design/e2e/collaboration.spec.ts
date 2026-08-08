@@ -7,6 +7,7 @@ import {
   getCanvasPosition,
   getContentsPanel,
   getElementCount,
+  getPersistedDocumentCheckpoint,
   getPropertiesPanel,
   getSelectedElementClientCenter,
   pressGroupCommandShortcut,
@@ -2001,33 +2002,18 @@ test('remote undo restores an exact nested Group with and without local tombston
 
     await expect
       .poll(
-        () =>
-          sender.evaluate(async (requestedFileId) => {
-            const response = await fetch(
-              `/api/documents/${encodeURIComponent(
-                requestedFileId
-              )}/bootstrap-checkpoint`
-            )
-            if (!response.ok) return null
-            const payload = (await response.json()) as {
-              checkpoint?: {
-                props?: Record<string, unknown>
-                sceneTree?: {
-                  elements?: Record<string, unknown>
-                }
-              }
-              durableSequence?: number
-            }
-            return {
-              hasDurablePublication:
-                typeof payload.durableSequence === 'number' &&
-                payload.durableSequence > 0,
-              elementCount: Object.keys(
-                payload.checkpoint?.sceneTree?.elements ?? {}
-              ).filter((elementId) => elementId !== 'workspace').length,
-              propertyCount: Object.keys(payload.checkpoint?.props ?? {}).length
-            }
-          }, fileId),
+        async () => {
+          const payload = await getPersistedDocumentCheckpoint(fileId)
+          return {
+            hasDurablePublication:
+              typeof payload.durableSequence === 'number' &&
+              payload.durableSequence > 0,
+            elementCount: Object.keys(
+              payload.checkpoint?.sceneTree?.elements ?? {}
+            ).filter((elementId) => elementId !== 'workspace').length,
+            propertyCount: Object.keys(payload.checkpoint?.props ?? {}).length
+          }
+        },
         { timeout: 15_000 }
       )
       .toMatchObject({
@@ -2433,30 +2419,7 @@ test('vector creation and anchor movement converge through the canonical collabo
     })
     await expect
       .poll(
-        () =>
-          second.evaluate(async (requestedFileId) => {
-            const response = await fetch(
-              `/api/documents/${encodeURIComponent(
-                requestedFileId
-              )}/bootstrap-checkpoint`,
-              {
-                credentials: 'same-origin',
-                headers: { accept: 'application/json' }
-              }
-            )
-            if (!response.ok) {
-              throw new Error(
-                `Document checkpoint load failed with status ${String(
-                  response.status
-                )}`
-              )
-            }
-            return (
-              (await response.json()) as {
-                checkpoint?: unknown
-              }
-            ).checkpoint
-          }, fileId),
+        async () => (await getPersistedDocumentCheckpoint(fileId)).checkpoint,
         { message: 'backend checkpoint must match the canonical client save' }
       )
       .toEqual(remoteDocument)
