@@ -469,11 +469,11 @@
       title: 'Publish the CLI',
       ownerPackage: 'create-asyra-design-app npm publication owner',
       purpose:
-        'After reviewed PR merge, rebuild the exact candidate from clean latest main, revalidate it, and publish only create-asyra-design-app at the explicitly selected CLI version.',
+        'Rebuild and revalidate the exact candidate from a clean source commit on main or a non-main feature branch, then publish only create-asyra-design-app at the explicitly selected CLI version.',
       inputs: [
         'artifact:generated-app-behavior-proof',
         'artifact:release-version-scope',
-        'reviewed and merged PR evidence',
+        'clean exact source commit evidence',
         'explicit publish authorization'
       ],
       outputs: [
@@ -481,28 +481,27 @@
         'artifact:cli-publication-finding'
       ],
       conditions: [
-        'The release source is clean latest main and matches the reviewed candidate checksum and content.',
+        'The release source is a clean exact source commit and matches the validated candidate checksum and content.',
+        'Publication may run from main or a non-main feature branch without making PR merge a prerequisite or a side effect.',
         'Root remains unchanged; private app and create-app template identity are verified; and CLI release version 0.5.0 is explicit before publication.',
         'Before the first npm publish, the exact manifest and checksum are presented and explicit authorization is received.',
         'Only create-asyra-design-app is published; no Framework, root, private app, or other package is published.',
         'Cleanup owner: publish-cli owns the one irreversible CLI registry operation and its exact registry response.'
       ],
       bypasses: [
-        'Feature-branch source, an unmerged PR, a changed checksum, unspecified CLI version, or absent authorization produces artifact:cli-publication-finding.',
+        'A dirty or unidentified source, changed checksum, unspecified CLI version, or absent authorization produces artifact:cli-publication-finding.',
         'Candidate validation never implies publication authorization.'
       ],
       allowedContributors: [
         'artifact:generated-app-behavior-proof',
         'artifact:release-version-scope',
-        'reviewed merged PR',
-        'clean latest main',
+        'clean main or feature-branch source commit',
         'explicit user authorization'
       ],
       forbiddenContributors: [
-        'feature-branch npm publication',
         'Framework, root, private app, or unrelated package publication',
         'automatic authorization inference',
-        'unreviewed artifact'
+        'unvalidated artifact'
       ],
       cacheDimensions: [],
       implementationBoundary: [
@@ -511,7 +510,7 @@
         'tmp/create-app-release-evidence'
       ],
       specRefs: [
-        '#6-review-and-merge-the-create-app-release-pr',
+        '#6-freeze-the-create-app-publication-source',
         '#7-publish-create-asyra-design-app'
       ],
       failureOwnerStepId: 'publish-cli'
@@ -739,9 +738,9 @@
     },
     {
       id: 'publication-authorization-invariant',
-      title: 'Publication is isolated after review and authorization',
+      title: 'Publication is isolated after validation and authorization',
       statement:
-        'CLI publication occurs only from clean latest main after reviewed merge, exact artifact comparison, explicit version selection, and explicit publish authorization.',
+        'CLI publication may occur from a clean exact source commit on main or a feature branch after exact artifact comparison, explicit version selection, and explicit publish authorization; publication never authorizes merge.',
       stepIds: ['publish-cli', 'smoke-public-cli', 'record-release-decision'],
       artifactIds: [
         'artifact:cli-publication-result',
@@ -749,7 +748,7 @@
         'artifact:release-ready'
       ],
       specRefs: [
-        '#6-review-and-merge-the-create-app-release-pr',
+        '#6-freeze-the-create-app-publication-source',
         '#7-publish-create-asyra-design-app',
         '#8-verify-public-cli-behavior'
       ]
@@ -797,9 +796,9 @@
     },
     {
       id: 'publication-decision-case',
-      title: 'Reviewed CLI publication and independent public smoke',
+      title: 'Validated CLI publication and independent public smoke',
       assertions: [
-        'The reviewed candidate is reproduced on clean latest main and publication waits for explicit authorization.',
+        'The validated candidate is reproduced from a clean exact source commit on main or a feature branch and publication waits for explicit authorization.',
         'The published command independently passes before the single final READY or BLOCKED decision.'
       ],
       stepIds: [
@@ -808,7 +807,7 @@
         'record-release-decision'
       ],
       specRefs: [
-        '#6-review-and-merge-the-create-app-release-pr',
+        '#6-freeze-the-create-app-publication-source',
         '#7-publish-create-asyra-design-app',
         '#8-verify-public-cli-behavior',
         '#definition-of-done'

@@ -319,55 +319,53 @@
       failureOwnerStepId: 'validate-framework-artifacts'
     },
     {
-      id: 'accept-merged-publication-source',
+      id: 'accept-publication-source',
       order: 7,
       laneId: 'artifacts',
-      title: 'Accept reviewed and merged publication source',
-      ownerPackage: 'Framework version PR and main baseline owner',
+      title: 'Accept the exact publication source',
+      ownerPackage: 'Framework publication source owner',
       purpose:
-        'Require a non-draft reviewed version PR, user-owned merge, and a clean latest main rebuild whose 19-package contents and candidate checksums match the reviewed source.',
+        'Require a clean exact source commit on main or a non-main feature branch whose 19-package contents and candidate checksums reproduce the validated artifacts before publication.',
       inputs: ['artifact:validated-0-5-0-artifacts'],
       outputs: [
-        'artifact:merged-publication-source',
-        'artifact:merged-source-finding'
+        'artifact:publication-source',
+        'artifact:source-finding'
       ],
       conditions: [
         'The PR diff contains only the authorized release contract, Inspector, generator, version, changelog, record, and direct release-test changes.',
-        'CI, E2E, Framework readiness, and mergeability pass before the user merges.',
-        'After the user merge, switch to main, run git pull --ff-only, and require local main to equal the latest remote main.',
-        'Publication artifacts are rebuilt from clean latest main and compared with the reviewed candidate.',
-        'Publication is not run from the feature branch even when its reviewed tree is byte-identical to main.',
-        'Cleanup owner: accept-merged-publication-source owns no merge action; it owns only PR evidence and the clean post-merge source/artifact comparison.'
+        'CI, E2E, Framework readiness, and the scoped release gates pass for the selected source commit.',
+        'Publication may run from main or a non-main feature branch; the exact branch and commit are recorded without making merge a prerequisite.',
+        'Publication artifacts are rebuilt from the clean exact source commit and compared with the validated candidate.',
+        'Cleanup owner: accept-publication-source owns no merge action; it owns only source, PR, gate, and artifact-comparison evidence.'
       ],
       bypasses: [
-        'An unreviewed, draft, unmerged, failing, dirty, or checksum-divergent source produces artifact:merged-source-finding.',
+        'A failing, dirty, unidentified, or checksum-divergent source produces artifact:source-finding.',
         'The agent never merges the PR.'
       ],
       allowedContributors: [
         'artifact:validated-0-5-0-artifacts',
         'scoped release commits',
         'GitHub PR and CI evidence',
-        'user-owned merge'
+        'clean main or feature-branch source commit'
       ],
       forbiddenContributors: [
-        'publication from a feature branch',
         'agent-owned merge',
-        'unreviewed source change',
+        'uncommitted source change',
         'unrelated dirty-worktree content'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'current release branch',
         'GitHub version PR',
-        'latest main after user merge',
+        'selected exact publication source commit',
         'tmp/framework-release-artifacts',
         'tmp/framework-release-evidence'
       ],
       specRefs: [
-        '#6-review-and-merge-the-version-pr',
+        '#6-freeze-the-publication-source',
         '#definition-of-done'
       ],
-      failureOwnerStepId: 'accept-merged-publication-source'
+      failureOwnerStepId: 'accept-publication-source'
     },
     {
       id: 'publish-framework-packages',
@@ -376,9 +374,9 @@
       title: 'Publish Framework 0.5.0 through Changesets',
       ownerPackage: 'Changesets multi-package publication owner',
       purpose:
-        'After the irreversible checkpoint is accepted on clean latest main, assert that the unpublished selection is exactly the fixed 19-package allowlist and run yarn changeset publish once so Changesets publishes and tags successful packages.',
+        'After the irreversible checkpoint is accepted for the clean exact source commit, assert that the unpublished selection is exactly the fixed 19-package allowlist and run yarn changeset publish once so Changesets publishes and tags successful packages.',
       inputs: [
-        'artifact:merged-publication-source',
+        'artifact:publication-source',
         'validated 19-package publication manifest',
         'npm identity and @asyra scope authorization'
       ],
@@ -400,7 +398,7 @@
         'A Changesets partial failure records the successful and unpublished package subsets without overwriting any success.'
       ],
       allowedContributors: [
-        'artifact:merged-publication-source',
+        'artifact:publication-source',
         'validated publication manifest and checksums',
         'existing workspace-version owner',
         'Changesets publish command',
@@ -563,8 +561,8 @@
         'artifact:version-finding',
         'artifact:validated-0-5-0-artifacts',
         'artifact:artifact-validation-finding',
-        'artifact:merged-publication-source',
-        'artifact:merged-source-finding',
+        'artifact:publication-source',
+        'artifact:source-finding',
         'artifact:changesets-publication-result',
         'artifact:publication-finding',
         'artifact:public-0-5-0-registry-evidence',
@@ -575,7 +573,7 @@
       ],
       outputs: ['artifact:release-ready', 'artifact:release-blocked'],
       conditions: [
-        'READY requires one reviewed and merged source, all 19 public 0.5.0 records, registry-only consumer proof, exclusion proof, and no unresolved finding.',
+        'READY requires one clean exact publication source, all 19 public 0.5.0 records, registry-only consumer proof, exclusion proof, and no unresolved finding.',
         'BLOCKED names every still-relevant exact owner and recovery requirement.',
         'The report includes the source commit, Inspector, fixed allowlist, historical inventory, Changeset, versions, checksums, PR/CI state, registry results, consumer proof, exclusions, and blind spots.',
         'Closeout and the create-app release remain deferred until the user accepts the final decision.',
@@ -656,20 +654,20 @@
       producedArtifacts: ['artifact:versioned-0-5-0-source']
     },
     {
-      id: 'artifacts-to-merge',
+      id: 'artifacts-to-publication-source',
       from: 'validate-framework-artifacts',
-      to: 'accept-merged-publication-source',
+      to: 'accept-publication-source',
       kind: 'artifact',
       predicate: 'The complete 0.5.0 artifact and formal gate set passes.',
       producedArtifacts: ['artifact:validated-0-5-0-artifacts']
     },
     {
-      id: 'merged-source-to-publication',
-      from: 'accept-merged-publication-source',
+      id: 'source-to-publication',
+      from: 'accept-publication-source',
       to: 'publish-framework-packages',
       kind: 'artifact',
-      predicate: 'The reviewed PR is user-merged and clean main reproduces it.',
-      producedArtifacts: ['artifact:merged-publication-source']
+      predicate: 'The clean exact source commit reproduces the validated candidate.',
+      producedArtifacts: ['artifact:publication-source']
     },
     {
       id: 'publication-to-registry',
@@ -758,10 +756,10 @@
       ],
       ['validate-framework-artifacts', 'artifact:artifact-validation-finding'],
       [
-        'accept-merged-publication-source',
-        'artifact:merged-publication-source'
+        'accept-publication-source',
+        'artifact:publication-source'
       ],
-      ['accept-merged-publication-source', 'artifact:merged-source-finding'],
+      ['accept-publication-source', 'artifact:source-finding'],
       [
         'publish-framework-packages',
         'artifact:changesets-publication-result'
@@ -861,7 +859,7 @@
       id: 'artifact:validated-0-5-0-artifacts',
       ownerStepId: 'validate-framework-artifacts',
       channel: 'validated local artifacts and formal gates',
-      consumerStepIds: ['accept-merged-publication-source', 'decide-release']
+      consumerStepIds: ['accept-publication-source', 'decide-release']
     },
     {
       id: 'artifact:artifact-validation-finding',
@@ -870,14 +868,14 @@
       consumerStepIds: ['decide-release']
     },
     {
-      id: 'artifact:merged-publication-source',
-      ownerStepId: 'accept-merged-publication-source',
-      channel: 'reviewed merged clean-main source',
+      id: 'artifact:publication-source',
+      ownerStepId: 'accept-publication-source',
+      channel: 'clean exact publication source',
       consumerStepIds: ['publish-framework-packages', 'decide-release']
     },
     {
-      id: 'artifact:merged-source-finding',
-      ownerStepId: 'accept-merged-publication-source',
+      id: 'artifact:source-finding',
+      ownerStepId: 'accept-publication-source',
       channel: 'owner finding',
       consumerStepIds: ['decide-release']
     },
@@ -1040,19 +1038,19 @@
       ]
     },
     {
-      id: 'artifact-and-merge-case',
-      title: 'Validated artifacts and reviewed merge source',
+      id: 'artifact-and-source-case',
+      title: 'Validated artifacts and exact publication source',
       assertions: [
         'All 19 artifacts and formal gates pass under Node.js 24.',
-        'The user-reviewed PR is merged and clean latest main reproduces the candidate before publication.'
+        'A clean exact source commit on main or a feature branch reproduces the candidate before publication.'
       ],
       stepIds: [
         'validate-framework-artifacts',
-        'accept-merged-publication-source'
+        'accept-publication-source'
       ],
       specRefs: [
         '#5-validate-the-050-artifacts-before-publication',
-        '#6-review-and-merge-the-version-pr'
+        '#6-freeze-the-publication-source'
       ]
     },
     {

@@ -46,9 +46,9 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
 - For this approved large version realignment, materialize exactly the fixed 19
   Framework packages at local `0.4.0`, generate one all-package `minor`
   Changeset, and advance them together to `0.5.0`.
-- After the reviewed version PR is merged, switch to `main`, run
-  `git pull --ff-only`, require a clean latest `main`, rebuild the accepted
-  artifacts, and revalidate the publication manifest.
+- Freeze a clean exact source commit on `main` or the release feature branch,
+  rebuild the accepted artifacts from that commit, and revalidate the
+  publication manifest. Merge is not a publication prerequisite.
 - Publish the 19-package `0.5.0` set through one
   `changeset publish` operation after the publication checkpoint is accepted.
   Let Changesets create package Git tags for successful publications, then push

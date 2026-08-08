@@ -191,7 +191,10 @@ test('CLI version materialization is manual, Framework-independent, and precedes
   assert.match(materialize, /root.*unchanged/i)
   assert.ok(pack.inputs.includes('artifact:versioned-cli-source'))
   assert.match(publication, /explicit.*CLI version/i)
-  assert.match(publication, /clean latest main/i)
+  assert.match(publication, /clean.*source commit/i)
+  assert.match(publication, /feature branch/i)
+  assert.doesNotMatch(publication, /clean latest main/i)
+  assert.doesNotMatch(publication, /reviewed.*merged/i)
   assert.match(publication, /authorization/i)
 })
 

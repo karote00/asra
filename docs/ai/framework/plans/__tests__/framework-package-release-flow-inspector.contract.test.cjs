@@ -234,12 +234,14 @@ test('Framework artifact validation owns CI scope and excludes create-app templa
 })
 
 test('Inspector restricts Changesets publication to the fixed 19-package set', () => {
-  const mergedSource = contractText(step('accept-merged-publication-source'))
+  const publicationSource = contractText(step('accept-publication-source'))
   const publication = contractText(step('publish-framework-packages'))
   const verification = contractText(step('verify-public-registry'))
 
-  assert.match(mergedSource, /main.*pull --ff-only/i)
-  assert.match(mergedSource, /not.*feature branch/i)
+  assert.match(publicationSource, /clean.*source commit/i)
+  assert.match(publicationSource, /feature branch.*publication/i)
+  assert.doesNotMatch(publicationSource, /not.*feature branch/i)
+  assert.doesNotMatch(publicationSource, /unmerged.*source/i)
   assert.match(publication, /yarn changeset publish/i)
   assert.match(publication, /successful.*package.*Git tag/i)
   assert.doesNotMatch(publication, /--no-git-tag/i)

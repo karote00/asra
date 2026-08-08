@@ -3,9 +3,9 @@
 This document freezes the public support and migration contract for the
 Framework `0.5.0` release candidate. The historical `0.2.5` Framework Release
 Gate 5 produced a reproducible pre-publication artifact `READY` result, but the
-current `0.5.0` release decision remains `PENDING` until the reviewed and merged
-source is reproduced from clean latest `main`, publication is authorized, and
-the registry-only consumer passes.
+current `0.5.0` release decision remains `PENDING` until a clean exact source
+commit reproduces the accepted artifacts, publication is authorized, and the
+registry-only consumer passes.
 
 The candidate record does not authorize merge, tagging, registry publication,
 deployment, or a formal release.
@@ -132,8 +132,8 @@ package manifests. Root `asyra` remains `0.2.5`, private
 `0.1.0`. The synchronized Changeset has already been consumed by version
 materialization, so no pending Changeset is expected on the version PR.
 
-After user review and merge, publication must run from clean latest `main`
-after `git pull --ff-only` and artifact checksum reproduction. An explicitly
-authorized release cut owns registry publication, the successful package Git
-tags, and any deployment. Readiness evidence is not permission to perform
-those operations.
+Publication may run from clean `main` or a clean feature-branch source commit
+after artifact checksum reproduction. An explicitly authorized release cut
+owns registry publication, the successful package Git tags, and any deployment.
+The source branch does not authorize merge, and readiness evidence is not
+permission to perform those operations.

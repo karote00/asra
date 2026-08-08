@@ -93,7 +93,7 @@ Before implementation, create a release Inspector with one owner for:
 4. special all-package `minor` Changeset generation;
 5. `0.5.0` version materialization and changelogs;
 6. `0.5.0` artifact validation;
-7. reviewed and merged publication source;
+7. clean, validated publication source commit;
 8. Framework package publication through Changesets;
 9. public registry verification;
 10. registry-only clean consumer and partial-publication recovery; and
@@ -103,7 +103,8 @@ Before implementation, create a release Inspector with one owner for:
 
 ### 1. Freeze source and registry state
 
-- Work from reviewed, merged, latest `main` on Node.js 24.
+- Work from a clean exact source commit on `main` or a non-main feature branch
+  under Node.js 24.
 - Verify npm authentication and scope access without exposing credentials.
 - Query every package/version directly from the public registry.
 - Freeze one Git commit and one exact package list.
@@ -156,16 +157,16 @@ Before implementation, create a release Inspector with one owner for:
 - Run required package/root tests, lint, dependency checks, Inspectors, E2E,
   performance, and visual gates.
 
-### 6. Review and merge the version PR
+### 6. Freeze the publication source
 
 - Use scoped commits for Changeset/version output, release documentation, and
   any test-only version synchronization.
-- Do not publish from an unmerged feature branch.
-- After the user merges the PR, switch to `main`, run `git pull --ff-only`, and
-  require local `main` to equal the latest remote `main`.
-- Do not publish from the release feature branch even when its reviewed tree is
-  byte-identical to the merged result.
-- Recreate and revalidate the artifacts from that clean latest `main`.
+- Publication may run from `main` or the current non-main release feature
+  branch; review and merge remain independent PR lifecycle operations.
+- Require a clean exact source commit and recreate and revalidate every
+  artifact from that commit before publication.
+- Record the exact source commit, branch, manifest, and checksums. Publication
+  never authorizes the agent to merge the PR.
 
 ### 7. Publish the synchronized Framework `0.5.0`
 
@@ -223,10 +224,10 @@ Registry publication is irreversible:
   publishing any additional `0.2.5` artifact.
 - The exceptional all-package Changeset flow advances exactly the fixed 19
   Framework packages from local `0.4.0` to `0.5.0` with one `minor` Changeset.
-- The reviewed, merged commit produces the same validated artifacts that are
+- The clean exact source commit produces the same validated artifacts that are
   published.
-- Changesets creates the exact successful package tags on the clean latest
-  `main` publication commit, and the complete tag set is pushed only after
+- Changesets creates the exact successful package tags on the clean exact
+  publication source commit, and the complete tag set is pushed only after
   registry verification.
 - All 19 `0.5.0` versions install from the public registry and pass the
   registry-only consumer proof on Node.js 24.

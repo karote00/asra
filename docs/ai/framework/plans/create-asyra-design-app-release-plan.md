@@ -43,7 +43,8 @@ Framework package versions, and formally publish
 - Any requested private Asyra Design identity change is explicitly selected;
   otherwise its current version remains authoritative.
 - The manually owned CLI target is explicitly confirmed as `0.5.0`.
-- Work starts from reviewed, merged, latest `main`.
+- Work starts from a clean exact source commit on `main` or a non-main feature
+  branch.
 
 The private app identity decision must be satisfied before a changed private
 app version can enter generation. Root is deliberately deferred until after
@@ -126,15 +127,17 @@ their explicit prerequisites and authorization are satisfied.
 - Verify disabled Collaboration and AI create no provider/network/secret/model
   side effects.
 
-### 6. Review and merge the create-app release PR
+### 6. Freeze the create-app publication source
 
 - Keep any app identity change, generated output, CLI version/records, and
   validation changes in reviewable scoped commits; root remains untouched.
-- Do not publish before the PR is reviewed, green, and merged.
+- A clean, fully validated feature branch may publish before its PR is merged.
+  Publication does not authorize merge or imply that unfinished PR work is
+  complete.
 
 ### 7. Publish `create-asyra-design-app`
 
-- Repack from clean latest `main`.
+- Repack from the clean exact source commit selected for publication.
 - Present the exact CLI tarball, version, checksum, and dependency set.
 - Obtain explicit publication authorization.
 - Publish only the CLI package.
