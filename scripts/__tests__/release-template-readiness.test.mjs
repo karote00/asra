@@ -9,6 +9,7 @@ import {
   prepareGeneratedTemplateConsumer,
   resolveTemplateConsumerDirectory,
   validateGeneratedTemplateContract,
+  validateRegistryInstalledGeneratedApp,
   verifyGeneratedTemplate
 } from '../release-template-readiness.js'
 
@@ -63,7 +64,12 @@ test('generated template uses only frozen public framework entrypoints', () => {
     '@asyra/collaboration',
     '@asyra/core',
     '@asyra/design-system',
+    '@asyra/factory',
+    '@asyra/feature-system',
+    '@asyra/input-system',
     '@asyra/preset',
+    '@asyra/reactive-events',
+    '@asyra/render',
     '@asyra/ui-context',
     '@asyra/utils'
   ])
@@ -85,8 +91,11 @@ test('generated template replaces framework resolution with packed artifacts', (
 
     for (const packageName of prepared.contract.packageNames) {
       const version = prepared.contract.packageVersions[packageName]
+      const dependency =
+        prepared.manifest.dependencies?.[packageName] ??
+        prepared.manifest.devDependencies?.[packageName]
       assert.match(
-        prepared.manifest.dependencies[packageName],
+        dependency,
         new RegExp(
           `^file:\\.\\./framework-release-artifacts/.*-${version.replace(
             /[.*+?^${}()|[\]\\]/gu,
@@ -103,6 +112,79 @@ test('generated template replaces framework resolution with packed artifacts', (
     )
   } finally {
     fs.rmSync(consumerDirectory, { recursive: true, force: true })
+  }
+})
+
+test('registry-installed generated app preserves exact public framework resolution', () => {
+  fs.mkdirSync(path.join(repositoryRoot, 'tmp'), { recursive: true })
+  const generatedAppDirectory = fs.mkdtempSync(
+    path.join(repositoryRoot, 'tmp', 'registry-generated-app-test-')
+  )
+  const contract = validateGeneratedTemplateContract({
+    repositoryRoot,
+    appName: 'asyra-design'
+  })
+
+  try {
+    fs.cpSync(contract.templateDirectory, generatedAppDirectory, {
+      recursive: true
+    })
+    const lockEntries = []
+    for (const [name, version] of Object.entries(contract.packageVersions)) {
+      const packageDirectory = path.join(
+        generatedAppDirectory,
+        'node_modules',
+        ...name.split('/')
+      )
+      fs.mkdirSync(packageDirectory, { recursive: true })
+      fs.writeFileSync(
+        path.join(packageDirectory, 'package.json'),
+        `${JSON.stringify({ name, version })}\n`
+      )
+      lockEntries.push(
+        `"${name}@npm:${version}":\n  version: ${version}\n  resolution: "${name}@npm:${version}"\n  checksum: test/${name}\n  languageName: node\n  linkType: hard\n`
+      )
+    }
+    fs.writeFileSync(
+      path.join(generatedAppDirectory, 'yarn.lock'),
+      lockEntries.join('\n')
+    )
+
+    const evidence = validateRegistryInstalledGeneratedApp({
+      repositoryRoot,
+      appName: 'asyra-design',
+      generatedAppDirectory
+    })
+
+    assert.deepEqual(
+      evidence.packages.map(({ name }) => name),
+      contract.packageNames
+    )
+    assert.equal(
+      evidence.packages.every(
+        ({ version, resolution, checksum }) =>
+          version === '0.5.0' &&
+          resolution === 'npm' &&
+          checksum.startsWith('test/')
+      ),
+      true
+    )
+
+    const manifestPath = path.join(generatedAppDirectory, 'package.json')
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+    manifest.dependencies['@asyra/core'] = 'file:../core.tgz'
+    fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+    assert.throws(
+      () =>
+        validateRegistryInstalledGeneratedApp({
+          repositoryRoot,
+          appName: 'asyra-design',
+          generatedAppDirectory
+        }),
+      /public registry dependency contract/
+    )
+  } finally {
+    fs.rmSync(generatedAppDirectory, { recursive: true, force: true })
   }
 })
 
@@ -137,7 +219,10 @@ test('generated template runner owns install, compile, build, test, smoke, and c
       const manifest = JSON.parse(
         fs.readFileSync(path.join(options.cwd, 'package.json'), 'utf8')
       )
-      Object.keys(manifest.dependencies)
+      Object.keys({
+        ...manifest.dependencies,
+        ...manifest.devDependencies
+      })
         .filter((name) => name.startsWith('@asyra/'))
         .forEach((name) => {
           const packageDirectory = path.join(
