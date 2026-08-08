@@ -1,5 +1,4 @@
 ---
-'create-asyra-design-app': patch
 '@asyra/collaboration': patch
 '@asyra/core': patch
 '@asyra/preset': patch
