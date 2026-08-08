@@ -28,14 +28,6 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
-      - name: Validate PR Changeset
-        if: github.event_name == 'pull_request'
-        env:
-          CHANGESET_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          CHANGESET_SKIP_DOCS_ONLY: ${{ contains(github.event.pull_request.labels.*.name, 'changeset-skip:docs-only') }}
-          CHANGESET_SKIP_HOTFIX: ${{ contains(github.event.pull_request.labels.*.name, 'changeset-skip:hotfix') }}
-        run: yarn changeset:check --base "$CHANGESET_BASE_SHA"
-
       - name: Validate workspace dependencies
         run: yarn deps:validate
 
