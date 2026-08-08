@@ -1,4 +1,4 @@
-import type { SharedPublication } from '@asyra/factory'
+import type { SharedPublication } from '@asyra/core'
 import {
   measureBrowserDragAsyncPhase,
   measureBrowserDragPhase

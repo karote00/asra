@@ -8,9 +8,9 @@ import {
   subscribeToFileLoadComplete,
   subscribeToRemoveElement,
   subscribeToSceneTreeLoadComplete
-} from '@asyra/reactive-events'
+} from '@asyra/core'
 import { PresetSystemPropertyKeys } from '@asyra/preset'
-import core, { sceneTree } from '../../contexts'
+import core from '../../contexts'
 import { elementApis } from '../../common-apis'
 import { UI_PROPERTIES } from '../../constants'
 import { buildVectorIconPath } from '../../utils/vector-icon-path'
@@ -67,8 +67,7 @@ const getComputedProjection = (
 }
 
 const isVectorElement = (elementId: string): boolean => {
-  const element = sceneTree.getElementById(elementId)
-  return element?.get('type') === 'vector'
+  return core.getElementData(elementId)?.type === 'vector'
 }
 
 let iconPathMap: VectorIconPathMap = {}
@@ -166,8 +165,8 @@ const enqueueElementIconPathUpdateFromEvent = (
 const rebuildIconPathMap = () => {
   const nextMap: VectorIconPathMap = {}
 
-  sceneTree.getAllElements().forEach((element, elementId) => {
-    if (element.get('type') !== 'vector') {
+  core.getAllElementData().forEach(({ elementId, data }) => {
+    if (data.type !== 'vector') {
       return
     }
 

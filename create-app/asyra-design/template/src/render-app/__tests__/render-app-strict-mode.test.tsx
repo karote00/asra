@@ -1,5 +1,9 @@
 import React, { StrictMode, act } from 'react'
 import { createRoot } from 'react-dom/client'
+import type {
+  CoreCollaborationBridge,
+  CoreCollaborationSession
+} from '@asyra/core'
 import { providers } from '@asyra/reactive-events'
 import type { ProviderStatus } from '@asyra/collaboration'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -48,15 +52,22 @@ const collaborationHandle = {
   observePublicationOutcomes: () => () => undefined,
   dispose: async () => undefined
 } satisfies CollaborationDebugHandle
-const preparedCollaborationSession = {
-  bootstrap: {
-    checkpoint: EMPTY_DOCUMENT,
-    durableSequence: 0,
-    headSequence: 0,
-    pendingTail: []
-  },
-  activate: vi.fn(async () => collaborationHandle)
-}
+const coreCollaborationSession = {
+  prepare: vi.fn(async (_bridge: CoreCollaborationBridge) => ({
+    loadSource: {
+      name: 'SocketDocumentSession',
+      load: async () => EMPTY_DOCUMENT
+    }
+  })),
+  activate: vi.fn(async () => undefined),
+  dispose: vi.fn(async () => undefined)
+} satisfies CoreCollaborationSession
+
+const collaborationBridge = {
+  applyRemoteCanonicalChangeSlices: vi.fn(async () => undefined),
+  load: vi.fn(),
+  subscribeToSharedPublication: vi.fn(() => () => undefined)
+} satisfies CoreCollaborationBridge
 
 const setReactActEnvironment = (active: boolean) => {
   ;(
@@ -75,23 +86,30 @@ describe('RenderApp StrictMode lifecycle', () => {
     localStorage.clear()
 
     vi.spyOn(core, 'setPersistence').mockImplementation(() => undefined)
-    vi.spyOn(core, 'setLoadSource').mockImplementation(() => undefined)
     vi.spyOn(core, 'load').mockImplementation(() => undefined)
-    vi.spyOn(core, 'start').mockResolvedValue(undefined)
-    vi.spyOn(core, 'destroyRenderer').mockImplementation(() => undefined)
+    vi.spyOn(core, 'registerCollaborationSession').mockImplementation(
+      () => undefined
+    )
+    vi.spyOn(core, 'start').mockImplementation(async () => {
+      await coreCollaborationSession.prepare(collaborationBridge)
+      await coreCollaborationSession.activate()
+    })
+    vi.spyOn(core, 'destroy').mockResolvedValue(undefined)
     vi.spyOn(documentInteractionLock, 'acquire').mockReturnValue(
       releaseInteractionLock
     )
     vi.spyOn(providers.memory, 'save')
-    vi.spyOn(collaborationLifecycle, 'startCollaboration').mockResolvedValue(
-      collaborationHandle
-    )
     vi.spyOn(
       collaborationLifecycle,
-      'prepareCollaborationDocumentSession'
-    ).mockResolvedValue(preparedCollaborationSession)
-    vi.spyOn(collaborationLifecycle, 'disposeCollaboration').mockResolvedValue(
-      undefined
+      'createCollaborationDocumentSession'
+    ).mockReturnValue(coreCollaborationSession)
+    vi.spyOn(
+      collaborationLifecycle,
+      'getActiveCollaborationHandle'
+    ).mockImplementation(() =>
+      coreCollaborationSession.activate.mock.calls.length > 0
+        ? collaborationHandle
+        : undefined
     )
     vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ACTOR_UUID)
     collaborationSessionState = Object.freeze({
@@ -102,7 +120,9 @@ describe('RenderApp StrictMode lifecycle', () => {
     })
     collaborationSessionStateSubscriber = undefined
     releaseInteractionLock.mockClear()
-    preparedCollaborationSession.activate.mockClear()
+    coreCollaborationSession.prepare.mockClear()
+    coreCollaborationSession.activate.mockClear()
+    coreCollaborationSession.dispose.mockClear()
 
     document.body.replaceChildren()
     setReactActEnvironment(true)
@@ -135,11 +155,11 @@ describe('RenderApp StrictMode lifecycle', () => {
 
     await vi.waitFor(() =>
       expect(
-        collaborationLifecycle.prepareCollaborationDocumentSession
+        collaborationLifecycle.createCollaborationDocumentSession
       ).toHaveBeenCalledTimes(1)
     )
-    expect(core.setLoadSource).toHaveBeenCalledOnce()
-    expect(core.destroyRenderer).toHaveBeenCalledTimes(1)
+    expect(core.registerCollaborationSession).toHaveBeenCalledOnce()
+    expect(core.destroy).toHaveBeenCalledTimes(1)
     expect(core.start).toHaveBeenCalledTimes(1)
     expect(core.start).toHaveBeenCalledWith(
       expect.any(HTMLDivElement),
@@ -149,10 +169,10 @@ describe('RenderApp StrictMode lifecycle', () => {
       })
     )
     expect(
-      vi.mocked(core.setLoadSource).mock.invocationCallOrder[0]
+      vi.mocked(core.registerCollaborationSession).mock.invocationCallOrder[0]
     ).toBeLessThan(vi.mocked(core.start).mock.invocationCallOrder[0] ?? 0)
     expect(vi.mocked(core.start).mock.invocationCallOrder[0]).toBeLessThan(
-      preparedCollaborationSession.activate.mock.invocationCallOrder[0] ?? 0
+      coreCollaborationSession.activate.mock.invocationCallOrder[0] ?? 0
     )
     expect(core.load).not.toHaveBeenCalled()
 
@@ -160,7 +180,7 @@ describe('RenderApp StrictMode lifecycle', () => {
       root.unmount()
     })
 
-    expect(core.destroyRenderer).toHaveBeenCalledTimes(2)
+    expect(core.destroy).toHaveBeenCalledTimes(2)
   })
 
   it('opens the socket document session before Core load and activates live delivery after Core hydration', async () => {
@@ -177,22 +197,23 @@ describe('RenderApp StrictMode lifecycle', () => {
 
     await vi.waitFor(() =>
       expect(
-        collaborationLifecycle.prepareCollaborationDocumentSession
+        collaborationLifecycle.createCollaborationDocumentSession
       ).toHaveBeenCalledOnce()
     )
-    expect(core.setLoadSource).toHaveBeenCalledWith({
-      name: 'SocketDocumentSession',
-      load: expect.any(Function)
-    })
+    expect(core.registerCollaborationSession).toHaveBeenCalledWith(
+      coreCollaborationSession
+    )
     expect(
-      vi.mocked(collaborationLifecycle.prepareCollaborationDocumentSession).mock
+      vi.mocked(collaborationLifecycle.createCollaborationDocumentSession).mock
         .invocationCallOrder[0]
     ).toBeLessThan(vi.mocked(core.start).mock.invocationCallOrder[0] ?? 0)
     expect(vi.mocked(core.start).mock.invocationCallOrder[0]).toBeLessThan(
-      preparedCollaborationSession.activate.mock.invocationCallOrder[0] ?? 0
+      coreCollaborationSession.activate.mock.invocationCallOrder[0] ?? 0
     )
 
-    const loadSource = vi.mocked(core.setLoadSource).mock.calls[0]?.[0]
+    const preparation =
+      await coreCollaborationSession.prepare(collaborationBridge)
+    const loadSource = preparation?.loadSource
     await expect(loadSource?.load()).resolves.toEqual(EMPTY_DOCUMENT)
 
     await act(async () => root.unmount())
@@ -212,18 +233,18 @@ describe('RenderApp StrictMode lifecycle', () => {
 
     await vi.waitFor(() =>
       expect(
-        collaborationLifecycle.prepareCollaborationDocumentSession
+        collaborationLifecycle.createCollaborationDocumentSession
       ).toHaveBeenCalledTimes(1)
     )
-    expect(core.setLoadSource).toHaveBeenCalledOnce()
+    expect(core.registerCollaborationSession).toHaveBeenCalledOnce()
     expect(core.setPersistence).not.toHaveBeenCalled()
     expect(localStorage.getItem('FILE')).toBeNull()
     expect(core.start).toHaveBeenCalledTimes(1)
     expect(
-      vi.mocked(core.setLoadSource).mock.invocationCallOrder[0]
+      vi.mocked(core.registerCollaborationSession).mock.invocationCallOrder[0]
     ).toBeLessThan(vi.mocked(core.start).mock.invocationCallOrder[0] ?? 0)
     expect(vi.mocked(core.start).mock.invocationCallOrder[0]).toBeLessThan(
-      preparedCollaborationSession.activate.mock.invocationCallOrder[0] ?? 0
+      coreCollaborationSession.activate.mock.invocationCallOrder[0] ?? 0
     )
     expect(core.load).not.toHaveBeenCalled()
 
@@ -248,18 +269,17 @@ describe('RenderApp StrictMode lifecycle', () => {
 
     await vi.waitFor(() =>
       expect(
-        collaborationLifecycle.prepareCollaborationDocumentSession
+        collaborationLifecycle.createCollaborationDocumentSession
       ).toHaveBeenCalledWith({
         fileId: 'crdt-7076-sample',
         actorId: `actor-${ACTOR_UUID}`,
         endpoint: 'ws://localhost:3000/collaboration'
       })
     )
-    expect(core.setLoadSource).toHaveBeenCalledWith({
-      name: 'SocketDocumentSession',
-      load: expect.any(Function)
-    })
-    expect(preparedCollaborationSession.activate).toHaveBeenCalledOnce()
+    expect(core.registerCollaborationSession).toHaveBeenCalledWith(
+      coreCollaborationSession
+    )
+    expect(coreCollaborationSession.activate).toHaveBeenCalledOnce()
     expect(fetch).not.toHaveBeenCalled()
     expect(core.setPersistence).not.toHaveBeenCalled()
 
@@ -293,7 +313,7 @@ describe('RenderApp StrictMode lifecycle', () => {
     expect(core.start).not.toHaveBeenCalled()
     expect(core.load).not.toHaveBeenCalled()
     expect(
-      collaborationLifecycle.prepareCollaborationDocumentSession
+      collaborationLifecycle.createCollaborationDocumentSession
     ).not.toHaveBeenCalled()
 
     await act(async () => root.unmount())
@@ -307,8 +327,10 @@ describe('RenderApp StrictMode lifecycle', () => {
     vi.stubGlobal('fetch', fetch)
     let loadedDocument: unknown
     vi.mocked(core.start).mockImplementationOnce(async () => {
-      const loadSource = vi.mocked(core.setLoadSource).mock.calls[0]?.[0]
-      loadedDocument = await loadSource?.load()
+      const preparation =
+        await coreCollaborationSession.prepare(collaborationBridge)
+      loadedDocument = await preparation?.loadSource?.load()
+      await coreCollaborationSession.activate()
     })
     const host = document.createElement('div')
     document.body.append(host)
@@ -323,7 +345,7 @@ describe('RenderApp StrictMode lifecycle', () => {
 
     await vi.waitFor(() =>
       expect(
-        collaborationLifecycle.prepareCollaborationDocumentSession
+        collaborationLifecycle.createCollaborationDocumentSession
       ).toHaveBeenCalledOnce()
     )
     expect(loadedDocument).toEqual(EMPTY_DOCUMENT)
@@ -353,23 +375,23 @@ describe('RenderApp StrictMode lifecycle', () => {
 
     await vi.waitFor(() =>
       expect(
-        collaborationLifecycle.prepareCollaborationDocumentSession
+        collaborationLifecycle.createCollaborationDocumentSession
       ).toHaveBeenCalledTimes(1)
     )
-    expect(core.setLoadSource).toHaveBeenCalledOnce()
+    expect(core.registerCollaborationSession).toHaveBeenCalledOnce()
     expect(core.setPersistence).not.toHaveBeenCalled()
     expect(core.load).not.toHaveBeenCalled()
     expect(
-      vi.mocked(core.setLoadSource).mock.invocationCallOrder[0]
+      vi.mocked(core.registerCollaborationSession).mock.invocationCallOrder[0]
     ).toBeLessThan(vi.mocked(core.start).mock.invocationCallOrder[0] ?? 0)
     expect(vi.mocked(core.start).mock.invocationCallOrder[0]).toBeLessThan(
-      preparedCollaborationSession.activate.mock.invocationCallOrder[0] ?? 0
+      coreCollaborationSession.activate.mock.invocationCallOrder[0] ?? 0
     )
     expect(providers.memory.save).not.toHaveBeenCalled()
     expect(localStorage.getItem('FILE:file-1')).toBeNull()
     expect(localStorage.getItem('FILE')).toBeNull()
     expect(
-      collaborationLifecycle.prepareCollaborationDocumentSession
+      collaborationLifecycle.createCollaborationDocumentSession
     ).toHaveBeenCalledWith({
       fileId: 'file-1',
       actorId: `actor-${ACTOR_UUID}`,
@@ -377,7 +399,7 @@ describe('RenderApp StrictMode lifecycle', () => {
     })
 
     await act(async () => root.unmount())
-    expect(collaborationLifecycle.disposeCollaboration).toHaveBeenCalledTimes(1)
+    expect(core.destroy).toHaveBeenCalledTimes(2)
   })
 
   it('leaves collaboration legacy storage untouched during startup', async () => {
@@ -405,10 +427,10 @@ describe('RenderApp StrictMode lifecycle', () => {
 
     await vi.waitFor(() =>
       expect(
-        collaborationLifecycle.prepareCollaborationDocumentSession
+        collaborationLifecycle.createCollaborationDocumentSession
       ).toHaveBeenCalledTimes(1)
     )
-    expect(core.setLoadSource).toHaveBeenCalledOnce()
+    expect(core.registerCollaborationSession).toHaveBeenCalledOnce()
     expect(core.setPersistence).not.toHaveBeenCalled()
     expect(core.load).not.toHaveBeenCalled()
     expect(JSON.parse(localStorage.getItem('FILE:file-1') ?? '')).toEqual(
@@ -416,7 +438,7 @@ describe('RenderApp StrictMode lifecycle', () => {
     )
     expect(localStorage.getItem('FILE')).toBeNull()
     expect(
-      collaborationLifecycle.prepareCollaborationDocumentSession
+      collaborationLifecycle.createCollaborationDocumentSession
     ).toHaveBeenCalledTimes(1)
 
     await act(async () => root.unmount())
@@ -449,21 +471,15 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
     })
 
-    expect(preparedCollaborationSession.activate).not.toHaveBeenCalled()
+    expect(coreCollaborationSession.activate).not.toHaveBeenCalled()
   })
 
-  it('starts the local document and reports one initial disconnected epoch without locking editing', async () => {
+  it('starts a provisional local document quietly when the socket was never connected', async () => {
     collaborationSessionState = Object.freeze({
       connection: 'disconnected',
       sync: 'synced',
       pendingCount: 0,
-      disconnectedEpoch: 1,
-      notification: Object.freeze({
-        id: 'collaboration-disconnected-1',
-        message:
-          'The document session is offline. Local editing remains available and changes will sync after reconnection.',
-        type: 'disconnected'
-      })
+      disconnectedEpoch: 0
     })
     const host = document.createElement('div')
     document.body.append(host)
@@ -475,13 +491,10 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
     })
 
-    await vi.waitFor(() =>
-      expect(host.querySelector('[role="alert"]')?.textContent).toBe(
-        'The document session is offline. Local editing remains available and changes will sync after reconnection.'
-      )
-    )
+    await vi.waitFor(() => expect(core.start).toHaveBeenCalledOnce())
+    expect(host.querySelector('[role="alert"]')).toBeNull()
     expect(core.start).toHaveBeenCalledOnce()
-    expect(core.destroyRenderer).not.toHaveBeenCalled()
+    expect(core.destroy).not.toHaveBeenCalled()
     expect(documentInteractionLock.acquire).not.toHaveBeenCalled()
 
     await act(async () => root.unmount())
@@ -492,8 +505,10 @@ describe('RenderApp StrictMode lifecycle', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => undefined)
     vi.mocked(
-      collaborationLifecycle.prepareCollaborationDocumentSession
-    ).mockRejectedValueOnce(new Error('collaboration composition failed'))
+      collaborationLifecycle.createCollaborationDocumentSession
+    ).mockImplementationOnce(() => {
+      throw new Error('collaboration composition failed')
+    })
     const host = document.createElement('div')
     document.body.append(host)
     const root = createRoot(host)
@@ -529,7 +544,7 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
     })
     await vi.waitFor(() =>
-      expect(preparedCollaborationSession.activate).toHaveBeenCalledOnce()
+      expect(coreCollaborationSession.activate).toHaveBeenCalledOnce()
     )
 
     await act(async () => {
@@ -576,7 +591,7 @@ describe('RenderApp StrictMode lifecycle', () => {
       'The document session is connected and changes are syncing.'
     )
     expect(core.start).toHaveBeenCalledOnce()
-    expect(core.destroyRenderer).not.toHaveBeenCalled()
+    expect(core.destroy).not.toHaveBeenCalled()
     expect(documentInteractionLock.acquire).not.toHaveBeenCalled()
 
     await act(async () => root.unmount())

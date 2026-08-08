@@ -1,6 +1,7 @@
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { CoreCollaborationSession } from '@asyra/core'
 import type { ProviderStatus } from '@asyra/collaboration'
 import core from '../../contexts'
 import * as collaborationLifecycle from '../../collaboration/lifecycle'
@@ -34,6 +35,11 @@ const collaborationHandle = {
   observePublicationOutcomes: () => () => undefined,
   dispose: async () => undefined
 } satisfies CollaborationDebugHandle
+const coreCollaborationSession = {
+  prepare: vi.fn(async () => undefined),
+  activate: vi.fn(async () => undefined),
+  dispose: vi.fn(async () => undefined)
+} satisfies CoreCollaborationSession
 
 const setReactActEnvironment = (active: boolean) => {
   ;(
@@ -48,14 +54,24 @@ describe('Render canvas context-menu intake', () => {
     vi.stubEnv('VITE_COLLABORATION_WS_URL', COLLABORATION_ENDPOINT)
     window.history.replaceState({}, '', '/?fileId=canvas-context-menu')
     vi.spyOn(core, 'load').mockImplementation(() => undefined)
-    vi.spyOn(core, 'start').mockResolvedValue(undefined)
-    vi.spyOn(core, 'destroyRenderer').mockImplementation(() => undefined)
-    vi.spyOn(collaborationLifecycle, 'startCollaboration').mockResolvedValue(
-      collaborationHandle
+    vi.spyOn(core, 'registerCollaborationSession').mockImplementation(
+      () => undefined
     )
-    vi.spyOn(collaborationLifecycle, 'disposeCollaboration').mockResolvedValue(
-      undefined
-    )
+    vi.spyOn(core, 'start').mockImplementation(async () => {
+      await coreCollaborationSession.activate()
+    })
+    vi.spyOn(core, 'destroy').mockResolvedValue(undefined)
+    vi.spyOn(
+      collaborationLifecycle,
+      'createCollaborationDocumentSession'
+    ).mockReturnValue(coreCollaborationSession)
+    vi.spyOn(
+      collaborationLifecycle,
+      'getActiveCollaborationHandle'
+    ).mockReturnValue(collaborationHandle)
+    coreCollaborationSession.prepare.mockClear()
+    coreCollaborationSession.activate.mockClear()
+    coreCollaborationSession.dispose.mockClear()
     document.body.replaceChildren()
     setReactActEnvironment(true)
   })

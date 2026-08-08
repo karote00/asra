@@ -5,7 +5,7 @@ import {
   getActiveCollaborationHandle,
   type CollaborationDebugHandle
 } from '../collaboration/lifecycle'
-import { createDocumentCollaborationFactory } from '../collaboration/factory-adapter'
+import { createDocumentCollaborationPublicationSource } from '../collaboration/factory-adapter'
 import { decodeDocumentPublication } from '../collaboration/operations'
 import core from '../contexts'
 import {
@@ -41,21 +41,15 @@ const startCapture = (
 }
 
 export const startSharedPublicationCapture = (key: string): void =>
-  startCapture(key, (append) =>
-    core.deps.factory.subscribeToSharedPublication(append)
-  )
+  startCapture(key, (append) => core.subscribeToSharedPublication(append))
 
 export const startDocumentPublicationCapture = (key: string): void =>
   startCapture(key, (append) =>
-    createDocumentCollaborationFactory(
-      core.deps.factory
-    ).subscribeToSharedPublication(append)
+    createDocumentCollaborationPublicationSource(core).subscribe(append)
   )
 
 export const startSharedChannelCapture = (key: string, channel: string): void =>
-  startCapture(key, (append) =>
-    core.deps.factory.observeSharedDataChannel(channel, append)
-  )
+  startCapture(key, (append) => core.observeSharedDataChannel(channel, append))
 
 export const clearTestCapture = (key: string): void => {
   const values = testRuntimeState.get<unknown[]>(key)

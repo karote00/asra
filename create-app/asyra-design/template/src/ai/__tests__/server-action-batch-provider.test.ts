@@ -1,4 +1,5 @@
 import type { AiActionBatch, AiProviderInput } from '@asyra/ai-agent-runtime'
+import { subscribeToBrowserDragPhases } from '@asyra/utils'
 import { describe, expect, it, vi } from 'vitest'
 import {
   ACTION_BATCH_ENDPOINT,
@@ -29,6 +30,10 @@ const batch: AiActionBatch = {
 
 describe('server action-batch provider', () => {
   it('posts the exact Agent request to the one same-origin backend endpoint', async () => {
+    const phases: string[] = []
+    const unsubscribe = subscribeToBrowserDragPhases((name) =>
+      phases.push(name)
+    )
     const fetch = vi.fn(async () => ({
       json: async () => batch,
       ok: true,
@@ -38,23 +43,29 @@ describe('server action-batch provider', () => {
       fetch: fetch as never
     })
 
-    await expect(
-      provider.requestActionBatch(input, {
-        signal: new AbortController().signal
-      })
-    ).resolves.toBe(batch)
+    try {
+      await expect(
+        provider.requestActionBatch(input, {
+          signal: new AbortController().signal
+        })
+      ).resolves.toBe(batch)
 
-    expect(fetch).toHaveBeenCalledOnce()
-    expect(fetch).toHaveBeenCalledWith(ACTION_BATCH_ENDPOINT, {
-      body: JSON.stringify(input),
-      headers: {
-        accept: 'application/json',
-        'content-type': 'application/json'
-      },
-      method: 'POST',
-      signal: expect.any(AbortSignal)
-    })
-    expect(ACTION_BATCH_ENDPOINT).toBe('/api/ai/action-batch')
+      expect(fetch).toHaveBeenCalledOnce()
+      expect(fetch).toHaveBeenCalledWith(ACTION_BATCH_ENDPOINT, {
+        body: JSON.stringify(input),
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json'
+        },
+        method: 'POST',
+        signal: expect.any(AbortSignal)
+      })
+      expect(ACTION_BATCH_ENDPOINT).toBe('/api/ai/action-batch')
+      expect(phases).toContain('ai-provider:server-response-handoff')
+    } finally {
+      unsubscribe()
+      provider.dispose()
+    }
   })
 
   it('does not accept a resident response or fileId-selected payload', () => {

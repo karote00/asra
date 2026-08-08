@@ -6,7 +6,7 @@ import {
   type DataTypes,
   type EVENT_OPTIONS
 } from '@asyra/utils'
-import core, { sceneTree } from '../../contexts'
+import core from '../../contexts'
 
 const GROUP_GEOMETRY_KEYS = new Set(['x', 'y', 'width', 'height'])
 
@@ -31,8 +31,7 @@ export const updateElementProperties = (
       )
         ? elementIds.filter(
             (elementId) =>
-              sceneTree.getElementById(elementId)?.get('type') ===
-              EntityTypes.GROUP
+              core.getElementData(elementId)?.type === EntityTypes.GROUP
           )
         : []
       const request =

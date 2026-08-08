@@ -68,23 +68,25 @@ const nearlyEqual = (left: unknown, right: number) =>
 const getVectorBoundsRepairPatch = (
   elementId: string
 ): Record<string, DataTypes> | null => {
-  const element = core.deps.sceneTree.getElementById(elementId)
-  if (!element || element.get('type') !== 'vector') {
+  if (core.getElementData(elementId)?.type !== 'vector') {
     return null
   }
 
-  const computed = element.getAllComputedData() as {
-    x?: unknown
-    y?: unknown
-    width?: unknown
-    height?: unknown
-    pointCoordinateSpace?: unknown
-    points?: unknown
-    segments?: unknown
-    networks?: unknown
-  }
+  const computed = core.getElementComputedData(elementId) as
+    | {
+        x?: unknown
+        y?: unknown
+        width?: unknown
+        height?: unknown
+        pointCoordinateSpace?: unknown
+        points?: unknown
+        segments?: unknown
+        networks?: unknown
+      }
+    | undefined
 
   if (
+    !computed ||
     computed.pointCoordinateSpace !== 'workspace' ||
     !isRecord(computed.points) ||
     !isRecord(computed.segments) ||
@@ -118,14 +120,10 @@ const getVectorBoundsRepairPatch = (
 }
 
 const getPrimaryStroke = (elementId: string): StrokeAttrs | null => {
-  const element = core.deps.sceneTree.getElementById(elementId)
-  if (!element) {
-    return null
-  }
-  const computed = element.getAllComputedData() as {
-    strokes?: unknown
-  }
-  if (!Array.isArray(computed.strokes)) {
+  const computed = core.getElementComputedData(elementId) as
+    | { strokes?: unknown }
+    | undefined
+  if (!Array.isArray(computed?.strokes)) {
     return null
   }
   const stroke = computed.strokes[0]
@@ -134,7 +132,7 @@ const getPrimaryStroke = (elementId: string): StrokeAttrs | null => {
 
 export const strokeApis = {
   addStroke: (elementId: string, options?: EVENT_OPTIONS): string | null => {
-    if (!core.deps.sceneTree.getElementById(elementId)) {
+    if (!core.getElementData(elementId)) {
       return null
     }
     const stroke = createDefaultStroke({ id: id('stroke') })
@@ -152,8 +150,7 @@ export const strokeApis = {
     strokeId: string,
     options?: EVENT_OPTIONS
   ): boolean => {
-    const element = core.deps.sceneTree.getElementById(elementId)
-    const computed = element?.getAllComputedData?.() as
+    const computed = core.getElementComputedData(elementId) as
       | { strokes?: unknown }
       | undefined
     const strokes = computed?.strokes

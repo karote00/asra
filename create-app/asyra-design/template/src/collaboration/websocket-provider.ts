@@ -8,7 +8,7 @@ import {
   type ProviderIdentity,
   type ProviderStatus
 } from '@asyra/collaboration'
-import type { SharedPublication } from '@asyra/factory'
+import type { SharedPublication } from '@asyra/core'
 import {
   emitDiagnosticCounter,
   emitBrowserDragPhase,

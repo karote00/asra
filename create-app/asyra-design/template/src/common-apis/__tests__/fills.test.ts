@@ -12,12 +12,12 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../../contexts', () => ({
   default: {
     commitPropertyChanges: mocks.commitPropertyChanges,
+    getElementComputedData: (elementId: string) =>
+      mocks.getElementById(elementId)?.getAllComputedData(),
+    getElementData: (elementId: string) =>
+      mocks.getElementById(elementId) ? { id: elementId } : undefined,
     patchElementProperties: mocks.patchElementProperties,
     updatePropertyById: mocks.updatePropertyById
-  },
-  render: {},
-  sceneTree: {
-    getElementById: mocks.getElementById
   }
 }))
 

@@ -1,7 +1,7 @@
-import type { CanonicalChange } from '@asyra/core'
 import { Buffer } from 'node:buffer'
 import { decodeDocumentPublication } from '../src/collaboration/operations'
 import { decodePublicationFramePublication } from '../src/collaboration/protocol'
+import type { CanonicalChange } from '../src/collaboration/app-protocol-types'
 
 export const DOCUMENT_PERSISTENCE_PROTOCOL_VERSION = 1
 

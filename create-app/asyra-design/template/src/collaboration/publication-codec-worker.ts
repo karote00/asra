@@ -1,4 +1,4 @@
-import type { SharedPublication } from '@asyra/factory'
+import type { SharedPublication } from '@asyra/core'
 import {
   CollaborationMessageTypes,
   PUBLICATION_FRAME_INBOUND_WINDOW_BYTES,

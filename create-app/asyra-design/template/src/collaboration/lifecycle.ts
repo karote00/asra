@@ -1,4 +1,10 @@
 import {
+  settleCooperativeRenderSlice,
+  type CoreCollaborationBridge,
+  type CoreCollaborationSession,
+  type SharedPublication
+} from '@asyra/core'
+import {
   ProviderFailure,
   createCollaboration,
   type Collaboration,
@@ -6,17 +12,13 @@ import {
   type ProcessRemotePublication,
   type ProviderStatus
 } from '@asyra/collaboration'
-import type { SharedPublication } from '@asyra/factory'
-import { settleCooperativeRenderSlice } from '@asyra/reactive-events'
 import { idCounter } from '@asyra/utils'
-import core, { factory } from '../contexts'
+import core from '../contexts'
 import type { CollaborationMode } from '../render-app/collaboration-mode'
-import { createDocumentCollaborationFactory } from './factory-adapter'
+import { createDocumentCollaborationPublicationSource } from './factory-adapter'
 import { createFormalInitialDocument } from './initial-document'
-import {
-  applyDocumentSessionBootstrapTail,
-  createPublicationProcessor
-} from './operations'
+import { applyDocumentSessionBootstrapTail } from './operations'
+import { createPublicationProcessor } from './publication-processor'
 import {
   DocumentPublicationOutbox,
   type PublicationOutboxState,
@@ -24,14 +26,55 @@ import {
 } from './publication-outbox'
 import type { DocumentSessionBootstrap } from './protocol'
 import { CollaborationWebSocketProvider } from './websocket-provider'
+import type { ApplyRemoteCanonicalChangeSlicesInput as AppRemoteCanonicalChangeSlicesInput } from './app-protocol-types'
 
 const RECONNECT_INTERVAL_MS = 30_000
 
-export type CollaborationConnectionState =
-  | 'connecting'
-  | 'connected'
-  | 'disconnected'
-  | 'retrying'
+export type CollaborationConnectionState = 'none' | 'connected' | 'disconnected'
+
+type SettledCollaborationConnectionState = Exclude<
+  CollaborationConnectionState,
+  'none'
+>
+
+export const INITIAL_COLLABORATION_CONNECTION_STATE = 'none' as const
+
+export const resolveCollaborationConnectionTransition = (
+  current: CollaborationConnectionState,
+  next: SettledCollaborationConnectionState
+): Readonly<{
+  changed: boolean
+  connection: SettledCollaborationConnectionState
+  notificationType: 'disconnected' | 'reconnected' | undefined
+}> => {
+  if ((next as CollaborationConnectionState) === 'none') {
+    throw new Error('Collaboration connection state cannot return to none')
+  }
+
+  if (current === next) {
+    return Object.freeze({
+      changed: false,
+      connection: next,
+      notificationType: undefined
+    })
+  }
+
+  let notificationType: 'disconnected' | 'reconnected' | undefined
+  if (
+    (current === 'none' || current === 'connected') &&
+    next === 'disconnected'
+  ) {
+    notificationType = 'disconnected'
+  }
+  if (current === 'disconnected' && next === 'connected') {
+    notificationType = 'reconnected'
+  }
+  return Object.freeze({
+    changed: true,
+    connection: next,
+    notificationType
+  })
+}
 
 export type CollaborationSyncState =
   | 'synced'
@@ -94,8 +137,8 @@ interface PreparedSocketComposition {
   readonly composition: CollaborationSessionComposition
 }
 
-const noOutboundFactory = Object.freeze({
-  subscribeToSharedPublication: () => () => undefined
+const noOutboundPublicationSource = Object.freeze({
+  subscribe: () => () => undefined
 })
 
 const createUnavailableStorage = (
@@ -136,10 +179,8 @@ const providerStatusForConnection = (
   disposed: boolean
 ): ProviderStatus => {
   if (disposed) return 'disposed'
+  if (connection === 'none') return 'idle'
   if (connection === 'connected') return 'connected'
-  if (connection === 'connecting' || connection === 'retrying') {
-    return 'connecting'
-  }
   return 'disconnected'
 }
 
@@ -177,7 +218,7 @@ const createSessionComposition = (
     documentId: mode.fileId,
     roomId: mode.fileId,
     actorId: mode.actorId,
-    factory: noOutboundFactory,
+    publicationSource: noOutboundPublicationSource,
     provider,
     processRemotePublication,
     resourceOwnership: { provider: 'owned' }
@@ -190,6 +231,7 @@ class CollaborationSessionController {
 
   private readonly mode: CollaborationMode
   private readonly processRemotePublication: ProcessRemotePublication
+  private readonly bridge: CoreCollaborationBridge
   private readonly outbox: DocumentPublicationOutbox
   private readonly statusSubscribers = new Set<
     (status: ProviderStatus) => void
@@ -204,14 +246,13 @@ class CollaborationSessionController {
   private preparedSocket: PreparedSocketComposition | undefined
   private unsubscribeProviderStatus: (() => void) | undefined
   private unsubscribeOutcomes: (() => void) | undefined
-  private unsubscribeFactory: (() => void) | undefined
+  private unsubscribePublicationSource: (() => void) | undefined
   private unsubscribeOutbox: (() => void) | undefined
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined
   private reconnectPromise: Promise<void> | undefined
   private operationQueue: Promise<void> = Promise.resolve()
   private activated = false
   private disposed = false
-  private disconnectedEpochActive = false
   private disconnectedEpoch = 0
   private reconciling = false
   private recoveryApplyCutoff = 0
@@ -219,7 +260,7 @@ class CollaborationSessionController {
   private storageFailureReported = false
   private conflictReported = false
   private state: CollaborationSessionState = Object.freeze({
-    connection: 'connecting',
+    connection: INITIAL_COLLABORATION_CONNECTION_STATE,
     sync: 'synced',
     pendingCount: 0,
     disconnectedEpoch: 0
@@ -227,10 +268,12 @@ class CollaborationSessionController {
 
   constructor(
     mode: CollaborationMode,
-    processRemotePublication: ProcessRemotePublication
+    processRemotePublication: ProcessRemotePublication,
+    bridge: CoreCollaborationBridge
   ) {
     this.mode = mode
     this.processRemotePublication = processRemotePublication
+    this.bridge = bridge
     this.identity = Object.freeze({
       documentId: mode.fileId,
       roomId: mode.fileId,
@@ -249,8 +292,9 @@ class CollaborationSessionController {
       console.error('[collaboration] publication outbox load failed:', error)
     }
     this.recoveryApplyCutoff = this.outbox.getLastAppendOrder()
-    const documentFactory = createDocumentCollaborationFactory(factory)
-    this.unsubscribeFactory = documentFactory.subscribeToSharedPublication(
+    const documentPublicationSource =
+      createDocumentCollaborationPublicationSource(this.bridge)
+    this.unsubscribePublicationSource = documentPublicationSource.subscribe(
       (publication) => {
         this.scheduleLocalPublication(publication)
       }
@@ -369,8 +413,8 @@ class CollaborationSessionController {
     if (this.disposed) return
     this.disposed = true
     this.clearReconnectTimer()
-    this.unsubscribeFactory?.()
-    this.unsubscribeFactory = undefined
+    this.unsubscribePublicationSource?.()
+    this.unsubscribePublicationSource = undefined
     this.unsubscribeOutbox?.()
     this.unsubscribeOutbox = undefined
     this.unbindCurrentObservers()
@@ -611,7 +655,6 @@ class CollaborationSessionController {
     if (this.disposed) return Promise.resolve()
     this.reconciling = true
     this.setState({
-      connection: 'retrying',
       sync: 'reconciling'
     })
     const reconnecting = (async () => {
@@ -622,7 +665,7 @@ class CollaborationSessionController {
         next = await this.openSocketComposition()
         await this.operationQueue
         const recoveryCutoff = this.outbox.getLastAppendOrder()
-        core.load(next.bootstrap.checkpoint)
+        this.bridge.load(next.bootstrap.checkpoint)
         this.recoveryApplyCutoff = recoveryCutoff
         this.recoveryAppliedPublicationIds.clear()
         await this.activateComposition(next)
@@ -669,43 +712,48 @@ class CollaborationSessionController {
   }
 
   private enterDisconnectedEpoch(): void {
-    if (!this.disconnectedEpochActive) {
-      this.disconnectedEpochActive = true
-      this.disconnectedEpoch += 1
-      this.setState({
-        connection: 'disconnected',
-        disconnectedEpoch: this.disconnectedEpoch,
-        notification: Object.freeze({
-          id: `collaboration-disconnected-${this.disconnectedEpoch}`,
-          message:
-            'The document session is offline. Local editing remains available and changes will sync after reconnection.',
-          type: 'disconnected'
-        })
-      })
-      return
-    }
-    this.setState({
-      connection: 'disconnected',
-      disconnectedEpoch: this.disconnectedEpoch
-    })
+    this.transitionConnection('disconnected')
   }
 
   private setConnected(): void {
-    const recovered = this.disconnectedEpochActive
-    this.disconnectedEpochActive = false
     this.clearReconnectTimer()
-    const notification = recovered
-      ? Object.freeze({
-          id: `collaboration-reconnected-${this.disconnectedEpoch}`,
-          message: 'The document session is connected and changes are syncing.',
-          type: 'reconnected' as const
-        })
-      : undefined
-    this.setState({
-      connection: 'connected',
-      ...(notification ? { notification } : {})
-    })
+    this.transitionConnection('connected')
     this.applyOutboxState(this.outbox.getState())
+  }
+
+  private transitionConnection(
+    nextConnection: SettledCollaborationConnectionState
+  ): boolean {
+    const transition = resolveCollaborationConnectionTransition(
+      this.state.connection,
+      nextConnection
+    )
+    if (!transition.changed) return false
+
+    if (nextConnection === 'disconnected') {
+      this.disconnectedEpoch += 1
+    }
+    let notification: CollaborationSessionNotification | undefined
+    if (transition.notificationType === 'disconnected') {
+      notification = Object.freeze({
+        id: `collaboration-disconnected-${this.disconnectedEpoch}`,
+        message:
+          'The document session is offline. Local editing remains available and changes will sync after reconnection.',
+        type: 'disconnected'
+      })
+    } else if (transition.notificationType === 'reconnected') {
+      notification = Object.freeze({
+        id: `collaboration-reconnected-${this.disconnectedEpoch}`,
+        message: 'The document session is connected and changes are syncing.',
+        type: 'reconnected'
+      })
+    }
+    this.setState({
+      connection: transition.connection,
+      disconnectedEpoch: this.disconnectedEpoch,
+      notification
+    })
+    return true
   }
 
   private applyOutboxState(outboxState: PublicationOutboxState): void {
@@ -745,6 +793,15 @@ class CollaborationSessionController {
       ...this.state,
       ...update
     })
+    if (
+      next.connection === this.state.connection &&
+      next.sync === this.state.sync &&
+      next.pendingCount === this.state.pendingCount &&
+      next.disconnectedEpoch === this.state.disconnectedEpoch &&
+      next.notification === this.state.notification
+    ) {
+      return
+    }
     this.state = next
     const nextStatus = this.getStatus()
     if (nextStatus !== previousStatus) {
@@ -785,24 +842,51 @@ export const getActiveCollaborationHandle = ():
   | CollaborationDebugHandle
   | undefined => activeHandle
 
-export const prepareCollaborationDocumentSession = async (
-  mode: CollaborationMode
-): Promise<PreparedCollaborationDocumentSession> => {
+const createCoreCollaborationBridge = (): CoreCollaborationBridge =>
+  Object.freeze({
+    applyRemoteCanonicalChangeSlices: (
+      input: Parameters<
+        CoreCollaborationBridge['applyRemoteCanonicalChangeSlices']
+      >[0]
+    ) => core.applyRemoteCanonicalChangeSlices(input),
+    load: (data: unknown) => core.load(data),
+    subscribeToSharedPublication: (
+      subscriber: Parameters<
+        CoreCollaborationBridge['subscribeToSharedPublication']
+      >[0]
+    ) => core.subscribeToSharedPublication(subscriber)
+  })
+
+const prepareCollaborationController = async (
+  mode: CollaborationMode,
+  bridge: CoreCollaborationBridge
+): Promise<{
+  readonly bootstrap: DocumentSessionBootstrap
+  readonly controller: CollaborationSessionController
+  activate(): Promise<CollaborationDebugHandle>
+}> => {
   idCounter.setNamespace(mode.actorId)
   const applyRemotePublication = createPublicationProcessor({
-    runRemoteTransaction: factory.runRemoteTransaction.bind(factory),
-    runRemoteTransactionProgressively:
-      factory.runRemoteTransactionProgressively.bind(factory),
     decideRemotePublication: (publication) => publication,
-    applyCanonicalChanges: core.applyCanonicalChanges.bind(core),
-    settleRemoteSlice: settleCooperativeRenderSlice
+    applyRemoteCanonicalChangeSlices: (
+      input: AppRemoteCanonicalChangeSlicesInput
+    ) =>
+      bridge.applyRemoteCanonicalChangeSlices({
+        origin: input.origin,
+        // The App wire decoder has already produced the closed canonical
+        // union. This frontend adapter is the only wire-to-Core type boundary.
+        slices: input.slices as Parameters<
+          CoreCollaborationBridge['applyRemoteCanonicalChangeSlices']
+        >[0]['slices']
+      })
   })
   const processRemotePublication = createRemotePublicationHandler(
     applyRemotePublication
   )
   const controller = new CollaborationSessionController(
     mode,
-    processRemotePublication
+    processRemotePublication,
+    bridge
   )
   activeController = controller
   let activationPromise: Promise<CollaborationDebugHandle> | undefined
@@ -811,6 +895,7 @@ export const prepareCollaborationDocumentSession = async (
     const bootstrap = await controller.prepare()
     return {
       bootstrap,
+      controller,
       activate: () => {
         activationPromise ??= controller.activate().catch(async (error) => {
           await controller.dispose().catch(() => undefined)
@@ -833,6 +918,65 @@ export const prepareCollaborationDocumentSession = async (
     delete window.__Collaboration__
     throw error
   }
+}
+
+/**
+ * @deprecated Register createCollaborationDocumentSession(mode) with Core so
+ * Core owns prepare/load/activate/dispose ordering.
+ */
+export const prepareCollaborationDocumentSession = async (
+  mode: CollaborationMode
+): Promise<PreparedCollaborationDocumentSession> => {
+  const prepared = await prepareCollaborationController(
+    mode,
+    createCoreCollaborationBridge()
+  )
+  return {
+    bootstrap: prepared.bootstrap,
+    activate: prepared.activate
+  }
+}
+
+export const createCollaborationDocumentSession = (
+  mode: CollaborationMode
+): CoreCollaborationSession => {
+  let prepared:
+    | Awaited<ReturnType<typeof prepareCollaborationController>>
+    | undefined
+
+  return Object.freeze({
+    prepare: async (bridge: CoreCollaborationBridge) => {
+      if (prepared) {
+        throw new Error('[collaboration] document session is already prepared')
+      }
+      prepared = await prepareCollaborationController(mode, bridge)
+      const checkpoint = prepared.bootstrap.checkpoint
+      return {
+        loadSource: {
+          name: 'SocketDocumentSession',
+          load: async () => checkpoint
+        }
+      }
+    },
+    activate: async () => {
+      if (!prepared) {
+        throw new Error(
+          '[collaboration] document session must be prepared before activation'
+        )
+      }
+      await prepared.activate()
+    },
+    dispose: async () => {
+      const controller = prepared?.controller
+      prepared = undefined
+      if (activeController === controller) {
+        activeController = undefined
+        activeHandle = undefined
+      }
+      delete window.__Collaboration__
+      await controller?.dispose()
+    }
+  })
 }
 
 export const startCollaboration = (

@@ -1,10 +1,10 @@
-import type { CanonicalChange } from '@asyra/core'
 import type {
-  CoreRawData,
+  CanonicalChange,
+  AppDocumentData,
   ElementRawData,
   GroupRawData,
   PropertyComponentRawData
-} from '@asyra/utils'
+} from '../src/collaboration/app-protocol-types'
 
 const fail = (message: string): never => {
   throw new Error(`[document-canonical-reducer] ${message}`)
@@ -16,7 +16,7 @@ const cloneJson = <Value>(value: Value): Value =>
 const sameJson = (left: unknown, right: unknown): boolean =>
   JSON.stringify(left) === JSON.stringify(right)
 
-const createWorkingDocument = (document: CoreRawData): CoreRawData => ({
+const createWorkingDocument = (document: AppDocumentData): AppDocumentData => ({
   ...document,
   sceneTree: {
     ...document.sceneTree,
@@ -30,7 +30,7 @@ const createWorkingDocument = (document: CoreRawData): CoreRawData => ({
 })
 
 const getElement = (
-  document: CoreRawData,
+  document: AppDocumentData,
   elementId: string
 ): ElementRawData | GroupRawData => {
   const element = document.sceneTree.elements[elementId]
@@ -39,7 +39,7 @@ const getElement = (
 }
 
 const getContainerChildren = (
-  document: CoreRawData,
+  document: AppDocumentData,
   parentId: string
 ): readonly string[] => {
   const parent = getElement(document, parentId) as GroupRawData
@@ -50,7 +50,7 @@ const getContainerChildren = (
 }
 
 const setContainerChildren = (
-  document: CoreRawData,
+  document: AppDocumentData,
   parentId: string,
   children: readonly string[]
 ): void => {
@@ -84,7 +84,7 @@ const collectPropertyReferences = (
 }
 
 const removeOwnedProperties = (
-  document: CoreRawData,
+  document: AppDocumentData,
   elements: readonly (ElementRawData | GroupRawData)[]
 ): void => {
   const knownPropertyIds = new Set(Object.keys(document.props))
@@ -110,7 +110,7 @@ const removeOwnedProperties = (
 }
 
 const applyPropertyComponents = (
-  document: CoreRawData,
+  document: AppDocumentData,
   change: Extract<CanonicalChange, { kind: 'property-components' }>
 ): void => {
   for (const record of change.records ?? []) {
@@ -202,7 +202,7 @@ const applyPropertyComponents = (
 }
 
 const applyElementData = (
-  document: CoreRawData,
+  document: AppDocumentData,
   change: Extract<CanonicalChange, { kind: 'element-data' }>
 ): void => {
   for (const entry of change.changes) {
@@ -219,7 +219,7 @@ const applyElementData = (
 }
 
 const applyHierarchyMoves = (
-  document: CoreRawData,
+  document: AppDocumentData,
   change: Extract<CanonicalChange, { kind: 'hierarchy-moves' }>
 ): void => {
   const movingIds = new Set(change.moves.map(({ elementId }) => elementId))
@@ -277,7 +277,7 @@ const applyHierarchyMoves = (
 }
 
 const applySubtreeRemoval = (
-  document: CoreRawData,
+  document: AppDocumentData,
   change: Extract<CanonicalChange, { kind: 'subtree-removal' }>
 ): void => {
   const { removed, elementId, rootParentChildrenAfter } = change.change
@@ -308,7 +308,7 @@ const applySubtreeRemoval = (
 }
 
 const applySubtreeRestore = (
-  document: CoreRawData,
+  document: AppDocumentData,
   change: Extract<CanonicalChange, { kind: 'subtree-restore' }>
 ): void => {
   const { removed, elementId, rootParentChildrenAfter } = change.sceneSnapshot
@@ -333,7 +333,7 @@ const applySubtreeRestore = (
 }
 
 const applyElementCreation = (
-  document: CoreRawData,
+  document: AppDocumentData,
   change: Extract<CanonicalChange, { kind: 'element-creation' }>
 ): void => {
   const parentChildren = [...getContainerChildren(document, change.parentId)]
@@ -361,7 +361,7 @@ const applyElementCreation = (
 }
 
 const applyElementRemoval = (
-  document: CoreRawData,
+  document: AppDocumentData,
   change: Extract<CanonicalChange, { kind: 'element-removal' }>
 ): void => {
   const removalIds = new Set<string>()
@@ -401,9 +401,9 @@ const applyElementRemoval = (
 }
 
 export const applyCanonicalChangesToDocument = (
-  document: CoreRawData,
+  document: AppDocumentData,
   changes: readonly CanonicalChange[]
-): CoreRawData => {
+): AppDocumentData => {
   const working = createWorkingDocument(document)
   for (const change of changes) {
     switch (change.kind) {

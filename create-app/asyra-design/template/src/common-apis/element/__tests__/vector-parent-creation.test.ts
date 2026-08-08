@@ -11,10 +11,8 @@ const mocks = vi.hoisted(() => ({
   patchElementProperties: vi.fn(),
   updateElementProperties: vi.fn(),
   getRenderElementById: vi.fn(),
-  workspaceToElementLocal: vi.fn(),
-  elementLocalToWorkspace: vi.fn(),
-  getVectorRenderLocalPoint: vi.fn(),
-  getVectorRenderWorkspacePoint: vi.fn(),
+  workspaceToElementSource: vi.fn(),
+  elementSourceToWorkspace: vi.fn(),
   runTransaction: vi.fn((operation: () => unknown) => operation())
 }))
 
@@ -23,74 +21,71 @@ vi.mock('@asyra/core', async (importOriginal) => ({
   runTransaction: mocks.runTransaction
 }))
 
-vi.mock('@asyra/preset', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@asyra/preset')>()),
-  getVectorRenderLocalPoint: mocks.getVectorRenderLocalPoint,
-  getVectorRenderWorkspacePoint: mocks.getVectorRenderWorkspacePoint
-}))
-
-vi.mock('../../../contexts', () => ({
-  default: {
-    createElementsInParent: mocks.createElementsInParent,
-    getSystemProperty: mocks.getSystemProperty,
-    patchLocalComputedData: mocks.patchLocalComputedData,
-    patchElementProperties: mocks.patchElementProperties,
-    updateElementProperties: mocks.updateElementProperties
-  },
-  render: {
-    elementLocalToWorkspace: mocks.elementLocalToWorkspace,
-    getElementById: mocks.getRenderElementById,
-    workspaceToElementLocal: mocks.workspaceToElementLocal
-  },
-  sceneTree: {
-    getElementById: vi.fn((elementId: string) => ({
-      getAllComputedData: () =>
-        mocks.getVectorComputedData(elementId) ?? {
+vi.mock('../../../contexts', () => {
+  const getComputed = (elementId: string) =>
+    mocks.getVectorComputedData(elementId) ?? {
+      x: 0,
+      y: 0,
+      width: 20,
+      height: 10,
+      closed: false,
+      pointCoordinateSpace: 'workspace',
+      points: {
+        pointA: {
+          anchorType: 'sharp',
+          handleMode: 'none',
+          id: 'pointA',
+          kind: 'anchor',
           x: 0,
-          y: 0,
-          width: 20,
-          height: 10,
-          closed: false,
-          pointCoordinateSpace: 'workspace',
-          points: {
-            pointA: {
-              anchorType: 'sharp',
-              handleMode: 'none',
-              id: 'pointA',
-              kind: 'anchor',
-              x: 0,
-              y: 0
-            },
-            pointB: {
-              anchorType: 'sharp',
-              handleMode: 'none',
-              id: 'pointB',
-              kind: 'anchor',
-              x: 20,
-              y: 10
-            }
-          },
-          segments: {
-            segmentA: {
-              endId: 'pointB',
-              id: 'segmentA',
-              inControlId: null,
-              outControlId: null,
-              startId: 'pointA'
-            }
-          },
-          networks: {
-            networkA: {
-              closed: false,
-              id: 'networkA',
-              pointIds: ['pointA', 'pointB'],
-              segmentIds: ['segmentA']
-            }
-          }
+          y: 0
+        },
+        pointB: {
+          anchorType: 'sharp',
+          handleMode: 'none',
+          id: 'pointB',
+          kind: 'anchor',
+          x: 20,
+          y: 10
         }
-    }))
+      },
+      segments: {
+        segmentA: {
+          endId: 'pointB',
+          id: 'segmentA',
+          inControlId: null,
+          outControlId: null,
+          startId: 'pointA'
+        }
+      },
+      networks: {
+        networkA: {
+          closed: false,
+          id: 'networkA',
+          pointIds: ['pointA', 'pointB'],
+          segmentIds: ['segmentA']
+        }
+      }
+    }
+  return {
+    default: {
+      createElementsInParent: mocks.createElementsInParent,
+      elementSourceToWorkspace: mocks.elementSourceToWorkspace,
+      getElementComputedData: getComputed,
+      getElementData: (elementId: string) => ({
+        id: elementId,
+        type: 'vector'
+      }),
+      getSystemProperty: mocks.getSystemProperty,
+      hasProjectedElement: (elementId: string) =>
+        Boolean(mocks.getRenderElementById(elementId)),
+      patchLocalComputedData: mocks.patchLocalComputedData,
+      patchElementProperties: mocks.patchElementProperties,
+      projectLocalComputedDataForElements: vi.fn(),
+      updateElementProperties: mocks.updateElementProperties,
+      workspaceToElementSource: mocks.workspaceToElementSource
+    }
   }
-}))
+})
 
 vi.mock('../../selection', () => ({
   selectionApis: {
@@ -124,16 +119,10 @@ describe('Vector direct parent creation', () => {
     mocks.createElementsInParent.mockReturnValue(['vector-1'])
     mocks.getSystemProperty.mockReturnValue(false)
     mocks.getRenderElementById.mockReturnValue({})
-    mocks.workspaceToElementLocal.mockImplementation(
+    mocks.workspaceToElementSource.mockImplementation(
       (_elementId: string, position: { x: number; y: number }) => position
     )
-    mocks.elementLocalToWorkspace.mockImplementation(
-      (_elementId: string, position: { x: number; y: number }) => position
-    )
-    mocks.getVectorRenderLocalPoint.mockImplementation(
-      (_element: object, position: { x: number; y: number }) => position
-    )
-    mocks.getVectorRenderWorkspacePoint.mockImplementation(
+    mocks.elementSourceToWorkspace.mockImplementation(
       (_element: object, position: { x: number; y: number }) => position
     )
   })
@@ -736,28 +725,16 @@ describe('Vector canonical property commit', () => {
         }
       }
     })
-    mocks.getVectorRenderLocalPoint.mockImplementation(
-      (_element: object, position: { x: number; y: number }) => ({
-        x: position.x - 20,
-        y: position.y - 30
-      })
-    )
-    mocks.getVectorRenderWorkspacePoint.mockImplementation(
-      (_element: object, position: { x: number; y: number }) => ({
-        x: position.x + 20,
-        y: position.y + 30
-      })
-    )
-    mocks.elementLocalToWorkspace.mockImplementation(
+    mocks.elementSourceToWorkspace.mockImplementation(
       (_elementId: string, position: { x: number; y: number }) => ({
-        x: position.x + 220,
-        y: position.y + 130
+        x: position.x - 20 + 220,
+        y: position.y - 30 + 130
       })
     )
-    mocks.workspaceToElementLocal.mockImplementation(
+    mocks.workspaceToElementSource.mockImplementation(
       (_elementId: string, position: { x: number; y: number }) => ({
-        x: position.x - 220,
-        y: position.y - 130
+        x: position.x - 220 + 20,
+        y: position.y - 130 + 30
       })
     )
 

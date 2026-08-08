@@ -22,6 +22,16 @@ vi.mock('@asyra/preset', async (importOriginal) => ({
 
 vi.mock('../../../contexts', () => ({
   default: {
+    getElementData: vi.fn((elementId: string) => {
+      const element = mocks.getElementById(elementId)
+      if (!element) {
+        return undefined
+      }
+      return {
+        parentId: element.get('parentId'),
+        type: element.get('type')
+      }
+    }),
     isContainerType: vi.fn((type: string) => type === 'group'),
     removeSubtree: mocks.removeSubtree
   },
