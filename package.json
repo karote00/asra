@@ -45,6 +45,7 @@
     "release:validate": "node scripts/release-validate.js",
     "release:packages": "node scripts/release-package-artifacts.js",
     "release:consumer": "node scripts/release-readiness.js",
+    "release:consumer:registry": "node scripts/release-readiness.js --registry",
     "release:template": "node scripts/release-template-readiness.js",
     "release:records": "node --test scripts/__tests__/release-records.test.mjs && node scripts/release-records.js",
     "release:full": "node scripts/release-full.js",

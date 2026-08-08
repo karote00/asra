@@ -97,6 +97,13 @@ The formal commands require Node.js 24.x to report `READY`. The explicit
 `--allow-unsupported-node` option is local diagnostic evidence only and cannot
 authorize the release decision.
 
+After publication, `yarn release:consumer:registry` derives every Framework
+version from the current package manifests and installs the fixed allowlist
+directly from the public npm registry. It permits no workspace, tarball, link,
+portal, patch, source-directory, or resolution substitution, and records the
+registry lockfile checksums before running the same typecheck, build, and
+behavior gates as the artifact consumer.
+
 ## Generated App Template
 
 Only `create-app/<app>/template` is generated output. The surrounding CLI
