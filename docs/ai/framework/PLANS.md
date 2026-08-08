@@ -70,7 +70,17 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
 - Reference:
   `docs/ai/framework/plans/create-asyra-design-app-release-plan.md`
 
-3. Asyra Framework marketing and documentation website
+3. Root `asyra` family alignment
+
+- Begin only after the applicable Framework `a.b.n` packages and the
+  corresponding create-app CLI release are publicly verified.
+- Manually align root `asyra` to `a.b.0`; never place root in a Changeset.
+- A root `a` or `b` transition requires the user's explicit authorization and
+  does not inherit merge, tag, publish, or deployment authority from either
+  earlier stage.
+- Reference: `docs/ai/framework/rules/release-version-topology.md`
+
+4. Asyra Framework marketing and documentation website
 
 - Build the public Next.js/Tailwind documentation experience after public
   package and create-app contracts are stable.

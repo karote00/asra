@@ -117,6 +117,10 @@
 
 ## Generated Output Standards
 
-- Treat `create-app/*` as generated output, not primary source code.
-- Do not apply manual feature/refactor fixes directly in `create-app/*`.
-- Make changes in source locations (`packages/*`, `apps/*`, and generation scripts), then regenerate.
+- Treat only `create-app/<app>/template` as generated output, not the whole
+  `create-app/<app>` CLI package.
+- Maintain CLI-owned files such as its manifest, executable, tests, and
+  documentation directly in `create-app/<app>`.
+- Do not apply manual feature/refactor fixes directly in the generated template.
+- Make template changes in source locations (`packages/*`, `apps/*`, and
+  generation scripts), then regenerate.

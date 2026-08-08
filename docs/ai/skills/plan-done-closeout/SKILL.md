@@ -1,6 +1,6 @@
 ---
 name: plan-done-closeout
-description: Close a completed framework/app plan by updating concise plan state, moving plan records to completed, appending decision history, and enforcing the required pre-merge Changeset record. Use when user says a plan is DONE and asks for closeout.
+description: Close a completed framework/app plan by updating concise plan state, moving plan records to completed, appending decision history, and enforcing a Framework-only or empty pre-merge Changeset record. Use when user says a plan is DONE and asks for closeout.
 ---
 
 # Skill: plan-done-closeout
@@ -33,9 +33,10 @@ Use this skill when requests include:
 1. Confirm plan scope and owner docs (`docs/ai/framework/*` or `docs/ai/apps/*`).
 2. Locate active plan entry in `PLANS.md` and detailed plan file path.
 3. Locate decision log target (`decisions/releases/unreleased.md` in matching scope).
-4. Inspect the complete PR diff against its base and identify every releasable
-   public workspace materially changed by the PR.
+4. Inspect the complete PR diff against its base and identify every fixed-
+   allowlist Framework package under `packages/*` materially changed by the PR.
 5. Inspect pending `.changeset/*.md` files, excluding `.changeset/README.md`.
+6. Read `docs/ai/framework/rules/release-version-topology.md`.
 
 ## Deterministic Procedure
 
@@ -60,16 +61,23 @@ Use this skill when requests include:
 4. Create the closeout Changeset only after every preceding closeout edit and
    required validation is complete:
 
-- For a PR that materially changes one or more releasable public workspaces,
-  create one ordinary pending Changeset covering every affected releasable
-  workspace with the semver bump justified by the change.
-- For a non-documentation PR that changes no releasable public workspace,
+- For a PR that materially changes one or more fixed-allowlist Framework
+  packages, create one ordinary pending Changeset covering every affected
+  Framework package with the semver bump justified by the change.
+- Never add root `asyra`, a private app, a `create-app/*` CLI package, a
+  generated template, or another workspace as a Changeset release entry.
+- For a non-documentation PR that changes no Framework package,
   create one empty Changeset with `yarn changeset --empty` so the update still
-  has a closeout record without versioning a private or root workspace.
+  has a closeout record without versioning a root, private, CLI, or generated
+  workspace.
 - Use the canonical `yarn changeset` command. Do not use the exceptional
   all-package Changeset generator for ordinary closeout.
 - Review the generated Markdown, then run `yarn changeset status --since
   <base-ref>` and confirm the pending record belongs to the current PR diff.
+- Treat root `asyra` and `create-app/*` CLI versions as manual release owners.
+  Never infer their versions from the PR diff or a Changeset. Any `a` or `b`
+  family change requires explicit user authorization and follows Framework,
+  then CLI, then root ordering.
 
 5. Apply a skip flag only for these explicit exceptions:
 
@@ -114,9 +122,10 @@ Use this skill when requests include:
 - Keep plan status updates concise; avoid rewriting historical details unrelated to this completion.
 - Never edit/delete old decision entries; only append.
 - Keep references absolute within repo doc tree (no ambiguous shorthand).
-- Never use a Changeset to version root `asyra` or a private workspace merely
-  to satisfy this gate; use an empty Changeset when the PR otherwise requires
-  a record but has no releasable public workspace.
+- Never use a Changeset to version root `asyra`, a private workspace, a
+  `create-app/*` CLI package, or a generated template; use an empty Changeset
+  when the PR otherwise requires a record but has no affected Framework
+  package.
 - Never create the closeout Changeset before the implementation, documentation,
   and required gates are complete.
 - Local commits may close completed, validated steps/stages; never push unless

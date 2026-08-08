@@ -89,7 +89,11 @@ The framework guarantees:
   `@asyra/render-engine`; they must not import one another.
 - App-level should use `core.xxx`/approved app APIs, not internal package singletons.
 - Cross-package imports must use `@asyra/package-name`.
-- `create-app/*` is generated output; do not hand-edit it directly.
+- Only `create-app/<app>/template` is generated output; maintain each CLI's
+  package, executable, tests, and documentation in `create-app/<app>` directly.
+- Changesets version only fixed-allowlist Framework packages under
+  `packages/*`; CLI and root versions follow the manual staged contract in
+  `rules/release-version-topology.md`.
 - Pre-release legacy behavior must be upgraded or deleted; do not keep unreleased old flows as product fallbacks. See `rules/pre-release-legacy-removal.md`.
 
 ## Implementation Checklist (Every Change)

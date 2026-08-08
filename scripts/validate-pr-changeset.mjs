@@ -5,12 +5,17 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { FRAMEWORK_RELEASE_PACKAGE_NAMES } from './framework-release-packages.js'
+
 export const CHANGESET_SKIP_FLAGS = Object.freeze({
   DOCS_ONLY: 'changeset-skip:docs-only',
   HOTFIX: 'changeset-skip:hotfix'
 })
 
 const DOCUMENTATION_EXTENSIONS = new Set(['.adoc', '.md', '.mdx', '.rst'])
+const FRAMEWORK_RELEASE_PACKAGE_NAME_SET = new Set(
+  FRAMEWORK_RELEASE_PACKAGE_NAMES
+)
 
 const isChangesetRecord = (filePath) => {
   const normalizedPath = filePath.replaceAll('\\', '/')
@@ -28,6 +33,31 @@ export const isDocumentationFile = (filePath) => {
   const basename = path.posix.basename(normalizedPath)
   if (/^(LICENSE|NOTICE)(\..+)?$/u.test(basename)) return true
   return DOCUMENTATION_EXTENSIONS.has(path.posix.extname(basename))
+}
+
+export const parseChangesetPackageNames = (contents) => {
+  const lines = contents.replaceAll('\r\n', '\n').split('\n')
+  if (lines[0]?.trim() !== '---') {
+    throw new Error('Changeset record must start with YAML frontmatter')
+  }
+
+  const closingIndex = lines.findIndex(
+    (line, index) => index > 0 && line.trim() === '---'
+  )
+  if (closingIndex < 0) {
+    throw new Error('Changeset record is missing closing YAML frontmatter')
+  }
+
+  return lines.slice(1, closingIndex).flatMap((line) => {
+    if (line.trim().length === 0) return []
+    const match = line.match(
+      /^\s*(['"]?)([^'"]+)\1:\s*(patch|minor|major)\s*$/u
+    )
+    if (!match) {
+      throw new Error(`Unsupported Changeset release entry: ${line.trim()}`)
+    }
+    return [match[2].trim()]
+  })
 }
 
 export const validateChangesetCloseout = ({
@@ -51,9 +81,25 @@ export const validateChangesetCloseout = ({
   }
 
   if (pendingChangesets.length > 0) {
+    const invalidReleaseEntries = pendingChangesets.flatMap((record) =>
+      record.packageNames.filter(
+        (packageName) => !FRAMEWORK_RELEASE_PACKAGE_NAME_SET.has(packageName)
+      )
+    )
+    if (invalidReleaseEntries.length > 0) {
+      throw new Error(
+        `Changeset release entries may target only packages/* Framework packages; found ${[
+          ...new Set(invalidReleaseEntries)
+        ]
+          .sort()
+          .join(', ')}`
+      )
+    }
     return Object.freeze({
       mode: 'changeset',
-      records: Object.freeze([...pendingChangesets].sort())
+      records: Object.freeze(
+        pendingChangesets.map((record) => record.fileName).sort()
+      )
     })
   }
 
@@ -166,7 +212,12 @@ if (isDirectInvocation) {
     const pendingChangesets = changedFiles
       .filter(isChangesetRecord)
       .filter((filePath) => fs.existsSync(path.join(repositoryRoot, filePath)))
-      .map((filePath) => path.posix.basename(filePath))
+      .map((filePath) => ({
+        fileName: path.posix.basename(filePath),
+        packageNames: parseChangesetPackageNames(
+          fs.readFileSync(path.join(repositoryRoot, filePath), 'utf8')
+        )
+      }))
     const skipFlags = [...argumentSkipFlags, ...readCiSkipFlags(process.env)]
     const result = validateChangesetCloseout({
       changedFiles,

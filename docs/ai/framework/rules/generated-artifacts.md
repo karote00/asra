@@ -1,18 +1,25 @@
 # Rule: Generated Artifacts
 
-1. `create-app/*` is generated output
+1. `create-app/<app>/template` is generated output
 
-- Do not edit files under `create-app/` directly as part of framework/app implementation work.
+- Do not edit files under a generated template directly as part of
+  framework/app implementation work.
+- The surrounding CLI manifest, executable, tests, and documentation are
+  directly maintained CLI source and are not generated-output owners.
 
 2. Source-of-truth first
 
 - Implement changes in source packages/apps (for example `packages/*`, `apps/*`, scripts/templates source).
-- Regenerate `create-app/*` via the project generation/release scripts after source changes.
+- Regenerate `create-app/<app>/template` via the project generation/release
+  scripts after source changes.
 
 3. PR/Review safety
 
-- If `create-app/*` changes are present, they should be explained as generated sync output.
-- Reject manual-only edits in `create-app/*` that are not traceable to source changes.
+- If `create-app/<app>/template` changes are present, they should be explained
+  as generated sync output.
+- Reject manual-only edits in a generated template that are not traceable to
+  source changes. This restriction does not apply to CLI-owned source above the
+  template.
 
 4. Template sync command (explicit)
 
@@ -21,8 +28,10 @@
   - optional: `yarn release:app:verbose --prod=<app-name>`
 - Verify synchronization without changing the committed template:
   - `yarn release:app:check --prod=<app-name>`
-- Run this when the task explicitly includes template synchronization, or before publishing a new version that must include updated `create-app/*` templates.
-- For normal feature/refactor tasks, avoid touching `create-app/*`.
+- Run this when the task explicitly includes template synchronization, or
+  before publishing a new version that must include updated
+  `create-app/<app>/template` content.
+- For normal feature/refactor tasks, avoid touching generated template content.
 - `release:app:check` generates under project-local `tmp/`, compares file
   contents while excluding build/test outputs and dot-prefixed local runtime
   data directories matching `.*-data`, and removes its temporary output on

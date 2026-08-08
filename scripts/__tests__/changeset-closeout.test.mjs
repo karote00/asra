@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 import {
   CHANGESET_SKIP_FLAGS,
+  parseChangesetPackageNames,
   validateChangesetCloseout
 } from '../validate-pr-changeset.mjs'
 
@@ -20,6 +21,10 @@ const ciWorkflow = fs.readFileSync(
   path.join(repositoryRoot, '.github/workflows/main.yml'),
   'utf8'
 )
+const changesetRecord = (fileName, packageNames = []) => ({
+  fileName,
+  packageNames
+})
 
 test('root and PR validation gates include the closeout Changeset validator', () => {
   assert.match(
@@ -38,7 +43,7 @@ test('ordinary code changes require at least one pending Changeset', () => {
   assert.doesNotThrow(() =>
     validateChangesetCloseout({
       changedFiles: ['packages/core/src/core.ts', '.changeset/core-update.md'],
-      pendingChangesets: ['core-update.md'],
+      pendingChangesets: [changesetRecord('core-update.md', ['@asyra/core'])],
       skipFlags: []
     })
   )
@@ -51,6 +56,59 @@ test('ordinary code changes require at least one pending Changeset', () => {
         skipFlags: []
       }),
     /requires a pending Changeset/
+  )
+})
+
+test('Changeset release entries are limited to Framework packages', () => {
+  for (const packageName of [
+    'create-asyra-design-app',
+    rootManifest.name,
+    '@asyra/asyra-design',
+    '@asyra/not-a-framework-package'
+  ]) {
+    assert.throws(
+      () =>
+        validateChangesetCloseout({
+          changedFiles: ['.changeset/invalid-release.md'],
+          pendingChangesets: [
+            changesetRecord('invalid-release.md', [packageName])
+          ],
+          skipFlags: []
+        }),
+      /only packages\/\* Framework packages/
+    )
+  }
+})
+
+test('non-Framework changes use an empty Changeset record', () => {
+  assert.doesNotThrow(() =>
+    validateChangesetCloseout({
+      changedFiles: [
+        'create-app/asyra-design/bin/index.js',
+        '.changeset/cli-maintenance.md'
+      ],
+      pendingChangesets: [changesetRecord('cli-maintenance.md')],
+      skipFlags: []
+    })
+  )
+})
+
+test('Changeset package parsing supports quoted entries and empty records', () => {
+  assert.deepEqual(
+    parseChangesetPackageNames(`---
+'@asyra/core': patch
+"@asyra/render": minor
+---
+Release note.
+`),
+    ['@asyra/core', '@asyra/render']
+  )
+  assert.deepEqual(
+    parseChangesetPackageNames(`---
+---
+Maintenance record.
+`),
+    []
   )
 })
 

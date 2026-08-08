@@ -50,7 +50,7 @@ test('create-app release Inspector authority and exact owners resolve', () => {
     data.authority.specPath,
     'docs/ai/framework/plans/create-asyra-design-app-release-plan.md'
   )
-  assert.equal(data.steps.length, 11)
+  assert.equal(data.steps.length, 12)
   assert.deepEqual(
     data.steps.map((item) => item.id),
     [
@@ -58,6 +58,7 @@ test('create-app release Inspector authority and exact owners resolve', () => {
       'own-canonical-app-source',
       'transform-generated-template',
       'verify-template-identity',
+      'materialize-cli-version',
       'pack-cli-artifact',
       'invoke-packed-cli',
       'install-generated-app-from-registry',
@@ -174,13 +175,21 @@ test('all Inspector specification anchors resolve', () => {
   })
 })
 
-test('candidate preparation keeps unspecified owner versions unchanged and blocks publication', () => {
+test('CLI version materialization is manual, Framework-independent, and precedes packing', () => {
   const decision = contractText(step('decide-release-versions'))
+  const materialize = contractText(step('materialize-cli-version'))
+  const pack = step('pack-cli-artifact')
   const publication = contractText(step('publish-cli'))
 
-  assert.match(decision, /Framework dependency set.*0\.5\.0/i)
-  assert.match(decision, /root.*private app.*CLI.*unchanged/i)
+  assert.match(decision, /Framework 0\.5\.n dependency set/i)
+  assert.match(decision, /CLI.*0\.5\.0/i)
+  assert.match(decision, /root.*unchanged/i)
   assert.match(decision, /publication.*blocked/i)
+  assert.match(materialize, /manual/i)
+  assert.match(materialize, /0\.5\.0/i)
+  assert.match(materialize, /Changeset/i)
+  assert.match(materialize, /root.*unchanged/i)
+  assert.ok(pack.inputs.includes('artifact:versioned-cli-source'))
   assert.match(publication, /explicit.*CLI version/i)
   assert.match(publication, /clean latest main/i)
   assert.match(publication, /authorization/i)
@@ -195,7 +204,7 @@ test('template is generated-only and registry proof rejects local substitutions'
   assert.match(source, /apps\/asyra-design/i)
   assert.match(transform, /never.*hand-edit/i)
   assert.match(transform, /repository-only.*runtime artifacts/i)
-  assert.match(identity, /0\.5\.0/i)
+  assert.match(identity, /0\.5\.n/i)
   assert.match(identity, /license/i)
   assert.match(
     install,

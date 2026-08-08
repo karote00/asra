@@ -99,7 +99,8 @@ authorize the release decision.
 
 ## Generated App Template
 
-`create-app/*` remains generated output.
+Only `create-app/<app>/template` is generated output. The surrounding CLI
+package remains directly maintained source.
 
 ```bash
 yarn release:app --prod=asyra-design
@@ -154,6 +155,20 @@ validation or publication succeeds or fails.
 These commands do not create changesets and do not authorize a push, tag,
 registry publication, or deployment unless the user explicitly invokes and
 authorizes the corresponding remote operation.
+
+## Release Version Topology
+
+Changesets version only fixed-allowlist Framework packages under `packages/*`.
+Root `asyra`, private apps, `create-app/*` CLI packages, and generated templates
+must never appear as Changeset release entries. A non-Framework code PR may use
+an empty Changeset as its closeout record.
+
+Root `asyra` is the `a.b.0` main release identity. Framework packages iterate
+within that family as `a.b.n`. Changing `a` or `b` requires explicit user
+authorization and runs in the fixed order: public Framework packages and
+registry proof, then the manually versioned create-app CLI, then root `asyra`.
+The complete authority is
+`docs/ai/framework/rules/release-version-topology.md`.
 
 The full ordinary app E2E suite remains an independent CI workflow because its
 product-wide browser contract is broader than package publication. The

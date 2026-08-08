@@ -6,3 +6,12 @@ find the full documentation for it [in our repository](https://github.com/change
 
 We have a quick list of common questions to get you started engaging with this project in
 [our documentation](https://github.com/changesets/changesets/blob/main/docs/common-questions.md)
+
+## Asyra project rule
+
+Changeset release entries may target only fixed-allowlist Framework packages
+under `packages/*`. Root `asyra`, private apps, `create-app/*` CLI packages, and
+generated templates use their own manual version owners and must not be listed
+in Changeset frontmatter. Use an empty Changeset for a required non-Framework
+closeout record. See
+`docs/ai/framework/rules/release-version-topology.md`.

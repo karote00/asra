@@ -2,17 +2,19 @@
 
 ## Status
 
-Queued after the Framework package patch release is completely available and
-verified from the public registry.
+Queued after the applicable Framework `0.5.n` patch set is completely
+available and verified from the public registry.
 
-The user will separately specify the next root `asyra` and private
-`@asyra/asyra-design` versions before this plan changes either version.
+The user selected `create-asyra-design-app@0.5.0` for this CLI release. Root
+`asyra` remains unchanged throughout this plan and moves to `0.5.0` only in the
+later root release stage. The user will separately specify any private
+`@asyra/asyra-design` identity change before this plan changes that version.
 
-The current pre-publication candidate keeps the root, private app, and CLI
-identity versions unchanged while updating the canonical app's Framework
-dependency set to the already published `0.5.0` baseline. Missing identity
-version decisions block publication, not bounded template and clean-consumer
-candidate validation.
+The current pre-materialization candidate keeps root, private app, and CLI
+identity manifests unchanged while updating the canonical app's Framework
+dependency set to the registry-verified `0.5.n` versions. After the generated
+template contract passes, the CLI package is manually materialized at `0.5.0`
+without a Changeset before its final artifact and consumer proof.
 
 ## Goal
 
@@ -38,30 +40,33 @@ Framework package versions, and formally publish
 - Node.js 24 local, CI, and Vercel plan is `READY`.
 - Every required Framework patch version is publicly installable.
 - Registry-only Framework clean consumer passes.
-- The user has specified the next root Asyra and Asyra Design versions.
-- The intended CLI version from the synchronized Changeset is confirmed.
+- Any requested private Asyra Design identity change is explicitly selected;
+  otherwise its current version remains authoritative.
+- The manually owned CLI target is explicitly confirmed as `0.5.0`.
 - Work starts from reviewed, merged, latest `main`.
 
-The root, private app, and CLI identity-version prerequisites must be satisfied
-before the publication segment. They are not permission to infer or materialize
-an identity-version bump during candidate preparation.
+The private app identity decision must be satisfied before a changed private
+app version can enter generation. Root is deliberately deferred until after
+the CLI release. The CLI target is explicit, but it cannot be materialized
+before the generated-template contract passes.
 
 ## Required Inspector
 
 Before implementation, create a create-app release Inspector with one owner
 for:
 
-1. root and Asyra Design version decision;
+1. root, Asyra Design, and CLI version decision;
 2. canonical app source;
 3. generator transformation;
 4. generated template identity and dependency versions;
-5. CLI package artifact;
-6. clean CLI invocation;
-7. registry-only generated-app install;
-8. build/test/startup behavior;
-9. CLI registry publication;
-10. post-publication `npm create` smoke;
-11. release records and final decision.
+5. manual CLI version materialization;
+6. CLI package artifact;
+7. clean CLI invocation;
+8. registry-only generated-app install;
+9. build/test/startup behavior;
+10. CLI registry publication;
+11. post-publication `npm create` smoke;
+12. release records and final decision.
 
 The executable Inspector authority is
 `create-asyra-design-app-release-flow-inspector.data.cjs`. Candidate work must
@@ -70,15 +75,16 @@ their explicit prerequisites and authorization are satisfied.
 
 ## Execution Plan
 
-### 1. Apply user-specified versions
+### 1. Record user-specified versions
 
-- Update root `asyra` and private `@asyra/asyra-design` only to the versions
-  explicitly selected by the user.
-- For the current candidate, keep those identity versions and the CLI identity
-  version unchanged, and update the canonical app's required `@asyra/*`
-  Framework dependencies to exact public `0.5.0`.
-- Confirm the CLI package version produced or selected by the release sequence.
-- Keep Framework package versions equal to the already published patch set.
+- Keep root `asyra` unchanged; it is the final release owner after this CLI
+  plan, never an input to the CLI version transition.
+- Keep private `@asyra/asyra-design` unchanged unless the user explicitly
+  selects another app identity version.
+- Record the CLI target as `create-asyra-design-app@0.5.0`, but keep its
+  manifest unchanged until generated-template verification passes.
+- Update the canonical app's required `@asyra/*` Framework dependencies to the
+  exact registry-verified versions in the public `0.5.n` patch set.
 
 ### 2. Generate the template
 
@@ -86,13 +92,22 @@ their explicit prerequisites and authorization are satisfied.
 - Do not hand-edit generated output.
 - Verify generated `package.json`:
   - version equals canonical Asyra Design version;
-  - required `@asyra/*` dependencies equal publicly available Framework
-    versions;
+  - required `@asyra/*` dependencies equal the registry-verified Framework
+    `0.5.n` versions;
   - no workspace, link, portal, path, tarball, or monorepo alias remains;
   - Node.js 24 and the approved package-manager contract are present.
 - Review the complete generated diff.
 
-### 3. Verify synchronization and CLI artifact
+### 3. Materialize the CLI version
+
+- Only after generated-template identity and dependency verification passes,
+  manually set `create-app/asyra-design/package.json` to `0.5.0`.
+- Do not create a Changeset release entry for the CLI, root, private app, or
+  generated template.
+- Keep root `asyra`, private app identity, and generated-template identity
+  unchanged during CLI materialization.
+
+### 4. Verify synchronization and CLI artifact
 
 - Run the non-mutating template synchronization check.
 - Pack `create-asyra-design-app` itself.
@@ -100,7 +115,7 @@ their explicit prerequisites and authorization are satisfied.
   files, and version.
 - Invoke the packed CLI from a project-local clean directory.
 
-### 4. Run the real user installation path
+### 5. Run the real user installation path
 
 - Let the generated project install its unchanged exact Framework version
   declarations from the public registry.
@@ -111,20 +126,20 @@ their explicit prerequisites and authorization are satisfied.
 - Verify disabled Collaboration and AI create no provider/network/secret/model
   side effects.
 
-### 5. Review and merge the create-app release PR
+### 6. Review and merge the create-app release PR
 
-- Keep root/app version changes, generated output, CLI version/records, and
-  validation changes in reviewable scoped commits.
+- Keep any app identity change, generated output, CLI version/records, and
+  validation changes in reviewable scoped commits; root remains untouched.
 - Do not publish before the PR is reviewed, green, and merged.
 
-### 6. Publish `create-asyra-design-app`
+### 7. Publish `create-asyra-design-app`
 
 - Repack from clean latest `main`.
 - Present the exact CLI tarball, version, checksum, and dependency set.
 - Obtain explicit publication authorization.
 - Publish only the CLI package.
 
-### 7. Verify public CLI behavior
+### 8. Verify public CLI behavior
 
 - Run the documented public `npm create`/`npx` command at the published CLI
   version in a clean directory.
@@ -139,13 +154,16 @@ their explicit prerequisites and authorization are satisfied.
 - The generator requires a manual template repair.
 - The CLI tarball omits required files or includes repository-only state.
 - Real registry install, build, tests, or startup fails.
-- Root, Asyra Design, or CLI identity version has not been explicitly selected
-  when the publication segment begins.
+- The CLI is not exactly `0.5.0`, or a required private Asyra Design identity
+  decision remains unresolved when the publication segment begins.
 - Any P0/P1/P2 finding remains.
 
 ## Definition of Done
 
-- Root Asyra and Asyra Design use the user-selected versions.
+- Root `asyra` remains unchanged for its later final release stage; private
+  Asyra Design uses its unchanged or explicitly selected version.
+- `create-asyra-design-app` is manually materialized and reviewed at `0.5.0`
+  without a Changeset release entry.
 - Generated template version equals Asyra Design version.
 - Generated dependencies resolve only to the published Framework patch set.
 - The packed CLI creates a fully usable clean project through the real user
