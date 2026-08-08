@@ -1,6 +1,6 @@
 {
   "name": "create-asyra-design-app",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "description": "Create a standalone Asyra Design app",
   "license": "MIT",
   "type": "module",
