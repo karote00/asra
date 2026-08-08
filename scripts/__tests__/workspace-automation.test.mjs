@@ -347,7 +347,7 @@ test('AI agent runtime is an optional zero-runtime-dependency workspace package'
   const turbo = readJSON('turbo.json')
 
   assert.equal(runtime.name, '@asyra/ai-agent-runtime')
-  assert.equal(runtime.version, '0.5.0')
+  assert.match(runtime.version, /^\d+\.\d+\.\d+$/u)
   assert.equal(runtime.main, 'dist/index.js')
   assert.equal(runtime.types, 'dist/index.d.ts')
   assert.equal(
@@ -400,26 +400,29 @@ test('dev:all discovers all package watchers without scheduling builds', async (
 })
 
 test('workspace version planning materializes release ranges without changing files', () => {
+  const factoryManifest = readJSON('packages/factory/package.json')
+  const dependencyVersion = factoryManifest.version
+
   assert.equal(
     resolveWorkspaceDependencyRange({
       environment: 'prod',
-      dependencyVersion: '0.2.5'
+      dependencyVersion
     }),
-    '^0.2.5'
+    `^${dependencyVersion}`
   )
   assert.equal(
     resolveWorkspaceDependencyRange({
       environment: 'dev',
-      dependencyVersion: '0.2.5'
+      dependencyVersion
     }),
     'workspace:*'
   )
   assert.equal(
     resolveWorkspaceDependencyRange({
       environment: 'release',
-      dependencyVersion: '0.5.0'
+      dependencyVersion
     }),
-    '0.5.0'
+    dependencyVersion
   )
 
   const plan = createWorkspaceVersionPlan({
@@ -427,6 +430,7 @@ test('workspace version planning materializes release ranges without changing fi
     environment: 'release'
   })
   const appManifest = readJSON('apps/asyra-design/package.json')
+  const collaborationManifest = readJSON('packages/collaboration/package.json')
   const appUpdate = plan.find(
     ({ packageName }) => packageName === '@asyra/asyra-design'
   )
@@ -437,11 +441,14 @@ test('workspace version planning materializes release ranges without changing fi
   assert.equal(appManifest.dependencies['@asyra/collaboration'], 'workspace:*')
   assert.equal(
     appUpdate?.manifest.dependencies['@asyra/collaboration'],
-    '0.5.0'
+    collaborationManifest.version
   )
-  assert.equal(appUpdate?.manifest.devDependencies['@asyra/factory'], '0.5.0')
+  assert.equal(
+    appUpdate?.manifest.devDependencies['@asyra/factory'],
+    factoryManifest.version
+  )
   assert.equal(
     collaborationUpdate?.manifest.dependencies['@asyra/factory'],
-    '0.5.0'
+    factoryManifest.version
   )
 })

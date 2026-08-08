@@ -1,11 +1,11 @@
 # Framework Release Support
 
-This document freezes the public support and migration contract for the
-Framework `0.5.0` release candidate. The historical `0.2.5` Framework Release
-Gate 5 produced a reproducible pre-publication artifact `READY` result, but the
-current `0.5.0` release decision remains `PENDING` until a clean exact source
-commit reproduces the accepted artifacts, publication is authorized, and the
-registry-only consumer passes.
+This document freezes the public support and migration contract for the release
+candidates defined by the current Framework package manifests. Historical
+release-readiness evidence remains reproducible context only; it never supplies
+the current candidate versions. The current release decision remains `PENDING`
+until a clean exact source commit reproduces the accepted artifacts,
+publication is authorized, and the registry-only consumer passes.
 
 The candidate record does not authorize merge, tagging, registry publication,
 deployment, or a formal release.
@@ -89,8 +89,8 @@ connected migration chain described by
 [`app-owned-versioned-load-migration.mjs`](../../../docs/examples/app-owned-versioned-load-migration.mjs).
 Package owners validate their fields before any canonical prefix applies.
 
-These compatibility surfaces remain available in `0.5.0` and are planned for
-removal in the next major release:
+These compatibility surfaces remain available in the current candidate family
+and are planned for removal in the next major release:
 
 | Deprecated surface              | Replacement                                                                   |
 | ------------------------------- | ----------------------------------------------------------------------------- |
@@ -118,7 +118,7 @@ yarn release:records
 The package gate installs only the complete packed tarball set in an isolated,
 project-local consumer. The final release decision additionally requires the
 formal test, dependency, lint, E2E, performance, visual, Inspector, and
-registry-only consumer gates owned by the Framework `0.5.0` release plan.
+registry-only consumer gates owned by the Framework package release plan.
 
 `create-asyra-design-app`, its committed template, root `asyra`, and private
 `@asyra/asyra-design` are excluded from this Framework release. Their
@@ -126,11 +126,13 @@ versioning, template proof, and publication remain separately owned.
 
 ## Publication boundary
 
-Version `0.5.0` is the frozen candidate represented by exactly the 19 Framework
-package manifests. Root `asyra` remains `0.2.5`, private
-`@asyra/asyra-design` remains `0.2.5`, and `create-asyra-design-app` remains
-`0.1.0`. The synchronized Changeset has already been consumed by version
-materialization, so no pending Changeset is expected on the version PR.
+The frozen candidate is represented by exactly the 19 Framework package
+manifests. Root `asyra`, private `@asyra/asyra-design`, and
+`create-asyra-design-app` retain their independently owned manifest versions.
+Release records read those versions from the manifests; documentation does not
+duplicate them as constants. A Changeset may already have been consumed by
+version materialization, so publication readiness never depends on a pending
+Changeset file.
 
 Publication may run from clean `main` or a clean feature-branch source commit
 after artifact checksum reproduction. An explicitly authorized release cut

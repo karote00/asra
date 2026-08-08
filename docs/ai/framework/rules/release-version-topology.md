@@ -56,10 +56,11 @@ During a staged family transition, the existing root manifest may retain its
 older pre-alignment version until the final root stage. That temporary state is
 not permission to patch or infer the root version early.
 
-## Current `0.5` Family Decision
+## Current Staged Family Decision
 
-The authorized large change established Framework `0.5.x` first. The
-`create-asyra-design-app` CLI target is `0.5.0` after its candidate and public
-Framework consumer gates pass. Root `asyra` moves to `0.5.0` only after the CLI
-stage completes. Neither CLI nor root belongs in the Framework patch
-Changeset.
+The current authorized family is read from the Framework package manifests and
+the user-approved release decision; this rule never duplicates the numeric
+family or target version. The applicable create-app CLI target is selected and
+materialized manually after its candidate and public Framework consumer gates
+pass. Root `asyra` aligns to the same family at `a.b.0` only after the CLI stage
+completes. Neither CLI nor root belongs in the Framework Changeset.

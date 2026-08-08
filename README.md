@@ -62,9 +62,10 @@ authorization, or UI behavior.
 
 ## Release support
 
-Framework `0.5.0` is the current release candidate for the 19 public
-`@asyra/*` packages. The historical `0.2.5` Gate 5 artifact result remains
-readiness evidence only. The formal environment is Node.js 24.x and Yarn 4.3.1.
+The current Framework package manifests define the release candidates for the
+19 public `@asyra/*` packages. Historical release-readiness evidence remains
+evidence only and never supplies the current package versions. The formal
+environment is Node.js 24.x and Yarn 4.3.1.
 The release supports the official 2D preset and engine-neutral CUSTOM
 composition; production 3D, HYBRID, auto-layout, and unit-aware aggregation are
 not available in this release.

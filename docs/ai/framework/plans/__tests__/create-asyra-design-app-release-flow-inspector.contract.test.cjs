@@ -175,18 +175,18 @@ test('all Inspector specification anchors resolve', () => {
   })
 })
 
-test('CLI version materialization is manual, Framework-independent, and precedes packing', () => {
+test('CLI version materialization is user-selected, manual, and precedes packing', () => {
   const decision = contractText(step('decide-release-versions'))
   const materialize = contractText(step('materialize-cli-version'))
   const pack = step('pack-cli-artifact')
   const publication = contractText(step('publish-cli'))
 
-  assert.match(decision, /Framework 0\.5\.n dependency set/i)
-  assert.match(decision, /CLI.*0\.5\.0/i)
+  assert.match(decision, /registry-verified Framework dependency versions/i)
+  assert.match(decision, /CLI target.*selected by the user/i)
   assert.match(decision, /root.*unchanged/i)
   assert.match(decision, /publication.*blocked/i)
   assert.match(materialize, /manual/i)
-  assert.match(materialize, /0\.5\.0/i)
+  assert.match(materialize, /selected CLI target/i)
   assert.match(materialize, /Changeset/i)
   assert.match(materialize, /root.*unchanged/i)
   assert.ok(pack.inputs.includes('artifact:versioned-cli-source'))
@@ -196,6 +196,7 @@ test('CLI version materialization is manual, Framework-independent, and precedes
   assert.doesNotMatch(publication, /clean latest main/i)
   assert.doesNotMatch(publication, /reviewed.*merged/i)
   assert.match(publication, /authorization/i)
+  assert.doesNotMatch(JSON.stringify(data), /0\.\d+\.(?:\d+|n)/u)
 })
 
 test('template is generated-only and registry proof rejects local substitutions', () => {
@@ -207,7 +208,7 @@ test('template is generated-only and registry proof rejects local substitutions'
   assert.match(source, /apps\/asyra-design/i)
   assert.match(transform, /never.*hand-edit/i)
   assert.match(transform, /repository-only.*runtime artifacts/i)
-  assert.match(identity, /0\.5\.n/i)
+  assert.match(identity, /manifest version/i)
   assert.match(identity, /license/i)
   assert.match(
     install,

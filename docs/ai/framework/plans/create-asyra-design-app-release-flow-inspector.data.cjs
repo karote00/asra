@@ -24,10 +24,10 @@
       title: 'Decide release versions',
       ownerPackage: 'Create-app release version decision owner',
       purpose:
-        'Record the registry-verified Framework 0.5.n dependency set, keep root asyra unchanged for its later release stage, and record the private Asyra Design identity plus the manually owned create-asyra-design-app 0.5.0 target without coupling those owners.',
+        'Record the registry-verified Framework dependency versions, keep root asyra unchanged for its later release stage, and record the private Asyra Design identity plus the manually owned create-asyra-design-app target without coupling those owners.',
       inputs: [
         'user version instructions',
-        'public Framework 0.5.n registry records',
+        'public manifest-derived Framework registry records',
         'root, app, and CLI manifests'
       ],
       outputs: [
@@ -35,9 +35,9 @@
         'artifact:version-decision-finding'
       ],
       conditions: [
-        'Framework dependencies required by the canonical app are the exact registry-verified public 0.5.n set selected per package.',
+        'Framework dependencies required by the canonical app are the exact registry-verified versions selected per package.',
         'Root asyra remains unchanged throughout this CLI plan; the private app remains unchanged unless the user explicitly selects a replacement.',
-        'The CLI target is explicitly 0.5.0, but its manifest remains unchanged until materialize-cli-version receives artifact:verified-template.',
+        'The CLI target is explicitly selected by the user, but its manifest remains unchanged until materialize-cli-version receives artifact:verified-template.',
         'CLI publication remains blocked until the user explicitly confirms every release identity version required by the release plan.',
         'Cleanup owner: decide-release-versions owns only the release version decision record and manifest edits explicitly selected by the user.'
       ],
@@ -87,7 +87,7 @@
         'artifact:canonical-source-finding'
       ],
       conditions: [
-        'Every direct @asyra Framework dependency used by the app is declared at its exact registry-verified 0.5.n version.',
+        'Every direct @asyra Framework dependency used by the app is declared at its exact registry-verified manifest version.',
         'The canonical app exposes the required typecheck, build, formal-test, and startup routes.',
         'User-facing setup documents server-only AI configuration without placing provider prompt, secret, or model configuration in browser code.',
         'Cleanup owner: own-canonical-app-source owns only canonical app source and active app documentation changes.'
@@ -99,7 +99,7 @@
       allowedContributors: [
         'apps/asyra-design source and tests',
         'active Asyra Design documentation',
-        'public Framework 0.5.n package contracts'
+        'public manifest-derived Framework package contracts'
       ],
       forbiddenContributors: [
         'create-app/asyra-design/template hand edits',
@@ -137,7 +137,7 @@
         'artifact:generator-finding'
       ],
       conditions: [
-        'The generator rewrites @asyra workspace dependencies to the current registry-verified public Framework 0.5.n versions and sets the approved Node.js and Yarn contracts.',
+        'The generator rewrites @asyra workspace dependencies to the current registry-verified public manifest versions and sets the approved Node.js and Yarn contracts.',
         'The generator adds required generated-project files such as README, license, ignore rules, and environment defaults.',
         'Repository-only runtime artifacts, reports, caches, coverage, local state, and secrets are deterministically excluded.',
         'The generated template is never hand-edited; every correction returns to the canonical app, generator, or release configuration owner.',
@@ -176,7 +176,7 @@
       title: 'Verify generated identity and dependencies',
       ownerPackage: 'Generated template contract validator',
       purpose:
-        'Verify that generated identity matches canonical source, every Framework dependency is an exact registry-verified public 0.5.n version, required public files are present, and no forbidden dependency or repository state remains.',
+        'Verify that generated identity matches canonical source, every Framework dependency is an exact registry-verified public manifest version, required public files are present, and no forbidden dependency or repository state remains.',
       inputs: ['artifact:generated-template'],
       outputs: [
         'artifact:verified-template',
@@ -184,7 +184,7 @@
       ],
       conditions: [
         'Generated project version equals the unchanged or explicitly selected canonical app version.',
-        'Every required @asyra dependency equals its exact registry-verified 0.5.n version and no workspace, link, portal, file, tarball, resolution, or monorepo alias remains.',
+        'Every required @asyra dependency equals its exact registry-verified manifest version and no workspace, link, portal, file, tarball, resolution, or monorepo alias remains.',
         'Package metadata, README, license, Node.js 24 contract, Yarn 4.3.1 contract, scripts, and environment examples are complete.',
         'Packed public content excludes caches, build output, reports, local state, governance-only records, and secrets.',
         'Cleanup owner: verify-template-identity owns detached inspection evidence only and never edits generated output.'
@@ -226,7 +226,7 @@
       title: 'Materialize the CLI version',
       ownerPackage: 'create-asyra-design-app manual version owner',
       purpose:
-        'Manually materialize only create-app/asyra-design at the explicitly selected CLI version 0.5.0 after template verification, without using Changesets or mutating root, private app, or generated-template identity.',
+        'Manually materialize only create-app/asyra-design at the explicitly selected CLI target after template verification, without using Changesets or mutating root, private app, or generated-template identity.',
       inputs: [
         'artifact:release-version-scope',
         'artifact:verified-template',
@@ -237,7 +237,7 @@
         'artifact:cli-version-finding'
       ],
       conditions: [
-        'The manually selected CLI target is exactly create-asyra-design-app@0.5.0.',
+        'The manually selected CLI target is exactly create-asyra-design-app at the selected target version.',
         'The CLI manifest is changed only after artifact:verified-template exists and before the final CLI artifact is packed.',
         'No Changeset release entry owns the CLI version; the current Framework Changeset remains limited to packages/*.',
         'Root asyra, private Asyra Design, and generated-template identity remain unchanged.',
@@ -379,14 +379,14 @@
       title: 'Install from the public registry',
       ownerPackage: 'Generated-app registry-only install owner',
       purpose:
-        'Install the generated project exactly as a public user so every @asyra dependency resolves to its selected exact name@0.5.n version from the public npm registry.',
+        'Install the generated project exactly as a public user so every @asyra dependency resolves to its selected exact name@version from the public npm registry.',
       inputs: ['artifact:generated-clean-project', 'public npm registry'],
       outputs: [
         'artifact:registry-installed-project',
         'artifact:registry-install-finding'
       ],
       conditions: [
-        'The generated manifest and lock resolve every required @asyra package at its selected public 0.5.n version.',
+        'The generated manifest and lock resolve every required @asyra package at its selected public manifest version.',
         'No workspace, link, portal, file, tarball, resolutions, local registry override, source-directory install, or hoisted monorepo dependency contributes.',
         'Installed Framework package metadata, integrity, and non-symlinked package locations are recorded.',
         'Cleanup owner: install-generated-app-from-registry owns generated install state and registry evidence until behavior proof completes.'
@@ -483,7 +483,7 @@
       conditions: [
         'The release source is a clean exact source commit and matches the validated candidate checksum and content.',
         'Publication may run from main or a non-main feature branch without making PR merge a prerequisite or a side effect.',
-        'Root remains unchanged; private app and create-app template identity are verified; and CLI release version 0.5.0 is explicit before publication.',
+        'Root remains unchanged; private app and create-app template identity are verified; and selected CLI target is explicit before publication.',
         'Before the first npm publish, the exact manifest and checksum are presented and explicit authorization is received.',
         'Only create-asyra-design-app is published; no Framework, root, private app, or other package is published.',
         'Cleanup owner: publish-cli owns the one irreversible CLI registry operation and its exact registry response.'
@@ -760,7 +760,7 @@
       id: 'candidate-source-generation-case',
       title: 'Canonical source produces a clean public template',
       assertions: [
-        'Canonical app dependencies target the exact registry-verified public Framework 0.5.n patch set.',
+        'Canonical app dependencies target the exact registry-verified public manifest versions.',
         'The official generator produces complete user-facing content and excludes repository-only state without manual output edits.'
       ],
       stepIds: [

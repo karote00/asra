@@ -39,22 +39,22 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
 - Retained Inspector:
   `docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.data.cjs`.
 
-1. Framework package `0.5.0` release
+1. Framework package release
 
-- Record the historical partial public `0.2.5` inventory without publishing
-  the seven missing packages from the current, substantially changed source.
-- For this approved large version realignment, materialize exactly the fixed 19
-  Framework packages at local `0.4.0`, generate one all-package `minor`
-  Changeset, and advance them together to `0.5.0`.
+- Record the historical partial public inventory without reconstructing or
+  publishing an old package version from the current source.
+- Let the reviewed Changeset plan and fixed-allowlist manifests own every
+  selected Framework target version; active plans and validators must not
+  duplicate numeric package versions.
 - Freeze a clean exact source commit on `main` or the release feature branch,
   rebuild the accepted artifacts from that commit, and revalidate the
   publication manifest. Merge is not a publication prerequisite.
-- Publish the 19-package `0.5.0` set through one
-  `changeset publish` operation after the publication checkpoint is accepted.
+- Publish the manifest-derived Framework selection through one canonical
+  Changesets publication operation after the checkpoint is accepted.
   Let Changesets create package Git tags for successful publications, then push
   the verified tags after registry verification.
-- Treat the all-package generator as exceptional. Normal post-`0.5.0`
-  development must add ordinary scoped Changesets as changes are made.
+- Treat the all-package generator as exceptional. Normal development must add
+  ordinary scoped patch Changesets as changes are made.
 - Keep root `asyra` and private `@asyra/asyra-design` unchanged.
 - Keep `create-asyra-design-app` versioning, template regeneration, and
   publication deferred to its later release plan.

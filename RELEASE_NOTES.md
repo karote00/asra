@@ -3,16 +3,15 @@
 This file tracks releases for Asyra. Previous releases under Asyra (v0.1.0,
 etc.) are not included here.
 
-## Framework 0.5.0 pre-publication candidate
+## Framework pre-publication candidate
 
-Framework `0.5.0` is the synchronized candidate for the current 19-package
-Framework source. It was materialized by the explicitly approved large-change
-flow: exact local `0.4.0` baselines followed by one all-package `minor`
-Changeset. The release decision remains `PENDING` until the version PR is
-reviewed and merged, clean latest `main` reproduces the accepted artifacts, the
-publication checkpoint is authorized, and the public-registry consumer passes.
-This candidate record does not authorize merge, tagging, registry publication,
-deployment, or a formal release.
+The fixed 19-package Framework allowlist and current package manifests define
+the candidate versions. Changesets materialization, not release documentation,
+owns those values. The release decision remains `PENDING` until a clean exact
+source commit reproduces the accepted artifacts, the publication checkpoint is
+authorized, and the public-registry consumer passes. This candidate record does
+not authorize merge, tagging, registry publication, deployment, or a formal
+release.
 
 Root `asyra`, private `@asyra/asyra-design`, and
 `create-asyra-design-app` are excluded from this Framework release. The

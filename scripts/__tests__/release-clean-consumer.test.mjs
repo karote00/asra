@@ -11,6 +11,7 @@ import {
   resolveCleanConsumerDirectory,
   verifyCleanConsumer
 } from '../release-readiness.js'
+import { readFrameworkReleaseSource } from '../framework-release-packages.js'
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -21,6 +22,10 @@ const artifactDirectory = path.join(
   repositoryRoot,
   'tmp',
   'framework-release-artifacts'
+)
+const source = readFrameworkReleaseSource({ repositoryRoot })
+const packageVersions = Object.fromEntries(
+  source.packages.map(({ name, version }) => [name, version])
 )
 
 test('clean consumer path is constrained to one project tmp child', () => {
@@ -50,7 +55,7 @@ test('clean consumer replaces every frozen package with one packed artifact', ()
   assert.equal(packageDependencies.length, 19)
   packageDependencies.forEach(([name, specifier]) => {
     assert.match(specifier, /^file:\.\.\/framework-release-artifacts\//)
-    assert.match(specifier, /-0\.5\.0\.tgz$/)
+    assert.ok(specifier.endsWith(`-${packageVersions[name]}.tgz`))
     assert.doesNotMatch(specifier, /packages\/|workspace:|node_modules/)
     assert.ok(name.startsWith('@asyra/'))
     assert.equal(manifest.resolutions[name], specifier)
@@ -95,7 +100,7 @@ test('clean consumer runner owns install, compile, build, test, and cleanup', ()
             fs.mkdirSync(packageDirectory, { recursive: true })
             fs.writeFileSync(
               path.join(packageDirectory, 'package.json'),
-              `${JSON.stringify({ name, version: '0.5.0' })}\n`
+              `${JSON.stringify({ name, version: packageVersions[name] })}\n`
             )
             installedPackageDirectories.push(packageDirectory)
           })

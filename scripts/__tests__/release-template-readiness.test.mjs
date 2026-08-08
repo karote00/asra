@@ -162,8 +162,8 @@ test('registry-installed generated app preserves exact public framework resoluti
     )
     assert.equal(
       evidence.packages.every(
-        ({ version, resolution, checksum }) =>
-          version === '0.5.0' &&
+        ({ name, version, resolution, checksum }) =>
+          version === contract.packageVersions[name] &&
           resolution === 'npm' &&
           checksum.startsWith('test/')
       ),
