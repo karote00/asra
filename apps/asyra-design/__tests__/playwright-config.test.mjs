@@ -84,7 +84,7 @@ test('functional Playwright suites use the installed Google Chrome channel', asy
   })
 })
 
-test('owned E2E servers never ask Vite to open a desktop browser', async () => {
+test('normal startup opens a required file while owned E2E servers never open a desktop browser', async () => {
   const viteSource = await readFile(
     new URL('../vite.config.ts', import.meta.url),
     'utf8'
@@ -94,7 +94,11 @@ test('owned E2E servers never ask Vite to open a desktop browser', async () => {
     viteSource,
     /const opensBrowser = process\.env\.E2E_OWN_SERVERS !== '1'/
   )
-  assert.match(viteSource, /server:\s*\{[\s\S]*open: opensBrowser/)
+  assert.match(
+    viteSource,
+    /const browserOpenTarget = opensBrowser \? '\/\?fileId=my-design' : false/
+  )
+  assert.match(viteSource, /server:\s*\{[\s\S]*open: browserOpenTarget/)
 })
 
 test('ordinary Playwright starts the backend and always-on collaboration service before the App', async () => {
