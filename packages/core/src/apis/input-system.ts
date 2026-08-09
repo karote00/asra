@@ -1,13 +1,11 @@
-import inputSystem, { type InputSystem } from '@asyra/input-system'
+import { switchInputSystemWatchedElement } from '@asyra/reactive-events'
 import { InputSystemRawAPIs } from '../types/index.js'
 
-export const createInputSystemAPIs = (
-  owner: Pick<InputSystem, 'switchWatchedElement'> = inputSystem
-): InputSystemRawAPIs => {
+export const createInputSystemAPIs = (): InputSystemRawAPIs => {
   return {
     setupInputSystem(watchedElement?: HTMLElement) {
       if (watchedElement) {
-        owner.switchWatchedElement(watchedElement)
+        switchInputSystemWatchedElement(watchedElement)
       }
     }
   }

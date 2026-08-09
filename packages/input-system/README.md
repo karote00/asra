@@ -27,13 +27,21 @@ yarn add @asyra/input-system
 
 ## Usage
 
-The default browser singleton listens for raw input. Apps define named events by
-registering typed combinations, then attach and release listeners by callback
-identity:
+Construction is environment-neutral: importing the package or creating an
+`InputSystem` does not read browser globals or attach listeners. Direct browser
+consumers explicitly select a keyboard host and optional pointer target, define
+named events, then attach and release normalized listeners by callback identity:
 
 ```typescript
 import inputSystem, { keyMap } from '@asyra/input-system'
 import { InputType, ModifierKey, PointerKey } from '@asyra/utils'
+
+const canvas = document.querySelector('canvas')
+if (!(canvas instanceof HTMLCanvasElement)) {
+  throw new Error('Expected a canvas input target')
+}
+
+inputSystem.attachBrowserHost(window, canvas)
 
 inputSystem.registry.registerKeyCombinations({
   UNDO: [
@@ -55,11 +63,21 @@ const handleUndo = () => console.log('Undo triggered')
 
 inputSystem.on('UNDO', handleUndo)
 inputSystem.off('UNDO', handleUndo)
+
+// Remove the keyboard, pointer, and wheel listeners owned by this instance.
+inputSystem.detachBrowserHost()
 ```
 
 Event names and combinations are app-owned. Register each event name once for a
 given registry. `off(...)` removes only the supplied listener and returns
 `false` when that listener is not registered.
+
+`switchWatchedElement(element)` moves pointer ownership to that element and
+uses its owning `Window` for keyboard events. `reset()` clears transient input
+state while preserving the current browser attachment; `dispose()` detaches the
+browser host and clears transient state. The default Core visual startup already
+uses the existing watched-element event route, so apps using `@asyra/core` do not
+need to attach the default singleton separately.
 
 ## Contributing
 
@@ -73,8 +91,10 @@ This project is licensed under the MIT License.
 
 ## Release support
 
-The `@asyra/input-system` `0.2.5` ESM artifact supports Node.js 24.x. Use only
-package-root exports. See the
+The `@asyra/input-system` `0.2.5` ESM artifact supports Node.js 24.x. Its public
+entrypoint can be imported and an `InputSystem` can be constructed without DOM
+globals; browser input still requires explicit host attachment. This does not
+declare a public Headless Core runtime. Use only package-root exports. See the
 [Framework release support contract](../../docs/ai/framework/RELEASE_SUPPORT.md).
 
 ## Acknowledgments

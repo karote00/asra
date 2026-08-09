@@ -38,7 +38,8 @@ fallback output, or local package aliasing that a clean consumer cannot use.
 
 The first maintained suite must cover:
 
-1. a minimal headless Core information model with no Render or UI dependency;
+1. a minimal public Core information model using the current supported
+   browser-compatible lifecycle and explicit optional-system boundaries;
 2. a minimal Preset `2D` consumer;
 3. selective Preset defaults, including deterministic dependency expansion;
 4. a custom component, property, and schema;
@@ -48,8 +49,9 @@ The first maintained suite must cover:
 7. a custom render layer or custom render-engine boundary;
 8. two in-memory actors with explicitly composed non-durable Collaboration;
 9. a deterministic prepared AI action through registered app-owned actions;
-10. a headless model queried through app-owned retrieval/index logic and
-    mutated only through registered Feature/API boundaries; and
+10. the canonical model queried through app-owned retrieval/index logic and
+    mutated only through registered Feature/API boundaries inside a currently
+    supported composition; and
 11. one bounded extension of a generated Asyra Design app.
 
 These are composition-flow examples. They may demonstrate multiple packages
@@ -71,7 +73,8 @@ Each example must include:
 - a canonical public-documentation page that explains the example.
 
 Browser-dependent examples must separate runtime mechanics from presentation
-so headless validation remains possible where the product contract permits it.
+so canonical behavior can be tested without relying on pixel output. They must
+not label no-canvas or Node-import evidence as a public Headless Core runtime.
 
 ## Website Handoff
 
@@ -90,7 +93,7 @@ new maintained example with its own tests.
 1. Inventory and classify existing `docs/examples/*` assets.
 2. Freeze the example schema, stable IDs, extraction interface, and Inspector.
 3. Prove package-root-only execution against approved local artifacts.
-4. Add the minimal headless, Preset, and extension-foundation examples.
+4. Add the minimal Core, Preset, and extension-foundation examples.
 5. Add transaction, migration, render, Collaboration, and AI examples.
 6. Add the generated-app bounded extension example.
 7. Add deterministic inventory generation and documentation extraction checks.
@@ -104,7 +107,8 @@ new maintained example with its own tests.
   absent;
 - expected failures prove no partial canonical state or unintended commit;
 - disabled optional systems remain inert;
-- the headless examples prove no Render/UI dependency;
+- no example claims a Headless/Core Kernel lifecycle or no-Render/UI dependency
+  before that future public contract exists;
 - local artifact and final registry-only clean-consumer runs agree;
 - extracted snippets are identical to tested source;
 - public documentation links resolve to stable example IDs; and
@@ -122,8 +126,9 @@ new maintained example with its own tests.
 ## Definition of Done
 
 - The required suite executes and asserts the intended public behavior.
-- Visual and headless, Preset and custom, Collaboration and AI, success and
-  rollback paths are represented without domain overclaiming.
+- Visual and machine-facing browser compositions, Preset and custom,
+  Collaboration and AI, success and rollback paths are represented without
+  domain or future-runtime overclaiming.
 - Every supported public guide code flow maps to a stable executable example or
   a generated API-reference contract.
 - The deterministic inventory is ready for documentation and website use.

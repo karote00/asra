@@ -20,14 +20,14 @@ claims remain generated or provisional until their public owners are verified.
 
 ## Product Definition
 
-Asyra is a deterministic execution kernel and modular infrastructure for
-declarative information-modeling products. Products may be visual, headless,
-or both. A machine-facing product may exist primarily so AI systems and other
-app-owned services can retrieve information and execute registered actions
-without a DOM, render engine, canvas, browser input, or UI activation. The full
-Core package still exposes optional Render/UI facade dependencies; public
-content must not misstate runtime non-activation as an absent npm dependency
-graph.
+Asyra is deterministic, modular infrastructure for declarative
+information-modeling products. The initial release supports the verified
+browser/Core composition and visual product paths. Its long-term direction also
+includes non-visible, machine-facing products built so AI systems and other
+app-owned services can retrieve information and execute registered actions.
+That direction is not yet a public Headless Core or Core Kernel runtime: public
+content must not claim a Node startup lifecycle, no-Render/UI dependency graph,
+or multi-runtime isolation before those contracts exist.
 
 Asyra is not limited to design tools or canvas products. Apps may use it to
 build design tools, whiteboards, BIM systems, VR experiences, industrial
@@ -73,10 +73,10 @@ surface that:
 
 The program is split into nine independently reviewable child plans:
 
-1. [Headless Core Runtime](headless-core-runtime-plan.md) owns the Node-safe
-   Input lifecycle, explicit headless Core composition/startup, and visual
-   compatibility prerequisite required by all public headless claims. It must
-   pass PR CI and direct product-owner testing before merge.
+1. [Input System Environment Neutrality](input-system-environment-neutrality-plan.md)
+   owns DOM-neutral Input/Core imports, explicit browser listener lifecycle,
+   and preservation of existing visual input activation. It must pass PR CI and
+   direct product-owner testing before merge.
 2. [Public README and Entrypoint Alignment](asyra-public-readme-and-entrypoint-alignment-plan.md)
    owns the root, package, Asyra Design, CLI, and generated-app README release
    surfaces through their canonical owners and generation paths.
@@ -143,10 +143,11 @@ boundaries without requiring the complete Asyra Design service stack.
 
 ### Compose a custom product
 
-Experienced consumers may begin with public Framework packages, explicit
-headless Core, Preset `2D`, or profile `CUSTOM`. Headless products whose only
-consumers are app-owned services, automation, or AI retrieval and actions
-remain first-class without visual or browser activation.
+Experienced consumers may begin with public Framework packages, Preset `2D`, or
+profile `CUSTOM` to compose a product around current public contracts.
+Non-visible products whose consumers are app-owned services, automation, or AI
+retrieval/actions remain an important future direction; the website must route
+that topic to the Roadmap instead of inventing a current Headless API.
 
 ## Shared Preset Contract
 
@@ -199,7 +200,7 @@ edits land only through their own reviewed branches.
 Each child task receives a new branch from the latest validated integration-
 branch checkpoint:
 
-1. `codex/asyra-public-release-headless-core`
+1. `codex/asyra-public-release-input-system`
 2. `codex/asyra-public-release-readme`
 3. `codex/asyra-public-release-docs`
 4. `codex/asyra-public-release-examples`
@@ -268,9 +269,10 @@ branch while it remains the active owner task.
 
 ### Dependency Batches
 
-1. Runtime prerequisite: Headless Core Runtime lands only after its focused,
-   integration, PR CI, and product-owner direct-test gates pass. No downstream
-   workstream may freeze a headless API or support claim before that merge.
+1. Runtime prerequisite: Input System Environment Neutrality lands only after
+   its focused, integration, PR CI, and product-owner direct-test gates pass.
+   No downstream workstream may turn Node-safe import into a Headless/Core
+   Kernel support claim.
 2. Foundation batch: README, Public Documentation, Executable Examples, and
    Visual Reimagine may progress in parallel after their shared contract is
    frozen. Examples must land before the final README/documentation content
@@ -293,8 +295,8 @@ branch while it remains the active owner task.
 
 ### Phase 2: Build the evidence foundation
 
-- Complete and directly accept the Headless Core runtime prerequisite before
-  examples or content freeze its public API and support contract.
+- Complete and directly accept the Input System environment prerequisite before
+  examples or content freeze browser lifecycle and Node-import claims.
 - Inventory and prove the executable examples required by README and public
   guides.
 - Freeze documentation metadata, source mapping, link conventions, and the
@@ -375,8 +377,9 @@ Inspector to authorize its edits.
   an approved API-reference source;
 - no public runtime surface imports package-private source or unpublished
   package paths;
-- visible, headless, Preset, App-owned domain, AI-assisted, and optional-system
-  boundaries remain consistent across documentation, Landing, and Atlas;
+- current visual, future non-visible, Preset, App-owned domain, AI-assisted, and
+  optional-system boundaries remain consistent across documentation, Landing,
+  Atlas, and Roadmap;
 - route, anchor, search, source mapping, version, and broken-link checks pass;
 - keyboard, touch, focus, responsive, reduced-motion, contrast, performance,
   and synchronized visual-review gates pass;
@@ -407,8 +410,9 @@ Inspector to authorize its edits.
 
 - All nine child plans and every applicable package/CLI/root release owner are
   complete against one verified release inventory.
-- The public experience explains Asyra as infrastructure for visible and
-  non-visible information-modeling products without overstating built-ins.
+- The public experience explains current visual product composition and the
+  future non-visible information-modeling direction without overstating
+  built-ins or current runtime support.
 - Every public package has usable documentation and every supported tutorial
   flow is backed by maintained executable evidence.
 - Root, all release package, Asyra Design, CLI, and generated-app README
@@ -419,8 +423,9 @@ Inspector to authorize its edits.
 - Landing, documentation, examples, releases, roadmap, Asyra Design, and
   Runtime Atlas surfaces are responsive, accessible, visually accepted, and
   production-built.
-- The Atlas proves real public intent, transaction, canonical owner,
-  projection, optional-composition, failure, and headless paths.
+- The Atlas proves real current public intent, transaction, canonical owner,
+  projection, optional-composition, and failure paths; future Headless/Core
+  Kernel work appears only as Roadmap content until executable support exists.
 - Preview closure passes before any production write.
 - Production deployment is complete only after separate explicit authority and
   deployed verification; publication, tagging, and unrelated release actions

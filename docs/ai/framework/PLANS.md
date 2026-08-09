@@ -6,17 +6,19 @@ This file tracks framework planning topics and points to detailed references.
 
 ## Active Pre-Release Blockers
 
-1. Headless Core runtime
+1. Input System environment neutrality
 
-- Correct Input System's eager browser side effect and add a first-class,
-  Node-safe headless Core composition/startup contract before public examples,
-  documentation, Runtime Atlas, or Landing make headless product claims.
+- Remove Input System's eager browser side effect, add explicit symmetric
+  browser listener ownership, and preserve the existing Core/Asyra Design
+  visual activation route.
+- Node-safe import is not a public Headless Core claim. Headless Core and Core
+  Kernel remain unscheduled post-release targets.
 - This architecture child requires direct product-owner testing and explicit
   approval after its PR CI passes; it cannot auto-merge from green CI.
 - Active plan:
-  `docs/ai/framework/plans/headless-core-runtime-plan.md`.
+  `docs/ai/framework/plans/input-system-environment-neutrality-plan.md`.
 - Inspector:
-  `docs/ai/framework/plans/headless-core-runtime-flow-inspector.data.cjs`.
+  `docs/ai/framework/plans/input-system-environment-neutrality-flow-inspector.data.cjs`.
 
 No active App persistence blocker remains. The completed
 socket-authoritative document-session record is:
@@ -53,10 +55,11 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
 
 - Execute README alignment, public package documentation, executable examples,
   Visual Reimagine, website implementation, and release verification as one
-  coordinated train with separate owners. Complete the Headless Core runtime
-  blocker before executable examples or public content freeze its API claims.
+  coordinated train with separate owners. Complete the Input System environment
+  prerequisite before executable examples or public content freeze browser and
+  Node-import claims.
 - README is not an isolated first task. README, public docs, examples, and
-  visual work begin after the shared public contract and Headless Core runtime
+  visual work begin after the shared public contract and Input System
   prerequisite are accepted, then progress through explicit handoffs.
 - Build the public Next.js/Tailwind website against one exact reviewed release
   candidate before registry publication.
@@ -65,7 +68,7 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
   performance, visual, and Preview gates pass against one exact source commit.
 - Program and child plans:
   - `docs/ai/framework/plans/asyra-framework-website-plan.md`
-  - `docs/ai/framework/plans/headless-core-runtime-plan.md`
+  - `docs/ai/framework/plans/input-system-environment-neutrality-plan.md`
   - `docs/ai/framework/plans/asyra-public-readme-and-entrypoint-alignment-plan.md`
   - `docs/ai/framework/plans/asyra-public-package-documentation-plan.md`
   - `docs/ai/framework/plans/asyra-executable-examples-plan.md`
@@ -124,7 +127,19 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
 
 ## Post-Release Roadmap
 
-1. Official 2D/3D/hybrid preset profiles
+1. Headless Core and Core Kernel (unscheduled)
+
+- Research a truthful non-visible runtime, optional adapter boundary, and
+  runtime-owner model before adding any public API or support claim.
+- The future task must distinguish Node-safe import, one process-scoped
+  non-visible runtime, dependency-neutral kernel composition, and multi-runtime
+  isolation rather than treating all four as “headless.”
+- Future plan:
+  `docs/ai/framework/plans/headless-core-and-core-kernel-future-plan.md`.
+- Research index:
+  `docs/ai/framework/research/headless-core-and-core-kernel-architecture-research.md`.
+
+2. Official 2D/3D/hybrid preset profiles
 
 - Publish a render-mode profile only after its concrete engine and canonical
   feature/property/schema/render/input default modules exist and pass the engine
@@ -134,19 +149,19 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
 - Do not expose empty, placeholder, or capability-incomplete profiles.
 - Reference: `docs/ai/framework/plans/preset-2d-3d-init-profile-plan.md`
 
-2. Auto-layout behavior engine (lowest-priority roadmap family)
+3. Auto-layout behavior engine (lowest-priority roadmap family)
 
 - Advanced optional Preset behavior for design tools; it is not a first-release
   framework requirement.
 - Reference: `docs/ai/framework/plans/auto-layout-behavior-engine-plan.md`
 
-3. Unit-aware property model (auto-layout-oriented)
+4. Unit-aware property model (auto-layout-oriented)
 
 - Support value+unit semantics in schema/aggregates.
 - Keep auto-layout implementation out of this phase.
 - Reference: `docs/ai/framework/plans/unit-conversion-and-ui-aggregation-plan.md`
 
-4. UI aggregate helpers (lowest priority, auto-layout-related)
+5. UI aggregate helpers (lowest priority, auto-layout-related)
 
 - Mixed values and mixed units (`MIX`) helpers.
 - App-level registration remains first-class.

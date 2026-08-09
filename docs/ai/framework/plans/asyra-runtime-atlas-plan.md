@@ -14,8 +14,9 @@ cases, observation contracts, and bounded Definition of Done are ready.
 
 Let visitors operate and inspect the real public Asyra runtime while seeing
 intent, ownership, transaction, canonical state, projection, optional
-composition, and failure evidence. The Atlas must demonstrate that canonical
-information modeling can be visual, headless, or both.
+composition, and failure evidence through currently supported public runtime
+paths. The Atlas may explain the future non-visible direction, but it must not
+simulate or claim a Headless Core/Core Kernel that does not yet exist.
 
 ## Ownership Boundary
 
@@ -57,9 +58,9 @@ Visitors must be able to inspect:
    Collaboration.
 5. A deterministic prepared AI action executing only through registered
    app-owned actions and the ordinary transaction path.
-6. A headless information model with no Render or UI dependency, queried
-   through app-owned retrieval/index logic and mutated only through registered
-   Feature/API boundaries.
+6. One canonical model queried through app-owned retrieval/index logic and
+   mutated only through registered Feature/API boundaries, while the UI
+   distinguishes app-owned machine consumption from future Headless support.
 
 The first visual case may use design-tool geometry, but domain-specific BIM,
 VR, physics, chemistry, simulation, AI retrieval, and action policy remain
@@ -90,7 +91,7 @@ interaction and evidence.
 
 1. Freeze Atlas case schemas, observation model, public API boundary, and
    Inspector.
-2. Prove the headless and canonical-state cases outside presentation.
+2. Prove the machine-consumer and canonical-state cases outside presentation.
 3. Prove transaction, rollback, projection, Collaboration, and AI cases.
 4. Implement deterministic replay, stepping, reset, and evidence views.
 5. Apply the accepted responsive visual and motion specification.
@@ -105,13 +106,15 @@ interaction and evidence.
 - rollback leaves no partial canonical state and continuous input creates one
   intended Undo unit;
 - optional systems are explicitly composed and inert when disabled;
-- the headless case imports and requires no Render/UI package;
+- the machine-consumer case uses current public composition and makes no
+  Headless/Core Kernel or no-Render/UI dependency claim;
 - AI actions use registered app-owned actions and ordinary permission and
   transaction boundaries;
 - keyboard, touch, focus, replay, reset, reduced-motion, and responsive cases
   pass;
 - runtime and rendering performance budgets pass; and
-- visual review inspects default, active, success, failure, and headless states.
+- visual review inspects default, active, success, failure, and future-roadmap
+  disclosure states.
 
 ## Stop Conditions
 
@@ -127,8 +130,8 @@ interaction and evidence.
 - All six cases execute deterministically through public Framework boundaries.
 - Visitors can inspect exact intent, transaction, canonical owner, projection,
   optional-system, bypass, and failure evidence.
-- The headless case proves canonical behavior without Render/UI or a visible
-  product surface.
+- The machine-consumer case proves canonical query/action boundaries without
+  presenting future Headless/Core Kernel behavior as current support.
 - Atlas interactions are responsive, accessible, performant, and visually
   accepted.
 - `/atlas` and its bounded Landing adapter are Preview-ready without claiming
