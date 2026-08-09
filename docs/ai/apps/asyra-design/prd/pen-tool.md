@@ -82,6 +82,11 @@ Users need a vector path workflow that supports creating vectors, appending poin
     frames replace the prior stable-record History candidate. Local History
     must not record the full pointer path or suppress immediate peer
     publication.
+28. Non-pen anchor, `inHandle`, and `outHandle` drags use the same canonical
+    live-drag contract: every effective frame reaches peers before pointer-up,
+    while one gesture-keyed `replace-latest` stage produces one undo/redo
+    action. Pointer-up writes only a genuinely newer final position and never
+    replays the latest applied frame.
 
 ## State Model
 

@@ -2,7 +2,6 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test'
 import { installGeneratedActionBatchInterceptor } from './action-batch-interceptor'
 import {
   createRectangle,
-  createVectorPath,
   dragSelectedElementBy,
   getCanvasPosition,
   getContentsPanel,
@@ -2564,7 +2563,18 @@ test('vector creation and anchor movement converge through the canonical collabo
       captureFactoryPublicationShapes(first)
     ])
 
-    await createVectorPath(first, 0.32, 0.3, 0.18, 0.16)
+    const firstPointClient = await getCanvasPosition(first, 0.32, 0.3)
+    const secondPointClient = await getCanvasPosition(first, 0.5, 0.46)
+    const secondHandleClient = await getCanvasPosition(first, 0.58, 0.38)
+    await first.keyboard.press('p')
+    await first.mouse.click(firstPointClient.x, firstPointClient.y)
+    await first.mouse.move(secondPointClient.x, secondPointClient.y)
+    await first.mouse.down()
+    await first.mouse.move(secondHandleClient.x, secondHandleClient.y, {
+      steps: 8
+    })
+    await first.mouse.up()
+    await first.keyboard.press('v')
     await expect.poll(() => getElementCount(second)).toBe(1)
     await expect
       .poll(() => getCanonicalSnapshot(second))
@@ -2581,7 +2591,10 @@ test('vector creation and anchor movement converge through the canonical collabo
         : undefined
       const anchor = Object.values(computed?.points ?? {}).find(
         (point) =>
-          typeof point === 'object' && point !== null && point.kind === 'anchor'
+          typeof point === 'object' &&
+          point !== null &&
+          point.kind === 'anchor' &&
+          computed?.points?.[`${point.id}:out`]?.kind === 'control'
       ) as { id: string; x: number; y: number } | undefined
       if (!vectorId || !anchor) {
         throw new Error('Created vector has no editable anchor')
@@ -2598,6 +2611,7 @@ test('vector creation and anchor movement converge through the canonical collabo
         vectorId,
         pointId: anchor.id,
         point: { x: anchor.x, y: anchor.y },
+        zoom,
         client: {
           x: (offsetX + anchor.x) * zoom + viewport.x,
           y: (offsetY + anchor.y) * zoom + viewport.y
@@ -2616,9 +2630,31 @@ test('vector creation and anchor movement converge through the canonical collabo
       getUndoDepth(first),
       getUndoDepth(second)
     ])
-    const nextX = before.point.x + 48
-    await pointXInput.fill(String(nextX))
-    await pointXInput.press('Enter')
+    const nextX = before.point.x + 48 / before.zoom
+    await first.mouse.move(before.client.x, before.client.y)
+    await first.mouse.down()
+    await first.mouse.move(before.client.x + 48, before.client.y, { steps: 8 })
+
+    await expect
+      .poll(
+        () =>
+          second.evaluate(async ({ vectorId, pointId }) => {
+            const point = (
+              await import('../src/testing/runtime-access')
+            ).core?.deps?.sceneTree
+              ?.getElementById?.(vectorId)
+              ?.getAllComputedData?.()?.points?.[pointId]
+            return point ? { x: point.x, y: point.y } : null
+          }, before),
+        {
+          message:
+            'the peer must receive canonical anchor frames before pointer-up'
+        }
+      )
+      .toEqual({ x: nextX, y: before.point.y })
+    expect(await getUndoDepth(first)).toBe(firstUndoDepthBefore)
+
+    await first.mouse.up()
 
     try {
       await waitForCanonicalSnapshotsToConverge(first, second)
@@ -2650,7 +2686,7 @@ test('vector creation and anchor movement converge through the canonical collabo
     expect(await getUndoDepth(first)).toBe(firstUndoDepthBefore + 1)
     expect(await getUndoDepth(second)).toBe(secondUndoDepthBefore)
 
-    const canonicalAfter = await getCanonicalSnapshot(first)
+    let canonicalAfter = await getCanonicalSnapshot(first)
     await undo(first)
     await waitForCanonicalSnapshotsToConverge(first, second)
     expect(await getCanonicalSnapshot(first)).toEqual(canonicalBefore)
@@ -2660,6 +2696,89 @@ test('vector creation and anchor movement converge through the canonical collabo
     await waitForCanonicalSnapshotsToConverge(first, second)
     expect(await getCanonicalSnapshot(first)).toEqual(canonicalAfter)
     expect(await getUndoDepth(second)).toBe(secondUndoDepthBefore)
+
+    const handleBefore = await first.evaluate(async ({ vectorId, pointId }) => {
+      const core = (await import('../src/testing/runtime-access')).core
+      const computed = core?.deps?.sceneTree
+        ?.getElementById?.(vectorId)
+        ?.getAllComputedData?.()
+      const handle = computed?.points?.[`${pointId}:out`]
+      if (!handle || handle.kind !== 'control') {
+        throw new Error('Created vector has no editable out-handle')
+      }
+      const zoom = core?.getSystemProperty?.('zoom') ?? 1
+      const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
+        x: 0,
+        y: 0
+      }
+      const usesWorkspacePoints = computed?.pointCoordinateSpace === 'workspace'
+      const offsetX = usesWorkspacePoints ? 0 : (computed?.x ?? 0)
+      const offsetY = usesWorkspacePoints ? 0 : (computed?.y ?? 0)
+      return {
+        point: { x: handle.x, y: handle.y },
+        zoom,
+        client: {
+          x: (offsetX + handle.x) * zoom + viewport.x,
+          y: (offsetY + handle.y) * zoom + viewport.y
+        }
+      }
+    }, before)
+    await first.mouse.click(handleBefore.client.x, handleBefore.client.y)
+    const [handleUndoDepthBefore, peerUndoDepthBefore] = await Promise.all([
+      getUndoDepth(first),
+      getUndoDepth(second)
+    ])
+    const canonicalBeforeHandleDrag = await getCanonicalSnapshot(first)
+    const handleDelta = { x: 30, y: -20 }
+    const expectedHandle = {
+      x: handleBefore.point.x + handleDelta.x / handleBefore.zoom,
+      y: handleBefore.point.y + handleDelta.y / handleBefore.zoom
+    }
+    await first.mouse.move(handleBefore.client.x, handleBefore.client.y)
+    await first.mouse.down()
+    await first.mouse.move(
+      handleBefore.client.x + handleDelta.x,
+      handleBefore.client.y + handleDelta.y,
+      { steps: 8 }
+    )
+
+    await expect
+      .poll(
+        () =>
+          second.evaluate(async ({ vectorId, pointId }) => {
+            const handle = (
+              await import('../src/testing/runtime-access')
+            ).core?.deps?.sceneTree
+              ?.getElementById?.(vectorId)
+              ?.getAllComputedData?.()?.points?.[`${pointId}:out`]
+            return handle ? { x: handle.x, y: handle.y } : null
+          }, before),
+        {
+          message:
+            'the peer must receive canonical handle frames before pointer-up'
+        }
+      )
+      .toEqual({
+        x: expect.closeTo(expectedHandle.x, 6),
+        y: expect.closeTo(expectedHandle.y, 6)
+      })
+    expect(await getUndoDepth(first)).toBe(handleUndoDepthBefore)
+
+    await first.mouse.up()
+    await waitForCanonicalSnapshotsToConverge(first, second)
+    expect(await getUndoDepth(first)).toBe(handleUndoDepthBefore + 1)
+    expect(await getUndoDepth(second)).toBe(peerUndoDepthBefore)
+    canonicalAfter = await getCanonicalSnapshot(first)
+
+    await undo(first)
+    await waitForCanonicalSnapshotsToConverge(first, second)
+    expect(await getCanonicalSnapshot(first)).toEqual(canonicalBeforeHandleDrag)
+    expect(await getUndoDepth(second)).toBe(peerUndoDepthBefore)
+
+    await redo(first)
+    await waitForCanonicalSnapshotsToConverge(first, second)
+    expect(await getCanonicalSnapshot(first)).toEqual(canonicalAfter)
+    expect(await getUndoDepth(second)).toBe(peerUndoDepthBefore)
 
     const remoteDocument = await second.evaluate(async () => {
       const saved = await (

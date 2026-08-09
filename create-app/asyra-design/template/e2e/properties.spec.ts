@@ -149,6 +149,25 @@ test.describe('Property Management', () => {
       return stop?.color ?? null
     }, stopIndex)
 
+  const getSelectedGradientStopPosition = async (
+    page: Page,
+    stopIndex: number
+  ) =>
+    page.evaluate(async (targetStopIndex) => {
+      const core = (await import('../src/testing/runtime-access')).core
+      const selectedId = core?.deps?.selection?.getElementSelectionIds?.()?.[0]
+      if (!selectedId) {
+        return null
+      }
+
+      const element = core?.deps?.sceneTree?.getElementById?.(selectedId)
+      const computed = element?.getAllComputedData?.() ?? {}
+      return (
+        computed?.fills?.[0]?.gradient?.gradientStops?.[targetStopIndex]
+          ?.position ?? null
+      )
+    }, stopIndex)
+
   const getSelectedStrokeCount = async (page: Page) =>
     page.evaluate(async () => {
       const core = (await import('../src/testing/runtime-access')).core
@@ -615,8 +634,14 @@ test.describe('Property Management', () => {
         options: expect.objectContaining({ sharedDelivery: 'immediate' })
       })
     )
+    const previewDeliveryCount = previewDeliveries.length
 
     await page.mouse.up()
+    const finalDeliveries = await page.evaluate(async () => {
+      const { readTestCapture } = await import('../src/testing/runtime-access')
+      return readTestCapture('stroke-preview-deliveries')
+    })
+    expect(finalDeliveries).toHaveLength(previewDeliveryCount)
     await page.evaluate(async () => {
       const { stopTestCapture } = await import('../src/testing/runtime-access')
       stopTestCapture('stroke-preview-deliveries')
@@ -920,8 +945,14 @@ test.describe('Property Management', () => {
         options: expect.objectContaining({ sharedDelivery: 'immediate' })
       })
     )
+    const previewDeliveryCount = previewDeliveries.length
 
     await page.mouse.up()
+    const finalDeliveries = await page.evaluate(async () => {
+      const { readTestCapture } = await import('../src/testing/runtime-access')
+      return readTestCapture('fill-preview-deliveries')
+    })
+    expect(finalDeliveries).toHaveLength(previewDeliveryCount)
     await page.evaluate(async () => {
       const { stopTestCapture } = await import('../src/testing/runtime-access')
       stopTestCapture('fill-preview-deliveries')
@@ -966,9 +997,98 @@ test.describe('Property Management', () => {
     expect(await getSelectedGradientStopColor(page, 1)).toBe('#00ff00')
   })
 
+  test('gradient strip stop drag publishes canonical frames without a mouse-up replay', async ({
+    page
+  }) => {
+    const browserErrors: string[] = []
+    page.on('pageerror', (error) => browserErrors.push(error.message))
+    page.on('console', (message) => {
+      if (message.type() === 'error') {
+        browserErrors.push(message.text())
+      }
+    })
+    await createRectangle(page, 0.3, 0.3)
+
+    const propertiesPanel = getPropertiesPanel(page)
+    await propertiesPanel
+      .getByTestId('prop-fill-color-picker-0-trigger')
+      .click()
+    await page.getByTestId('prop-fill-mode-gradient-0').click()
+    await page.waitForTimeout(120)
+
+    const initialPosition = await getSelectedGradientStopPosition(page, 1)
+    expect(initialPosition).not.toBeNull()
+    const before = await getTransactionSnapshot(page)
+    const strip = page.getByTestId('prop-fill-gradient-strip-0')
+    const stop = page.getByTestId('prop-fill-gradient-stop-0-1')
+    const stripBox = await strip.boundingBox()
+    const stopBox = await stop.boundingBox()
+    expect(stripBox).not.toBeNull()
+    expect(stopBox).not.toBeNull()
+    if (!stripBox || !stopBox) {
+      return
+    }
+
+    await page.evaluate(async () => {
+      const { startSharedChannelCapture } = await import(
+        '../src/testing/runtime-access'
+      )
+      startSharedChannelCapture('gradient-strip-preview-deliveries', 'props')
+    })
+    await page.mouse.move(stopBox.x + stopBox.width / 2, stopBox.y + 8)
+    await page.mouse.down()
+    await page.mouse.move(stripBox.x + stripBox.width * 0.65, stopBox.y + 8, {
+      steps: 8
+    })
+    await page.waitForTimeout(120)
+
+    expect(browserErrors).toEqual([])
+    const duringPosition = await getSelectedGradientStopPosition(page, 1)
+    expect(duringPosition).not.toBe(initialPosition)
+    const during = await getTransactionSnapshot(page)
+    expect(during.undoCount).toBe(before.undoCount)
+    expect(during.isTransacting).toBeGreaterThan(0)
+    const previewDeliveries = await page.evaluate(async () => {
+      const { readTestCapture } = await import('../src/testing/runtime-access')
+      return readTestCapture('gradient-strip-preview-deliveries')
+    })
+    expect(previewDeliveries).toContainEqual(
+      expect.objectContaining({
+        options: expect.objectContaining({ sharedDelivery: 'immediate' })
+      })
+    )
+
+    await page.mouse.up()
+    const finalDeliveries = await page.evaluate(async () => {
+      const { readTestCapture } = await import('../src/testing/runtime-access')
+      return readTestCapture('gradient-strip-preview-deliveries')
+    })
+    expect(finalDeliveries).toHaveLength(previewDeliveries.length)
+    await page.evaluate(async () => {
+      const { stopTestCapture } = await import('../src/testing/runtime-access')
+      stopTestCapture('gradient-strip-preview-deliveries')
+    })
+    await page.waitForTimeout(160)
+
+    const after = await getTransactionSnapshot(page)
+    expect(after.undoCount).toBe(before.undoCount + 1)
+    expect(after.isTransacting).toBe(0)
+
+    await undo(page)
+    await page.waitForTimeout(160)
+    expect(await getSelectedGradientStopPosition(page, 1)).toBe(initialPosition)
+  })
+
   test('gradient stop color picker drag keeps one active transaction and commits on mouse up', async ({
     page
   }) => {
+    const browserErrors: string[] = []
+    page.on('pageerror', (error) => browserErrors.push(error.message))
+    page.on('console', (message) => {
+      if (message.type() === 'error') {
+        browserErrors.push(message.text())
+      }
+    })
     await createRectangle(page, 0.3, 0.3)
 
     const propertiesPanel = getPropertiesPanel(page)
@@ -1005,13 +1125,14 @@ test.describe('Property Management', () => {
     await page.mouse.down()
     await page.mouse.move(
       paletteBox.x + paletteBox.width - 22,
-      paletteBox.y + paletteBox.height - 24,
+      paletteBox.y + 24,
       {
         steps: 6
       }
     )
     await page.waitForTimeout(120)
 
+    expect(browserErrors).toEqual([])
     const duringDrag = await getTransactionSnapshot(page)
     expect(duringDrag.undoCount).toBe(before.undoCount)
     expect(duringDrag.isTransacting).toBeGreaterThan(0)
@@ -1026,8 +1147,14 @@ test.describe('Property Management', () => {
         options: expect.objectContaining({ sharedDelivery: 'immediate' })
       })
     )
+    const previewDeliveryCount = previewDeliveries.length
 
     await page.mouse.up()
+    const finalDeliveries = await page.evaluate(async () => {
+      const { readTestCapture } = await import('../src/testing/runtime-access')
+      return readTestCapture('gradient-stop-preview-deliveries')
+    })
+    expect(finalDeliveries).toHaveLength(previewDeliveryCount)
     await page.evaluate(async () => {
       const { stopTestCapture } = await import('../src/testing/runtime-access')
       stopTestCapture('gradient-stop-preview-deliveries')

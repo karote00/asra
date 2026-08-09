@@ -6,8 +6,12 @@ import {
 } from '@asyra/utils'
 import { isEqual } from 'lodash'
 import { useEffect, useMemo, useRef } from 'react'
-import { strokeApis, type StrokePatch } from '../../common-apis'
-import { ALLOWED_COLOR_FORMATS, STROKE_PATCH_KEYS } from '../../constants'
+import {
+  strokeApis,
+  transactionApis,
+  type StrokePatch
+} from '../../common-apis'
+import { ALLOWED_COLOR_FORMATS } from '../../constants'
 import { parseFiniteInputNumber } from '../number-input'
 import {
   endInteractionTransaction,
@@ -33,18 +37,13 @@ const applyStrokePatch = (
   fill: patch.fill ?? sourceStroke.fill
 })
 
-const getChangedStrokePatch = (
-  sourceStroke: StrokeAttrs,
-  nextStroke: StrokeAttrs
-): StrokePatch =>
-  STROKE_PATCH_KEYS.reduce<StrokePatch>((patch, key) => {
-    const nextValue = nextStroke[key]
-    if (!isEqual(sourceStroke[key], nextValue)) {
-      Object.assign(patch, { [key]: nextValue })
-    }
-
-    return patch
-  }, {})
+const STROKE_COLOR_PICKER_DRAG_OPTIONS: EVENT_OPTIONS = {
+  sharedDelivery: 'immediate',
+  history: {
+    mode: 'replace-latest',
+    key: 'stroke-color-picker:value'
+  }
+}
 
 const createFillPatch = (
   sourceStroke: StrokeAttrs,
@@ -110,7 +109,6 @@ export const useStrokeInteractions = ({
 }: UseStrokeInteractionsArgs) => {
   const colorPickerTransactionRef = useRef(false)
   const pickerStrokeRef = useRef<StrokeAttrs | null>(stroke)
-  const pickerStartStrokeRef = useRef<StrokeAttrs | null>(null)
   const pickerLatestStrokeRef = useRef<StrokeAttrs | null>(null)
 
   useEffect(() => {
@@ -172,7 +170,9 @@ export const useStrokeInteractions = ({
     opacity: number,
     options?: EVENT_OPTIONS
   ) => {
-    const sourceStroke = pickerStrokeRef.current
+    const sourceStroke = colorPickerTransactionRef.current
+      ? (pickerLatestStrokeRef.current ?? pickerStrokeRef.current)
+      : pickerStrokeRef.current
     if (!sourceStroke) {
       return null
     }
@@ -185,10 +185,18 @@ export const useStrokeInteractions = ({
   }
 
   const startStrokeInteractionTransaction = () => {
+    const wasActive = colorPickerTransactionRef.current
     startInteractionTransaction(
       colorPickerTransactionRef,
       pickerStrokeRef.current !== null
     )
+    if (!wasActive && colorPickerTransactionRef.current) {
+      transactionApis.configureSharedDeliverySequence({
+        mode: 'atomic',
+        batchPublications: false,
+        slices: []
+      })
+    }
   }
 
   const endStrokeInteractionTransaction = () => {
@@ -263,10 +271,11 @@ export const useStrokeInteractions = ({
     opacity: number
   }) => {
     if (colorPickerTransactionRef.current) {
-      writePickerStroke(next.color, next.opacity, {
-        undoable: false,
-        sharedDelivery: 'immediate'
-      })
+      writePickerStroke(
+        next.color,
+        next.opacity,
+        STROKE_COLOR_PICKER_DRAG_OPTIONS
+      )
       return
     }
 
@@ -279,7 +288,6 @@ export const useStrokeInteractions = ({
       return
     }
 
-    pickerStartStrokeRef.current = currentStroke
     pickerLatestStrokeRef.current = currentStroke
     startStrokeInteractionTransaction()
   }
@@ -292,25 +300,11 @@ export const useStrokeInteractions = ({
       return
     }
 
-    const startStroke = pickerStartStrokeRef.current
-    const finalPatch = startStroke
-      ? createPickerPatch(startStroke, next.color, next.opacity)
-      : null
-    const finalStroke =
-      startStroke && finalPatch
-        ? applyStrokePatch(startStroke, finalPatch)
-        : pickerLatestStrokeRef.current
-
-    if (startStroke && finalStroke && !isEqual(startStroke, finalStroke)) {
-      commitStrokePatch(
-        getChangedStrokePatch(finalStroke, startStroke),
-        { undoable: false },
-        finalStroke
-      )
-      commitStrokePatch(finalPatch ?? {}, undefined, startStroke)
-    }
-
-    pickerStartStrokeRef.current = null
+    writePickerStroke(
+      next.color,
+      next.opacity,
+      STROKE_COLOR_PICKER_DRAG_OPTIONS
+    )
     pickerLatestStrokeRef.current = null
     endStrokeInteractionTransaction()
   }

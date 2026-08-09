@@ -135,6 +135,12 @@
 - curve handles are selectable targets and feed point target data to the property panel
 - moving an anchor point translates that anchor's `inHandle` and `outHandle` by the same delta (handle geometry follows anchor translation)
 - dragging a selected `inHandle`/`outHandle` updates only that handle position and keeps the handle target selected
+- non-pen anchor and handle drag begins one unbatched transaction; every
+  effective position is canonical, uses `sharedDelivery: 'immediate'`, and
+  enters one `select-vector-point:target-position` `replace-latest` History
+  stage. The peer therefore receives live frames before pointer-up, while
+  pointer-up writes only a newer final position and the gesture remains one
+  undo/redo action
 - switching handle mode to `none` removes mirroring constraints but keeps existing handle nodes and path geometry
 - when handle mode is `mirror-angle`, dragging a handle mirrors the opposite handle angle while preserving its original length
 - when handle mode is `mirror-angle-length`, dragging a handle mirrors both angle and length of the opposite handle
@@ -155,11 +161,12 @@ editing-mode decision.
 This ordinary interruption follows the Feature System `commit-current` policy
 and does not invoke session `onCancel`. `onCancel` is reserved for a true forced
 rollback such as a handler failure or timeout. In that path, Pen and
-SelectVectorPoint clear the affected vector's App-owned transient
-topology/computed caches, then reproject current canonical Props through Core's
-local computed route before runtime and cursor cleanup returns. That restore is
-local-only and produces no Undo action, shared publication, CRDT data, or
-persistence snapshot.
+SelectVectorPoint clear any affected App-owned transient topology/computed
+cache, then reproject current canonical Props through Core's local computed
+route before runtime and cursor cleanup returns. Ordinary anchor/handle drag
+frames are canonical rather than transient; Factory rollback owns their
+restoration. The cleanup itself is local-only and produces no Undo action,
+shared publication, CRDT data, or persistence snapshot.
 
 Handled by `cancelPenEditing`:
 

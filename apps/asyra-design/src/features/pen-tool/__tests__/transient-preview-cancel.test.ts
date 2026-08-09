@@ -66,6 +66,7 @@ const mocks = vi.hoisted(() => ({
   setHoveredVectorSegmentInsertPoint: vi.fn(),
   configureSharedDeliverySequence: vi.fn(),
   updateVectorAnchorPointHandles: vi.fn(() => true),
+  updateVectorAnchorPointHandlePosition: vi.fn(() => true),
   updateVectorAnchorPointPosition: vi.fn(() => true)
 }))
 
@@ -93,6 +94,8 @@ vi.mock('../../../common-apis', () => ({
     getVectorAnchorPointHandleMode: mocks.getVectorAnchorPointHandleMode,
     hasMovedBeyondThreshold: mocks.hasMovedBeyondThreshold,
     updateVectorAnchorPointHandles: mocks.updateVectorAnchorPointHandles,
+    updateVectorAnchorPointHandlePosition:
+      mocks.updateVectorAnchorPointHandlePosition,
     updateVectorAnchorPointPosition: mocks.updateVectorAnchorPointPosition
   },
   selectionApis: {},
@@ -179,7 +182,7 @@ describe('Pen Tool transient preview cancellation', () => {
     ).toBeLessThan(mocks.resetCanvasCursor.mock.invocationCallOrder[0])
   })
 
-  it('commits an existing vector point drag through immediate shared delivery on pointer-up', () => {
+  it('never fabricates a vector point frame from pointer-up coordinates', () => {
     const session = mocks.definitions.get(
       FeatureNames.SELECT_VECTOR_POINT
     )?.session
@@ -187,7 +190,7 @@ describe('Pen Tool transient preview cancellation', () => {
     session?.onEnd?.(
       {
         mouseDragStart: { x: 20, y: 30 },
-        mousePosition: { x: 50, y: 60 }
+        mousePosition: { x: 51, y: 61 }
       },
       {
         dragTarget: {
@@ -203,28 +206,11 @@ describe('Pen Tool transient preview cancellation', () => {
       }
     )
 
-    expect(mocks.updateVectorAnchorPointPosition).toHaveBeenLastCalledWith(
-      'selected-vector',
-      'point-a',
-      { x: 40, y: 50 },
-      {
-        undoable: true,
-        sharedDelivery: 'immediate',
-        skipResult: true
-      }
-    )
-    expect(mocks.discardTransientVectorPreviews).toHaveBeenCalledWith([
-      'selected-vector'
-    ])
-    expect(
-      mocks.discardTransientVectorPreviews.mock.invocationCallOrder[0]
-    ).toBeLessThan(
-      mocks.updateVectorAnchorPointPosition.mock.invocationCallOrder.at(-1) ??
-        Number.POSITIVE_INFINITY
-    )
+    expect(mocks.updateVectorAnchorPointPosition).not.toHaveBeenCalled()
+    expect(mocks.discardTransientVectorPreviews).not.toHaveBeenCalled()
   })
 
-  it('keeps existing vector point drag updates in the local transient preview', () => {
+  it('publishes existing vector anchor drag frames immediately while replacing only local History', () => {
     const session = mocks.definitions.get(
       FeatureNames.SELECT_VECTOR_POINT
     )?.session
@@ -254,9 +240,55 @@ describe('Pen Tool transient preview cancellation', () => {
       'point-a',
       { x: 40, y: 50 },
       {
-        undoable: false,
-        transientPreview: true,
-        skipResult: true
+        sharedDelivery: 'immediate',
+        skipResult: true,
+        history: {
+          mode: 'replace-latest',
+          key: 'select-vector-point:target-position'
+        }
+      }
+    )
+  })
+
+  it('uses the same canonical immediate History contract for vector handle drag frames', () => {
+    const session = mocks.definitions.get(
+      FeatureNames.SELECT_VECTOR_POINT
+    )?.session
+
+    session?.onUpdate?.(
+      {
+        mouseDragStart: { x: 20, y: 30 },
+        mousePosition: { x: 50, y: 60 },
+        mouseDragging: true
+      },
+      {
+        dragTarget: {
+          elementId: 'selected-vector',
+          pointId: 'point-a',
+          index: 0,
+          target: 'outHandle',
+          dragStartWorkspacePos: { x: 20, y: 30 },
+          initialTargetPos: { x: 15, y: 25 },
+          hasMoved: false
+        },
+        runtimeBefore
+      }
+    )
+
+    expect(
+      mocks.updateVectorAnchorPointHandlePosition
+    ).toHaveBeenLastCalledWith(
+      'selected-vector',
+      'point-a',
+      'outHandle',
+      { x: 45, y: 55 },
+      {
+        sharedDelivery: 'immediate',
+        skipResult: true,
+        history: {
+          mode: 'replace-latest',
+          key: 'select-vector-point:target-position'
+        }
       }
     )
   })

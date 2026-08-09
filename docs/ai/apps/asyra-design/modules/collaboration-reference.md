@@ -324,8 +324,10 @@ document-session contract.
    same required ordinary `fileId` URL in two windows. Both windows use the same
    authoritative document-session flow.
 4. Verify create, delete, drag, drag-to-create, vector edits, undo, and redo.
-   For pen drag-to-add, verify the peer receives the real point/segment on
-   mouse-down and curve-handle changes during drag, before pointer-up.
+   For every canonical live drag, verify the peer receives effective frames
+   before pointer-up and the origin records one undo action. This includes Pen
+   drag-to-add topology/curve handles, non-Pen vector anchors/handles, canvas
+   gradient handles/stops, and fill/stroke/gradient-stop color pickers.
 5. Perform a local action, Undo, and Redo. Reload the originating browser and
    verify socket bootstrap restores the backend checkpoint plus pending tail
    without creating a duplicate collaboration publication.

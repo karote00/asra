@@ -194,7 +194,7 @@ export const createPointHandleComputedPatchIntent = ({
       currentWorkspacePos.y -
       dragTarget.dragStartWorkspacePos.y
   }
-  const undoable = phase === 'commit'
+  const undoable = true
 
   return {
     kind: 'point-handle-computed-patch-intent',

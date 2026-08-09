@@ -100,8 +100,14 @@ test.describe('Gradient Fill Handles', () => {
         options: expect.objectContaining({ sharedDelivery: 'immediate' })
       })
     )
+    const previewDeliveryCount = previewDeliveries.length
 
     await page.mouse.up()
+    const finalDeliveries = await page.evaluate(async () => {
+      const { readTestCapture } = await import('../src/testing/runtime-access')
+      return readTestCapture('gradient-preview-deliveries')
+    })
+    expect(finalDeliveries).toHaveLength(previewDeliveryCount)
     await page.evaluate(async () => {
       const { stopTestCapture } = await import('../src/testing/runtime-access')
       stopTestCapture('gradient-preview-deliveries')

@@ -1,7 +1,7 @@
 import { defineFeature } from '@asyra/core'
-import { isEqual } from 'lodash'
 import {
   clampUnit,
+  type EVENT_OPTIONS,
   type FillAttrs,
   type FillGradientData,
   type FillGradientStop,
@@ -13,7 +13,8 @@ import {
   elementApis,
   fillApis,
   selectionApis,
-  systemContextApis
+  systemContextApis,
+  transactionApis
 } from '../../common-apis'
 import type { GradientHandleGeometry } from '../../common-apis/fills'
 import type {
@@ -61,6 +62,22 @@ interface GradientStopDragState extends Record<string, unknown> {
 }
 
 const DRAG_EPSILON = 0.0001
+
+const GRADIENT_HANDLE_DRAG_OPTIONS = {
+  sharedDelivery: 'immediate',
+  history: {
+    mode: 'replace-latest',
+    key: 'gradient-fill-handle:geometry'
+  }
+} as const satisfies EVENT_OPTIONS
+
+const GRADIENT_STOP_DRAG_OPTIONS = {
+  sharedDelivery: 'immediate',
+  history: {
+    mode: 'replace-latest',
+    key: 'gradient-fill-stop:position'
+  }
+} as const satisfies EVENT_OPTIONS
 
 const hasMovedBeyondWorkspaceThreshold = (
   start: PositionData,
@@ -227,7 +244,7 @@ const applyHandleDragUpdate = (
     state.currentFill,
     'gradient',
     nextGradient,
-    { undoable: false, sharedDelivery: 'immediate' }
+    GRADIENT_HANDLE_DRAG_OPTIONS
   )
 
   state.latestGradient = nextGradient
@@ -319,7 +336,7 @@ const applyStopDragUpdate = (
     state.currentFill,
     'gradient',
     nextGradient,
-    { undoable: false, sharedDelivery: 'immediate' }
+    GRADIENT_STOP_DRAG_OPTIONS
   )
 
   state.latestGradient = nextGradient
@@ -495,6 +512,11 @@ export const dragGradientHandleFeature = defineFeature<
       if (!dragStartWorkspacePos) {
         return null
       }
+      transactionApis.configureSharedDeliverySequence({
+        mode: 'atomic',
+        batchPublications: false,
+        slices: []
+      })
 
       const previousSelectedHandle =
         systemContextApis.getSelectedGradientHandle()
@@ -566,35 +588,6 @@ export const dragGradientHandleFeature = defineFeature<
       if (!state.isDragging) {
         return
       }
-
-      const currentFill = state.currentFill
-      const finalGradient = state.latestGradient
-      if (!currentFill?.gradient || !finalGradient) {
-        return
-      }
-
-      if (isEqual(state.initialGradient, finalGradient)) {
-        return
-      }
-
-      fillApis.updateFillField(
-        state.elementId,
-        state.fillId,
-        currentFill,
-        'gradient',
-        state.initialGradient,
-        { undoable: false }
-      )
-      fillApis.updateFillField(
-        state.elementId,
-        state.fillId,
-        {
-          ...currentFill,
-          gradient: state.initialGradient
-        },
-        'gradient',
-        finalGradient
-      )
     },
     onCancel: (_snapshot, state): undefined => {
       cancelHandleDragUpdate(state)
@@ -637,6 +630,12 @@ export const dragGradientStopFeature = defineFeature<
 
       const previousSelectedStop = systemContextApis.getSelectedGradientStop()
       const previousHoveredStop = systemContextApis.getHoveredGradientStop()
+
+      transactionApis.configureSharedDeliverySequence({
+        mode: 'atomic',
+        batchPublications: false,
+        slices: []
+      })
 
       systemContextApis.setSelectedGradientStop({
         ...activeGradientFill,
@@ -696,36 +695,6 @@ export const dragGradientStopFeature = defineFeature<
       if (!state.isDragging) {
         return
       }
-
-      const currentFill = state.currentFill
-      const finalGradient = state.latestGradient
-      if (!currentFill?.gradient || !finalGradient) {
-        return
-      }
-
-      if (isEqual(state.initialGradient, finalGradient)) {
-        return
-      }
-
-      // Undo pattern: revert to initial, then apply final as undoable
-      fillApis.updateFillField(
-        state.elementId,
-        state.fillId,
-        currentFill,
-        'gradient',
-        state.initialGradient,
-        { undoable: false }
-      )
-      fillApis.updateFillField(
-        state.elementId,
-        state.fillId,
-        {
-          ...currentFill,
-          gradient: state.initialGradient
-        },
-        'gradient',
-        finalGradient
-      )
     },
     onCancel: (_snapshot, state): undefined => {
       cancelStopDragUpdate(state)

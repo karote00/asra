@@ -33,7 +33,12 @@
 - `useFills()` / `useFill()` should be selectors over ui-context `fills`, not hooks with local selection/transaction subscriptions.
 - `useStrokes()` / `useStroke()` should be selectors over ui-context `strokes`, not hooks with local selection/transaction subscriptions.
 - Custom color-picker preview open/close must stay UI-local and must not start model transactions.
-- Custom color-picker palette/slider drags own their transaction boundary: pointer-down starts one outer transaction, live frame updates write with `undoable: false` and `sharedDelivery: 'immediate'`, finalize replays one undoable value write, then pointer-up ends the transaction.
+- Custom color-picker palette/slider drags own their transaction boundary:
+  pointer-down starts one outer transaction, disables publication batching,
+  and each effective frame writes with `sharedDelivery: 'immediate'` plus one
+  gesture-keyed `replace-latest` History stage. Pointer-up applies only a
+  genuinely newer final value before ending the transaction; it never restores
+  the initial value or replays an already-applied final frame.
 
 ## Contents Panel Rule
 
@@ -53,7 +58,20 @@
 
 - Render canvas is initialized through app startup path (`core.start(...)`), not ad-hoc UI effects.
 - Pointer/keyboard interactions should flow through input mappings -> features -> APIs -> state.
-- Create resize, element move, vector-point/handle drag, and gradient-handle/stop drag frames that must project before pointer-up explicitly use `sharedDelivery: 'immediate'`; `undoable: false` alone never selects immediate delivery.
+- Create resize, element move, vector-point/handle drag, and
+  gradient-handle/stop drag frames that must project before pointer-up
+  explicitly use `sharedDelivery: 'immediate'`. Their gesture-keyed
+  `replace-latest` metadata controls local History only and never suppresses a
+  shared frame. `undoable: false` alone never selects immediate delivery.
+- Every canonical document drag follows the same boundary: one outer
+  transaction, one unbatched ordered stream of effective canonical frames, one
+  gesture-keyed local History stage, and one undo/redo action. Pointer-up may
+  flush a pending animation frame or a genuinely newer coordinate, but never
+  restore/replay the latest value.
+- Marquee selection, Layers drop-target preview, and attachment drop affordance
+  are not canonical document geometry drags. Their pointer previews stay in
+  interaction/UI state; only their declared resulting selection, hierarchy
+  mutation, or attachment action crosses its canonical owner boundary.
 - UI components should not treat render objects as source-of-truth for app state.
 
 ## Startup Event Rule

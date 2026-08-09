@@ -458,12 +458,15 @@ Import boundary:
 - `removeVectorAnchorPoint(elementId: string, pointId: string): boolean`
 - `splitVectorSegmentAtWorkspacePos(elementId: string, segmentId: string, workspacePos: PositionData): { point: VectorAnchorPoint; index: number } | null`
 - `setVectorClosed(elementId: string, closed: boolean): void`
-- `updateVectorAnchorPointPosition(elementId: string, pointId: string, position: PositionData, options?: { undoable: boolean }): { point: VectorAnchorPoint; index: number } | null`
+- `updateVectorAnchorPointPosition(elementId: string, pointId: string, position: PositionData, options?: VectorPointMutationOptions): { point: VectorAnchorPoint; index: number } | true | null`
 - `updateVectorAnchorPointType(elementId: string, pointId: string, type: 'smooth' | 'sharp'): { point: VectorAnchorPoint; index: number } | null`
 - `getVectorAnchorPointHandleMode(elementId: string, pointId: string): VectorHandleMode`
 - `setVectorAnchorPointHandleMode(elementId: string, pointId: string, mode: VectorHandleMode): { point: VectorAnchorPoint; index: number } | null`
-- `updateVectorAnchorPointHandlePosition(elementId: string, pointId: string, target: 'inHandle' | 'outHandle', position: PositionData, options?: { undoable: boolean }): { point: VectorAnchorPoint; index: number } | null`
-- `updateVectorAnchorPointHandles(elementId: string, updates: { pointId: string; target: 'inHandle' | 'outHandle'; position: PositionData | null; forceSmooth?: boolean }[], mutationOptions?: { undoable: boolean; skipResult?: boolean }): void`
+- `updateVectorAnchorPointHandlePosition(elementId: string, pointId: string, target: 'inHandle' | 'outHandle', position: PositionData, options?: VectorPointMutationOptions): { point: VectorAnchorPoint; index: number } | true | null`
+- `updateVectorAnchorPointHandles(elementId: string, updates: { pointId: string; target: 'inHandle' | 'outHandle'; position: PositionData | null; forceSmooth?: boolean }[], options?: VectorPointMutationOptions): void`
+  - `VectorPointMutationOptions` preserves ordinary `EVENT_OPTIONS` and accepts
+    `skipResult`; active App drag callers use immediate shared delivery plus
+    gesture-keyed local `replace-latest` History metadata
 - `getMousePosInWorkspace(clientPos: PositionData): PositionData | null`
 - `createElementsInParent(options: readonly CreateElementOptions[], parentId: string, mutationOptions?: EVENT_OPTIONS): readonly string[] | null`
   - preflights and prepares the complete mixed ordinary/Vector batch before
@@ -619,7 +622,7 @@ Import boundary:
 - `getGradientHandleHitAtClientPos(elementId: string, fillId: string, clientPos: PositionData, hitRadius?: number): { handleIndex: 0 | 1 } | null`
 - `getNextGradientForHandleAtClientPosition(elementId: string, fillId: string, handleIndex: 0 | 1, clientPos: PositionData): FillGradientData | null`
 - `getNextGradientForHandleWithDelta(baseGradient: FillGradientData, handleIndex: 0 | 1, width: number, height: number, delta: PositionData): FillGradientData`
-- `updateGradientHandleAtClientPosition(elementId: string, fillId: string, handleIndex: 0 | 1, clientPos: PositionData, options?: { undoable: boolean }): FillGradientData | null`
+- `updateGradientHandleAtClientPosition(elementId: string, fillId: string, handleIndex: 0 | 1, clientPos: PositionData, options?: EVENT_OPTIONS): FillGradientData | null`
 - `updateFillFields(...)` / `updateFillField(...)`
 - `updatePrimaryFillColor(elementId: string, color: string, options?: EVENT_OPTIONS): boolean`
   - reads and updates only the first canonical fill property and returns
@@ -785,6 +788,9 @@ Feature registry (`src/features/index.ts`):
 
 - `gradient-fill-handles`
   - `fillApis.getGradientHandleHitAtClientPos` / `getNextGradientForHandleAtClientPosition` / `updateGradientHandleAtClientPosition`
+  - each effective handle/stop frame uses immediate shared delivery and one
+    gesture-keyed local `replace-latest` History stage; pointer-up does not
+    restore or replay the latest frame
   - `systemContextApis` active/hovered/selected gradient-handle state
   - `selectionApis.getSelectedIds`
   - `cursorApis` for gradient-handle hover/drag cursor feedback
