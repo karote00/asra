@@ -2,10 +2,7 @@ import type {
   AiActionDefinition,
   AiExecutionContext
 } from '@asyra/ai-agent-runtime'
-import {
-  waitForCooperativePaint,
-  yieldToCooperativeHost
-} from '@asyra/reactive-events'
+import { waitForCooperativePaint, yieldToCooperativeHost } from '@asyra/core'
 import {
   emitDiagnosticCounter,
   measureBrowserDragAsyncPhase,

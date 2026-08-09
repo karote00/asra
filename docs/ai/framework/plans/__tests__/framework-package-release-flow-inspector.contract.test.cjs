@@ -45,8 +45,8 @@ const anchorsIn = (markdown) =>
   )
 
 test('Framework package release Inspector authorities resolve', () => {
-  assert.equal(data.target.id, 'framework-package-release-0-5-0')
-  assert.equal(data.target.title, 'Framework Package 0.5.0 Release Inspector')
+  assert.equal(data.target.id, 'framework-package-release')
+  assert.equal(data.target.title, 'Framework Package Release Inspector')
   assert.equal(
     data.authority.specPath,
     'docs/ai/framework/plans/framework-package-patch-release-plan.md'
@@ -184,33 +184,34 @@ test('all release specification anchors resolve', () => {
   })
 })
 
-test('Inspector preserves the historical 0.2.5 boundary without publishing it', () => {
+test('Inspector preserves historical registry versions as evidence only', () => {
   const inventory = contractText(step('inventory-public-registry'))
   const classification = contractText(step('classify-historical-baseline'))
 
-  assert.match(inventory, /12 historical.*seven missing/i)
+  assert.match(inventory, /present or missing records/i)
   assert.match(inventory, /public npm registry/i)
-  assert.match(classification, /expected source-generation difference/i)
-  assert.match(classification, /must not publish.*0\.2\.5/i)
+  assert.match(classification, /historical public manifest differences/i)
+  assert.match(classification, /must not publish.*historical package version/i)
 })
 
-test('Inspector owns the exact 0.4.0 to minor to 0.5.0 path', () => {
-  const baseline = contractText(step('materialize-local-baseline'))
-  const generator = contractText(step('generate-synchronized-changeset'))
+test('Inspector derives version topology and targets from manifests and Changesets', () => {
+  const topology = contractText(step('resolve-version-topology'))
+  const changesets = contractText(step('review-scoped-changesets'))
   const version = contractText(step('materialize-framework-version'))
 
-  assert.match(baseline, /exactly 19.*0\.4\.0/i)
-  assert.match(baseline, /never be published/i)
-  assert.match(generator, /--type minor/i)
-  assert.match(generator, /exactly once/i)
-  assert.match(generator, /ordinary scoped Changesets/i)
-  assert.match(version, /0\.4\.0.*0\.5\.0/i)
+  assert.match(topology, /one release family/i)
+  assert.match(topology, /derive.*manifests/i)
+  assert.match(changesets, /ordinary scoped Changesets/i)
+  assert.match(changesets, /patch during normal development/i)
+  assert.match(changesets, /target-version authority/i)
+  assert.match(version, /tool-derived manifest versions/i)
   assert.match(version, /root.*private.*create-app/i)
   assert.ok(
-    step('generate-synchronized-changeset').implementationBoundary.includes(
+    step('review-scoped-changesets').implementationBoundary.includes(
       'package.json'
     )
   )
+  assert.doesNotMatch(JSON.stringify(data), /0\.\d+\.(?:\d+|n)/u)
 })
 
 test('Framework artifact validation owns CI scope and excludes create-app template proof', () => {
@@ -234,19 +235,21 @@ test('Framework artifact validation owns CI scope and excludes create-app templa
 })
 
 test('Inspector restricts Changesets publication to the fixed 19-package set', () => {
-  const mergedSource = contractText(step('accept-merged-publication-source'))
+  const publicationSource = contractText(step('accept-publication-source'))
   const publication = contractText(step('publish-framework-packages'))
   const verification = contractText(step('verify-public-registry'))
 
-  assert.match(mergedSource, /main.*pull --ff-only/i)
-  assert.match(mergedSource, /not.*feature branch/i)
+  assert.match(publicationSource, /clean.*source commit/i)
+  assert.match(publicationSource, /feature branch.*publication/i)
+  assert.doesNotMatch(publicationSource, /not.*feature branch/i)
+  assert.doesNotMatch(publicationSource, /unmerged.*source/i)
   assert.match(publication, /yarn changeset publish/i)
   assert.match(publication, /successful.*package.*Git tag/i)
   assert.doesNotMatch(publication, /--no-git-tag/i)
   assert.match(publication, /exactly the fixed 19-package allowlist/i)
   assert.match(publication, /restore.*workspace ranges/i)
   assert.match(publication, /create-asyra-design-app.*root.*private/i)
-  assert.match(verification, /all 19.*0\.5\.0/i)
+  assert.match(verification, /every expected.*name@version/i)
   assert.match(verification, /dist integrity/i)
   assert.match(verification, /push.*tag/i)
 })
@@ -255,7 +258,8 @@ test('registry-only proof and partial recovery cannot create a mixed final versi
   const recovery = contractText(step('prove-registry-consumer-and-recover'))
 
   assert.match(recovery, /no tarball.*workspace.*link.*portal.*resolution/i)
-  assert.match(recovery, /0\.5\.0.*0\.5\.1/i)
+  assert.match(recovery, /same target versions/i)
+  assert.match(recovery, /all-package patch Changeset/i)
   assert.match(recovery, /never overwrite/i)
   assert.match(recovery, /mixed final version/i)
 })

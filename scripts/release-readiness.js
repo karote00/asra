@@ -12,6 +12,8 @@ import {
 import { readFrameworkReleaseSource } from './framework-release-packages.js'
 
 export const DEFAULT_CLEAN_CONSUMER_DIRECTORY = 'tmp/framework-release-consumer'
+export const DEFAULT_REGISTRY_CONSUMER_DIRECTORY =
+  'tmp/framework-registry-consumer'
 export const DEFAULT_RELEASE_EVIDENCE_DIRECTORY =
   'tmp/framework-release-evidence'
 
@@ -52,6 +54,31 @@ export const resolveCleanConsumerDirectory = ({
 const fixtureDirectoryFor = (repositoryRoot) =>
   path.join(repositoryRoot, 'fixtures', 'framework-release-consumer')
 
+const readFixtureManifest = (repositoryRoot) =>
+  JSON.parse(
+    fs.readFileSync(
+      path.join(fixtureDirectoryFor(repositoryRoot), 'package.json'),
+      'utf8'
+    )
+  )
+
+const assertFrameworkPackageSet = ({
+  declaredPackages,
+  expectedPackages,
+  label
+}) => {
+  const declared = [...declaredPackages].sort()
+  const expected = [...expectedPackages].sort()
+  if (
+    declared.length !== expected.length ||
+    declared.some((name, index) => name !== expected[index])
+  ) {
+    throw new Error(
+      `${label} package set mismatch: fixture=${declared.join(',')} expected=${expected.join(',')}`
+    )
+  }
+}
+
 export const createCleanConsumerPackageManifest = ({
   repositoryRoot,
   consumerDirectory = DEFAULT_CLEAN_CONSUMER_DIRECTORY,
@@ -66,27 +93,18 @@ export const createCleanConsumerPackageManifest = ({
     repositoryRoot: resolvedRoot,
     artifactDirectory
   })
-  const fixtureManifest = JSON.parse(
-    fs.readFileSync(
-      path.join(fixtureDirectoryFor(resolvedRoot), 'package.json'),
-      'utf8'
-    )
+  const fixtureManifest = readFixtureManifest(resolvedRoot)
+  const declaredPackages = Object.keys(
+    fixtureManifest.dependencies ?? {}
+  ).filter((name) => name.startsWith('@asyra/'))
+  const validatedPackages = validated.packages.map(
+    (record) => record.packageName
   )
-  const declaredPackages = Object.keys(fixtureManifest.dependencies ?? {})
-    .filter((name) => name.startsWith('@asyra/'))
-    .sort()
-  const validatedPackages = validated.packages
-    .map((record) => record.packageName)
-    .sort()
-
-  if (
-    declaredPackages.length !== validatedPackages.length ||
-    declaredPackages.some((name, index) => name !== validatedPackages[index])
-  ) {
-    throw new Error(
-      `Clean consumer package set mismatch: fixture=${declaredPackages.join(',')} artifacts=${validatedPackages.join(',')}`
-    )
-  }
+  assertFrameworkPackageSet({
+    declaredPackages,
+    expectedPackages: validatedPackages,
+    label: 'Clean consumer'
+  })
 
   const dependencies = { ...fixtureManifest.dependencies }
   const resolutions = {}
@@ -108,6 +126,34 @@ export const createCleanConsumerPackageManifest = ({
   })
 }
 
+export const createRegistryConsumerPackageManifest = ({ repositoryRoot }) => {
+  const resolvedRoot = path.resolve(repositoryRoot)
+  const releaseSource = readFrameworkReleaseSource({
+    repositoryRoot: resolvedRoot
+  })
+  const fixtureManifest = readFixtureManifest(resolvedRoot)
+  const declaredPackages = Object.keys(
+    fixtureManifest.dependencies ?? {}
+  ).filter((name) => name.startsWith('@asyra/'))
+  const expectedPackages = releaseSource.packages.map(({ name }) => name)
+  assertFrameworkPackageSet({
+    declaredPackages,
+    expectedPackages,
+    label: 'Registry consumer'
+  })
+
+  const dependencies = { ...fixtureManifest.dependencies }
+  for (const { name, version } of releaseSource.packages) {
+    dependencies[name] = version
+  }
+
+  return freeze({
+    ...fixtureManifest,
+    packageManager: 'yarn@4.3.1',
+    dependencies
+  })
+}
+
 export const prepareCleanConsumer = ({
   repositoryRoot,
   consumerDirectory = DEFAULT_CLEAN_CONSUMER_DIRECTORY,
@@ -123,6 +169,36 @@ export const prepareCleanConsumer = ({
     repositoryRoot: resolvedRoot,
     consumerDirectory: resolvedConsumerDirectory,
     artifactDirectory
+  })
+
+  fs.rmSync(resolvedConsumerDirectory, { recursive: true, force: true })
+  fs.cpSync(fixtureDirectory, resolvedConsumerDirectory, {
+    recursive: true
+  })
+  fs.writeFileSync(
+    path.join(resolvedConsumerDirectory, 'package.json'),
+    `${JSON.stringify(manifest, null, 2)}\n`
+  )
+  fs.writeFileSync(path.join(resolvedConsumerDirectory, 'yarn.lock'), '')
+
+  return freeze({
+    consumerDirectory: resolvedConsumerDirectory,
+    manifest
+  })
+}
+
+export const prepareRegistryConsumer = ({
+  repositoryRoot,
+  consumerDirectory = DEFAULT_REGISTRY_CONSUMER_DIRECTORY
+}) => {
+  const resolvedRoot = path.resolve(repositoryRoot)
+  const resolvedConsumerDirectory = resolveCleanConsumerDirectory({
+    repositoryRoot: resolvedRoot,
+    consumerDirectory
+  })
+  const fixtureDirectory = fixtureDirectoryFor(resolvedRoot)
+  const manifest = createRegistryConsumerPackageManifest({
+    repositoryRoot: resolvedRoot
   })
 
   fs.rmSync(resolvedConsumerDirectory, { recursive: true, force: true })
@@ -187,7 +263,8 @@ const assertSupportedRuntime = ({ allowUnsupportedNode }) => {
 const verifyInstalledPackages = ({
   consumerDirectory,
   packageNames,
-  expectedVersions
+  expectedVersions,
+  registryLockfile
 }) => {
   const packages = packageNames.map((packageName) => {
     const packageDirectory = path.join(
@@ -215,13 +292,59 @@ const verifyInstalledPackages = ({
     if (/workspace:|(?:link|portal|patch):/.test(JSON.stringify(manifest))) {
       throw new Error(`${packageName} retained a workspace-only dependency`)
     }
+    const registryEvidence = registryLockfile
+      ? readRegistryLockEvidence({
+          lockfile: registryLockfile,
+          packageName,
+          expectedVersion
+        })
+      : {}
     return {
       name: packageName,
-      version: manifest.version
+      version: manifest.version,
+      ...registryEvidence
     }
   })
   return freeze(packages)
 }
+
+const readRegistryLockEvidence = ({
+  lockfile,
+  packageName,
+  expectedVersion
+}) => {
+  const header = `"${packageName}@npm:${expectedVersion}":`
+  const start = lockfile.indexOf(header)
+  if (start === -1) {
+    throw new Error(
+      `${packageName}@${expectedVersion} is missing from the public registry lockfile`
+    )
+  }
+  const end = lockfile.indexOf('\n\n', start)
+  const block = lockfile.slice(start, end === -1 ? lockfile.length : end)
+  if (!block.includes(`resolution: "${packageName}@npm:${expectedVersion}"`)) {
+    throw new Error(
+      `${packageName}@${expectedVersion} does not resolve through npm in the lockfile`
+    )
+  }
+  const checksum = block.match(/\n {2}checksum: ([^\n]+)/u)?.[1]?.trim()
+  if (!checksum) {
+    throw new Error(
+      `${packageName}@${expectedVersion} is missing a registry integrity checksum`
+    )
+  }
+  return {
+    resolution: 'npm',
+    checksum
+  }
+}
+
+const consumerPhases = Object.freeze([
+  ['install', 'yarn', ['install', '--no-immutable']],
+  ['typecheck', 'yarn', ['typecheck']],
+  ['build', 'yarn', ['build']],
+  ['test', 'yarn', ['test']]
+])
 
 export const verifyCleanConsumer = ({
   repositoryRoot,
@@ -249,15 +372,8 @@ export const verifyCleanConsumer = ({
     target: evidenceDirectory,
     label: 'Release evidence directory'
   })
-  const phases = [
-    ['install', 'yarn', ['install', '--no-immutable']],
-    ['typecheck', 'yarn', ['typecheck']],
-    ['build', 'yarn', ['build']],
-    ['test', 'yarn', ['test']]
-  ]
-
   try {
-    const completedPhases = phases.map(([name, command, args]) => {
+    const completedPhases = consumerPhases.map(([name, command, args]) => {
       runCommand(command, args, {
         cwd: prepared.consumerDirectory
       })
@@ -294,6 +410,75 @@ export const verifyCleanConsumer = ({
   }
 }
 
+export const verifyRegistryConsumer = ({
+  repositoryRoot,
+  consumerDirectory = DEFAULT_REGISTRY_CONSUMER_DIRECTORY,
+  evidenceDirectory = DEFAULT_RELEASE_EVIDENCE_DIRECTORY,
+  allowUnsupportedNode = false,
+  runCommand = runCommandDefault
+}) => {
+  const resolvedRoot = path.resolve(repositoryRoot)
+  assertSupportedRuntime({ allowUnsupportedNode })
+  const releaseSource = readFrameworkReleaseSource({
+    repositoryRoot: resolvedRoot
+  })
+  const expectedVersions = new Map(
+    releaseSource.packages.map((record) => [record.name, record.version])
+  )
+  const prepared = prepareRegistryConsumer({
+    repositoryRoot: resolvedRoot,
+    consumerDirectory
+  })
+  const resolvedEvidenceDirectory = resolveProjectTemporaryChild({
+    repositoryRoot: resolvedRoot,
+    target: evidenceDirectory,
+    label: 'Release evidence directory'
+  })
+
+  try {
+    const completedPhases = consumerPhases.map(([name, command, args]) => {
+      runCommand(command, args, {
+        cwd: prepared.consumerDirectory
+      })
+      return name
+    })
+    const packageNames = Object.keys(prepared.manifest.dependencies)
+      .filter((name) => name.startsWith('@asyra/'))
+      .sort()
+    const registryLockfile = fs.readFileSync(
+      path.join(prepared.consumerDirectory, 'yarn.lock'),
+      'utf8'
+    )
+    const installedPackages = verifyInstalledPackages({
+      consumerDirectory: prepared.consumerDirectory,
+      packageNames,
+      expectedVersions,
+      registryLockfile
+    })
+    const evidence = freeze({
+      status: allowUnsupportedNode ? 'DIAGNOSTIC' : 'READY',
+      runtime: {
+        node: process.version,
+        packageManager: 'yarn@4.3.1'
+      },
+      registry: 'https://registry.npmjs.org',
+      packages: installedPackages,
+      phases: completedPhases
+    })
+    fs.mkdirSync(resolvedEvidenceDirectory, { recursive: true })
+    fs.writeFileSync(
+      path.join(resolvedEvidenceDirectory, 'registry-only-consumer.json'),
+      `${JSON.stringify(evidence, null, 2)}\n`
+    )
+    return evidence
+  } finally {
+    fs.rmSync(prepared.consumerDirectory, {
+      recursive: true,
+      force: true
+    })
+  }
+}
+
 const isDirectInvocation =
   process.argv[1] &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
@@ -304,15 +489,22 @@ if (isDirectInvocation) {
     '..'
   )
   let allowUnsupportedNode = false
+  let registryOnly = false
   for (const arg of process.argv.slice(2)) {
     if (arg === '--allow-unsupported-node') allowUnsupportedNode = true
+    else if (arg === '--registry') registryOnly = true
     else throw new Error(`Unknown argument: ${arg}`)
   }
-  const evidence = verifyCleanConsumer({
-    repositoryRoot,
-    allowUnsupportedNode
-  })
+  const evidence = registryOnly
+    ? verifyRegistryConsumer({
+        repositoryRoot,
+        allowUnsupportedNode
+      })
+    : verifyCleanConsumer({
+        repositoryRoot,
+        allowUnsupportedNode
+      })
   process.stdout.write(
-    `Clean consumer ${evidence.status}: ${evidence.packages.length} packages, ${evidence.phases.length} phases\n`
+    `${registryOnly ? 'Registry-only' : 'Clean'} consumer ${evidence.status}: ${evidence.packages.length} packages, ${evidence.phases.length} phases\n`
   )
 }

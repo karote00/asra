@@ -4,27 +4,19 @@
  */
 
 import {
+  type FactoryMutationDeliverySequence,
   startTransaction,
   endTransaction,
   rollbackTransaction,
   runTransaction,
   updateTransaction
 } from '@asyra/core'
-import {
-  getActiveStagedDeliveryController,
-  type FactoryMutationDeliverySequence
-} from '@asyra/factory'
+import core from '../contexts'
 
 const configureSharedDeliverySequence = (
   sequence: FactoryMutationDeliverySequence
 ): void => {
-  const controller = getActiveStagedDeliveryController()
-  if (!controller) {
-    throw new Error(
-      '[transaction] shared delivery sequence requires an active transaction'
-    )
-  }
-  controller.setDeliverySequence(sequence)
+  core.configureSharedDeliverySequence(sequence)
 }
 
 export const transactionApis = {

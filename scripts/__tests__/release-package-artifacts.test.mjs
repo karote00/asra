@@ -17,6 +17,11 @@ const repositoryRoot = path.resolve(
   '../..'
 )
 const temporaryParent = path.join(repositoryRoot, 'tmp')
+const tarballPathFor = ({ artifactDirectory, packageName, version }) =>
+  path.join(
+    artifactDirectory,
+    `${packageName.replace(/^@/u, '').replace('/', '-')}-${version}.tgz`
+  )
 
 test('release package artifact plan packs every frozen package exactly once', () => {
   const artifactDirectory = path.join(
@@ -31,20 +36,37 @@ test('release package artifact plan packs every frozen package exactly once', ()
   assert.equal(plan.length, 19)
   assert.equal(new Set(plan.map((record) => record.packageName)).size, 19)
   assert.equal(new Set(plan.map((record) => record.tarballPath)).size, 19)
+  const firstVersion = JSON.parse(
+    fs.readFileSync(
+      path.join(repositoryRoot, 'packages/ai-agent-runtime/package.json'),
+      'utf8'
+    )
+  ).version
+  const lastVersion = JSON.parse(
+    fs.readFileSync(
+      path.join(repositoryRoot, 'packages/utils/package.json'),
+      'utf8'
+    )
+  ).version
   assert.deepEqual(plan[0], {
     packageName: '@asyra/ai-agent-runtime',
-    version: '0.2.5',
+    version: firstVersion,
     workspaceDirectory: 'packages/ai-agent-runtime',
-    tarballPath: path.join(
+    tarballPath: tarballPathFor({
       artifactDirectory,
-      'asyra-ai-agent-runtime-0.2.5.tgz'
-    )
+      packageName: '@asyra/ai-agent-runtime',
+      version: firstVersion
+    })
   })
   assert.deepEqual(plan.at(-1), {
     packageName: '@asyra/utils',
-    version: '0.2.5',
+    version: lastVersion,
     workspaceDirectory: 'packages/utils',
-    tarballPath: path.join(artifactDirectory, 'asyra-utils-0.2.5.tgz')
+    tarballPath: tarballPathFor({
+      artifactDirectory,
+      packageName: '@asyra/utils',
+      version: lastVersion
+    })
   })
 })
 

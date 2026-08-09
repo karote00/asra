@@ -1165,6 +1165,7 @@ const renderVectorGraphic = (
     x: workspaceGeometryBounds.x,
     y: workspaceGeometryBounds.y
   }
+  graphic.setSourceSpaceOrigin(pointOffset)
   vectorRenderGeometryProjectionCache.set(graphic, {
     workspaceOrigin: pointOffset
   })

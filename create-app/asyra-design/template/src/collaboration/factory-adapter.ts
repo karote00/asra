@@ -1,10 +1,9 @@
-import type { CollaborationFactory } from '@asyra/collaboration'
+import type { CollaborationPublicationSource } from '@asyra/collaboration'
 import type {
-  Factory,
   SharedPublication,
   SharedPublicationSlice
-} from '@asyra/factory'
-import { EventTypes } from '@asyra/reactive-events'
+} from '@asyra/core/contracts'
+import { EventTypes } from '@asyra/core/contracts'
 import { SharedDataChannelNames } from '@asyra/utils'
 import {
   getActiveAiDrawingPerformanceProfile,
@@ -16,11 +15,17 @@ const documentChannels = new Set<string>([
   SharedDataChannelNames.PROPS
 ])
 
-export const createDocumentCollaborationFactory = (
-  factory: Factory
-): CollaborationFactory => ({
-  subscribeToSharedPublication: (subscriber) =>
-    factory.subscribeToSharedPublication((publication: SharedPublication) => {
+export interface SharedPublicationSource {
+  subscribeToSharedPublication(
+    subscriber: (publication: SharedPublication) => void
+  ): () => void
+}
+
+export const createDocumentCollaborationPublicationSource = (
+  source: SharedPublicationSource
+): CollaborationPublicationSource => ({
+  subscribe: (subscriber) =>
+    source.subscribeToSharedPublication((publication: SharedPublication) => {
       let publicationIsDocumentOnly = true
       const slices = publication.slices.flatMap((slice) => {
         const batches = slice.batches.filter(({ channel }) =>

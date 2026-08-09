@@ -4,20 +4,50 @@ import { resolveOrdinaryPlaywrightRuntimePolicy } from './playwright-runtime-pol
 
 const appEnvironment = resolveEnvironment(loadEnvironment())
 const runtimePolicy = resolveOrdinaryPlaywrightRuntimePolicy(process.env)
+const runsCrdt7076 = process.env.E2E_CRDT_7076 === 'true'
 const documentBackendURL =
   process.env.E2E_DOCUMENT_BACKEND_URL?.trim() || 'http://127.0.0.1:4201'
 const documentBackendPort = new URL(documentBackendURL).port || '80'
+const collaborationWebSocketURL = new URL(
+  '/collaboration',
+  appEnvironment.collaborationHealthURL
+)
+collaborationWebSocketURL.protocol = 'ws:'
 const ordinaryTestIgnore = [
   'collaboration-ai-agent-video.spec.ts',
   'collaboration.spec.ts',
   'crdt-endpoint-performance.spec.ts',
   'status-toast-visual.spec.ts',
-  ...(process.env.E2E_CRDT_7076 === 'true' ? [] : ['crdt-7076-render.spec.ts']),
+  ...(runsCrdt7076 ? [] : ['crdt-7076-render.spec.ts']),
   ...(process.env.E2E_SKIP_PERFORMANCE === 'true'
     ? ['render-delta-performance.spec.ts']
     : [])
 ]
-const visualReviewWebServerCommand = `E2E_OWN_SERVERS=1 E2E_DOCUMENT_BACKEND_URL=${documentBackendURL} yarn react:start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`
+const visualReviewWebServerCommand = `E2E_OWN_SERVERS=1 E2E_DOCUMENT_BACKEND_URL=${documentBackendURL} VITE_COLLABORATION_WS_URL=${collaborationWebSocketURL} yarn start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`
+const ordinaryWebServers = [
+  {
+    command: `DOCUMENT_BACKEND_PORT=${documentBackendPort} DOCUMENT_BACKEND_DATA_DIR=test-results/document-backend yarn document:backend`,
+    url: `${documentBackendURL}/health`,
+    reuseExistingServer: true,
+    timeout: 120 * 1000
+  },
+  ...(runsCrdt7076
+    ? []
+    : [
+        {
+          command: `DOCUMENT_PERSISTENCE_BACKEND_URL=${documentBackendURL} yarn collaboration:server`,
+          url: appEnvironment.collaborationHealthURL,
+          reuseExistingServer: true,
+          timeout: 120 * 1000
+        }
+      ]),
+  {
+    command: visualReviewWebServerCommand,
+    url: appEnvironment.appURL,
+    reuseExistingServer: true,
+    timeout: 120 * 1000
+  }
+]
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -67,26 +97,5 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests */
-  webServer: process.env.CI
-    ? undefined
-    : [
-        {
-          command: `DOCUMENT_BACKEND_PORT=${documentBackendPort} DOCUMENT_BACKEND_DATA_DIR=test-results/document-backend yarn document:backend`,
-          url: `${documentBackendURL}/health`,
-          reuseExistingServer: true,
-          timeout: 120 * 1000
-        },
-        {
-          command: `DOCUMENT_PERSISTENCE_BACKEND_URL=${documentBackendURL} yarn collaboration:server`,
-          url: appEnvironment.collaborationHealthURL,
-          reuseExistingServer: true,
-          timeout: 120 * 1000
-        },
-        {
-          command: visualReviewWebServerCommand,
-          url: appEnvironment.appURL,
-          reuseExistingServer: true,
-          timeout: 120 * 1000
-        }
-      ]
+  webServer: process.env.CI ? undefined : ordinaryWebServers
 })

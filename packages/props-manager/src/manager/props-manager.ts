@@ -3103,16 +3103,6 @@ class PropsManager {
       sourceRequest.options === undefined
         ? undefined
         : (clonePropertyDefinitionValue(sourceRequest.options) as EVENT_OPTIONS)
-    if (
-      mutationOptions?.history?.mode === 'replace-latest' &&
-      mutations.some(
-        (mutation) => isRecord(mutation) && mutation.kind !== 'values'
-      )
-    ) {
-      throw new Error(
-        '[PropsManager] Replace-latest History accepts only property value mutations'
-      )
-    }
     const activeById = this._components
     const originalSnapshots = new Map<string, PropertyComponentRawData>()
     const workingSnapshots = new Map<string, PropertyComponentRawData>()
@@ -3474,6 +3464,24 @@ class PropsManager {
         return
       }
       updateEvidence.push({
+        action: PROPS_ACTIONS.UPDATE_PROPERTY,
+        eventName: EventTypes.UPDATE_PROPERTY,
+        id: propertyId,
+        key,
+        before: clonePropsValue(before) as UpdatePropertyChange['before'],
+        after: clonePropsValue(after) as UpdatePropertyChange['after']
+      })
+    }
+    const addReplaceLatestHistoryEvidence = (
+      propertyId: string,
+      key: string,
+      before: unknown,
+      after: unknown
+    ): void => {
+      if (mutationOptions?.history?.mode !== 'replace-latest') {
+        return
+      }
+      replaceLatestHistoryEvidence.push({
         action: PROPS_ACTIONS.UPDATE_PROPERTY,
         eventName: EventTypes.UPDATE_PROPERTY,
         id: propertyId,
@@ -4419,16 +4427,7 @@ class PropsManager {
           )[key]
           ;(nextSnapshot as unknown as Record<string, unknown>)[key] =
             clonePropsValue(value)
-          if (mutationOptions?.history?.mode === 'replace-latest') {
-            replaceLatestHistoryEvidence.push({
-              action: PROPS_ACTIONS.UPDATE_PROPERTY,
-              eventName: EventTypes.UPDATE_PROPERTY,
-              id: propertyId,
-              key,
-              before: clonePropsValue(before) as UpdatePropertyChange['before'],
-              after: clonePropsValue(value) as UpdatePropertyChange['after']
-            })
-          }
+          addReplaceLatestHistoryEvidence(propertyId, key, before, value)
           addUpdateEvidence(propertyId, key, before, value)
         })
         assertRuntimePropertyFields(
@@ -4446,11 +4445,6 @@ class PropsManager {
       if (sourceMutation.kind !== 'records') {
         throw new Error(
           `[PropsManager] Property mutation "${propertyId}" has an invalid kind`
-        )
-      }
-      if (mutationOptions?.history?.mode === 'replace-latest') {
-        throw new Error(
-          '[PropsManager] Replace-latest History accepts only property value mutations'
         )
       }
       const relation = contract.childRelation
@@ -4575,6 +4569,7 @@ class PropsManager {
             )[key]
             ;(nextChild as unknown as Record<string, unknown>)[key] =
               clonePropsValue(value)
+            addReplaceLatestHistoryEvidence(childId, key, before, value)
             if (childContract.childRelation?.key === key) {
               relationshipMutationRootIds.add(childId)
             }
@@ -4679,6 +4674,7 @@ class PropsManager {
         )[key]
         ;(nextParent as unknown as Record<string, unknown>)[key] =
           clonePropsValue(value)
+        addReplaceLatestHistoryEvidence(propertyId, key, before, value)
         addUpdateEvidence(propertyId, key, before, value)
       })
       ;(nextParent as unknown as Record<string, unknown>)[relation.key] =
@@ -5365,12 +5361,29 @@ class PropsManager {
         canonicalEvidence
       }
     }
+    const replaceLatestHistoryEvidenceByKey = new Map<
+      string,
+      UpdatePropertyChange
+    >()
+    replaceLatestHistoryEvidence.forEach((change) => {
+      const eventKey = JSON.stringify([change.eventName, change.id, change.key])
+      const existing = replaceLatestHistoryEvidenceByKey.get(eventKey)
+      replaceLatestHistoryEvidenceByKey.set(
+        eventKey,
+        existing ? { ...change, before: existing.before } : change
+      )
+    })
     const replaceLatestHistoryCandidate =
       mutationOptions?.history?.mode === 'replace-latest' &&
-      replaceLatestHistoryEvidence.length > 0
+      frozenEvidence.length > 0 &&
+      frozenEvidence.every(isUpdatePropertyChange) &&
+      replaceLatestHistoryEvidenceByKey.size > 0
         ? {
             key: mutationOptions.history.key,
-            events: replaceLatestHistoryEvidence.map(createTransactionEvent)
+            events: [...replaceLatestHistoryEvidenceByKey.values()].map(
+              createTransactionEvent
+            ),
+            eventKeys: [...replaceLatestHistoryEvidenceByKey.keys()]
           }
         : undefined
     const transactionEvents = deepFreezePropertyContract(

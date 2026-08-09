@@ -3,7 +3,10 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { fileURLToPath } from 'node:url'
 import { gunzipSync } from 'node:zlib'
-import type { AiActionBatch, AiProviderInput } from '@asyra/ai-agent-runtime'
+import type {
+  AiActionBatch,
+  AiProviderInput
+} from '../../src/ai/action-batch-protocol'
 import { describe, expect, it, vi } from 'vitest'
 import {
   ActionBatchServerError,

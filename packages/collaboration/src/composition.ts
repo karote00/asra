@@ -1,4 +1,4 @@
-import type { Factory, SharedPublication } from '@asyra/factory'
+import type { SharedPublication } from '@asyra/factory'
 import type { Awareness } from './awareness.js'
 import type { Provider } from './provider.js'
 
@@ -9,7 +9,19 @@ export interface CollaborationResourceOwnershipMap {
   awareness: CollaborationResourceOwnership
 }
 
-export type CollaborationFactory = Pick<Factory, 'subscribeToSharedPublication'>
+export interface CollaborationPublicationSource {
+  subscribe(subscriber: (publication: SharedPublication) => void): () => void
+}
+
+/**
+ * @deprecated Pass `publicationSource` instead. Collaboration no longer
+ * requires a Factory-shaped runtime dependency.
+ */
+export interface CollaborationFactory {
+  subscribeToSharedPublication(
+    subscriber: (publication: SharedPublication) => void
+  ): () => void
+}
 
 export type ProcessRemotePublication = (
   publication: SharedPublication
@@ -19,7 +31,11 @@ export interface CreateCollaborationInput {
   documentId: string
   roomId: string
   actorId: string
-  factory: CollaborationFactory
+  publicationSource?: CollaborationPublicationSource
+  /**
+   * @deprecated Pass `publicationSource` instead.
+   */
+  factory?: CollaborationFactory
   processRemotePublication: ProcessRemotePublication
   provider?: Provider
   awareness?: Awareness

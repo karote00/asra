@@ -3,33 +3,34 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FRAMEWORK_RELEASE_PACKAGE_NAMES } from './framework-release-packages.js'
 
-export const FRAMEWORK_RELEASE_CANDIDATE_VERSION = '0.5.0'
-
-const EXCLUDED_RELEASE_VERSIONS = Object.freeze({
-  root: Object.freeze({ name: 'asyra', version: '0.2.5' }),
+const EXCLUDED_RELEASE_OWNERS = Object.freeze({
+  root: Object.freeze({ name: 'asyra', path: 'package.json' }),
   privateApp: Object.freeze({
     name: '@asyra/asyra-design',
-    version: '0.2.5'
+    path: 'apps/asyra-design/package.json'
   }),
   createApp: Object.freeze({
     name: 'create-asyra-design-app',
-    version: '0.1.0'
+    path: 'create-app/asyra-design/package.json'
   })
 })
 
 const REQUIRED_DOCUMENT_TOKENS = Object.freeze({
-  'README.md': ['Release support', '0.5.0', 'historical `0.2.5`'],
-  'CHANGELOG.md': ['## [Unreleased]', '0.5.0', '0.2.5'],
+  'README.md': [
+    'Release support',
+    'current Framework package manifests',
+    'release-readiness evidence'
+  ],
+  'CHANGELOG.md': ['## [Unreleased]'],
   'RELEASE_NOTES.md': [
-    '0.5.0',
+    'Framework pre-publication candidate',
     'release decision remains `PENDING`',
-    '0.2.5',
     'does not authorize'
   ],
   'SECURITY.md': ['private security advisory', 'Framework Security Boundaries'],
   'docs/ai/framework/RELEASE_SUPPORT.md': [
-    '0.5.0',
-    'historical `0.2.5`',
+    'current Framework package manifests',
+    'release-readiness evidence',
     'Node.js 24.x',
     'Yarn 4.3.1',
     'TypeScript 5.8.3',
@@ -64,6 +65,32 @@ const READINESS_INSPECTOR =
   'docs/ai/framework/plans/framework-release-readiness-flow-inspector.data.cjs'
 
 const readJson = (filePath) => JSON.parse(fs.readFileSync(filePath, 'utf8'))
+
+const parseStableVersion = (name, version) => {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/u.exec(version)
+  if (!match) {
+    throw new Error(
+      `${name} must use a stable semantic version, found ${version}`
+    )
+  }
+  return {
+    version,
+    family: `${match[1]}.${match[2]}`,
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3])
+  }
+}
+
+const compareVersions = (left, right) => {
+  const leftParts = left.split('.').map(Number)
+  const rightParts = right.split('.').map(Number)
+  for (let index = 0; index < leftParts.length; index += 1) {
+    const difference = leftParts[index] - rightParts[index]
+    if (difference !== 0) return difference
+  }
+  return 0
+}
 
 const assertFileContains = (repositoryRoot, relativePath, tokens) => {
   const absolutePath = path.join(repositoryRoot, relativePath)
@@ -102,23 +129,15 @@ export const validateFrameworkReleaseRecords = ({ repositoryRoot }) => {
     'publication'
   ])
 
-  const excludedManifestPaths = {
-    root: 'package.json',
-    privateApp: 'apps/asyra-design/package.json',
-    createApp: 'create-app/asyra-design/package.json'
-  }
   const excludedVersions = Object.fromEntries(
-    Object.entries(excludedManifestPaths).map(([owner, relativePath]) => {
-      const manifest = readJson(path.join(resolvedRoot, relativePath))
-      const expected = EXCLUDED_RELEASE_VERSIONS[owner]
-      if (
-        manifest.name !== expected.name ||
-        manifest.version !== expected.version
-      ) {
+    Object.entries(EXCLUDED_RELEASE_OWNERS).map(([owner, expected]) => {
+      const manifest = readJson(path.join(resolvedRoot, expected.path))
+      if (manifest.name !== expected.name) {
         throw new Error(
-          `Excluded release owner ${expected.name} must remain ${expected.version}, found ${manifest.name}@${manifest.version}`
+          `Excluded release owner ${expected.name} resolved to ${manifest.name}`
         )
       }
+      parseStableVersion(manifest.name, manifest.version)
       return [owner, { name: manifest.name, version: manifest.version }]
     })
   )
@@ -132,11 +151,7 @@ export const validateFrameworkReleaseRecords = ({ repositoryRoot }) => {
       'package.json'
     )
     const manifest = readJson(manifestPath)
-    if (manifest.version !== FRAMEWORK_RELEASE_CANDIDATE_VERSION) {
-      throw new Error(
-        `${name} must be ${FRAMEWORK_RELEASE_CANDIDATE_VERSION}, found ${manifest.version}`
-      )
-    }
+    const parsedVersion = parseStableVersion(name, manifest.version)
     assertFileContains(
       resolvedRoot,
       path.join('packages', directory, 'README.md'),
@@ -145,9 +160,28 @@ export const validateFrameworkReleaseRecords = ({ repositoryRoot }) => {
     return {
       name,
       version: manifest.version,
+      releaseFamily: parsedVersion.family,
       readme: `packages/${directory}/README.md`
     }
   })
+
+  const releaseFamilies = new Set(
+    packages.map(({ releaseFamily }) => releaseFamily)
+  )
+  if (releaseFamilies.size !== 1) {
+    throw new Error(
+      `Framework packages must remain in one release family, found ${[
+        ...releaseFamilies
+      ].join(', ')}`
+    )
+  }
+  const [releaseFamily] = releaseFamilies
+  const packageVersions = Object.fromEntries(
+    packages.map(({ name, version }) => [name, version])
+  )
+  const releaseVersions = [...new Set(Object.values(packageVersions))].sort(
+    compareVersions
+  )
 
   const changesetConfig = readJson(
     path.join(resolvedRoot, '.changeset', 'config.json')
@@ -161,31 +195,14 @@ export const validateFrameworkReleaseRecords = ({ repositoryRoot }) => {
     )
   }
 
-  const releaseSnapshotPath = path.join(
-    resolvedRoot,
-    'docs',
-    'ai',
-    'framework',
-    'decisions',
-    'releases',
-    `v${FRAMEWORK_RELEASE_CANDIDATE_VERSION}.md`
-  )
-  if (fs.existsSync(releaseSnapshotPath)) {
-    throw new Error(
-      `Release-readiness audit must not create ${path.relative(
-        resolvedRoot,
-        releaseSnapshotPath
-      )}; that snapshot belongs to an authorized release cut`
-    )
-  }
-
   return {
     status: 'PASS',
-    candidateVersion: FRAMEWORK_RELEASE_CANDIDATE_VERSION,
+    releaseFamily,
+    releaseVersions,
+    packageVersions,
     packages,
     excludedVersions,
     pendingChangesets: readPendingChangesets(resolvedRoot),
-    releaseSnapshot: null,
     gate5ReadinessStatus: 'READY',
     releaseDecision: 'PENDING',
     publicationAuthorized: false
@@ -213,6 +230,6 @@ if (isDirectExecution) {
     `${JSON.stringify(evidence, null, 2)}\n`
   )
   console.log(
-    `Framework release records ${evidence.status}: ${evidence.packages.length} packages at ${evidence.candidateVersion}; Gate 5 ${evidence.gate5ReadinessStatus}; publication not authorized`
+    `Framework release records ${evidence.status}: ${evidence.packages.length} packages in release family ${evidence.releaseFamily}; Gate 5 ${evidence.gate5ReadinessStatus}; publication not authorized`
   )
 }

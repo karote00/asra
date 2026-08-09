@@ -820,9 +820,7 @@ test.describe('Asyra Design Group interaction MVP', () => {
     expect(await getWorldPositions(page, initialIds)).toEqual(worldBefore)
     const finalDocumentDigest = await getCoreDocumentDigest(page)
     await expect
-      .poll(() =>
-        getPersistedDocumentDigest(page, getCurrentDocumentFileId(page))
-      )
+      .poll(() => getPersistedDocumentDigest(getCurrentDocumentFileId(page)))
       .toEqual(finalDocumentDigest)
 
     await page.evaluate(async () => {

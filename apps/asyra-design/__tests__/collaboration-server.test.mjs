@@ -140,7 +140,8 @@ test('reference server is a TypeScript build with an opaque uncompressed publica
   )
 
   assert.doesNotMatch(source, /\.\.\/\.\.\/packages\/collaboration/)
-  assert.match(source, /from ['"]@asyra\/collaboration['"]/)
+  assert.doesNotMatch(source, /from ['"]@asyra\//)
+  assert.match(source, /class SocketServerFailure extends Error/)
   assert.match(source, /from ['"].*collaboration\/protocol['"]/)
   assert.match(providerSource, /from ['"].*protocol['"]/)
   assert.doesNotMatch(source, /MemoryHub|MemoryProvider/)
@@ -172,6 +173,10 @@ test('reference server is a TypeScript build with an opaque uncompressed publica
   assert.match(
     manifest.scripts['build:collaboration-server'],
     /tsc -p tsconfig\.collaboration-server\.json/
+  )
+  assert.doesNotMatch(
+    manifest.scripts['build:collaboration-server'],
+    /build:collaboration|@asyra\/collaboration/
   )
   assert.match(
     manifest.scripts['build:collaboration-server'],
@@ -574,7 +579,10 @@ const requestPublicClient = async ({ port, origin, fileId, actorId }) => {
   return { socket, result: await ready }
 }
 
-const connectPublicClient = async (identity) => {
+const connectPublicClient = async (
+  identity,
+  { autoSettleSourcePublications = true } = {}
+) => {
   const { socket, result } = await requestPublicClient(identity)
   assert.equal(result.type, 'ready')
   assert.ok(result.bootstrap)
@@ -596,6 +604,20 @@ const connectPublicClient = async (identity) => {
     requestId,
     ok: true
   })
+  if (autoSettleSourcePublications) {
+    socket.on('message', (data, isBinary) => {
+      if (isBinary) return
+      const message = JSON.parse(rawDataToBuffer(data).toString('utf8'))
+      if (message.type !== 'source-publication-proposed') return
+      socket.send(
+        JSON.stringify({
+          type: 'source-publication-settlement',
+          requestId: message.requestId,
+          ok: true
+        })
+      )
+    })
+  }
   return socket
 }
 
@@ -926,6 +948,7 @@ test('single-actor handshake returns the formal sequence-zero document bootstrap
           },
           props: {}
         },
+        documentGeneration: 0,
         durableSequence: 0,
         headSequence: 0,
         pendingTail: []
@@ -934,6 +957,139 @@ test('single-actor handshake returns the formal sequence-zero document bootstrap
   } finally {
     await closeSocket(socket)
     await stopServer(child)
+  }
+})
+
+test('document Reset discards the accepted room tail before the next bootstrap', async () => {
+  let checkpoint = createTransportCheckpointDocument()
+  let durableSequence = 0
+  let documentGeneration = 0
+  let resetCount = 0
+  const backend = createHttpBackendServer(async (request, response) => {
+    response.setHeader('content-type', 'application/json')
+    if (
+      request.method === 'GET' &&
+      request.url?.endsWith('/bootstrap-checkpoint')
+    ) {
+      response.end(
+        JSON.stringify({ checkpoint, durableSequence, documentGeneration })
+      )
+      return
+    }
+    if (request.method === 'DELETE') {
+      checkpoint = {
+        version: '1.0.0',
+        sceneTree: {
+          workspace: 'workspace',
+          workspaceList: ['workspace'],
+          elements: {
+            workspace: {
+              id: 'workspace',
+              name: 'Workspace',
+              type: 'workspace',
+              parentId: '',
+              visible: true,
+              lock: false,
+              children: []
+            }
+          }
+        },
+        props: {}
+      }
+      durableSequence = 0
+      documentGeneration += 1
+      resetCount += 1
+      response.end(JSON.stringify({ ok: true, documentGeneration }))
+      return
+    }
+    if (
+      request.method === 'POST' &&
+      request.url?.endsWith('/persistence-batches')
+    ) {
+      const chunks = []
+      for await (const chunk of request) chunks.push(Buffer.from(chunk))
+      const batch = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+      durableSequence = batch.lastSequence
+      response.end(JSON.stringify({ durableSequence }))
+      return
+    }
+    response.statusCode = 404
+    response.end(JSON.stringify({ error: 'not found' }))
+  })
+  await new Promise((resolve, reject) => {
+    backend.once('error', reject)
+    backend.listen(0, '127.0.0.1', resolve)
+  })
+  const backendAddress = backend.address()
+  assert.ok(backendAddress && typeof backendAddress === 'object')
+
+  const port = await getAvailablePort()
+  const origin = 'http://localhost:4346'
+  const child = startServer({
+    port,
+    origin,
+    persistenceBackendURL: `http://127.0.0.1:${backendAddress.port}`
+  })
+  const sockets = []
+  try {
+    await waitForServer(child)
+    const source = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'reset-room-tail-file',
+      actorId: 'reset-room-tail-source'
+    })
+    sockets.push(source)
+
+    const accepted = responseFor(source, 'reset-room-tail-publication')
+    source.send(
+      createCanonicalPublicationFrame({
+        requestId: 'reset-room-tail-publication',
+        publicationId: 'reset-room-tail-publication',
+        after: 1
+      }),
+      { binary: true }
+    )
+    assert.deepEqual(await accepted, {
+      type: 'response',
+      requestId: 'reset-room-tail-publication',
+      ok: true,
+      acceptedSequences: [1]
+    })
+
+    const resetRequestId = 'reset-room-tail-document'
+    const reset = responseFor(source, resetRequestId)
+    source.send(
+      JSON.stringify({
+        type: 'reset-document',
+        requestId: resetRequestId
+      })
+    )
+    assert.deepEqual(await reset, {
+      type: 'response',
+      requestId: resetRequestId,
+      ok: true
+    })
+    assert.equal(resetCount, 1)
+
+    const reconnected = await requestPublicClient({
+      port,
+      origin,
+      fileId: 'reset-room-tail-file',
+      actorId: 'reset-room-tail-observer'
+    })
+    sockets.push(reconnected.socket)
+    assert.deepEqual(reconnected.result.bootstrap, {
+      checkpoint,
+      documentGeneration: 1,
+      durableSequence: 0,
+      headSequence: 0,
+      pendingTail: []
+    })
+  } finally {
+    await Promise.all(sockets.map((socket) => closeSocket(socket)))
+    await stopServer(child)
+    await new Promise((resolve) => backend.close(() => resolve()))
   }
 })
 
@@ -1383,6 +1539,97 @@ test('socket server assigns one room sequence, deduplicates publication retries,
       acceptedSequences: [1]
     })
     await expectNoBinaryMessage(observer)
+  } finally {
+    await Promise.all(sockets.map((socket) => closeSocket(socket)))
+    await stopServer(child)
+  }
+})
+
+test('source recovery rejection abandons its tentative sequence before room admission', async () => {
+  const port = await getAvailablePort()
+  const origin = 'http://localhost:4340'
+  const child = startServer({ port, origin })
+  const sockets = []
+  try {
+    await waitForServer(child)
+    const source = await connectPublicClient(
+      {
+        port,
+        origin,
+        fileId: 'source-recovery-rejection-file',
+        actorId: 'source-recovery-rejection-source'
+      },
+      { autoSettleSourcePublications: false }
+    )
+    const peer = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'source-recovery-rejection-file',
+      actorId: 'source-recovery-rejection-peer'
+    })
+    sockets.push(source, peer)
+
+    const requestId = 'source-recovery-rejection-request'
+    const publicationId = 'source-recovery-rejection-publication'
+    const sourceOutcome = waitForMessage(
+      source,
+      (message) =>
+        message.type === 'source-publication-proposed' ||
+        (message.type === 'response' && message.requestId === requestId),
+      'tentative source sequence proposal'
+    )
+    const peerPublication = waitForBinaryMessage(
+      peer,
+      'publication rejected by its source'
+    )
+    source.send(
+      createCanonicalPublicationFrame({
+        requestId,
+        publicationId,
+        after: 2
+      }),
+      { binary: true }
+    )
+
+    assert.deepEqual(await sourceOutcome, {
+      type: 'source-publication-proposed',
+      requestId,
+      publicationIds: [publicationId],
+      sequences: [1]
+    })
+
+    const rejection = responseFor(source, requestId)
+    source.send(
+      JSON.stringify({
+        type: 'source-publication-settlement',
+        requestId,
+        ok: false
+      })
+    )
+    assert.deepEqual(await rejection, {
+      type: 'response',
+      requestId,
+      ok: false,
+      error: {
+        code: 'acknowledgement-failed',
+        message:
+          '[collaboration] source rejected publication during canonical apply'
+      }
+    })
+    await noMessageBefore(peerPublication)
+
+    await closeSocket(peer)
+    sockets.splice(sockets.indexOf(peer), 1)
+    const reconnect = await requestPublicClient({
+      port,
+      origin,
+      fileId: 'source-recovery-rejection-file',
+      actorId: 'source-recovery-rejection-observer'
+    })
+    sockets.push(reconnect.socket)
+    assert.equal(reconnect.result.type, 'ready')
+    assert.equal(reconnect.result.bootstrap.headSequence, 0)
+    assert.deepEqual(reconnect.result.bootstrap.pendingTail, [])
   } finally {
     await Promise.all(sockets.map((socket) => closeSocket(socket)))
     await stopServer(child)

@@ -497,6 +497,11 @@ export interface VectorComputedData {
   y?: number
   width?: number
   height?: number
+  scaleX?: number
+  scaleY?: number
+  rotation?: number
+  skewX?: number
+  skewY?: number
   closed?: boolean
   pointCoordinateSpace?: 'workspace'
   points: Record<string, VectorPointNode>

@@ -1407,6 +1407,7 @@ describe('collaboration wire protocol', () => {
       type: CollaborationMessageTypes.READY,
       bootstrap: {
         checkpoint: { elements: [{ id: 'element-a' }] },
+        documentGeneration: 3,
         durableSequence: 3,
         headSequence: 5,
         pendingTail: [
@@ -1429,6 +1430,18 @@ describe('collaboration wire protocol', () => {
     expect(parseCollaborationClientMessage(consumed)).toEqual(consumed)
   })
 
+  it('parses only identified document Reset control requests', () => {
+    const reset = {
+      type: CollaborationMessageTypes.RESET_DOCUMENT,
+      requestId: 'reset-document-1'
+    }
+
+    expect(parseCollaborationClientMessage(reset)).toEqual(reset)
+    expect(
+      parseCollaborationClientMessage({ ...reset, requestId: '' })
+    ).toBeUndefined()
+  })
+
   it('rejects document-session bootstrap sequence gaps and stale completion cutoffs', () => {
     const ready = {
       type: CollaborationMessageTypes.READY,
@@ -1445,6 +1458,19 @@ describe('collaboration wire protocol', () => {
     }
 
     expect(parseCollaborationServerMessage(ready)).toBeUndefined()
+    expect(
+      parseCollaborationServerMessage({
+        ...ready,
+        bootstrap: {
+          ...ready.bootstrap,
+          checkpoint: {},
+          documentGeneration: -1,
+          durableSequence: 0,
+          headSequence: 0,
+          pendingTail: []
+        }
+      })
+    ).toBeUndefined()
     expect(
       parseCollaborationServerMessage({
         type: CollaborationMessageTypes.READY,
@@ -1642,6 +1668,37 @@ describe('collaboration wire protocol', () => {
       })
     ).toBeUndefined()
     expect(parseCollaborationClientMessage(credit)).toBeUndefined()
+  })
+
+  it('parses tentative source proposals and their exact client settlement', () => {
+    const proposal = {
+      type: CollaborationMessageTypes.SOURCE_PUBLICATION_PROPOSED,
+      requestId: 'request-source-proposal',
+      publicationIds: ['publication-a', 'publication-b'],
+      sequences: [41, 42]
+    } as const
+    const settlement = {
+      type: CollaborationMessageTypes.SOURCE_PUBLICATION_SETTLEMENT,
+      requestId: proposal.requestId,
+      ok: false
+    } as const
+
+    expect(parseCollaborationServerMessage(proposal)).toEqual(proposal)
+    expect(parseCollaborationClientMessage(settlement)).toEqual(settlement)
+    expect(
+      parseCollaborationServerMessage({
+        ...proposal,
+        publicationIds: ['publication-a', 'publication-a']
+      })
+    ).toBeUndefined()
+    expect(
+      parseCollaborationServerMessage({ ...proposal, sequences: [41, 43] })
+    ).toBeUndefined()
+    expect(
+      parseCollaborationClientMessage({ ...settlement, ok: 'false' })
+    ).toBeUndefined()
+    expect(parseCollaborationClientMessage(proposal)).toBeUndefined()
+    expect(parseCollaborationServerMessage(settlement)).toBeUndefined()
   })
 
   it('parses peer-applied only as an exact client control receipt', () => {

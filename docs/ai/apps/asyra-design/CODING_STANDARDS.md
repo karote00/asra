@@ -13,8 +13,25 @@
 3. Feature boundary
 
 - feature files should primarily use `src/common-apis/*` and app constants/types
-- prefer helper imports from `@asyra/core` when facade exports exist
+- use `@asyra/core` or the App Core context for framework runtime/lifecycle
+  capabilities; never use `core.deps` as an App API
+- Factory, Feature System, Input System, Reactive Events, and Render package
+  singletons are Core-owned App boundaries; add a Core facade when one is
+  missing instead of importing the singleton
+- direct `@asyra/collaboration` use is limited to independently composed
+  Provider/wire/transport policy; register its runtime lifecycle with Core
 - avoid direct deep package internals in feature handlers
+
+4. Backend boundary
+
+- backend and socket-server production code import only Node/third-party
+  infrastructure and App-owned protocol modules
+- no backend source or backend bundle may import an `@asyra/*` package,
+  including type-only imports
+- framework publication/event conversion belongs to the frontend adapter, and
+  remote apply returns through a Core facade
+
+Authority: `rules/app-boundaries.md`.
 
 ## Interaction Standards
 

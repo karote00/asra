@@ -13,10 +13,16 @@ vi.mock('../../contexts', () => ({
   default: {
     changeComputedData: mocks.changeComputedData,
     commitPropertyChanges: mocks.commitPropertyChanges,
-    deps: {
-      sceneTree: {
-        getElementById: mocks.getElementById
-      }
+    getElementComputedData: (elementId: string) =>
+      mocks.getElementById(elementId)?.getAllComputedData(),
+    getElementData: (elementId: string) => {
+      const element = mocks.getElementById(elementId)
+      return element
+        ? {
+            id: elementId,
+            type: element.get('type')
+          }
+        : undefined
     },
     patchElementProperties: mocks.patchElementProperties,
     updatePropertyById: mocks.updatePropertyById

@@ -85,7 +85,7 @@ npx wait-on "http-get://${E2E_COLLABORATION_HEALTH_URL#http://}" --timeout 60000
 echo "Step 8: Starting E2E App server at $E2E_APP_URL..."
 E2E_OWN_SERVERS=1 \
   E2E_DOCUMENT_BACKEND_URL="$E2E_DOCUMENT_BACKEND_URL" \
-  yarn workspace @asyra/asyra-design react:start \
+  yarn workspace @asyra/asyra-design start \
   --port "$E2E_PORT" \
   --host "$E2E_HOST" \
   --strictPort &
@@ -97,7 +97,7 @@ echo "Step 9: Waiting for App server to be ready..."
 npx wait-on "$E2E_APP_URL" --timeout 60000
 
 # 10. Keep the formal timing budget free from another browser worker's CPU load,
-# then parallelize the remaining functional suite.
+# then run the remaining functional suite with its deterministic CI policy.
 if [ "${CI:-}" = "true" ]; then
   echo "Step 10: Running isolated render performance gate..."
   yarn workspace @asyra/asyra-design playwright test --config playwright.config.ts e2e/render-delta-performance.spec.ts --workers=1

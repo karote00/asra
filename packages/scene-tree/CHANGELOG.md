@@ -1,5 +1,13 @@
 # @asyra/scene-tree
 
+## 0.5.1
+
+### Patch Changes
+
+- Updated dependencies [889f7b4]
+  - @asyra/props-manager@0.5.1
+  - @asyra/reactive-events@0.5.1
+
 ## 0.5.0
 
 ### Minor Changes

@@ -71,9 +71,11 @@
   UUID actor identity is generated per page and configures the canonical
   ID-counter namespace before collaborative actions
 - derives the ordinary WebSocket endpoint from
-  `VITE_COLLABORATION_WS_URL` or same-origin `/collaboration`, prepares the
-  checkpoint/tail handshake before Core startup, and supplies that checkpoint
-  through Core's load-only source
+  `VITE_COLLABORATION_WS_URL` or same-origin `/collaboration`, composes one
+  App-owned document session, and registers its neutral lifecycle with Core
+- Core prepares the checkpoint/tail handshake, loads the returned read-only
+  checkpoint source, initializes Features, applies the pending tail, activates
+  live transport, and only then publishes ready
 - every required `fileId`, including `crdt-7076-sample`, receives its initial
   checkpoint from the same socket document session. The prepared 7,076-element
   sample enters only through Actor A's request-time HTTP action-batch after
@@ -88,8 +90,8 @@
   succeed before observers, persistence load, features, or ready publication
 - remains the sole runtime-start/ready owner; preset completion does not close
   registration composition or publish ready
-- owns the mount-lifetime teardown request for the Core renderer and optional
-  collaboration lifecycle; the lifecycle disposer owns idempotent resource cleanup.
+- owns the mount-lifetime `core.destroy()` request; Core disposes the registered
+  collaboration session before the renderer and owns idempotent runtime cleanup.
   Teardown does not reopen composition, and an unmount during pending startup
   cannot activate collaboration afterward
 - collaboration setup is mandatory for every required `fileId`. Session
@@ -113,15 +115,16 @@ the existing Render object.
 
 ## Collaboration Ownership
 
-- RenderApp owns mount-lifetime activation/teardown requests;
-  the collaboration lifecycle module owns instance startup, failure cleanup, and
-  disposal, including HMR cleanup. Core and Preset do not activate
-  collaboration implicitly.
-- `src/collaboration/factory-adapter.ts` exposes only the registered
-  Scene Tree and Props document channels to the collaboration instance.
+- RenderApp composes the file-scoped session and registers it with Core.
+  The collaboration lifecycle module owns Provider/session policy and cleanup;
+  Core owns the registered prepare/load/activate/ready/dispose ordering without
+  importing or interpreting `@asyra/collaboration`.
+- `src/collaboration/factory-adapter.ts` filters Core's neutral publication
+  source to the registered Scene Tree and Props document channels.
 - `src/collaboration/operations.ts` owns app route/payload validation and turns
-  one accepted remote publication into one Factory remote transaction through
-  the ordinary canonical event path. Within that publication, adjacent
+  one accepted remote publication into canonical slices, then submits those
+  slices through Core's remote-apply facade. Core owns the Factory remote
+  transaction and replay mode. Within that publication, adjacent
   non-container element removals may be coalesced into one ordered Core
   canonical request; a container removal remains a lifecycle barrier, and
   different publications are never merged. The adapter does not reconstruct
@@ -132,8 +135,15 @@ the existing Render object.
   revalidated before one remote transaction; Collaboration remains
   transport-only.
 - `src/collaboration/protocol.ts` is the one typed browser/server
-  wire boundary; the browser provider and reference server validate untrusted
-  messages against it before invoking provider operations.
+  wire boundary; it and `app-protocol-types.ts` are App-owned and import no
+  framework package. The browser provider and reference server validate
+  untrusted messages against that App protocol before their respective
+  handoffs.
+- The frontend collaboration adapter is the only bridge to the framework: it
+  subscribes through Core, converts publications to the App wire contract, and
+  submits decoded canonical slices through Core's remote-apply facade. The
+  socket server and document backend import no `@asyra/*` package and never
+  construct or call Core, Factory, or Collaboration.
 - Factory owns shared-publication timing and batching. A synchronous immediate
   delivery action is one ordered source boundary; default progressive delivery
   groups consecutive source boundaries into bounded publication windows of at
@@ -178,20 +188,26 @@ mandatory socket handshake
   document-change unit; private Undo History never reaches the server.
 - Selection, Awareness, computed projection, Render/UI state, and diagnostics
   remain outside document persistence.
-- The browser performs no canonical document persistence write during ordinary
-  App operation. The permanent toolbar Reset is the one standalone exception:
-  it attempts to delete only the current stored checkpoint and always refreshes
-  after that attempt settles, including when a storage-free demo has no
-  backend, without Core, Feature, transaction, History, CRDT, Selection, or
-  Collaboration participation. `crdt-7076-sample` otherwise uses the same
-  socket-authoritative document session and request-time HTTP action-batch as
-  its only prepared sample source.
+- The browser performs no direct canonical document persistence write. The
+  permanent toolbar Reset is a standalone App lifecycle request through the
+  active socket: the collaboration server serializes a destructive room reset,
+  discards its accepted tail only after any active persistence attempt settles,
+  and resets the backend to the formal sequence-zero document before
+  acknowledgement. The browser then clears the file-scoped recovery outbox and
+  always refreshes, including when a storage-free demo has no backend, without
+  Core, Feature, transaction, History, CRDT apply, or Selection participation.
+  `crdt-7076-sample` otherwise uses the same socket-authoritative document
+  session and request-time HTTP action-batch as its only prepared sample source.
 - The App owns a native IndexedDB transport-recovery outbox containing only
   immutable local publications that have not received socket acceptance.
 - A disconnected or incomplete socket session remains locally editable.
-  Initial failure and later disconnect each enter one stateful disconnected
-  epoch, retry at most once every 30 seconds, and do not emit per-operation
-  failure toasts.
+  Connection starts at `none` and never returns to it. Only
+  `none -> connected` is silent; both `none -> disconnected` and
+  `connected -> disconnected` emit one disconnected transition notification,
+  while `disconnected -> connected` emits one reconnected notification.
+  Repeated same-state observations publish no new connection state. Retries
+  occur at most once every 30 seconds and do not emit per-operation failure
+  toasts.
 - Reconnect reloads the authoritative checkpoint/tail, reconciles the durable
   local outbox in server sequence, and removes each entry only after matching
   source acceptance. Conflict and recovery-storage failure remain explicit

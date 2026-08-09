@@ -101,33 +101,24 @@ export const initApp = (): AppInitialization => {
   const performanceProfile = getActiveAiDrawingPerformanceProfile()
   const detachPerformanceRuntimeEvidence = performanceProfile
     ? attachAiDrawingPerformanceRuntimeEvidence(performanceProfile, {
-        readCanonicalElementCount: () =>
-          Math.max(
-            0,
-            core.deps.sceneTree.getAllElements().size -
-              core.deps.sceneTree.workspaceList.length
-          ),
+        readCanonicalElementCount: () => core.getCanonicalElementCount(),
         readCanonicalElements: () =>
-          Array.from(core.deps.sceneTree.getAllElements().entries()).map(
-            ([id, element]) => ({
-              computed: element.getAllComputedData(),
-              id,
-              raw: element.save(),
-              rendered: Boolean(core.deps.render.getElementById(id)),
-              type: String(element.get('type'))
-            })
-          ),
-        readCanonicalOwnerSnapshot: () => ({
-          props: core.deps.props.save(),
-          sceneTree: core.deps.sceneTree.save()
-        }),
-        readHistoryDepth: () => core.deps.factory.getUndoHistoryDepth(),
-        readRenderProjectionElementCount: () =>
-          core.deps.render.getProjectedElementCount(),
+          core.getAllElementData().map(({ elementId, data, computed }) => ({
+            computed,
+            id: elementId,
+            raw: data,
+            rendered: core.hasProjectedElement(elementId),
+            type: String(data.type)
+          })),
+        readCanonicalOwnerSnapshot: () => {
+          return core.getCanonicalOwnerSnapshot()
+        },
+        readHistoryDepth: () => core.getUndoHistoryDepth(),
+        readRenderProjectionElementCount: () => core.getProjectedElementCount(),
         readViewportPosition: () => viewportApis.getPosition(),
         readZoom: () => viewportApis.getScale(),
         subscribeToTransactionStatus: (subscriber) =>
-          core.deps.factory.subscribeToTransactionStatus(subscriber)
+          core.subscribeToTransactionStatus(subscriber)
       })
     : undefined
 

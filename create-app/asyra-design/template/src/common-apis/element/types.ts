@@ -1,6 +1,4 @@
 import type {
-  FillAttrs,
-  StrokeAttrs,
   VectorAnchorPoint,
   VectorPointTarget as CoreVectorPointTarget,
   VectorPathStyle,
@@ -11,9 +9,11 @@ import type {
 import type {
   CreateElementData,
   EntityType,
+  FillAttrs,
   PositionData,
   PropsRawData,
-  Rect
+  Rect,
+  StrokeAttrs
 } from '@asyra/utils'
 
 export type ElementBounds = Rect

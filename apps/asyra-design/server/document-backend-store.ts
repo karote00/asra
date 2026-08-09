@@ -1,7 +1,7 @@
 import { Buffer } from 'node:buffer'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import type { CoreRawData } from '@asyra/utils'
+import type { AppDocumentData } from '../src/collaboration/app-protocol-types'
 import { createFormalInitialDocument } from '../src/collaboration/initial-document'
 import type {
   DocumentMaterializationStore,
@@ -13,23 +13,48 @@ const STORAGE_PROTOCOL_VERSION = 1
 interface StoredDocumentRecord {
   readonly protocolVersion: number
   readonly documentId: string
-  readonly record: MaterializedDocumentRecord<CoreRawData>
+  readonly record: MaterializedDocumentRecord<AppDocumentData>
 }
 
 export interface FileDocumentMaterializationStore
-  extends DocumentMaterializationStore<CoreRawData> {
+  extends DocumentMaterializationStore<AppDocumentData> {
   readCheckpoint(
     documentId: string
-  ): Promise<MaterializedDocumentRecord<CoreRawData>>
-  resetCheckpoint(documentId: string): Promise<void>
+  ): Promise<MaterializedDocumentRecord<AppDocumentData>>
+  resetCheckpoint(documentId: string): Promise<number>
 }
 
-const createInitialRecord = (): MaterializedDocumentRecord<CoreRawData> => ({
+const createInitialRecord = (
+  documentGeneration = 0
+): MaterializedDocumentRecord<AppDocumentData> => ({
   document: createFormalInitialDocument(),
+  documentGeneration,
   durableSequence: 0,
   publicationSequences: {},
   batches: {}
 })
+
+const formalInitialDocumentJson = JSON.stringify(createFormalInitialDocument())
+
+const inferLegacyDocumentGeneration = (
+  record: Record<string, unknown>
+): number => {
+  if (
+    record.durableSequence === 0 &&
+    isRecord(record.document) &&
+    JSON.stringify(record.document) === formalInitialDocumentJson &&
+    isRecord(record.publicationSequences) &&
+    Object.keys(record.publicationSequences).length === 0 &&
+    isRecord(record.batches) &&
+    Object.keys(record.batches).length === 0
+  ) {
+    // Before document generations existed, the backend wrote an explicit
+    // sequence-zero file only for Reset. A never-persisted document has no
+    // file and remains generation zero.
+    return 1
+  }
+  return 0
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -37,7 +62,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const parseStoredRecord = (
   input: unknown,
   documentId: string
-): MaterializedDocumentRecord<CoreRawData> => {
+): MaterializedDocumentRecord<AppDocumentData> => {
   if (
     !isRecord(input) ||
     input.protocolVersion !== STORAGE_PROTOCOL_VERSION ||
@@ -45,6 +70,9 @@ const parseStoredRecord = (
     !isRecord(input.record) ||
     !Number.isSafeInteger(input.record.durableSequence) ||
     Number(input.record.durableSequence) < 0 ||
+    (Object.prototype.hasOwnProperty.call(input.record, 'documentGeneration') &&
+      (!Number.isSafeInteger(input.record.documentGeneration) ||
+        Number(input.record.documentGeneration) < 0)) ||
     !isRecord(input.record.document) ||
     !isRecord(input.record.publicationSequences) ||
     !isRecord(input.record.batches)
@@ -53,7 +81,13 @@ const parseStoredRecord = (
       `[document-backend-store] stored document "${documentId}" is invalid`
     )
   }
-  return input.record as unknown as MaterializedDocumentRecord<CoreRawData>
+  const record =
+    input.record as unknown as MaterializedDocumentRecord<AppDocumentData>
+  return {
+    ...record,
+    documentGeneration:
+      record.documentGeneration ?? inferLegacyDocumentGeneration(input.record)
+  }
 }
 
 const documentFileName = (documentId: string): string =>
@@ -63,17 +97,17 @@ export const createFileDocumentMaterializationStore = (
   dataDirectory: string
 ): FileDocumentMaterializationStore => {
   const directory = resolve(dataDirectory)
-  const cache = new Map<string, MaterializedDocumentRecord<CoreRawData>>()
+  const cache = new Map<string, MaterializedDocumentRecord<AppDocumentData>>()
   const transactionTails = new Map<string, Promise<void>>()
   let temporaryFileSequence = 0
 
   const load = async (
     documentId: string
-  ): Promise<MaterializedDocumentRecord<CoreRawData>> => {
+  ): Promise<MaterializedDocumentRecord<AppDocumentData>> => {
     const cached = cache.get(documentId)
     if (cached) return cached
     const filePath = resolve(directory, documentFileName(documentId))
-    let record: MaterializedDocumentRecord<CoreRawData>
+    let record: MaterializedDocumentRecord<AppDocumentData>
     try {
       record = parseStoredRecord(
         JSON.parse(await readFile(filePath, 'utf8')) as unknown,
@@ -96,7 +130,7 @@ export const createFileDocumentMaterializationStore = (
 
   const persist = async (
     documentId: string,
-    record: MaterializedDocumentRecord<CoreRawData>
+    record: MaterializedDocumentRecord<AppDocumentData>
   ): Promise<void> => {
     await mkdir(directory, { recursive: true })
     const filePath = resolve(directory, documentFileName(documentId))
@@ -118,15 +152,17 @@ export const createFileDocumentMaterializationStore = (
   const store: FileDocumentMaterializationStore = {
     readCheckpoint: load,
     resetCheckpoint: async (documentId) => {
-      await store.transact(documentId, async (_current, commit) => {
-        commit(createInitialRecord())
+      return store.transact(documentId, async (current, commit) => {
+        const documentGeneration = (current.documentGeneration ?? 0) + 1
+        commit(createInitialRecord(documentGeneration))
+        return documentGeneration
       })
     },
     async transact<Result>(
       documentId: string,
       execute: (
-        current: MaterializedDocumentRecord<CoreRawData>,
-        commit: (next: MaterializedDocumentRecord<CoreRawData>) => void
+        current: MaterializedDocumentRecord<AppDocumentData>,
+        commit: (next: MaterializedDocumentRecord<AppDocumentData>) => void
       ) => Promise<Result>
     ): Promise<Result> {
       const previous = transactionTails.get(documentId) ?? Promise.resolve()
@@ -139,7 +175,7 @@ export const createFileDocumentMaterializationStore = (
       await previous
       try {
         const current = await load(documentId)
-        let committed: MaterializedDocumentRecord<CoreRawData> | undefined
+        let committed: MaterializedDocumentRecord<AppDocumentData> | undefined
         const result = await execute(current, (next) => {
           if (committed) {
             throw new Error(

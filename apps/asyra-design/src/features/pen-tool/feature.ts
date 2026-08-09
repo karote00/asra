@@ -47,6 +47,7 @@ interface PenState extends Record<string, unknown> {
   connectedPointId: string | null
   connectionSide: VectorEndpointSide
   autoUpdateConnectedHandleTarget: VectorHandleTarget | null
+  hasAppliedCurveFrame: boolean
   structuralOperationIntent?: StructuralVectorOperationPatchIntent | null
   runtimeBefore: VectorEditingRuntimeState
 }
@@ -81,6 +82,29 @@ interface VectorEditingRuntimeState {
     typeof systemContextApis.getHoveredVectorSegmentInsertPoint
   >
 }
+
+const PEN_CREATE_POINT_HANDLES_OPTIONS = {
+  undoable: true,
+  sharedDelivery: 'immediate',
+  skipResult: true
+} as const satisfies EVENT_OPTIONS & { skipResult?: boolean }
+
+const PEN_REPLACE_POINT_HANDLES_OPTIONS = {
+  ...PEN_CREATE_POINT_HANDLES_OPTIONS,
+  history: {
+    mode: 'replace-latest',
+    key: 'pen-tool:create-point-handles'
+  }
+} as const satisfies EVENT_OPTIONS & { skipResult?: boolean }
+
+const SELECT_VECTOR_POINT_TARGET_OPTIONS = {
+  sharedDelivery: 'immediate',
+  skipResult: true,
+  history: {
+    mode: 'replace-latest',
+    key: 'select-vector-point:target-position'
+  }
+} as const satisfies EVENT_OPTIONS & { skipResult?: boolean }
 
 const captureVectorEditingRuntimeState = (): VectorEditingRuntimeState => ({
   pathEditingVectorId: systemContextApis.getPathEditingVectorId(),
@@ -809,6 +833,7 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
             connectedPointId,
             connectionSide,
             autoUpdateConnectedHandleTarget,
+            hasAppliedCurveFrame: false,
             structuralOperationIntent,
             runtimeBefore
           } as PenState
@@ -839,6 +864,7 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
           connectedPointId: null,
           connectionSide: VECTOR_TOKENS.ENDPOINT.SIDE.END,
           autoUpdateConnectedHandleTarget: null,
+          hasAppliedCurveFrame: false,
           structuralOperationIntent: createStructuralVectorOperationPatchIntent(
             {
               elementId,
@@ -862,11 +888,16 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
           return
         }
 
-        applyBezierDragForNewPoint(state, mouseWorkspacePos, {
-          undoable: true,
-          sharedDelivery: 'immediate',
-          skipResult: true
-        })
+        const applied = applyBezierDragForNewPoint(
+          state,
+          mouseWorkspacePos,
+          state.hasAppliedCurveFrame
+            ? PEN_REPLACE_POINT_HANDLES_OPTIONS
+            : PEN_CREATE_POINT_HANDLES_OPTIONS
+        )
+        if (applied) {
+          state.hasAppliedCurveFrame = true
+        }
 
         return
       },
@@ -972,6 +1003,11 @@ export const selectVectorPointFeature = defineFeature<
 
       selectionApis.clearVectorSegmentSelection()
       systemContextApis.setSelectedVectorSegment(null)
+      transactionApis.configureSharedDeliverySequence({
+        mode: 'atomic',
+        batchPublications: false,
+        slices: []
+      })
       selectionApis.selectVectorPoint({
         elementId: activeHoveredPoint.elementId,
         pointId: activeHoveredPoint.pointId,
@@ -1074,11 +1110,7 @@ export const selectVectorPointFeature = defineFeature<
           updateVectorPointTargetPosition(
             dragTarget,
             computedPatchIntent.patch.position,
-            {
-              undoable: computedPatchIntent.patch.undoable,
-              transientPreview: true,
-              skipResult: computedPatchIntent.patch.skipResult
-            }
+            SELECT_VECTOR_POINT_TARGET_OPTIONS
           )
       )
       if (updatedPoint === null) {
@@ -1089,47 +1121,19 @@ export const selectVectorPointFeature = defineFeature<
       dragTarget.hasMoved = true
       return
     },
-    onEnd: (snapshot: SystemContextSnapshot, state: SelectVectorPointState) => {
+    onEnd: (
+      _snapshot: SystemContextSnapshot,
+      state: SelectVectorPointState
+    ) => {
       const dragTarget = state.dragTarget
       if (!dragTarget) {
         return
       }
 
       try {
-        if (
-          !dragTarget.hasMoved &&
-          !hasMovedBeyondVectorPointDragThreshold(snapshot)
-        ) {
+        if (!dragTarget.hasMoved) {
           return
         }
-
-        const currentWorkspacePos = elementApis.getMousePosInWorkspace(
-          snapshot.mousePosition
-        )
-        if (!currentWorkspacePos) {
-          return
-        }
-
-        const computedPatchIntent = createPointHandleComputedPatchIntent({
-          dragTarget,
-          currentWorkspacePos,
-          phase: 'commit'
-        })
-        if (!computedPatchIntent) {
-          return
-        }
-
-        elementApis.discardTransientVectorPreviews([dragTarget.elementId])
-        updateVectorPointTargetPosition(
-          dragTarget,
-          computedPatchIntent.patch.position,
-          {
-            undoable: computedPatchIntent.patch.undoable,
-            sharedDelivery: 'immediate',
-            skipResult: computedPatchIntent.patch.skipResult
-          }
-        )
-        state.computedPatchIntent = computedPatchIntent
         const committedPoint = elementApis.getVectorAnchorPointById(
           dragTarget.elementId,
           dragTarget.pointId

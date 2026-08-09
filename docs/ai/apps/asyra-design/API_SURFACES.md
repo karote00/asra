@@ -187,6 +187,10 @@ Completed plan:
   encoded-byte digest, queues, and relays original opaque publication bytes
   without an admission document, product-payload decode, decoded deep equality,
   or re-encode. The backend decodes once for ordered atomic materialization
+- the socket server and backend use only App-owned wire/document/Agent
+  protocols and import no `@asyra/*` package. The frontend adapter alone
+  observes Core publications/events and submits decoded remote slices through
+  the Core facade
 - a receiving client routes the decoded trusted publication into its recorded
   source slices. Factory keeps one progressive remote rollback journal open,
   Core receives one ordered canonical request per source slice, and the
@@ -271,7 +275,10 @@ Accepted socket-authoritative target:
   not incur repeated array-head compaction
 - connection state and sync state remain distinct; disconnected local editing
   continues, fixed reconnect attempts occur at most once every 30 seconds, and
-  ordinary toasts are limited to disconnected/reconnected transitions
+  ordinary toasts follow the connection state machine: only initial
+  `none -> connected` is silent, while transitions into `disconnected` and
+  `disconnected -> connected` notify once; same-state observations publish no
+  new connection state
 - the server's 2 MiB connected-Peer frame queue remains live backpressure only;
   it is cleared on disconnect and never substitutes for the App outbox
 - reconnect performs the authoritative checkpoint/tail handshake and
@@ -285,21 +292,31 @@ Semantic authority:
   tool controls for every `fileId`. This control is permanent unless the
   product owner explicitly requests its removal.
 - `resetStoredDocument()` is a standalone stored-document utility, not an App
-  controller or Feature API. It reads the required `fileId`, sends
-  `DELETE /api/documents/{encoded fileId}`, and always calls
-  `window.location.reload()` after that request attempt settles. A missing,
-  unreachable, or non-success backend still reports its error but cannot block
-  refresh; a storage-free demo therefore returns to the formal empty App.
-- Ordinary Vite development proxies that same-origin document route to
-  `DOCUMENT_PERSISTENCE_BACKEND_URL`; the `E2E_DOCUMENT_BACKEND_URL`
-  override remains test-only and takes precedence when explicitly configured.
+  controller or Feature API. It reads the required `fileId`, requests one
+  destructive Reset barrier through the active App collaboration socket, and
+  always calls `window.location.reload()` after the Reset attempt settles. The
+  barrier serializes behind prior room admission, stops and awaits any current
+  persistence attempt, discards the accepted room tail and retries, replaces
+  the backend checkpoint with the formal initial document at sequence zero,
+  and only then acknowledges the browser. The App subsequently disposes the
+  matching session and clears that file's pending and conflicted IndexedDB
+  recovery publications. A missing or unreachable collaboration/backend
+  service still reports its error but cannot block refresh; a storage-free demo
+  therefore returns to its local formal empty App.
+- The browser bundle and ordinary Vite server expose no direct document-backend
+  Reset route. Only the collaboration server uses
+  `DOCUMENT_PERSISTENCE_BACKEND_URL`; `E2E_DOCUMENT_BACKEND_URL` remains a
+  test-owned backend origin supplied to the collaboration server.
 - Direct document-backend startup stores records under
   `.app-data/documents` by default. `DOCUMENT_BACKEND_DATA_DIR` selects an
   explicit existing or deployment-owned storage directory.
 - The document backend handles that DELETE by replacing the stored record with
   the formal empty checkpoint at durable sequence zero. Reset performs no Core
   mutation, transaction, History, Undo/Redo, Factory publication, CRDT,
-  Selection, or Collaboration operation.
+  or Selection operation. The collaboration server owns the room/backend
+  barrier; App lifecycle participation is limited to requesting that barrier,
+  quiescing the matching session, and clearing its file-scoped recovery outbox.
+  Reset never replays or publishes those records.
 
 - `APP_URL` is the one app-origin contract shared by Vite,
   ordinary Playwright, visual review, collaboration E2E, and the reference
@@ -441,12 +458,15 @@ Import boundary:
 - `removeVectorAnchorPoint(elementId: string, pointId: string): boolean`
 - `splitVectorSegmentAtWorkspacePos(elementId: string, segmentId: string, workspacePos: PositionData): { point: VectorAnchorPoint; index: number } | null`
 - `setVectorClosed(elementId: string, closed: boolean): void`
-- `updateVectorAnchorPointPosition(elementId: string, pointId: string, position: PositionData, options?: { undoable: boolean }): { point: VectorAnchorPoint; index: number } | null`
+- `updateVectorAnchorPointPosition(elementId: string, pointId: string, position: PositionData, options?: VectorPointMutationOptions): { point: VectorAnchorPoint; index: number } | true | null`
 - `updateVectorAnchorPointType(elementId: string, pointId: string, type: 'smooth' | 'sharp'): { point: VectorAnchorPoint; index: number } | null`
 - `getVectorAnchorPointHandleMode(elementId: string, pointId: string): VectorHandleMode`
 - `setVectorAnchorPointHandleMode(elementId: string, pointId: string, mode: VectorHandleMode): { point: VectorAnchorPoint; index: number } | null`
-- `updateVectorAnchorPointHandlePosition(elementId: string, pointId: string, target: 'inHandle' | 'outHandle', position: PositionData, options?: { undoable: boolean }): { point: VectorAnchorPoint; index: number } | null`
-- `updateVectorAnchorPointHandles(elementId: string, updates: { pointId: string; target: 'inHandle' | 'outHandle'; position: PositionData | null; forceSmooth?: boolean }[], mutationOptions?: { undoable: boolean; skipResult?: boolean }): void`
+- `updateVectorAnchorPointHandlePosition(elementId: string, pointId: string, target: 'inHandle' | 'outHandle', position: PositionData, options?: VectorPointMutationOptions): { point: VectorAnchorPoint; index: number } | true | null`
+- `updateVectorAnchorPointHandles(elementId: string, updates: { pointId: string; target: 'inHandle' | 'outHandle'; position: PositionData | null; forceSmooth?: boolean }[], options?: VectorPointMutationOptions): void`
+  - `VectorPointMutationOptions` preserves ordinary `EVENT_OPTIONS` and accepts
+    `skipResult`; active App drag callers use immediate shared delivery plus
+    gesture-keyed local `replace-latest` History metadata
 - `getMousePosInWorkspace(clientPos: PositionData): PositionData | null`
 - `createElementsInParent(options: readonly CreateElementOptions[], parentId: string, mutationOptions?: EVENT_OPTIONS): readonly string[] | null`
   - preflights and prepares the complete mixed ordinary/Vector batch before
@@ -602,7 +622,7 @@ Import boundary:
 - `getGradientHandleHitAtClientPos(elementId: string, fillId: string, clientPos: PositionData, hitRadius?: number): { handleIndex: 0 | 1 } | null`
 - `getNextGradientForHandleAtClientPosition(elementId: string, fillId: string, handleIndex: 0 | 1, clientPos: PositionData): FillGradientData | null`
 - `getNextGradientForHandleWithDelta(baseGradient: FillGradientData, handleIndex: 0 | 1, width: number, height: number, delta: PositionData): FillGradientData`
-- `updateGradientHandleAtClientPosition(elementId: string, fillId: string, handleIndex: 0 | 1, clientPos: PositionData, options?: { undoable: boolean }): FillGradientData | null`
+- `updateGradientHandleAtClientPosition(elementId: string, fillId: string, handleIndex: 0 | 1, clientPos: PositionData, options?: EVENT_OPTIONS): FillGradientData | null`
 - `updateFillFields(...)` / `updateFillField(...)`
 - `updatePrimaryFillColor(elementId: string, color: string, options?: EVENT_OPTIONS): boolean`
   - reads and updates only the first canonical fill property and returns
@@ -768,6 +788,9 @@ Feature registry (`src/features/index.ts`):
 
 - `gradient-fill-handles`
   - `fillApis.getGradientHandleHitAtClientPos` / `getNextGradientForHandleAtClientPosition` / `updateGradientHandleAtClientPosition`
+  - each effective handle/stop frame uses immediate shared delivery and one
+    gesture-keyed local `replace-latest` History stage; pointer-up does not
+    restore or replay the latest frame
   - `systemContextApis` active/hovered/selected gradient-handle state
   - `selectionApis.getSelectedIds`
   - `cursorApis` for gradient-handle hover/drag cursor feedback

@@ -7,7 +7,7 @@ import {
 import { resolve } from 'node:path'
 import process from 'node:process'
 import type { AddressInfo } from 'node:net'
-import type { CoreRawData } from '@asyra/utils'
+import type { AppDocumentData } from '../src/collaboration/app-protocol-types'
 import { applyCanonicalChangesToDocument } from './document-canonical-reducer'
 import { createFileDocumentMaterializationStore } from './document-backend-store'
 import { createDocumentMaterializationService } from './document-materializer'
@@ -94,7 +94,7 @@ export const createDocumentBackendServer = ({
   port = 4201
 }: DocumentBackendServerOptions) => {
   const store = createFileDocumentMaterializationStore(dataDirectory)
-  const materializer = createDocumentMaterializationService<CoreRawData>({
+  const materializer = createDocumentMaterializationService<AppDocumentData>({
     store,
     authorize: async () => undefined,
     applyCanonicalChanges: applyCanonicalChangesToDocument
@@ -116,8 +116,8 @@ export const createDocumentBackendServer = ({
           sendJson(response, 405, { error: 'Method not allowed' })
           return
         }
-        await store.resetCheckpoint(route.documentId)
-        sendJson(response, 200, { ok: true })
+        const documentGeneration = await store.resetCheckpoint(route.documentId)
+        sendJson(response, 200, { ok: true, documentGeneration })
         return
       }
       if (route.operation === 'bootstrap-checkpoint') {
@@ -129,7 +129,8 @@ export const createDocumentBackendServer = ({
         const record = await store.readCheckpoint(route.documentId)
         sendJson(response, 200, {
           checkpoint: record.document,
-          durableSequence: record.durableSequence
+          durableSequence: record.durableSequence,
+          documentGeneration: record.documentGeneration ?? 0
         })
         return
       }

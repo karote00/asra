@@ -4,6 +4,7 @@ import {
   createTestDocumentURL,
   getCurrentDocumentFileId,
   getElementCount,
+  getPersistedDocumentCheckpoint,
   waitForAppReady,
   getToolbar,
   getContentsPanel,
@@ -106,68 +107,44 @@ test.describe('Asyra Design Tool', () => {
     const fileId = getCurrentDocumentFileId(page)
     await expect
       .poll(
-        () =>
-          page.evaluate(async (requestedFileId) => {
-            const response = await fetch(
-              `/api/documents/${encodeURIComponent(
-                requestedFileId
-              )}/bootstrap-checkpoint`,
-              { headers: { accept: 'application/json' } }
-            )
-            if (!response.ok) return null
-            const payload = (await response.json()) as {
-              checkpoint?: {
-                sceneTree?: { elements?: Record<string, unknown> }
-              }
-              durableSequence?: number
-            }
-            return (
-              typeof payload.durableSequence === 'number' &&
-              payload.durableSequence > 0 &&
-              Object.keys(payload.checkpoint?.sceneTree?.elements ?? {})
-                .length === 2
-            )
-          }, fileId),
+        async () => {
+          const payload = await getPersistedDocumentCheckpoint(fileId)
+          return (
+            typeof payload.durableSequence === 'number' &&
+            payload.durableSequence > 0 &&
+            Object.keys(payload.checkpoint?.sceneTree?.elements ?? {})
+              .length === 2
+          )
+        },
         { timeout: 15_000 }
       )
       .toBe(true)
 
-    const resetResponse = page.waitForResponse(
-      (response) =>
-        response.request().method() === 'DELETE' &&
-        new URL(response.url()).pathname ===
-          `/api/documents/${encodeURIComponent(fileId)}`
-    )
+    const browserDocumentBackendRequests: string[] = []
+    page.on('request', (browserRequest) => {
+      if (
+        new URL(browserRequest.url()).pathname.startsWith('/api/documents/')
+      ) {
+        browserDocumentBackendRequests.push(browserRequest.url())
+      }
+    })
     const reload = page.waitForNavigation({ waitUntil: 'domcontentloaded' })
     await resetButton.click()
-    expect((await resetResponse).status()).toBe(200)
     await reload
     await waitForAppReady(page)
+    expect(browserDocumentBackendRequests).toEqual([])
 
     await expect.poll(() => getElementCount(page)).toBe(0)
     await expect
-      .poll(() =>
-        page.evaluate(async (requestedFileId) => {
-          const response = await fetch(
-            `/api/documents/${encodeURIComponent(
-              requestedFileId
-            )}/bootstrap-checkpoint`,
-            { headers: { accept: 'application/json' } }
-          )
-          const payload = (await response.json()) as {
-            checkpoint?: {
-              sceneTree?: { elements?: Record<string, unknown> }
-            }
-            durableSequence?: number
-          }
-          return {
-            durableSequence: payload.durableSequence,
-            elementCount: Object.keys(
-              payload.checkpoint?.sceneTree?.elements ?? {}
-            ).length
-          }
-        }, fileId)
-      )
+      .poll(async () => {
+        const payload = await getPersistedDocumentCheckpoint(fileId)
+        return {
+          durableSequence: payload.durableSequence,
+          elementCount: Object.keys(
+            payload.checkpoint?.sceneTree?.elements ?? {}
+          ).length
+        }
+      })
       .toEqual({ durableSequence: 0, elementCount: 1 })
 
     await page.screenshot({
@@ -187,18 +164,19 @@ test.describe('Asyra Design Tool', () => {
     await createRectangle(page)
     await expect.poll(() => getElementCount(page)).toBe(1)
 
-    const fileId = getCurrentDocumentFileId(page)
-    const resetResponse = page.waitForResponse(
-      (response) =>
-        response.request().method() === 'DELETE' &&
-        new URL(response.url()).pathname ===
-          `/api/documents/${encodeURIComponent(fileId)}`
-    )
+    const browserDocumentBackendRequests: string[] = []
+    page.on('request', (browserRequest) => {
+      if (
+        new URL(browserRequest.url()).pathname.startsWith('/api/documents/')
+      ) {
+        browserDocumentBackendRequests.push(browserRequest.url())
+      }
+    })
     const reload = page.waitForNavigation({ waitUntil: 'domcontentloaded' })
     await page.getByTestId('reset-button').click()
-    expect((await resetResponse).status()).toBe(404)
     await reload
     await waitForAppReady(page)
+    expect(browserDocumentBackendRequests).toEqual([])
 
     await expect.poll(() => getElementCount(page)).toBe(0)
     await page.screenshot({

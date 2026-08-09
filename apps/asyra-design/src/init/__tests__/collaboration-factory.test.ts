@@ -2,7 +2,7 @@ import type { SharedPublication } from '@asyra/factory'
 import { describe, expect, it, vi } from 'vitest'
 import { EventTypes } from '@asyra/reactive-events'
 import { SharedDataChannelNames } from '@asyra/utils'
-import { createDocumentCollaborationFactory } from '../../collaboration/factory-adapter'
+import { createDocumentCollaborationPublicationSource } from '../../collaboration/factory-adapter'
 import { isSharedPublication } from '../../collaboration/protocol'
 import * as aiDrawingPerformance from '../performance/ai-drawing-performance-profile'
 
@@ -38,7 +38,9 @@ describe('Asyra Design collaboration composition', () => {
         return () => undefined
       })
     }
-    const filtered = createDocumentCollaborationFactory(owner as never)
+    const filtered = createDocumentCollaborationPublicationSource(
+      owner as never
+    )
     const received = vi.fn()
     const documentPublication = Object.freeze({
       publicationId: 'document-only',
@@ -68,7 +70,7 @@ describe('Asyra Design collaboration composition', () => {
       ])
     })
 
-    filtered.subscribeToSharedPublication(received as never)
+    filtered.subscribe(received as never)
     publicationSubscriber?.(documentPublication)
 
     expect(received).toHaveBeenCalledOnce()
@@ -85,7 +87,9 @@ describe('Asyra Design collaboration composition', () => {
         return () => undefined
       })
     }
-    const filtered = createDocumentCollaborationFactory(owner as never)
+    const filtered = createDocumentCollaborationPublicationSource(
+      owner as never
+    )
     const received = vi.fn()
     const selectionDelivery = createDelivery(
       'selection-delivery',
@@ -103,7 +107,7 @@ describe('Asyra Design collaboration composition', () => {
       ['element-a']
     )
 
-    filtered.subscribeToSharedPublication(received as never)
+    filtered.subscribe(received as never)
     publicationSubscriber?.(
       createPublication('selection-only', [
         {
@@ -186,7 +190,9 @@ describe('Asyra Design collaboration composition', () => {
         return () => undefined
       })
     }
-    const filtered = createDocumentCollaborationFactory(owner as never)
+    const filtered = createDocumentCollaborationPublicationSource(
+      owner as never
+    )
     const received = vi.fn()
     const selectionDelivery = createDelivery(
       'selection-delivery',
@@ -204,7 +210,7 @@ describe('Asyra Design collaboration composition', () => {
       ['property-a']
     )
 
-    filtered.subscribeToSharedPublication(received as never)
+    filtered.subscribe(received as never)
     publicationSubscriber?.(
       createPublication('atomic-delete', [
         {
@@ -288,7 +294,9 @@ describe('Asyra Design collaboration composition', () => {
       .mockImplementation(() => {
         throw new Error('diagnostic failure')
       })
-    const filtered = createDocumentCollaborationFactory(owner as never)
+    const filtered = createDocumentCollaborationPublicationSource(
+      owner as never
+    )
     const received = vi.fn()
     const selectionDelivery = createDelivery(
       'selection-delivery',
@@ -306,7 +314,7 @@ describe('Asyra Design collaboration composition', () => {
       ['element-a']
     )
 
-    filtered.subscribeToSharedPublication(received as never)
+    filtered.subscribe(received as never)
     publicationSubscriber?.(
       createPublication('selection-only', [
         {
@@ -377,10 +385,12 @@ describe('Asyra Design collaboration composition', () => {
         return () => undefined
       })
     }
-    const filtered = createDocumentCollaborationFactory(owner as never)
+    const filtered = createDocumentCollaborationPublicationSource(
+      owner as never
+    )
     const received = vi.fn()
 
-    filtered.subscribeToSharedPublication(received as never)
+    filtered.subscribe(received as never)
 
     for (const eventName of [
       EventTypes.UPDATE_COMPUTED_DATA,

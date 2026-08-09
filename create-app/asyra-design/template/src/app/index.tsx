@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ToolBar from '../toolbar'
 import Contents from '../contents'
 import Properties from '../properties'
-import Animation from '../animation'
 import { toTailwindPixelSize } from '../tailwind-size'
 import { COLUMN_WIDTH } from '../constants'
 import RenderApp from '../render-app'
@@ -191,12 +190,11 @@ const App: React.FC<AppProps> = ({
         gridTemplateAreas: `
         "header header header"
         "left-sidebar canvas right-sidebar"
-        "footer footer footer"
       `,
         gridTemplateColumns: `${toTailwindPixelSize(
           COLUMN_WIDTH
         )}px 1fr ${toTailwindPixelSize(COLUMN_WIDTH)}px`,
-        gridTemplateRows: 'auto 1fr auto'
+        gridTemplateRows: 'auto 1fr'
       }}
     >
       <RenderApp
@@ -230,7 +228,6 @@ const App: React.FC<AppProps> = ({
       />
       <Contents />
       <Properties />
-      <Animation />
       <div
         id="viewport-anchor"
         className="absolute inset-0 pointer-events-none"

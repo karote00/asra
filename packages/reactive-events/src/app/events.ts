@@ -32,6 +32,7 @@ export interface TransactionCanonicalEvidence {
 export interface ReplaceLatestHistoryCandidate {
   readonly key: string
   readonly events: readonly UpdateTransactionEvent[]
+  readonly eventKeys?: readonly string[]
 }
 
 export interface UpdateTransactionEvent {

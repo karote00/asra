@@ -26,7 +26,7 @@ export default defineConfig({
   ],
   webServer: {
     command:
-      'E2E_OWN_SERVERS=1 VITE_COLLABORATION_WS_URL=ws://127.0.0.1:4999/collaboration yarn react:start',
+      'E2E_OWN_SERVERS=1 VITE_COLLABORATION_WS_URL=ws://127.0.0.1:4999/collaboration yarn start',
     url: appEnvironment.appURL,
     reuseExistingServer: false,
     timeout: 120 * 1000

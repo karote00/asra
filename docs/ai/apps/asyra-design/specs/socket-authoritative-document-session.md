@@ -26,8 +26,9 @@ database writes rather than coexisting with them as a second autosave mode.
   document. Because that deployment does not provide the socket server or
   backend, its handshake fails, the App enters the disconnected state, and
   local editing continues through the same durable pending-publication path.
-  The App reports the transition once rather than creating a separate
-  frontend-only document mode.
+  The initial connection state is `none`; only `none -> connected` is silent.
+  An initial `none -> disconnected` transition reports that the document
+  session is offline.
 - `crdt-7076-sample` uses this same full-stack client path. Actor A's exact
   image and instruction receive the checked-in ordered `AiActionBatch`
   instruction file through the same-origin HTTP action-batch interceptor; the
@@ -78,11 +79,14 @@ database writes rather than coexisting with them as a second autosave mode.
 - **Durable sequence**: the highest contiguous sequence acknowledged as
   materialized by the backend.
 - **Checkpoint**: one backend-owned materialized document snapshot labeled with
-  its durable sequence.
+  its durable sequence and destructive Reset generation.
+- **Document generation**: a non-negative backend-owned identity that starts at
+  zero and advances exactly once for every successful destructive Reset.
 - **Pending tail**: accepted sequenced publications after the checkpoint's
   durable sequence and through the current head sequence.
 - **Local outbox**: App-owned IndexedDB records containing immutable local
-  `SharedPublication` values that have not received socket acceptance.
+  `SharedPublication` values, their document generation, and correlation data
+  that have not received socket acceptance.
 - **Connection state**: `connecting`, `connected`, `disconnected`, or
   `retrying`; this reports transport reachability only.
 - **Sync state**: `synced`, `pending`, `reconciling`, `conflicted`, or
@@ -132,18 +136,23 @@ While disconnected:
 
 - Core, Canvas, features, Undo, and Redo remain available;
 - new local publications continue to enter the outbox in append order;
-- one transition into a disconnected epoch produces at most one toast;
+- the initial connection state is `none`, and no later transition returns to
+  `none`;
+- only `none -> connected` is silent;
+- `none -> disconnected` and `connected -> disconnected` each produce one
+  disconnected toast for that transition;
 - publication-level skip/send/write failures go to the console and diagnostics
   only; and
 - the App schedules at most one reconnect attempt every `30000 ms`, with no
   overlapping retry.
 
-A successful transition from `disconnected` or `retrying` to `connected`
-produces at most one reconnect toast for that epoch. Repeated connected,
-disconnected, retry, publication-send, and acknowledgement events do not
-produce repeated toasts. Pending count and sync state use a quiet persistent
-status surface. A conflict or recovery-storage failure may produce one
-additional transition notification because it requires user awareness.
+A successful transition from `disconnected` to `connected` produces one
+reconnect toast. A repeated observation of the current connection state
+publishes no new connection state and produces no toast. Retry,
+publication-send, and acknowledgement events likewise do not produce repeated
+toasts. Pending count and sync state use a quiet persistent status surface. A
+conflict or recovery-storage failure may produce one additional transition
+notification because it requires user awareness.
 
 The generic `@asyra/collaboration` package remains live transport and retains
 no App outbox. The Asyra Design collaboration lifecycle, native IndexedDB
@@ -154,10 +163,10 @@ adapter, and socket protocol own this file-scoped recovery policy.
 The socket server owns one gap-free bootstrap boundary:
 
 1. Authorize the Actor and reserve the document session identity.
-2. Read the backend checkpoint and its durable sequence.
+2. Read the backend checkpoint, durable sequence, and document generation.
 3. Capture the ordered pending tail through one head-sequence cutoff.
-4. Return the checkpoint, durable sequence, pending tail, and head sequence as
-   one bootstrap result.
+4. Return the checkpoint, document generation, durable sequence, pending tail,
+   and head sequence as one bootstrap result.
 5. Queue later live publications behind that cutoff until the browser confirms
    bootstrap consumption.
 
@@ -169,7 +178,10 @@ The browser then:
    through the same app-owned remote canonical processor used for live
    publications, without repeating product-payload schema validation;
 3. submits durable local outbox publications in append order for wire/security
-   admission, dedupe, and socket sequencing;
+   admission, dedupe, and socket sequencing only when their document
+   generation matches the authoritative bootstrap; Reset-invalidated prior
+   generations are cleared before send or recovery apply, while publications
+   created before the first successful handshake bind to that first generation;
 4. applies accepted local recovery publications and interleaved peer
    publications in the server-assigned sequence, without creating duplicate
    local History or outbound echo;
@@ -254,12 +266,27 @@ For each accepted publication, the socket server:
    identity without decoding the product payload;
 2. deduplicates a retransmission by publication identity and exact encoded-byte
    digest;
-3. assigns exactly one next document sequence;
-4. appends the sequenced opaque publication bytes to the document's pending
+3. serializes one tentative next document sequence without advancing the room
+   head, persistence queue, or peer stream;
+4. asks the source Actor to settle that publication through its ordinary
+   ordered canonical apply boundary at the tentative sequence;
+5. abandons the tentative sequence when source apply rejects, disconnects, or
+   cannot settle, retaining the originating outbox record as an explicit
+   conflict without polluting the authoritative room;
+6. after source apply succeeds, appends the sequenced opaque publication bytes
+   to the document's pending
    persistence queue;
-5. reframes only server-owned metadata and broadcasts the original encoded
+7. reframes only server-owned metadata and broadcasts the original encoded
    payload bytes to the other connected Actors in that sequence order; and
-6. acknowledges source acceptance with the assigned sequence.
+8. acknowledges source acceptance with the assigned sequence.
+
+The tentative sequence proposal is not source acceptance and never advances
+the authoritative room. It exists only so a recovering source can apply its
+retained publication after every earlier server sequence and before any later
+sequence. Ordinary publications that are already present in the source runtime
+settle this step without a second canonical mutation. The socket keeps room
+admission serialized until the source settles, so another publication cannot
+claim or overtake the tentative sequence.
 
 Source acceptance means the socket owns the publication in its current
 in-memory pending queue. It is distinct from backend durability. Peer apply
@@ -329,12 +356,21 @@ The backend owns:
 - checkpoint/revision update; and
 - acknowledgement of the highest contiguous durable sequence.
 
+The socket server and backend consume only the App-owned versioned wire,
+document, and Agent protocols. They import no `@asyra/*` package, including
+type-only contract imports, and never construct or call Core, Factory,
+Collaboration, or another framework runtime. The browser frontend is the sole
+framework adapter: it observes the Core publication/event surfaces, encodes the
+App wire artifact, decodes remote artifacts, and returns accepted canonical
+slices through the Core remote-apply facade.
+
 The browser and generic `@asyra/collaboration` package do not implement backend
 merge policy. App-owned publication decoding must be shared by the live remote
 processor and backend materializer so route/payload meaning is not duplicated
-in two hand-maintained special implementations. Decode reconstructs the
-in-memory publication and enforces codec integrity; it does not authorize a
-second recursive product-schema validation pass.
+in two hand-maintained special implementations. That shared decoder is an
+App-protocol module with no framework dependency. Decode reconstructs the
+in-memory App publication and enforces codec integrity; it does not authorize
+a second recursive product-schema validation pass.
 
 If one batch cannot be applied, the backend does not acknowledge a sequence
 past the failure. The socket server retains the exact unacknowledged batch and
@@ -380,10 +416,12 @@ For concurrent recovery, the socket sequence remains the final order.
 Independent property updates remain independent; two accepted updates to the
 same property resolve by later server sequence. Scene Tree and other structural
 changes were admitted by their originating canonical owners. If a sequenced
-publication nevertheless cannot apply atomically to an Actor or the backend,
-that is an authoritative synchronization failure: no partial prefix or later
-sequence is accepted, and the affected owner resynchronizes from the latest
-authoritative checkpoint and contiguous tail.
+publication proposal cannot apply atomically to its recovering source, the
+proposal is rejected before room admission, the retained outbox record becomes
+an explicit conflict, and no partial prefix or later sequence is accepted. If
+an already accepted publication later cannot apply to a peer or the backend,
+that is an authoritative synchronization failure: the affected owner
+resynchronizes from the latest authoritative checkpoint and contiguous tail.
 
 ## Reset, Import, Export, and Serialization
 
@@ -392,19 +430,28 @@ authoritative checkpoint and contiguous tail.
   sample, persistence, startup, or Collaboration work must not hide, disable,
   or delete it.
 - Reset is an intentionally standalone destructive stored-file utility. One
-  click sends `DELETE /api/documents/{encoded fileId}`. When the backend is
-  available, it replaces the stored checkpoint with the formal empty document
-  and resets its durable sequence. The browser always refreshes after the
-  request attempt settles, including when a storage-free demo has no backend.
-- In ordinary development, Vite must proxy this exact same-origin route to
-  `DOCUMENT_PERSISTENCE_BACKEND_URL`; Reset must not depend on an E2E-only
-  backend override.
+  click requests one Reset barrier through the active App collaboration socket.
+  The socket server serializes Reset behind prior room admission, blocks later
+  admission to that room, stops and awaits any current persistence attempt,
+  discards the accepted room tail and retries, and asks the backend to replace
+  the stored checkpoint with the formal initial document at durable sequence
+  zero and the next document generation. Only after that barrier succeeds may
+  the App dispose the matching
+  session, clear that file's pending and conflicted recovery publications, and
+  refresh. The browser always refreshes after the Reset attempt settles,
+  including when a storage-free demo has no backend.
+- The browser and ordinary Vite server expose no direct document-backend Reset
+  route. `DOCUMENT_PERSISTENCE_BACKEND_URL` belongs only to the collaboration
+  server; an E2E backend override must not create a browser-owned delete path.
 - Reset must not call Core, Feature System, a common mutation API, transaction,
-  History, Undo/Redo, Selection, Factory publication, Collaboration, or a CRDT
-  apply path. Backend absence or failure reports the error but never blocks the
-  refresh; the storage-free demo reloads its formal empty App.
-- This exact Reset endpoint is the only browser document-delete exception.
-  It creates no localStorage bootstrap and no second document startup route.
+  History, Undo/Redo, Selection, Factory publication, or a CRDT apply path. Its
+  only App collaboration lifecycle work is to request the socket-owned Reset
+  barrier, dispose the matching document session, and clear that file's
+  recovery outbox; it must not send or replay those records. Backend absence or
+  failure reports the error but never blocks the refresh; the storage-free demo
+  reloads its formal empty App.
+- The collaboration server is the only Reset caller of the document backend.
+  Reset creates no localStorage bootstrap and no second document startup route.
 - Any future import must produce canonical document changes through the normal
   publication path. It cannot call a browser snapshot `PUT`, another `DELETE`,
   or hidden save fallback.
@@ -497,9 +544,11 @@ Forbidden paths:
       and removes only publications acknowledged by identity.
 12. **Concurrent conflict**
     - Same-property conflicts follow server sequence. An unexpected structural
-      apply failure advances no sequence, leaves no partial mutation, and
-      requires authoritative resynchronization rather than semantic socket
-      admission or silent skip.
+      recovery-apply failure rejects its tentative source sequence, leaves no
+      room or canonical prefix, retains the outbox record as an explicit
+      conflict, and does not disable other Actors. A failure after completed
+      source acceptance requires authoritative resynchronization rather than
+      semantic socket admission or silent skip.
 13. **Recovery storage unavailable**
     - Local editing remains responsive, the current runtime retains pending
       publications when possible, one storage-failed transition is reported,
@@ -519,10 +568,14 @@ Forbidden paths:
   removed only after matching socket acceptance.
 - The socket handshake loads checkpoint plus pending tail without a race.
 - Initial failure and later disconnect leave local editing available, retry at
-  a fixed 30-second cadence, and emit only transition-level notifications.
+  a fixed 30-second cadence, and follow the exact connection notification
+  state machine: only `none -> connected` is silent.
 - Reconnect reconciles the latest server state and durable local publications
   into one server-assigned order, with explicit conflict and storage-failure
   states.
+- A retained recovery publication becomes authoritative only after its source
+  settles the tentative server sequence; a rejected source apply cannot enter
+  the room head, persistence queue, peer fan-out, or source acceptance.
 - Factory `SharedPublication` remains the one client change unit; no parallel
   persistence artifact contains undo History.
 - One local canonical data admission produces a trusted publication; later

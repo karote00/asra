@@ -32,6 +32,10 @@
   URL authority.
 - The WebSocket server host/port and browser-visible WebSocket URL remain
   separate service configuration; RenderApp does not own them.
+- The repository app and generated standalone environment default the
+  browser-visible URL to `ws://127.0.0.1:4101/collaboration`, matching the local
+  reference server. Clearing that value intentionally selects the same-origin
+  `/collaboration` deployment fallback.
 
 ## Startup Order (Current)
 

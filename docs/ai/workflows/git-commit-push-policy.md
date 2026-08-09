@@ -48,6 +48,12 @@ Before every commit:
   push required for that pull request, unless the user says not to push.
 - Never force-push, rewrite remote history, publish a release, or merge a pull
   request without explicit user authorization for that operation.
+- Registry publication may run from either `main` or a non-main feature branch.
+  The branch name is not a readiness signal: publication requires a clean exact
+  source commit, completed scoped gates, a reviewed artifact manifest and
+  checksums, valid registry identity/scope access, and explicit publication
+  authorization. Publishing from a feature branch does not authorize merging
+  that branch or skipping its unfinished PR work.
 - When push is not authorized, finish with local commits only and state clearly
   that nothing was pushed.
 

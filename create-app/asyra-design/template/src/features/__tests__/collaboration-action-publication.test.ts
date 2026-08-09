@@ -96,7 +96,13 @@ describe('Asyra Design canonical collaboration delivery timeline', () => {
     expect(elementApis.changeElementGeometry).toHaveBeenLastCalledWith(
       'element-created',
       { x: 0, y: 0, width: 30, height: 40 },
-      { sharedDelivery: 'immediate' }
+      {
+        sharedDelivery: 'immediate',
+        history: {
+          mode: 'replace-latest',
+          key: 'create-element:geometry'
+        }
+      }
     )
   })
 
@@ -158,7 +164,13 @@ describe('Asyra Design canonical collaboration delivery timeline', () => {
     expect(elementApis.changeElementGeometry).toHaveBeenCalledWith(
       'element-created',
       { x: 0, y: 0, width: 35, height: 45 },
-      { sharedDelivery: 'immediate' }
+      {
+        sharedDelivery: 'immediate',
+        history: {
+          mode: 'replace-latest',
+          key: 'create-element:geometry'
+        }
+      }
     )
   })
 

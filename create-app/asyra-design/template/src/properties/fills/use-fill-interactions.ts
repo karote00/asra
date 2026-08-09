@@ -15,8 +15,16 @@ import {
   startInteractionTransaction
 } from '../interaction-transaction'
 import { convertUserColorToDefault, convertToHexUpper } from './color-format'
-import { applyFillPatch, getChangedFillPatch, hasFillPatch } from './fill-patch'
+import { applyFillPatch, hasFillPatch } from './fill-patch'
 import { toGradientPreviewCss } from './gradient-preview'
+
+const FILL_COLOR_PICKER_DRAG_OPTIONS: EVENT_OPTIONS = {
+  sharedDelivery: 'immediate',
+  history: {
+    mode: 'replace-latest',
+    key: 'fill-color-picker:value'
+  }
+}
 
 const createColorPatch = (sourceFill: FillAttrs, color: string): FillPatch => {
   const patch: FillPatch = {}
@@ -122,7 +130,6 @@ export const useFillInteractions = ({
   const isColorPickerOpenRef = useRef(false)
   const colorPickerTransactionRef = useRef(false)
   const pickerFillRef = useRef<FillAttrs | null>(fill)
-  const pickerStartFillRef = useRef<FillAttrs | null>(null)
   const pickerLatestFillRef = useRef<FillAttrs | null>(null)
 
   useEffect(() => {
@@ -232,7 +239,9 @@ export const useFillInteractions = ({
     opacity: number,
     options?: EVENT_OPTIONS
   ) => {
-    const sourceFill = pickerFillRef.current
+    const sourceFill = colorPickerTransactionRef.current
+      ? (pickerLatestFillRef.current ?? pickerFillRef.current)
+      : pickerFillRef.current
     if (!sourceFill) {
       return null
     }
@@ -245,10 +254,18 @@ export const useFillInteractions = ({
   }
 
   const startFillInteractionTransaction = () => {
+    const wasActive = colorPickerTransactionRef.current
     startInteractionTransaction(
       colorPickerTransactionRef,
       pickerFillRef.current !== null
     )
+    if (!wasActive && colorPickerTransactionRef.current) {
+      transactionApis.configureSharedDeliverySequence({
+        mode: 'atomic',
+        batchPublications: false,
+        slices: []
+      })
+    }
   }
 
   const endFillInteractionTransaction = () => {
@@ -350,10 +367,7 @@ export const useFillInteractions = ({
     opacity: number
   }) => {
     if (colorPickerTransactionRef.current) {
-      writePickerFill(next.color, next.opacity, {
-        undoable: false,
-        sharedDelivery: 'immediate'
-      })
+      writePickerFill(next.color, next.opacity, FILL_COLOR_PICKER_DRAG_OPTIONS)
       return
     }
 
@@ -368,7 +382,6 @@ export const useFillInteractions = ({
       return
     }
 
-    pickerStartFillRef.current = currentFill
     pickerLatestFillRef.current = currentFill
     startFillInteractionTransaction()
   }
@@ -381,25 +394,7 @@ export const useFillInteractions = ({
       return
     }
 
-    const startFill = pickerStartFillRef.current
-    const finalPatch = startFill
-      ? createPickerPatch(startFill, next.color, next.opacity)
-      : null
-    const finalFill =
-      startFill && finalPatch
-        ? applyFillPatch(startFill, finalPatch)
-        : pickerLatestFillRef.current
-
-    if (startFill && finalFill && !isEqual(startFill, finalFill)) {
-      commitFillPatch(
-        getChangedFillPatch(finalFill, startFill),
-        { undoable: false },
-        finalFill
-      )
-      commitFillPatch(finalPatch ?? {}, undefined, startFill)
-    }
-
-    pickerStartFillRef.current = null
+    writePickerFill(next.color, next.opacity, FILL_COLOR_PICKER_DRAG_OPTIONS)
     pickerLatestFillRef.current = null
     endFillInteractionTransaction()
   }

@@ -217,9 +217,10 @@ This file defines app-level state keys, owners, and primary consumers.
     derives its computed projection
   - canonical writers: `elementApis` geometry-data mutation helpers commit through
     the plural Core property patch route
-  - transient drag writer: active Pen/vector-point drag uses the local computed
-    preview route only; pointer-up commits canonical Props, while forced
-    rollback clears the transient cache and reprojects canonical Props
+  - drag writer: active Pen and non-Pen vector-point/handle drags write
+    canonical Props for every effective frame with immediate shared delivery;
+    local `replace-latest` metadata compacts History only, and pointer-up never
+    replays an already-applied frame
   - readers: vector render strategy, vector path-editing render layer, pen/path editing queries
 
 - `segments`
@@ -228,8 +229,9 @@ This file defines app-level state keys, owners, and primary consumers.
     derives its computed projection
   - canonical writers: `elementApis` geometry-data mutation helpers commit through
     the plural Core property patch route
-  - transient drag writer: local computed preview only; it produces no history,
-    shared publication, CRDT data, or persistence snapshot
+  - drag writer: structural Pen changes and their dependent point/handle
+    frames remain canonical and ordered; peers never depend on an app-local
+    segment preview to reconstruct document topology
   - readers: vector render strategy, path hit-testing, vector path-editing render layer
 
 - `networks`
@@ -238,8 +240,9 @@ This file defines app-level state keys, owners, and primary consumers.
     derives its computed projection
   - canonical writers: `elementApis` geometry-data mutation helpers commit through
     the plural Core property patch route
-  - transient drag writer: local computed preview only; cancellation restores
-    the current canonical property projection
+  - drag writer: structural Pen changes keep canonical network ownership in the
+    same transaction; Factory rollback, not a pointer-up replacement write,
+    restores canonical state after failure
   - readers: vector render strategy, path-editing subpath flow, vector path-editing render layer
 
 - `x`, `y`, `width`, `height`, `rotation`, and affine Render inputs

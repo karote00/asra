@@ -44,7 +44,9 @@ Actions:
 - identify whether old behavior is released compatibility or pre-release legacy; pre-release legacy must follow `rules/pre-release-legacy-removal.md`
 - for bug fixes, verify whether existing formal tests detect the reported failure; if not, add or strengthen the failing regression test first per `rules/bugfix-test-first.md`
 - identify whether the proposed fix is a patch output/fallback path; patch fixes are forbidden by `rules/no-patch-fixes.md`
-- identify generated-output boundaries (`create-app/*`) and keep source-of-truth edits outside generated folders
+- identify generated-output boundaries (`create-app/<app>/template`) and keep
+  template source-of-truth edits outside generated folders; CLI-owned files
+  above the template remain directly maintained
 
 Checklist:
 
@@ -57,7 +59,8 @@ Checklist:
 - [ ] change improves quick-start functionality without blocking user override paths
 - [ ] no app business logic leaks into framework packages
 - [ ] cross-package imports use `@asyra/package-name`
-- [ ] no manual edits are introduced in `create-app/*` unless explicitly generated/synced
+- [ ] no manual edits are introduced in `create-app/<app>/template` unless
+      explicitly generated/synced
 - [ ] no patch geometry/state/routing/fallback is used to hide an incorrect upstream contract
 
 ## Phase 2: Design Before Code

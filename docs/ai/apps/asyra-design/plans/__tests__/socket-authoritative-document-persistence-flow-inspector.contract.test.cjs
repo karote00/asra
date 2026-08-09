@@ -163,7 +163,57 @@ test('the exact persistence owner chain remains explicit', () => {
     'Asyra Design socket server'
   )
   assert.equal(
+    step('reset-document-session').ownerPackage,
+    'Asyra Design socket server'
+  )
+  assert.equal(
     step('materialize-backend-document').ownerPackage,
     'Asyra Design App backend'
   )
+  assert.ok(
+    step('open-document-session').outputs.includes(
+      'artifact:bootstrap-document-generation'
+    )
+  )
+  assert.ok(
+    step('recover-pending-publications').inputs.includes(
+      'artifact:bootstrap-document-generation'
+    )
+  )
+  assert.ok(
+    data.routes.some(
+      (route) =>
+        route.from === 'open-document-session' &&
+        route.to === 'recover-pending-publications' &&
+        route.producedArtifacts.includes(
+          'artifact:bootstrap-document-generation'
+        )
+    )
+  )
+  assert.ok(
+    !step('apply-bootstrap-tail').outputs.includes(
+      'artifact:bootstrap-document-generation'
+    )
+  )
+})
+
+test('toolbar Reset stays one socket-owned document barrier', () => {
+  const reset = step('reset-document-session')
+  const contract = data.acceptanceContracts.find(
+    ({ id }) => id === 'document-reset-barrier-contract'
+  )
+
+  assert.ok(contract)
+  assert.ok(reset.outputs.includes('artifact:reset-document-checkpoint'))
+  assert.ok(reset.outputs.includes('artifact:reset-document-generation'))
+  assert.ok(reset.outputs.includes('artifact:document-reset-failure'))
+  assert.ok(
+    reset.forbiddenContributors.includes(
+      'browser direct document-backend request'
+    )
+  )
+  assert.deepEqual(contract.stepIds, [
+    'reset-document-session',
+    'open-document-session'
+  ])
 })

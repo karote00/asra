@@ -4,7 +4,7 @@
  * Used in: features that need to update system state which uiContext then subscribes to
  */
 
-import core, { systemContext } from '../contexts'
+import core from '../contexts'
 import {
   type SelectedVectorPointState as CoreSelectedVectorPointState,
   type VectorEditingContinuation as CoreVectorEditingContinuation,
@@ -135,7 +135,7 @@ export const systemContextApis = {
    * Get the current system context snapshot
    */
   getSystemContextSnapshot: () => {
-    return systemContext.getSystemContextSnapshot()
+    return core.getSystemContextSnapshot()
   },
 
   /**

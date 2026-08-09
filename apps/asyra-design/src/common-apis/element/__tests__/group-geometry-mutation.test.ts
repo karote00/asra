@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   updateElementProperties: vi.fn(),
-  getRenderElementById: vi.fn(),
+  elementLocalToWorkspace: vi.fn(),
+  getCanvasPositionFromWorkspace: vi.fn(
+    (position: { x: number; y: number }) => position
+  ),
   moveElementsWithGroupGeometry: vi.fn(),
   normalizeGroupsForElements: vi.fn(),
   projectGroupGeometryPropertyUpdates: vi.fn(
@@ -15,8 +18,7 @@ const mocks = vi.hoisted(() => ({
     ) => updates
   ),
   runTransaction: vi.fn((operation: () => unknown) => operation()),
-  setVectorElementPosition: vi.fn(),
-  toGlobal: vi.fn()
+  setVectorElementPosition: vi.fn()
 }))
 
 vi.mock('@asyra/core', () => ({
@@ -62,19 +64,40 @@ vi.mock('../../../contexts', () => {
 
   return {
     default: {
+      elementLocalToWorkspace: mocks.elementLocalToWorkspace,
+      getCanvasBounds: vi.fn(() => ({
+        bottom: 0,
+        height: 0,
+        left: 8,
+        right: 0,
+        top: 12,
+        width: 0
+      })),
+      getElementComputedData: vi.fn((elementId: string) => {
+        if (elementId === 'rect-1' || elementId === 'group-1') {
+          return {
+            height: 40,
+            width: 30,
+            x: 10,
+            y: 20
+          }
+        }
+        return undefined
+      }),
+      getElementData: vi.fn((elementId: string) => {
+        if (elementId === 'rect-1') {
+          return { type: 'rect' }
+        }
+        if (elementId === 'group-1') {
+          return { type: 'group' }
+        }
+        return undefined
+      }),
+      hasProjectedElement: vi.fn(
+        (elementId: string) => elementId === 'rect-1' || elementId === 'group-1'
+      ),
       updateElementProperties: mocks.updateElementProperties,
       isContainerType: vi.fn(() => false)
-    },
-    render: {
-      app: {
-        canvas: {
-          getBoundingClientRect: () => ({
-            left: 8,
-            top: 12
-          })
-        }
-      },
-      getElementById: mocks.getRenderElementById
     },
     sceneTree: {
       currentWorkspace: undefined,
@@ -99,7 +122,9 @@ vi.mock('../vector-apis', () => ({
 }))
 
 vi.mock('../../viewport', () => ({
-  viewportApis: {}
+  viewportApis: {
+    getCanvasPositionFromWorkspace: mocks.getCanvasPositionFromWorkspace
+  }
 }))
 
 import { elementApis } from '../apis'
@@ -111,13 +136,12 @@ describe('Group geometry mutation handoff', () => {
     mocks.projectGroupGeometryPropertyUpdates.mockImplementation(
       (_core, updates) => updates
     )
-    mocks.toGlobal.mockImplementation(({ x, y }: { x: number; y: number }) => ({
-      x: 100 + x * 2,
-      y: 200 + y * 2
-    }))
-    mocks.getRenderElementById.mockReturnValue({
-      toGlobal: mocks.toGlobal
-    })
+    mocks.elementLocalToWorkspace.mockImplementation(
+      (_elementId: string, { x, y }: { x: number; y: number }) => ({
+        x: 100 + x * 2,
+        y: 200 + y * 2
+      })
+    )
   })
 
   it('projects identity-safe element bounds into client coordinates', () => {
@@ -127,8 +151,8 @@ describe('Group geometry mutation handoff', () => {
       width: 60,
       height: 80
     })
-    expect(mocks.getRenderElementById).toHaveBeenCalledWith('rect-1')
-    expect(mocks.toGlobal).toHaveBeenCalledTimes(4)
+    expect(mocks.elementLocalToWorkspace).toHaveBeenCalledTimes(4)
+    expect(mocks.getCanvasPositionFromWorkspace).toHaveBeenCalledTimes(4)
   })
 
   it('keeps explicit hierarchy-operation Group normalization available', () => {

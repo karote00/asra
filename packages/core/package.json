@@ -1,6 +1,6 @@
 {
   "name": "@asyra/core",
-  "version": "0.5.0",
+  "version": "0.5.2",
   "description": "Core of Asyra.",
   "author": "Asa Tsai",
   "license": "MIT",
@@ -24,6 +24,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts/index.d.ts",
+      "import": "./dist/contracts/index.js",
+      "default": "./dist/contracts/index.js"
     },
     "./canvas-pipeline-debugger": {
       "types": "./dist/canvas-pipeline-debugger/index.d.ts",

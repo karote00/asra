@@ -77,7 +77,16 @@ Users need a vector path workflow that supports creating vectors, appending poin
 26. In non-pen path-editing mode, segment hover and segment selection should target only segments of the active editing vector.
 27. A connected drag-to-add action must publish its real point/segment on
     pointer-down and each applied curve-handle frame during drag, while the
-    complete action remains one undo/redo commit.
+    complete action remains one undo/redo commit. The first frame creates the
+    canonical control records; after those identities exist, later immediate
+    frames replace the prior stable-record History candidate. Local History
+    must not record the full pointer path or suppress immediate peer
+    publication.
+28. Non-pen anchor, `inHandle`, and `outHandle` drags use the same canonical
+    live-drag contract: every effective frame reaches peers before pointer-up,
+    while one gesture-keyed `replace-latest` stage produces one undo/redo
+    action. Pointer-up writes only a genuinely newer final position and never
+    replays the latest applied frame.
 
 ## State Model
 

@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => ({
   setUIProperty: vi.fn()
 }))
 
-vi.mock('@asyra/reactive-events', () => ({
+vi.mock('@asyra/core', () => ({
   EventTypes: {
     TRANSACTION_STATUS_CHANGED: 'transactionStatusChanged',
     UPDATE_COMPUTED_DATA: 'updateComputedData',
@@ -41,13 +41,9 @@ vi.mock('@asyra/preset', () => ({
 
 vi.mock('../../contexts', () => ({
   default: {
-    deps: {
-      render: {
-        subscribeToFrameComplete: (subscriber: () => void) => {
-          mocks.frameCompleteSubscriber = subscriber
-          return vi.fn()
-        }
-      }
+    subscribeToFrameComplete: (subscriber: () => void) => {
+      mocks.frameCompleteSubscriber = subscriber
+      return vi.fn()
     },
     getSystemProperty: mocks.getSystemProperty,
     getSystemPropertyObservable: mocks.getSystemPropertyObservable,
@@ -102,7 +98,7 @@ describe('selection compatibility projection', () => {
     mocks.setUIProperty.mockClear()
   })
 
-  it('refreshes the selected point after ordinary computed and committed replay batches', () => {
+  it('refreshes the selected point after the frame for ordinary computed and committed replay batches', () => {
     initSelectionCompatibility()
     mocks.setSystemProperty.mockClear()
     mocks.anchorX = 48
@@ -124,6 +120,10 @@ describe('selection compatibility projection', () => {
         }
       }
     ])
+
+    expect(mocks.setSystemProperty).not.toHaveBeenCalled()
+
+    mocks.frameCompleteSubscriber?.()
 
     expect(mocks.setSystemProperty).toHaveBeenCalledWith(
       'selectedVectorPoint',

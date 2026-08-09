@@ -65,6 +65,9 @@ const DEST_DIR = CHECK ? CHECK_DIRECTORY : CONFIGURED_DEST_DIR
 const CLEAN_FILES = config.cleanFiles || []
 const GENERATED_ENVIRONMENT = config.environment || {}
 const TEMPLATE_README = config.readme ? path.resolve(config.readme) : undefined
+const TEMPLATE_LICENSE = config.license
+  ? path.resolve(config.license)
+  : undefined
 
 if (CHECK) {
   process.on('exit', () => {
@@ -148,6 +151,14 @@ if (TEMPLATE_README) {
   if (VERBOSE) console.log('Created standalone template README')
 }
 
+if (TEMPLATE_LICENSE) {
+  if (!fs.existsSync(TEMPLATE_LICENSE)) {
+    throw new Error('Template license must be an existing file')
+  }
+  fse.copySync(TEMPLATE_LICENSE, path.join(DEST_DIR, 'LICENSE'))
+  if (VERBOSE) console.log('Created standalone template license')
+}
+
 // ----------------------
 // Copy prod app index.html
 // ----------------------
@@ -219,6 +230,7 @@ if (!fs.existsSync(pkgPath)) {
     'eslint-config-prettier': '^10.1.8',
     'eslint-plugin-prettier': '^5.5.5',
     'eslint-plugin-react': '^7.37.5',
+    prettier: '^3.4.2',
     'typescript-eslint': '^8.54.0'
   }
   pkg.devDependencies = pkg.devDependencies || {}

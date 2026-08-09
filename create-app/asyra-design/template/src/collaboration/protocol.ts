@@ -1,15 +1,12 @@
 import type {
+  ProviderAwarenessDisconnect,
+  ProviderAwarenessMessage,
+  ProviderIdentity,
   SharedPublication,
   SharedPublicationBatch,
   SharedPublicationDelivery,
   SharedPublicationSlice
-} from '@asyra/factory'
-import type {
-  ProviderAwarenessDisconnect,
-  ProviderAwarenessMessage,
-  ProviderIdentity
-} from '@asyra/collaboration'
-import { isRecord } from '@asyra/utils'
+} from './app-protocol-types'
 import {
   decodeCompactBinary,
   encodeCompactBinary,
@@ -18,7 +15,7 @@ import {
   prepareCompactBinaryEncoding
 } from './compact-binary'
 import { decodeCompactJson, encodeCompactJsonIfSmaller } from './compact-json'
-import { isNonBlankString } from './wire-values'
+import { isNonBlankString, isRecord } from './wire-values'
 
 export const CollaborationMessageTypes = {
   HELLO: 'hello',
@@ -28,7 +25,10 @@ export const CollaborationMessageTypes = {
   FRAME_CONSUMED: 'frame-consumed',
   PEER_APPLIED: 'peer-applied',
   BOOTSTRAP_CONSUMED: 'bootstrap-consumed',
+  RESET_DOCUMENT: 'reset-document',
+  SOURCE_PUBLICATION_SETTLEMENT: 'source-publication-settlement',
   SOURCE_FRAME_ADMITTED: 'source-frame-admitted',
+  SOURCE_PUBLICATION_PROPOSED: 'source-publication-proposed',
   READY: 'ready',
   RESPONSE: 'response',
   PUBLICATION: 'publication',
@@ -83,6 +83,17 @@ export interface BootstrapConsumedRequest {
   readonly headSequence: number
 }
 
+export interface ResetDocumentRequest {
+  readonly type: typeof CollaborationMessageTypes.RESET_DOCUMENT
+  readonly requestId: string
+}
+
+export interface SourcePublicationSettlementMessage {
+  readonly type: typeof CollaborationMessageTypes.SOURCE_PUBLICATION_SETTLEMENT
+  readonly requestId: string
+  readonly ok: boolean
+}
+
 export type CollaborationRequestMessage =
   | SendPublicationRequest
   | SendPublicationsRequest
@@ -90,6 +101,12 @@ export type CollaborationRequestMessage =
   | FrameConsumedRequest
   | PeerAppliedRequest
   | BootstrapConsumedRequest
+  | ResetDocumentRequest
+
+export type CollaborationClientMessage =
+  | CollaborationHelloMessage
+  | CollaborationRequestMessage
+  | SourcePublicationSettlementMessage
 
 type WithoutRequestId<T> = T extends CollaborationRequestMessage
   ? Omit<T, 'requestId'>
@@ -97,10 +114,6 @@ type WithoutRequestId<T> = T extends CollaborationRequestMessage
 
 export type CollaborationRequestInput =
   WithoutRequestId<CollaborationRequestMessage>
-
-export type CollaborationClientMessage =
-  | CollaborationHelloMessage
-  | CollaborationRequestMessage
 
 export interface CollaborationFailurePayload {
   readonly code: string
@@ -121,6 +134,8 @@ export interface DocumentSessionBootstrapPublication {
 
 export interface DocumentSessionBootstrap {
   readonly checkpoint: unknown
+  /** Reset generation; absent only on legacy protocol peers. */
+  readonly documentGeneration?: number
   readonly durableSequence: number
   readonly headSequence: number
   readonly pendingTail: readonly DocumentSessionBootstrapPublication[]
@@ -146,6 +161,13 @@ export interface SourceFrameAdmittedMessage {
   readonly frameId: string
   readonly publicationId: string
   readonly frameByteLength: number
+}
+
+export interface SourcePublicationProposedMessage {
+  readonly type: typeof CollaborationMessageTypes.SOURCE_PUBLICATION_PROPOSED
+  readonly requestId: string
+  readonly publicationIds: readonly string[]
+  readonly sequences: readonly number[]
 }
 
 export interface PublicationMessage {
@@ -193,6 +215,7 @@ export type CollaborationServerMessage =
   | SuccessfulResponseMessage
   | FailedResponseMessage
   | SourceFrameAdmittedMessage
+  | SourcePublicationProposedMessage
   | PublicationMessage
   | PublicationsMessage
   | AwarenessMessage
@@ -1553,7 +1576,10 @@ const collaborationControlMessageTypes = new Set<string>([
   CollaborationMessageTypes.FRAME_CONSUMED,
   CollaborationMessageTypes.PEER_APPLIED,
   CollaborationMessageTypes.BOOTSTRAP_CONSUMED,
+  CollaborationMessageTypes.RESET_DOCUMENT,
+  CollaborationMessageTypes.SOURCE_PUBLICATION_SETTLEMENT,
   CollaborationMessageTypes.SOURCE_FRAME_ADMITTED,
+  CollaborationMessageTypes.SOURCE_PUBLICATION_PROPOSED,
   CollaborationMessageTypes.READY,
   CollaborationMessageTypes.RESPONSE,
   CollaborationMessageTypes.AWARENESS,
@@ -1684,6 +1710,8 @@ const parseDocumentSessionBootstrap = (
     !isRecord(value) ||
     !Object.prototype.hasOwnProperty.call(value, 'checkpoint') ||
     value.checkpoint == null ||
+    (Object.prototype.hasOwnProperty.call(value, 'documentGeneration') &&
+      !isNonNegativeSafeInteger(value.documentGeneration)) ||
     !isNonNegativeSafeInteger(value.durableSequence) ||
     !isNonNegativeSafeInteger(value.headSequence) ||
     value.headSequence < value.durableSequence ||
@@ -1715,6 +1743,7 @@ const parseDocumentSessionBootstrap = (
   }
   return {
     checkpoint: value.checkpoint,
+    documentGeneration: Number(value.documentGeneration ?? 0),
     durableSequence: value.durableSequence,
     headSequence: value.headSequence,
     pendingTail
@@ -1792,6 +1821,21 @@ export const parseCollaborationClientMessage = (
             headSequence: value.headSequence
           }
         : undefined
+    case CollaborationMessageTypes.RESET_DOCUMENT:
+      return isNonBlankString(value.requestId)
+        ? {
+            type: value.type,
+            requestId: value.requestId
+          }
+        : undefined
+    case CollaborationMessageTypes.SOURCE_PUBLICATION_SETTLEMENT:
+      return isNonBlankString(value.requestId) && typeof value.ok === 'boolean'
+        ? {
+            type: value.type,
+            requestId: value.requestId,
+            ok: value.ok
+          }
+        : undefined
   }
 }
 
@@ -1847,6 +1891,20 @@ export const parseCollaborationServerMessage = (
             frameId: value.frameId,
             publicationId: value.publicationId,
             frameByteLength: value.frameByteLength
+          }
+        : undefined
+    case CollaborationMessageTypes.SOURCE_PUBLICATION_PROPOSED:
+      return isNonBlankString(value.requestId) &&
+        isStringArray(value.publicationIds) &&
+        value.publicationIds.length > 0 &&
+        hasUniqueStrings(value.publicationIds) &&
+        isContiguousPositiveIntegerArray(value.sequences) &&
+        value.publicationIds.length === value.sequences.length
+        ? {
+            type: value.type,
+            requestId: value.requestId,
+            publicationIds: value.publicationIds,
+            sequences: value.sequences
           }
         : undefined
     case CollaborationMessageTypes.PUBLICATION:

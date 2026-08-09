@@ -1,9 +1,9 @@
 import {
   EventTypes,
   subscribeToEventBatches,
-  type AllEvent
-} from '@asyra/reactive-events'
-import { VECTOR_TOKENS } from '@asyra/core'
+  type AllEvent,
+  VECTOR_TOKENS
+} from '@asyra/core'
 import { PresetSystemPropertyKeys } from '@asyra/preset'
 import core from '../../contexts'
 import { elementApis } from '../../common-apis'

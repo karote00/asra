@@ -856,7 +856,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /guarded 16-item.*after each completed endpoint refactor.*exactly one production two-Actor 7,076-element.*named local-source, relay, and final checkpoints/i
+    /guarded 16-item.*after each completed endpoint refactor.*every required production two-Actor 7,076-element.*named local-source, relay, final, and release checkpoints.*standing product-owner authorization/i
   )
   assert.match(
     text,
@@ -928,7 +928,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /phase-boundary HTTP handoff.*7,000-millisecond client deadline.*one serialized 3,000-millisecond current-CPU sample.*own 3,000-millisecond sample.*heartbeat and resource-status.*3,000 milliseconds.*never extends product execution.*300-second CRDT flow/i
+    /phase-boundary HTTP handoff.*7,000-millisecond client deadline.*one serialized 3,000-millisecond current-CPU sample.*own 3,000-millisecond sample.*heartbeat and resource-status.*3,000 milliseconds.*never extends product execution.*45-second 7,076-element creation flow/i
   )
   assert.match(
     text,
@@ -1021,7 +1021,15 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /300-second product-flow deadline.*360-second guarded Playwright ceiling.*terminates the current benchmark action.*never terminates the implementation task.*first blocker.*root-cause analysis.*new iteration.*before any downstream owner/i
+    /Actor A.*15-second.*Actor B.*30-second.*attachment and prompt preparation.*45-second.*120-second guarded Playwright ceiling.*terminates the current benchmark action.*never terminates the implementation task.*first blocker.*root-cause analysis.*new iteration.*before any downstream owner/i
+  )
+  assert.match(
+    text,
+    /fail-fast.*Actor A.*Actor B.*total creation flow.*Undo.*Redo.*later phase.*must not start/i
+  )
+  assert.match(
+    text,
+    /Actor B trusts.*accepted canonical publication.*no per-item.*revalidation.*O\(1\).*canonical and Render convergence/i
   )
   assert.match(
     text,
@@ -1045,7 +1053,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /hard CRDT product-flow deadline.*300 seconds.*Playwright ceiling.*360 seconds.*cannot preempt/i
+    /hard 7,076 creation budgets.*Actor A.*15 seconds.*Actor B.*30 seconds.*attachment and prompt preparation.*45 seconds.*Playwright ceiling.*120 seconds.*cannot preempt/i
   )
   assert.match(
     text,
@@ -1053,7 +1061,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     feature,
-    /Scenario: Each named endpoint checkpoint proves high-detail effectiveness without overwhelming the host[\s\S]*explicit product-owner approval.*7076-element creation[\s\S]*warm-up, or repeat[\s\S]*Actor A[\s\S]*Actor B[\s\S]*7076-element high-performance case.*500-percent[\s\S]*16-item and 1280-item.*250 percent[\s\S]*raw same-snapshot aggregate.*500 percent.*7076[\s\S]*400 percent.*16-item and 1280-item[\s\S]*invalid architecture attempt[\s\S]*stop the current benchmark action without stopping the implementation task[\s\S]*root cause[\s\S]*new iteration[\s\S]*five materially revised architecture attempts[\s\S]*rather than stopping the task/i
+    /Scenario: Each named endpoint checkpoint proves high-detail effectiveness without overwhelming the host[\s\S]*standing product-owner authorization.*without a separate permission prompt[\s\S]*creation-only[\s\S]*separate guarded Undo and Redo proof[\s\S]*Actor A[\s\S]*Actor B[\s\S]*7076-element high-performance case.*500-percent[\s\S]*16-item and 1280-item.*250 percent[\s\S]*raw same-snapshot aggregate.*500 percent.*7076[\s\S]*400 percent.*16-item and 1280-item[\s\S]*invalid architecture attempt[\s\S]*stop the current benchmark action without stopping the implementation task[\s\S]*root cause[\s\S]*new iteration[\s\S]*five materially revised architecture attempts[\s\S]*rather than stopping the task/i
   )
   assert.match(
     text,
@@ -1073,7 +1081,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     feature,
-    /CRDT product flow.*Actor A request.*Actor B convergence.*300-second deadline[\s\S]*Playwright test.*360-second ceiling.*cannot preempt/i
+    /7076 creation flow.*Actor A.*15-second deadline[\s\S]*Actor B.*30-second deadline[\s\S]*attachment and prompt preparation.*45-second deadline[\s\S]*Playwright test.*120-second ceiling.*cannot preempt/i
   )
   assert.match(
     feature,
@@ -1169,7 +1177,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     plan,
-    /raw CPU contract correction checkpoint[\s\S]*converted 397\.203-percent frontend[\s\S]*401\.175-percent aggregate[\s\S]*raw system\s+values were 199\.4 percent[\s\S]*209\.2 percent[\s\S]*neither user-defined limit was crossed[\s\S]*explicit product-owner approval/i
+    /raw CPU contract correction checkpoint[\s\S]*converted 397\.203-percent frontend[\s\S]*401\.175-percent aggregate[\s\S]*raw system\s+values were 199\.4 percent[\s\S]*209\.2 percent[\s\S]*neither user-defined limit was crossed/i
   )
   assert.match(
     text,
@@ -1177,7 +1185,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     feature,
-    /Scenario: Converted CPU-time percentages cannot consume a high-detail proof[\s\S]*raw same-snapshot frontend value of 199\.4 percent[\s\S]*raw same-snapshot aggregate value of 209\.2 percent[\s\S]*converted 397\.203-percent frontend value and 401\.175-percent aggregate value.*rejected[\s\S]*no accepted baseline, architecture-attempt count, or next-owner selection[\s\S]*explicit product-owner approval/i
+    /Scenario: Converted CPU-time percentages cannot consume a high-detail proof[\s\S]*raw same-snapshot frontend value of 199\.4 percent[\s\S]*raw same-snapshot aggregate value of 209\.2 percent[\s\S]*converted 397\.203-percent frontend value and 401\.175-percent aggregate value.*rejected[\s\S]*no accepted baseline, architecture-attempt count, or next-owner selection[\s\S]*without requesting separate product-owner approval/i
   )
   assert.match(
     plan,
@@ -1534,7 +1542,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     proofText,
-    /one production two-Actor 7,076-element.*Actor A.*exact-bounds loading.*pan and zoom.*one terminal exact canonical summary/i
+    /guarded two-Actor creation.*Actor A.*exact-bounds loading.*pan and zoom.*one terminal exact canonical summary/i
   )
   assert.match(proofText, /connected exact-bounds loading/i)
   assert.match(
@@ -1543,7 +1551,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     proofText,
-    /explicitly approved local-source, relay, or final checkpoint.*only high-detail invocation for the checkpoint.*no warm-up, repeat, or additional single-Actor/i
+    /required local-source, relay, final, or release checkpoint.*runs directly without a permission prompt/i
   )
   assert.match(proofText, /separately attributed WebSocket-server CPU/i)
   assert.match(
@@ -1756,7 +1764,7 @@ test('local source endpoint keeps canonical records while removing repeated sing
   )
   assert.match(
     proofText,
-    /exact canonical work-unit phase count.*exact Actor A local-sent publication count.*bounded retained phase and counter sample lengths.*never exact totals/i
+    /exact canonical work-unit phase count.*independent(?:ly)? from.*exact visible-element progress sample count.*Actor A local-sent publication count.*canonical work.*sampled visible progress.*coalesced transport windows.*bounded retained phase and counter sample lengths.*never exact totals/i
   )
   assert.match(
     proofText,

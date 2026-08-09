@@ -1,10 +1,6 @@
 import core from '../../contexts'
 import { PresetSystemPropertyKeys } from '@asyra/preset'
-import {
-  EventTypes,
-  subscribeToEventBatches,
-  type AllEvent
-} from '@asyra/reactive-events'
+import { EventTypes, subscribeToEventBatches, type AllEvent } from '@asyra/core'
 import { elementApis } from '../../common-apis/element'
 import {
   type VectorPointSelectionRef,
@@ -201,18 +197,18 @@ export const initSelectionCompatibility = () => {
     syncDerivedVectorSelectionProperties()
   })
 
-  let committedReplayRefreshPending = false
-  core.deps.render.subscribeToFrameComplete(() => {
-    if (!committedReplayRefreshPending) {
+  let frameRefreshPending = false
+  core.subscribeToFrameComplete(() => {
+    if (!frameRefreshPending) {
       return
     }
-    committedReplayRefreshPending = false
+    frameRefreshPending = false
     syncDerivedVectorSelectionProperties()
   })
 
   subscribeToEventBatches((events) => {
     if (events.some(eventMarksCommittedReplay)) {
-      committedReplayRefreshPending = true
+      frameRefreshPending = true
     }
 
     const pathEditingVectorId =
@@ -225,7 +221,7 @@ export const initSelectionCompatibility = () => {
         computedEventUpdatesVectorPoints(event, pathEditingVectorId)
       )
     ) {
-      syncDerivedVectorSelectionProperties()
+      frameRefreshPending = true
     }
   })
 

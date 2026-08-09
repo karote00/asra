@@ -38,6 +38,7 @@ export interface DocumentPersistenceQueue {
   ): Promise<void>
   flushNow(): Promise<void>
   flushForShutdown(): Promise<void>
+  discardForReset(): Promise<void>
   getState(): DocumentPersistenceQueueState
   dispose(): void
 }
@@ -171,6 +172,19 @@ export const createDocumentPersistenceQueue = ({
     const waiters = [...capacityWaiters]
     capacityWaiters.clear()
     waiters.forEach(({ reject }) => reject(error))
+  }
+
+  const discardQueuedWork = (): void => {
+    disposed = true
+    stopping = true
+    clearDirtyTimer()
+    clearRetryTimer()
+    pending = []
+    pendingBytes = 0
+    dirtyStartedAt = undefined
+    rejectCapacityWaiters(
+      new Error('[document-persistence-queue] queue is disposed')
+    )
   }
 
   const setEditable = (next: boolean): void => {
@@ -411,6 +425,12 @@ export const createDocumentPersistenceQueue = ({
         await beginPendingBatch()
       }
     },
+    async discardForReset() {
+      discardQueuedWork()
+      await activeAttempt
+      inFlight = undefined
+      headSequence = durableSequence
+    },
     getState() {
       return Object.freeze({
         editable,
@@ -421,16 +441,7 @@ export const createDocumentPersistenceQueue = ({
       })
     },
     dispose() {
-      disposed = true
-      stopping = true
-      clearDirtyTimer()
-      clearRetryTimer()
-      pending = []
-      pendingBytes = 0
-      dirtyStartedAt = undefined
-      rejectCapacityWaiters(
-        new Error('[document-persistence-queue] queue is disposed')
-      )
+      discardQueuedWork()
     }
   }
 

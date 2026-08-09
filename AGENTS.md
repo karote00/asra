@@ -25,6 +25,20 @@ These rules apply to every task without requiring additional document reads:
   already-approved dependency does not require renewed approval.
 - Obtain explicit user approval before upgrading Node.js, Yarn, a package
   manager, or any other environment/runtime tool.
+- Existing project-owned tests are permanently authorized across the entire
+  repository, including guarded, opt-in, resource-aware, high-detail, 7076,
+  performance, visual, E2E, clean-consumer, and release validation gates. When
+  such a gate is applicable to the current task or flow, enable and run it
+  directly without asking for separate permission or treating a prior run as a
+  one-time budget. Expensive gates such as 7076 run after the relevant complete
+  feature or owner slice passes its focused tests and small proofs, at the
+  defined milestone, final, or release checkpoint; do not rerun them after each
+  small code edit. After an expensive gate fails, complete the bounded owner
+  correction and its focused gates before rerunning it. Preserve every formal
+  fail-fast, CPU, time, process-ownership, and cleanup guard. This standing test
+  authorization does not authorize otherwise approval-gated mutations such as
+  installing dependencies, upgrading tools, publishing, tagging, merging, or
+  deploying.
 - Freeze a bounded task contract before editing. Reading may expand to resolve
   risk, but rules and discoveries must not independently expand mutation scope.
   Follow `docs/ai/framework/rules/bounded-task-scope-and-closure.md`.

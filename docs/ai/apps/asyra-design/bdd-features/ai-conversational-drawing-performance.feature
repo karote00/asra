@@ -64,7 +64,8 @@ Feature: Conversational AI drawing performance
   Scenario: Each named endpoint checkpoint proves high-detail effectiveness without overwhelming the host
     Given one endpoint completed its focused formal tests and bounded review
     And its guarded 16-item safety proof completed below the fixed host limit
-    And the local-source, relay, or final checkpoint has explicit product-owner approval for at most one 7076-element creation with no follow-up, persistence, media, trace, CPU profile, warm-up, or repeat
+    And every required local-source, relay, final, or release checkpoint should run its guarded 7076-element proof directly under the standing product-owner authorization without a separate permission prompt
+    And the endpoint performance proof itself should remain creation-only with no follow-up, persistence, media, trace, CPU profile, or warm-up while the separate guarded Undo and Redo proof remains required by its owning flow
     And production build commands completed as separate setup outside the runtime guard and product timing
     And artifact attestation succeeded before Playwright started
     When the guarded endpoint benchmark starts
@@ -115,7 +116,7 @@ Feature: Conversational AI drawing performance
     And the 1,000-millisecond polling cadence should be armed before the first current raw system sample
     And two successfully completed serialized raw observations may be at most 7,000 milliseconds apart while a larger gap should fail closed without averaging or changing either raw CPU value
     And only the authenticated phase-boundary HTTP handoff should have a 7,000-millisecond client deadline for one in-flight plus one requested serialized current-CPU sample
-    And ordinary heartbeat and resource-status requests should retain 3,000 milliseconds while the boundary deadline should not extend product execution or the 300-second CRDT flow
+    And ordinary heartbeat and resource-status requests should retain 3,000 milliseconds while the boundary deadline should not extend product execution or the 45-second 7076 creation flow
     And every CPU sample should have a 200-millisecond hard timeout while sampling failure, guard signals, and exceptional exit terminate the fixed registered process groups
     And an endpoint complete heartbeat should revalidate both exact Actor canonical and uncapped Render projection counts so late over-projection cannot reuse an earlier report
     And after a valid terminal complete heartbeat closes the product proof window, later Chrome teardown process-identity changes should not create a resource stop or invalidate the accepted proof while exact process-group termination remains required
@@ -123,10 +124,12 @@ Feature: Conversational AI drawing performance
     And one required proof kind should remain fixed for the entire guarded invocation so endpoint, local-attribution, and collaboration-attribution heartbeats cannot switch categories
     And one raw same-snapshot complete Actor A or Actor B browser sum above 500 percent or one raw same-snapshot aggregate both-Actor frontend, backend, and harness sum above 500 percent should stop the 7076-element benchmark immediately and mark the active endpoint as an invalid architecture attempt
     And Actor A complete, Actor B first-visible, and Actor B complete or converged time should be reported separately
+    And Actor B should trust the accepted canonical publication after wire-integrity admission without per-item product-data revalidation and should prove only O(1) canonical and Render convergence plus publication settlement
     And CPU above the fixed limit, stale heartbeat above the ordinary 80 percent baseline, or stalled Actor A and Actor B progress above that baseline should fail the endpoint
     And the guard should terminate tracked Playwright, headless browser, App server, and collaboration server processes before returning
     And the failure report should retain the last completed phase, Actor A and Actor B element counts, and last owner timing
-    And a raw CPU limit, 300-second product-flow deadline, or 360-second Playwright ceiling should stop the current benchmark action without stopping the implementation task
+    And a raw CPU limit, the 15-second Actor A deadline, the 30-second Actor B deadline, the 45-second total creation-flow deadline, or the 120-second Playwright ceiling should stop the current benchmark action without stopping the implementation task
+    And the sequence should fail fast in Actor A, Actor B, total creation flow, Undo, and Redo order so a later phase never starts after an earlier timeout, resource stop, connection failure, or correctness failure
     And the same owner should immediately capture the first blocker, find its bounded root cause, re-read the Inspector, revise its owner plan and formal oracle, and execute the new iteration before any downstream owner advances
     And a stop whose last heartbeat precedes the first completed canonical Group should pause further 7076-element attempts without claiming which owner was active
     And each single-Actor attribution case should use a fresh browser invocation, one required fileId URL, an active Collaboration session, the WebSocket server, and no Actor B
@@ -148,7 +151,7 @@ Feature: Conversational AI drawing performance
     When the performance evidence is evaluated against the raw 250-percent frontend and 400-percent aggregate limits
     Then the converted 397.203-percent frontend value and 401.175-percent aggregate value should be rejected as formal peak and stop evidence
     And the attempt should create no accepted baseline, architecture-attempt count, or next-owner selection
-    And no replacement 7076-element run should start before contract review, focused guard correction, a corrected guarded 16-item proof, bounded review, and explicit product-owner approval
+    And any required replacement 7076-element run should start directly after contract review, focused guard correction, a corrected guarded 16-item proof, and bounded review without requesting separate product-owner approval
 
   Scenario: Revised high-performance threshold requires a corrected local-source proof
     Given the earlier local-source 7076-element attempt stopped at a raw same-snapshot frontend value of 251.7 percent
@@ -525,11 +528,14 @@ Feature: Conversational AI drawing performance
     Then the toolbar should always expose Reset before the primary tools
     And sample, persistence, startup, or Collaboration changes must not remove, hide, or disable Reset
     When the user presses Reset
-    Then the browser should DELETE only "/api/documents/{encoded fileId}"
-    And an available backend should replace that stored checkpoint with the formal empty document at durable sequence zero
-    And the browser should always refresh after the DELETE attempt settles
-    But Reset should not call Core, Feature System, a transaction, History, Undo Redo, Selection, Factory publication, Collaboration, or CRDT apply
-    And an unavailable or failed DELETE should report its error without blocking refresh
+    Then the App should request one Reset barrier through the matching collaboration document session
+    And the collaboration server should stop admission, await any active persistence attempt, and discard that room's accepted tail and retries
+    And only the collaboration server should ask the backend to replace that stored checkpoint with the formal empty document at durable sequence zero
+    And the App should dispose the acknowledged session and clear only that fileId's recovery outbox
+    And the browser should always refresh after the Reset attempt settles
+    But Reset should not call Core, Feature System, a transaction, History, Undo Redo, Selection, Factory publication, or CRDT apply
+    And Reset should not send or replay the cleared recovery publications
+    And an unavailable or failed Reset barrier should report its error without blocking refresh
     And a storage-free demo should therefore reload the formal empty App
 
   Scenario: Remote apply never persists on the receiving client
@@ -579,11 +585,11 @@ Feature: Conversational AI drawing performance
     And Actor B should create no Undo, echo publication, or persistence save
     And Actor B should expose intermediate canonical and Render projection counts before reaching zero
     And each adjacent distinct Actor B progress observation should be at most 20 seconds apart
-    And both Actors should reach exactly zero canonical and Render projections within 30 seconds
+    And the complete Undo should bring both Actors to exactly zero canonical and Render projections within 30 seconds of the Actor A command
     When Actor A performs one Redo
     Then Actor B should expose intermediate canonical and Render projection counts before reaching 7076
     And each adjacent distinct Actor B progress observation should be at most 20 seconds apart
-    And both Actors should reach exactly 7076 canonical and Render projections within 30 seconds
+    And the complete Redo should bring both Actors to exactly 7076 canonical and Render projections within a separate 30-second budget from the Actor A command
     And Actor A and Actor B should retain exact canonical, topology, hierarchy, and style equivalence
 
   Scenario: Source publications cross the durable outbox without duplicate snapshots
@@ -655,13 +661,15 @@ Feature: Conversational AI drawing performance
     Then Actor A should show connected exact-bounds loading and ordinary Vector milestones while pan and zoom remain responsive
     And every other document interaction should leave canonical state and history unchanged until terminal cleanup releases the lock
     And bounded counters should report Actor A settled, Actor B first-visible and complete, convergence, Render, UI, harness, and separately attributed server timing
-    And Actor A and Actor B should each produce one terminal exact summary with all 7076 projections and identical detail
+    And Actor A should produce one terminal exact canonical summary while Actor B should prove only trusted publication settlement and O(1) canonical and Render convergence
+    And exact canonical work-unit phases, sampled visible progress, and coalesced publication windows should remain independent counters rather than equality oracles
     And Actor A should gain one Undo action while Actor B gains none
-    And Actor A should settle within 300 seconds
+    And the 7076 creation flow should complete Actor A within a 15-second deadline from request submission
     And Actor B should show its first canonical batch within 2 seconds of the first shared publication
-    And Actor B should converge within 30 seconds of Actor A canonical commit
-    And the CRDT product flow from Actor A request through Actor B convergence should have a 300-second deadline
-    And the guarded Playwright test should have a 360-second ceiling so bootstrap, assertions, and teardown cannot preempt that product deadline
+    And Actor B should converge within a 30-second deadline from the same request submission
+    And the total creation flow from reference attachment and prompt preparation through both Actors completing should have a 45-second deadline
+    And that total should sum only the reference-attachment action, prompt preparation, and request-to-peer-convergence spans without harness-only CPU settling, heartbeat, final assertion, or reporting time
+    And the guarded Playwright test should have a 120-second ceiling so bootstrap, assertions, reporting, and teardown cannot preempt those product deadlines
     But no additional single-Actor or unguarded 7000-plus run should start
 
   Scenario: Maximum detail remains editable and meets its budget

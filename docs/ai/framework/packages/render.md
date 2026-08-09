@@ -230,6 +230,13 @@ by `worldTransform`, `toGlobal`, `toLocal`, and the concrete engine adapter.
   `workspaceToElementLocal(elementId, point)` are the identity-safe affine
   projection boundary for local geometry consumers; a missing element or
   non-finite result fails closed
+- a strategy whose authored coordinates have a non-zero local projection origin
+  records that origin on the Render node during the successful strategy pass.
+  `elementSourceToWorkspace(elementId, point)` and
+  `workspaceToElementSource(elementId, point)` then compose the retained source
+  origin with the node's current affine transform. Consumers must use this
+  last-projected source boundary during transient canonical edits instead of
+  recomputing an origin from newer source data before Render has projected it
 
 5. Engine interaction return
 

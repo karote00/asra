@@ -391,6 +391,42 @@ describe('document persistence queue', () => {
     queue.dispose()
   })
 
+  it('waits for one in-flight attempt and discards every retry before document Reset', async () => {
+    vi.useFakeTimers()
+    const inFlight =
+      Promise.withResolvers<Readonly<{ durableSequence: number }>>()
+    const sendBatch = vi.fn(() => inFlight.promise)
+    const queue = createDocumentPersistenceQueue({
+      documentId: 'reset-document',
+      maxPublicationCount: 1,
+      retryIntervalMs: 1_000,
+      sendBatch
+    })
+
+    queue.enqueue(entry(1))
+    await vi.runAllTicks()
+    queue.enqueue(entry(2))
+
+    let resetSettled = false
+    const reset = queue.discardForReset().then(() => {
+      resetSettled = true
+    })
+    await vi.runAllTicks()
+    expect(resetSettled).toBe(false)
+
+    inFlight.reject(new Error('backend unavailable'))
+    await reset
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    expect(sendBatch).toHaveBeenCalledOnce()
+    expect(queue.getState()).toMatchObject({
+      durableSequence: 0,
+      headSequence: 0,
+      pendingCount: 0
+    })
+    expect(() => queue.enqueue(entry(1))).toThrow('queue is disposed')
+  })
+
   it('retries the exact HTTP batch body after a backend non-success response', async () => {
     vi.useFakeTimers()
     const fetchImplementation = vi
@@ -450,12 +486,37 @@ describe('document persistence queue', () => {
 
     await expect(client.readCheckpoint('file/a')).resolves.toEqual({
       checkpoint: { elements: [{ id: 'element-a' }] },
+      documentGeneration: 0,
       durableSequence: 7
     })
     expect(fetchImplementation).toHaveBeenCalledWith(
       'http://127.0.0.1:4317/api/documents/file%2Fa/bootstrap-checkpoint',
       {
         method: 'GET',
+        headers: { accept: 'application/json' }
+      }
+    )
+  })
+
+  it('resets the authoritative checkpoint through the explicit backend origin', async () => {
+    const fetchImplementation = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue({
+        ok: true,
+        documentGeneration: 1
+      })
+    })
+    const client = createHttpDocumentPersistenceClient({
+      baseURL: 'http://127.0.0.1:4317',
+      fetchImplementation
+    })
+
+    await expect(client.resetCheckpoint('file/a')).resolves.toBe(1)
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      'http://127.0.0.1:4317/api/documents/file%2Fa',
+      {
+        method: 'DELETE',
         headers: { accept: 'application/json' }
       }
     )

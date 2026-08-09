@@ -2,11 +2,11 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test'
 import { installGeneratedActionBatchInterceptor } from './action-batch-interceptor'
 import {
   createRectangle,
-  createVectorPath,
   dragSelectedElementBy,
   getCanvasPosition,
   getContentsPanel,
   getElementCount,
+  getPersistedDocumentCheckpoint,
   getPropertiesPanel,
   getSelectedElementClientCenter,
   pressGroupCommandShortcut,
@@ -24,6 +24,7 @@ const profiledCollaborationUrl = (fileId: string) =>
 const CRDT_COMPLETION_TIMEOUT_MS = 180_000
 const CRDT_CASE_TIMEOUT_MS = 240_000
 const CRDT_ACTION_UNDO_REDO_CASE_TIMEOUT_MS = 600_000
+const CANONICAL_COORDINATE_TOLERANCE = 1e-9
 const sliceElementBudget = (() => {
   const value = Number(process.env.E2E_SLICE_ELEMENT_BUDGET ?? 32)
   if (value !== 32 && value !== 64) {
@@ -108,6 +109,302 @@ const waitForCollaboration = async (page: Page) => {
     )
     .toBe('connected')
 }
+
+const seedPriorGenerationRemoval = async (page: Page, fileId: string) => {
+  await page.evaluate(async (documentId) => {
+    const publicationId = 'stale-removal-before-reset'
+    const publication = {
+      publicationId,
+      artifactId: 'stale-removal-artifact',
+      transactionId: 1,
+      origin: 'action',
+      mode: 'atomic',
+      slices: [
+        {
+          sliceId: 'stale-removal-slice',
+          orderedIds: ['stale-removal-delivery'],
+          batches: [
+            {
+              batchId: 'stale-removal-batch',
+              channel: 'sceneTree',
+              deliveries: [
+                {
+                  deliveryId: 'stale-removal-delivery',
+                  eventName: 'removeElements',
+                  orderedIds: ['vector-before-reset'],
+                  payload: {
+                    action: 'removeElements',
+                    eventName: 'removeElements',
+                    undoType: 'addElements',
+                    undoAction: 'addElements',
+                    entries: [
+                      {
+                        data: {
+                          id: 'vector-before-reset',
+                          type: 'vector',
+                          parentId: 'group-before-reset',
+                          props: {}
+                        },
+                        parentId: 'group-before-reset',
+                        index: 0
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('collaboration-publications', 1)
+      request.addEventListener('success', () => resolve(request.result), {
+        once: true
+      })
+      request.addEventListener('error', () => reject(request.error), {
+        once: true
+      })
+    })
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(
+        'pending-publications',
+        'readwrite'
+      )
+      transaction.objectStore('pending-publications').put({
+        fileId: documentId,
+        publicationId,
+        appendOrder: 1,
+        publication,
+        status: 'pending'
+      })
+      transaction.addEventListener('complete', () => resolve(), { once: true })
+      transaction.addEventListener('error', () => reject(transaction.error), {
+        once: true
+      })
+    })
+    database.close()
+  }, fileId)
+}
+
+const seedCurrentGenerationOrphanPropertyUpdate = async (
+  page: Page,
+  fileId: string
+) => {
+  await page.evaluate(async (documentId) => {
+    const publicationId = 'orphan-property-update-before-reconnect'
+    const propertyId = 'missing-property-before-reconnect'
+    const publication = {
+      publicationId,
+      artifactId: 'orphan-property-update-artifact',
+      transactionId: 1,
+      origin: 'action',
+      mode: 'progressive',
+      slices: [
+        {
+          sliceId: 'orphan-property-update-slice',
+          orderedIds: [propertyId],
+          batches: [
+            {
+              batchId: 'orphan-property-update-batch',
+              channel: 'props',
+              deliveries: [
+                {
+                  deliveryId: 'orphan-property-update-delivery',
+                  eventName: 'updateProperty',
+                  orderedIds: [propertyId],
+                  payload: {
+                    action: 'updateProperty',
+                    eventName: 'updateProperty',
+                    id: propertyId,
+                    key: 'width',
+                    before: 100,
+                    after: 120
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('collaboration-publications', 1)
+      request.addEventListener('success', () => resolve(request.result), {
+        once: true
+      })
+      request.addEventListener('error', () => reject(request.error), {
+        once: true
+      })
+    })
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(
+        'pending-publications',
+        'readwrite'
+      )
+      transaction.objectStore('pending-publications').put({
+        fileId: documentId,
+        publicationId,
+        appendOrder: 1,
+        documentGeneration: 0,
+        publication,
+        status: 'pending'
+      })
+      transaction.addEventListener('complete', () => resolve(), { once: true })
+      transaction.addEventListener('error', () => reject(transaction.error), {
+        once: true
+      })
+    })
+    database.close()
+  }, fileId)
+}
+
+test('keeps only the initial none-to-connected transition silent', async ({
+  page
+}, testInfo) => {
+  const fileId = `connection-notification-${Date.now()}-${testInfo.workerIndex}`
+  const alerts = page.locator('[role="alert"]')
+
+  await page.goto(collaborationUrl(fileId))
+  await waitForAppReady(page)
+  await waitForCollaboration(page)
+  await expect(alerts).toHaveCount(0)
+
+  await page.evaluate(async () =>
+    (await import('../src/testing/runtime-access'))
+      .getActiveCollaborationHandle()
+      ?.disconnect()
+  )
+  await expect
+    .poll(() =>
+      page.evaluate(
+        async () =>
+          (await import('../src/testing/runtime-access'))
+            .getActiveCollaborationHandle()
+            ?.getStatus() ?? 'missing'
+      )
+    )
+    .toBe('disconnected')
+  await expect(alerts).toHaveText(
+    'The document session is offline. Local editing remains available and changes will sync after reconnection.'
+  )
+
+  await page.evaluate(async () =>
+    (await import('../src/testing/runtime-access'))
+      .getActiveCollaborationHandle()
+      ?.reconnect()
+  )
+  await waitForCollaboration(page)
+  await expect(alerts).toHaveCount(2)
+  await expect(alerts.last()).toHaveText(
+    'The document session is connected and changes are syncing.'
+  )
+})
+
+test('does not replay a prior-generation removal after document Reset', async ({
+  page
+}, testInfo) => {
+  const fileId = `reset-generation-${Date.now()}-${testInfo.workerIndex}`
+  const startupErrors: string[] = []
+  page.on('console', (message) => {
+    if (message.type() === 'error') startupErrors.push(message.text())
+  })
+
+  await page.goto(collaborationUrl(fileId))
+  await waitForAppReady(page)
+  await waitForCollaboration(page)
+  await Promise.all([
+    page.waitForEvent('load'),
+    page.getByRole('button', { name: 'Reset document' }).click()
+  ])
+  await waitForAppReady(page)
+  await waitForCollaboration(page)
+  await seedPriorGenerationRemoval(page, fileId)
+
+  await page.reload()
+  await waitForAppReady(page)
+  await waitForCollaboration(page)
+
+  await expect(page.locator('[role="alert"]')).toHaveCount(0)
+  await expect
+    .poll(() =>
+      page.evaluate(async () =>
+        (await import('../src/testing/runtime-access'))
+          .getActiveCollaborationHandle()
+          ?.getSessionState()
+      )
+    )
+    .toEqual({
+      connection: 'connected',
+      sync: 'synced',
+      pendingCount: 0,
+      disconnectedEpoch: 0
+    })
+  expect(startupErrors).not.toEqual(
+    expect.arrayContaining([
+      expect.stringContaining('[RenderApp] Render startup failed:')
+    ])
+  )
+})
+
+test('keeps the room live when a retained source publication cannot apply during recovery', async ({
+  page,
+  context
+}, testInfo) => {
+  const fileId = `rejected-source-recovery-${Date.now()}-${testInfo.workerIndex}`
+  const startupErrors: string[] = []
+  page.on('console', (message) => {
+    if (message.type() === 'error') startupErrors.push(message.text())
+  })
+
+  await page.goto(collaborationUrl(fileId))
+  await waitForAppReady(page)
+  await waitForCollaboration(page)
+  await seedCurrentGenerationOrphanPropertyUpdate(page, fileId)
+
+  await page.reload()
+  await waitForAppReady(page)
+  await waitForCollaboration(page)
+  await expect
+    .poll(() =>
+      page.evaluate(async () =>
+        (await import('../src/testing/runtime-access'))
+          .getActiveCollaborationHandle()
+          ?.getSessionState()
+      )
+    )
+    .toMatchObject({
+      connection: 'connected',
+      sync: 'conflicted',
+      pendingCount: 1,
+      disconnectedEpoch: 0,
+      notification: {
+        message:
+          'One or more offline changes need review and remain retained locally.',
+        type: 'conflicted'
+      }
+    })
+  await expect(page.locator('[role="alert"]')).toHaveText(
+    'One or more offline changes need review and remain retained locally.'
+  )
+  expect(startupErrors).not.toEqual(
+    expect.arrayContaining([
+      expect.stringContaining('[RenderApp] Render startup failed:')
+    ])
+  )
+
+  const peer = await context.newPage()
+  try {
+    await peer.goto(collaborationUrl(fileId))
+    await waitForAppReady(peer)
+    await waitForCollaboration(peer)
+    await createRectangle(peer, 0.45, 0.45)
+    await expect.poll(() => getElementCount(peer)).toBe(1)
+    await expect.poll(() => getElementCount(page)).toBe(1)
+  } finally {
+    await peer.close()
+  }
+})
 
 const getCanonicalSnapshot = (page: Page) =>
   page.evaluate(async () => {
@@ -680,29 +977,18 @@ const getFactoryUndoXChanges = (page: Page) =>
 
 const classifyFactoryPublicationsInApp = (page: Page) =>
   page.evaluate(async () => {
-    const operationsModule = await import('/src/collaboration/operations.ts')
+    const operationsModule = await import(
+      '/src/collaboration/publication-processor.ts'
+    )
     const { testRuntimeState } = await import('../src/testing/runtime-access')
     const canonicalRequests: string[][] = []
     const processor = operationsModule.createPublicationProcessor({
-      runRemoteTransaction: (mutate: () => void) => mutate(),
-      runRemoteTransactionProgressively: async (
-        mutateSlices: readonly (() => void)[],
-        settleAfterSlice: (completedSliceIndex: number) => Promise<void>
-      ) => {
-        for (let index = 0; index < mutateSlices.length; index += 1) {
-          mutateSlices[index]?.()
-          if (index < mutateSlices.length - 1) {
-            await settleAfterSlice(index)
-          }
-        }
-      },
       decideRemotePublication: (publication) => publication,
-      applyCanonicalChanges: (
-        changes: readonly { readonly kind: string }[]
-      ) => {
-        canonicalRequests.push(changes.map(({ kind }) => kind))
-      },
-      settleRemoteSlice: async () => undefined
+      applyRemoteCanonicalChangeSlices: ({ slices }) => {
+        slices.forEach((changes) => {
+          canonicalRequests.push(changes.map(({ kind }) => kind))
+        })
+      }
     })
     for (const publication of testRuntimeState.get<
       Parameters<typeof processor>[0][]
@@ -1970,33 +2256,18 @@ test('remote undo restores an exact nested Group with and without local tombston
 
     await expect
       .poll(
-        () =>
-          sender.evaluate(async (requestedFileId) => {
-            const response = await fetch(
-              `/api/documents/${encodeURIComponent(
-                requestedFileId
-              )}/bootstrap-checkpoint`
-            )
-            if (!response.ok) return null
-            const payload = (await response.json()) as {
-              checkpoint?: {
-                props?: Record<string, unknown>
-                sceneTree?: {
-                  elements?: Record<string, unknown>
-                }
-              }
-              durableSequence?: number
-            }
-            return {
-              hasDurablePublication:
-                typeof payload.durableSequence === 'number' &&
-                payload.durableSequence > 0,
-              elementCount: Object.keys(
-                payload.checkpoint?.sceneTree?.elements ?? {}
-              ).filter((elementId) => elementId !== 'workspace').length,
-              propertyCount: Object.keys(payload.checkpoint?.props ?? {}).length
-            }
-          }, fileId),
+        async () => {
+          const payload = await getPersistedDocumentCheckpoint(fileId)
+          return {
+            hasDurablePublication:
+              typeof payload.durableSequence === 'number' &&
+              payload.durableSequence > 0,
+            elementCount: Object.keys(
+              payload.checkpoint?.sceneTree?.elements ?? {}
+            ).filter((elementId) => elementId !== 'workspace').length,
+            propertyCount: Object.keys(payload.checkpoint?.props ?? {}).length
+          }
+        },
         { timeout: 15_000 }
       )
       .toMatchObject({
@@ -2293,7 +2564,18 @@ test('vector creation and anchor movement converge through the canonical collabo
       captureFactoryPublicationShapes(first)
     ])
 
-    await createVectorPath(first, 0.32, 0.3, 0.18, 0.16)
+    const firstPointClient = await getCanvasPosition(first, 0.32, 0.3)
+    const secondPointClient = await getCanvasPosition(first, 0.5, 0.46)
+    const secondHandleClient = await getCanvasPosition(first, 0.58, 0.38)
+    await first.keyboard.press('p')
+    await first.mouse.click(firstPointClient.x, firstPointClient.y)
+    await first.mouse.move(secondPointClient.x, secondPointClient.y)
+    await first.mouse.down()
+    await first.mouse.move(secondHandleClient.x, secondHandleClient.y, {
+      steps: 8
+    })
+    await first.mouse.up()
+    await first.keyboard.press('v')
     await expect.poll(() => getElementCount(second)).toBe(1)
     await expect
       .poll(() => getCanonicalSnapshot(second))
@@ -2310,7 +2592,10 @@ test('vector creation and anchor movement converge through the canonical collabo
         : undefined
       const anchor = Object.values(computed?.points ?? {}).find(
         (point) =>
-          typeof point === 'object' && point !== null && point.kind === 'anchor'
+          typeof point === 'object' &&
+          point !== null &&
+          point.kind === 'anchor' &&
+          computed?.points?.[`${point.id}:out`]?.kind === 'control'
       ) as { id: string; x: number; y: number } | undefined
       if (!vectorId || !anchor) {
         throw new Error('Created vector has no editable anchor')
@@ -2327,6 +2612,7 @@ test('vector creation and anchor movement converge through the canonical collabo
         vectorId,
         pointId: anchor.id,
         point: { x: anchor.x, y: anchor.y },
+        zoom,
         client: {
           x: (offsetX + anchor.x) * zoom + viewport.x,
           y: (offsetY + anchor.y) * zoom + viewport.y
@@ -2345,9 +2631,37 @@ test('vector creation and anchor movement converge through the canonical collabo
       getUndoDepth(first),
       getUndoDepth(second)
     ])
-    const nextX = before.point.x + 48
-    await pointXInput.fill(String(nextX))
-    await pointXInput.press('Enter')
+    const nextX = before.point.x + 48 / before.zoom
+    await first.mouse.move(before.client.x, before.client.y)
+    await first.mouse.down()
+    await first.mouse.move(before.client.x + 48, before.client.y, { steps: 8 })
+
+    await expect
+      .poll(
+        async () => {
+          const point = await second.evaluate(async ({ vectorId, pointId }) => {
+            const point = (
+              await import('../src/testing/runtime-access')
+            ).core?.deps?.sceneTree
+              ?.getElementById?.(vectorId)
+              ?.getAllComputedData?.()?.points?.[pointId]
+            return point ? { x: point.x, y: point.y } : null
+          }, before)
+          if (!point) return Number.POSITIVE_INFINITY
+          return Math.max(
+            Math.abs(point.x - nextX),
+            Math.abs(point.y - before.point.y)
+          )
+        },
+        {
+          message:
+            'the peer must receive canonical anchor frames before pointer-up'
+        }
+      )
+      .toBeLessThanOrEqual(CANONICAL_COORDINATE_TOLERANCE)
+    expect(await getUndoDepth(first)).toBe(firstUndoDepthBefore)
+
+    await first.mouse.up()
 
     try {
       await waitForCanonicalSnapshotsToConverge(first, second)
@@ -2379,7 +2693,7 @@ test('vector creation and anchor movement converge through the canonical collabo
     expect(await getUndoDepth(first)).toBe(firstUndoDepthBefore + 1)
     expect(await getUndoDepth(second)).toBe(secondUndoDepthBefore)
 
-    const canonicalAfter = await getCanonicalSnapshot(first)
+    let canonicalAfter = await getCanonicalSnapshot(first)
     await undo(first)
     await waitForCanonicalSnapshotsToConverge(first, second)
     expect(await getCanonicalSnapshot(first)).toEqual(canonicalBefore)
@@ -2389,6 +2703,89 @@ test('vector creation and anchor movement converge through the canonical collabo
     await waitForCanonicalSnapshotsToConverge(first, second)
     expect(await getCanonicalSnapshot(first)).toEqual(canonicalAfter)
     expect(await getUndoDepth(second)).toBe(secondUndoDepthBefore)
+
+    const handleBefore = await first.evaluate(async ({ vectorId, pointId }) => {
+      const core = (await import('../src/testing/runtime-access')).core
+      const computed = core?.deps?.sceneTree
+        ?.getElementById?.(vectorId)
+        ?.getAllComputedData?.()
+      const handle = computed?.points?.[`${pointId}:out`]
+      if (!handle || handle.kind !== 'control') {
+        throw new Error('Created vector has no editable out-handle')
+      }
+      const zoom = core?.getSystemProperty?.('zoom') ?? 1
+      const viewport = core?.getSystemProperty?.('viewportPosition') ?? {
+        x: 0,
+        y: 0
+      }
+      const usesWorkspacePoints = computed?.pointCoordinateSpace === 'workspace'
+      const offsetX = usesWorkspacePoints ? 0 : (computed?.x ?? 0)
+      const offsetY = usesWorkspacePoints ? 0 : (computed?.y ?? 0)
+      return {
+        point: { x: handle.x, y: handle.y },
+        zoom,
+        client: {
+          x: (offsetX + handle.x) * zoom + viewport.x,
+          y: (offsetY + handle.y) * zoom + viewport.y
+        }
+      }
+    }, before)
+    await first.mouse.click(handleBefore.client.x, handleBefore.client.y)
+    const [handleUndoDepthBefore, peerUndoDepthBefore] = await Promise.all([
+      getUndoDepth(first),
+      getUndoDepth(second)
+    ])
+    const canonicalBeforeHandleDrag = await getCanonicalSnapshot(first)
+    const handleDelta = { x: 30, y: -20 }
+    const expectedHandle = {
+      x: handleBefore.point.x + handleDelta.x / handleBefore.zoom,
+      y: handleBefore.point.y + handleDelta.y / handleBefore.zoom
+    }
+    await first.mouse.move(handleBefore.client.x, handleBefore.client.y)
+    await first.mouse.down()
+    await first.mouse.move(
+      handleBefore.client.x + handleDelta.x,
+      handleBefore.client.y + handleDelta.y,
+      { steps: 8 }
+    )
+
+    await expect
+      .poll(
+        () =>
+          second.evaluate(async ({ vectorId, pointId }) => {
+            const handle = (
+              await import('../src/testing/runtime-access')
+            ).core?.deps?.sceneTree
+              ?.getElementById?.(vectorId)
+              ?.getAllComputedData?.()?.points?.[`${pointId}:out`]
+            return handle ? { x: handle.x, y: handle.y } : null
+          }, before),
+        {
+          message:
+            'the peer must receive canonical handle frames before pointer-up'
+        }
+      )
+      .toEqual({
+        x: expect.closeTo(expectedHandle.x, 6),
+        y: expect.closeTo(expectedHandle.y, 6)
+      })
+    expect(await getUndoDepth(first)).toBe(handleUndoDepthBefore)
+
+    await first.mouse.up()
+    await waitForCanonicalSnapshotsToConverge(first, second)
+    expect(await getUndoDepth(first)).toBe(handleUndoDepthBefore + 1)
+    expect(await getUndoDepth(second)).toBe(peerUndoDepthBefore)
+    canonicalAfter = await getCanonicalSnapshot(first)
+
+    await undo(first)
+    await waitForCanonicalSnapshotsToConverge(first, second)
+    expect(await getCanonicalSnapshot(first)).toEqual(canonicalBeforeHandleDrag)
+    expect(await getUndoDepth(second)).toBe(peerUndoDepthBefore)
+
+    await redo(first)
+    await waitForCanonicalSnapshotsToConverge(first, second)
+    expect(await getCanonicalSnapshot(first)).toEqual(canonicalAfter)
+    expect(await getUndoDepth(second)).toBe(peerUndoDepthBefore)
 
     const remoteDocument = await second.evaluate(async () => {
       const saved = await (
@@ -2402,30 +2799,7 @@ test('vector creation and anchor movement converge through the canonical collabo
     })
     await expect
       .poll(
-        () =>
-          second.evaluate(async (requestedFileId) => {
-            const response = await fetch(
-              `/api/documents/${encodeURIComponent(
-                requestedFileId
-              )}/bootstrap-checkpoint`,
-              {
-                credentials: 'same-origin',
-                headers: { accept: 'application/json' }
-              }
-            )
-            if (!response.ok) {
-              throw new Error(
-                `Document checkpoint load failed with status ${String(
-                  response.status
-                )}`
-              )
-            }
-            return (
-              (await response.json()) as {
-                checkpoint?: unknown
-              }
-            ).checkpoint
-          }, fileId),
+        async () => (await getPersistedDocumentCheckpoint(fileId)).checkpoint,
         { message: 'backend checkpoint must match the canonical client save' }
       )
       .toEqual(remoteDocument)

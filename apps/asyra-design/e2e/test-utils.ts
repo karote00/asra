@@ -11,6 +11,19 @@ export const SIDEBAR_WIDTH = 240 // COLUMN_WIDTH * 4 = 60 * 4
 export const HEADER_HEIGHT = 48 // h-12 = 12 * 4 = 48px
 
 const browserErrorsByPage = new WeakMap<Page, string[]>()
+const documentBackendURL =
+  process.env.E2E_DOCUMENT_BACKEND_URL?.trim() || 'http://127.0.0.1:4201'
+
+export interface PersistedDocumentCheckpoint {
+  readonly checkpoint?: {
+    readonly props?: Record<string, unknown>
+    readonly sceneTree?: {
+      readonly elements?: Record<string, Record<string, unknown>>
+    }
+    readonly version?: unknown
+  } | null
+  readonly durableSequence?: number
+}
 
 export interface TestDocumentIdentity {
   readonly fileId: string
@@ -255,44 +268,37 @@ export async function getCoreDocumentDigest(
   return createDocumentDigest(documentState)
 }
 
-export async function getPersistedDocumentDigest(
-  page: Page,
-  fileId = getCurrentDocumentFileId(page)
-): Promise<DocumentDigest | null> {
-  const documentState = await page.evaluate(
-    async ({ requestedFileId }) => {
-      const response = await fetch(
-        `/api/documents/${encodeURIComponent(
-          requestedFileId
-        )}/bootstrap-checkpoint`,
-        {
-          credentials: 'same-origin',
-          headers: { accept: 'application/json' }
-        }
-      )
-      if (!response.ok) {
-        throw new Error(
-          `Document database load failed with status ${String(response.status)}`
-        )
-      }
-      const payload = (await response.json()) as { checkpoint?: unknown }
-      if (payload.checkpoint === undefined || payload.checkpoint === null) {
-        return null
-      }
-      const checkpoint = payload.checkpoint as {
-        version?: unknown
-        sceneTree?: unknown
-        props?: unknown
-      }
-      return {
-        version: checkpoint.version,
-        sceneTree: checkpoint.sceneTree,
-        props: checkpoint.props
-      }
-    },
-    { requestedFileId: fileId }
+export async function getPersistedDocumentCheckpoint(
+  fileId: string
+): Promise<PersistedDocumentCheckpoint> {
+  const response = await fetch(
+    new URL(
+      `/api/documents/${encodeURIComponent(fileId)}/bootstrap-checkpoint`,
+      documentBackendURL
+    ),
+    { headers: { accept: 'application/json' } }
   )
-  return documentState === null ? null : createDocumentDigest(documentState)
+  if (!response.ok) {
+    throw new Error(
+      `Document database load failed with status ${String(response.status)}`
+    )
+  }
+  return (await response.json()) as PersistedDocumentCheckpoint
+}
+
+export async function getPersistedDocumentDigest(
+  fileId: string
+): Promise<DocumentDigest | null> {
+  const payload = await getPersistedDocumentCheckpoint(fileId)
+  if (payload.checkpoint === undefined || payload.checkpoint === null) {
+    return null
+  }
+  const documentState = {
+    version: payload.checkpoint.version,
+    sceneTree: payload.checkpoint.sceneTree,
+    props: payload.checkpoint.props
+  }
+  return createDocumentDigest(documentState)
 }
 
 export function parseStrokeDashAndGapInput(pattern: string): {

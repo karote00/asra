@@ -81,6 +81,22 @@
   `@asyra/render-engine`.
 - UI and render are outputs of data/system state updates, not authoritative sources.
 
+## App Runtime Boundary
+
+- Production apps use Core as the entry for framework runtime capabilities
+  whose lifecycle, transaction, or projection is Core-coordinated.
+- Consumer-side adapters may import the side-effect-free
+  `@asyra/core/contracts` subpath for public contract values and types only;
+  that subpath is not a runtime facade. An app backend that requires framework
+  independence owns its wire contract and must not import this subpath.
+- `core.deps` is compatibility state, not an App API.
+- Do not import Factory, Feature System, Input System, Reactive Events, or
+  Render singletons from production App code when Core owns the lifecycle or
+  exposes a facade. Add the smallest Core facade when one is missing.
+- Independently composed packages may remain direct App dependencies for their
+  own Provider/wire/policy contracts. If their runtime participates in Core
+  startup, register a neutral lifecycle with Core rather than bypassing it.
+
 ## Test Placement Standards
 
 - Unit, integration, and contract test files must live in a `__tests__`
@@ -101,6 +117,10 @@
 
 ## Generated Output Standards
 
-- Treat `create-app/*` as generated output, not primary source code.
-- Do not apply manual feature/refactor fixes directly in `create-app/*`.
-- Make changes in source locations (`packages/*`, `apps/*`, and generation scripts), then regenerate.
+- Treat only `create-app/<app>/template` as generated output, not the whole
+  `create-app/<app>` CLI package.
+- Maintain CLI-owned files such as its manifest, executable, tests, and
+  documentation directly in `create-app/<app>`.
+- Do not apply manual feature/refactor fixes directly in the generated template.
+- Make template changes in source locations (`packages/*`, `apps/*`, and
+  generation scripts), then regenerate.

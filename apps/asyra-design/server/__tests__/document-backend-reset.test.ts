@@ -1,9 +1,16 @@
+import type { SharedPublication } from '@asyra/factory'
+import { Buffer } from 'node:buffer'
 import { mkdir, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createFormalInitialDocument } from '../../src/collaboration/initial-document'
+import {
+  CollaborationMessageTypes,
+  encodePublicationMessageFrames
+} from '../../src/collaboration/protocol'
 import { createFileDocumentMaterializationStore } from '../document-backend-store'
 import { createDocumentBackendServer } from '../document-backend'
+import { createDocumentMaterializationService } from '../document-materializer'
 
 const dataDirectory = resolve(
   process.cwd(),
@@ -15,6 +22,89 @@ afterEach(async () => {
 })
 
 describe('document backend destructive Reset boundary', () => {
+  it('retains the Reset generation when the next publication becomes durable', async () => {
+    await mkdir(dataDirectory, { recursive: true })
+    const store = createFileDocumentMaterializationStore(dataDirectory)
+    await expect(store.resetCheckpoint('file/a')).resolves.toBe(1)
+    const publication: SharedPublication = {
+      publicationId: 'publication-after-reset',
+      artifactId: 'artifact-after-reset',
+      transactionId: 1,
+      origin: 'action',
+      mode: 'atomic',
+      slices: [
+        {
+          sliceId: 'slice-after-reset',
+          orderedIds: ['delivery-after-reset'],
+          batches: [
+            {
+              batchId: 'batch-after-reset',
+              channel: 'sceneTree',
+              deliveries: [
+                {
+                  deliveryId: 'delivery-after-reset',
+                  eventName: 'removeElements',
+                  orderedIds: ['element-before-reset'],
+                  payload: {
+                    action: 'removeElements',
+                    eventName: 'removeElements',
+                    undoType: 'addElements',
+                    undoAction: 'addElements',
+                    entries: [
+                      {
+                        data: {
+                          id: 'element-before-reset',
+                          type: 'rectangle',
+                          parentId: 'workspace',
+                          props: {}
+                        },
+                        parentId: 'workspace',
+                        index: 0
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+    const encodedPublicationFrames = encodePublicationMessageFrames({
+      type: CollaborationMessageTypes.PUBLICATION,
+      publication,
+      fromActorId: 'actor-after-reset',
+      sequence: 1
+    }).map((frame) => Buffer.from(frame).toString('base64'))
+    const materializer = createDocumentMaterializationService({
+      store,
+      authorize: async () => undefined,
+      applyCanonicalChanges: async (document) => document
+    })
+
+    await materializer.materialize({
+      protocolVersion: 1,
+      batchId: 'persistence-batch-after-reset',
+      documentId: 'file/a',
+      expectedDurableSequence: 0,
+      firstSequence: 1,
+      lastSequence: 1,
+      entries: [
+        {
+          documentId: 'file/a',
+          sequence: 1,
+          publicationId: publication.publicationId,
+          encodedPublicationFrames
+        }
+      ]
+    })
+
+    await expect(store.readCheckpoint('file/a')).resolves.toMatchObject({
+      documentGeneration: 1,
+      durableSequence: 1
+    })
+  })
+
   it('replaces the stored checkpoint with one formal empty document', async () => {
     await mkdir(dataDirectory, { recursive: true })
     const store = createFileDocumentMaterializationStore(dataDirectory)
@@ -69,7 +159,17 @@ describe('document backend destructive Reset boundary', () => {
       const checkpoint = await fetch(`${endpoint}/bootstrap-checkpoint`)
       await expect(checkpoint.json()).resolves.toEqual({
         checkpoint: createFormalInitialDocument(),
-        durableSequence: 0
+        durableSequence: 0,
+        documentGeneration: 1
+      })
+
+      const secondReset = await fetch(endpoint, { method: 'DELETE' })
+      expect(secondReset.status).toBe(200)
+      const secondCheckpoint = await fetch(`${endpoint}/bootstrap-checkpoint`)
+      await expect(secondCheckpoint.json()).resolves.toEqual({
+        checkpoint: createFormalInitialDocument(),
+        durableSequence: 0,
+        documentGeneration: 2
       })
     } finally {
       await backend.close()

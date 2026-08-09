@@ -2,7 +2,7 @@ import {
   cancelFeatureTask,
   defineFeature,
   invokeFeatureTask
-} from '@asyra/feature-system'
+} from '@asyra/core'
 import type {
   AiJsonValue,
   AiRuntimeProgressObserver,

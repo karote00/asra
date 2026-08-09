@@ -369,10 +369,11 @@ test.describe('Undo/Redo Actions', () => {
 
     expect(commitSummary.stackCount).toBe(beforeSummary.count + 1)
     expect(commitSummary.noOpSelectionCount).toBe(0)
-    expect(commitSummary.updatePropertyCount).toBeGreaterThan(0)
-    expect(commitSummary.changeCount).toBeGreaterThanOrEqual(
-      commitSummary.updatePropertyCount
-    )
+    expect(commitSummary.updatePropertyCount).toBe(2)
+    expect(commitSummary.changeCount).toBeLessThan(10)
+
+    await undo(page)
+    await expect.poll(() => getElementCount(page)).toBe(0)
   })
 
   test('vector point final drag records undo without replaying the final render write', async ({
@@ -904,6 +905,7 @@ test.describe('Undo/Redo Actions', () => {
       return {
         vectorId,
         pointId: anchor.id,
+        zoom,
         undoCount: core?.deps?.factory?.transact?.undoStack?.length ?? 0,
         point: { x: anchor.x, y: anchor.y },
         anchors,
@@ -931,26 +933,64 @@ test.describe('Undo/Redo Actions', () => {
     await page.mouse.move(before.client.x + 52, before.client.y + 24, {
       steps: 12
     })
+    await expect
+      .poll(() =>
+        page.evaluate(
+          async ({ vectorId, pointId, minimumX, minimumY }) => {
+            const core = (await import('../src/testing/runtime-access')).core
+            const element = core?.deps?.sceneTree?.getElementById?.(vectorId)
+            const point = element?.getAllComputedData?.().points?.[pointId]
+            return Boolean(point && point.x > minimumX && point.y > minimumY)
+          },
+          {
+            vectorId: before.vectorId,
+            pointId: before.pointId,
+            minimumX: before.point.x + 50 / before.zoom,
+            minimumY: before.point.y + 22 / before.zoom
+          }
+        )
+      )
+      .toBe(true)
+    // Canonical projection precedes the asynchronous shared-publication
+    // observer. Let the final queued drag update finish before taking the
+    // pointer-up replay baseline.
+    await page.waitForTimeout(80)
     const previewPublications = await page.evaluate(async () => {
       const { readTestCapture } = await import('../src/testing/runtime-access')
       return readTestCapture('vector-point-preview-publications')
     })
-    expect(previewPublications).toEqual([])
+    expect(previewPublications.length).toBeGreaterThan(0)
+    expect(previewPublications).toContainEqual(
+      expect.objectContaining({
+        slices: expect.arrayContaining([
+          expect.objectContaining({
+            batches: expect.arrayContaining([
+              expect.objectContaining({
+                channel: 'props',
+                deliveries: expect.arrayContaining([
+                  expect.objectContaining({
+                    eventName: 'updateProperty',
+                    payload: expect.objectContaining({
+                      options: expect.objectContaining({
+                        sharedDelivery: 'immediate'
+                      })
+                    })
+                  })
+                ])
+              })
+            ])
+          })
+        ])
+      })
+    )
     await page.mouse.up()
-    await expect
-      .poll(() =>
-        page.evaluate(async () => {
-          const { readTestCapture } = await import(
-            '../src/testing/runtime-access'
-          )
-          return readTestCapture('vector-point-preview-publications').length
-        })
-      )
-      .toBeGreaterThan(0)
     const committedPublications = await page.evaluate(async () => {
       const { readTestCapture } = await import('../src/testing/runtime-access')
       return readTestCapture('vector-point-preview-publications')
     })
+    expect(
+      JSON.stringify(committedPublications.slice(previewPublications.length))
+    ).not.toContain('"channel":"props"')
     expect(committedPublications).toContainEqual(
       expect.objectContaining({
         slices: expect.arrayContaining([

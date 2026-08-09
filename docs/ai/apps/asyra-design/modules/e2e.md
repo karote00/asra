@@ -96,12 +96,13 @@ test:e2e:balanced-ai-correctness` runs that heavy case explicitly with one
   build, but use imported test access and the fixed document diagnostic
   service. Human DevTools globals are not an E2E API; production
   bundle/exclusion behavior stays in separate package and build gates
-- pull-request and manual CI use two workers, line reporting, no retry, and stop
-  after the first product failure; scheduled CI retains one retry and completes
-  the suite without the first-failure cap
+- pull-request and manual CI use one deterministic worker, line reporting, no
+  retry, and stop after the first product failure; scheduled CI retains one
+  retry and completes the suite without the first-failure cap
 - CI runs the dense-vector Render timing budget first with one isolated worker,
-  then excludes that file while parallelizing the remaining functional suite;
-  the formal timing thresholds are not relaxed to absorb runner contention
+  then excludes that file while running the remaining functional suite with
+  one worker; the formal timing thresholds are not relaxed to absorb runner
+  contention, and the ordinary suite must return a deterministic teardown
 - after creating the dense-vector fixture, the timing test waits for the active
   Collaboration session and publication outbox to become idle before installing
   phase timers; setup publication work is excluded without changing the normal

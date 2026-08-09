@@ -12,10 +12,17 @@ import type React from 'react'
 import type { FillPatch } from '../../common-apis'
 import { systemContextApis } from '../../common-apis'
 import { convertUserColorToDefault } from './color-format'
-import { applyFillPatch, getChangedFillPatch, hasFillPatch } from './fill-patch'
+import { applyFillPatch, hasFillPatch } from './fill-patch'
 import { sortGradientStopsForPreview } from './gradient-stops'
 
 const DRAG_EPSILON = 0.0001
+const GRADIENT_EDITOR_DRAG_OPTIONS: EVENT_OPTIONS = {
+  sharedDelivery: 'immediate',
+  history: {
+    mode: 'replace-latest',
+    key: 'gradient-editor:value'
+  }
+}
 
 interface UseGradientInteractionsArgs {
   fill: FillAttrs
@@ -46,7 +53,6 @@ export const useGradientInteractions = ({
   const draggingStopIndexRef = useRef<number | null>(null)
   const isDraggingRef = useRef(false)
   const fillRef = useRef(fill)
-  const interactionStartFillRef = useRef<FillAttrs | null>(null)
   const interactionLatestFillRef = useRef<FillAttrs | null>(null)
   const lastStopsRef = useRef(gradient.gradientStops)
   const dragFrameRef = useRef<number | null>(null)
@@ -135,7 +141,6 @@ export const useGradientInteractions = ({
     }
 
     isDraggingRef.current = true
-    interactionStartFillRef.current = currentFill
     interactionLatestFillRef.current = currentFill
     onStartInteraction()
   }
@@ -145,7 +150,11 @@ export const useGradientInteractions = ({
     options?: EVENT_OPTIONS,
     sourceFill?: FillAttrs
   ) => {
-    const currentFill = sourceFill ?? fillRef.current
+    const currentFill =
+      sourceFill ??
+      (isDraggingRef.current
+        ? (interactionLatestFillRef.current ?? fillRef.current)
+        : fillRef.current)
     if (!currentFill || !hasFillPatch(patch)) {
       return
     }
@@ -154,15 +163,7 @@ export const useGradientInteractions = ({
     interactionLatestFillRef.current = nextFill
 
     if (isDraggingRef.current) {
-      onChangeFill(
-        patch,
-        {
-          ...(options ?? {}),
-          undoable: false,
-          sharedDelivery: 'immediate'
-        },
-        sourceFill
-      )
+      onChangeFill(patch, options ?? GRADIENT_EDITOR_DRAG_OPTIONS, currentFill)
       return
     }
 
@@ -174,29 +175,7 @@ export const useGradientInteractions = ({
       return
     }
 
-    const startFill = interactionStartFillRef.current
-    const resolvedFinalFill =
-      interactionLatestFillRef.current ?? fillRef.current
-
-    if (
-      startFill &&
-      resolvedFinalFill &&
-      !isEqual(startFill, resolvedFinalFill)
-    ) {
-      onChangeFill(
-        getChangedFillPatch(resolvedFinalFill, startFill),
-        { undoable: false },
-        resolvedFinalFill
-      )
-      onChangeFill(
-        getChangedFillPatch(startFill, resolvedFinalFill),
-        undefined,
-        startFill
-      )
-    }
-
     isDraggingRef.current = false
-    interactionStartFillRef.current = null
     interactionLatestFillRef.current = null
     onEndInteraction()
   }
@@ -205,9 +184,12 @@ export const useGradientInteractions = ({
     nextStops: FillGradientStop[],
     options?: EVENT_OPTIONS
   ) => {
-    const sourceFill = fillRef.current
+    const sourceFill = isDraggingRef.current
+      ? (interactionLatestFillRef.current ?? fillRef.current)
+      : fillRef.current
+    const sourceGradient = sourceFill.gradient ?? gradient
     const nextGradient: FillGradientData = {
-      ...gradient,
+      ...sourceGradient,
       gradientStops: nextStops
     }
 
@@ -222,7 +204,10 @@ export const useGradientInteractions = ({
   }
 
   const updateStop = (stopIndex: number, patch: Partial<FillGradientStop>) => {
-    const nextStops = gradient.gradientStops.map((stop, currentIndex) =>
+    const sourceStops =
+      interactionLatestFillRef.current?.gradient?.gradientStops ??
+      gradient.gradientStops
+    const nextStops = sourceStops.map((stop, currentIndex) =>
       currentIndex === stopIndex
         ? {
             ...stop,
@@ -237,7 +222,9 @@ export const useGradientInteractions = ({
     stopIndex: number,
     next: { color: string; opacity: number }
   ) => {
-    const targetStop = gradient.gradientStops[stopIndex]
+    const targetStop =
+      interactionLatestFillRef.current?.gradient?.gradientStops[stopIndex] ??
+      gradient.gradientStops[stopIndex]
     if (!targetStop) {
       return
     }
@@ -431,7 +418,10 @@ export const useGradientInteractions = ({
     }
 
     const position = clampUnit((clientX - rect.left) / rect.width)
-    const currentStop = gradient.gradientStops[draggingIndex]
+    const sourceStops =
+      interactionLatestFillRef.current?.gradient?.gradientStops ??
+      gradient.gradientStops
+    const currentStop = sourceStops[draggingIndex]
     if (
       currentStop &&
       Math.abs(currentStop.position - position) <= DRAG_EPSILON
@@ -439,7 +429,7 @@ export const useGradientInteractions = ({
       return
     }
 
-    const nextStops = gradient.gradientStops.map((stop, currentIndex) =>
+    const nextStops = sourceStops.map((stop, currentIndex) =>
       currentIndex === draggingIndex
         ? {
             ...stop,

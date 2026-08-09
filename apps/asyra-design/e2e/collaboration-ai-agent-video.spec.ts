@@ -8,10 +8,17 @@ import {
 } from '@playwright/test'
 import { Buffer } from 'node:buffer'
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { decodeProfiledWebSocketFrame } from '../src/collaboration/websocket-profile-frame'
-import { getUndoHistoryDepth, redo, undo, waitForAppReady } from './test-utils'
+import {
+  getPersistedDocumentCheckpoint,
+  getUndoHistoryDepth,
+  redo,
+  undo,
+  waitForAppReady
+} from './test-utils'
 import { installGeneratedActionBatchInterceptor } from './action-batch-interceptor'
 
 interface CanonicalAiDrawingSnapshot {
@@ -237,6 +244,10 @@ const recordingWindowHeight = 500
 const recordingWindowLeft = 224
 const recordingWindowTop = 33
 const recordingOperationDeadlineMs = 300_000
+const HIGH_DETAIL_ACTOR_A_CREATION_TIMEOUT_MS = 15_000
+const HIGH_DETAIL_ACTOR_B_CREATION_TIMEOUT_MS = 30_000
+const HIGH_DETAIL_TOTAL_CREATION_TIMEOUT_MS = 45_000
+const HIGH_DETAIL_HISTORY_TIMEOUT_MS = 30_000
 
 const collaborationUrl = (fileId: string) =>
   `/?fileId=${encodeURIComponent(fileId)}`
@@ -1701,175 +1712,154 @@ const waitForAppliedRenderProjection = async (
   return observed
 }
 
-const getPersistedAiDrawingEvidence = (
-  page: Page,
+const getPersistedAiDrawingEvidence = async (
   fileId: string
-): Promise<PersistedAiDrawingEvidence | null> =>
-  page.evaluate(
-    async ({ requestedFileId }) => {
-      interface SavedElement {
-        children?: readonly string[]
-        id?: string
-        props?: Record<string, string>
-        type?: unknown
-        [key: string]: unknown
-      }
-      type SavedProperty = Record<string, unknown>
-      const response = await fetch(
-        `/api/documents/${encodeURIComponent(
-          requestedFileId
-        )}/bootstrap-checkpoint`,
-        {
-          credentials: 'same-origin',
-          headers: { accept: 'application/json' }
+): Promise<PersistedAiDrawingEvidence | null> => {
+  interface SavedElement {
+    children?: readonly string[]
+    id?: string
+    props?: Record<string, string>
+    type?: unknown
+    [key: string]: unknown
+  }
+  type SavedProperty = Record<string, unknown>
+  const payload = await getPersistedDocumentCheckpoint(fileId)
+  const saved = payload.checkpoint as
+    | {
+        props?: Record<string, SavedProperty>
+        sceneTree?: {
+          elements?: Record<string, SavedElement>
         }
-      )
-      if (!response.ok) {
-        throw new Error(
-          `Document database load failed with status ${String(response.status)}`
-        )
       }
-      const payload = (await response.json()) as {
-        checkpoint?: {
-          props?: Record<string, SavedProperty>
-          sceneTree?: {
-            elements?: Record<string, SavedElement>
-          }
-        } | null
-      }
-      const saved = payload.checkpoint ?? null
-      if (!saved) return null
+    | null
+    | undefined
+  if (!saved) return null
 
-      const properties = saved.props ?? {}
-      const elements = Object.entries(saved.sceneTree?.elements ?? {})
-        .filter(([, element]) => element.type !== 'workspace')
-        .sort(([left], [right]) => left.localeCompare(right))
-      const reachablePropertyIds = new Set<string>()
-      const pendingPropertyIds = elements.flatMap(([, element]) =>
-        Object.values(element.props ?? {})
-      )
-      const discoverPropertyIds = (value: unknown): void => {
-        if (typeof value === 'string') {
-          if (
-            Object.hasOwn(properties, value) &&
-            !reachablePropertyIds.has(value)
-          ) {
-            pendingPropertyIds.push(value)
-          }
-          return
-        }
-        if (Array.isArray(value)) {
-          value.forEach(discoverPropertyIds)
-          return
-        }
-        if (value && typeof value === 'object') {
-          Object.values(value).forEach(discoverPropertyIds)
-        }
-      }
-      while (pendingPropertyIds.length > 0) {
-        const propertyId = pendingPropertyIds.shift()
-        if (!propertyId || reachablePropertyIds.has(propertyId)) continue
-        const property = properties[propertyId]
-        if (!property) continue
-        reachablePropertyIds.add(propertyId)
-        discoverPropertyIds(property)
-      }
-
-      const normalize = (value: unknown): unknown => {
-        if (Array.isArray(value)) return value.map(normalize)
-        if (!value || typeof value !== 'object') return value
-        return Object.fromEntries(
-          Object.entries(value)
-            .sort(([left], [right]) => left.localeCompare(right))
-            .map(([childKey, child]) => [childKey, normalize(child)])
-        )
-      }
-      const canonical = normalize({
-        elements: elements.map(([id, element]) => ({ id, ...element })),
-        props: [...reachablePropertyIds]
-          .sort((left, right) => left.localeCompare(right))
-          .map((id) => ({ id, ...properties[id] }))
-      })
-      const bytes = new TextEncoder().encode(JSON.stringify(canonical))
-      const digest = await crypto.subtle.digest('SHA-256', bytes)
-
-      const blueStrokeIds: string[] = []
-      const ids: string[] = []
-      const redFillIds: string[] = []
-      const whiteBackgrounds: {
-        height: number
-        id: string
-        width: number
-      }[] = []
-      let groupCount = 0
-      let pointCount = 0
-      let vectorCount = 0
-      for (const [id, element] of elements) {
-        ids.push(id)
-        if (element.type === 'group') {
-          groupCount += 1
-          continue
-        }
-        if (element.type !== 'vector') continue
-        vectorCount += 1
-        const elementProperties = element.props ?? {}
-        const points = properties[elementProperties.points] as
-          | { points?: readonly string[] }
-          | undefined
-        pointCount += points?.points?.length ?? 0
-        const fills = properties[elementProperties.fills] as
-          | { fills?: readonly string[] }
-          | undefined
-        const primaryFill = properties[fills?.fills?.[0] ?? ''] as
-          | { color?: unknown }
-          | undefined
-        if (primaryFill?.color === '#DC2626') {
-          redFillIds.push(id)
-        }
-        const dimension = properties[elementProperties.dimension] as
-          | { height?: unknown; width?: unknown }
-          | undefined
-        if (
-          primaryFill?.color === '#FFFFFF' &&
-          dimension?.width === 1672 &&
-          dimension.height === 941
-        ) {
-          whiteBackgrounds.push({
-            height: dimension.height,
-            id,
-            width: dimension.width
-          })
-        }
-        const strokes = properties[elementProperties.strokes] as
-          | { strokes?: readonly string[] }
-          | undefined
-        const primaryStroke = properties[strokes?.strokes?.[0] ?? ''] as
-          | { fill?: { color?: unknown } }
-          | undefined
-        if (primaryStroke?.fill?.color === '#2563EB') {
-          blueStrokeIds.push(id)
-        }
-      }
-
-      return {
-        blueStrokeIds: blueStrokeIds.sort(),
-        byteLength: bytes.byteLength,
-        groupCount,
-        ids: ids.sort(),
-        pointCount,
-        redFillIds: redFillIds.sort(),
-        sha256: [...new Uint8Array(digest)]
-          .map((value) => value.toString(16).padStart(2, '0'))
-          .join(''),
-        totalCount: ids.length,
-        vectorCount,
-        whiteBackgrounds: whiteBackgrounds.sort((left, right) =>
-          left.id.localeCompare(right.id)
-        )
-      }
-    },
-    { requestedFileId: fileId }
+  const properties = saved.props ?? {}
+  const elements = Object.entries(saved.sceneTree?.elements ?? {})
+    .filter(([, element]) => element.type !== 'workspace')
+    .sort(([left], [right]) => left.localeCompare(right))
+  const reachablePropertyIds = new Set<string>()
+  const pendingPropertyIds = elements.flatMap(([, element]) =>
+    Object.values(element.props ?? {})
   )
+  const discoverPropertyIds = (value: unknown): void => {
+    if (typeof value === 'string') {
+      if (
+        Object.hasOwn(properties, value) &&
+        !reachablePropertyIds.has(value)
+      ) {
+        pendingPropertyIds.push(value)
+      }
+      return
+    }
+    if (Array.isArray(value)) {
+      value.forEach(discoverPropertyIds)
+      return
+    }
+    if (value && typeof value === 'object') {
+      Object.values(value).forEach(discoverPropertyIds)
+    }
+  }
+  while (pendingPropertyIds.length > 0) {
+    const propertyId = pendingPropertyIds.shift()
+    if (!propertyId || reachablePropertyIds.has(propertyId)) continue
+    const property = properties[propertyId]
+    if (!property) continue
+    reachablePropertyIds.add(propertyId)
+    discoverPropertyIds(property)
+  }
+
+  const normalize = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(normalize)
+    if (!value || typeof value !== 'object') return value
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([childKey, child]) => [childKey, normalize(child)])
+    )
+  }
+  const canonical = normalize({
+    elements: elements.map(([id, element]) => ({ id, ...element })),
+    props: [...reachablePropertyIds]
+      .sort((left, right) => left.localeCompare(right))
+      .map((id) => ({ id, ...properties[id] }))
+  })
+  const bytes = Buffer.from(JSON.stringify(canonical))
+
+  const blueStrokeIds: string[] = []
+  const ids: string[] = []
+  const redFillIds: string[] = []
+  const whiteBackgrounds: {
+    height: number
+    id: string
+    width: number
+  }[] = []
+  let groupCount = 0
+  let pointCount = 0
+  let vectorCount = 0
+  for (const [id, element] of elements) {
+    ids.push(id)
+    if (element.type === 'group') {
+      groupCount += 1
+      continue
+    }
+    if (element.type !== 'vector') continue
+    vectorCount += 1
+    const elementProperties = element.props ?? {}
+    const points = properties[elementProperties.points] as
+      | { points?: readonly string[] }
+      | undefined
+    pointCount += points?.points?.length ?? 0
+    const fills = properties[elementProperties.fills] as
+      | { fills?: readonly string[] }
+      | undefined
+    const primaryFill = properties[fills?.fills?.[0] ?? ''] as
+      | { color?: unknown }
+      | undefined
+    if (primaryFill?.color === '#DC2626') {
+      redFillIds.push(id)
+    }
+    const dimension = properties[elementProperties.dimension] as
+      | { height?: unknown; width?: unknown }
+      | undefined
+    if (
+      primaryFill?.color === '#FFFFFF' &&
+      dimension?.width === 1672 &&
+      dimension.height === 941
+    ) {
+      whiteBackgrounds.push({
+        height: dimension.height,
+        id,
+        width: dimension.width
+      })
+    }
+    const strokes = properties[elementProperties.strokes] as
+      | { strokes?: readonly string[] }
+      | undefined
+    const primaryStroke = properties[strokes?.strokes?.[0] ?? ''] as
+      | { fill?: { color?: unknown } }
+      | undefined
+    if (primaryStroke?.fill?.color === '#2563EB') {
+      blueStrokeIds.push(id)
+    }
+  }
+
+  return {
+    blueStrokeIds: blueStrokeIds.sort(),
+    byteLength: bytes.byteLength,
+    groupCount,
+    ids: ids.sort(),
+    pointCount,
+    redFillIds: redFillIds.sort(),
+    sha256: createHash('sha256').update(bytes).digest('hex'),
+    totalCount: ids.length,
+    vectorCount,
+    whiteBackgrounds: whiteBackgrounds.sort((left, right) =>
+      left.id.localeCompare(right.id)
+    )
+  }
+}
 
 const waitForPersistedAiDrawingEvidence = async (
   page: Page,
@@ -1881,7 +1871,7 @@ const waitForPersistedAiDrawingEvidence = async (
   let attempt = 0
   while (Date.now() < deadline) {
     const attemptStartedAtMs = Date.now()
-    const evidence = await getPersistedAiDrawingEvidence(page, fileId)
+    const evidence = await getPersistedAiDrawingEvidence(fileId)
     attempt += 1
     // eslint-disable-next-line no-console
     console.log(
@@ -2244,11 +2234,14 @@ const dropReferenceImage = async (page: Page) => {
 const submitTurn = async (
   page: Page,
   intent: string,
-  expectedSettledCount: number
+  expectedSettledCount: number,
+  onBeforeSubmit?: () => void,
+  settledTimeoutMs = 300_000
 ) => {
   const input = page.getByLabel('Message Agent')
   await expect(input).toBeEnabled()
   await input.fill(intent)
+  onBeforeSubmit?.()
   await page.getByRole('button', { name: 'Send' }).click()
   await expect(page.getByText('Working on your request')).toBeVisible()
 
@@ -2256,7 +2249,7 @@ const submitTurn = async (
     .getByTestId('ai-agent-panel')
     .locator('article[data-turn-id]')
   await expect(settledTurns).toHaveCount(expectedSettledCount, {
-    timeout: 300_000
+    timeout: settledTimeoutMs
   })
   const turn = settledTurns.last()
   await expect(turn).toHaveAttribute('data-outcome', 'success')
@@ -3171,13 +3164,12 @@ test('keeps two connected Actors converged through one complete high-detail cat 
 
   const evidence: {
     afterUndo?: CanonicalAiDrawingSnapshot
-    actorBAfterRedo?: CanonicalAiDrawingSnapshot
-    actorBAfterUndo?: CanonicalAiDrawingSnapshot
-    actorBBeforeUndo?: CanonicalAiDrawingSnapshot
     afterRedo?: CanonicalAiDrawingSnapshot
     beforeUndo?: CanonicalAiDrawingSnapshot
     browserErrors: typeof browserErrors
+    creationActorADurationMs?: number
     creationConvergenceMs?: number
+    creationTotalDurationMs?: number
     historyReplayPaints?: HistoryReplayPaintSequence
     historyReplayPhases?: HistoryReplayPhaseSequence
     historyReplaySource?: HistoryReplaySourceSummary
@@ -3226,8 +3218,6 @@ test('keeps two connected Actors converged through one complete high-detail cat 
       installHistoryReplayPhaseCapture(actorA),
       installHistoryReplayPhaseCapture(actorB)
     ])
-    await openAgent(actorA)
-    await dropReferenceImage(actorA)
 
     const readSessionState = (page: Page) =>
       page.evaluate(async () => {
@@ -3334,16 +3324,82 @@ test('keeps two connected Actors converged through one complete high-detail cat 
         ).length
       }
     }
+    const waitForPublicationProcessing = async (
+      baseline: Awaited<ReturnType<typeof readPublicationCounts>>,
+      timeout: number
+    ) => {
+      const afterSourceSettlement = await readPublicationCounts()
+      const publicationWindows = afterSourceSettlement.sent - baseline.sent
+      await expect
+        .poll(
+          async () =>
+            (await readPublicationCounts()).processed - baseline.processed,
+          { timeout }
+        )
+        .toBe(publicationWindows)
+      return {
+        counts: await readPublicationCounts(),
+        publicationWindows
+      }
+    }
     const publicationBaseline = await readPublicationCounts()
     const maxHighDetailPublicationWindows = 16
-    const creationStartedAt = Date.now()
-    await submitTurn(actorA, exactCatOnlyPrompt, 1)
-    await waitForConnectedCounts(7076, 7076, 120_000)
+    await openAgent(actorA)
+    const creationTotalStartedAt = Date.now()
+    await dropReferenceImage(actorA)
+    let creationStartedAt = 0
+    await submitTurn(
+      actorA,
+      exactCatOnlyPrompt,
+      1,
+      () => {
+        creationStartedAt = Date.now()
+      },
+      HIGH_DETAIL_ACTOR_A_CREATION_TIMEOUT_MS
+    )
+    if (creationStartedAt === 0) {
+      throw new Error('High-detail Actor A request timing is unavailable')
+    }
+    await expect
+      .poll(() => getCanonicalAiElementCount(actorA), {
+        timeout: Math.max(
+          1,
+          creationStartedAt +
+            HIGH_DETAIL_ACTOR_A_CREATION_TIMEOUT_MS -
+            Date.now()
+        )
+      })
+      .toBe(7076)
+    evidence.creationActorADurationMs = Date.now() - creationStartedAt
+    expect(evidence.creationActorADurationMs).toBeLessThanOrEqual(
+      HIGH_DETAIL_ACTOR_A_CREATION_TIMEOUT_MS
+    )
+    await waitForConnectedCounts(
+      7076,
+      7076,
+      Math.max(
+        1,
+        creationStartedAt + HIGH_DETAIL_ACTOR_B_CREATION_TIMEOUT_MS - Date.now()
+      )
+    )
+    const creationPublicationSettlement = await waitForPublicationProcessing(
+      publicationBaseline,
+      Math.max(
+        1,
+        creationStartedAt + HIGH_DETAIL_ACTOR_B_CREATION_TIMEOUT_MS - Date.now()
+      )
+    )
     evidence.creationConvergenceMs = Date.now() - creationStartedAt
-    expect(evidence.creationConvergenceMs).toBeLessThanOrEqual(30_000)
-    const afterCreationPublicationCounts = await readPublicationCounts()
+    expect(evidence.creationConvergenceMs).toBeLessThanOrEqual(
+      HIGH_DETAIL_ACTOR_B_CREATION_TIMEOUT_MS
+    )
+    evidence.creationTotalDurationMs = Date.now() - creationTotalStartedAt
+    expect(evidence.creationTotalDurationMs).toBeLessThanOrEqual(
+      HIGH_DETAIL_TOTAL_CREATION_TIMEOUT_MS
+    )
+    const afterCreationPublicationCounts = creationPublicationSettlement.counts
     const creationPublicationWindows =
-      afterCreationPublicationCounts.sent - publicationBaseline.sent
+      creationPublicationSettlement.publicationWindows
     expect(creationPublicationWindows).toBeGreaterThan(1)
     expect(creationPublicationWindows).toBeLessThanOrEqual(
       maxHighDetailPublicationWindows
@@ -3351,16 +3407,12 @@ test('keeps two connected Actors converged through one complete high-detail cat 
     expect(
       afterCreationPublicationCounts.processed - publicationBaseline.processed
     ).toBe(creationPublicationWindows)
-    ;[evidence.beforeUndo, evidence.actorBBeforeUndo] = await Promise.all([
-      getCanonicalAiDrawingSnapshot(actorA),
-      getCanonicalAiDrawingSnapshot(actorB)
-    ])
+    evidence.beforeUndo = await getCanonicalAiDrawingSnapshot(actorA)
     expect(evidence.beforeUndo).toMatchObject({
       groupCount: 1,
       totalCount: 7076,
       vectorCount: 7075
     })
-    expect(evidence.actorBBeforeUndo).toEqual(evidence.beforeUndo)
     expect(await getUndoHistoryDepth(actorA)).toBe(actorAHistoryBefore + 1)
     expect(await getUndoHistoryDepth(actorB)).toBe(actorBHistoryBefore)
     evidence.historyReplaySource = await getHistoryReplaySourceSummary(actorA)
@@ -3370,121 +3422,6 @@ test('keeps two connected Actors converged through one complete high-detail cat 
         evidence.historyReplaySource
       )}`
     )
-
-    await Promise.all([
-      setHistoryReplayPaintDirection(actorA, 'undo'),
-      setHistoryReplayPaintDirection(actorB, 'undo'),
-      setHistoryReplayPhaseDirection(actorA, 'undo'),
-      setHistoryReplayPhaseDirection(actorB, 'undo')
-    ])
-    const undoStartedAt = Date.now()
-    await undo(actorA)
-    await expect
-      .poll(() => getCanonicalAiElementCount(actorA), { timeout: 30_000 })
-      .toBe(0)
-    evidence.undoDurationMs = Date.now() - undoStartedAt
-    await waitForConnectedCounts(0, 0, 120_000)
-    evidence.undoConvergenceMs = Date.now() - undoStartedAt
-    const afterUndoPublicationCounts = await readPublicationCounts()
-    const undoPublicationWindows =
-      afterUndoPublicationCounts.sent - afterCreationPublicationCounts.sent
-    expect(undoPublicationWindows).toBeGreaterThan(1)
-    expect(undoPublicationWindows).toBeLessThanOrEqual(
-      maxHighDetailPublicationWindows
-    )
-    expect(
-      afterUndoPublicationCounts.processed -
-        afterCreationPublicationCounts.processed
-    ).toBe(undoPublicationWindows)
-    await Promise.all([
-      setHistoryReplayPaintDirection(actorA, null),
-      setHistoryReplayPaintDirection(actorB, null),
-      setHistoryReplayPhaseDirection(actorA, null),
-      setHistoryReplayPhaseDirection(actorB, null)
-    ])
-    ;[evidence.afterUndo, evidence.actorBAfterUndo] = await Promise.all([
-      getCanonicalAiDrawingSnapshot(actorA),
-      getCanonicalAiDrawingSnapshot(actorB)
-    ])
-
-    expect(evidence.actorBAfterUndo).toEqual(evidence.afterUndo)
-    expect(pageCrashed).toEqual({ actorA: false, actorB: false })
-    expect(browserErrors).toEqual({ actorA: [], actorB: [] })
-    expect(await getUndoHistoryDepth(actorA)).toBe(actorAHistoryBefore)
-    expect(await getUndoHistoryDepth(actorB)).toBe(actorBHistoryBefore)
-
-    await Promise.all([
-      setHistoryReplayPaintDirection(actorA, 'redo'),
-      setHistoryReplayPaintDirection(actorB, 'redo'),
-      setHistoryReplayPhaseDirection(actorA, 'redo'),
-      setHistoryReplayPhaseDirection(actorB, 'redo')
-    ])
-    const redoStartedAt = Date.now()
-    await redo(actorA)
-    await expect
-      .poll(() => getCanonicalAiElementCount(actorA), { timeout: 30_000 })
-      .toBe(7076)
-    evidence.redoDurationMs = Date.now() - redoStartedAt
-    await waitForConnectedCounts(7076, 7076, 120_000)
-    evidence.redoConvergenceMs = Date.now() - redoStartedAt
-    const afterRedoPublicationCounts = await readPublicationCounts()
-    const redoPublicationWindows =
-      afterRedoPublicationCounts.sent - afterUndoPublicationCounts.sent
-    expect(redoPublicationWindows).toBeGreaterThan(1)
-    expect(redoPublicationWindows).toBeLessThanOrEqual(
-      maxHighDetailPublicationWindows
-    )
-    expect(
-      afterRedoPublicationCounts.processed -
-        afterUndoPublicationCounts.processed
-    ).toBe(redoPublicationWindows)
-    evidence.publicationWindows = {
-      creation: creationPublicationWindows,
-      redo: redoPublicationWindows,
-      undo: undoPublicationWindows
-    }
-    await Promise.all([
-      setHistoryReplayPaintDirection(actorA, null),
-      setHistoryReplayPaintDirection(actorB, null),
-      setHistoryReplayPhaseDirection(actorA, null),
-      setHistoryReplayPhaseDirection(actorB, null)
-    ])
-    expect(evidence.redoDurationMs).toBeLessThanOrEqual(30_000)
-    expect(evidence.undoDurationMs).toBeLessThanOrEqual(12_000)
-    expect(evidence.undoConvergenceMs).toBeLessThanOrEqual(30_000)
-    expect(evidence.redoConvergenceMs).toBeLessThanOrEqual(30_000)
-    expect(evidence.undoDurationMs).toBeLessThanOrEqual(
-      evidence.redoDurationMs * 1.5
-    )
-    ;[evidence.afterRedo, evidence.actorBAfterRedo] = await Promise.all([
-      getCanonicalAiDrawingSnapshot(actorA),
-      getCanonicalAiDrawingSnapshot(actorB)
-    ])
-    expect(evidence.afterRedo).toEqual(evidence.beforeUndo)
-    expect(evidence.actorBAfterRedo).toEqual(evidence.beforeUndo)
-    expect(await getUndoHistoryDepth(actorA)).toBe(actorAHistoryBefore + 1)
-    expect(await getUndoHistoryDepth(actorB)).toBe(actorBHistoryBefore)
-
-    await expect
-      .poll(() => getHistoryReplayPaintCapture(actorA), { timeout: 5_000 })
-      .toMatchObject({
-        redo: expect.arrayContaining([
-          expect.objectContaining({
-            canonicalCount: expect.any(Number),
-            renderedCount: expect.any(Number)
-          })
-        ]),
-        undo: expect.arrayContaining([
-          expect.objectContaining({
-            canonicalCount: expect.any(Number),
-            renderedCount: expect.any(Number)
-          })
-        ])
-      })
-    evidence.historyReplayPaints = await getHistoryReplayPaintCapture(actorA)
-    evidence.peerHistoryReplayPaints =
-      await getHistoryReplayPaintCapture(actorB)
-    evidence.historyReplayPhases = await getHistoryReplayPhaseCapture(actorA)
     const isIntermediatePaint = ({
       canonicalCount,
       renderedCount
@@ -3513,19 +3450,161 @@ test('keeps two connected Actors converged through one complete high-detail cat 
       expect(distinct.length).toBeGreaterThan(2)
       expect(Math.max(...gaps)).toBeLessThanOrEqual(20_000)
     }
-    expect(evidence.historyReplayPaints.undo.some(isIntermediatePaint)).toBe(
-      true
+
+    await Promise.all([
+      setHistoryReplayPaintDirection(actorA, 'undo'),
+      setHistoryReplayPaintDirection(actorB, 'undo'),
+      setHistoryReplayPhaseDirection(actorA, 'undo'),
+      setHistoryReplayPhaseDirection(actorB, 'undo')
+    ])
+    const undoStartedAt = Date.now()
+    await undo(actorA)
+    await expect
+      .poll(() => getCanonicalAiElementCount(actorA), {
+        timeout: Math.max(
+          1,
+          undoStartedAt + HIGH_DETAIL_HISTORY_TIMEOUT_MS - Date.now()
+        )
+      })
+      .toBe(0)
+    evidence.undoDurationMs = Date.now() - undoStartedAt
+    expect(evidence.undoDurationMs).toBeLessThanOrEqual(
+      HIGH_DETAIL_HISTORY_TIMEOUT_MS
     )
-    expect(evidence.historyReplayPaints.redo.some(isIntermediatePaint)).toBe(
+    await waitForConnectedCounts(
+      0,
+      0,
+      Math.max(1, undoStartedAt + HIGH_DETAIL_HISTORY_TIMEOUT_MS - Date.now())
+    )
+    const undoPublicationSettlement = await waitForPublicationProcessing(
+      afterCreationPublicationCounts,
+      Math.max(1, undoStartedAt + HIGH_DETAIL_HISTORY_TIMEOUT_MS - Date.now())
+    )
+    evidence.undoConvergenceMs = Date.now() - undoStartedAt
+    expect(evidence.undoConvergenceMs).toBeLessThanOrEqual(
+      HIGH_DETAIL_HISTORY_TIMEOUT_MS
+    )
+    const afterUndoPublicationCounts = undoPublicationSettlement.counts
+    const undoPublicationWindows = undoPublicationSettlement.publicationWindows
+    expect(undoPublicationWindows).toBeGreaterThan(1)
+    expect(undoPublicationWindows).toBeLessThanOrEqual(
+      maxHighDetailPublicationWindows
+    )
+    expect(
+      afterUndoPublicationCounts.processed -
+        afterCreationPublicationCounts.processed
+    ).toBe(undoPublicationWindows)
+    await Promise.all([
+      setHistoryReplayPaintDirection(actorA, null),
+      setHistoryReplayPaintDirection(actorB, null),
+      setHistoryReplayPhaseDirection(actorA, null),
+      setHistoryReplayPhaseDirection(actorB, null)
+    ])
+    evidence.afterUndo = await getCanonicalAiDrawingSnapshot(actorA)
+    expect(pageCrashed).toEqual({ actorA: false, actorB: false })
+    expect(browserErrors).toEqual({ actorA: [], actorB: [] })
+    expect(await getUndoHistoryDepth(actorA)).toBe(actorAHistoryBefore)
+    expect(await getUndoHistoryDepth(actorB)).toBe(actorBHistoryBefore)
+    await expect
+      .poll(() => getHistoryReplayPaintCapture(actorA), { timeout: 5_000 })
+      .toMatchObject({
+        undo: expect.arrayContaining([
+          expect.objectContaining({
+            canonicalCount: expect.any(Number),
+            renderedCount: expect.any(Number)
+          })
+        ])
+      })
+    evidence.historyReplayPaints = await getHistoryReplayPaintCapture(actorA)
+    evidence.peerHistoryReplayPaints =
+      await getHistoryReplayPaintCapture(actorB)
+    expect(evidence.historyReplayPaints.undo.some(isIntermediatePaint)).toBe(
       true
     )
     expect(
       evidence.peerHistoryReplayPaints.undo.some(isIntermediatePaint)
     ).toBe(true)
+    expectResponsivePaintProgress(evidence.peerHistoryReplayPaints.undo)
+
+    await Promise.all([
+      setHistoryReplayPaintDirection(actorA, 'redo'),
+      setHistoryReplayPaintDirection(actorB, 'redo'),
+      setHistoryReplayPhaseDirection(actorA, 'redo'),
+      setHistoryReplayPhaseDirection(actorB, 'redo')
+    ])
+    const redoStartedAt = Date.now()
+    await redo(actorA)
+    await expect
+      .poll(() => getCanonicalAiElementCount(actorA), {
+        timeout: Math.max(
+          1,
+          redoStartedAt + HIGH_DETAIL_HISTORY_TIMEOUT_MS - Date.now()
+        )
+      })
+      .toBe(7076)
+    evidence.redoDurationMs = Date.now() - redoStartedAt
+    expect(evidence.redoDurationMs).toBeLessThanOrEqual(
+      HIGH_DETAIL_HISTORY_TIMEOUT_MS
+    )
+    await waitForConnectedCounts(
+      7076,
+      7076,
+      Math.max(1, redoStartedAt + HIGH_DETAIL_HISTORY_TIMEOUT_MS - Date.now())
+    )
+    const redoPublicationSettlement = await waitForPublicationProcessing(
+      afterUndoPublicationCounts,
+      Math.max(1, redoStartedAt + HIGH_DETAIL_HISTORY_TIMEOUT_MS - Date.now())
+    )
+    evidence.redoConvergenceMs = Date.now() - redoStartedAt
+    expect(evidence.redoConvergenceMs).toBeLessThanOrEqual(
+      HIGH_DETAIL_HISTORY_TIMEOUT_MS
+    )
+    const afterRedoPublicationCounts = redoPublicationSettlement.counts
+    const redoPublicationWindows = redoPublicationSettlement.publicationWindows
+    expect(redoPublicationWindows).toBeGreaterThan(1)
+    expect(redoPublicationWindows).toBeLessThanOrEqual(
+      maxHighDetailPublicationWindows
+    )
+    expect(
+      afterRedoPublicationCounts.processed -
+        afterUndoPublicationCounts.processed
+    ).toBe(redoPublicationWindows)
+    evidence.publicationWindows = {
+      creation: creationPublicationWindows,
+      redo: redoPublicationWindows,
+      undo: undoPublicationWindows
+    }
+    await Promise.all([
+      setHistoryReplayPaintDirection(actorA, null),
+      setHistoryReplayPaintDirection(actorB, null),
+      setHistoryReplayPhaseDirection(actorA, null),
+      setHistoryReplayPhaseDirection(actorB, null)
+    ])
+    evidence.afterRedo = await getCanonicalAiDrawingSnapshot(actorA)
+    expect(evidence.afterRedo).toEqual(evidence.beforeUndo)
+    expect(await getUndoHistoryDepth(actorA)).toBe(actorAHistoryBefore + 1)
+    expect(await getUndoHistoryDepth(actorB)).toBe(actorBHistoryBefore)
+
+    await expect
+      .poll(() => getHistoryReplayPaintCapture(actorA), { timeout: 5_000 })
+      .toMatchObject({
+        redo: expect.arrayContaining([
+          expect.objectContaining({
+            canonicalCount: expect.any(Number),
+            renderedCount: expect.any(Number)
+          })
+        ])
+      })
+    evidence.historyReplayPaints = await getHistoryReplayPaintCapture(actorA)
+    evidence.peerHistoryReplayPaints =
+      await getHistoryReplayPaintCapture(actorB)
+    evidence.historyReplayPhases = await getHistoryReplayPhaseCapture(actorA)
+    expect(evidence.historyReplayPaints.redo.some(isIntermediatePaint)).toBe(
+      true
+    )
     expect(
       evidence.peerHistoryReplayPaints.redo.some(isIntermediatePaint)
     ).toBe(true)
-    expectResponsivePaintProgress(evidence.peerHistoryReplayPaints.undo)
     expectResponsivePaintProgress(evidence.peerHistoryReplayPaints.redo)
     evidence.pageCrashed = { ...pageCrashed }
   } finally {

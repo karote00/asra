@@ -2,23 +2,28 @@
   "src": "apps/asyra-design",
   "dest": "create-app/asyra-design/template",
   "readme": "apps/asyra-design/TEMPLATE.md",
+  "license": "create-app/asyra-design/LICENSE",
   "environment": {
     "APP_URL": "http://localhost:3000",
     "COLLABORATION_WS_HOST": "127.0.0.1",
     "COLLABORATION_WS_PORT": "4101",
     "DOCUMENT_PERSISTENCE_BACKEND_URL": "http://127.0.0.1:4201",
-    "VITE_COLLABORATION_WS_URL": ""
+    "VITE_COLLABORATION_WS_URL": "ws://127.0.0.1:4101/collaboration"
   },
   "cleanFiles": [
     "node_modules",
     "yarn.lock",
     "package-lock.json",
+    "pnpm-lock.yaml",
     ".pnp.cjs",
     ".pnp.loader.mjs",
     ".DS_Store",
     ".env*",
     ".*-data",
+    ".turbo",
+    "coverage",
     "crdt-ai-agent",
+    "dist",
     "e2e-full",
     "e2e-reference",
     "iteration-*.png",
@@ -30,6 +35,9 @@
     "research-07-*",
     "research-08-*",
     "research-09-*",
-    "research-10-*"
+    "research-10-*",
+    "playwright-report",
+    "test-results",
+    "visual-review-records"
   ]
 }

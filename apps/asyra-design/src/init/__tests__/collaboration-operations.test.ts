@@ -7,6 +7,7 @@ import type {
 import {
   EventTypes,
   getTransactionReplayMode,
+  runInTransactionReplayMode,
   subscribeToEvents,
   type AllEvent
 } from '@asyra/reactive-events'
@@ -17,11 +18,11 @@ import {
   subscribeToBrowserDragPhases
 } from '@asyra/utils'
 import { describe, expect, it, vi } from 'vitest'
+import { applyDocumentSessionBootstrapTail } from '../../collaboration/operations'
 import {
-  applyDocumentSessionBootstrapTail,
   createPublicationProcessor,
   type DecideRemotePublication
-} from '../../collaboration/operations'
+} from '../../collaboration/publication-processor'
 import {
   CollaborationMessageTypes,
   encodePublicationMessageFrames
@@ -461,16 +462,46 @@ const createHarness = (options: HarnessOptions = {}) => {
   const applyCanonicalChanges = vi.fn<
     (changes: readonly CanonicalChange[]) => void
   >(options.applyCanonicalChanges ?? (() => undefined))
+  const applyRemoteCanonicalChangeSlices = vi.fn(
+    ({
+      origin,
+      slices
+    }: {
+      origin: SharedPublication['origin']
+      slices: readonly (readonly CanonicalChange[])[]
+    }) => {
+      let replayMode: 'redo' | 'rollback' | 'undo' | null = null
+      if (origin === 'undo' || origin === 'redo') {
+        replayMode = origin
+      } else if (origin === 'rollback-compensation') {
+        replayMode = 'rollback'
+      }
+      const mutations = slices.map((changes): (() => void) => () => {
+        if (replayMode) {
+          runInTransactionReplayMode(replayMode, () =>
+            applyCanonicalChanges(changes)
+          )
+          return
+        }
+        applyCanonicalChanges(changes)
+      })
+      if (mutations.length === 1) {
+        runRemoteTransaction(mutations[0] as () => void)
+        return
+      }
+      return runRemoteTransactionProgressively(mutations, () =>
+        settleRemoteSlice()
+      )
+    }
+  )
   const processPublication = createPublicationProcessor({
-    runRemoteTransaction,
-    runRemoteTransactionProgressively,
     decideRemotePublication,
-    applyCanonicalChanges,
-    settleRemoteSlice
-  } as Parameters<typeof createPublicationProcessor>[0])
+    applyRemoteCanonicalChangeSlices
+  })
 
   return {
     applyCanonicalChanges,
+    applyRemoteCanonicalChangeSlices,
     decideRemotePublication,
     processPublication,
     runRemoteTransaction,
@@ -618,7 +649,7 @@ describe('Asyra Design app-owned collaboration processing', () => {
       harness.processPublication(
         publication([computed], 'remote-computed-projection')
       )
-    ).toThrow(/unsupported canonical Factory batch evidence/i)
+    ).toThrow(/unsupported canonical publication batch evidence/i)
     expect(harness.decideRemotePublication).toHaveBeenCalledOnce()
     expect(harness.runRemoteTransaction).not.toHaveBeenCalled()
     expect(harness.applyCanonicalChanges).not.toHaveBeenCalled()
@@ -1907,7 +1938,7 @@ describe('Asyra Design backend document materialization', () => {
           }
         ])
       )
-    ).rejects.toThrow('unsupported canonical Factory batch evidence')
+    ).rejects.toThrow('unsupported canonical publication batch evidence')
     expect(harness.transact).not.toHaveBeenCalled()
     expect(harness.apply).not.toHaveBeenCalled()
   })

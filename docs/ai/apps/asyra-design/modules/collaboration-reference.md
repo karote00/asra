@@ -178,6 +178,8 @@ generic Collaboration for a state vector or semantic publication history.
 `collaboration-server.ts` owns one file-scoped room, sequencer, pending tail,
 and persistence queue plus one session record per accepted socket. It:
 
+- imports only App-owned protocol/infrastructure modules and no `@asyra/*`
+  package; the frontend adapter is the sole Core/Factory-facing boundary;
 - accepts the App-owned document session identity carried by the wire protocol;
 - prevents two simultaneous connections from claiming the same actor in one
   file; each accepted socket owns its reservation until its own cleanup, and a
@@ -199,6 +201,10 @@ and persistence queue plus one session record per accepted socket. It:
 - flushes one fixed three-second dirty window to the App backend and retries an
   unacknowledged contiguous batch; and
 - retains the not-yet-durable ordered tail needed by reconnect bootstrap.
+
+The document backend follows the same dependency rule. It materializes the
+App-owned canonical document protocol and persists checkpoints, but it neither
+imports framework contracts nor calls a framework runtime.
 
 If a peer disconnects, its old Peer queue receives no later live frames.
 Reconnect creates a new Peer session and recovers through the latest backend
@@ -229,12 +235,16 @@ Selection, Awareness, or Render/UI projection. Generic
 `@asyra/collaboration`, the Peer queue, and the backend checkpoint remain three
 different owners.
 
-Socket failure leaves local editing available. One
-disconnected epoch emits one toast, repeated publication failures remain
-console-only, and the App retries at most once every 30 seconds. Reconnect
-loads the latest checkpoint/tail and reconciles the pending local publications
-in server order. IndexedDB storage failure and invalid structural recovery
-become explicit sync states; neither permits silent eviction.
+Socket failure leaves local editing available. Connection starts at `none` and
+never returns to it. Only `none -> connected` is silent;
+`none -> disconnected` and `connected -> disconnected` each emit one
+disconnected notification, and `disconnected -> connected` emits one
+reconnected notification. Repeated same-state observations publish no new
+connection state. Repeated publication failures remain console-only, and the
+App retries at most once every 30 seconds. Reconnect loads the latest
+checkpoint/tail and reconciles the pending local publications in server order.
+IndexedDB storage failure and invalid structural recovery become explicit sync
+states; neither permits silent eviction.
 
 The response to `send-publication` is socket source acceptance with its
 assigned sequence. It does not prove peer canonical apply or backend
@@ -314,8 +324,10 @@ document-session contract.
    same required ordinary `fileId` URL in two windows. Both windows use the same
    authoritative document-session flow.
 4. Verify create, delete, drag, drag-to-create, vector edits, undo, and redo.
-   For pen drag-to-add, verify the peer receives the real point/segment on
-   mouse-down and curve-handle changes during drag, before pointer-up.
+   For every canonical live drag, verify the peer receives effective frames
+   before pointer-up and the origin records one undo action. This includes Pen
+   drag-to-add topology/curve handles, non-Pen vector anchors/handles, canvas
+   gradient handles/stops, and fill/stroke/gradient-stop color pickers.
 5. Perform a local action, Undo, and Redo. Reload the originating browser and
    verify socket bootstrap restores the backend checkpoint plus pending tail
    without creating a duplicate collaboration publication.
@@ -325,9 +337,10 @@ document-session contract.
    checkpoint/tail bootstrap catches the returning window up before later live
    delivery.
 8. After the accepted outbox slice is implemented, stop the socket, continue
-   local actions/Undo/Redo, and verify one disconnect toast, console-only
-   publication failures, 30-second retry, reload-safe pending entries, and
-   server-order reconciliation after restart.
+   local actions/Undo/Redo, and verify quiet initial offline startup, one toast
+   only after losing an established connection, console-only publication
+   failures, 30-second retry, reload-safe pending entries, and server-order
+   reconciliation after restart.
 
 ## Validation
 

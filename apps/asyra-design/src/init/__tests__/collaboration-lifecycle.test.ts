@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import * as collaborationModule from '@asyra/collaboration'
 import { ProviderFailure } from '@asyra/collaboration'
-import type { SharedPublication } from '@asyra/factory'
+import factory, { type SharedPublication } from '@asyra/factory'
 import { EventTypes } from '@asyra/reactive-events'
 import {
   IDTypes,
@@ -11,21 +11,25 @@ import {
   SharedDataChannelNames,
   idCounter
 } from '@asyra/utils'
-import * as collaborationOperations from '../../collaboration/operations'
+import * as collaborationOperations from '../../collaboration/publication-processor'
 import { createFormalInitialDocument } from '../../collaboration/initial-document'
+import { DocumentPublicationOutbox } from '../../collaboration/publication-outbox'
 import { CollaborationWebSocketProvider } from '../../collaboration/websocket-provider'
 import {
   CollaborationMessageTypes,
   encodePublicationMessageFrames
 } from '../../collaboration/protocol'
 import {
+  INITIAL_COLLABORATION_CONNECTION_STATE,
   createRemotePublicationHandler,
   disposeCollaboration,
   getActiveCollaborationHandle,
   prepareCollaborationDocumentSession,
+  resetCollaborationDocument,
+  resolveCollaborationConnectionTransition,
   startCollaboration
 } from '../../collaboration/lifecycle'
-import core, { factory } from '../../contexts'
+import core from '../../contexts'
 
 const collaborationModuleState = vi.hoisted(() => ({
   actualCreateCollaboration:
@@ -186,6 +190,10 @@ beforeEach(async () => {
     CollaborationWebSocketProvider.prototype,
     'completeDocumentBootstrap'
   ).mockResolvedValue(undefined)
+  vi.spyOn(
+    CollaborationWebSocketProvider.prototype,
+    'resetDocument'
+  ).mockResolvedValue(undefined)
   harness.collaboration.updateAwareness.mockReset()
   harness.collaboration.observePublicationOutcomes
     .mockReset()
@@ -202,6 +210,129 @@ afterEach(async () => {
   vi.useRealTimers()
   idCounter.clear()
   vi.restoreAllMocks()
+})
+
+it('starts at none and suppresses only the none-to-connected transition', () => {
+  expect(INITIAL_COLLABORATION_CONNECTION_STATE).toBe('none')
+  expect(resolveCollaborationConnectionTransition('none', 'connected')).toEqual(
+    {
+      changed: true,
+      connection: 'connected',
+      notificationType: undefined
+    }
+  )
+  expect(
+    resolveCollaborationConnectionTransition('none', 'disconnected')
+  ).toEqual({
+    changed: true,
+    connection: 'disconnected',
+    notificationType: 'disconnected'
+  })
+  expect(
+    resolveCollaborationConnectionTransition('connected', 'disconnected')
+  ).toEqual({
+    changed: true,
+    connection: 'disconnected',
+    notificationType: 'disconnected'
+  })
+  expect(
+    resolveCollaborationConnectionTransition('disconnected', 'connected')
+  ).toEqual({
+    changed: true,
+    connection: 'connected',
+    notificationType: 'reconnected'
+  })
+  expect(
+    resolveCollaborationConnectionTransition('connected', 'connected')
+  ).toEqual({
+    changed: false,
+    connection: 'connected',
+    notificationType: undefined
+  })
+  expect(() =>
+    resolveCollaborationConnectionTransition('connected', 'none' as never)
+  ).toThrow('Collaboration connection state cannot return to none')
+})
+
+it('does not publish a new session state when the connection state is unchanged', async () => {
+  const prepared = await prepareCollaborationDocumentSession({
+    fileId: 'file-connection-state-deduplication',
+    actorId: 'actor-lifecycle',
+    endpoint: 'ws://127.0.0.1:4101/collaboration'
+  })
+  const handle = await prepared.activate()
+  const publishedStates: unknown[] = []
+  const unsubscribe = handle.onSessionStateChange((state) => {
+    publishedStates.push(state)
+  })
+
+  await handle.disconnect()
+  expect(publishedStates).toHaveLength(1)
+
+  await handle.disconnect()
+  expect(publishedStates).toHaveLength(1)
+
+  unsubscribe()
+})
+
+it('runs the server Reset barrier before disposing the active file session and clearing recovery', async () => {
+  const clear = vi
+    .spyOn(DocumentPublicationOutbox.prototype, 'clear')
+    .mockResolvedValue(undefined)
+  const resetDocument = vi.mocked(
+    CollaborationWebSocketProvider.prototype.resetDocument
+  )
+  const prepared = await prepareCollaborationDocumentSession({
+    fileId: 'file-reset-recovery',
+    actorId: 'actor-lifecycle',
+    endpoint: 'ws://127.0.0.1:4101/collaboration'
+  })
+  await prepared.activate()
+
+  await resetCollaborationDocument('file-reset-recovery')
+
+  expect(resetDocument).toHaveBeenCalledOnce()
+  expect(clear).toHaveBeenCalledOnce()
+  expect(getActiveCollaborationHandle()).toBeUndefined()
+})
+
+it('clears reset-invalidated recovery before it can enter the new document generation', async () => {
+  const fileId = 'file-reset-generation-recovery'
+  const legacyOutbox = new DocumentPublicationOutbox({ fileId })
+  await legacyOutbox.initialize()
+  await legacyOutbox.bindDocumentGeneration(0)
+  await legacyOutbox.append(remotePublication('publication-before-reset'))
+  vi.mocked(
+    CollaborationWebSocketProvider.prototype.openDocumentSession
+  ).mockResolvedValue({
+    checkpoint: EMPTY_DOCUMENT,
+    documentGeneration: 1,
+    durableSequence: 0,
+    headSequence: 0,
+    pendingTail: []
+  })
+  const sendPublication = vi.spyOn(
+    CollaborationWebSocketProvider.prototype,
+    'sendPublicationWithAcceptance'
+  )
+  const applyCanonicalChanges = vi.spyOn(core, 'applyCanonicalChanges')
+
+  const prepared = await prepareCollaborationDocumentSession({
+    fileId,
+    actorId: 'actor-after-reset',
+    endpoint: 'ws://127.0.0.1:4101/collaboration'
+  })
+  const handle = await prepared.activate()
+  await handle.whenIdle()
+
+  expect(sendPublication).not.toHaveBeenCalled()
+  expect(applyCanonicalChanges).not.toHaveBeenCalled()
+  expect(handle.getSessionState()).toEqual({
+    connection: 'connected',
+    sync: 'synced',
+    pendingCount: 0,
+    disconnectedEpoch: 0
+  })
 })
 
 it('rejects the consumer promise for a policy-rejected publication outcome', async () => {
@@ -405,6 +536,12 @@ it('reopens the socket bootstrap and hydrates checkpoint plus tail before reconn
     'core-apply',
     'bootstrap-consumed'
   ])
+  expect(handle.getSessionState()).toEqual(
+    expect.objectContaining({
+      connection: 'connected',
+      sync: 'synced'
+    })
+  )
 })
 
 it('keeps a provisional local session active and retries an unavailable socket at one non-overlapping 30-second cadence', async () => {
@@ -432,6 +569,7 @@ it('keeps a provisional local session active and retries an unavailable socket a
 
   expect(prepared.bootstrap).toEqual({
     checkpoint: createFormalInitialDocument(),
+    documentGeneration: 0,
     durableSequence: 0,
     headSequence: 0,
     pendingTail: []
@@ -440,7 +578,10 @@ it('keeps a provisional local session active and retries an unavailable socket a
     expect.objectContaining({
       connection: 'disconnected',
       pendingCount: 0,
-      sync: 'synced'
+      sync: 'synced',
+      notification: expect.objectContaining({
+        type: 'disconnected'
+      })
     })
   )
   expect(
@@ -489,7 +630,10 @@ it('keeps a provisional local session active and retries an unavailable socket a
     expect.objectContaining({
       connection: 'connected',
       pendingCount: 0,
-      sync: 'synced'
+      sync: 'synced',
+      notification: expect.objectContaining({
+        type: 'reconnected'
+      })
     })
   )
   expect(consoleError).toHaveBeenCalledWith(
@@ -797,11 +941,8 @@ it('binds source-sliced remote canonical requests to one Factory coordinator', a
   expect(createPublicationProcessor).toHaveBeenCalledOnce()
   const options = createPublicationProcessor.mock.calls[0]?.[0]
   expect(options).toEqual({
-    runRemoteTransaction: expect.any(Function),
-    runRemoteTransactionProgressively: expect.any(Function),
     decideRemotePublication: expect.any(Function),
-    applyCanonicalChanges: expect.any(Function),
-    settleRemoteSlice: expect.any(Function)
+    applyRemoteCanonicalChangeSlices: expect.any(Function)
   })
   expect(options).not.toHaveProperty('applyRemoteEvent')
   expect(options).not.toHaveProperty('owners')

@@ -1,5 +1,13 @@
 # @asyra/reactive-events
 
+## 0.5.1
+
+### Patch Changes
+
+- 889f7b4: Keep continuous property drags in one bounded History action while preserving
+  the data-owner boundary: Props Manager supplies owner evidence and Factory
+  trusts that evidence when organizing replace-latest History.
+
 ## 0.5.0
 
 ### Minor Changes

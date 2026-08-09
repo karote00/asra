@@ -7541,3 +7541,34 @@ join` constrained dashed product path across: - shape-generated `rect` - closed 
   - [#112](https://github.com/karote00/asyra/pull/112)
 - Related Commit:
   - `20e359709` (`refactor: neutralize fork-facing identifiers`)
+
+## 2026-08-08 - Make toolbar Reset one socket-owned document barrier
+
+- Context:
+  - The browser previously deleted the backend checkpoint directly while the
+    collaboration server retained the live room's accepted publication tail.
+  - A later bootstrap could therefore combine the formal sequence-zero App
+    document with an older tail whose children referenced a group that no
+    longer existed, producing an unavailable-parent startup failure and a
+    disconnected session notification.
+- Decision:
+  - Route the destructive toolbar Reset through the active collaboration
+    session as one socket-server-owned barrier.
+  - Serialize Reset with room admission, stop retrying and discard queued
+    persistence work, await the active backend attempt, ask the App backend to
+    restore the formal initial document, then remove the old room generation
+    before acknowledging success.
+  - Keep the browser isolated from the document backend route. After the
+    barrier settles, dispose the initiating session, clear only that file's
+    recovery outbox, and reload the App.
+- Consequences:
+  - The next bootstrap observes the formal workspace-root document at durable
+    sequence zero with head sequence zero and no pending publication tail.
+  - Reset does not enter Core mutation, Feature System, transactions, History,
+    Undo, Redo, Factory publication, CRDT apply, or Selection.
+  - A storage-free demo still performs local recovery cleanup and reloads
+    without requiring a backend document.
+- Related Specification:
+  - `docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md`
+- Related Inspector:
+  - `docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-flow-inspector.data.cjs`

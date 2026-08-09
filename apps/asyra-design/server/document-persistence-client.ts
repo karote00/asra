@@ -9,7 +9,7 @@ interface PersistenceFetchResponse {
 type PersistenceFetch = (
   input: string,
   init: Readonly<{
-    method: 'GET' | 'POST'
+    method: 'DELETE' | 'GET' | 'POST'
     headers: Readonly<Record<string, string>>
     body?: string
   }>
@@ -18,10 +18,12 @@ type PersistenceFetch = (
 export interface DocumentBootstrapCheckpoint {
   readonly checkpoint: unknown | null
   readonly durableSequence: number
+  readonly documentGeneration: number
 }
 
 export interface HttpDocumentPersistenceClient {
   readCheckpoint(documentId: string): Promise<DocumentBootstrapCheckpoint>
+  resetCheckpoint(documentId: string): Promise<number>
   sendBatch(
     batch: DocumentPersistenceBatch
   ): Promise<Readonly<{ durableSequence: number }>>
@@ -67,7 +69,8 @@ export const createHttpDocumentPersistenceClient = ({
       if (response.status === 404) {
         return Object.freeze({
           checkpoint: null,
-          durableSequence: 0
+          durableSequence: 0,
+          documentGeneration: 0
         })
       }
       if (!response.ok) {
@@ -80,7 +83,13 @@ export const createHttpDocumentPersistenceClient = ({
         !isRecord(checkpoint) ||
         !Object.prototype.hasOwnProperty.call(checkpoint, 'checkpoint') ||
         !Number.isSafeInteger(checkpoint.durableSequence) ||
-        Number(checkpoint.durableSequence) < 0
+        Number(checkpoint.durableSequence) < 0 ||
+        (Object.prototype.hasOwnProperty.call(
+          checkpoint,
+          'documentGeneration'
+        ) &&
+          (!Number.isSafeInteger(checkpoint.documentGeneration) ||
+            Number(checkpoint.documentGeneration) < 0))
       ) {
         throw new Error(
           '[document-persistence-client] backend checkpoint is invalid'
@@ -88,8 +97,35 @@ export const createHttpDocumentPersistenceClient = ({
       }
       return Object.freeze({
         checkpoint: checkpoint.checkpoint,
-        durableSequence: Number(checkpoint.durableSequence)
+        durableSequence: Number(checkpoint.durableSequence),
+        documentGeneration: Number(checkpoint.documentGeneration ?? 0)
       })
+    },
+    async resetCheckpoint(documentId) {
+      const endpoint = new URL(
+        `/api/documents/${encodeURIComponent(documentId)}`,
+        base
+      )
+      const response = await send(endpoint.toString(), {
+        method: 'DELETE',
+        headers: { accept: 'application/json' }
+      })
+      if (!response.ok) {
+        throw new Error(
+          `[document-persistence-client] backend rejected document Reset (${response.status})`
+        )
+      }
+      const reset = await response.json()
+      if (
+        !isRecord(reset) ||
+        !Number.isSafeInteger(reset.documentGeneration) ||
+        Number(reset.documentGeneration) < 1
+      ) {
+        throw new Error(
+          '[document-persistence-client] backend Reset generation is invalid'
+        )
+      }
+      return Number(reset.documentGeneration)
     },
     async sendBatch(batch) {
       const endpoint = new URL(

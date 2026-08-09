@@ -22,6 +22,10 @@ Users need low-friction shape creation with both quick default-size placement an
    root even when a Group is selected.
 7. Nested Group creation preserves world position and keeps affected Group
    bounds canonical throughout click or drag creation.
+8. One drag-create pointer session creates one Undo commit. Continuous preview
+   and collaboration publications remain live, but local History retains only
+   the final drag geometry candidate; Undo removes the created element without
+   replaying the pointer path.
 
 ## Constraints
 
@@ -38,6 +42,8 @@ Users need low-friction shape creation with both quick default-size placement an
 - `element-creation.spec.ts`, `group-interaction.spec.ts`, and `oval.spec.ts`
   creation scenarios pass
 - click and drag creation both work repeatedly without state corruption
+- a multi-step drag stores one final x/y geometry pair instead of one History
+  change pair per pointer update
 
 ## References
 

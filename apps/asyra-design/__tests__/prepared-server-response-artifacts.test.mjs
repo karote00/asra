@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { Buffer } from 'node:buffer'
 import { createHash } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import {
   lstat,
   mkdir,
@@ -26,10 +27,13 @@ import {
   resolvePreparedServerResponseLayoutRoot
 } from '../e2e/prepared-server-response-artifacts.mjs'
 
-const workspaceRoot = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '../../..'
+const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const workspaceRootCandidate = path.resolve(appRoot, '../..')
+const workspaceRoot = existsSync(
+  path.join(workspaceRootCandidate, 'apps', 'asyra-design')
 )
+  ? workspaceRootCandidate
+  : appRoot
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex')
 
@@ -207,6 +211,7 @@ test('loads the formal record factory through the existing Vite SSR loader witho
 })
 
 test('copies production output into one atomic current overlay without changing production dist', async () => {
+  await mkdir(path.join(workspaceRoot, 'tmp'), { recursive: true })
   const testRoot = await mkdtemp(
     path.join(workspaceRoot, 'tmp/prepared-server-response-artifacts-')
   )

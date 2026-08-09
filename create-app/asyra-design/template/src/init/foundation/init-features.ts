@@ -1,5 +1,3 @@
-import core from '../../contexts'
-import { inputSystem, systemContext } from '../../contexts'
 import {
   registerAiAgentFeature,
   type AiAgentFeatureApi,
@@ -25,10 +23,6 @@ export interface InitializedFeatures {
 export const initFeatures = (
   options: InitFeaturesOptions
 ): InitializedFeatures => {
-  core.initFeatureSystem({
-    inputSystem,
-    systemContext
-  })
   const ai = registerAiAgentFeature(options.aiRuntime)
   return Object.freeze({
     ai

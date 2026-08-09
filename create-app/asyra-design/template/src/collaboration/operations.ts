@@ -1,67 +1,42 @@
 import type {
+  AddRemoveElementEntry,
+  CanonicalChange,
+  ElementRawData,
+  HierarchyMove,
+  PropertyComponentRawData,
+  PropertyComponentValuesUpdate,
+  PropsRestoreSnapshot,
+  SceneTreeRestoreSnapshot,
   SharedPublication,
   SharedPublicationBatch,
-  SharedPublicationDelivery
-} from '@asyra/factory'
-import type {
-  CanonicalChange,
-  CanonicalChangeAPIs,
-  PropertyComponentValuesUpdate
-} from '@asyra/core'
+  SharedPublicationDelivery,
+  SubtreeChange,
+  UpdateElementDataChange
+} from './app-protocol-types'
 import {
   EventTypes,
-  runInTransactionReplayMode,
-  type TransactionReplayMode
-} from '@asyra/reactive-events'
-import {
-  type AddRemoveElementEntry,
-  type ElementRawData,
-  type HierarchyMove,
-  type PropertyComponentRawData,
-  type PropsRestoreSnapshot,
   SCENE_TREE_ACTIONS,
-  type SceneTreeRestoreSnapshot,
-  type SubtreeChange,
-  type UpdateElementDataChange,
-  SharedDataChannelNames,
-  emitDiagnosticCounter,
-  measureBrowserDragPhase
-} from '@asyra/utils'
+  SharedDataChannelNames
+} from './app-protocol-types'
 import { isNonBlankString } from './wire-values'
 import {
   decodePublicationFramePublication,
   type DocumentSessionBootstrap
 } from './protocol'
 
-type RunRemoteTransaction = (mutate: () => void) => void
-type RunRemoteTransactionProgressively = (
-  mutateSlices: readonly (() => void)[],
-  settleAfterSlice: (completedSliceIndex: number) => Promise<void>
-) => Promise<void>
 type RemoteCanonicalElementRemoval = Extract<
   CanonicalChange,
   { kind: 'element-removal' }
 >['removals'][number]
-export type DecideRemotePublication = (
-  publication: SharedPublication
-) => SharedPublication | false
 
-export interface PublicationProcessorOptions {
-  readonly runRemoteTransaction: RunRemoteTransaction
-  readonly runRemoteTransactionProgressively: RunRemoteTransactionProgressively
-  readonly decideRemotePublication: DecideRemotePublication
-  readonly applyCanonicalChanges: CanonicalChangeAPIs['applyCanonicalChanges']
-  readonly settleRemoteSlice: () => Promise<void>
-}
-
-interface ClassifiedRemoteRestore {
+export interface ClassifiedRemoteRestore {
   sceneSnapshot: SceneTreeRestoreSnapshot
   propsSnapshot: PropsRestoreSnapshot
 }
 
 type SharedPublicationSlice = SharedPublication['slices'][number]
 
-interface OrganizedRemotePublication {
+export interface OrganizedRemotePublication {
   readonly sourceSlices: readonly SharedPublicationSlice[]
   readonly batches: readonly SharedPublicationBatch[]
   readonly deliveries: readonly Readonly<{
@@ -76,15 +51,6 @@ interface OrganizedRemotePublication {
     SharedPublicationSlice,
     readonly SharedPublicationBatch[]
   >
-}
-
-const publicationReplayMode = (
-  origin: SharedPublication['origin']
-): TransactionReplayMode | null => {
-  if (origin === 'undo' || origin === 'redo') {
-    return origin
-  }
-  return origin === 'rollback-compensation' ? 'rollback' : null
 }
 
 type CanonicalElementEvidenceDirection = 'add' | 'remove'
@@ -116,7 +82,7 @@ const canonicalElementEntriesFromDelivery = (
   return null
 }
 
-const classifyRemoteRestore = (
+export const classifyRemoteRestore = (
   organization: OrganizedRemotePublication
 ): ClassifiedRemoteRestore | undefined => {
   const { deliveries } = organization
@@ -173,7 +139,7 @@ const isRemovePropertyDelivery = (
   }>
 > => Boolean(delivery && delivery.eventName === EventTypes.REMOVE_PROPERTY)
 
-const organizeRemotePublication = (
+export const organizeRemotePublication = (
   publication: SharedPublication
 ): OrganizedRemotePublication => {
   const slices = publication.slices
@@ -189,7 +155,7 @@ const organizeRemotePublication = (
   >()
   if (slices.length === 0) {
     throw new Error(
-      '[collaboration] publication delivery order does not match Factory batch evidence'
+      '[collaboration] publication delivery order does not match batch evidence'
     )
   }
 
@@ -198,7 +164,7 @@ const organizeRemotePublication = (
     batchesBySlice.set(slice, sliceBatches)
     if (sliceBatches.length === 0) {
       throw new Error(
-        '[collaboration] publication contains invalid direct Factory batch evidence'
+        '[collaboration] publication contains invalid direct batch evidence'
       )
     }
 
@@ -206,7 +172,7 @@ const organizeRemotePublication = (
       const batchDeliveries = batch.deliveries
       if (batchDeliveries.length === 0) {
         throw new Error(
-          '[collaboration] publication contains invalid direct Factory batch evidence'
+          '[collaboration] publication contains invalid direct batch evidence'
         )
       }
       sliceByBatch.set(batch, slice)
@@ -223,7 +189,7 @@ const organizeRemotePublication = (
 
   if (batches.length === 0 || deliveries.length === 0) {
     throw new Error(
-      '[collaboration] publication delivery order does not match Factory batch evidence'
+      '[collaboration] publication delivery order does not match batch evidence'
     )
   }
   return Object.freeze({
@@ -752,13 +718,13 @@ const createRemoteApplySteps = (
       continue
     }
     throw new Error(
-      `[collaboration] unsupported canonical Factory batch evidence at batch ${batchIndex} ${batch.channel}/${batch.deliveries.map(({ eventName }) => eventName).join(',')}`
+      `[collaboration] unsupported canonical publication batch evidence at batch ${batchIndex} ${batch.channel}/${batch.deliveries.map(({ eventName }) => eventName).join(',')}`
     )
   }
   return Object.freeze(changes)
 }
 
-const canonicalChangesFromOrganizedPublication = (
+export const canonicalChangesFromOrganizedPublication = (
   organization: OrganizedRemotePublication,
   restore: ClassifiedRemoteRestore | undefined
 ): readonly CanonicalChange[] =>
@@ -772,7 +738,7 @@ const canonicalChangesFromOrganizedPublication = (
       ])
     : createRemoteApplySteps(organization)
 
-const organizeSourceSlice = (
+export const organizeSourceSlice = (
   slice: SharedPublicationSlice,
   publication: OrganizedRemotePublication
 ): OrganizedRemotePublication => {
@@ -871,83 +837,3 @@ export const applyDocumentSessionBootstrapTail = async ({
   }
   return headSequence
 }
-
-export const createPublicationProcessor =
-  ({
-    runRemoteTransaction,
-    runRemoteTransactionProgressively,
-    decideRemotePublication,
-    applyCanonicalChanges,
-    settleRemoteSlice
-  }: PublicationProcessorOptions): ((
-    publication: SharedPublication
-  ) => boolean | Promise<boolean>) =>
-  (publication) => {
-    return (() => {
-      const acceptedPublication = measureBrowserDragPhase(
-        'collaboration:remote-policy',
-        () => decideRemotePublication(publication)
-      )
-      if (acceptedPublication === false) {
-        return false
-      }
-      const replayMode = publicationReplayMode(acceptedPublication.origin)
-      const acceptedOrganization = measureBrowserDragPhase(
-        'collaboration:remote-input-organize',
-        () => organizeRemotePublication(acceptedPublication)
-      )
-      const acceptedRestore = measureBrowserDragPhase(
-        'collaboration:remote-restore-classify',
-        () => classifyRemoteRestore(acceptedOrganization)
-      )
-      const canonicalSlices = measureBrowserDragPhase(
-        'collaboration:remote-canonical-batch-derive',
-        () => {
-          if (acceptedRestore) {
-            return [
-              canonicalChangesFromOrganizedPublication(
-                acceptedOrganization,
-                acceptedRestore
-              )
-            ]
-          }
-          return acceptedOrganization.sourceSlices.map((slice) =>
-            canonicalChangesFromOrganizedPublication(
-              organizeSourceSlice(slice, acceptedOrganization),
-              undefined
-            )
-          )
-        }
-      )
-      const mutateSlices = canonicalSlices.map(
-        (canonicalChanges): (() => void) =>
-          () => {
-            canonicalChanges.forEach((change) => {
-              if (change.kind !== 'element-creation') return
-              emitDiagnosticCounter(
-                'collaboration:remote-add-element-batch-count'
-              )
-              emitDiagnosticCounter(
-                'collaboration:remote-add-element-batch-size',
-                change.elements.length
-              )
-            })
-            const apply = () => applyCanonicalChanges(canonicalChanges)
-            if (replayMode) {
-              runInTransactionReplayMode(replayMode, apply)
-              return
-            }
-            apply()
-          }
-      )
-      if (mutateSlices.length === 1) {
-        measureBrowserDragPhase('collaboration:remote-transaction-apply', () =>
-          runRemoteTransaction(mutateSlices[0] as () => void)
-        )
-        return true
-      }
-      return runRemoteTransactionProgressively(mutateSlices, () =>
-        settleRemoteSlice()
-      ).then(() => true)
-    })()
-  }

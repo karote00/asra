@@ -10,7 +10,7 @@ import {
   subscribeToUserActionCompleted,
   undoWithRenderPolicy,
   type CooperativeRenderOptions
-} from '@asyra/reactive-events'
+} from '@asyra/core'
 
 export const historyApis = {
   /**

@@ -5,6 +5,7 @@ import fs from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isDeepStrictEqual } from 'node:util'
 
 import { readFrameworkReleaseSource } from './framework-release-packages.js'
 import {
@@ -182,9 +183,7 @@ export const validateGeneratedTemplateContract = ({
     }
   }
 
-  for (const [packageName, version] of Object.entries(
-    manifest.dependencies ?? {}
-  )) {
+  for (const [packageName, version] of Object.entries(declaredDependencies)) {
     const releasePackage = packagesByName.get(packageName)
     if (releasePackage && version !== releasePackage.version) {
       throw new Error(
@@ -193,7 +192,7 @@ export const validateGeneratedTemplateContract = ({
     }
   }
 
-  const packageNames = Object.keys(manifest.dependencies ?? {})
+  const packageNames = Object.keys(declaredDependencies)
     .filter((packageName) => packagesByName.has(packageName))
     .sort()
 
@@ -337,6 +336,137 @@ const verifyInstalledPackages = ({ consumerDirectory, packageVersions }) => {
       throw new Error(`${packageName} installed identity is invalid`)
     }
   }
+}
+
+const readRegistryLockEvidence = ({
+  lockfile,
+  packageName,
+  expectedVersion
+}) => {
+  const header = `"${packageName}@npm:${expectedVersion}":`
+  const start = lockfile.indexOf(header)
+  if (start === -1) {
+    throw new Error(
+      `${packageName}@${expectedVersion} is missing from the public registry lockfile`
+    )
+  }
+  const end = lockfile.indexOf('\n\n', start)
+  const block = lockfile.slice(start, end === -1 ? lockfile.length : end)
+  if (!block.includes(`resolution: "${packageName}@npm:${expectedVersion}"`)) {
+    throw new Error(
+      `${packageName}@${expectedVersion} does not resolve through npm in the lockfile`
+    )
+  }
+  const checksum = block.match(/\n {2}checksum: ([^\n]+)/u)?.[1]?.trim()
+  if (!checksum) {
+    throw new Error(
+      `${packageName}@${expectedVersion} is missing a registry integrity checksum`
+    )
+  }
+  return checksum
+}
+
+export const validateRegistryInstalledGeneratedApp = ({
+  repositoryRoot,
+  appName,
+  generatedAppDirectory
+}) => {
+  const resolvedRoot = path.resolve(repositoryRoot)
+  const resolvedGeneratedApp = path.resolve(generatedAppDirectory)
+  const relativeGeneratedApp = path.relative(resolvedRoot, resolvedGeneratedApp)
+  if (
+    relativeGeneratedApp.startsWith('..') ||
+    path.isAbsolute(relativeGeneratedApp) ||
+    relativeGeneratedApp.split(path.sep)[0] !== 'tmp'
+  ) {
+    throw new Error(
+      `Registry-installed generated app must remain inside project tmp: ${resolvedGeneratedApp}`
+    )
+  }
+
+  const contract = validateGeneratedTemplateContract({
+    repositoryRoot: resolvedRoot,
+    appName
+  })
+  const expectedManifest = readJson(
+    path.join(contract.templateDirectory, 'package.json')
+  )
+  const manifest = readJson(path.join(resolvedGeneratedApp, 'package.json'))
+  if (!isDeepStrictEqual(manifest, expectedManifest)) {
+    throw new Error(
+      'Generated app does not preserve the verified public registry dependency contract'
+    )
+  }
+  if (manifest.resolutions !== undefined) {
+    throw new Error(
+      'Generated app public registry dependency contract must not use resolutions'
+    )
+  }
+
+  const declaredDependencies = {
+    ...(manifest.dependencies ?? {}),
+    ...(manifest.devDependencies ?? {})
+  }
+  const lockfile = fs.readFileSync(
+    path.join(resolvedGeneratedApp, 'yarn.lock'),
+    'utf8'
+  )
+  const packages = contract.packageNames.map((name) => {
+    const version = contract.packageVersions[name]
+    if (declaredDependencies[name] !== version) {
+      throw new Error(
+        `${name} violates the public registry dependency contract: expected ${version}, found ${declaredDependencies[name]}`
+      )
+    }
+    const checksum = readRegistryLockEvidence({
+      lockfile,
+      packageName: name,
+      expectedVersion: version
+    })
+    const installedPath = path.join(
+      resolvedGeneratedApp,
+      'node_modules',
+      ...name.split('/')
+    )
+    if (!fs.existsSync(installedPath)) {
+      throw new Error(`${name} is missing from the registry-installed app`)
+    }
+    if (fs.lstatSync(installedPath).isSymbolicLink()) {
+      throw new Error(`${name} resolved through a symlink instead of npm`)
+    }
+    const installedManifest = readJson(path.join(installedPath, 'package.json'))
+    if (
+      installedManifest.name !== name ||
+      installedManifest.version !== version
+    ) {
+      throw new Error(
+        `${name} installed metadata does not match ${name}@${version}`
+      )
+    }
+    const relativeInstalledPath = path.relative(
+      path.join(resolvedGeneratedApp, 'node_modules'),
+      fs.realpathSync(installedPath)
+    )
+    if (
+      relativeInstalledPath.startsWith('..') ||
+      path.isAbsolute(relativeInstalledPath)
+    ) {
+      throw new Error(`${name} resolves outside the generated app`)
+    }
+    return freeze({
+      name,
+      version,
+      resolution: 'npm',
+      checksum,
+      installedPath
+    })
+  })
+
+  return freeze({
+    appName,
+    generatedAppDirectory: resolvedGeneratedApp,
+    packages
+  })
 }
 
 const allocatePort = () =>

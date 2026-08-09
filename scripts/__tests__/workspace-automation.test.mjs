@@ -201,12 +201,10 @@ test('ordinary E2E uses the diagnostic-enabled app runtime after the workspace b
   const collaborationReady = runner.indexOf(
     'npx wait-on "http-get://${E2E_COLLABORATION_HEALTH_URL#http://}"'
   )
-  const appStart = runner.indexOf(
-    'yarn workspace @asyra/asyra-design react:start'
-  )
+  const appStart = runner.indexOf('yarn workspace @asyra/asyra-design start')
 
   assert.match(runner, /yarn react:build/)
-  assert.match(runner, /yarn workspace @asyra\/asyra-design react:start/)
+  assert.match(runner, /yarn workspace @asyra\/asyra-design start/)
   assert.doesNotMatch(runner, /workspace @asyra\/asyra-design preview/)
   assert.ok(
     collaborationBuild >= 0,
@@ -347,7 +345,7 @@ test('AI agent runtime is an optional zero-runtime-dependency workspace package'
   const turbo = readJSON('turbo.json')
 
   assert.equal(runtime.name, '@asyra/ai-agent-runtime')
-  assert.equal(runtime.version, '0.5.0')
+  assert.match(runtime.version, /^\d+\.\d+\.\d+$/u)
   assert.equal(runtime.main, 'dist/index.js')
   assert.equal(runtime.types, 'dist/index.d.ts')
   assert.equal(
@@ -364,7 +362,7 @@ test('AI agent runtime is an optional zero-runtime-dependency workspace package'
   assert.equal(
     app.dependencies['@asyra/ai-agent-runtime'],
     'workspace:*',
-    'Asyra Design must opt into the optional runtime explicitly'
+    'Asyra Design must opt into the optional workspace runtime explicitly'
   )
   assert.deepEqual(
     turbo.tasks['@asyra/ai-agent-runtime#build:ai-agent-runtime']?.dependsOn,
@@ -395,37 +393,42 @@ test('dev:all discovers all package watchers without scheduling builds', async (
   assert.equal('services' in plan, false)
   assert.deepEqual(plan.app, {
     dir: 'apps/asyra-design',
-    cmd: 'yarn react:start'
+    cmd: 'yarn start'
   })
 })
 
-test('workspace version planning includes collaboration without changing files', () => {
+test('workspace version planning materializes release ranges without changing files', () => {
+  const factoryManifest = readJSON('packages/factory/package.json')
+  const dependencyVersion = factoryManifest.version
+
   assert.equal(
     resolveWorkspaceDependencyRange({
       environment: 'prod',
-      dependencyVersion: '0.2.5'
+      dependencyVersion
     }),
-    '^0.2.5'
+    `^${dependencyVersion}`
   )
   assert.equal(
     resolveWorkspaceDependencyRange({
       environment: 'dev',
-      dependencyVersion: '0.2.5'
+      dependencyVersion
     }),
     'workspace:*'
   )
   assert.equal(
     resolveWorkspaceDependencyRange({
       environment: 'release',
-      dependencyVersion: '0.5.0'
+      dependencyVersion
     }),
-    '0.5.0'
+    dependencyVersion
   )
 
   const plan = createWorkspaceVersionPlan({
     rootDirectory: repositoryRoot,
     environment: 'release'
   })
+  const appManifest = readJSON('apps/asyra-design/package.json')
+  const collaborationManifest = readJSON('packages/collaboration/package.json')
   const appUpdate = plan.find(
     ({ packageName }) => packageName === '@asyra/asyra-design'
   )
@@ -433,12 +436,17 @@ test('workspace version planning includes collaboration without changing files',
     ({ packageName }) => packageName === '@asyra/collaboration'
   )
 
+  assert.equal(appManifest.dependencies['@asyra/collaboration'], 'workspace:*')
   assert.equal(
     appUpdate?.manifest.dependencies['@asyra/collaboration'],
-    '0.5.0'
+    collaborationManifest.version
+  )
+  assert.equal(
+    appUpdate?.manifest.devDependencies['@asyra/factory'],
+    factoryManifest.version
   )
   assert.equal(
     collaborationUpdate?.manifest.dependencies['@asyra/factory'],
-    '0.5.0'
+    factoryManifest.version
   )
 })

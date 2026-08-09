@@ -89,6 +89,9 @@ Provide typed cross-package event communication.
   share the default owner's active depth/rollback latch.
 - `TransactionEventTypes.TRANSACTION_STATUS_CHANGED` is the centralized status
   event contract; event observers are diagnostics, not the transaction owner.
+- A `ReplaceLatestHistoryCandidate` may include owner-issued `eventKeys` aligned
+  with its ordered events. The keys identify owner evidence across sparse
+  gesture frames without requiring Factory to inspect payload identity.
 
 ## Validation Checklist
 

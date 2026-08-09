@@ -3,12 +3,12 @@ import { Buffer } from 'node:buffer'
 import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { ACTION_BATCH_ENDPOINT } from '../src/ai/action-batch-endpoint'
 import type {
   AiActionBatch,
   AiJsonValue,
   AiProviderInput
-} from '@asyra/ai-agent-runtime'
-import { ACTION_BATCH_ENDPOINT } from '../src/ai/action-batch-endpoint'
+} from '../src/ai/action-batch-protocol'
 
 const sampleRoot = new URL('../samples/crdt-7076/', import.meta.url)
 const sampleInstruction = readFileSync(

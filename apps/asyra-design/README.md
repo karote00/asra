@@ -36,10 +36,11 @@ COLLABORATION_WS_PORT=4101
 DOCUMENT_PERSISTENCE_BACKEND_URL=http://127.0.0.1:4201
 ```
 
-This repository reference app intentionally composes its complete document
-session. The generated standalone template instead leaves
-`VITE_COLLABORATION_WS_URL` empty so Collaboration is opt-in and creates no
-provider/network side effect until the consumer explicitly configures it. See
+This repository reference app and the generated standalone template both point
+`VITE_COLLABORATION_WS_URL` at the local reference WebSocket service by default.
+Starting the backend, socket server, and app in order therefore exercises the
+complete document session without an extra environment edit. A consumer may
+clear the endpoint to use a same-origin `/collaboration` deployment route. See
 [`TEMPLATE.md`](TEMPLATE.md) for the generated-app contract.
 
 Vite, the normal Playwright suite, visual review, the collaboration E2E suite,

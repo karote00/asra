@@ -1,11 +1,19 @@
 import type {
   SceneTreeRawData,
   CoreRawData,
-  PropertySchema
+  PropertySchema,
+  PositionData
 } from '@asyra/utils'
 import { isRecord } from '@asyra/utils'
-import factory, { Factory } from '@asyra/factory'
-import inputSystem, { InputSystem } from '@asyra/input-system'
+import factory, {
+  Factory,
+  type SharedPublication,
+  type FactoryMutationDeliverySequence
+} from '@asyra/factory'
+import inputSystem, {
+  InputSystem,
+  type InputEventCombo
+} from '@asyra/input-system'
 import sceneTree, { componentRegistry, SceneTree } from '@asyra/scene-tree'
 import props, {
   commitDeclarativePropertyTypeDefinition,
@@ -54,7 +62,9 @@ import {
 import {
   type EventDefinition,
   eventRegistry,
-  fileLoadComplete
+  fileLoadComplete,
+  runInTransactionReplayMode,
+  settleCooperativeRenderSlice
 } from '@asyra/reactive-events'
 
 import {
@@ -71,6 +81,11 @@ import type {
   LoadDiagnosticsHook,
   LoadValidationDiagnostic
 } from './types/load-validation.js'
+import type {
+  ApplyRemoteCanonicalChangeSlicesInput,
+  CoreCollaborationBridge,
+  CoreCollaborationSession
+} from './types/app-runtime.js'
 import {
   LOAD_HOOK_EXECUTION_ERROR_CODES,
   LoadHookExecutionError
@@ -164,6 +179,8 @@ class Core implements CoreAPIs {
   private readonly registrationGraph = new RegistrationGraph({
     isCompositionOpen: () => this.compositionOpen
   })
+  private collaborationSession: CoreCollaborationSession | null = null
+  private collaborationDestroyPromise: Promise<void> | null = null
 
   setupInputSystem!: InputSystemAPIs['setupInputSystem']
 
@@ -231,7 +248,15 @@ class Core implements CoreAPIs {
   hasSystemProperty!: SystemManagedPropertyAPIs['hasSystemProperty']
   unregisterSystemProperty!: SystemManagedPropertyAPIs['unregisterSystemProperty']
 
-  constructor(readonly deps: CoreDeps) {
+  /**
+   * @deprecated App code must use the public Core facade. This dependency
+   * container remains temporarily available only for compatibility while
+   * package integrations migrate.
+   */
+  readonly deps: CoreDeps
+
+  constructor(deps: CoreDeps) {
+    this.deps = deps
     this.defaultRenderer = new RenderAdapter(deps.render)
     this.renderer = this.defaultRenderer
     this.dataChannelObservers =
@@ -305,6 +330,308 @@ class Core implements CoreAPIs {
 
   destroyRenderer(): void {
     this.renderer.destroy()
+  }
+
+  registerCollaborationSession(session: CoreCollaborationSession): void {
+    if (
+      !session ||
+      typeof session.prepare !== 'function' ||
+      typeof session.activate !== 'function' ||
+      typeof session.dispose !== 'function'
+    ) {
+      throw new Error(
+        'Core collaboration session must implement prepare, activate, and dispose'
+      )
+    }
+    if (this.collaborationSession) {
+      throw new Error('Core collaboration session is already registered')
+    }
+    this.collaborationSession = session
+  }
+
+  async destroy(): Promise<void> {
+    if (this.collaborationDestroyPromise) {
+      return this.collaborationDestroyPromise
+    }
+    const session = this.collaborationSession
+    this.collaborationSession = null
+    const destroying = (async () => {
+      try {
+        await session?.dispose()
+      } finally {
+        this.renderer.destroy()
+      }
+    })()
+    this.collaborationDestroyPromise = destroying.finally(() => {
+      this.collaborationDestroyPromise = null
+    })
+    return this.collaborationDestroyPromise
+  }
+
+  registerInputKeyCombinations(
+    combinations: Record<string, InputEventCombo[]>
+  ): () => void {
+    this.deps.inputSystem.registry.registerKeyCombinations(combinations)
+    const eventNames = Object.keys(combinations)
+    let disposed = false
+    return () => {
+      if (disposed) return
+      disposed = true
+      eventNames.forEach((eventName) => {
+        this.deps.inputSystem.registry.unregister(eventName)
+      })
+    }
+  }
+
+  getElementData(elementId: string) {
+    const data = this.deps.sceneTree.getElementById(elementId)?.save()
+    return data === undefined ? undefined : cloneLoadObservation(data)
+  }
+
+  getCurrentWorkspaceId(): string {
+    return this.deps.sceneTree.workspace
+  }
+
+  getAllElementData() {
+    return Object.freeze(
+      [...this.deps.sceneTree.getAllElements().entries()].map(
+        ([elementId, element]) =>
+          Object.freeze({
+            elementId,
+            data: cloneLoadObservation(element.save()),
+            computed: cloneLoadObservation(element.getAllComputedData())
+          })
+      )
+    )
+  }
+
+  getCanonicalElementCount(): number {
+    return Math.max(
+      0,
+      this.deps.sceneTree.getAllElements().size -
+        this.deps.sceneTree.workspaceList.length
+    )
+  }
+
+  getCanonicalOwnerSnapshot() {
+    return cloneLoadObservation({
+      props: this.deps.props.save(),
+      sceneTree: this.deps.sceneTree.save()
+    })
+  }
+
+  projectLocalComputedDataForElements(elementIds: readonly string[]): void {
+    const propertyIds = new Set<string>()
+    elementIds.forEach((elementId) => {
+      const element = this.deps.sceneTree.getElementById(elementId)
+      if (!element) {
+        return
+      }
+      const props = element.props as typeof element.props & {
+        getCanonicalRootPropertyIds?: () => readonly string[]
+      }
+      const canonicalPropertyIds = props.getCanonicalRootPropertyIds?.()
+      if (!canonicalPropertyIds) {
+        throw new Error(
+          `[Core] element "${elementId}" has no canonical property owner evidence`
+        )
+      }
+      canonicalPropertyIds.forEach((propertyId: string) => {
+        propertyIds.add(propertyId)
+      })
+    })
+    this.deps.sceneTree.projectLocalComputedDataFromPropertyIds([
+      ...propertyIds
+    ])
+  }
+
+  updateElementData(
+    elementId: string,
+    values: Readonly<{
+      name?: string
+      visible?: boolean
+      lock?: boolean
+    }>,
+    options?: Parameters<SceneTree['applyPreparedElementMutation']>[1]
+  ): boolean {
+    const prepared = this.deps.sceneTree.prepareElementDataMutation([
+      { elementId, values }
+    ])
+    return (
+      this.deps.sceneTree.applyPreparedElementMutation(prepared, options)
+        .orderedElementIds.length > 0
+    )
+  }
+
+  getSelectedElementIds(): string[] {
+    return [...this.deps.selection.getElementSelectionIds()]
+  }
+
+  getSystemContextSnapshot() {
+    return cloneLoadObservation(
+      this.deps.systemContext.getSystemContextSnapshot()
+    )
+  }
+
+  getCanvas(): HTMLCanvasElement | null {
+    return this.renderer.getCanvas()
+  }
+
+  setCanvasCursor(cursor: string): boolean {
+    const canvas = this.getCanvas()
+    if (!canvas) return false
+    canvas.style.cursor = cursor
+    return true
+  }
+
+  getCanvasBounds(): DOMRect | null {
+    return this.getCanvas()?.getBoundingClientRect() ?? null
+  }
+
+  getViewportPosition(): PositionData {
+    return cloneLoadObservation(this.deps.render.getViewportPosition())
+  }
+
+  getViewportScale(): number {
+    return this.deps.render.getViewportScale()
+  }
+
+  getMousePosInWorkspace(mousePos: { clientX: number; clientY: number }) {
+    return cloneLoadObservation(
+      this.deps.render.getMousePosInWorkspace(mousePos)
+    )
+  }
+
+  workspaceToCanvas(workspacePosition: PositionData): PositionData {
+    return cloneLoadObservation(
+      this.deps.render.workspaceToCanvas(workspacePosition)
+    )
+  }
+
+  getElementIdAtClientPos(clientPos: { x: number; y: number }) {
+    return this.deps.render.getElementIdAtClientPos(clientPos)
+  }
+
+  workspaceToElementLocal(
+    elementId: string,
+    workspacePosition: { x: number; y: number }
+  ) {
+    return cloneLoadObservation(
+      this.deps.render.workspaceToElementLocal(elementId, workspacePosition)
+    )
+  }
+
+  elementLocalToWorkspace(
+    elementId: string,
+    localPosition: { x: number; y: number }
+  ) {
+    return cloneLoadObservation(
+      this.deps.render.elementLocalToWorkspace(elementId, localPosition)
+    )
+  }
+
+  elementSourceToWorkspace(
+    elementId: string,
+    sourcePosition: PositionData
+  ): PositionData | null {
+    return cloneLoadObservation(
+      this.deps.render.elementSourceToWorkspace(elementId, sourcePosition)
+    )
+  }
+
+  workspaceToElementSource(
+    elementId: string,
+    workspacePosition: PositionData
+  ): PositionData | null {
+    return cloneLoadObservation(
+      this.deps.render.workspaceToElementSource(elementId, workspacePosition)
+    )
+  }
+
+  getProjectedElementCount(): number {
+    return this.deps.render.getProjectedElementCount()
+  }
+
+  hasProjectedElement(elementId: string): boolean {
+    return this.deps.render.getElementById(elementId) !== undefined
+  }
+
+  subscribeToFrameComplete(subscriber: () => void): () => void {
+    return this.deps.render.subscribeToFrameComplete(subscriber)
+  }
+
+  getUndoHistoryDepth(): number {
+    return this.deps.factory.getUndoHistoryDepth()
+  }
+
+  subscribeToSharedPublication(
+    subscriber: (publication: SharedPublication) => void
+  ): () => void {
+    return this.deps.factory.subscribeToSharedPublication(subscriber)
+  }
+
+  subscribeToTransactionStatus(
+    subscriber: Parameters<Factory['subscribeToTransactionStatus']>[0]
+  ): () => void {
+    return this.deps.factory.subscribeToTransactionStatus(subscriber)
+  }
+
+  observeSharedDataChannel(
+    channel: Parameters<Factory['observeSharedDataChannel']>[0],
+    subscriber: Parameters<Factory['observeSharedDataChannel']>[1]
+  ): () => void {
+    return this.deps.factory.observeSharedDataChannel(channel, subscriber)
+  }
+
+  configureSharedDeliverySequence(
+    sequence: FactoryMutationDeliverySequence
+  ): void {
+    const controller = this.deps.factory.getActiveStagedDeliveryController()
+    if (!controller) {
+      throw new Error(
+        '[Core] shared delivery sequence requires an active transaction'
+      )
+    }
+    controller.setDeliverySequence(sequence)
+  }
+
+  async applyRemoteCanonicalChangeSlices({
+    origin,
+    slices
+  }: ApplyRemoteCanonicalChangeSlicesInput): Promise<void> {
+    if (slices.length === 0) return
+    let replayMode: 'redo' | 'rollback' | 'undo' | null = null
+    if (origin === 'undo' || origin === 'redo') {
+      replayMode = origin
+    } else if (origin === 'rollback-compensation') {
+      replayMode = 'rollback'
+    }
+    const mutations = slices.map((changes): (() => void) => () => {
+      const apply = () => this.applyCanonicalChanges(changes)
+      if (replayMode) {
+        runInTransactionReplayMode(replayMode, apply)
+      } else {
+        apply()
+      }
+    })
+    if (mutations.length === 1) {
+      this.deps.factory.runRemoteTransaction(mutations[0] as () => void)
+      return
+    }
+    await this.deps.factory.runRemoteTransactionProgressively(mutations, () =>
+      settleCooperativeRenderSlice()
+    )
+  }
+
+  private createCollaborationBridge(): CoreCollaborationBridge {
+    const bridge: CoreCollaborationBridge = {
+      applyRemoteCanonicalChangeSlices: (input) =>
+        this.applyRemoteCanonicalChangeSlices(input),
+      load: (data) => this.load(data),
+      subscribeToSharedPublication: (subscriber) =>
+        this.subscribeToSharedPublication(subscriber)
+    }
+    return Object.freeze(bridge)
   }
 
   setRenderEngineProvider(
@@ -447,49 +774,73 @@ class Core implements CoreAPIs {
     this.validateRedefinedPropertyRelations()
 
     const renderer = this.renderer
+    const collaborationSession = this.collaborationSession
+    let collaborationLoadSource: DocumentLoadSource | undefined
 
-    // Phase 1: Initialize renderer
-    let result: RenderResult
     try {
-      result = await renderer.init(container, renderOptions)
-    } catch (error) {
-      if (
-        renderer !== this.defaultRenderer ||
-        !(error instanceof MissingRenderEngineProviderError) ||
-        this.hasRenderEngineProvider()
-      ) {
-        throw error
+      // Phase 1: Prepare the optional app-owned collaboration session.
+      const preparation = await collaborationSession?.prepare(
+        this.createCollaborationBridge()
+      )
+      collaborationLoadSource = preparation?.loadSource
+
+      // Phase 2: Initialize renderer.
+      let result: RenderResult
+      try {
+        result = await renderer.init(container, renderOptions)
+      } catch (error) {
+        if (
+          renderer !== this.defaultRenderer ||
+          !(error instanceof MissingRenderEngineProviderError) ||
+          this.hasRenderEngineProvider()
+        ) {
+          throw error
+        }
+        result = { canvas: null, instance: null }
       }
-      result = { canvas: null, instance: null }
+
+      if (result.canvas && container) {
+        container.appendChild(result.canvas)
+        // Setup input system to watch the canvas
+        this.setupInputSystem(result.canvas)
+      }
+
+      this.dataChannelObservers.init()
+
+      // Phase 3: Load canonical data from the collaboration checkpoint or
+      // configured read-only source.
+      await this.loadFromSource(collaborationLoadSource ?? this.loadSource)
+
+      // Phase 4: Initialize features.
+      this.initFeatureSystem({
+        inputSystem: this.deps.inputSystem,
+        systemContext: this.deps.systemContext
+      })
+
+      // Phase 5: Apply the collaboration tail and activate live transport.
+      await collaborationSession?.activate()
+
+      // Phase 6: Notify ready only after the complete runtime is active.
+      this.renderIsReady()
+    } catch (error) {
+      if (this.collaborationSession === collaborationSession) {
+        this.collaborationSession = null
+      }
+      await Promise.resolve(collaborationSession?.dispose()).catch(
+        () => undefined
+      )
+      throw error
     }
-
-    if (result.canvas && container) {
-      container.appendChild(result.canvas)
-      // Setup input system to watch the canvas
-      this.setupInputSystem(result.canvas)
-    }
-
-    this.dataChannelObservers.init()
-
-    // Phase 2: Load canonical data from the configured read-only source.
-    await this.loadFromSource()
-
-    // Phase 3: Initialize features
-    this.initFeatureSystem({
-      inputSystem: this.deps.inputSystem,
-      systemContext: this.deps.systemContext
-    })
-
-    // Phase 4: Notify ready
-    this.renderIsReady()
   }
 
-  private async loadFromSource(): Promise<void> {
-    if (!this.loadSource) {
+  private async loadFromSource(
+    source: DocumentLoadSource | null = this.loadSource
+  ): Promise<void> {
+    if (!source) {
       return
     }
 
-    const data = await this.loadSource.load()
+    const data = await source.load()
     this.load(data)
   }
 

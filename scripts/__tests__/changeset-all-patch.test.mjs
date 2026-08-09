@@ -77,6 +77,16 @@ test('minor plan contains exactly the fixed 19 Framework packages and performs n
     t.skip('implementation is not import-safe yet')
     return
   }
+  const originalReaddirSync = fs.readdirSync
+  t.mock.method(fs, 'readdirSync', (directoryPath, options) => {
+    if (
+      path.resolve(directoryPath.toString()) ===
+      path.join(repositoryRoot, '.changeset')
+    ) {
+      return ['README.md']
+    }
+    return originalReaddirSync(directoryPath, options)
+  })
   const moduleUrl = `${pathToFileURL(scriptPath).href}?test=minor-plan`
   const { createFrameworkChangesetPlan } = await import(moduleUrl)
   const plan = createFrameworkChangesetPlan({
@@ -100,4 +110,32 @@ test('minor plan contains exactly the fixed 19 Framework packages and performs n
   assert.doesNotMatch(plan.content, /"@asyra\/asyra-design":/)
   assert.doesNotMatch(plan.content, /"create-asyra-design-app":/)
   assert.match(plan.content, /Exceptional synchronized minor release/)
+})
+
+test('exceptional generator rejects a pending Changeset before planning', async (t) => {
+  if (!hasImportSafeContract) {
+    t.skip('implementation is not import-safe yet')
+    return
+  }
+  const originalReaddirSync = fs.readdirSync
+  t.mock.method(fs, 'readdirSync', (directoryPath, options) => {
+    if (
+      path.resolve(directoryPath.toString()) ===
+      path.join(repositoryRoot, '.changeset')
+    ) {
+      return ['README.md', 'pending-release.md']
+    }
+    return originalReaddirSync(directoryPath, options)
+  })
+  const moduleUrl = `${pathToFileURL(scriptPath).href}?test=pending-changeset`
+  const { createFrameworkChangesetPlan } = await import(moduleUrl)
+
+  assert.throws(
+    () =>
+      createFrameworkChangesetPlan({
+        repositoryRoot,
+        releaseType: 'minor'
+      }),
+    /requires an empty pending Changeset set; found pending-release\.md/
+  )
 })

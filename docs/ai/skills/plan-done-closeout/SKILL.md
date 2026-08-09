@@ -30,6 +30,7 @@ Use this skill when requests include:
 1. Confirm plan scope and owner docs (`docs/ai/framework/*` or `docs/ai/apps/*`).
 2. Locate active plan entry in `PLANS.md` and detailed plan file path.
 3. Locate decision log target (`decisions/releases/unreleased.md` in matching scope).
+4. Confirm the plan's required completion evidence and final decision.
 
 ## Deterministic Procedure
 
@@ -51,25 +52,42 @@ Use this skill when requests include:
 - Capture context, decision, consequences, and related completed-plan path.
 - If old interim decision is superseded, state superseded relationship without deleting history.
 
+4. Keep release iteration separate from closeout:
+
+- Do not create, inspect, validate, or require a pending Changeset during
+  closeout.
+- A feature branch may have created, materialized, consumed, and published
+  multiple Changesets while it was being refined and tested. Closeout must not
+  manufacture another release record or patch solely because those Changesets
+  are no longer pending.
+- Do not bump or infer any Framework, root, private app, CLI, or generated
+  template version during closeout.
+- When the completed plan owns a release, record the already verified public
+  result in the completion summary without reopening the release workflow.
+
 ## Validation Matrix
 
 - `PLANS.md` has no stale active reference to the completed plan file.
 - Completed plan file exists in `plans/completed/` and includes completion metadata.
 - Decision log has a new append-only entry with correct date and plan link.
 - File paths in references resolve.
+- Closeout creates no Changeset, version bump, tag, or publication side effect.
 
 ## Required Output Format
 
 1. `Plan State Updated`
 2. `Completed Plan Record`
 3. `Decision History Updated`
-4. `Validation`
+4. `Release Boundary`
+5. `Validation`
 
 ## Guardrails
 
 - Keep plan status updates concise; avoid rewriting historical details unrelated to this completion.
 - Never edit/delete old decision entries; only append.
 - Keep references absolute within repo doc tree (no ambiguous shorthand).
+- Never use closeout as authority to create a Changeset, change a version,
+  create a tag, or publish a package.
 - Local commits may close completed, validated steps/stages; never push unless
   the user explicitly requests the remote operation. Follow
   `docs/ai/workflows/git-commit-push-policy.md`.

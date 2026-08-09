@@ -504,6 +504,7 @@ export class RenderNode {
   private _rotation = 0
   private _zIndex = 0
   private _batched = false
+  private sourceSpaceOrigin: RenderEnginePoint = { x: 0, y: 0 }
   private handle: RenderEngineObjectHandle | null = null
   protected runtime: RenderObjectRuntime | null = null
   readonly position = new RenderPoint((x, y) => {
@@ -526,6 +527,27 @@ export class RenderNode {
   })
 
   constructor(readonly objectType: RenderEngineObjectType) {}
+
+  setSourceSpaceOrigin(origin: RenderEnginePoint): void {
+    if (!Number.isFinite(origin.x) || !Number.isFinite(origin.y)) {
+      throw new Error('Render source-space origin must be finite')
+    }
+    this.sourceSpaceOrigin = { x: origin.x, y: origin.y }
+  }
+
+  sourceToLocal(point: RenderEnginePoint): RenderEnginePoint {
+    return {
+      x: point.x - this.sourceSpaceOrigin.x,
+      y: point.y - this.sourceSpaceOrigin.y
+    }
+  }
+
+  localToSource(point: RenderEnginePoint): RenderEnginePoint {
+    return {
+      x: point.x + this.sourceSpaceOrigin.x,
+      y: point.y + this.sourceSpaceOrigin.y
+    }
+  }
 
   get x(): number {
     return this._x

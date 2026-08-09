@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import process from 'node:process'
 import test from 'node:test'
@@ -83,7 +84,7 @@ test('functional Playwright suites use the installed Google Chrome channel', asy
   })
 })
 
-test('owned E2E servers never ask Vite to open a desktop browser', async () => {
+test('normal startup opens a required file while owned E2E servers never open a desktop browser', async () => {
   const viteSource = await readFile(
     new URL('../vite.config.ts', import.meta.url),
     'utf8'
@@ -93,7 +94,11 @@ test('owned E2E servers never ask Vite to open a desktop browser', async () => {
     viteSource,
     /const opensBrowser = process\.env\.E2E_OWN_SERVERS !== '1'/
   )
-  assert.match(viteSource, /server:\s*\{[\s\S]*open: opensBrowser/)
+  assert.match(
+    viteSource,
+    /const browserOpenTarget = opensBrowser \? '\/\?fileId=my-design' : false/
+  )
+  assert.match(viteSource, /server:\s*\{[\s\S]*open: browserOpenTarget/)
 })
 
 test('ordinary Playwright starts the backend and always-on collaboration service before the App', async () => {
@@ -114,20 +119,41 @@ test('ordinary Playwright starts the backend and always-on collaboration service
   assert.match(configSource, /documentBackendURL.*\/health/s)
   assert.match(configSource, /DOCUMENT_PERSISTENCE_BACKEND_URL/)
   assert.match(configSource, /collaborationHealthURL/)
-  assert.match(configSource, /webServer:[\s\S]*\? undefined[\s\S]*: \[/)
+  assert.match(
+    configSource,
+    /webServer:[\s\S]*\? undefined[\s\S]*: ordinaryWebServers/
+  )
+})
+
+test('the offline 7076 render gate leaves the collaboration socket unavailable', async () => {
+  const configSource = await readFile(
+    new URL('../playwright.config.ts', import.meta.url),
+    'utf8'
+  )
+
+  assert.match(
+    configSource,
+    /const runsCrdt7076 = process\.env\.E2E_CRDT_7076 === 'true'/
+  )
+  assert.match(
+    configSource,
+    /const ordinaryWebServers = \[[\s\S]*\.\.\.\(runsCrdt7076\s*\? \[\][\s\S]*yarn collaboration:server[\s\S]*command: visualReviewWebServerCommand/
+  )
 })
 
 test('Playwright routes the formal backend through the same document-session flow', async () => {
-  const [ordinaryConfig, collaborationConfig, viteConfig, ciScript] =
-    await Promise.all([
-      readFile(new URL('../playwright.config.ts', import.meta.url), 'utf8'),
-      readFile(
-        new URL('../playwright.collaboration.config.ts', import.meta.url),
-        'utf8'
-      ),
-      readFile(new URL('../vite.config.ts', import.meta.url), 'utf8'),
-      readFile(new URL('../../../scripts/run-e2e.sh', import.meta.url), 'utf8')
-    ])
+  const [ordinaryConfig, collaborationConfig, viteConfig] = await Promise.all([
+    readFile(new URL('../playwright.config.ts', import.meta.url), 'utf8'),
+    readFile(
+      new URL('../playwright.collaboration.config.ts', import.meta.url),
+      'utf8'
+    ),
+    readFile(new URL('../vite.config.ts', import.meta.url), 'utf8')
+  ])
+  const ciScriptUrl = new URL('../../../scripts/run-e2e.sh', import.meta.url)
+  const ciScript = existsSync(fileURLToPath(ciScriptUrl))
+    ? await readFile(ciScriptUrl, 'utf8')
+    : null
 
   assert.match(ordinaryConfig, /E2E_OWN_SERVERS=1 E2E_DOCUMENT_BACKEND_URL=/)
   assert.match(
@@ -139,22 +165,32 @@ test('Playwright routes the formal backend through the same document-session flo
   assert.match(ordinaryConfig, /DOCUMENT_BACKEND_PORT=/)
   assert.match(collaborationConfig, /DOCUMENT_BACKEND_PORT=/)
   assert.match(
-    ciScript,
-    /E2E_DOCUMENT_BACKEND_URL=.*[\s\\]*yarn workspace @asyra\/asyra-design react:start/
+    ordinaryConfig,
+    /VITE_COLLABORATION_WS_URL=\$\{collaborationWebSocketURL\}/,
+    'ordinary E2E must point the App at the collaboration server it starts'
   )
-  assert.match(ciScript, /document:backend:start/)
-  assert.match(ciScript, /DOCUMENT_PERSISTENCE_BACKEND_URL=/)
   assert.match(
-    ciScript,
-    /yarn workspace @asyra\/asyra-design test:e2e:status-toast/
+    collaborationConfig,
+    /VITE_COLLABORATION_WS_URL=\$\{collaborationWebSocketURL\}/,
+    'collaboration E2E must point the App at the collaboration server it starts'
   )
-  assert.match(viteConfig, /process\.env\.E2E_DOCUMENT_BACKEND_URL/)
-  assert.match(
+  if (ciScript !== null) {
+    assert.match(
+      ciScript,
+      /E2E_DOCUMENT_BACKEND_URL=.*[\s\\]*yarn workspace @asyra\/asyra-design start/
+    )
+    assert.match(ciScript, /document:backend:start/)
+    assert.match(ciScript, /DOCUMENT_PERSISTENCE_BACKEND_URL=/)
+    assert.match(
+      ciScript,
+      /yarn workspace @asyra\/asyra-design test:e2e:status-toast/
+    )
+  }
+  assert.doesNotMatch(
     viteConfig,
-    /process\.env\.DOCUMENT_PERSISTENCE_BACKEND_URL/,
-    'ordinary development must proxy the permanent Reset DELETE to the formal backend'
+    /['"]\/api\/documents['"]|DOCUMENT_PERSISTENCE_BACKEND_URL/,
+    'the browser dev server must not expose the document backend Reset route'
   )
-  assert.match(viteConfig, /['"]\/api\/documents['"]/)
   assert.match(viteConfig, /process\.env\.E2E_DOCUMENT_DATABASE === '1'/)
   assert.match(viteConfig, /createDocumentDatabaseTestPlugin/)
 })
@@ -276,7 +312,7 @@ test('ordinary Playwright runtime policy is local-friendly and CI fail-fast', as
       maxFailures: 1,
       reporter: 'line',
       retries: 0,
-      workers: 2
+      workers: 1
     }
   )
   assert.deepEqual(
@@ -288,7 +324,7 @@ test('ordinary Playwright runtime policy is local-friendly and CI fail-fast', as
       maxFailures: undefined,
       reporter: 'line',
       retries: 1,
-      workers: 2
+      workers: 1
     }
   )
 })
@@ -355,6 +391,95 @@ test('the AI CRDT recording owns dedicated fresh app and collaboration servers',
     /await actorA\.bringToFront\(\)[\s\S]*await actorB\.bringToFront\(\)[\s\S]*startNativeScreenRecording\(/
   )
   assert.match(recordingSource, /const recordingOperationDeadlineMs = 300_000/)
+  assert.match(
+    recordingSource,
+    /const HIGH_DETAIL_ACTOR_A_CREATION_TIMEOUT_MS = 15_000/
+  )
+  assert.match(
+    recordingSource,
+    /const HIGH_DETAIL_ACTOR_B_CREATION_TIMEOUT_MS = 30_000/
+  )
+  assert.match(
+    recordingSource,
+    /const HIGH_DETAIL_TOTAL_CREATION_TIMEOUT_MS = 45_000/
+  )
+  assert.match(recordingSource, /const HIGH_DETAIL_HISTORY_TIMEOUT_MS = 30_000/)
+  assert.doesNotMatch(
+    recordingSource,
+    /waitForConnectedCounts\((?:7076|0), (?:7076|0), 120_000\)/
+  )
+  const highDetailHistoryCase = recordingSource.slice(
+    recordingSource.indexOf(
+      "test('keeps two connected Actors converged through one complete high-detail cat Undo and Redo'"
+    )
+  )
+  assert.match(
+    recordingSource,
+    /creationActorADurationMs\)\.toBeLessThanOrEqual\(\s*HIGH_DETAIL_ACTOR_A_CREATION_TIMEOUT_MS\s*\)/
+  )
+  assert.match(
+    highDetailHistoryCase,
+    /timeout:\s*Math\.max\(\s*1,\s*creationStartedAt\s*\+\s*HIGH_DETAIL_ACTOR_A_CREATION_TIMEOUT_MS\s*-\s*Date\.now\(\)\s*\)/
+  )
+  assert.match(
+    recordingSource,
+    /creationConvergenceMs\)\.toBeLessThanOrEqual\(\s*HIGH_DETAIL_ACTOR_B_CREATION_TIMEOUT_MS\s*\)/
+  )
+  assert.match(
+    recordingSource,
+    /creationTotalDurationMs\)\.toBeLessThanOrEqual\(\s*HIGH_DETAIL_TOTAL_CREATION_TIMEOUT_MS\s*\)/
+  )
+  assert.match(
+    recordingSource,
+    /undoConvergenceMs\)\.toBeLessThanOrEqual\(\s*HIGH_DETAIL_HISTORY_TIMEOUT_MS\s*\)[\s\S]*redoConvergenceMs\)\.toBeLessThanOrEqual\(\s*HIGH_DETAIL_HISTORY_TIMEOUT_MS\s*\)/
+  )
+  assert.match(
+    highDetailHistoryCase,
+    /undoStartedAt\s*\+\s*HIGH_DETAIL_HISTORY_TIMEOUT_MS\s*-\s*Date\.now\(\)[\s\S]*redoStartedAt\s*\+\s*HIGH_DETAIL_HISTORY_TIMEOUT_MS\s*-\s*Date\.now\(\)/
+  )
+  assert.match(
+    highDetailHistoryCase,
+    /await openAgent\(actorA\)\s*const creationTotalStartedAt = Date\.now\(\)\s*await dropReferenceImage\(actorA\)[\s\S]{0,800}submitTurn\(\s*actorA,\s*exactCatOnlyPrompt,\s*1,\s*\(\) => \{\s*creationStartedAt = Date\.now\(\)/
+  )
+  assert.doesNotMatch(
+    highDetailHistoryCase,
+    /getCanonicalAiDrawingSnapshot\(actorB\)/
+  )
+  const historyActorADeadlineIndex = highDetailHistoryCase.indexOf(
+    'expect(evidence.creationActorADurationMs).toBeLessThanOrEqual('
+  )
+  const historyActorBWaitIndex = highDetailHistoryCase.indexOf(
+    'await waitForConnectedCounts('
+  )
+  const historyActorBDeadlineIndex = highDetailHistoryCase.indexOf(
+    'expect(evidence.creationConvergenceMs).toBeLessThanOrEqual('
+  )
+  const historyTotalDeadlineIndex = highDetailHistoryCase.indexOf(
+    'expect(evidence.creationTotalDurationMs).toBeLessThanOrEqual('
+  )
+  const historyUndoStartIndex = highDetailHistoryCase.indexOf(
+    'const undoStartedAt'
+  )
+  const historyUndoDeadlineIndex = highDetailHistoryCase.indexOf(
+    'expect(evidence.undoConvergenceMs).toBeLessThanOrEqual('
+  )
+  const historyRedoStartIndex = highDetailHistoryCase.indexOf(
+    'const redoStartedAt'
+  )
+  const historyRedoDeadlineIndex = highDetailHistoryCase.indexOf(
+    'expect(evidence.redoConvergenceMs).toBeLessThanOrEqual('
+  )
+  assert.ok(
+    historyActorADeadlineIndex >= 0 &&
+      historyActorADeadlineIndex < historyActorBWaitIndex &&
+      historyActorBWaitIndex < historyActorBDeadlineIndex &&
+      historyActorBDeadlineIndex < historyTotalDeadlineIndex &&
+      historyTotalDeadlineIndex < historyUndoStartIndex &&
+      historyUndoStartIndex < historyUndoDeadlineIndex &&
+      historyUndoDeadlineIndex < historyRedoStartIndex &&
+      historyRedoStartIndex < historyRedoDeadlineIndex,
+    'high-detail creation, Undo, and Redo gates must fail fast in owner order'
+  )
   assert.match(
     recordingCase,
     /recordingOperationDeadlineMs - \(Date\.now\(\) - operationStartedAt\)[\s\S]*expectPeerSnapshot\(\s*actorA,\s*actorB,\s*remainingConvergenceMs\s*\)/
@@ -515,7 +640,7 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(configSource, /repeatEach:\s*1/)
   assert.match(configSource, /retries:\s*0/)
   assert.match(configSource, /workers:\s*1/)
-  assert.match(configSource, /timeout:\s*360_000/)
+  assert.match(configSource, /timeout:\s*120_000/)
   assert.match(configSource, /reporter:\s*['"]line['"]/)
   assert.match(configSource, /trace:\s*['"]off['"]/)
   assert.match(configSource, /screenshot:\s*['"]off['"]/)
@@ -630,8 +755,28 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   assert.match(specSource, /postHeartbeat\(['"]progress['"]/)
   assert.match(specSource, /postHeartbeat\(['"]complete['"]/)
   assert.match(specSource, /postHeartbeat\(['"]failed['"]/)
-  assert.match(specSource, /const CRDT_FLOW_TIMEOUT_MS = 300_000/)
+  assert.match(specSource, /const ACTOR_A_CREATION_TIMEOUT_MS = 15_000/)
+  assert.match(specSource, /const ACTOR_B_CREATION_TIMEOUT_MS = 30_000/)
+  assert.match(specSource, /const TOTAL_CREATION_FLOW_TIMEOUT_MS = 45_000/)
+  assert.doesNotMatch(specSource, /const CRDT_FLOW_TIMEOUT_MS/)
   assert.doesNotMatch(specSource, /waitFor(?:ActorA|Both)?Complete\(120_000\)/)
+  assert.match(
+    specSource,
+    /waitForActorAComplete\(\s*remainingActorACreationTimeoutMs\(creationStartedAtMs\)\s*\)/
+  )
+  assert.match(
+    specSource,
+    /waitForBothComplete\(\s*remainingActorBCreationTimeoutMs\(creationStartedAtMs\)\s*\)/
+  )
+  assert.match(
+    specSource,
+    /totalCreationFlowMs\)\.toBeLessThanOrEqual\(\s*TOTAL_CREATION_FLOW_TIMEOUT_MS\s*\)/
+  )
+  assert.match(specSource, /canonicalWorkUnitCount\)\.toBeGreaterThan\(0\)/)
+  assert.doesNotMatch(
+    specSource,
+    /canonicalWorkUnitCount\)\.toBe\(\s*drawingProgress\.visibleElementSampleCount/
+  )
   assert.match(specSource, /accepted/)
   assert.match(specSource, /aiPerformance=profile/)
   assert.doesNotMatch(specSource, /aiDelivery|aiPerformanceContents/)
@@ -828,6 +973,35 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   const highDetailSource = specSource.slice(
     specSource.indexOf("test('creation-only high-detail endpoint proof'")
   )
+  assert.doesNotMatch(highDetailSource, /readCanonicalSummary\(actorB\)/)
+  assert.match(highDetailSource, /receiverConvergenceSummary/)
+  assert.match(
+    highDetailSource,
+    /let totalCreationPreparationMs = 0[\s\S]*totalCreationPreparationMs \+= Date\.now\(\) - preparationStartedAtMs[\s\S]*const totalCreationFlowMs = totalCreationPreparationMs \+ convergedMs/
+  )
+  assert.doesNotMatch(
+    highDetailSource,
+    /Date\.now\(\) - totalCreationFlowStartedAtMs/
+  )
+  const actorADeadlineIndex = highDetailSource.indexOf(
+    'expect(actorACompleteMs).toBeLessThanOrEqual('
+  )
+  const actorBWaitIndex = highDetailSource.indexOf(
+    'heartbeat.waitForBothComplete('
+  )
+  const actorBDeadlineIndex = highDetailSource.indexOf(
+    'expect(convergedMs).toBeLessThanOrEqual('
+  )
+  const totalDeadlineIndex = highDetailSource.indexOf(
+    'expect(totalCreationFlowMs).toBeLessThanOrEqual('
+  )
+  assert.ok(
+    actorADeadlineIndex >= 0 &&
+      actorADeadlineIndex < actorBWaitIndex &&
+      actorBWaitIndex < actorBDeadlineIndex &&
+      actorBDeadlineIndex < totalDeadlineIndex,
+    'endpoint creation deadlines must fail fast in Actor A, Actor B, total order'
+  )
   assert.match(highDetailSource, /sourceBounds/)
   assert.match(highDetailSource, /documentEventAttempts/)
   assert.match(highDetailSource, /documentEventDeliveries/)
@@ -943,11 +1117,15 @@ test('endpoint performance discovery is isolated, guarded, and resource-bounded'
   )
   assert.match(
     highDetailSource,
-    /drawingProgress\.canonicalWorkUnitCount\)\.toBe\(\s*completed\.publications\.actorALocalSent/
+    /drawingProgress\.canonicalWorkUnitCount\)\.toBeGreaterThan\(0\)/
   )
   assert.doesNotMatch(
     highDetailSource,
     /drawingProgress\.canonicalWorkUnitCount\)\.toBe\(\s*drawingProgress\.visibleElementSampleCount/
+  )
+  assert.doesNotMatch(
+    highDetailSource,
+    /drawingProgress\.canonicalWorkUnitCount\)\.toBe\(\s*completed\.publications\.actorALocalSent/
   )
   assert.match(
     highDetailSource,

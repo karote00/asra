@@ -24,7 +24,7 @@
       title: 'Inventory the public registry',
       ownerPackage: 'Framework public-registry inventory owner',
       purpose:
-        'Query the public npm registry for the fixed 19-package allowlist and record the 12 historical 0.2.5 records, seven missing 0.2.5 records, metadata, versions, and integrity without reusing a dated inventory.',
+        'Query the public npm registry for the fixed 19-package allowlist and record current present or missing records, metadata, versions, and integrity without reusing a dated inventory.',
       inputs: [
         'frozen source commit',
         'scripts/framework-release-packages.js fixed allowlist',
@@ -72,23 +72,23 @@
       id: 'classify-historical-baseline',
       order: 2,
       laneId: 'registry',
-      title: 'Classify historical 0.2.5 records',
+      title: 'Classify historical registry records',
       ownerPackage: 'Framework release-history classification owner',
       purpose:
-        'Classify public 0.2.5 manifest differences as the expected source-generation difference preceding the current large change and establish 0.5.0, not reconstructed 0.2.5, as the next coherent public baseline.',
+        'Classify historical public manifest differences without treating an old registry version as the source or target for the current release.',
       inputs: ['artifact:registry-inventory', 'current 19 package manifests'],
       outputs: [
         'artifact:historical-baseline-classification',
         'artifact:historical-baseline-finding'
       ],
       conditions: [
-        'The classification names the 12-present/seven-missing split and the concrete dependency-contract differences without treating old registry artifacts as current source.',
-        'This owner must not publish, reconstruct, or overwrite any 0.2.5 package.',
+        'The classification names each present or missing registry record and concrete dependency-contract difference without treating old artifacts as current source.',
+        'This owner must not publish, reconstruct, or overwrite any historical package version.',
         'Cleanup owner: classify-historical-baseline owns detached comparison evidence only and creates no registry or manifest mutation.'
       ],
       bypasses: [
         'An unexpected package outside the allowlist or an unclassified registry response produces artifact:historical-baseline-finding.',
-        'Expected historical differences do not block the approved 0.5.0 large-change release.'
+        'Expected historical differences do not override the manifest-derived current release plan.'
       ],
       allowedContributors: [
         'artifact:registry-inventory',
@@ -96,7 +96,7 @@
         'user-approved large-change version semantics'
       ],
       forbiddenContributors: [
-        'publishing current source as historical 0.2.5',
+        'publishing current source as an old registry version',
         'rewriting immutable npm versions',
         'using historical artifacts as proof of current source reproducibility'
       ],
@@ -116,28 +116,28 @@
       failureOwnerStepId: 'classify-historical-baseline'
     },
     {
-      id: 'materialize-local-baseline',
+      id: 'resolve-version-topology',
       order: 3,
       laneId: 'versioning',
-      title: 'Materialize the local 0.4.0 baseline',
-      ownerPackage: 'Framework manifest version owner',
+      title: 'Resolve manifest version topology',
+      ownerPackage: 'Framework release version topology owner',
       purpose:
-        'Materialize exactly 19 fixed-allowlist Framework manifests from 0.2.5 to local 0.4.0 as the intentional input baseline for one minor Changeset.',
+        'Read the fixed-allowlist manifests, establish their shared release family, and preserve the independently owned root, private app, CLI, and generated-template versions without duplicating any numeric version in the release contract.',
       inputs: [
         'artifact:historical-baseline-classification',
         'fixed 19-package allowlist',
         'clean feature-branch manifests'
       ],
-      outputs: ['artifact:local-0-4-0-baseline', 'artifact:baseline-finding'],
+      outputs: ['artifact:version-topology', 'artifact:baseline-finding'],
       conditions: [
-        'Exactly 19 Framework package versions become 0.4.0 in one bounded operation.',
+        'Exactly 19 Framework manifest versions resolve to one release family and remain the only inputs to Framework Changesets.',
         'Root asyra, private @asyra/asyra-design, and create-asyra-design-app versions remain unchanged.',
-        'The local 0.4.0 baseline must never be published.',
-        'Cleanup owner: materialize-local-baseline owns only the 19 Framework manifest version edits and leaves no temporary artifact.'
+        'Documentation and validators derive package versions from manifests instead of storing a numeric baseline, target, or recovery constant.',
+        'Cleanup owner: resolve-version-topology owns detached topology evidence only and creates no manifest or registry mutation.'
       ],
       bypasses: [
-        'Any missing package, unexpected version, excluded-owner change, or dirty unrelated file produces artifact:baseline-finding.',
-        'No Changeset generation or registry operation begins from an incomplete local baseline.'
+        'Any missing package, invalid semantic version, mixed release family, excluded-owner mutation, or dirty unrelated file produces artifact:baseline-finding.',
+        'No Changeset review or registry operation begins from unresolved topology.'
       ],
       allowedContributors: [
         'artifact:historical-baseline-classification',
@@ -158,88 +158,86 @@
       ],
       specRefs: [
         '#goal',
-        '#2-materialize-the-exceptional-local-baseline',
+        '#2-resolve-the-changeset-release-scope',
         '#definition-of-done'
       ],
-      failureOwnerStepId: 'materialize-local-baseline'
+      failureOwnerStepId: 'resolve-version-topology'
     },
     {
-      id: 'generate-synchronized-changeset',
+      id: 'review-scoped-changesets',
       order: 4,
       laneId: 'versioning',
-      title: 'Generate one synchronized minor Changeset',
-      ownerPackage: 'Exceptional all-package Changeset generator',
+      title: 'Review the scoped Changeset plan',
+      ownerPackage: 'Framework Changeset scope owner',
       purpose:
-        'Run node scripts/changeset-all-patch.js --type minor exactly once and produce one Changeset containing only the fixed 19 Framework packages at release type minor.',
+        'Review ordinary scoped Changesets and yarn changeset status so only changed fixed-allowlist Framework packages receive the authorized release type and every target version remains tool-derived.',
       inputs: [
-        'artifact:local-0-4-0-baseline',
+        'artifact:version-topology',
         'fixed 19-package allowlist',
-        'empty pending Changeset set'
+        'pending Changesets before canonical version materialization'
       ],
       outputs: [
-        'artifact:synchronized-minor-changeset',
+        'artifact:reviewed-changeset-plan',
         'artifact:changeset-finding'
       ],
       conditions: [
-        'The generated Changeset contains exactly 19 unique entries and every entry is minor.',
-        'The generator requires an explicit release type and remains exceptional; normal post-0.5.0 development uses ordinary scoped Changesets.',
-        'yarn changeset status resolves the same 19-package 0.5.0 plan.',
-        'Cleanup owner: generate-synchronized-changeset owns the single generated Changeset file and no package manifest version.'
+        'Every selected entry is unique, belongs to the fixed Framework allowlist, and uses patch during normal development.',
+        'A major or minor family change and any exceptional all-package generator invocation require explicit user authorization.',
+        'yarn changeset status is the target-version authority; no release document or validator duplicates its numbers.',
+        'Cleanup owner: review-scoped-changesets owns the reviewed Changeset plan and no package manifest version.'
       ],
       bypasses: [
-        'A pre-existing pending Changeset, unsupported type, duplicate, missing, root, private, create-app, or other workspace entry produces artifact:changeset-finding.',
-        'The script is not invoked a second time for this release.'
+        'An unsupported type, duplicate, missing, root, private, create-app, generated-template, or other workspace entry produces artifact:changeset-finding.',
+        'A consumed Changeset is validated through the materialized manifest diff rather than required to remain pending.'
       ],
       allowedContributors: [
-        'artifact:local-0-4-0-baseline',
+        'artifact:version-topology',
         'scripts/framework-release-packages.js',
-        'scripts/changeset-all-patch.js',
         'Changesets status command'
       ],
       forbiddenContributors: [
-        'routine development versioning',
-        'manual per-package Changesets for this exceptional alignment',
+        'unapproved major or minor family change',
+        'exceptional all-package generation used as routine versioning',
         'root, private app, create-app, or non-allowlist workspace',
         'automatic publish or Git tag creation'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'package.json',
-        'scripts/changeset-all-patch.js',
         'scripts/framework-release-packages.js',
         'scripts/__tests__/changeset-all-patch.test.mjs',
-        '.changeset/auto-minor.md',
+        '.changeset',
         '.changeset/config.json'
       ],
       specRefs: [
         '#changeset-contract',
-        '#3-generate-the-synchronized-minor-changeset',
+        '#2-resolve-the-changeset-release-scope',
         '#definition-of-done'
       ],
-      failureOwnerStepId: 'generate-synchronized-changeset'
+      failureOwnerStepId: 'review-scoped-changesets'
     },
     {
       id: 'materialize-framework-version',
       order: 5,
       laneId: 'versioning',
-      title: 'Materialize Framework 0.5.0',
+      title: 'Materialize the reviewed Framework versions',
       ownerPackage: 'Changesets version and release-record owner',
       purpose:
-        'Run yarn changeset version so the 19 Framework packages advance from 0.4.0 to 0.5.0 with generated changelogs and synchronized internal version records.',
-      inputs: ['artifact:synchronized-minor-changeset'],
-      outputs: ['artifact:versioned-0-5-0-source', 'artifact:version-finding'],
+        'Run yarn changeset version once so the reviewed Framework selection advances to tool-derived manifest versions with generated changelogs and synchronized internal version records.',
+      inputs: ['artifact:reviewed-changeset-plan'],
+      outputs: ['artifact:versioned-framework-source', 'artifact:version-finding'],
       conditions: [
-        'All and only the fixed 19 Framework package versions move from 0.4.0 to 0.5.0.',
+        'All and only the reviewed fixed-allowlist package versions change to the values produced by Changesets.',
         'Root asyra, private @asyra/asyra-design, and create-app remain at their pre-release versions.',
         'Gate 5 records derive the Framework candidate version from the fixed release set instead of forcing root or private owners to match.',
         'Cleanup owner: materialize-framework-version owns Changesets version output, package changelogs, and the test-first release-record adjustment.'
       ],
       bypasses: [
-        'Any non-0.5.0 Framework result, excluded-owner version change, missing changelog, or stale Changeset produces artifact:version-finding.',
+        'Any result that differs from Changesets status, changes an excluded owner, omits a required changelog, or retains stale pending state produces artifact:version-finding.',
         'No create-app template is regenerated.'
       ],
       allowedContributors: [
-        'artifact:synchronized-minor-changeset',
+        'artifact:reviewed-changeset-plan',
         'Changesets version command',
         'fixed Framework manifests and changelogs',
         'Gate 5 release-record tests'
@@ -259,7 +257,7 @@
         '.changeset'
       ],
       specRefs: [
-        '#4-materialize-050',
+        '#3-materialize-framework-versions',
         '#definition-of-done'
       ],
       failureOwnerStepId: 'materialize-framework-version'
@@ -268,13 +266,13 @@
       id: 'validate-framework-artifacts',
       order: 6,
       laneId: 'artifacts',
-      title: 'Validate all Framework 0.5.0 artifacts',
+      title: 'Validate the Framework artifacts',
       ownerPackage: 'Framework artifact and clean-consumer validators',
       purpose:
-        'Build, pack, checksum, and validate exactly 19 local 0.5.0 artifacts, then exercise the accepted exact-version tarball consumer and required formal gates.',
-      inputs: ['artifact:versioned-0-5-0-source'],
+        'Build, pack, checksum, and validate the complete fixed-allowlist artifact set at its manifest versions, then exercise the accepted exact-version tarball consumer and required formal gates.',
+      inputs: ['artifact:versioned-framework-source'],
       outputs: [
-        'artifact:validated-0-5-0-artifacts',
+        'artifact:validated-framework-artifacts',
         'artifact:artifact-validation-finding'
       ],
       conditions: [
@@ -288,7 +286,7 @@
         'No PR readiness claim is made from a partial artifact set.'
       ],
       allowedContributors: [
-        'artifact:versioned-0-5-0-source',
+        'artifact:versioned-framework-source',
         'canonical package builds',
         'release artifact and clean-consumer scripts',
         'formal repository gates'
@@ -313,72 +311,70 @@
         'packages/*'
       ],
       specRefs: [
-        '#5-validate-the-050-artifacts-before-publication',
+        '#4-validate-framework-artifacts-before-publication',
         '#definition-of-done'
       ],
       failureOwnerStepId: 'validate-framework-artifacts'
     },
     {
-      id: 'accept-merged-publication-source',
+      id: 'accept-publication-source',
       order: 7,
       laneId: 'artifacts',
-      title: 'Accept reviewed and merged publication source',
-      ownerPackage: 'Framework version PR and main baseline owner',
+      title: 'Accept the exact publication source',
+      ownerPackage: 'Framework publication source owner',
       purpose:
-        'Require a non-draft reviewed version PR, user-owned merge, and a clean latest main rebuild whose 19-package contents and candidate checksums match the reviewed source.',
-      inputs: ['artifact:validated-0-5-0-artifacts'],
+        'Require a clean exact source commit on main or a non-main feature branch whose 19-package contents and candidate checksums reproduce the validated artifacts before publication.',
+      inputs: ['artifact:validated-framework-artifacts'],
       outputs: [
-        'artifact:merged-publication-source',
-        'artifact:merged-source-finding'
+        'artifact:publication-source',
+        'artifact:source-finding'
       ],
       conditions: [
         'The PR diff contains only the authorized release contract, Inspector, generator, version, changelog, record, and direct release-test changes.',
-        'CI, E2E, Framework readiness, and mergeability pass before the user merges.',
-        'After the user merge, switch to main, run git pull --ff-only, and require local main to equal the latest remote main.',
-        'Publication artifacts are rebuilt from clean latest main and compared with the reviewed candidate.',
-        'Publication is not run from the feature branch even when its reviewed tree is byte-identical to main.',
-        'Cleanup owner: accept-merged-publication-source owns no merge action; it owns only PR evidence and the clean post-merge source/artifact comparison.'
+        'CI, E2E, Framework readiness, and the scoped release gates pass for the selected source commit.',
+        'Publication may run from main or a non-main feature branch; the exact branch and commit are recorded without making merge a prerequisite.',
+        'Publication artifacts are rebuilt from the clean exact source commit and compared with the validated candidate.',
+        'Cleanup owner: accept-publication-source owns no merge action; it owns only source, PR, gate, and artifact-comparison evidence.'
       ],
       bypasses: [
-        'An unreviewed, draft, unmerged, failing, dirty, or checksum-divergent source produces artifact:merged-source-finding.',
+        'A failing, dirty, unidentified, or checksum-divergent source produces artifact:source-finding.',
         'The agent never merges the PR.'
       ],
       allowedContributors: [
-        'artifact:validated-0-5-0-artifacts',
+        'artifact:validated-framework-artifacts',
         'scoped release commits',
         'GitHub PR and CI evidence',
-        'user-owned merge'
+        'clean main or feature-branch source commit'
       ],
       forbiddenContributors: [
-        'publication from a feature branch',
         'agent-owned merge',
-        'unreviewed source change',
+        'uncommitted source change',
         'unrelated dirty-worktree content'
       ],
       cacheDimensions: [],
       implementationBoundary: [
         'current release branch',
         'GitHub version PR',
-        'latest main after user merge',
+        'selected exact publication source commit',
         'tmp/framework-release-artifacts',
         'tmp/framework-release-evidence'
       ],
       specRefs: [
-        '#6-review-and-merge-the-version-pr',
+        '#5-freeze-the-publication-source',
         '#definition-of-done'
       ],
-      failureOwnerStepId: 'accept-merged-publication-source'
+      failureOwnerStepId: 'accept-publication-source'
     },
     {
       id: 'publish-framework-packages',
       order: 8,
       laneId: 'publication',
-      title: 'Publish Framework 0.5.0 through Changesets',
+      title: 'Publish the reviewed Framework selection through Changesets',
       ownerPackage: 'Changesets multi-package publication owner',
       purpose:
-        'After the irreversible checkpoint is accepted on clean latest main, assert that the unpublished selection is exactly the fixed 19-package allowlist and run yarn changeset publish once so Changesets publishes and tags successful packages.',
+        'After the irreversible checkpoint is accepted for the clean exact source commit, assert that the unpublished selection is exactly the fixed 19-package allowlist and run yarn changeset publish once so Changesets publishes and tags successful packages.',
       inputs: [
-        'artifact:merged-publication-source',
+        'artifact:publication-source',
         'validated 19-package publication manifest',
         'npm identity and @asyra scope authorization'
       ],
@@ -387,7 +383,7 @@
         'artifact:publication-finding'
       ],
       conditions: [
-        'Workspace-only internal ranges are converted to the exact validated 0.5.0 publication ranges before Changesets runs.',
+        'Workspace-only internal ranges are converted to each exact validated manifest version before Changesets runs.',
         'Restore development workspace ranges after publication on success or failure.',
         'The registry-diff selection is exactly the fixed 19-package allowlist before the first irreversible npm write.',
         'Changesets creates one Git tag for every successful package publication; no tag is created for a failed package.',
@@ -400,7 +396,7 @@
         'A Changesets partial failure records the successful and unpublished package subsets without overwriting any success.'
       ],
       allowedContributors: [
-        'artifact:merged-publication-source',
+        'artifact:publication-source',
         'validated publication manifest and checksums',
         'existing workspace-version owner',
         'Changesets publish command',
@@ -423,7 +419,7 @@
         'yarn changeset publish'
       ],
       specRefs: [
-        '#7-publish-the-synchronized-framework-050',
+        '#6-publish-the-manifest-derived-framework-selection',
         '#partial-publication-policy',
         '#definition-of-done'
       ],
@@ -433,17 +429,17 @@
       id: 'verify-public-registry',
       order: 9,
       laneId: 'publication',
-      title: 'Verify all public 0.5.0 records',
+      title: 'Verify every expected public registry record',
       ownerPackage: 'Framework public-registry verification owner',
       purpose:
-        'Re-query the public npm registry after Changesets returns and verify all 19 Framework packages at 0.5.0, including metadata, dependency ranges, dist integrity, and installability.',
+        'Re-query the public npm registry after Changesets returns and verify every expected Framework name@version record, including metadata, dependency ranges, dist integrity, and installability.',
       inputs: ['artifact:changesets-publication-result'],
       outputs: [
-        'artifact:public-0-5-0-registry-evidence',
+        'artifact:public-registry-evidence',
         'artifact:registry-verification-finding'
       ],
       conditions: [
-        'All 19 public name@0.5.0 records exist and match the approved publication identities and metadata.',
+        'Every expected public name@version record exists and matches the approved publication identity and metadata.',
         'Registry dist integrity and dependency ranges are recorded for every package.',
         'The registry is queried directly without workspace, proxy cache, or local tarball substitution.',
         'After all 19 registry records pass, push the exact package tags and verify each remote tag resolves to the validated publication commit.',
@@ -476,7 +472,7 @@
         'fixtures/framework-release-consumer'
       ],
       specRefs: [
-        '#7-publish-the-synchronized-framework-050',
+        '#6-publish-the-manifest-derived-framework-selection',
         '#8-run-registry-only-consumer-proof',
         '#definition-of-done'
       ],
@@ -489,11 +485,11 @@
       title: 'Prove registry-only use or own recovery',
       ownerPackage: 'Registry-only consumer and partial-publication recovery owner',
       purpose:
-        'On complete publication, run the full registry-only Framework consumer; on partial publication, preserve successful immutable versions and select same-version resume or complete-suite 0.5.0 to 0.5.1 recovery without a mixed final version.',
+        'On complete publication, run the full registry-only Framework consumer; on partial publication, preserve successful immutable versions and select same-version resume or one complete-suite patch recovery without a mixed final version.',
       inputs: [
         'artifact:changesets-publication-result',
         'artifact:publication-finding',
-        'artifact:public-0-5-0-registry-evidence',
+        'artifact:public-registry-evidence',
         'artifact:registry-verification-finding'
       ],
       outputs: [
@@ -502,20 +498,20 @@
         'artifact:consumer-or-recovery-finding'
       ],
       conditions: [
-        'The success route installs public name@0.5.0 only: no tarball, workspace, link, portal, source-directory install, or resolution.',
+        'The success route installs only the exact public name@version set from release evidence: no tarball, workspace, link, portal, source-directory install, or resolution.',
         'The success route passes install, typecheck, build, initialization, transaction, undo/redo, migration, Group, Collaboration, AI, and disabled-side-effect gates.',
-        'The recovery route never overwrites a successful publication and resumes 0.5.0 only when the remaining artifacts are correct.',
-        'A source or artifact defect after partial publication requires one complete all-package patch recovery from 0.5.0 to 0.5.1.',
+        'The recovery route never overwrites a successful publication and resumes the same target versions only when the remaining artifacts are correct.',
+        'A source or artifact defect after partial publication requires one complete all-package patch Changeset whose target versions are derived by Changesets.',
         'Cleanup owner: prove-registry-consumer-and-recover owns isolated consumers, processes, ports, and the detached recovery decision; it owns no registry overwrite.'
       ],
       bypasses: [
-        'A complete 0.5.0 registry set bypasses recovery and requires the registry-only consumer.',
+        'A complete expected registry set bypasses recovery and requires the registry-only consumer.',
         'A partial publication bypasses READY and requires an exact recovery artifact.',
         'Any consumer failure or recovery ambiguity produces artifact:consumer-or-recovery-finding.'
       ],
       allowedContributors: [
         'artifact:changesets-publication-result',
-        'artifact:public-0-5-0-registry-evidence',
+        'artifact:public-registry-evidence',
         'public npm registry',
         'registry-only consumer fixture',
         'partial-publication policy'
@@ -547,7 +543,7 @@
       order: 11,
       laneId: 'decision',
       title: 'Record the release and decide READY or BLOCKED',
-      ownerPackage: 'Framework 0.5.0 release decision owner',
+      ownerPackage: 'Framework release decision owner',
       purpose:
         'Assemble source, Inspector, inventory, version, artifact, PR, publication, registry, consumer, exclusion, and recovery records and emit the single current READY or BLOCKED decision.',
       inputs: [
@@ -555,19 +551,19 @@
         'artifact:inventory-finding',
         'artifact:historical-baseline-classification',
         'artifact:historical-baseline-finding',
-        'artifact:local-0-4-0-baseline',
+        'artifact:version-topology',
         'artifact:baseline-finding',
-        'artifact:synchronized-minor-changeset',
+        'artifact:reviewed-changeset-plan',
         'artifact:changeset-finding',
-        'artifact:versioned-0-5-0-source',
+        'artifact:versioned-framework-source',
         'artifact:version-finding',
-        'artifact:validated-0-5-0-artifacts',
+        'artifact:validated-framework-artifacts',
         'artifact:artifact-validation-finding',
-        'artifact:merged-publication-source',
-        'artifact:merged-source-finding',
+        'artifact:publication-source',
+        'artifact:source-finding',
         'artifact:changesets-publication-result',
         'artifact:publication-finding',
-        'artifact:public-0-5-0-registry-evidence',
+        'artifact:public-registry-evidence',
         'artifact:registry-verification-finding',
         'artifact:registry-only-consumer-evidence',
         'artifact:partial-publication-recovery',
@@ -575,7 +571,7 @@
       ],
       outputs: ['artifact:release-ready', 'artifact:release-blocked'],
       conditions: [
-        'READY requires one reviewed and merged source, all 19 public 0.5.0 records, registry-only consumer proof, exclusion proof, and no unresolved finding.',
+        'READY requires one clean exact publication source, every expected public name@version record, registry-only consumer proof, exclusion proof, and no unresolved finding.',
         'BLOCKED names every still-relevant exact owner and recovery requirement.',
         'The report includes the source commit, Inspector, fixed allowlist, historical inventory, Changeset, versions, checksums, PR/CI state, registry results, consumer proof, exclusions, and blind spots.',
         'Closeout and the create-app release remain deferred until the user accepts the final decision.',
@@ -626,50 +622,50 @@
     {
       id: 'classification-to-baseline',
       from: 'classify-historical-baseline',
-      to: 'materialize-local-baseline',
+      to: 'resolve-version-topology',
       kind: 'artifact',
       predicate: 'The historical split is classified as expected.',
       producedArtifacts: ['artifact:historical-baseline-classification']
     },
     {
-      id: 'baseline-to-changeset',
-      from: 'materialize-local-baseline',
-      to: 'generate-synchronized-changeset',
+      id: 'topology-to-changeset-review',
+      from: 'resolve-version-topology',
+      to: 'review-scoped-changesets',
       kind: 'artifact',
-      predicate: 'Exactly 19 Framework packages are at local 0.4.0.',
-      producedArtifacts: ['artifact:local-0-4-0-baseline']
+      predicate: 'All fixed-allowlist manifests resolve to one release family.',
+      producedArtifacts: ['artifact:version-topology']
     },
     {
-      id: 'changeset-to-version',
-      from: 'generate-synchronized-changeset',
+      id: 'changeset-review-to-version',
+      from: 'review-scoped-changesets',
       to: 'materialize-framework-version',
       kind: 'artifact',
-      predicate: 'The single Changeset contains exactly 19 minor entries.',
-      producedArtifacts: ['artifact:synchronized-minor-changeset']
+      predicate: 'The scoped Changeset plan contains only authorized Framework entries and release types.',
+      producedArtifacts: ['artifact:reviewed-changeset-plan']
     },
     {
       id: 'version-to-artifacts',
       from: 'materialize-framework-version',
       to: 'validate-framework-artifacts',
       kind: 'artifact',
-      predicate: 'All and only the Framework packages are at 0.5.0.',
-      producedArtifacts: ['artifact:versioned-0-5-0-source']
+      predicate: 'The materialized manifest diff matches the reviewed Changesets plan.',
+      producedArtifacts: ['artifact:versioned-framework-source']
     },
     {
-      id: 'artifacts-to-merge',
+      id: 'artifacts-to-publication-source',
       from: 'validate-framework-artifacts',
-      to: 'accept-merged-publication-source',
+      to: 'accept-publication-source',
       kind: 'artifact',
-      predicate: 'The complete 0.5.0 artifact and formal gate set passes.',
-      producedArtifacts: ['artifact:validated-0-5-0-artifacts']
+      predicate: 'The complete candidate artifact and formal gate set passes.',
+      producedArtifacts: ['artifact:validated-framework-artifacts']
     },
     {
-      id: 'merged-source-to-publication',
-      from: 'accept-merged-publication-source',
+      id: 'source-to-publication',
+      from: 'accept-publication-source',
       to: 'publish-framework-packages',
       kind: 'artifact',
-      predicate: 'The reviewed PR is user-merged and clean main reproduces it.',
-      producedArtifacts: ['artifact:merged-publication-source']
+      predicate: 'The clean exact source commit reproduces the validated candidate.',
+      producedArtifacts: ['artifact:publication-source']
     },
     {
       id: 'publication-to-registry',
@@ -700,8 +696,8 @@
       from: 'verify-public-registry',
       to: 'prove-registry-consumer-and-recover',
       kind: 'artifact',
-      predicate: 'All 19 public 0.5.0 records are verified.',
-      producedArtifacts: ['artifact:public-0-5-0-registry-evidence']
+      predicate: 'Every expected public name@version record is verified.',
+      producedArtifacts: ['artifact:public-registry-evidence']
     },
     {
       id: 'registry-finding-to-recovery',
@@ -743,25 +739,25 @@
         'artifact:historical-baseline-classification'
       ],
       ['classify-historical-baseline', 'artifact:historical-baseline-finding'],
-      ['materialize-local-baseline', 'artifact:local-0-4-0-baseline'],
-      ['materialize-local-baseline', 'artifact:baseline-finding'],
+      ['resolve-version-topology', 'artifact:version-topology'],
+      ['resolve-version-topology', 'artifact:baseline-finding'],
       [
-        'generate-synchronized-changeset',
-        'artifact:synchronized-minor-changeset'
+        'review-scoped-changesets',
+        'artifact:reviewed-changeset-plan'
       ],
-      ['generate-synchronized-changeset', 'artifact:changeset-finding'],
-      ['materialize-framework-version', 'artifact:versioned-0-5-0-source'],
+      ['review-scoped-changesets', 'artifact:changeset-finding'],
+      ['materialize-framework-version', 'artifact:versioned-framework-source'],
       ['materialize-framework-version', 'artifact:version-finding'],
       [
         'validate-framework-artifacts',
-        'artifact:validated-0-5-0-artifacts'
+        'artifact:validated-framework-artifacts'
       ],
       ['validate-framework-artifacts', 'artifact:artifact-validation-finding'],
       [
-        'accept-merged-publication-source',
-        'artifact:merged-publication-source'
+        'accept-publication-source',
+        'artifact:publication-source'
       ],
-      ['accept-merged-publication-source', 'artifact:merged-source-finding'],
+      ['accept-publication-source', 'artifact:source-finding'],
       [
         'publish-framework-packages',
         'artifact:changesets-publication-result'
@@ -769,7 +765,7 @@
       ['publish-framework-packages', 'artifact:publication-finding'],
       [
         'verify-public-registry',
-        'artifact:public-0-5-0-registry-evidence'
+        'artifact:public-registry-evidence'
       ],
       ['verify-public-registry', 'artifact:registry-verification-finding']
     ].map(([from, artifactId]) => ({
@@ -784,7 +780,7 @@
       id: 'ready-terminal',
       from: 'decide-release',
       kind: 'terminal',
-      predicate: 'Every required 0.5.0 release proof passes.',
+      predicate: 'Every required manifest-derived release proof passes.',
       producedArtifacts: ['artifact:release-ready']
     },
     {
@@ -813,7 +809,7 @@
       id: 'artifact:historical-baseline-classification',
       ownerStepId: 'classify-historical-baseline',
       channel: 'release-history classification',
-      consumerStepIds: ['materialize-local-baseline', 'decide-release']
+      consumerStepIds: ['resolve-version-topology', 'decide-release']
     },
     {
       id: 'artifact:historical-baseline-finding',
@@ -822,31 +818,31 @@
       consumerStepIds: ['decide-release']
     },
     {
-      id: 'artifact:local-0-4-0-baseline',
-      ownerStepId: 'materialize-local-baseline',
+      id: 'artifact:version-topology',
+      ownerStepId: 'resolve-version-topology',
       channel: 'local manifest baseline',
-      consumerStepIds: ['generate-synchronized-changeset', 'decide-release']
+      consumerStepIds: ['review-scoped-changesets', 'decide-release']
     },
     {
       id: 'artifact:baseline-finding',
-      ownerStepId: 'materialize-local-baseline',
+      ownerStepId: 'resolve-version-topology',
       channel: 'owner finding',
       consumerStepIds: ['decide-release']
     },
     {
-      id: 'artifact:synchronized-minor-changeset',
-      ownerStepId: 'generate-synchronized-changeset',
+      id: 'artifact:reviewed-changeset-plan',
+      ownerStepId: 'review-scoped-changesets',
       channel: 'Changesets release input',
       consumerStepIds: ['materialize-framework-version', 'decide-release']
     },
     {
       id: 'artifact:changeset-finding',
-      ownerStepId: 'generate-synchronized-changeset',
+      ownerStepId: 'review-scoped-changesets',
       channel: 'owner finding',
       consumerStepIds: ['decide-release']
     },
     {
-      id: 'artifact:versioned-0-5-0-source',
+      id: 'artifact:versioned-framework-source',
       ownerStepId: 'materialize-framework-version',
       channel: 'versioned source and changelogs',
       consumerStepIds: ['validate-framework-artifacts', 'decide-release']
@@ -858,10 +854,10 @@
       consumerStepIds: ['decide-release']
     },
     {
-      id: 'artifact:validated-0-5-0-artifacts',
+      id: 'artifact:validated-framework-artifacts',
       ownerStepId: 'validate-framework-artifacts',
       channel: 'validated local artifacts and formal gates',
-      consumerStepIds: ['accept-merged-publication-source', 'decide-release']
+      consumerStepIds: ['accept-publication-source', 'decide-release']
     },
     {
       id: 'artifact:artifact-validation-finding',
@@ -870,14 +866,14 @@
       consumerStepIds: ['decide-release']
     },
     {
-      id: 'artifact:merged-publication-source',
-      ownerStepId: 'accept-merged-publication-source',
-      channel: 'reviewed merged clean-main source',
+      id: 'artifact:publication-source',
+      ownerStepId: 'accept-publication-source',
+      channel: 'clean exact publication source',
       consumerStepIds: ['publish-framework-packages', 'decide-release']
     },
     {
-      id: 'artifact:merged-source-finding',
-      ownerStepId: 'accept-merged-publication-source',
+      id: 'artifact:source-finding',
+      ownerStepId: 'accept-publication-source',
       channel: 'owner finding',
       consumerStepIds: ['decide-release']
     },
@@ -898,7 +894,7 @@
       consumerStepIds: ['prove-registry-consumer-and-recover', 'decide-release']
     },
     {
-      id: 'artifact:public-0-5-0-registry-evidence',
+      id: 'artifact:public-registry-evidence',
       ownerStepId: 'verify-public-registry',
       channel: 'public registry verification',
       consumerStepIds: ['prove-registry-consumer-and-recover', 'decide-release']
@@ -959,9 +955,9 @@
     },
     {
       id: 'historical-version-invariant',
-      title: 'Historical 0.2.5 is evidence, not a publication target',
+      title: 'Historical registry state is evidence, not a publication target',
       statement:
-        'The current run records old public 0.2.5 packages and their source-generation differences without reconstructing, overwriting, or publishing a missing 0.2.5 package.',
+        'The current run records old public package versions and their source-generation differences without reconstructing, overwriting, or publishing a missing historical version from newer source.',
       stepIds: [
         'inventory-public-registry',
         'classify-historical-baseline'
@@ -976,16 +972,16 @@
       id: 'exceptional-changeset-invariant',
       title: 'All-package generation remains exceptional',
       statement:
-        'The approved large realignment uses one explicit minor generation from local 0.4.0 to 0.5.0; ordinary later development uses scoped Changesets.',
+        'Normal development uses scoped patch Changesets; an all-package generator or family change requires explicit user authorization and still derives its target versions through Changesets.',
       stepIds: [
-        'materialize-local-baseline',
-        'generate-synchronized-changeset',
+        'resolve-version-topology',
+        'review-scoped-changesets',
         'materialize-framework-version'
       ],
       artifactIds: [
-        'artifact:local-0-4-0-baseline',
-        'artifact:synchronized-minor-changeset',
-        'artifact:versioned-0-5-0-source'
+        'artifact:version-topology',
+        'artifact:reviewed-changeset-plan',
+        'artifact:versioned-framework-source'
       ],
       specRefs: ['#changeset-contract', '#definition-of-done']
     },
@@ -993,7 +989,7 @@
       id: 'immutable-publication-invariant',
       title: 'Successful registry publications are immutable',
       statement:
-        'A successful package version is never overwritten; correct remaining artifacts may resume at 0.5.0, while a defect advances the full suite to 0.5.1.',
+        'A successful package version is never overwritten; correct remaining artifacts may resume at the same reviewed versions, while a defect advances the full suite through one new all-package patch Changeset.',
       stepIds: [
         'publish-framework-packages',
         'verify-public-registry',
@@ -1012,8 +1008,8 @@
       id: 'registry-history-case',
       title: 'Current registry inventory and historical classification',
       assertions: [
-        'All 19 names are queried directly and the 12-present/seven-missing historical 0.2.5 split is recorded.',
-        'Expected source-generation differences are retained as history without any 0.2.5 publication.'
+        'All fixed-allowlist names are queried directly and current present or missing registry records are captured.',
+        'Expected source-generation differences are retained as history without publishing any old version from newer source.'
       ],
       stepIds: [
         'inventory-public-registry',
@@ -1022,55 +1018,55 @@
       specRefs: ['#1-freeze-source-and-registry-state']
     },
     {
-      id: 'exceptional-version-case',
-      title: 'Exact 0.4.0 to minor to 0.5.0 materialization',
+      id: 'version-materialization-case',
+      title: 'Manifest-derived version topology and Changesets materialization',
       assertions: [
-        'Exactly 19 Framework manifests become local 0.4.0 and no excluded owner changes.',
-        'One explicit minor Changeset advances exactly those packages to 0.5.0 with changelogs.'
+        'All fixed-allowlist manifests resolve to one release family and excluded owners remain independently versioned.',
+        'The reviewed scoped Changeset plan alone determines changed packages, release types, target versions, and changelogs.'
       ],
       stepIds: [
-        'materialize-local-baseline',
-        'generate-synchronized-changeset',
+        'resolve-version-topology',
+        'review-scoped-changesets',
         'materialize-framework-version'
       ],
       specRefs: [
-        '#2-materialize-the-exceptional-local-baseline',
-        '#3-generate-the-synchronized-minor-changeset',
-        '#4-materialize-050'
+        '#2-resolve-the-changeset-release-scope',
+        '#2-resolve-the-changeset-release-scope',
+        '#3-materialize-framework-versions'
       ]
     },
     {
-      id: 'artifact-and-merge-case',
-      title: 'Validated artifacts and reviewed merge source',
+      id: 'artifact-and-source-case',
+      title: 'Validated artifacts and exact publication source',
       assertions: [
         'All 19 artifacts and formal gates pass under Node.js 24.',
-        'The user-reviewed PR is merged and clean latest main reproduces the candidate before publication.'
+        'A clean exact source commit on main or a feature branch reproduces the candidate before publication.'
       ],
       stepIds: [
         'validate-framework-artifacts',
-        'accept-merged-publication-source'
+        'accept-publication-source'
       ],
       specRefs: [
-        '#5-validate-the-050-artifacts-before-publication',
-        '#6-review-and-merge-the-version-pr'
+        '#4-validate-framework-artifacts-before-publication',
+        '#5-freeze-the-publication-source'
       ]
     },
     {
       id: 'publication-and-registry-case',
       title: 'Changesets publication and registry verification',
       assertions: [
-        'One Changesets command publishes only the fixed 19-package 0.5.0 set without Git tags.',
+        'One Changesets command publishes only the reviewed unpublished fixed-allowlist selection and owns successful package tags.',
         'Every public record, dependency range, integrity, and installation result is verified.'
       ],
       stepIds: ['publish-framework-packages', 'verify-public-registry'],
-      specRefs: ['#7-publish-the-synchronized-framework-050']
+      specRefs: ['#6-publish-the-manifest-derived-framework-selection']
     },
     {
       id: 'consumer-recovery-decision-case',
       title: 'Registry-only proof, exact recovery, and final decision',
       assertions: [
         'A complete publication passes every registry-only public flow without local substitution.',
-        'A partial publication follows immutable same-version resume or full-suite 0.5.1 recovery and produces BLOCKED until complete.',
+        'A partial publication follows immutable same-version resume or one complete all-package patch recovery and produces BLOCKED until complete.',
         'The final record emits only READY or BLOCKED and waits for user acceptance before closeout.'
       ],
       stepIds: [
@@ -1088,17 +1084,17 @@
   const data = {
     schema: { id: 'flow-inspector', version: 2 },
     target: {
-      id: 'framework-package-release-0-5-0',
+      id: 'framework-package-release',
       kind: 'system',
-      title: 'Framework Package 0.5.0 Release Inspector',
+      title: 'Framework Package Release Inspector',
       subtitle:
-        'Historical registry inventory through exceptional 0.4.0-to-0.5.0 versioning, reviewed artifacts, Changesets publication, registry-only proof, recovery, and one final decision.'
+        'Current registry inventory through manifest-derived Changesets versioning, reviewed artifacts, authorized publication, registry-only proof, recovery, and one final decision.'
     },
     authority: {
       specPath,
       inspectorPath,
-      semanticOwner: 'Framework Package 0.5.0 Release Plan',
-      inspectorOwner: 'Framework Package 0.5.0 Release Inspector data'
+      semanticOwner: 'Framework Package Patch Release Plan',
+      inspectorOwner: 'Framework Package Release Inspector data'
     },
     links: [
       {

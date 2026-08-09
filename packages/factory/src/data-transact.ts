@@ -60,8 +60,10 @@ interface FactoryHistoryEntry {
   readonly progressiveDeliverySequence?: FactoryMutationDeliverySequence
 }
 interface ReplaceLatestHistoryStage {
-  readonly first: ReplaceLatestHistoryCandidate
-  latest: ReplaceLatestHistoryCandidate
+  readonly eventOrder: string[]
+  readonly firstEventsByKey: Map<string, UpdateTransactionEvent>
+  readonly latestEventsByKey: Map<string, UpdateTransactionEvent>
+  readonly journalIndexes: Set<number>
 }
 interface JournalSharedRecordRef {
   entry: TransactionJournalEntry
@@ -134,7 +136,6 @@ interface DataTransactCallbacks {
 import type {
   AllEvent,
   CooperativeRenderBatchOptions,
-  ReplaceLatestHistoryCandidate,
   TransactionCanonicalEvidence,
   TransactionReplayMode,
   UpdateTransactionEvent,
@@ -735,7 +736,10 @@ class DataTransact {
       const recordedEntries = detachedEvents.map((event) =>
         this.recordJournalEntry(event, trustedOwnerValues)
       )
-      this.stageReplaceLatestHistory(detachedEvents)
+      this.stageReplaceLatestHistory(
+        detachedEvents,
+        recordedEntries.map(({ index }) => index)
+      )
       batchAccepted = true
       if (
         this.nestedReplaySourceEvents &&
@@ -775,7 +779,8 @@ class DataTransact {
   }
 
   private stageReplaceLatestHistory(
-    events: readonly UpdateTransactionEvent[]
+    events: readonly UpdateTransactionEvent[],
+    journalIndexes: readonly number[]
   ): void {
     const firstEvent = events[0]
     if (!firstEvent) return
@@ -783,30 +788,29 @@ class DataTransact {
     const history = firstEvent.options?.history
     const candidate = firstEvent.historyCandidate
     if (!history && !candidate) return
-    if (history?.mode !== 'replace-latest') {
-      throw new Error(
-        'Factory History candidate requires replace-latest transaction options'
-      )
-    }
-    if (!history.key || !candidate || candidate.key !== history.key) {
-      throw new Error(
-        'Factory replace-latest History candidate must match its gesture key'
-      )
-    }
-    if (candidate.events.length === 0) {
-      throw new Error(
-        'Factory replace-latest History candidate requires a complete event bundle'
-      )
-    }
+    if (history?.mode !== 'replace-latest' || !candidate) return
 
-    const existing = this.replaceLatestHistoryStages.get(history.key)
-    if (existing) {
-      existing.latest = candidate
-      return
+    let stage = this.replaceLatestHistoryStages.get(history.key)
+    if (!stage) {
+      stage = {
+        eventOrder: [],
+        firstEventsByKey: new Map(),
+        latestEventsByKey: new Map(),
+        journalIndexes: new Set()
+      }
+      this.replaceLatestHistoryStages.set(history.key, stage)
     }
-    this.replaceLatestHistoryStages.set(history.key, {
-      first: candidate,
-      latest: candidate
+    journalIndexes.forEach((index) => stage.journalIndexes.add(index))
+
+    const eventKeys =
+      candidate.eventKeys ?? candidate.events.map((_event, index) => `${index}`)
+    candidate.events.forEach((event, index) => {
+      const eventKey = eventKeys[index] as string
+      if (!stage.firstEventsByKey.has(eventKey)) {
+        stage.eventOrder.push(eventKey)
+        stage.firstEventsByKey.set(eventKey, event)
+      }
+      stage.latestEventsByKey.set(eventKey, event)
     })
   }
 
@@ -1027,49 +1031,10 @@ class DataTransact {
 
   private mergeReplaceLatestHistoryPayload(
     firstPayload: unknown,
-    latestPayload: unknown,
-    candidateIndex: number
+    latestPayload: unknown
   ): TransactionPayload | null {
-    if (!isPlainRecord(firstPayload) || !isPlainRecord(latestPayload)) {
-      throw new Error(
-        `Factory replace-latest History candidate ${candidateIndex} requires plain record payloads`
-      )
-    }
-    if (
-      !Object.prototype.hasOwnProperty.call(firstPayload, 'before') ||
-      !Object.prototype.hasOwnProperty.call(firstPayload, 'after') ||
-      !Object.prototype.hasOwnProperty.call(latestPayload, 'before') ||
-      !Object.prototype.hasOwnProperty.call(latestPayload, 'after')
-    ) {
-      throw new Error(
-        `Factory replace-latest History candidate ${candidateIndex} requires before and after values`
-      )
-    }
-
     const firstRecord = firstPayload as Record<string, unknown>
     const latestRecord = latestPayload as Record<string, unknown>
-    const identityKeys = new Set(
-      [
-        ...Reflect.ownKeys(firstRecord),
-        ...Reflect.ownKeys(latestRecord)
-      ].filter((key) => key !== 'before' && key !== 'after')
-    )
-    if (
-      [...identityKeys].some(
-        (key) =>
-          !Object.prototype.hasOwnProperty.call(firstRecord, key) ||
-          !Object.prototype.hasOwnProperty.call(latestRecord, key) ||
-          !areHistoryValuesEqual(
-            Reflect.get(firstRecord, key),
-            Reflect.get(latestRecord, key)
-          )
-      )
-    ) {
-      throw new Error(
-        `Factory replace-latest History candidate ${candidateIndex} changed identity`
-      )
-    }
-
     const before = firstRecord.before
     const after = latestRecord.after
     if (areHistoryValuesEqual(before, after)) {
@@ -1083,44 +1048,24 @@ class DataTransact {
   }
 
   private materializeReplaceLatestHistoryStage(
-    key: string,
     stage: ReplaceLatestHistoryStage,
     firstSyntheticIndex: number
   ): TransactionJournalEntry[] {
-    if (stage.first.key !== key || stage.latest.key !== key) {
-      throw new Error(
-        `Factory replace-latest History stage changed gesture key: ${key}`
-      )
-    }
-    if (stage.first.events.length !== stage.latest.events.length) {
-      throw new Error(
-        `Factory replace-latest History stage changed bundle size: ${key}`
-      )
-    }
-
     const entries: TransactionJournalEntry[] = []
-    stage.first.events.forEach((firstEvent, candidateIndex) => {
-      const latestEvent = stage.latest.events[candidateIndex]
-      if (
-        !latestEvent ||
-        firstEvent.eventName !== latestEvent.eventName ||
-        firstEvent.options?.history?.mode !== 'replace-latest' ||
-        firstEvent.options.history.key !== key ||
-        latestEvent.options?.history?.mode !== 'replace-latest' ||
-        latestEvent.options.history.key !== key
-      ) {
-        throw new Error(
-          `Factory replace-latest History candidate ${candidateIndex} does not preserve its event contract`
-        )
-      }
+    stage.eventOrder.forEach((eventKey) => {
+      const firstEvent = stage.firstEventsByKey.get(
+        eventKey
+      ) as UpdateTransactionEvent
+      const latestEvent = stage.latestEventsByKey.get(
+        eventKey
+      ) as UpdateTransactionEvent
       const payload = this.mergeReplaceLatestHistoryPayload(
         firstEvent.payload,
-        latestEvent.payload,
-        candidateIndex
+        latestEvent.payload
       )
       if (!payload) return
 
-      const { history: _history, ...options } = latestEvent.options
+      const { history: _history, ...options } = latestEvent.options ?? {}
       entries.push(
         this.createJournalEntry(
           {
@@ -1179,17 +1124,14 @@ class DataTransact {
         entries.push(entry)
         return
       }
-      if (emittedKeys.has(history.key)) return
-
       const stage = this.replaceLatestHistoryStages.get(history.key)
-      if (!stage) {
-        throw new Error(
-          `Factory replace-latest History stage is missing: ${history.key}`
-        )
+      if (!stage || !stage.journalIndexes.has(entry.index)) {
+        entries.push(entry)
+        return
       }
+      if (emittedKeys.has(history.key)) return
       emittedKeys.add(history.key)
       const materialized = this.materializeReplaceLatestHistoryStage(
-        history.key,
         stage,
         nextSyntheticIndex
       )
@@ -1197,11 +1139,6 @@ class DataTransact {
       entries.push(...materialized)
       syntheticEntries.push(...materialized)
     })
-    if (emittedKeys.size !== this.replaceLatestHistoryStages.size) {
-      throw new Error(
-        'Factory replace-latest History stage has no canonical journal entry'
-      )
-    }
     this.prepareReplaceLatestHistorySourceBatches(syntheticEntries)
     return entries
   }

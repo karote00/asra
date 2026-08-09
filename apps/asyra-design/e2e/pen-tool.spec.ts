@@ -11,7 +11,9 @@ import {
   getCanvasPosition,
   getCoreDocumentDigest,
   getCurrentDocumentFileId,
-  getPersistedDocumentDigest
+  getPersistedDocumentDigest,
+  undo,
+  redo
 } from './test-utils'
 
 test.describe('Pen Tool - Editing Flow', () => {
@@ -72,11 +74,26 @@ test.describe('Pen Tool - Editing Flow', () => {
   test('second-point drag creates curve handles in the edited path', async ({
     page
   }) => {
+    const browserErrors: string[] = []
+    page.on('pageerror', (error) => browserErrors.push(error.message))
+    page.on('console', (message) => {
+      if (message.type() === 'error') {
+        browserErrors.push(message.text())
+      }
+    })
     const initialCount = await getElementCount(page)
 
     const firstClientPos = await getCanvasPosition(page, 0.3, 0.3)
     const secondClientPos = await getCanvasPosition(page, 0.45, 0.4)
     const dragClientPos = await getCanvasPosition(page, 0.55, 0.32)
+    const midDragClientPos = {
+      x: secondClientPos.x + (dragClientPos.x - secondClientPos.x) * 0.5,
+      y: secondClientPos.y + (dragClientPos.y - secondClientPos.y) * 0.5
+    }
+    const sparseDragClientPos = {
+      x: midDragClientPos.x,
+      y: dragClientPos.y
+    }
 
     await page.keyboard.press('p')
     await expect.poll(() => getActiveTool(page)).toBe('pen')
@@ -97,6 +114,11 @@ test.describe('Pen Tool - Editing Flow', () => {
     if (!firstPointRuntime.vectorId || !firstPointRuntime.firstPointId) {
       return
     }
+
+    const beforeSecondPointUndoCount = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+      return core?.deps?.factory?.transact?.undoStack?.length ?? 0
+    })
 
     const readFirstSegmentState = async (secondPointId?: string) =>
       page.evaluate(
@@ -129,6 +151,9 @@ test.describe('Pen Tool - Editing Flow', () => {
             selectedPoint?.kind === 'anchor'
               ? points[`${selected.pointId}:out`]
               : null
+          const currentSegmentEndOut = segment?.endId
+            ? points[`${segment.endId}:out`]
+            : null
           const secondOut = secondPointId
             ? points[`${secondPointId}:out`]
             : null
@@ -164,6 +189,10 @@ test.describe('Pen Tool - Editing Flow', () => {
               selectedOut?.kind === 'control'
                 ? { x: selectedOut.x, y: selectedOut.y }
                 : null,
+            currentSegmentEndOut:
+              currentSegmentEndOut?.kind === 'control'
+                ? { x: currentSegmentEndOut.x, y: currentSegmentEndOut.y }
+                : null,
             secondOut:
               secondOut?.kind === 'control'
                 ? { x: secondOut.x, y: secondOut.y }
@@ -175,12 +204,9 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     await page.mouse.move(secondClientPos.x, secondClientPos.y)
     await page.mouse.down()
-    await page.mouse.move(
-      secondClientPos.x + (dragClientPos.x - secondClientPos.x) * 0.5,
-      secondClientPos.y + (dragClientPos.y - secondClientPos.y) * 0.5,
-      { steps: 6 }
-    )
+    await page.mouse.move(midDragClientPos.x, midDragClientPos.y, { steps: 6 })
     const midDragState = await readFirstSegmentState()
+    expect(browserErrors).toEqual([])
     expect(midDragState).toMatchObject({
       networkPointCount: 2,
       segmentStartId: firstPointRuntime.firstPointId,
@@ -199,15 +225,32 @@ test.describe('Pen Tool - Editing Flow', () => {
       Math.abs(midDragState.firstOut.x - midDragState.firstAnchor.x)
     ).toBeGreaterThan(1)
 
-    await page.mouse.move(dragClientPos.x, dragClientPos.y, { steps: 6 })
+    await page.mouse.move(sparseDragClientPos.x, sparseDragClientPos.y, {
+      steps: 6
+    })
+    await expect
+      .poll(async () => {
+        const state = await readFirstSegmentState()
+        if (!midDragState.currentSegmentEndOut || !state.currentSegmentEndOut) {
+          return 0
+        }
+        return Math.abs(
+          state.currentSegmentEndOut.y - midDragState.currentSegmentEndOut.y
+        )
+      })
+      .toBeGreaterThan(1)
     const lateDragState = await readFirstSegmentState()
     expect(lateDragState.firstOut).not.toBeNull()
-    if (!lateDragState.firstOut) {
+    expect(lateDragState.currentSegmentEndOut).not.toBeNull()
+    if (!lateDragState.firstOut || !lateDragState.currentSegmentEndOut) {
       return
     }
     expect(
       Math.abs(lateDragState.firstOut.x - midDragState.firstOut.x)
-    ).toBeGreaterThan(1)
+    ).toBeLessThan(0.001)
+    expect(
+      Math.abs(lateDragState.firstOut.y - midDragState.firstOut.y)
+    ).toBeLessThan(0.001)
 
     await page.mouse.up()
 
@@ -223,6 +266,19 @@ test.describe('Pen Tool - Editing Flow', () => {
     if (!runtime.secondPointId) {
       return
     }
+
+    const dragHistory = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+      const stack = core?.deps?.factory?.transact?.undoStack ?? []
+      const last = stack[stack.length - 1]
+      return {
+        undoCount: stack.length,
+        changeCount: last?.entries?.length ?? 0
+      }
+    })
+    expect(dragHistory.undoCount).toBe(beforeSecondPointUndoCount + 1)
+    expect(dragHistory.changeCount).toBeGreaterThan(0)
+    expect(dragHistory.changeCount).toBeLessThan(30)
 
     const finalState = await readFirstSegmentState(runtime.secondPointId)
     expect(finalState).toMatchObject({
@@ -248,6 +304,27 @@ test.describe('Pen Tool - Editing Flow', () => {
         })
       })
       .toBe('anchor')
+
+    await undo(page)
+    await expect
+      .poll(() => readFirstSegmentState(runtime.secondPointId ?? undefined))
+      .toMatchObject({
+        networkPointCount: 1,
+        segmentEndId: null,
+        outControlId: null,
+        secondOut: null
+      })
+
+    await redo(page)
+    await expect
+      .poll(() => readFirstSegmentState(runtime.secondPointId ?? undefined))
+      .toMatchObject({
+        networkPointCount: 2,
+        segmentStartId: firstPointRuntime.firstPointId,
+        segmentEndId: runtime.secondPointId,
+        outControlId: `${firstPointRuntime.firstPointId}:out`,
+        secondOut: expect.any(Object)
+      })
 
     await page.keyboard.press('Escape')
     await expect
@@ -1912,9 +1989,7 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     const finalDocumentDigest = await getCoreDocumentDigest(page)
     await expect
-      .poll(() =>
-        getPersistedDocumentDigest(page, getCurrentDocumentFileId(page))
-      )
+      .poll(() => getPersistedDocumentDigest(getCurrentDocumentFileId(page)))
       .toEqual(finalDocumentDigest)
 
     await page.reload()

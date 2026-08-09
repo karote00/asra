@@ -1,8 +1,10 @@
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
+import type { CoreCollaborationSession } from '@asyra/core'
 import { PresetSystemPropertyKeys } from '@asyra/preset'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AiDrawingProgressState } from '../../common-apis/system-context'
+import * as collaborationLifecycle from '../../collaboration/lifecycle'
 import { SystemPropertyKeys } from '../../constants'
 import core from '../../contexts'
 import RenderApp from '../index'
@@ -38,14 +40,41 @@ describe('RenderApp AI drawing progress indicator', () => {
   const progress = createSubject<AiDrawingProgressState | null>(null)
   const viewportPosition = createSubject({ x: 5, y: 7 })
   const zoom = createSubject(2)
+  const collaborationSession = {
+    prepare: vi.fn(async () => undefined),
+    activate: vi.fn(async () => undefined),
+    dispose: vi.fn(async () => undefined)
+  } satisfies CoreCollaborationSession
 
   beforeEach(() => {
+    window.history.replaceState({}, '', '/?fileId=ai-drawing-progress')
     progress.next(null)
     viewportPosition.next({ x: 5, y: 7 })
     zoom.next(2)
-    vi.spyOn(core, 'start').mockResolvedValue(undefined)
+    vi.spyOn(core, 'registerCollaborationSession').mockImplementation(
+      () => undefined
+    )
+    vi.spyOn(core, 'start').mockImplementation(async () => {
+      await collaborationSession.activate()
+    })
     vi.spyOn(core, 'load').mockImplementation(() => undefined)
-    vi.spyOn(core, 'destroyRenderer').mockImplementation(() => undefined)
+    vi.spyOn(core, 'destroy').mockResolvedValue(undefined)
+    vi.spyOn(
+      collaborationLifecycle,
+      'createCollaborationDocumentSession'
+    ).mockReturnValue(collaborationSession)
+    vi.spyOn(
+      collaborationLifecycle,
+      'getActiveCollaborationHandle'
+    ).mockReturnValue({
+      getSessionState: () => ({
+        connection: 'connected',
+        disconnectedEpoch: 0,
+        pendingCount: 0,
+        sync: 'synced'
+      }),
+      onSessionStateChange: () => () => undefined
+    } as never)
     vi.spyOn(core, 'getSystemPropertyObservable').mockImplementation((key) => {
       if (key === SystemPropertyKeys.AI_DRAWING_PROGRESS) {
         return progress as never
@@ -64,6 +93,7 @@ describe('RenderApp AI drawing progress indicator', () => {
 
   afterEach(() => {
     document.body.replaceChildren()
+    window.history.replaceState({}, '', '/')
     setReactActEnvironment(false)
     vi.restoreAllMocks()
   })

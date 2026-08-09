@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import type { CanonicalChange } from '@asyra/core'
-import type { CoreRawData } from '@asyra/utils'
+import type {
+  CanonicalChange,
+  AppDocumentData
+} from '../../src/collaboration/app-protocol-types'
 import { resolve } from 'node:path'
 import { createFormalInitialDocument } from '../../src/collaboration/initial-document'
 import { createFileDocumentMaterializationStore } from '../document-backend-store'
 import { applyCanonicalChangesToDocument } from '../document-canonical-reducer'
 
-const initialDocument = (): CoreRawData => ({
+const initialDocument = (): AppDocumentData => ({
   version: '1.0.0',
   sceneTree: {
     workspace: 'workspace',
@@ -27,9 +29,9 @@ const initialDocument = (): CoreRawData => ({
 })
 
 const apply = (
-  document: CoreRawData,
+  document: AppDocumentData,
   changes: readonly CanonicalChange[]
-): CoreRawData => applyCanonicalChangesToDocument(document, changes)
+): AppDocumentData => applyCanonicalChangesToDocument(document, changes)
 
 describe('backend canonical document reducer', () => {
   it('uses the formal sequence-zero document for a new backend checkpoint', async () => {
@@ -44,6 +46,7 @@ describe('backend canonical document reducer', () => {
       store.readCheckpoint('formal-initial-document')
     ).resolves.toEqual({
       document: createFormalInitialDocument(),
+      documentGeneration: 0,
       durableSequence: 0,
       publicationSequences: {},
       batches: {}

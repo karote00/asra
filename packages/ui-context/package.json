@@ -1,6 +1,6 @@
 {
   "name": "@asyra/ui-context",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Manages and optimizes data from data contexts for UI consumption, ensuring efficient rendering and framework flexibility.",
   "author": "Asa Tsai",
   "license": "MIT",

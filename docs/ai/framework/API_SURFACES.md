@@ -246,6 +246,9 @@ Scene/model bridge:
 - `getElementComputedData(elementId: string): Record<string, unknown> | undefined`
   - reads the current local projection only; the returned data is not canonical
     property, history, collaboration, or persistence evidence
+- `getCanonicalElementCount(): number`
+  - returns the exact canonical element-registry size excluding workspace roots
+    in O(1), without saving or cloning the document or element records
 - `moveElements(request: MoveHierarchyRequest, options?: EVENT_OPTIONS): MoveHierarchyResult`
 - `removeSubtree(elementId: string, options?: EVENT_OPTIONS): RemoveSubtreeResult`
 - `removeElementsFromCanonicalData(removals: readonly CanonicalElementRemoval[], options?: EVENT_OPTIONS): readonly string[]`

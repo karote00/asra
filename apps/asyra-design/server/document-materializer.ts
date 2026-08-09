@@ -1,7 +1,7 @@
-import type { CanonicalChange } from '@asyra/core'
 import { Buffer } from 'node:buffer'
 import { decodeDocumentPublication } from '../src/collaboration/operations'
 import { decodePublicationFramePublication } from '../src/collaboration/protocol'
+import type { CanonicalChange } from '../src/collaboration/app-protocol-types'
 
 export const DOCUMENT_PERSISTENCE_PROTOCOL_VERSION = 1
 
@@ -26,6 +26,11 @@ export interface DocumentPersistenceBatch {
 
 export interface MaterializedDocumentRecord<Document> {
   readonly document: Document
+  /**
+   * Destructive document Reset generation. Legacy records may omit this field
+   * and are normalized by the concrete store before use.
+   */
+  readonly documentGeneration?: number
   readonly durableSequence: number
   readonly publicationSequences: Readonly<Record<string, number>>
   readonly batches: Readonly<
@@ -299,6 +304,7 @@ export const createDocumentMaterializationService = <Document>({
       })
       commit({
         document,
+        documentGeneration: current.documentGeneration ?? 0,
         durableSequence: batch.lastSequence,
         publicationSequences: Object.freeze(publicationSequences),
         batches: Object.freeze(batches)

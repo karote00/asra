@@ -9,10 +9,8 @@ import { createActionBatchMiddleware } from './server/action-batch'
 
 const appEnvironment = resolveEnvironment(loadEnvironment())
 const opensBrowser = process.env.E2E_OWN_SERVERS !== '1'
+const browserOpenTarget = opensBrowser ? '/?fileId=my-design' : false
 const enablesE2eDocumentDatabase = process.env.E2E_DOCUMENT_DATABASE === '1'
-const documentBackendURL =
-  process.env.E2E_DOCUMENT_BACKEND_URL?.trim() ||
-  process.env.DOCUMENT_PERSISTENCE_BACKEND_URL?.trim()
 
 const createVTracerPlugin = (): Plugin => ({
   name: 'vtracer-tool',
@@ -57,17 +55,7 @@ export default defineConfig({
   server: {
     host: appEnvironment.viteHost,
     port: appEnvironment.vitePort,
-    open: opensBrowser,
-    ...(documentBackendURL
-      ? {
-          proxy: {
-            '/api/documents': {
-              target: documentBackendURL,
-              changeOrigin: true
-            }
-          }
-        }
-      : {})
+    open: browserOpenTarget
   },
   esbuild: {
     target: 'esnext'

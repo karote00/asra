@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
-import { subscribeToFileLoadComplete } from '@asyra/reactive-events'
-import { getFeature } from '@asyra/core'
+import { getFeature, subscribeToFileLoadComplete } from '@asyra/core'
 import { FeatureNames } from '../constants'
 
 const DataContexts = () => {

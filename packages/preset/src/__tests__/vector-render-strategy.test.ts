@@ -96,6 +96,11 @@ describe('vector render strategy', () => {
 
     const retainedLocalStart = getVectorRenderLocalPoint(graphic, points.start)
     expect(retainedLocalStart).toEqual({ x: 0, y: 0 })
+    expect(graphic.sourceToLocal(points.start)).toEqual({ x: 0, y: 0 })
+    expect(graphic.localToSource({ x: 0, y: 0 })).toEqual({
+      x: points.start.x,
+      y: points.start.y
+    })
     if (!retainedLocalStart) {
       throw new Error('The retained render must expose the projected point')
     }

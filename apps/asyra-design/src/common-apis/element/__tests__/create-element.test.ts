@@ -11,8 +11,6 @@ const mocks = vi.hoisted(() => ({
   getElementById: vi.fn(),
   getSystemProperty: vi.fn(),
   getMousePosInWorkspace: vi.fn(),
-  getRenderElementById: vi.fn(),
-  getCanvasPositionFromWorkspace: vi.fn(),
   moveElementsWithGroupGeometry: vi.fn(),
   normalizeGroupsForElements: vi.fn(),
   patchElementProperties: vi.fn(),
@@ -26,7 +24,7 @@ const mocks = vi.hoisted(() => ({
     ) => updates
   ),
   runTransaction: vi.fn((operation: () => unknown) => operation()),
-  toLocal: vi.fn()
+  workspaceToElementLocal: vi.fn()
 }))
 
 vi.mock('@asyra/core', async (importOriginal) => ({
@@ -39,14 +37,26 @@ vi.mock('../../../contexts', () => ({
     createElement: mocks.createElement,
     createElementInParent: mocks.createElementInParent,
     createElementsInParent: mocks.createElementsInParent,
+    getCurrentWorkspaceId: vi.fn(() => 'workspace'),
+    getElementComputedData: vi.fn((elementId: string) =>
+      mocks.getElementById(elementId)?.getAllComputedData?.()
+    ),
+    getElementData: vi.fn((elementId: string) => {
+      const element = mocks.getElementById(elementId)
+      if (!element) {
+        return undefined
+      }
+      return {
+        children: element.get('children'),
+        type: element.get('type')
+      }
+    }),
+    getMousePosInWorkspace: mocks.getMousePosInWorkspace,
     getSystemProperty: mocks.getSystemProperty,
     patchElementProperties: mocks.patchElementProperties,
     updateElementProperties: mocks.updateElementProperties,
-    isContainerType: vi.fn((type: string) => type === 'group')
-  },
-  render: {
-    getElementById: mocks.getRenderElementById,
-    getMousePosInWorkspace: mocks.getMousePosInWorkspace
+    isContainerType: vi.fn((type: string) => type === 'group'),
+    workspaceToElementLocal: mocks.workspaceToElementLocal
   },
   sceneTree: {
     getElementById: mocks.getElementById,
@@ -77,12 +87,6 @@ vi.mock('@asyra/preset', async (importOriginal) => ({
   projectGroupGeometryPropertyUpdates: mocks.projectGroupGeometryPropertyUpdates
 }))
 
-vi.mock('../../viewport', () => ({
-  viewportApis: {
-    getCanvasPositionFromWorkspace: mocks.getCanvasPositionFromWorkspace
-  }
-}))
-
 import { elementApis } from '../apis'
 
 describe('create-element explicit parent and coordinates', () => {
@@ -111,11 +115,7 @@ describe('create-element explicit parent and coordinates', () => {
         }
       }
     })
-    mocks.getCanvasPositionFromWorkspace.mockReturnValue({ x: 370, y: 480 })
-    mocks.toLocal.mockReturnValue({ x: 10, y: 20 })
-    mocks.getRenderElementById.mockReturnValue({
-      toLocal: mocks.toLocal
-    })
+    mocks.workspaceToElementLocal.mockReturnValue({ x: 10, y: 20 })
   })
 
   it('reparents an explicit Group create through the Preset geometry adapter', () => {
@@ -157,7 +157,6 @@ describe('create-element explicit parent and coordinates', () => {
       })
     ).toBe('new-element')
 
-    expect(mocks.getRenderElementById).not.toHaveBeenCalled()
     expect(mocks.moveElementsWithGroupGeometry).not.toHaveBeenCalled()
     expect(mocks.createElementInParent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -401,16 +400,15 @@ describe('create-element explicit parent and coordinates', () => {
     expect(mocks.createElementInParent).not.toHaveBeenCalled()
   })
 
-  it('converts workspace points through the current viewport and Group transform', () => {
+  it('converts workspace points through the Core coordinate facade', () => {
     expect(
       elementApis.getPositionInParent('group-2', { x: 110, y: 220 })
     ).toEqual({ x: 10, y: 20 })
 
-    expect(mocks.getCanvasPositionFromWorkspace).toHaveBeenCalledWith({
+    expect(mocks.workspaceToElementLocal).toHaveBeenCalledWith('group-2', {
       x: 110,
       y: 220
     })
-    expect(mocks.toLocal).toHaveBeenCalledWith({ x: 370, y: 480 })
   })
 
   it('routes changed child geometry through the shared property boundary', () => {

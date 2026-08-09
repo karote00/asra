@@ -6,6 +6,7 @@ import type {
   VectorAnchorPoint,
   VectorEndpointSide,
   VectorPathStyle,
+  VectorPointNode,
   VectorTopology
 } from '@asyra/core'
 import {
@@ -29,12 +30,8 @@ import {
   measureBrowserDragPhase
 } from '@asyra/utils'
 import { isEqual } from 'lodash'
-import {
-  PresetSystemPropertyKeys,
-  getVectorRenderLocalPoint,
-  getVectorRenderWorkspacePoint
-} from '@asyra/preset'
-import core, { render, sceneTree } from '../../contexts'
+import { PresetSystemPropertyKeys } from '@asyra/preset'
+import core from '../../contexts'
 import {
   DEFAULT_VECTOR_STROKE_COLOR,
   type VectorHandleMode
@@ -604,14 +601,10 @@ const getVectorOffset = (computed: { x?: number; y?: number }) => ({
 })
 
 const getVectorComputed = (elementId: string) => {
-  const element = sceneTree.getElementById(elementId)
-  if (!element) {
-    return null
-  }
-
-  const computedRaw =
-    element.getAllComputedData() as Partial<VectorComputedData>
-  if (!isVectorComputedData(computedRaw)) {
+  const computedRaw = core.getElementComputedData(
+    elementId
+  ) as Partial<VectorComputedData> | null
+  if (!computedRaw || !isVectorComputedData(computedRaw)) {
     return null
   }
 
@@ -733,17 +726,7 @@ const projectStoredVectorPositionToWorkspace = (
   elementId: string,
   position: PositionData
 ): PositionData | null => {
-  if (!render) {
-    return position
-  }
-  const renderElement = render.getElementById(elementId)
-  if (!renderElement) {
-    return null
-  }
-  const localPosition = getVectorRenderLocalPoint(renderElement, position)
-  return localPosition
-    ? render.elementLocalToWorkspace(elementId, localPosition)
-    : null
+  return core.elementSourceToWorkspace(elementId, position)
 }
 
 const projectStoredVectorAnchorPointToWorkspace = (
@@ -778,24 +761,11 @@ const projectWorkspacePositionToStoredVector = (
   elementId: string,
   position: PositionData
 ): PositionData | null => {
-  if (!render) {
-    return position
-  }
-  const renderElement = render.getElementById(elementId)
-  if (!renderElement) {
-    return null
-  }
-  const localPosition = render.workspaceToElementLocal(elementId, position)
-  return localPosition
-    ? getVectorRenderWorkspacePoint(renderElement, localPosition)
-    : null
+  return core.workspaceToElementSource(elementId, position)
 }
 
 const getVectorTopologyWorkspace = (elementId: string): VectorTopology => {
   const topology = getVectorTopologyStored(elementId)
-  if (!render) {
-    return topology
-  }
 
   const points: Record<string, VectorPointNode> = {}
   for (const [pointId, point] of Object.entries(topology.points)) {
@@ -941,7 +911,7 @@ const getVectorGeometryMutationValues = (
   previousComputed: Partial<VectorComputedData> | null,
   previousTopology: VectorTopology,
   nextTopology: VectorTopology
-): Pick<VectorComputedData, 'x' | 'y' | 'width' | 'height'> => {
+): Required<Pick<VectorComputedData, 'x' | 'y' | 'width' | 'height'>> => {
   const nextBounds = calculateVectorBounds(nextTopology)
   if (
     !previousComputed ||
@@ -1509,16 +1479,16 @@ const getNearestVectorSegmentHit = (
 
 const createVectorElementAtWorkspacePos = (
   workspacePos: PositionData,
-  data: Record<string, DataTypes>,
+  data: CreateElementData,
   options?: EVENT_OPTIONS
 ): string => {
   return runTransaction(() =>
     core.createElement(
       {
+        ...data,
         type: 'vector',
         x: workspacePos.x,
-        y: workspacePos.y,
-        ...data
+        y: workspacePos.y
       },
       undefined,
       undefined,
@@ -1573,8 +1543,6 @@ export const prepareVectorElementData = (
 export const vectorApis = {
   discardTransientVectorPreviews: (elementIds: readonly string[]): void => {
     const seenElementIds = new Set<string>()
-    const seenPropertyIds = new Set<string>()
-    const propertyIds: string[] = []
 
     elementIds.forEach((elementId) => {
       if (
@@ -1587,22 +1555,15 @@ export const vectorApis = {
         )
       }
       seenElementIds.add(elementId)
-      const element = sceneTree.getElementById(elementId)
-      if (!element || element.get('type') !== 'vector') {
+      if (core.getElementData(elementId)?.type !== 'vector') {
         throw new Error(
           `[Vector APIs] Transient preview cancellation requires active vector "${elementId}"`
         )
       }
-      element.props.getCanonicalRootPropertyIds().forEach((propertyId) => {
-        if (!seenPropertyIds.has(propertyId)) {
-          seenPropertyIds.add(propertyId)
-          propertyIds.push(propertyId)
-        }
-      })
     })
 
     elementIds.forEach(clearTransientVectorCaches)
-    core.projectLocalComputedDataFromPropertyIds(propertyIds)
+    core.projectLocalComputedDataForElements(elementIds)
   },
 
   getVectorAnchorPoints: (elementId: string): VectorAnchorPoint[] => {
@@ -1768,15 +1729,11 @@ export const vectorApis = {
     elementId: string,
     clientPos: PositionData
   ): { point: VectorAnchorPoint; index: number } | null => {
-    if (!render) {
-      return null
-    }
-
-    const workspacePos = render.getMousePosInWorkspace({
+    const workspacePos = core.getMousePosInWorkspace({
       clientX: clientPos.x,
       clientY: clientPos.y
     })
-    const viewportScale = render.getViewportScale() || 1
+    const viewportScale = core.getViewportScale() || 1
     const hitRadius = VECTOR_POINT_HIT_RADIUS / viewportScale
 
     return vectorApis.getVectorAnchorPointAtWorkspacePos(
@@ -1790,15 +1747,11 @@ export const vectorApis = {
     elementId: string,
     clientPos: PositionData
   ): VectorEditablePointHit | null => {
-    if (!render) {
-      return null
-    }
-
-    const workspacePos = render.getMousePosInWorkspace({
+    const workspacePos = core.getMousePosInWorkspace({
       clientX: clientPos.x,
       clientY: clientPos.y
     })
-    const viewportScale = render.getViewportScale() || 1
+    const viewportScale = core.getViewportScale() || 1
     const hitRadius = VECTOR_POINT_HIT_RADIUS / viewportScale
 
     return vectorApis.getVectorEditablePointAtWorkspacePos(
@@ -1836,15 +1789,11 @@ export const vectorApis = {
     clientPos: PositionData,
     hitRadius = VECTOR_SEGMENT_HIT_RADIUS
   ): string | null => {
-    if (!render) {
-      return null
-    }
-
-    const workspacePos = render.getMousePosInWorkspace({
+    const workspacePos = core.getMousePosInWorkspace({
       clientX: clientPos.x,
       clientY: clientPos.y
     })
-    const viewportScale = render.getViewportScale() || 1
+    const viewportScale = core.getViewportScale() || 1
     const scaledHitRadius = hitRadius / viewportScale
 
     return (
@@ -1861,15 +1810,11 @@ export const vectorApis = {
     clientPos: PositionData,
     hitRadius = VECTOR_SEGMENT_HIT_RADIUS
   ): VectorSegmentHit | null => {
-    if (!render) {
-      return null
-    }
-
-    const workspacePos = render.getMousePosInWorkspace({
+    const workspacePos = core.getMousePosInWorkspace({
       clientX: clientPos.x,
       clientY: clientPos.y
     })
-    const viewportScale = render.getViewportScale() || 1
+    const viewportScale = core.getViewportScale() || 1
     const scaledHitRadius = hitRadius / viewportScale
 
     return vectorApis.getVectorSegmentHitAtWorkspacePos(
@@ -1898,15 +1843,11 @@ export const vectorApis = {
     clientPos: PositionData,
     hitRadius = VECTOR_SEGMENT_HIT_RADIUS
   ): boolean => {
-    if (!render) {
-      return false
-    }
-
-    const workspacePos = render.getMousePosInWorkspace({
+    const workspacePos = core.getMousePosInWorkspace({
       clientX: clientPos.x,
       clientY: clientPos.y
     })
-    const viewportScale = render.getViewportScale() || 1
+    const viewportScale = core.getViewportScale() || 1
     const scaledHitRadius = hitRadius / viewportScale
 
     return vectorApis.isPointNearVectorPathAtWorkspacePos(

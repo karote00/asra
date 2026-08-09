@@ -7,6 +7,8 @@ System orchestrator and lifecycle coordinator.
 ## Owns
 
 - framework startup and dependency wiring
+- optional app-owned collaboration-session lifecycle ordering through a
+  package-neutral bridge
 - renderer/read-only load-source integration entrypoints
 - load/save hooks
 - high-level API surface for apps
@@ -53,9 +55,23 @@ System orchestrator and lifecycle coordinator.
 - register/query one render-engine provider before startup
 - register load/save hooks
 - register load diagnostics hooks (with disposer return for app-level unsubscribe)
+- register one optional app-owned collaboration session before startup
+- register App key combinations and expose detached state/render/publication
+  queries without exposing the dependency container
+- expose `getCanonicalElementCount()` as the exact O(1) canonical registry
+  count excluding workspace roots; diagnostics and heartbeats must use it
+  instead of serializing the document or every element
+- apply App-validated remote canonical slices through the injected Factory's
+  remote transaction and replay owner
 
 ## API Tier Contract
 
+- `@asyra/core/contracts` is the consumer-side, side-effect-free contract
+  subpath for public events, shared-publication types, collaboration bridge
+  types, and canonical property/update types. It exports no default Core
+  singleton and does not instantiate Core, Input System, or Render. It does not
+  make a product backend part of the framework; an independent backend owns its
+  App wire contract and imports no Core surface.
 - `CoreBasicAPIs` are concrete, always-available core facade methods and must not rely on optional registration checks.
 - `CoreExtensionAPIs` are concrete registration/bridge APIs exposed by core for package/preset/app extensions.
 - `CoreConcreteAPIs = CoreBasicAPIs + CoreExtensionAPIs`.
@@ -93,6 +109,10 @@ System orchestrator and lifecycle coordinator.
   engine-neutral `RenderOptions`
 - complete renderer/engine initialization before data-channel observers,
   read-only source load, Feature initialization, and ready publication
+- when an app registers a collaboration session, call its `prepare(bridge)`
+  before renderer initialization, prefer its returned read-only checkpoint
+  source for this startup, activate it after Feature initialization, and publish
+  ready only after activation settles
 - with the Core-owned adapter only, normalize the exact missing-provider error
   to headless startup: no canvas/input surface, but observers, persistence load,
   Feature initialization, and ready still complete
@@ -107,7 +127,9 @@ System orchestrator and lifecycle coordinator.
 - permanently close registration composition at the first `start(...)` method
   entry, even if renderer initialization later rejects
 - validate every declared registration relation before renderer side effects
-- `destroyRenderer()` delegates teardown and never reopens composition
+- `destroy()` disposes the registered collaboration session before the
+  renderer; `destroyRenderer()` remains a renderer-only compatibility surface.
+  Neither reopens composition
 
 2. Registration composition contract
 
@@ -263,6 +285,14 @@ The exact implementation boundary is Inspector step
 ## App-Level Usage Rules
 
 - App should call framework via `core.xxx` and app-level wrappers.
+- `core.deps` is deprecated compatibility state, not an App API. Factory,
+  Feature System, Input System, Reactive Events, and Render runtime singletons
+  must stay behind Core whenever Core owns their lifecycle or exposes a facade.
+- If a needed App capability is missing, add the smallest owner-aligned Core
+  facade instead of exporting or importing the underlying singleton.
+- Independently composed Provider/wire/transport policy may use
+  `@asyra/collaboration` directly. Its runtime session registers with Core when
+  it participates in Core startup/load/ready/teardown.
 - Preset/app composition should prefer the concrete Core instance registration
   facade. Apply defaults, remove/define exact relations, use
   `unregisterPropertyType` only for a complete capability, then call `start`.
@@ -275,6 +305,11 @@ The exact implementation boundary is Inspector step
 - Preset/app code should consume render abstractions through `core.xxx` when
   Core exposes them. Normal app bootstrap does not construct a `RenderAdapter`;
   import one only for an advanced full-renderer replacement.
+- source-space interaction coordinates use
+  `elementSourceToWorkspace(...)` / `workspaceToElementSource(...)`. These
+  facades preserve the last successfully projected strategy source origin
+  together with the current Render transform, so an App does not mix pending
+  source geometry with a previous Render frame.
 - Canonical element-property edits go through the plural
   `updateElementProperties(...)` replacement API or
   `patchElementProperties(...)` record-delta API. Core first obtains one

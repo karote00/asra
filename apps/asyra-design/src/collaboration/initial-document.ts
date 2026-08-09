@@ -1,8 +1,8 @@
-import { EntityTypes, type CoreRawData } from '@asyra/utils'
+import type { AppDocumentData } from './app-protocol-types'
 
 export const FORMAL_WORKSPACE_ID = 'workspace'
 
-export const createFormalInitialDocument = (): CoreRawData => ({
+export const createFormalInitialDocument = (): AppDocumentData => ({
   version: '1.0.0',
   sceneTree: {
     workspace: FORMAL_WORKSPACE_ID,
@@ -11,7 +11,7 @@ export const createFormalInitialDocument = (): CoreRawData => ({
       [FORMAL_WORKSPACE_ID]: {
         id: FORMAL_WORKSPACE_ID,
         name: 'Workspace',
-        type: EntityTypes.WORKSPACE,
+        type: 'workspace',
         parentId: '',
         visible: true,
         lock: false,

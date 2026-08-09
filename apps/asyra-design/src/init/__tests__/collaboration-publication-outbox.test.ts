@@ -116,6 +116,77 @@ describe('document publication recovery outbox', () => {
     )
   })
 
+  it('binds pre-handshake publications to the first authoritative document generation', async () => {
+    const databaseName = 'publication-outbox-first-generation'
+    const outbox = new DocumentPublicationOutbox({
+      fileId: 'file-first-generation',
+      storage: createStorage(factory, databaseName)
+    })
+    await outbox.initialize()
+    await outbox.append(createPublication('publication-offline-first', 1))
+
+    expect(
+      outbox.getRecoverablePublications()[0]?.documentGeneration
+    ).toBeNull()
+
+    await outbox.bindDocumentGeneration(4)
+
+    expect(outbox.getRecoverablePublications()).toEqual([
+      expect.objectContaining({
+        documentGeneration: 4,
+        publicationId: 'publication-offline-first'
+      })
+    ])
+    const reloaded = new DocumentPublicationOutbox({
+      fileId: 'file-first-generation',
+      storage: createStorage(factory, databaseName)
+    })
+    await reloaded.initialize()
+    expect(reloaded.getRecoverablePublications()).toEqual([
+      expect.objectContaining({ documentGeneration: 4 })
+    ])
+  })
+
+  it('clears prior-generation Reset artifacts before recovery send', async () => {
+    const publication = createPublication('publication-before-reset', 1)
+    const records: PendingDocumentPublication[] = [
+      {
+        fileId: 'file-reset-generation',
+        publicationId: publication.publicationId,
+        appendOrder: 1,
+        publication,
+        status: 'pending'
+      } as PendingDocumentPublication
+    ]
+    const storage: PublicationOutboxStorage = {
+      load: vi.fn(async () => records),
+      put: vi.fn(async () => undefined),
+      delete: vi.fn(async (_fileId, publicationId) => {
+        const index = records.findIndex(
+          (record) => record.publicationId === publicationId
+        )
+        if (index >= 0) records.splice(index, 1)
+      })
+    }
+    const outbox = new DocumentPublicationOutbox({
+      fileId: 'file-reset-generation',
+      storage
+    })
+    await outbox.initialize()
+
+    await outbox.bindDocumentGeneration(1)
+
+    expect(storage.delete).toHaveBeenCalledWith(
+      'file-reset-generation',
+      'publication-before-reset'
+    )
+    expect(outbox.getRecoverablePublications()).toEqual([])
+    expect(outbox.getState()).toEqual({
+      pendingCount: 0,
+      status: 'synced'
+    })
+  })
+
   it('removes exactly one entry only for matching socket source acceptance', async () => {
     const outbox = new DocumentPublicationOutbox({
       fileId: 'file-a',
@@ -144,6 +215,46 @@ describe('document publication recovery outbox', () => {
         .getRecoverablePublications()
         .map(({ publication }) => publication.publicationId)
     ).toEqual(['publication-b'])
+  })
+
+  it('clears every recovery record for one file without touching another file', async () => {
+    const databaseName = 'publication-outbox-file-reset'
+    const firstFile = new DocumentPublicationOutbox({
+      fileId: 'file-a',
+      storage: createStorage(factory, databaseName)
+    })
+    const secondFile = new DocumentPublicationOutbox({
+      fileId: 'file-b',
+      storage: createStorage(factory, databaseName)
+    })
+    await firstFile.initialize()
+    await secondFile.initialize()
+    await firstFile.append(createPublication('publication-a', 1))
+    await firstFile.append(createPublication('publication-b', 2))
+    await secondFile.append(createPublication('publication-c', 3))
+
+    await firstFile.clear()
+
+    expect(firstFile.getState()).toEqual({
+      pendingCount: 0,
+      status: 'synced'
+    })
+    const reloadedFirstFile = new DocumentPublicationOutbox({
+      fileId: 'file-a',
+      storage: createStorage(factory, databaseName)
+    })
+    const reloadedSecondFile = new DocumentPublicationOutbox({
+      fileId: 'file-b',
+      storage: createStorage(factory, databaseName)
+    })
+    await reloadedFirstFile.initialize()
+    await reloadedSecondFile.initialize()
+    expect(reloadedFirstFile.getRecoverablePublications()).toEqual([])
+    expect(
+      reloadedSecondFile
+        .getRecoverablePublications()
+        .map(({ publicationId }) => publicationId)
+    ).toEqual(['publication-c'])
   })
 
   it('retains in-memory evidence and enters storage-failed when IndexedDB append fails', async () => {

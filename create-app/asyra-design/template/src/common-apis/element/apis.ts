@@ -17,7 +17,7 @@ import {
   type EVENT_OPTIONS,
   type PositionData
 } from '@asyra/utils'
-import core, { render, sceneTree } from '../../contexts'
+import core from '../../contexts'
 import {
   DEFAULT_ELEMENT_FILL_COLOR,
   DEFAULT_FRAME_FILL_COLOR
@@ -52,20 +52,19 @@ const setElementFlag = (
   value: boolean,
   options?: EVENT_OPTIONS
 ): boolean => {
-  const element = sceneTree.getElementById(elementId)
-  if (!element || element.get('type') === EntityTypes.WORKSPACE) {
+  const element = core.getElementData(elementId)
+  if (!element || element.type === EntityTypes.WORKSPACE) {
     return false
   }
 
-  if (element.get(key) === value) {
+  if (element[key] === value) {
     return false
   }
 
   const resolvedOptions = resolveEventOptions(options)
 
   runTransaction(() => {
-    element.set(key, value, resolvedOptions)
-    sceneTree.commitSceneTreeTransaction(resolvedOptions)
+    core.updateElementData(elementId, { [key]: value }, resolvedOptions)
   })
 
   return true
@@ -94,8 +93,7 @@ const isContainerType = (type: string): boolean => {
 }
 
 const getElementChildren = (element: unknown): string[] => {
-  const maybeGetter = element as { get?: (key: string) => unknown }
-  const value = maybeGetter.get?.('children')
+  const value = (element as { children?: unknown } | null)?.children
   if (!Array.isArray(value)) {
     return []
   }
@@ -106,27 +104,27 @@ const getElementChildren = (element: unknown): string[] => {
 }
 
 const getWorkspaceOrderedElementIds = (): string[] => {
-  const workspace =
-    sceneTree.currentWorkspace ?? sceneTree.getElementById(sceneTree.workspace)
+  const workspaceId = core.getCurrentWorkspaceId()
+  const workspace = core.getElementData(workspaceId)
   if (!workspace) {
     return []
   }
 
   const orderedIds: string[] = []
   const visit = (elementId: string) => {
-    const element = sceneTree.getElementById(elementId)
+    const element = core.getElementData(elementId)
     if (!element) {
       return
     }
 
-    const elementType = element.get('type') as string
+    const elementType = element.type as string
     const isContainer = isContainerType(elementType)
 
     if (isContainer) {
-      const elementData = (element as { data?: Record<string, unknown> }).data
-      const canReadChildren =
-        elementData &&
-        Object.prototype.hasOwnProperty.call(elementData, 'children')
+      const canReadChildren = Object.prototype.hasOwnProperty.call(
+        element,
+        'children'
+      )
       if (canReadChildren) {
         const children = getElementChildren(element)
         if (children.length > 0) {
@@ -166,15 +164,15 @@ const createElementAtWorkspacePos = (
   options?: EVENT_OPTIONS,
   parentWorkspaceOrigin?: PositionData
 ): string | null => {
-  const workspaceId = sceneTree.workspace
+  const workspaceId = core.getCurrentWorkspaceId()
   if (!workspaceId) {
     return null
   }
 
   let targetIndex: number | null = null
   if (parentId !== workspaceId) {
-    const parent = sceneTree.getElementById(parentId)
-    if (parent?.get('type') !== EntityTypes.GROUP) {
+    const parent = core.getElementData(parentId)
+    if (parent?.type !== EntityTypes.GROUP) {
       return null
     }
     targetIndex = getElementChildren(parent).length
@@ -232,12 +230,12 @@ export const elementApis = {
     const orderedIds = getWorkspaceOrderedElementIds()
     for (let i = orderedIds.length - 1; i >= 0; i -= 1) {
       const elementId = orderedIds[i]
-      const element = sceneTree.getElementById(elementId)
+      const element = core.getElementData(elementId)
       if (!element) {
         continue
       }
 
-      const type = element.get('type')
+      const type = element.type
       if (type === EntityTypes.WORKSPACE) {
         continue
       }
@@ -257,12 +255,12 @@ export const elementApis = {
 
     const orderedIds = getWorkspaceOrderedElementIds()
     return orderedIds.filter((elementId) => {
-      const element = sceneTree.getElementById(elementId)
+      const element = core.getElementData(elementId)
       if (!element) {
         return false
       }
 
-      if (element.get('type') === EntityTypes.WORKSPACE) {
+      if (element.type === EntityTypes.WORKSPACE) {
         return false
       }
 
@@ -276,11 +274,7 @@ export const elementApis = {
   },
 
   getElementIdAtClientPos: (clientPos: PositionData): string | null => {
-    if (!render) {
-      return null
-    }
-
-    const renderHit = render.getElementIdAtClientPos(clientPos)
+    const renderHit = core.getElementIdAtClientPos(clientPos)
     if (renderHit) {
       return renderHit
     }
@@ -292,20 +286,20 @@ export const elementApis = {
   },
 
   getRenderElementIdAtClientPos: (clientPos: PositionData): string | null => {
-    return render?.getElementIdAtClientPos(clientPos) ?? null
+    return core.getElementIdAtClientPos(clientPos)
   },
 
   getElementType: (elementId: string): string | undefined => {
-    return sceneTree.getElementById(elementId)?.get('type')
+    return core.getElementData(elementId)?.type
   },
 
   isElementLocked: (elementId: string): boolean => {
-    const lockValue = sceneTree.getElementById(elementId)?.get('lock')
+    const lockValue = core.getElementData(elementId)?.lock
     return lockValue === true
   },
 
   isElementVisible: (elementId: string): boolean => {
-    const visibleValue = sceneTree.getElementById(elementId)?.get('visible')
+    const visibleValue = core.getElementData(elementId)?.visible
     return visibleValue !== false
   },
 
@@ -326,39 +320,33 @@ export const elementApis = {
   },
 
   toggleElementLock: (elementId: string, options?: EVENT_OPTIONS): boolean => {
-    const element = sceneTree.getElementById(elementId)
-    if (!element || element.get('type') === EntityTypes.WORKSPACE) {
+    const element = core.getElementData(elementId)
+    if (!element || element.type === EntityTypes.WORKSPACE) {
       return false
     }
 
-    return setElementFlag(elementId, 'lock', !element.get('lock'), options)
+    return setElementFlag(elementId, 'lock', !element.lock, options)
   },
 
   toggleElementVisible: (
     elementId: string,
     options?: EVENT_OPTIONS
   ): boolean => {
-    const element = sceneTree.getElementById(elementId)
-    if (!element || element.get('type') === EntityTypes.WORKSPACE) {
+    const element = core.getElementData(elementId)
+    if (!element || element.type === EntityTypes.WORKSPACE) {
       return false
     }
 
-    return setElementFlag(
-      elementId,
-      'visible',
-      !element.get('visible'),
-      options
-    )
+    return setElementFlag(elementId, 'visible', !element.visible, options)
   },
 
   getElementBounds: (elementId: string): ElementBounds | null => {
-    const element = sceneTree.getElementById(elementId)
-    if (!element) {
+    const computed = core.getElementComputedData(elementId)
+    if (!computed) {
       return null
     }
 
-    const computed = element.getAllComputedData() as Partial<ElementBounds>
-    const { x, y, width, height } = computed
+    const { x, y, width, height } = computed as Partial<ElementBounds>
 
     if (
       typeof x !== 'number' ||
@@ -374,29 +362,37 @@ export const elementApis = {
 
   getElementClientBounds: (elementId: string): ElementBounds | null => {
     const bounds = elementApis.getElementBounds(elementId)
-    const renderElement = render?.getElementById(elementId)
-    if (!bounds || !renderElement) {
+    if (!bounds || !core.hasProjectedElement(elementId)) {
       return null
     }
 
     const corners = [
-      renderElement.toGlobal({ x: 0, y: 0 }),
-      renderElement.toGlobal({ x: bounds.width, y: 0 }),
-      renderElement.toGlobal({ x: bounds.width, y: bounds.height }),
-      renderElement.toGlobal({ x: 0, y: bounds.height })
-    ]
-    const values = corners.flatMap(({ x, y }) => [x, y])
+      { x: 0, y: 0 },
+      { x: bounds.width, y: 0 },
+      { x: bounds.width, y: bounds.height },
+      { x: 0, y: bounds.height }
+    ].map((point) => {
+      const workspacePoint = core.elementLocalToWorkspace(elementId, point)
+      return workspacePoint
+        ? viewportApis.getCanvasPositionFromWorkspace(workspacePoint)
+        : null
+    })
+    if (corners.some((point) => point === null)) {
+      return null
+    }
+    const resolvedCorners = corners as PositionData[]
+    const values = resolvedCorners.flatMap(({ x, y }) => [x, y])
     if (values.some((value) => !Number.isFinite(value))) {
       return null
     }
 
-    const canvasBounds = render?.app?.canvas?.getBoundingClientRect()
+    const canvasBounds = core.getCanvasBounds()
     const canvasLeft = canvasBounds?.left ?? 0
     const canvasTop = canvasBounds?.top ?? 0
-    const minX = Math.min(...corners.map(({ x }) => x)) + canvasLeft
-    const minY = Math.min(...corners.map(({ y }) => y)) + canvasTop
-    const maxX = Math.max(...corners.map(({ x }) => x)) + canvasLeft
-    const maxY = Math.max(...corners.map(({ y }) => y)) + canvasTop
+    const minX = Math.min(...resolvedCorners.map(({ x }) => x)) + canvasLeft
+    const minY = Math.min(...resolvedCorners.map(({ y }) => y)) + canvasTop
+    const maxX = Math.max(...resolvedCorners.map(({ x }) => x)) + canvasLeft
+    const maxY = Math.max(...resolvedCorners.map(({ y }) => y)) + canvasTop
 
     return {
       x: minX,
@@ -431,26 +427,23 @@ export const elementApis = {
       return null
     }
 
-    if (parentId === sceneTree.workspace) {
+    if (parentId === core.getCurrentWorkspaceId()) {
       return {
         x: workspacePosition.x,
         y: workspacePosition.y
       }
     }
 
-    const parent = sceneTree.getElementById(parentId)
-    if (parent?.get('type') !== EntityTypes.GROUP) {
+    const parent = core.getElementData(parentId)
+    if (parent?.type !== EntityTypes.GROUP) {
       return null
     }
 
-    const renderParent = render?.getElementById(parentId)
-    if (!renderParent) {
-      return null
-    }
-
-    const canvasPosition =
-      viewportApis.getCanvasPositionFromWorkspace(workspacePosition)
-    const localPosition = renderParent.toLocal(canvasPosition)
+    const localPosition = core.workspaceToElementLocal(
+      parentId,
+      workspacePosition
+    )
+    if (!localPosition) return null
     if (
       !Number.isFinite(localPosition.x) ||
       !Number.isFinite(localPosition.y)
@@ -485,11 +478,7 @@ export const elementApis = {
   },
 
   getMousePosInWorkspace: (clientPos: { x: number; y: number }) => {
-    if (!render) {
-      return null
-    }
-
-    return render.getMousePosInWorkspace({
+    return core.getMousePosInWorkspace({
       clientX: clientPos.x,
       clientY: clientPos.y
     })
@@ -524,12 +513,13 @@ export const elementApis = {
       return []
     }
     if (createOptions.every(({ type }) => type === 'vector')) {
-      const parentId = createOptions[0].parentId ?? sceneTree.workspace
+      const parentId = createOptions[0].parentId ?? core.getCurrentWorkspaceId()
       if (
         !parentId ||
         createOptions.some(
           (elementOptions) =>
-            (elementOptions.parentId ?? sceneTree.workspace) !== parentId
+            (elementOptions.parentId ?? core.getCurrentWorkspaceId()) !==
+            parentId
         )
       ) {
         return createOptions.map(() => null)
@@ -562,8 +552,8 @@ export const elementApis = {
       Number.isFinite(createOptions.workspacePosition.y)
     ) {
       workspacePos = createOptions.workspacePosition
-    } else if (render && createOptions.clientPosition) {
-      workspacePos = render.getMousePosInWorkspace({
+    } else if (createOptions.clientPosition) {
+      workspacePos = core.getMousePosInWorkspace({
         clientX: createOptions.clientPosition.x,
         clientY: createOptions.clientPosition.y
       })
@@ -571,7 +561,7 @@ export const elementApis = {
     if (!workspacePos) {
       return null
     }
-    const parentId = createOptions.parentId ?? sceneTree.workspace
+    const parentId = createOptions.parentId ?? core.getCurrentWorkspaceId()
 
     const initialData: Record<string, DataTypes> = {
       fills: createOptions.fills ?? getDefaultFillsForType(createOptions.type)
@@ -598,8 +588,8 @@ export const elementApis = {
   },
 
   deleteElement: (elementId: string, options?: EVENT_OPTIONS): boolean => {
-    const element = sceneTree.getElementById(elementId)
-    if (!element || element.get('type') === EntityTypes.WORKSPACE) {
+    const element = core.getElementData(elementId)
+    if (!element || element.type === EntityTypes.WORKSPACE) {
       return false
     }
 
@@ -651,7 +641,7 @@ export const elementApis = {
     runTransaction(() => {
       const propertyUpdates: {
         elementId: string
-        values: PositionData
+        values: Readonly<Record<string, unknown>>
       }[] = []
 
       entries.forEach(([elementId, position]) => {
@@ -694,15 +684,11 @@ export const elementApis = {
     clientCurrentPos: { x: number; y: number },
     threshold: number
   ) => {
-    if (!render) {
-      return false
-    }
-
-    const dragStartWorkspace = render.getMousePosInWorkspace({
+    const dragStartWorkspace = core.getMousePosInWorkspace({
       clientX: clientDragStart.x,
       clientY: clientDragStart.y
     })
-    const currentWorkspace = render.getMousePosInWorkspace({
+    const currentWorkspace = core.getMousePosInWorkspace({
       clientX: clientCurrentPos.x,
       clientY: clientCurrentPos.y
     })

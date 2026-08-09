@@ -33,8 +33,10 @@ export type {
 } from './define-property-component.js'
 export {
   defineFeature,
+  cancelFeatureTask,
   FeatureUnregisterError,
   getFeature,
+  invokeFeatureTask,
   unregisterFeature
 } from '@asyra/feature-system'
 export {
@@ -147,6 +149,13 @@ export {
   unregisterSharedDataChannel,
   hasSharedDataChannel
 } from '@asyra/factory'
+export type {
+  FactoryMutationDeliverySequence,
+  SharedPublication,
+  SharedPublicationBatch,
+  SharedPublicationDelivery,
+  SharedPublicationSlice
+} from '@asyra/factory'
 export {
   EventTypes,
   defineEvent,
@@ -162,13 +171,29 @@ export {
   subscribeToTransactionStatusChanged,
   subscribeToSelectElements,
   subscribeToSelectVectorPoints,
-  subscribeToSelectVectorSegments
+  subscribeToSelectVectorSegments,
+  subscribeToEventBatches,
+  subscribeToAddElement,
+  subscribeToRemoveElement,
+  subscribeToSceneTreeLoadComplete,
+  subscribeToUndo,
+  subscribeToRedo,
+  subscribeToUserActionCompleted,
+  undoWithRenderPolicy,
+  redoWithRenderPolicy,
+  settleCooperativeRenderSlice,
+  waitForCooperativePaint,
+  yieldToCooperativeHost
 } from '@asyra/reactive-events'
 export type {
+  AddElementEvent,
+  AllEvent,
   EventDefinition,
+  RemoveElementEvent,
   SelectElementsEvent,
   SelectVectorPointsEvent,
-  SelectVectorSegmentsEvent
+  SelectVectorSegmentsEvent,
+  CooperativeRenderOptions
 } from '@asyra/reactive-events'
 export type {
   EndTransactionOptions,
@@ -250,10 +275,17 @@ export type {
   CanonicalChange,
   CanonicalChangeAPIs
 } from './types/canonical-changes.js'
+export type {
+  ApplyRemoteCanonicalChangeSlicesInput,
+  CoreCollaborationBridge,
+  CoreCollaborationPreparation,
+  CoreCollaborationSession
+} from './types/app-runtime.js'
 export type { PropertyComponentValuesUpdate } from './types/props.js'
 type CoreBasicApiKeys =
   | 'setRenderer'
   | 'destroyRenderer'
+  | 'destroy'
   | 'setRenderEngineProvider'
   | 'hasRenderEngineProvider'
   | 'isCompositionOpen'
@@ -265,6 +297,38 @@ type CoreBasicApiKeys =
   | 'start'
   | 'load'
   | 'save'
+  | 'registerCollaborationSession'
+  | 'registerInputKeyCombinations'
+  | 'getElementData'
+  | 'getCurrentWorkspaceId'
+  | 'getAllElementData'
+  | 'getCanonicalElementCount'
+  | 'getCanonicalOwnerSnapshot'
+  | 'projectLocalComputedDataForElements'
+  | 'updateElementData'
+  | 'getSelectedElementIds'
+  | 'getSystemContextSnapshot'
+  | 'getCanvas'
+  | 'setCanvasCursor'
+  | 'getCanvasBounds'
+  | 'getViewportPosition'
+  | 'getViewportScale'
+  | 'getMousePosInWorkspace'
+  | 'workspaceToCanvas'
+  | 'getElementIdAtClientPos'
+  | 'workspaceToElementLocal'
+  | 'elementLocalToWorkspace'
+  | 'elementSourceToWorkspace'
+  | 'workspaceToElementSource'
+  | 'getProjectedElementCount'
+  | 'hasProjectedElement'
+  | 'subscribeToFrameComplete'
+  | 'getUndoHistoryDepth'
+  | 'subscribeToSharedPublication'
+  | 'subscribeToTransactionStatus'
+  | 'observeSharedDataChannel'
+  | 'configureSharedDeliverySequence'
+  | 'applyRemoteCanonicalChangeSlices'
   | 'getPresetDependencies'
 
 type CoreExtensionApiKeys =

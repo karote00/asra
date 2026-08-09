@@ -1,6 +1,6 @@
-import inputSystem from '@asyra/input-system'
 import { keyCombinations } from '../../config/key-combinations'
+import core from '../../contexts'
 
 export const initInputSystem = () => {
-  inputSystem.registry.registerKeyCombinations(keyCombinations)
+  return core.registerInputKeyCombinations(keyCombinations)
 }
