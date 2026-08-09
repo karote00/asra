@@ -3324,6 +3324,24 @@ test('keeps two connected Actors converged through one complete high-detail cat 
         ).length
       }
     }
+    const waitForPublicationProcessing = async (
+      baseline: Awaited<ReturnType<typeof readPublicationCounts>>,
+      timeout: number
+    ) => {
+      const afterSourceSettlement = await readPublicationCounts()
+      const publicationWindows = afterSourceSettlement.sent - baseline.sent
+      await expect
+        .poll(
+          async () =>
+            (await readPublicationCounts()).processed - baseline.processed,
+          { timeout }
+        )
+        .toBe(publicationWindows)
+      return {
+        counts: await readPublicationCounts(),
+        publicationWindows
+      }
+    }
     const publicationBaseline = await readPublicationCounts()
     const maxHighDetailPublicationWindows = 16
     await openAgent(actorA)
@@ -3364,6 +3382,13 @@ test('keeps two connected Actors converged through one complete high-detail cat 
         creationStartedAt + HIGH_DETAIL_ACTOR_B_CREATION_TIMEOUT_MS - Date.now()
       )
     )
+    const creationPublicationSettlement = await waitForPublicationProcessing(
+      publicationBaseline,
+      Math.max(
+        1,
+        creationStartedAt + HIGH_DETAIL_ACTOR_B_CREATION_TIMEOUT_MS - Date.now()
+      )
+    )
     evidence.creationConvergenceMs = Date.now() - creationStartedAt
     expect(evidence.creationConvergenceMs).toBeLessThanOrEqual(
       HIGH_DETAIL_ACTOR_B_CREATION_TIMEOUT_MS
@@ -3372,9 +3397,9 @@ test('keeps two connected Actors converged through one complete high-detail cat 
     expect(evidence.creationTotalDurationMs).toBeLessThanOrEqual(
       HIGH_DETAIL_TOTAL_CREATION_TIMEOUT_MS
     )
-    const afterCreationPublicationCounts = await readPublicationCounts()
+    const afterCreationPublicationCounts = creationPublicationSettlement.counts
     const creationPublicationWindows =
-      afterCreationPublicationCounts.sent - publicationBaseline.sent
+      creationPublicationSettlement.publicationWindows
     expect(creationPublicationWindows).toBeGreaterThan(1)
     expect(creationPublicationWindows).toBeLessThanOrEqual(
       maxHighDetailPublicationWindows
@@ -3451,13 +3476,16 @@ test('keeps two connected Actors converged through one complete high-detail cat 
       0,
       Math.max(1, undoStartedAt + HIGH_DETAIL_HISTORY_TIMEOUT_MS - Date.now())
     )
+    const undoPublicationSettlement = await waitForPublicationProcessing(
+      afterCreationPublicationCounts,
+      Math.max(1, undoStartedAt + HIGH_DETAIL_HISTORY_TIMEOUT_MS - Date.now())
+    )
     evidence.undoConvergenceMs = Date.now() - undoStartedAt
     expect(evidence.undoConvergenceMs).toBeLessThanOrEqual(
       HIGH_DETAIL_HISTORY_TIMEOUT_MS
     )
-    const afterUndoPublicationCounts = await readPublicationCounts()
-    const undoPublicationWindows =
-      afterUndoPublicationCounts.sent - afterCreationPublicationCounts.sent
+    const afterUndoPublicationCounts = undoPublicationSettlement.counts
+    const undoPublicationWindows = undoPublicationSettlement.publicationWindows
     expect(undoPublicationWindows).toBeGreaterThan(1)
     expect(undoPublicationWindows).toBeLessThanOrEqual(
       maxHighDetailPublicationWindows
@@ -3523,13 +3551,16 @@ test('keeps two connected Actors converged through one complete high-detail cat 
       7076,
       Math.max(1, redoStartedAt + HIGH_DETAIL_HISTORY_TIMEOUT_MS - Date.now())
     )
+    const redoPublicationSettlement = await waitForPublicationProcessing(
+      afterUndoPublicationCounts,
+      Math.max(1, redoStartedAt + HIGH_DETAIL_HISTORY_TIMEOUT_MS - Date.now())
+    )
     evidence.redoConvergenceMs = Date.now() - redoStartedAt
     expect(evidence.redoConvergenceMs).toBeLessThanOrEqual(
       HIGH_DETAIL_HISTORY_TIMEOUT_MS
     )
-    const afterRedoPublicationCounts = await readPublicationCounts()
-    const redoPublicationWindows =
-      afterRedoPublicationCounts.sent - afterUndoPublicationCounts.sent
+    const afterRedoPublicationCounts = redoPublicationSettlement.counts
+    const redoPublicationWindows = redoPublicationSettlement.publicationWindows
     expect(redoPublicationWindows).toBeGreaterThan(1)
     expect(redoPublicationWindows).toBeLessThanOrEqual(
       maxHighDetailPublicationWindows
