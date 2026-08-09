@@ -71,14 +71,26 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
   earlier stage.
 - Reference: `docs/ai/framework/rules/release-version-topology.md`
 
-3. Asyra Framework marketing and documentation website
+3. Asyra Framework public documentation and website program
 
-- Build the public Next.js/Tailwind documentation experience after public
-  package and create-app contracts are stable.
-- Include the landing page, developer docs/tutorials, examples, and the
-  verified Asyra Design case study and deployment link.
-- Reference:
-  `docs/ai/framework/plans/asyra-framework-website-plan.md`
+- Public package documentation and executable examples may proceed in parallel
+  with release preparation when they do not delay or take ownership of the
+  mandatory README release work.
+- Build the public Next.js/Tailwind website experience after public package and
+  create-app contracts are stable by default. Parallel UI work against a release
+  candidate requires a separate explicit user decision.
+- Execute the program through its seven bounded child plans; complete visual
+  reimagine before composed UI, keep Runtime Atlas separate from ordinary site
+  work, and keep production deployment separately authorized.
+- Program and child plans:
+  - `docs/ai/framework/plans/asyra-framework-website-plan.md`
+  - `docs/ai/framework/plans/asyra-public-package-documentation-plan.md`
+  - `docs/ai/framework/plans/asyra-executable-examples-plan.md`
+  - `docs/ai/framework/plans/asyra-website-visual-reimagine-plan.md`
+  - `docs/ai/framework/plans/asyra-website-platform-and-docs-plan.md`
+  - `docs/ai/framework/plans/asyra-website-landing-page-plan.md`
+  - `docs/ai/framework/plans/asyra-runtime-atlas-plan.md`
+  - `docs/ai/framework/plans/asyra-website-launch-and-operations-plan.md`
 
 ## Post-Release Roadmap
 

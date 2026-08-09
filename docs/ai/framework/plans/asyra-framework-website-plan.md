@@ -1,233 +1,236 @@
-# Asyra Framework Website Plan
+# Asyra Framework Website Program Plan
 
 ## Status
 
-Queued after the first stable Framework package and
-`create-asyra-design-app` release contracts are publicly verifiable.
+This is the umbrella plan for the public Asyra documentation and website
+program. It defines product meaning, workstream ownership, dependencies, and
+program-level acceptance. Detailed implementation belongs only to the child
+plans listed below.
 
-Implementation may begin only after the product content contract and website
-Inspector define page ownership, public documentation sources, navigation,
-examples, deployment target, and acceptance gates.
+Public documentation and executable-example work may proceed in parallel with
+release preparation when it does not delay or take ownership of release work.
+Website UI implementation is queued by default until the stable Framework
+packages and `create-asyra-design-app` contracts are publicly verifiable.
+Starting UI implementation against a release candidate requires a separate
+explicit user decision and one exact reviewed artifact set.
 
-## Goal
+README renewal remains a separate mandatory release task. This program neither
+owns nor completes the root, package, Asyra Design, CLI, or generated-app README
+updates.
 
-Build a production-ready dark-mode marketing and documentation website for
-Asyra, the Canvas Tool Framework. The site must introduce the Framework,
-provide developer documentation and tutorials, present working examples, and
-explain how Asyra Design is built with Asyra.
+## Product Definition
 
-## Technology Contract
+Asyra is a deterministic execution kernel and modular infrastructure for
+declarative information-modeling products. Products may be visual, headless,
+or both. A machine-facing product may exist primarily so AI systems and other
+app-owned services can retrieve information and execute registered actions
+without any Render or UI dependency.
 
-- Next.js 14 or newer with App Router.
-- TypeScript in strict mode.
-- Tailwind CSS.
-- Lucide React.
-- Responsive, accessible, production-oriented implementation.
-- High-performance SVG/CSS visualizations.
+Asyra is not limited to design tools or canvas products. Apps may use it to
+build design tools, whiteboards, BIM systems, VR experiences, industrial
+digital twins, 4D simulations, AI-facing information systems, or domains not
+anticipated by the Framework. These are possible app-owned domains, not
+turnkey capabilities claimed by the initial Framework release.
 
-The user has selected these primary technologies. Any additional third-party
-dependency, hosted search service, analytics provider, CMS, binary, or
-toolchain upgrade still requires explicit approval.
+The public story must preserve these ownership boundaries:
 
-## Visual Direction
+- Framework owns deterministic runtime contracts, transaction boundaries,
+  canonical state owners, validation, registration, and replaceable provider
+  or output boundaries without knowing the app domain.
+- Preset owns selectable official public defaults and profile policy. Its
+  current design-tool-oriented catalog is an optional public baseline, not
+  Framework domain knowledge.
+- Apps own domain knowledge, schemas, behavior, physical or business rules,
+  search and index policy, permissions, workflows, backends, and custom
+  engines.
+- Human, UI, automation, AI, device, and external command intent enters the
+  same Feature -> API -> canonical-state model. Rendering, UI, serialization,
+  search, and other consumers are downstream projections or integrations.
 
-- Pure dark mode.
-- Page background: `#030712` / Tailwind `gray-950`.
-- Primary text: `#F9FAFB` / `gray-50`.
-- Secondary text: `#9CA3AF` / `gray-400`.
-- Accent and primary action color: `#10B981` / emerald.
-- Minimal developer aesthetic inspired by shadcn/ui, Vercel, and Supabase.
-- Thin `gray-800` borders and restrained elevation.
-- Subtle dot-matrix or grid background suggesting a canvas.
-- Sans-serif headings and a technical monospace face such as Fira Code or
-  JetBrains Mono for code and labels.
-- Motion must remain optional, accessible, and inexpensive.
+## Program Goal
 
-## Proposed Ownership
+Deliver a distinctive, trustworthy public learning and product-evaluation
+surface that:
 
-- New website workspace: `apps/asyra-framework-site` unless the implementation
-  readiness review selects a clearer repository owner.
-- Framework public documentation remains the semantic authority for package
-  behavior.
-- Website content owns public presentation, navigation, tutorials, SEO, and
-  examples; it must not invent new API or support contracts.
-- Asyra Design docs remain authoritative for app-specific behavior.
-- The website may curate and transform approved public content, but must have a
-  deterministic drift check back to canonical source documents.
-- Asyra Design deployment URL is linked only after a canonical public URL is
-  explicitly recorded; do not invent or infer one from local Vercel metadata.
+- supports engineers, product teams, and non-engineers working with AI coding
+  agents;
+- offers `create-asyra-design-app` as the working-product beginner entry and
+  small Framework examples as the kernel-learning entry;
+- documents every public Framework package without turning README files into
+  complete manuals;
+- keeps supported examples executable and version-aligned;
+- lets visitors operate and inspect the real Framework through the required
+  Asyra Runtime Atlas;
+- explains Asyra Design as a reference product without making it the semantic
+  owner of Framework behavior; and
+- distinguishes verified capabilities, app-owned possibilities, and roadmap
+  work without overclaiming.
 
-## Required Pages
+## Workstream Ownership
 
-### Landing page
+The program is split into seven independently reviewable child plans:
 
-Route: `app/page.tsx`.
+1. [Public Package Documentation](asyra-public-package-documentation-plan.md)
+   owns durable public guides, information architecture, package reference,
+   AI-readable content, and semantic case-study content.
+2. [Executable Examples](asyra-executable-examples-plan.md) owns maintained
+   sample code and the formal gates that prove documented flows still work.
+3. [Visual Reimagine](asyra-website-visual-reimagine-plan.md) owns generated
+   concepts, interaction and motion direction, responsive states, and the
+   accepted visual specification before composed UI code.
+4. [Website Platform and Documentation Experience](asyra-website-platform-and-docs-plan.md)
+   owns the site workspace, content adapter, documentation shell, search,
+   reference/release surfaces, and common web foundations.
+5. [Landing Page and Product Narrative](asyra-website-landing-page-plan.md) owns
+   the homepage implementation and its interactive product story.
+6. [Asyra Runtime Atlas](asyra-runtime-atlas-plan.md) owns the real-runtime
+   interactive lab, its six required executable cases, and runtime evidence.
+7. [Launch and Operations](asyra-website-launch-and-operations-plan.md) owns
+   Preview closure and, only after explicit authorization, production
+   deployment and post-deployment verification.
 
-Required sections:
+Asyra Design does not require a separate child plan. The public-documentation
+workstream owns its source-linked semantic case-study content; website
+workstreams own presentation of that approved content.
 
-1. hero with product name, concise value proposition, primary documentation
-   CTA, secondary example CTA, and copyable `npm create` command;
-2. interactive architecture flow with hover/focus explanations;
-3. four-card feature grid:
-   - Information Model;
-   - Modules;
-   - Collaboration;
-   - AI-Native;
-4. short code-first getting-started section;
-5. Asyra Design reference example with verified Vercel link;
-6. release/runtime support statement;
-7. footer with documentation, repository, security, license, and release links.
+## External Release Dependency
 
-### Documentation shell
+The separate release task owns all README updates and their generation paths,
+including the root repository's no-issues and no-external-contributions
+declaration. Release must not wait for the website, but it must not omit those
+README updates.
 
-Route: `app/docs/[[...slug]]/page.tsx`.
+This program may consume only reviewed public documentation and verified
+manifest, artifact, registry, or deployment facts. If a required release fact
+is not verifiable, the dependent website surface stops rather than editing the
+release-owned README or inventing the fact.
 
-Desktop layout:
+## Shared Audience and Entry Paths
 
-1. left navigation sidebar;
-2. prose-styled main document;
-3. right table of contents.
+### Start from a working product
 
-Responsive behavior:
+`create-asyra-design-app` is the recommended beginner entry for someone who
+wants an immediately usable product foundation and will extend it directly or
+with an AI coding agent. Public guides must show what is generated, which
+services are optional or required for each flow, which behavior belongs to the
+App versus Framework, and how to make one bounded extension through public
+APIs.
 
-- mobile navigation drawer;
-- readable single-column content;
-- accessible on-page table of contents;
-- persistent search affordance only if a no-new-service implementation is
-  accepted or an external service is separately approved.
+### Learn the Framework
 
-## Documentation Information Architecture
+Small examples and the Runtime Atlas teach information modeling, intent
+routing, ownership, transactions, validation, projection, and replaceable
+boundaries without requiring the complete Asyra Design service stack.
 
-Minimum first-release sections:
+### Compose a custom product
 
-1. Introduction
-   - What Asyra is
-   - Why declarative information modeling
-   - Supported environments
-2. Getting Started
-   - Install packages
-   - Create Asyra Design app
-   - Initialize Core and Preset 2D
-3. Core Concepts
-   - Information model
-   - Features and input
-   - Transactions and undo/redo
-   - Validation and persistence migration
-   - Render and engine boundaries
-4. Modules
-   - Core
-   - Factory
-   - Feature/Input/Reactive Events
-   - Props/Scene Tree/Selection/System/UI Context
-   - Render Engine and Pixi provider
-   - Preset
-5. Optional Capabilities
-   - Collaboration
-   - AI Agent Runtime
-   - explicit disabled-side-effect guarantees
-6. Guides and Tutorials
-   - custom component
-   - custom property
-   - transaction-safe feature
-   - save/load migration
-   - Group operations
-   - opt-in Collaboration
-   - opt-in AI action plan
-7. Examples
-   - headless Core consumer
-   - Preset 2D consumer
-   - Asyra Design
-8. API and Release
-   - public entrypoints
-   - support matrix
-   - migration/deprecation
-   - security and release notes
+Experienced consumers may begin with public Framework packages, headless Core,
+Preset `2D`, or profile `CUSTOM`. Headless products whose only consumers are
+app-owned services, automation, or AI retrieval and actions remain first-class.
 
-## Asyra Design Case Study
+## Shared Preset Contract
 
-The example must explain, with source-linked diagrams and code excerpts:
+- The current catalog provides eight design-tool-oriented defaults as an
+  optional public baseline.
+- `applyPreset(core)` provides the complete official quick-start default set.
+- Apps may select only required defaults; Preset expands public dependencies
+  deterministically and installs nothing outside that closure.
+- `defaults: []` installs no official product defaults.
+- Apps may remove relations, unregister complete capabilities, redefine the
+  supported property-type boundary, and install replacements before the first
+  `core.start()`.
+- The supported `2D` profile binds the official Pixi provider; `CUSTOM` leaves
+  engine ownership to the App.
+- Preset never infers the app domain or becomes a second behavior owner.
 
-- initialization and Preset composition;
-- app-owned features and common APIs;
-- property, Scene Tree, Selection, transaction, undo/redo, and load paths;
-- replaceable rendering through the official 2D provider;
-- optional Collaboration lifecycle and convergence;
-- optional AI action planning through registered app actions;
-- server/document persistence ownership;
-- how disabled optional systems remain inert;
-- which behavior belongs to Framework, Preset, and Asyra Design.
+## Cross-Plan Handoff Contract
 
-The case study must link to the verified deployed Asyra Design example and its
-canonical repository documentation.
+- Canonical `docs/ai/framework/*` and `docs/ai/apps/asyra-design/*` contracts
+  remain semantic authority; public pages curate them through explicit source
+  mappings.
+- Public package documentation supplies the approved semantic content bundle.
+- Executable examples supply maintained code and machine-verifiable expected
+  behavior. Public pages link to or extract from those examples rather than
+  copy unsupported variants.
+- Visual Reimagine supplies the accepted visual and motion specification. It
+  cannot change product semantics.
+- The site platform transforms approved content for presentation but cannot
+  silently rewrite its meaning.
+- Landing and Runtime Atlas consume the common platform and accepted visual
+  direction without becoming owners of package or release facts.
+- Launch and Operations accepts only a completed Preview; it cannot waive
+  failed product, content, visual, accessibility, or runtime gates.
+- Package versions, exports, support data, and release inventory derive from
+  manifests, artifacts, and release records rather than hand-written prose.
 
-## Interactive Architecture Diagram
+## Program Sequence
 
-The landing diagram should visualize:
+1. Freeze the public positioning and the child-plan boundaries.
+2. Build and verify public package documentation and executable examples.
+3. Produce and accept the image-first visual reimagine and motion direction.
+4. Freeze exact approved website toolchain versions and implement the common
+   platform and documentation experience.
+5. Implement Landing and Runtime Atlas as separate owner slices.
+6. Integrate approved Asyra Design, release, roadmap, and support content.
+7. Close a verified Preview across all workstreams.
+8. Obtain explicit production-deployment authorization and execute the launch
+   plan.
 
-`Input / UI / Command -> Feature -> Public API -> Canonical State -> Render/UI`
+Before implementation of any child plan, that task must have its own thin
+product/content contract, exact flow Inspector, executable product cases, and
+bounded Definition of Done. One child plan cannot borrow another plan's
+Inspector to authorize its edits.
 
-Hover and keyboard focus reveal ownership, inputs, outputs, and example package
-names. The diagram must:
+## Program Quality Gates
 
-- use semantic HTML plus SVG/CSS;
-- work without pointer hover;
-- avoid canvas/WebGL for basic navigation;
-- respect reduced motion;
-- remain readable on mobile;
-- never represent AI, Collaboration, or Render as canonical state owners.
-
-## Implementation Stages
-
-1. Freeze public content contract and site map.
-2. Create the website Inspector and executable page/content cases.
-3. Establish Next.js, TypeScript, Tailwind, fonts, tokens, layout, metadata, and
-   test foundation.
-4. Implement shared header, footer, docs shell, navigation, prose, code blocks,
-   and table of contents.
-5. Implement landing page and interactive architecture diagram.
-6. Author Getting Started, concepts, module, guide, API, release, and
-   Asyra Design case-study content.
-7. Add verified example and repository links.
-8. Add accessibility, responsive, SEO, sitemap, robots, performance, and
-   visual-regression coverage.
-9. Create an isolated Vercel preview and verify routes, assets, metadata,
-   navigation, and performance.
-10. Review content drift and obtain explicit production deployment authority.
-
-## Quality Gates
-
-- strict TypeScript and production build;
-- lint and tests;
-- route and broken-link validation;
-- code sample compilation where practical;
-- keyboard navigation, focus order, landmarks, contrast, reduced motion, and
-  responsive behavior;
-- Lighthouse-style performance, accessibility, best-practice, and SEO budgets
-  defined before implementation;
-- visual review at mobile, tablet, and desktop widths;
-- no invented package version, API, support statement, deployment URL, or
-  roadmap capability;
-- no exposure of secrets, internal-only operational docs, or private endpoints.
+- all child-plan acceptance gates pass against the same release inventory;
+- every public behavior or support claim resolves to a canonical source;
+- every supported code flow resolves to an executable maintained example or
+  an approved API-reference source;
+- no public runtime surface imports package-private source or unpublished
+  package paths;
+- visible, headless, Preset, App-owned domain, AI-assisted, and optional-system
+  boundaries remain consistent across documentation, Landing, and Atlas;
+- route, anchor, search, source mapping, version, and broken-link checks pass;
+- keyboard, touch, focus, responsive, reduced-motion, contrast, performance,
+  and synchronized visual-review gates pass;
+- exact registry-only onboarding and clean-consumer flows pass before final
+  public release claims; and
+- the website program has not mutated or taken ownership of release README
+  artifacts.
 
 ## Stop Conditions
 
-- Public package/create-app version contracts are not stable.
-- Canonical public documentation sources are ambiguous.
-- The site requires an unapproved dependency, CMS, analytics, hosted search, or
-  external asset license.
-- The Asyra Design public deployment URL is unavailable or unverified.
-- A page or diagram contradicts Framework/App ownership.
-- Required accessibility, build, route, content, or performance gates fail.
+- A child workstream has no exact owner, Inspector, executable cases, or bounded
+  acceptance contract.
+- Product language presents Asyra as only a canvas or design-tool framework,
+  requires Render/UI for canonical behavior, or presents possible app domains
+  as built-in Framework capabilities.
+- Preset is presented as mandatory or as the owner of app domain behavior.
+- Release-owned README or manifest facts require repair from inside a website
+  workstream.
+- A package version, CLI command, public URL, support statement, or release
+  capability is not externally verifiable when publication depends on it.
+- A workstream requires an unapproved dependency, hosted service, analytics,
+  CMS, external asset license, binary, or runtime upgrade.
+- Any implementation diverges from the accepted content or visual handoff.
+- A required child or program gate fails.
 
 ## Definition of Done
 
-- Landing and documentation routes are complete, responsive, accessible, and
+- All seven child plans are complete against one verified release inventory.
+- The public experience explains Asyra as infrastructure for visible and
+  non-visible information-modeling products without overstating built-ins.
+- Every public package has usable documentation and every supported tutorial
+  flow is backed by maintained executable evidence.
+- `create-asyra-design-app` and small Framework examples provide complementary
+  beginner paths, including one AI-assisted bounded extension.
+- Landing, documentation, examples, releases, roadmap, Asyra Design, and
+  Runtime Atlas surfaces are responsive, accessible, visually accepted, and
   production-built.
-- Developers can install Asyra, initialize a first app, follow tutorials, find
-  public APIs, and understand support/migration contracts.
-- The Asyra Design case study and verified deployment demonstrate the
-  Framework without making the app the Framework authority.
-- Content links resolve and code examples match published packages.
-- A Vercel preview passes the defined functional, visual, accessibility, SEO,
-  and performance gates.
-- Production deployment remains separately authorized.
+- The Atlas proves real public intent, transaction, canonical owner,
+  projection, optional-composition, failure, and headless paths.
+- Preview closure passes before any production write.
+- Production deployment is complete only after separate explicit authority and
+  deployed verification; publication, tagging, and unrelated release actions
+  remain separately authorized.
