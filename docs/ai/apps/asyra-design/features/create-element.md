@@ -49,6 +49,10 @@
   transform and apply geometry via `elementApis.changeElementGeometry` with
   `sharedDelivery: 'immediate'`; each applied input update uses the complete
   canonical shared pipeline without ending the outer session transaction
+- stage every applied geometry sample under the same local
+  `create-element:geometry` `replace-latest` History key; retain the first
+  owner-issued before bundle and only the latest complete after bundle instead
+  of appending the complete pointer path to Undo History
 - update only the created child; do not normalize ancestor Group bounds,
   rebase siblings, or append Group changes after drag geometry updates
 - keep selection-overlay projection aligned with the current render-frame geometry, including rapid negative-direction drag updates
@@ -74,7 +78,11 @@
 ## Notes
 
 - intended undo grouping is one create pointer session; mousedown, applied drag
-  updates, and conditional mouseup writes remain in that one undo entry
+  updates, and conditional mouseup writes remain in that one undo entry, while
+  the drag geometry itself materializes only one final staged x/y pair rather
+  than the complete pointer path
+- `replace-latest` metadata is local History control only; every immediate drag
+  publication remains ordered and contains no staging metadata
 - one synchronous delivery action produces one publication, one Yjs update,
   and one provider send; a create pointer session may contain several of these
   delivery actions

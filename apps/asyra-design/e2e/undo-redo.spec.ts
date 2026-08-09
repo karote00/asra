@@ -369,10 +369,11 @@ test.describe('Undo/Redo Actions', () => {
 
     expect(commitSummary.stackCount).toBe(beforeSummary.count + 1)
     expect(commitSummary.noOpSelectionCount).toBe(0)
-    expect(commitSummary.updatePropertyCount).toBeGreaterThan(0)
-    expect(commitSummary.changeCount).toBeGreaterThanOrEqual(
-      commitSummary.updatePropertyCount
-    )
+    expect(commitSummary.updatePropertyCount).toBe(2)
+    expect(commitSummary.changeCount).toBeLessThan(10)
+
+    await undo(page)
+    await expect.poll(() => getElementCount(page)).toBe(0)
   })
 
   test('vector point final drag records undo without replaying the final render write', async ({

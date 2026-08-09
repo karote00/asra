@@ -127,7 +127,13 @@ describe('create-element canonical parent handoff', () => {
     expect(mocks.changeElementGeometry).toHaveBeenCalledWith(
       'new-element',
       { x: 10, y: 20, width: 30, height: 40 },
-      { sharedDelivery: 'immediate' }
+      {
+        sharedDelivery: 'immediate',
+        history: {
+          mode: 'replace-latest',
+          key: 'create-element:geometry'
+        }
+      }
     )
   })
 

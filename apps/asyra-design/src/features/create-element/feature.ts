@@ -47,6 +47,14 @@ interface CreateElementAPI {
   [key: string]: unknown
 }
 
+const CREATE_GEOMETRY_OPTIONS = {
+  sharedDelivery: 'immediate',
+  history: {
+    mode: 'replace-latest',
+    key: 'create-element:geometry'
+  }
+} as const satisfies EVENT_OPTIONS
+
 const api: CreateElementAPI = {
   createElement: (position: PositionData, type: string, parentId: string) => {
     return elementApis.createElement(
@@ -67,9 +75,11 @@ const api: CreateElementAPI = {
   ) => {
     const bounds = rectFromPoints(dragStart, currentPos)
 
-    elementApis.changeElementGeometry(elementId, bounds, {
-      sharedDelivery: 'immediate'
-    })
+    elementApis.changeElementGeometry(
+      elementId,
+      bounds,
+      CREATE_GEOMETRY_OPTIONS
+    )
     return bounds
   },
   resetElementSize: (elementId, options) => {
