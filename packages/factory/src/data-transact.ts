@@ -60,8 +60,9 @@ interface FactoryHistoryEntry {
   readonly progressiveDeliverySequence?: FactoryMutationDeliverySequence
 }
 interface ReplaceLatestHistoryStage {
-  readonly first: ReplaceLatestHistoryCandidate
-  latest: ReplaceLatestHistoryCandidate
+  readonly eventOrder: string[]
+  readonly firstEventsByKey: Map<string, UpdateTransactionEvent>
+  readonly latestEventsByKey: Map<string, UpdateTransactionEvent>
   readonly journalIndexes: Set<number>
 }
 interface JournalSharedRecordRef {
@@ -135,7 +136,6 @@ interface DataTransactCallbacks {
 import type {
   AllEvent,
   CooperativeRenderBatchOptions,
-  ReplaceLatestHistoryCandidate,
   TransactionCanonicalEvidence,
   TransactionReplayMode,
   UpdateTransactionEvent,
@@ -790,16 +790,27 @@ class DataTransact {
     if (!history && !candidate) return
     if (history?.mode !== 'replace-latest' || !candidate) return
 
-    const existing = this.replaceLatestHistoryStages.get(history.key)
-    if (existing) {
-      existing.latest = candidate
-      journalIndexes.forEach((index) => existing.journalIndexes.add(index))
-      return
+    let stage = this.replaceLatestHistoryStages.get(history.key)
+    if (!stage) {
+      stage = {
+        eventOrder: [],
+        firstEventsByKey: new Map(),
+        latestEventsByKey: new Map(),
+        journalIndexes: new Set()
+      }
+      this.replaceLatestHistoryStages.set(history.key, stage)
     }
-    this.replaceLatestHistoryStages.set(history.key, {
-      first: candidate,
-      latest: candidate,
-      journalIndexes: new Set(journalIndexes)
+    journalIndexes.forEach((index) => stage.journalIndexes.add(index))
+
+    const eventKeys =
+      candidate.eventKeys ?? candidate.events.map((_event, index) => `${index}`)
+    candidate.events.forEach((event, index) => {
+      const eventKey = eventKeys[index] as string
+      if (!stage.firstEventsByKey.has(eventKey)) {
+        stage.eventOrder.push(eventKey)
+        stage.firstEventsByKey.set(eventKey, event)
+      }
+      stage.latestEventsByKey.set(eventKey, event)
     })
   }
 
@@ -1041,10 +1052,13 @@ class DataTransact {
     firstSyntheticIndex: number
   ): TransactionJournalEntry[] {
     const entries: TransactionJournalEntry[] = []
-    stage.first.events.forEach((firstEvent, candidateIndex) => {
-      const latestEvent = stage.latest.events[
-        candidateIndex
-      ] as UpdateTransactionEvent
+    stage.eventOrder.forEach((eventKey) => {
+      const firstEvent = stage.firstEventsByKey.get(
+        eventKey
+      ) as UpdateTransactionEvent
+      const latestEvent = stage.latestEventsByKey.get(
+        eventKey
+      ) as UpdateTransactionEvent
       const payload = this.mergeReplaceLatestHistoryPayload(
         firstEvent.payload,
         latestEvent.payload

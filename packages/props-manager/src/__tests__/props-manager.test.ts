@@ -60,6 +60,7 @@ interface UpdateTransactionEvent {
   historyCandidate?: {
     readonly key: string
     readonly events: readonly UpdateTransactionEvent[]
+    readonly eventKeys?: readonly string[]
   }
   options?: {
     undoable?: boolean
@@ -6174,6 +6175,18 @@ describe('PropsManager', () => {
       })
     ])
     expect(ownerBatch?.[0]?.historyCandidate?.key).toBe('move-session')
+    expect(ownerBatch?.[0]?.historyCandidate?.eventKeys).toEqual([
+      JSON.stringify([
+        ReactiveEventsModule.EventTypes.UPDATE_PROPERTY,
+        'staged-history-position',
+        'x'
+      ]),
+      JSON.stringify([
+        ReactiveEventsModule.EventTypes.UPDATE_PROPERTY,
+        'staged-history-position',
+        'y'
+      ])
+    ])
     expect(Object.isFrozen(ownerBatch?.[0]?.historyCandidate)).toBe(true)
     expect(Object.isFrozen(ownerBatch?.[0]?.historyCandidate?.events)).toBe(
       true
@@ -6241,6 +6254,13 @@ describe('PropsManager', () => {
     })
     expect(ownerBatch?.[0]?.historyCandidate).toMatchObject({
       key: 'record-drag',
+      eventKeys: [
+        JSON.stringify([
+          ReactiveEventsModule.EventTypes.UPDATE_PROPERTY,
+          child.get('id'),
+          'value'
+        ])
+      ],
       events: [
         expect.objectContaining({
           payload: expect.objectContaining({

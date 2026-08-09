@@ -1,6 +1,7 @@
 ---
 "@asyra/factory": patch
 "@asyra/props-manager": patch
+"@asyra/reactive-events": patch
 ---
 
 Keep continuous property drags in one bounded History action while preserving

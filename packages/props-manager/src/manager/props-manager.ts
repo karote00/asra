@@ -5361,14 +5361,29 @@ class PropsManager {
         canonicalEvidence
       }
     }
+    const replaceLatestHistoryEvidenceByKey = new Map<
+      string,
+      UpdatePropertyChange
+    >()
+    replaceLatestHistoryEvidence.forEach((change) => {
+      const eventKey = JSON.stringify([change.eventName, change.id, change.key])
+      const existing = replaceLatestHistoryEvidenceByKey.get(eventKey)
+      replaceLatestHistoryEvidenceByKey.set(
+        eventKey,
+        existing ? { ...change, before: existing.before } : change
+      )
+    })
     const replaceLatestHistoryCandidate =
       mutationOptions?.history?.mode === 'replace-latest' &&
       frozenEvidence.length > 0 &&
       frozenEvidence.every(isUpdatePropertyChange) &&
-      replaceLatestHistoryEvidence.length > 0
+      replaceLatestHistoryEvidenceByKey.size > 0
         ? {
             key: mutationOptions.history.key,
-            events: replaceLatestHistoryEvidence.map(createTransactionEvent)
+            events: [...replaceLatestHistoryEvidenceByKey.values()].map(
+              createTransactionEvent
+            ),
+            eventKeys: [...replaceLatestHistoryEvidenceByKey.keys()]
           }
         : undefined
     const transactionEvents = deepFreezePropertyContract(

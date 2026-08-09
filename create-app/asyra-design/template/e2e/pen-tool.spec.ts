@@ -86,6 +86,14 @@ test.describe('Pen Tool - Editing Flow', () => {
     const firstClientPos = await getCanvasPosition(page, 0.3, 0.3)
     const secondClientPos = await getCanvasPosition(page, 0.45, 0.4)
     const dragClientPos = await getCanvasPosition(page, 0.55, 0.32)
+    const midDragClientPos = {
+      x: secondClientPos.x + (dragClientPos.x - secondClientPos.x) * 0.5,
+      y: secondClientPos.y + (dragClientPos.y - secondClientPos.y) * 0.5
+    }
+    const sparseDragClientPos = {
+      x: midDragClientPos.x,
+      y: dragClientPos.y
+    }
 
     await page.keyboard.press('p')
     await expect.poll(() => getActiveTool(page)).toBe('pen')
@@ -143,6 +151,9 @@ test.describe('Pen Tool - Editing Flow', () => {
             selectedPoint?.kind === 'anchor'
               ? points[`${selected.pointId}:out`]
               : null
+          const currentSegmentEndOut = segment?.endId
+            ? points[`${segment.endId}:out`]
+            : null
           const secondOut = secondPointId
             ? points[`${secondPointId}:out`]
             : null
@@ -178,6 +189,10 @@ test.describe('Pen Tool - Editing Flow', () => {
               selectedOut?.kind === 'control'
                 ? { x: selectedOut.x, y: selectedOut.y }
                 : null,
+            currentSegmentEndOut:
+              currentSegmentEndOut?.kind === 'control'
+                ? { x: currentSegmentEndOut.x, y: currentSegmentEndOut.y }
+                : null,
             secondOut:
               secondOut?.kind === 'control'
                 ? { x: secondOut.x, y: secondOut.y }
@@ -189,11 +204,7 @@ test.describe('Pen Tool - Editing Flow', () => {
 
     await page.mouse.move(secondClientPos.x, secondClientPos.y)
     await page.mouse.down()
-    await page.mouse.move(
-      secondClientPos.x + (dragClientPos.x - secondClientPos.x) * 0.5,
-      secondClientPos.y + (dragClientPos.y - secondClientPos.y) * 0.5,
-      { steps: 6 }
-    )
+    await page.mouse.move(midDragClientPos.x, midDragClientPos.y, { steps: 6 })
     const midDragState = await readFirstSegmentState()
     expect(browserErrors).toEqual([])
     expect(midDragState).toMatchObject({
@@ -214,15 +225,32 @@ test.describe('Pen Tool - Editing Flow', () => {
       Math.abs(midDragState.firstOut.x - midDragState.firstAnchor.x)
     ).toBeGreaterThan(1)
 
-    await page.mouse.move(dragClientPos.x, dragClientPos.y, { steps: 6 })
+    await page.mouse.move(sparseDragClientPos.x, sparseDragClientPos.y, {
+      steps: 6
+    })
+    await expect
+      .poll(async () => {
+        const state = await readFirstSegmentState()
+        if (!midDragState.currentSegmentEndOut || !state.currentSegmentEndOut) {
+          return 0
+        }
+        return Math.abs(
+          state.currentSegmentEndOut.y - midDragState.currentSegmentEndOut.y
+        )
+      })
+      .toBeGreaterThan(1)
     const lateDragState = await readFirstSegmentState()
     expect(lateDragState.firstOut).not.toBeNull()
-    if (!lateDragState.firstOut) {
+    expect(lateDragState.currentSegmentEndOut).not.toBeNull()
+    if (!lateDragState.firstOut || !lateDragState.currentSegmentEndOut) {
       return
     }
     expect(
       Math.abs(lateDragState.firstOut.x - midDragState.firstOut.x)
-    ).toBeGreaterThan(1)
+    ).toBeLessThan(0.001)
+    expect(
+      Math.abs(lateDragState.firstOut.y - midDragState.firstOut.y)
+    ).toBeLessThan(0.001)
 
     await page.mouse.up()
 

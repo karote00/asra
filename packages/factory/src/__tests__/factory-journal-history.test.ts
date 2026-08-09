@@ -30,6 +30,7 @@ interface ReplaceLatestHistoryOptions {
 interface ReplaceLatestHistoryCandidate {
   key: string
   events: readonly UpdateTransactionEvent[]
+  eventKeys?: readonly string[]
 }
 
 const createReplaceLatestBatch = (
@@ -54,7 +55,8 @@ const createReplaceLatestBatch = (
   }))
   const historyCandidate: ReplaceLatestHistoryCandidate = {
     key,
-    events: candidateEvents
+    events: candidateEvents,
+    eventKeys: values.map(({ id }) => id)
   }
 
   return candidateEvents.map((event, index) =>
@@ -87,9 +89,38 @@ const createOwnerIssuedReplaceLatestBatch = (
   }
   const historyCandidate: ReplaceLatestHistoryCandidate = {
     key,
-    events: [event]
+    events: [event],
+    eventKeys: [String(payload.id)]
   }
   return [{ ...event, historyCandidate }]
+}
+
+const createOwnerKeyedReplaceLatestBatch = (
+  key: string,
+  values: readonly {
+    eventKey: string
+    id: string
+    before: number
+    after: number
+  }[]
+): readonly UpdateTransactionEvent[] => {
+  const options = {
+    history: {
+      mode: 'replace-latest',
+      key
+    }
+  } satisfies UpdateTransactionEvent['options'] & ReplaceLatestHistoryOptions
+  const candidateEvents = values.map(({ id, before, after }) =>
+    createUpdateEvent(id, options, before, after)
+  )
+  const historyCandidate: ReplaceLatestHistoryCandidate = {
+    key,
+    events: candidateEvents,
+    eventKeys: values.map(({ eventKey }) => eventKey)
+  }
+  return candidateEvents.map((event, index) =>
+    index === 0 ? { ...event, historyCandidate } : event
+  )
 }
 
 describe('Factory journal-backed action history', () => {
@@ -403,6 +434,50 @@ describe('Factory journal-backed action history', () => {
     ).toEqual([
       { id: 'element-a:x', before: 40, after: 10 },
       { id: 'element-a:x', before: 10, after: 0 }
+    ])
+  })
+
+  it('retains the latest owner event per key when later candidate bundles omit unchanged fields', () => {
+    const factory = new Factory()
+    const replayed: AllEvent[] = []
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_PROPERTY,
+      (event) => {
+        replayed.push(event)
+        return true
+      }
+    )
+
+    factory.startTransaction()
+    factory.updateTransactionBatch(
+      createOwnerKeyedReplaceLatestBatch('owner-sparse-session', [
+        { eventKey: 'x', id: 'element-a:x', before: 0, after: 10 },
+        { eventKey: 'y', id: 'element-a:y', before: 100, after: 110 },
+        { eventKey: 'z', id: 'element-a:z', before: 200, after: 210 }
+      ])
+    )
+    factory.updateTransactionBatch(
+      createOwnerKeyedReplaceLatestBatch('owner-sparse-session', [
+        { eventKey: 'x', id: 'element-a:x', before: 10, after: 25 },
+        { eventKey: 'z', id: 'element-a:z', before: 210, after: 240 }
+      ])
+    )
+    factory.endTransaction()
+
+    factory.undo()
+    expect(
+      replayed.map(
+        (event) =>
+          (
+            event as AllEvent & {
+              payload: { id: string; before: number; after: number }
+            }
+          ).payload
+      )
+    ).toEqual([
+      { id: 'element-a:z', before: 240, after: 200 },
+      { id: 'element-a:y', before: 110, after: 100 },
+      { id: 'element-a:x', before: 25, after: 0 }
     ])
   })
 
