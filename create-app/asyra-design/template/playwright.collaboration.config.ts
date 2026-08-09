@@ -6,6 +6,11 @@ const ownsTestServers = process.env.E2E_OWN_SERVERS === '1'
 const documentBackendURL =
   process.env.E2E_DOCUMENT_BACKEND_URL?.trim() || 'http://127.0.0.1:4201'
 const documentBackendPort = new URL(documentBackendURL).port || '80'
+const collaborationWebSocketURL = new URL(
+  '/collaboration',
+  appEnvironment.collaborationHealthURL
+)
+collaborationWebSocketURL.protocol = 'ws:'
 
 export default defineConfig({
   testDir: './e2e',
@@ -40,7 +45,7 @@ export default defineConfig({
       timeout: 120_000
     },
     {
-      command: `E2E_OWN_SERVERS=1 E2E_DOCUMENT_BACKEND_URL=${documentBackendURL} yarn start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`,
+      command: `E2E_OWN_SERVERS=1 E2E_DOCUMENT_BACKEND_URL=${documentBackendURL} VITE_COLLABORATION_WS_URL=${collaborationWebSocketURL} yarn start --host ${appEnvironment.viteHost} --port ${appEnvironment.vitePort}`,
       url: appEnvironment.appURL,
       reuseExistingServer: !ownsTestServers,
       timeout: 120_000

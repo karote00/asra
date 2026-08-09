@@ -169,6 +169,11 @@ test('Playwright routes the formal backend through the same document-session flo
     /VITE_COLLABORATION_WS_URL=\$\{collaborationWebSocketURL\}/,
     'ordinary E2E must point the App at the collaboration server it starts'
   )
+  assert.match(
+    collaborationConfig,
+    /VITE_COLLABORATION_WS_URL=\$\{collaborationWebSocketURL\}/,
+    'collaboration E2E must point the App at the collaboration server it starts'
+  )
   if (ciScript !== null) {
     assert.match(
       ciScript,
