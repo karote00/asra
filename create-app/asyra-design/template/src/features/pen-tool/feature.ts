@@ -47,6 +47,7 @@ interface PenState extends Record<string, unknown> {
   connectedPointId: string | null
   connectionSide: VectorEndpointSide
   autoUpdateConnectedHandleTarget: VectorHandleTarget | null
+  hasAppliedCurveFrame: boolean
   structuralOperationIntent?: StructuralVectorOperationPatchIntent | null
   runtimeBefore: VectorEditingRuntimeState
 }
@@ -81,6 +82,20 @@ interface VectorEditingRuntimeState {
     typeof systemContextApis.getHoveredVectorSegmentInsertPoint
   >
 }
+
+const PEN_CREATE_POINT_HANDLES_OPTIONS = {
+  undoable: true,
+  sharedDelivery: 'immediate',
+  skipResult: true
+} as const satisfies EVENT_OPTIONS & { skipResult?: boolean }
+
+const PEN_REPLACE_POINT_HANDLES_OPTIONS = {
+  ...PEN_CREATE_POINT_HANDLES_OPTIONS,
+  history: {
+    mode: 'replace-latest',
+    key: 'pen-tool:create-point-handles'
+  }
+} as const satisfies EVENT_OPTIONS & { skipResult?: boolean }
 
 const captureVectorEditingRuntimeState = (): VectorEditingRuntimeState => ({
   pathEditingVectorId: systemContextApis.getPathEditingVectorId(),
@@ -809,6 +824,7 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
             connectedPointId,
             connectionSide,
             autoUpdateConnectedHandleTarget,
+            hasAppliedCurveFrame: false,
             structuralOperationIntent,
             runtimeBefore
           } as PenState
@@ -839,6 +855,7 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
           connectedPointId: null,
           connectionSide: VECTOR_TOKENS.ENDPOINT.SIDE.END,
           autoUpdateConnectedHandleTarget: null,
+          hasAppliedCurveFrame: false,
           structuralOperationIntent: createStructuralVectorOperationPatchIntent(
             {
               elementId,
@@ -862,11 +879,16 @@ export const penFeature = defineFeature<Record<string, unknown>, PenState>(
           return
         }
 
-        applyBezierDragForNewPoint(state, mouseWorkspacePos, {
-          undoable: true,
-          sharedDelivery: 'immediate',
-          skipResult: true
-        })
+        const applied = applyBezierDragForNewPoint(
+          state,
+          mouseWorkspacePos,
+          state.hasAppliedCurveFrame
+            ? PEN_REPLACE_POINT_HANDLES_OPTIONS
+            : PEN_CREATE_POINT_HANDLES_OPTIONS
+        )
+        if (applied) {
+          state.hasAppliedCurveFrame = true
+        }
 
         return
       },

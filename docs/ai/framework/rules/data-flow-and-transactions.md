@@ -70,9 +70,13 @@
 - A continuous gesture may explicitly opt into local `replace-latest` History
   staging with one gesture key. The canonical state owner must provide a
   complete owner-issued History candidate bundle for each staged sample.
-  Factory retains the first complete `before` bundle, replaces only the latest
-  complete `after` bundle reference, and materializes one ordinary
-  state-owner-backed History action when the outer transaction commits.
+  Factory trusts that owner-issued data rather than revalidating its payload
+  shape, identity fields, or owner semantics, retains the first complete
+  `before` bundle, replaces only the latest complete `after` bundle reference,
+  and materializes one ordinary state-owner-backed History action when the
+  outer transaction commits. If the owner supplies the option without a
+  candidate, History remains ordinary and append-only instead of Factory
+  rejecting the handoff.
 - Replace-latest staging metadata is local transaction control. It must not
   enter canonical payloads, shared publications, collaboration wire data,
   persistence, or replay payloads. Mutations without the explicit option keep

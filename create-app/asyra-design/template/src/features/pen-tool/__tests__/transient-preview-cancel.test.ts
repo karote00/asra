@@ -23,6 +23,27 @@ const mocks = vi.hoisted(() => ({
   getMousePosInWorkspace: vi.fn(
     (position: { x: number; y: number }) => position
   ),
+  getSystemContextSnapshot: vi.fn(() => ({
+    mousePosition: { x: 80, y: 90 }
+  })),
+  getVectorAnchorPoints: vi.fn(() => [
+    {
+      id: 'point-a',
+      x: 10,
+      y: 20,
+      type: 'sharp',
+      inHandle: null,
+      outHandle: null
+    },
+    {
+      id: 'point-b',
+      x: 40,
+      y: 50,
+      type: 'sharp',
+      inHandle: null,
+      outHandle: null
+    }
+  ]),
   getVectorAnchorPointById: vi.fn(() => ({
     index: 0,
     point: {
@@ -44,6 +65,7 @@ const mocks = vi.hoisted(() => ({
   setHoveredVectorSegment: vi.fn(),
   setHoveredVectorSegmentInsertPoint: vi.fn(),
   configureSharedDeliverySequence: vi.fn(),
+  updateVectorAnchorPointHandles: vi.fn(() => true),
   updateVectorAnchorPointPosition: vi.fn(() => true)
 }))
 
@@ -66,13 +88,16 @@ vi.mock('../../../common-apis', () => ({
   elementApis: {
     discardTransientVectorPreviews: mocks.discardTransientVectorPreviews,
     getMousePosInWorkspace: mocks.getMousePosInWorkspace,
+    getVectorAnchorPoints: mocks.getVectorAnchorPoints,
     getVectorAnchorPointById: mocks.getVectorAnchorPointById,
     getVectorAnchorPointHandleMode: mocks.getVectorAnchorPointHandleMode,
     hasMovedBeyondThreshold: mocks.hasMovedBeyondThreshold,
+    updateVectorAnchorPointHandles: mocks.updateVectorAnchorPointHandles,
     updateVectorAnchorPointPosition: mocks.updateVectorAnchorPointPosition
   },
   selectionApis: {},
   systemContextApis: {
+    getSystemContextSnapshot: mocks.getSystemContextSnapshot,
     setPathEditingVectorId: mocks.setPathEditingVectorId,
     setPathEditingStartNewSubpath: mocks.setPathEditingStartNewSubpath,
     setPathEditingContinuation: mocks.setPathEditingContinuation,
@@ -232,6 +257,64 @@ describe('Pen Tool transient preview cancellation', () => {
         undoable: false,
         transientPreview: true,
         skipResult: true
+      }
+    )
+  })
+
+  it('creates Pen handles once before replacing later stable record frames in History', () => {
+    const session = mocks.definitions.get(FeatureNames.PEN)?.session
+    const state = {
+      elementId: 'pen-vector',
+      pointId: 'point-b',
+      connectedPointId: 'point-a',
+      connectionSide: 'end',
+      autoUpdateConnectedHandleTarget: null,
+      hasAppliedCurveFrame: false,
+      runtimeBefore
+    }
+    mocks.getSystemContextSnapshot
+      .mockReturnValueOnce({ mousePosition: { x: 80, y: 90 } })
+      .mockReturnValueOnce({ mousePosition: { x: 90, y: 100 } })
+
+    session?.onUpdate?.(
+      {
+        mouseDragStart: { x: 40, y: 50 },
+        mousePosition: { x: 80, y: 90 }
+      },
+      state
+    )
+
+    expect(mocks.updateVectorAnchorPointHandles).toHaveBeenNthCalledWith(
+      1,
+      'pen-vector',
+      expect.any(Array),
+      {
+        undoable: true,
+        sharedDelivery: 'immediate',
+        skipResult: true
+      }
+    )
+
+    session?.onUpdate?.(
+      {
+        mouseDragStart: { x: 40, y: 50 },
+        mousePosition: { x: 90, y: 100 }
+      },
+      state
+    )
+
+    expect(mocks.updateVectorAnchorPointHandles).toHaveBeenNthCalledWith(
+      2,
+      'pen-vector',
+      expect.any(Array),
+      {
+        undoable: true,
+        sharedDelivery: 'immediate',
+        skipResult: true,
+        history: {
+          mode: 'replace-latest',
+          key: 'pen-tool:create-point-handles'
+        }
       }
     )
   })

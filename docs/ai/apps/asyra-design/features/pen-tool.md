@@ -116,10 +116,18 @@
   - otherwise render straight preview line
 - the new-point structural append is undoable and uses explicit
   `sharedDelivery: 'immediate'`; active handle drag frames also use immediate
-  delivery while remaining `undoable: false`
-- pointer-up finalizes the handle geometry so the complete drag-to-add session
-  remains one undoable action; undo/redo publications use the same canonical
-  collaboration path
+  delivery and remain visible to peers before pointer-up
+- the first applied handle frame creates the canonical control records as an
+  ordinary part of the action; once those record identities exist, later
+  handle frames share the `pen-tool:create-point-handles` `replace-latest`
+  History key
+- Factory retains the first before-values and latest after-values for those
+  stable record fields while every source frame still publishes immediately;
+  the structural append, initial control creation, and final handle geometry
+  therefore remain one drag-to-add undoable action without recording the
+  complete pointer path
+- `replace-latest` metadata is local History control only; undo/redo
+  publications use the same canonical collaboration path
 - handle style:
   - same fill color/size as anchor points
   - white 1px stroke

@@ -6180,6 +6180,143 @@ describe('PropsManager', () => {
     )
   })
 
+  it('hands stable existing record fields to Factory as a replace-latest History candidate', () => {
+    const type = 'replace-latest-record'
+    registerRecursivePropertyType(type)
+    const child = createProperty({
+      id: 'replace-latest-record-child',
+      type,
+      children: [],
+      value: 1
+    } as Partial<PropertyComponentRawData>) as PropertyComponentInstanceTypes
+    const parent = createProperty({
+      id: 'replace-latest-record-parent',
+      type,
+      children: [child.get('id')],
+      value: 0
+    } as Partial<PropertyComponentRawData>) as PropertyComponentInstanceTypes
+    propsManager.addToMap(child)
+    propsManager.addToMap(parent)
+    propsManager.cleanChanges()
+    const updateTransactionBatch = vi.fn()
+
+    ReactiveEventsModule.runWithTransactionOwner(
+      {
+        startTransaction: vi.fn(),
+        updateTransactionBatch,
+        endTransaction: vi.fn(),
+        undo: vi.fn(),
+        redo: vi.fn()
+      },
+      () =>
+        propsManager.updateProperties({
+          operations: [
+            {
+              kind: 'records',
+              propertyId: parent.get('id'),
+              key: 'children',
+              set: {
+                [child.get('id')]: { value: 2 }
+              }
+            }
+          ],
+          options: {
+            history: {
+              mode: 'replace-latest',
+              key: 'record-drag'
+            }
+          }
+        })
+    )
+
+    const ownerBatch = updateTransactionBatch.mock.calls[0]?.[0] as
+      | readonly UpdateTransactionEvent[]
+      | undefined
+    expect(ownerBatch).toHaveLength(1)
+    expect(ownerBatch?.[0]?.payload).toMatchObject({
+      id: child.get('id'),
+      key: 'value',
+      before: 1,
+      after: 2
+    })
+    expect(ownerBatch?.[0]?.historyCandidate).toMatchObject({
+      key: 'record-drag',
+      events: [
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            id: child.get('id'),
+            key: 'value',
+            before: 1,
+            after: 2
+          })
+        })
+      ]
+    })
+  })
+
+  it('passes record lifecycle History options to Factory without deciding replace-latest support', () => {
+    const type = 'replace-latest-record-lifecycle'
+    registerRecursivePropertyType(type)
+    const child = createProperty({
+      id: 'replace-latest-lifecycle-child',
+      type,
+      children: [],
+      value: 1
+    } as Partial<PropertyComponentRawData>) as PropertyComponentInstanceTypes
+    const parent = createProperty({
+      id: 'replace-latest-lifecycle-parent',
+      type,
+      children: [child.get('id')],
+      value: 0
+    } as Partial<PropertyComponentRawData>) as PropertyComponentInstanceTypes
+    propsManager.addToMap(child)
+    propsManager.addToMap(parent)
+    propsManager.cleanChanges()
+    const updateTransactionBatch = vi.fn()
+
+    expect(() =>
+      ReactiveEventsModule.runWithTransactionOwner(
+        {
+          startTransaction: vi.fn(),
+          updateTransactionBatch,
+          endTransaction: vi.fn(),
+          undo: vi.fn(),
+          redo: vi.fn()
+        },
+        () =>
+          propsManager.updateProperties({
+            operations: [
+              {
+                kind: 'records',
+                propertyId: parent.get('id'),
+                key: 'children',
+                remove: [child.get('id')]
+              }
+            ],
+            options: {
+              history: {
+                mode: 'replace-latest',
+                key: 'record-lifecycle'
+              }
+            }
+          })
+      )
+    ).not.toThrow()
+
+    const ownerBatch = updateTransactionBatch.mock.calls[0]?.[0] as
+      | readonly UpdateTransactionEvent[]
+      | undefined
+    expect(ownerBatch?.length).toBeGreaterThan(0)
+    expect(
+      ownerBatch?.every(
+        (event) =>
+          event.options?.history?.mode === 'replace-latest' &&
+          event.options.history.key === 'record-lifecycle'
+      )
+    ).toBe(true)
+    expect(ownerBatch?.every((event) => !event.historyCandidate)).toBe(true)
+  })
+
   it('does not snapshot unrelated registry entries for a property value batch', () => {
     const touched = createProperty({
       id: 'touched-position',

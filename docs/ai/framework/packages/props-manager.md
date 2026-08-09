@@ -58,6 +58,16 @@ packages/props-manager/src/
 
 - manager records property changes for transaction integration
 - add/remove/update paths stay consistent with manager change tracking
+- Factory transaction and History options are passed through unchanged. Props
+  Manager does not decide whether a requested History mode is supported.
+- When a mutation materializes entirely as stable `UPDATE_PROPERTY` evidence,
+  including fields of an existing record component, Props Manager may attach
+  the complete before/after candidate used for `replace-latest` History
+  staging.
+- Record lifecycle mutations still forward the requested History options, but
+  do not fabricate a partial `replace-latest` candidate. Factory trusts the
+  owner-issued candidate when present and otherwise retains ordinary
+  append-only History.
 - multiple compatible removals produced by one exact `REMOVE_PROPERTY`
   payload remain one ordered canonical removal event; Props Manager does not
   expand that owner batch into one Factory handoff per component

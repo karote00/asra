@@ -11,7 +11,9 @@ import {
   getCanvasPosition,
   getCoreDocumentDigest,
   getCurrentDocumentFileId,
-  getPersistedDocumentDigest
+  getPersistedDocumentDigest,
+  undo,
+  redo
 } from './test-utils'
 
 test.describe('Pen Tool - Editing Flow', () => {
@@ -72,6 +74,13 @@ test.describe('Pen Tool - Editing Flow', () => {
   test('second-point drag creates curve handles in the edited path', async ({
     page
   }) => {
+    const browserErrors: string[] = []
+    page.on('pageerror', (error) => browserErrors.push(error.message))
+    page.on('console', (message) => {
+      if (message.type() === 'error') {
+        browserErrors.push(message.text())
+      }
+    })
     const initialCount = await getElementCount(page)
 
     const firstClientPos = await getCanvasPosition(page, 0.3, 0.3)
@@ -97,6 +106,11 @@ test.describe('Pen Tool - Editing Flow', () => {
     if (!firstPointRuntime.vectorId || !firstPointRuntime.firstPointId) {
       return
     }
+
+    const beforeSecondPointUndoCount = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+      return core?.deps?.factory?.transact?.undoStack?.length ?? 0
+    })
 
     const readFirstSegmentState = async (secondPointId?: string) =>
       page.evaluate(
@@ -181,6 +195,7 @@ test.describe('Pen Tool - Editing Flow', () => {
       { steps: 6 }
     )
     const midDragState = await readFirstSegmentState()
+    expect(browserErrors).toEqual([])
     expect(midDragState).toMatchObject({
       networkPointCount: 2,
       segmentStartId: firstPointRuntime.firstPointId,
@@ -224,6 +239,19 @@ test.describe('Pen Tool - Editing Flow', () => {
       return
     }
 
+    const dragHistory = await page.evaluate(async () => {
+      const core = (await import('../src/testing/runtime-access')).core
+      const stack = core?.deps?.factory?.transact?.undoStack ?? []
+      const last = stack[stack.length - 1]
+      return {
+        undoCount: stack.length,
+        changeCount: last?.entries?.length ?? 0
+      }
+    })
+    expect(dragHistory.undoCount).toBe(beforeSecondPointUndoCount + 1)
+    expect(dragHistory.changeCount).toBeGreaterThan(0)
+    expect(dragHistory.changeCount).toBeLessThan(30)
+
     const finalState = await readFirstSegmentState(runtime.secondPointId)
     expect(finalState).toMatchObject({
       selectedTarget: 'anchor',
@@ -248,6 +276,27 @@ test.describe('Pen Tool - Editing Flow', () => {
         })
       })
       .toBe('anchor')
+
+    await undo(page)
+    await expect
+      .poll(() => readFirstSegmentState(runtime.secondPointId ?? undefined))
+      .toMatchObject({
+        networkPointCount: 1,
+        segmentEndId: null,
+        outControlId: null,
+        secondOut: null
+      })
+
+    await redo(page)
+    await expect
+      .poll(() => readFirstSegmentState(runtime.secondPointId ?? undefined))
+      .toMatchObject({
+        networkPointCount: 2,
+        segmentStartId: firstPointRuntime.firstPointId,
+        segmentEndId: runtime.secondPointId,
+        outControlId: `${firstPointRuntime.firstPointId}:out`,
+        secondOut: expect.any(Object)
+      })
 
     await page.keyboard.press('Escape')
     await expect

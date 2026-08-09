@@ -69,6 +69,29 @@ const createReplaceLatestBatch = (
   )
 }
 
+const createOwnerIssuedReplaceLatestBatch = (
+  key: string,
+  payload: Readonly<Record<string, unknown>>
+): readonly UpdateTransactionEvent[] => {
+  const options = {
+    history: {
+      mode: 'replace-latest',
+      key
+    }
+  } satisfies UpdateTransactionEvent['options'] & ReplaceLatestHistoryOptions
+  const event: UpdateTransactionEvent = {
+    type: TransactionEventTypes.UPDATE_TRANSACTION,
+    eventName: EventTypes.UPDATE_PROPERTY,
+    payload,
+    options
+  }
+  const historyCandidate: ReplaceLatestHistoryCandidate = {
+    key,
+    events: [event]
+  }
+  return [{ ...event, historyCandidate }]
+}
+
 describe('Factory journal-backed action history', () => {
   it('records one owner batch as one Undo action and replays the whole action', () => {
     const factory = new Factory()
@@ -254,6 +277,132 @@ describe('Factory journal-backed action history', () => {
     ).toEqual([
       { id: 'element-a:x', before: 0, after: 25 },
       { id: 'element-b:x', before: 100, after: 125 }
+    ])
+  })
+
+  it('trusts changing owner payload metadata in a replace-latest candidate', () => {
+    const factory = new Factory()
+    const replayed: AllEvent[] = []
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_PROPERTY,
+      (event) => {
+        replayed.push(event)
+        return true
+      }
+    )
+
+    factory.startTransaction()
+    factory.updateTransactionBatch(
+      createOwnerIssuedReplaceLatestBatch('owner-session', {
+        id: 'element-a:x',
+        before: 0,
+        after: 10,
+        ownerRevision: 1
+      })
+    )
+    factory.updateTransactionBatch(
+      createOwnerIssuedReplaceLatestBatch('owner-session', {
+        id: 'element-a:x',
+        before: 10,
+        after: 25,
+        ownerRevision: 2
+      })
+    )
+    factory.endTransaction()
+
+    factory.undo()
+    expect(replayed[0]).toMatchObject({
+      payload: {
+        id: 'element-a:x',
+        before: 25,
+        after: 0,
+        ownerRevision: 2
+      }
+    })
+  })
+
+  it('keeps replace-latest options without an owner candidate as ordinary History', () => {
+    const factory = new Factory()
+    const replayed: AllEvent[] = []
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_PROPERTY,
+      (event) => {
+        replayed.push(event)
+        return true
+      }
+    )
+    const options = {
+      history: {
+        mode: 'replace-latest',
+        key: 'owner-pass-through'
+      }
+    } satisfies UpdateTransactionEvent['options'] & ReplaceLatestHistoryOptions
+
+    factory.startTransaction()
+    factory.updateTransaction(createUpdateEvent('element-a:x', options, 0, 10))
+    factory.updateTransaction(createUpdateEvent('element-a:x', options, 10, 25))
+    factory.endTransaction()
+
+    factory.undo()
+    expect(
+      replayed.map(
+        (event) =>
+          (
+            event as AllEvent & {
+              payload: { id: string; before: number; after: number }
+            }
+          ).payload
+      )
+    ).toEqual([
+      { id: 'element-a:x', before: 25, after: 10 },
+      { id: 'element-a:x', before: 10, after: 0 }
+    ])
+  })
+
+  it('keeps earlier option-only owner events before later candidate staging', () => {
+    const factory = new Factory()
+    const replayed: AllEvent[] = []
+    factory.registerTransactionReplayHandler(
+      EventTypes.UPDATE_PROPERTY,
+      (event) => {
+        replayed.push(event)
+        return true
+      }
+    )
+    const options = {
+      history: {
+        mode: 'replace-latest',
+        key: 'owner-mixed-session'
+      }
+    } satisfies UpdateTransactionEvent['options'] & ReplaceLatestHistoryOptions
+
+    factory.startTransaction()
+    factory.updateTransaction(createUpdateEvent('element-a:x', options, 0, 10))
+    factory.updateTransactionBatch(
+      createReplaceLatestBatch('owner-mixed-session', [
+        { id: 'element-a:x', before: 10, after: 25 }
+      ])
+    )
+    factory.updateTransactionBatch(
+      createReplaceLatestBatch('owner-mixed-session', [
+        { id: 'element-a:x', before: 25, after: 40 }
+      ])
+    )
+    factory.endTransaction()
+
+    factory.undo()
+    expect(
+      replayed.map(
+        (event) =>
+          (
+            event as AllEvent & {
+              payload: { id: string; before: number; after: number }
+            }
+          ).payload
+      )
+    ).toEqual([
+      { id: 'element-a:x', before: 40, after: 10 },
+      { id: 'element-a:x', before: 10, after: 0 }
     ])
   })
 
