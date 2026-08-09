@@ -362,23 +362,29 @@ describe('vector path editing feature entry boundary', () => {
 })
 
 describe('vector path editing transaction boundary', () => {
-  it('keeps drag previews non-undoable and records final drag through the framework model flow', () => {
+  it('publishes canonical drag frames immediately and compacts local History per gesture', () => {
     const source = penToolFeatureSource()
 
     expect(source).toContain('pen-tool:drag-point-update')
     expect(source).toContain(
       'updateVectorPointTargetPosition(\n            dragTarget,\n            computedPatchIntent.patch.position,'
     )
-    expect(source).toContain(
-      'applyBezierDragForNewPoint(state, mouseWorkspacePos, {'
+    expect(source).toMatch(
+      /const PEN_CREATE_POINT_HANDLES_OPTIONS = \{\s*undoable: true,\s*sharedDelivery: 'immediate',\s*skipResult: true\s*\}/
     )
+    expect(source).toMatch(
+      /const PEN_REPLACE_POINT_HANDLES_OPTIONS = \{\s*\.\.\.PEN_CREATE_POINT_HANDLES_OPTIONS,\s*history: \{\s*mode: 'replace-latest',\s*key: 'pen-tool:create-point-handles'\s*\}\s*\}/
+    )
+    expect(source).toMatch(
+      /applyBezierDragForNewPoint\(\s*state,\s*mouseWorkspacePos,\s*state\.hasAppliedCurveFrame\s*\? PEN_REPLACE_POINT_HANDLES_OPTIONS\s*: PEN_CREATE_POINT_HANDLES_OPTIONS\s*\)/
+    )
+    expect(source).toContain('state.hasAppliedCurveFrame = true')
     expect(source).toContain('updateVectorAnchorPointHandles(')
     expect(source).toContain('autoUpdateConnectedHandleTarget')
     expect(source).toContain('resolveAutoUpdateConnectedHandleTarget')
-    expect(source).toContain('undoable: false')
     expect(source).toContain('skipResult: true')
-    expect(source).toMatch(
-      /elementApis\.discardTransientVectorPreviews\(\[dragTarget\.elementId\]\)\s*updateVectorPointTargetPosition\(\s*dragTarget,\s*computedPatchIntent\.patch\.position,\s*\{\s*undoable: computedPatchIntent\.patch\.undoable,\s*sharedDelivery: 'immediate',\s*skipResult: computedPatchIntent\.patch\.skipResult\s*\}\s*\)/
+    expect(source).toContain(
+      'elementApis.discardTransientVectorPreviews([state.elementId])'
     )
     expect(source).not.toMatch(
       /updateVectorPointTargetPosition\(\s*dragTarget,\s*dragTarget\.initialTargetPos,/
