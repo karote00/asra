@@ -177,6 +177,73 @@ app-owned services, automation, or AI retrieval and actions remain first-class.
 - Package versions, exports, support data, and release inventory derive from
   manifests, artifacts, and release records rather than hand-written prose.
 
+## Branch and Integration Strategy
+
+The program uses one long-lived integration feature branch:
+
+- `codex/asyra-public-release-program`
+
+This branch was created from the latest accepted `origin/main` and owns the
+umbrella plan, cross-workstream integration, shared Release Candidate state,
+and final program gates. It is not an implementation free-for-all: child-plan
+edits land only through their own reviewed branches.
+
+Each child task receives a new branch from the latest validated integration-
+branch checkpoint:
+
+1. `codex/asyra-public-release-readme`
+2. `codex/asyra-public-release-docs`
+3. `codex/asyra-public-release-examples`
+4. `codex/asyra-public-release-visual-reimagine`
+5. `codex/asyra-public-release-site-platform`
+6. `codex/asyra-public-release-landing`
+7. `codex/asyra-public-release-runtime-atlas`
+8. `codex/asyra-public-release-launch`
+
+Create a child branch only when that child task begins. Never reuse a completed
+or merged child branch for a later task. If a child needs multiple bounded
+implementation segments, keep them as reviewable commits on that same child
+branch while it remains the active owner task.
+
+### Integration Rules
+
+- Before forking each dependency batch, fetch `origin/main` and integrate the
+  latest accepted main state into the integration branch. The child then bases
+  on that exact validated integration checkpoint, not on stale main and not on
+  a sibling branch.
+- A child branch may modify only its plan-owned implementation boundary and
+  direct required contracts/tests.
+- Child branches merge or open a PR into
+  `codex/asyra-public-release-program`, never directly into `main`.
+- A child never merges another child directly. Shared outputs first land in the
+  integration branch; dependent children start from or synchronize with the
+  resulting accepted integration checkpoint.
+- If the integration branch advances while a child remains active, merge the
+  updated integration branch into that child before its final gates. Do not
+  rewrite shared history or force-push to simulate a clean base.
+- After each child merge, run the bounded integration gates for its declared
+  downstream consumers before forking or advancing dependent work.
+- External writes such as npm publication, tags, pushes, domain mutation, or
+  website deployment remain separately authorized and do not occur merely
+  because a child merged.
+- After all children land, synchronize the integration branch with the latest
+  accepted `origin/main`, rerun the complete program gates, and only then open
+  or merge the final integration PR into `main` through the user-authorized
+  repository workflow.
+
+### Dependency Batches
+
+1. Foundation batch: README, Public Documentation, Executable Examples, and
+   Visual Reimagine may progress in parallel after their shared contract is
+   frozen. Examples must land before the final README/documentation content
+   freeze; accepted Visual Reimagine must land before composed UI work.
+2. Platform batch: Website Platform begins from the accepted foundation
+   checkpoint.
+3. Product-surface batch: Landing and Runtime Atlas begin from the accepted
+   platform checkpoint and may progress in parallel.
+4. Launch batch: Launch and Operations begins only after all seven upstream
+   children and the integrated pre-publication Release Candidate pass.
+
 ## Integrated Release Train Sequence
 
 ### Phase 1: Freeze the shared public contract
