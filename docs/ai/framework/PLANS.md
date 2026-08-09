@@ -6,7 +6,17 @@ This file tracks framework planning topics and points to detailed references.
 
 ## Active Pre-Release Blockers
 
-None.
+1. Headless Core runtime
+
+- Correct Input System's eager browser side effect and add a first-class,
+  Node-safe headless Core composition/startup contract before public examples,
+  documentation, Runtime Atlas, or Landing make headless product claims.
+- This architecture child requires direct product-owner testing and explicit
+  approval after its PR CI passes; it cannot auto-merge from green CI.
+- Active plan:
+  `docs/ai/framework/plans/headless-core-runtime-plan.md`.
+- Inspector:
+  `docs/ai/framework/plans/headless-core-runtime-flow-inspector.data.cjs`.
 
 No active App persistence blocker remains. The completed
 socket-authoritative document-session record is:
@@ -43,17 +53,19 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
 
 - Execute README alignment, public package documentation, executable examples,
   Visual Reimagine, website implementation, and release verification as one
-  coordinated train with separate owners.
+  coordinated train with separate owners. Complete the Headless Core runtime
+  blocker before executable examples or public content freeze its API claims.
 - README is not an isolated first task. README, public docs, examples, and
-  visual work begin after the shared public contract is frozen and progress in
-  parallel through explicit handoffs.
+  visual work begin after the shared public contract and Headless Core runtime
+  prerequisite are accepted, then progress through explicit handoffs.
 - Build the public Next.js/Tailwind website against one exact reviewed release
   candidate before registry publication.
-- Close one pre-publication Release Candidate only after all eight child plans'
+- Close one pre-publication Release Candidate only after all nine child plans'
   applicable README, content, example, site, Atlas, artifact, accessibility,
   performance, visual, and Preview gates pass against one exact source commit.
 - Program and child plans:
   - `docs/ai/framework/plans/asyra-framework-website-plan.md`
+  - `docs/ai/framework/plans/headless-core-runtime-plan.md`
   - `docs/ai/framework/plans/asyra-public-readme-and-entrypoint-alignment-plan.md`
   - `docs/ai/framework/plans/asyra-public-package-documentation-plan.md`
   - `docs/ai/framework/plans/asyra-executable-examples-plan.md`

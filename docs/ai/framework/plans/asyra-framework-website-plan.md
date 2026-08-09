@@ -24,7 +24,10 @@ Asyra is a deterministic execution kernel and modular infrastructure for
 declarative information-modeling products. Products may be visual, headless,
 or both. A machine-facing product may exist primarily so AI systems and other
 app-owned services can retrieve information and execute registered actions
-without any Render or UI dependency.
+without a DOM, render engine, canvas, browser input, or UI activation. The full
+Core package still exposes optional Render/UI facade dependencies; public
+content must not misstate runtime non-activation as an absent npm dependency
+graph.
 
 Asyra is not limited to design tools or canvas products. Apps may use it to
 build design tools, whiteboards, BIM systems, VR experiences, industrial
@@ -68,27 +71,31 @@ surface that:
 
 ## Workstream Ownership
 
-The program is split into eight independently reviewable child plans:
+The program is split into nine independently reviewable child plans:
 
-1. [Public README and Entrypoint Alignment](asyra-public-readme-and-entrypoint-alignment-plan.md)
+1. [Headless Core Runtime](headless-core-runtime-plan.md) owns the Node-safe
+   Input lifecycle, explicit headless Core composition/startup, and visual
+   compatibility prerequisite required by all public headless claims. It must
+   pass PR CI and direct product-owner testing before merge.
+2. [Public README and Entrypoint Alignment](asyra-public-readme-and-entrypoint-alignment-plan.md)
    owns the root, package, Asyra Design, CLI, and generated-app README release
    surfaces through their canonical owners and generation paths.
-2. [Public Package Documentation](asyra-public-package-documentation-plan.md)
+3. [Public Package Documentation](asyra-public-package-documentation-plan.md)
    owns durable public guides, information architecture, package reference,
    AI-readable content, and semantic case-study content.
-3. [Executable Examples](asyra-executable-examples-plan.md) owns maintained
+4. [Executable Examples](asyra-executable-examples-plan.md) owns maintained
    sample code and the formal gates that prove documented flows still work.
-4. [Visual Reimagine](asyra-website-visual-reimagine-plan.md) owns generated
+5. [Visual Reimagine](asyra-website-visual-reimagine-plan.md) owns generated
    concepts, interaction and motion direction, responsive states, and the
    accepted visual specification before composed UI code.
-5. [Website Platform and Documentation Experience](asyra-website-platform-and-docs-plan.md)
+6. [Website Platform and Documentation Experience](asyra-website-platform-and-docs-plan.md)
    owns the site workspace, content adapter, documentation shell, search,
    reference/release surfaces, and common web foundations.
-6. [Landing Page and Product Narrative](asyra-website-landing-page-plan.md) owns
+7. [Landing Page and Product Narrative](asyra-website-landing-page-plan.md) owns
    the homepage implementation and its interactive product story.
-7. [Asyra Runtime Atlas](asyra-runtime-atlas-plan.md) owns the real-runtime
+8. [Asyra Runtime Atlas](asyra-runtime-atlas-plan.md) owns the real-runtime
    interactive lab, its six required executable cases, and runtime evidence.
-8. [Launch and Operations](asyra-website-launch-and-operations-plan.md) owns
+9. [Launch and Operations](asyra-website-launch-and-operations-plan.md) owns
    Preview closure and, only after explicit authorization, production
    deployment and post-deployment verification.
 
@@ -136,9 +143,10 @@ boundaries without requiring the complete Asyra Design service stack.
 
 ### Compose a custom product
 
-Experienced consumers may begin with public Framework packages, headless Core,
-Preset `2D`, or profile `CUSTOM`. Headless products whose only consumers are
-app-owned services, automation, or AI retrieval and actions remain first-class.
+Experienced consumers may begin with public Framework packages, explicit
+headless Core, Preset `2D`, or profile `CUSTOM`. Headless products whose only
+consumers are app-owned services, automation, or AI retrieval and actions
+remain first-class without visual or browser activation.
 
 ## Shared Preset Contract
 
@@ -191,14 +199,15 @@ edits land only through their own reviewed branches.
 Each child task receives a new branch from the latest validated integration-
 branch checkpoint:
 
-1. `codex/asyra-public-release-readme`
-2. `codex/asyra-public-release-docs`
-3. `codex/asyra-public-release-examples`
-4. `codex/asyra-public-release-visual-reimagine`
-5. `codex/asyra-public-release-site-platform`
-6. `codex/asyra-public-release-landing`
-7. `codex/asyra-public-release-runtime-atlas`
-8. `codex/asyra-public-release-launch`
+1. `codex/asyra-public-release-headless-core`
+2. `codex/asyra-public-release-readme`
+3. `codex/asyra-public-release-docs`
+4. `codex/asyra-public-release-examples`
+5. `codex/asyra-public-release-visual-reimagine`
+6. `codex/asyra-public-release-site-platform`
+7. `codex/asyra-public-release-landing`
+8. `codex/asyra-public-release-runtime-atlas`
+9. `codex/asyra-public-release-launch`
 
 Create a child branch only when that child task begins. Never reuse a completed
 or merged child branch for a later task. If a child needs multiple bounded
@@ -259,15 +268,18 @@ branch while it remains the active owner task.
 
 ### Dependency Batches
 
-1. Foundation batch: README, Public Documentation, Executable Examples, and
+1. Runtime prerequisite: Headless Core Runtime lands only after its focused,
+   integration, PR CI, and product-owner direct-test gates pass. No downstream
+   workstream may freeze a headless API or support claim before that merge.
+2. Foundation batch: README, Public Documentation, Executable Examples, and
    Visual Reimagine may progress in parallel after their shared contract is
    frozen. Examples must land before the final README/documentation content
    freeze; accepted Visual Reimagine must land before composed UI work.
-2. Platform batch: Website Platform begins from the accepted foundation
+3. Platform batch: Website Platform begins from the accepted foundation
    checkpoint.
-3. Product-surface batch: Landing and Runtime Atlas begin from the accepted
+4. Product-surface batch: Landing and Runtime Atlas begin from the accepted
    platform checkpoint and may progress in parallel.
-4. Launch batch: Launch and Operations begins only after all seven upstream
+5. Launch batch: Launch and Operations begins only after all eight upstream
    children and the integrated pre-publication Release Candidate pass.
 
 ## Integrated Release Train Sequence
@@ -281,6 +293,8 @@ branch while it remains the active owner task.
 
 ### Phase 2: Build the evidence foundation
 
+- Complete and directly accept the Headless Core runtime prerequisite before
+  examples or content freeze its public API and support contract.
 - Inventory and prove the executable examples required by README and public
   guides.
 - Freeze documentation metadata, source mapping, link conventions, and the
@@ -352,7 +366,7 @@ Inspector to authorize its edits.
 
 ## Program Quality Gates
 
-- all eight child-plan acceptance gates pass against the same release
+- all nine child-plan acceptance gates pass against the same release
   inventory;
 - all root, package, App, CLI, and generated-app README surfaces agree with the
   accepted public docs, examples, support policy, and release facts;
@@ -391,7 +405,7 @@ Inspector to authorize its edits.
 
 ## Definition of Done
 
-- All eight child plans and every applicable package/CLI/root release owner are
+- All nine child plans and every applicable package/CLI/root release owner are
   complete against one verified release inventory.
 - The public experience explains Asyra as infrastructure for visible and
   non-visible information-modeling products without overstating built-ins.
