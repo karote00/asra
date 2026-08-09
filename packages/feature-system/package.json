@@ -1,6 +1,6 @@
 {
   "name": "@asyra/feature-system",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Feature System framework for modular, composable design tool capabilities",
   "author": "Asa Tsai",
   "license": "MIT",

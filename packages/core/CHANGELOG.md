@@ -1,5 +1,19 @@
 # @asyra/core
 
+## 0.5.2
+
+### Patch Changes
+
+- Updated dependencies [889f7b4]
+  - @asyra/factory@0.5.1
+  - @asyra/props-manager@0.5.1
+  - @asyra/reactive-events@0.5.1
+  - @asyra/render@0.5.2
+  - @asyra/scene-tree@0.5.1
+  - @asyra/feature-system@0.5.1
+  - @asyra/input-system@0.5.1
+  - @asyra/ui-context@0.5.1
+
 ## 0.5.1
 
 ### Patch Changes

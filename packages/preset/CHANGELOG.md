@@ -1,5 +1,14 @@
 # @asyra/preset
 
+## 0.5.2
+
+### Patch Changes
+
+- Updated dependencies [889f7b4]
+  - @asyra/reactive-events@0.5.1
+  - @asyra/core@0.5.2
+  - @asyra/ui-context@0.5.1
+
 ## 0.5.1
 
 ### Patch Changes

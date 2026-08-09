@@ -1,5 +1,11 @@
 # @asyra/ui-context
 
+## 0.5.1
+
+### Patch Changes
+
+- @asyra/scene-tree@0.5.1
+
 ## 0.5.0
 
 ### Minor Changes
