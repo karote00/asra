@@ -119,7 +119,26 @@ test('ordinary Playwright starts the backend and always-on collaboration service
   assert.match(configSource, /documentBackendURL.*\/health/s)
   assert.match(configSource, /DOCUMENT_PERSISTENCE_BACKEND_URL/)
   assert.match(configSource, /collaborationHealthURL/)
-  assert.match(configSource, /webServer:[\s\S]*\? undefined[\s\S]*: \[/)
+  assert.match(
+    configSource,
+    /webServer:[\s\S]*\? undefined[\s\S]*: ordinaryWebServers/
+  )
+})
+
+test('the offline 7076 render gate leaves the collaboration socket unavailable', async () => {
+  const configSource = await readFile(
+    new URL('../playwright.config.ts', import.meta.url),
+    'utf8'
+  )
+
+  assert.match(
+    configSource,
+    /const runsCrdt7076 = process\.env\.E2E_CRDT_7076 === 'true'/
+  )
+  assert.match(
+    configSource,
+    /const ordinaryWebServers = \[[\s\S]*\.\.\.\(runsCrdt7076\s*\? \[\][\s\S]*yarn collaboration:server[\s\S]*command: visualReviewWebServerCommand/
+  )
 })
 
 test('Playwright routes the formal backend through the same document-session flow', async () => {
