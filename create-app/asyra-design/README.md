@@ -31,7 +31,6 @@ directory name; absolute paths and parent-directory traversal are rejected.
 
 ```shell
 cd my-project
-yarn install
 yarn start
 ```
 
@@ -41,9 +40,7 @@ document-session identity.
 For npm or pnpm, use the command printed by the CLI:
 
 ```shell
-npm install
 npm run start
-pnpm install
 pnpm start
 ```
 

@@ -308,7 +308,7 @@ test('generated template documents its verified standalone commands and opt-ins'
   assert.match(generated, /opt in to AI/i)
 })
 
-test('create-app hands the selected package manager a runnable standalone start command', () => {
+test('create-app installs once and hands the selected package manager a runnable start command', () => {
   const cli = readFileSync(
     path.join(repositoryRoot, 'create-app/asyra-design/bin/index.js'),
     'utf8'
@@ -332,9 +332,12 @@ test('create-app hands the selected package manager a runnable standalone start 
     'utf8'
   )
   assert.match(readme, /Node\.js 24\.x/)
-  assert.match(readme, /yarn install[\s\S]*yarn start/)
-  assert.match(readme, /npm install[\s\S]*npm run start/)
-  assert.match(readme, /pnpm install[\s\S]*pnpm start/)
+  assert.doesNotMatch(readme, /yarn install/)
+  assert.doesNotMatch(readme, /npm install/)
+  assert.doesNotMatch(readme, /pnpm install/)
+  assert.match(readme, /yarn start/)
+  assert.match(readme, /npm run start/)
+  assert.match(readme, /pnpm start/)
   assert.match(readme, /http:\/\/localhost:3000\/\?fileId=my-design/)
   assert.doesNotMatch(readme, /react:start/)
 })

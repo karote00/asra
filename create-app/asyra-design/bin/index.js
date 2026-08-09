@@ -235,7 +235,6 @@ yarn-error.log*
   }[packageManager]
   console.log('Next steps:')
   console.log(`  cd ${targetName}`)
-  console.log(`  ${installCommand}`)
   console.log(`  ${startCommand}`)
   console.log('  Open http://localhost:3000/?fileId=my-design')
 }
