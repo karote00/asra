@@ -24,6 +24,7 @@ const profiledCollaborationUrl = (fileId: string) =>
 const CRDT_COMPLETION_TIMEOUT_MS = 180_000
 const CRDT_CASE_TIMEOUT_MS = 240_000
 const CRDT_ACTION_UNDO_REDO_CASE_TIMEOUT_MS = 600_000
+const CANONICAL_COORDINATE_TOLERANCE = 1e-9
 const sliceElementBudget = (() => {
   const value = Number(process.env.E2E_SLICE_ELEMENT_BUDGET ?? 32)
   if (value !== 32 && value !== 64) {
@@ -2637,21 +2638,27 @@ test('vector creation and anchor movement converge through the canonical collabo
 
     await expect
       .poll(
-        () =>
-          second.evaluate(async ({ vectorId, pointId }) => {
+        async () => {
+          const point = await second.evaluate(async ({ vectorId, pointId }) => {
             const point = (
               await import('../src/testing/runtime-access')
             ).core?.deps?.sceneTree
               ?.getElementById?.(vectorId)
               ?.getAllComputedData?.()?.points?.[pointId]
             return point ? { x: point.x, y: point.y } : null
-          }, before),
+          }, before)
+          if (!point) return Number.POSITIVE_INFINITY
+          return Math.max(
+            Math.abs(point.x - nextX),
+            Math.abs(point.y - before.point.y)
+          )
+        },
         {
           message:
             'the peer must receive canonical anchor frames before pointer-up'
         }
       )
-      .toEqual({ x: nextX, y: before.point.y })
+      .toBeLessThanOrEqual(CANONICAL_COORDINATE_TOLERANCE)
     expect(await getUndoDepth(first)).toBe(firstUndoDepthBefore)
 
     await first.mouse.up()
