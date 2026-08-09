@@ -4,9 +4,11 @@
 
 Final child plan of the
 [Asyra Framework Website Program](asyra-framework-website-plan.md). Preview
-closure is authorized only as part of a future implementation task. Production
-deployment, domain mutation, external service creation, and other external
-writes require separate explicit user authorization at execution time.
+closure is authorized only as part of a future implementation task. The
+integrated release train requires a pre-publication Release Candidate Preview
+and a final post-registry Preview after generated fact reconciliation.
+Production deployment, domain mutation, external service creation, and other
+external writes require separate explicit user authorization at execution time.
 
 Implementation requires an exact launch Inspector, environment and ownership
 contract, executable deployment cases, rollback path, and bounded Definition
@@ -44,8 +46,10 @@ visual design. It cannot rewrite failed upstream work during launch closure.
 
 ## Preview Acceptance
 
-The candidate Preview must use one exact release inventory and include all
-accepted routes. It must pass:
+The pre-publication candidate Preview must use one exact provisional release
+inventory and include all accepted routes. After applicable public release
+writes, the final Preview must use externally verified generated facts and
+repeat the affected gates. The accepted final Preview must pass:
 
 - production build, test, lint, and type checks;
 - content source, drift, generated inventory, links, anchors, and search;
@@ -86,12 +90,16 @@ that contradict the separately owned repository policy.
 
 1. Freeze hosting, environment, authorization, domain, rollback, and launch
    Inspector contracts.
-2. Build the immutable candidate and complete isolated Preview acceptance.
-3. Present Preview evidence and unresolved external decisions to the user.
-4. Obtain explicit production-deployment authorization.
-5. Deploy the exact accepted candidate.
-6. Run production verification and either accept or roll back.
-7. Record the verified public URL and approved operational ownership.
+2. Build the pre-publication candidate and complete integrated Release
+   Candidate Preview acceptance.
+3. After authorized package/CLI/root release stages, reconcile only generated
+   public facts and complete final Preview acceptance.
+4. Present final Preview evidence and unresolved external decisions to the
+   user.
+5. Obtain explicit production-deployment authorization.
+6. Deploy the exact accepted final candidate.
+7. Run production verification and either accept or roll back.
+8. Record the verified public URL and approved operational ownership.
 
 ## Quality Gates
 

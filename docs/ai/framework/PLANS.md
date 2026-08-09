@@ -39,8 +39,34 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
 - Retained Inspector:
   `docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.data.cjs`.
 
-1. Framework package release
+1. Integrated public release candidate
 
+- Execute README alignment, public package documentation, executable examples,
+  Visual Reimagine, website implementation, and release verification as one
+  coordinated train with separate owners.
+- README is not an isolated first task. README, public docs, examples, and
+  visual work begin after the shared public contract is frozen and progress in
+  parallel through explicit handoffs.
+- Build the public Next.js/Tailwind website against one exact reviewed release
+  candidate before registry publication.
+- Close one pre-publication Release Candidate only after all eight child plans'
+  applicable README, content, example, site, Atlas, artifact, accessibility,
+  performance, visual, and Preview gates pass against one exact source commit.
+- Program and child plans:
+  - `docs/ai/framework/plans/asyra-framework-website-plan.md`
+  - `docs/ai/framework/plans/asyra-public-readme-and-entrypoint-alignment-plan.md`
+  - `docs/ai/framework/plans/asyra-public-package-documentation-plan.md`
+  - `docs/ai/framework/plans/asyra-executable-examples-plan.md`
+  - `docs/ai/framework/plans/asyra-website-visual-reimagine-plan.md`
+  - `docs/ai/framework/plans/asyra-website-platform-and-docs-plan.md`
+  - `docs/ai/framework/plans/asyra-website-landing-page-plan.md`
+  - `docs/ai/framework/plans/asyra-runtime-atlas-plan.md`
+  - `docs/ai/framework/plans/asyra-website-launch-and-operations-plan.md`
+
+2. Framework package publication
+
+- Begin only after the integrated pre-publication Release Candidate is
+  accepted.
 - Record the historical partial public inventory without reconstructing or
   publishing an old package version from the current source.
 - Let the reviewed Changeset plan and fixed-allowlist manifests own every
@@ -50,47 +76,39 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
   rebuild the accepted artifacts from that commit, and revalidate the
   publication manifest. Merge is not a publication prerequisite.
 - Publish the manifest-derived Framework selection through one canonical
-  Changesets publication operation after the checkpoint is accepted.
-  Let Changesets create package Git tags for successful publications, then push
-  the verified tags after registry verification.
+  Changesets publication operation after explicit authorization.
 - Treat the all-package generator as exceptional. Normal development must add
   ordinary scoped patch Changesets as changes are made.
-- Keep root `asyra` and private `@asyra/asyra-design` unchanged.
-- Keep `create-asyra-design-app` versioning, template regeneration, and
-  publication deferred to its later release plan.
+- Keep root `asyra`, private `@asyra/asyra-design`, CLI packages, and generated
+  templates outside Framework Changesets.
 - Reference:
   `docs/ai/framework/plans/framework-package-patch-release-plan.md`
 
-2. Root `asyra` family alignment
+3. Applicable CLI/generated-app publication and root alignment
 
-- Begin only after the applicable Framework `a.b.n` packages and the
-  corresponding create-app CLI release are publicly verified.
+- If the integrated candidate changes the public CLI artifact or generated
+  app, freeze a new bounded CLI release execution through the retained
+  create-app Inspector before publication. A completed historical execution is
+  evidence, not automatic authority for a new release.
+- Obtain explicit CLI version and publication authorization before any registry
+  write, then repeat the complete public-command generated-app proof.
+- Begin root `asyra` family alignment only after the applicable Framework
+  packages and corresponding create-app CLI are publicly verified.
 - Manually align root `asyra` to `a.b.0`; never place root in a Changeset.
-- A root `a` or `b` transition requires the user's explicit authorization and
-  does not inherit merge, tag, publish, or deployment authority from either
-  earlier stage.
+- Root versioning, CLI publication, tags, and pushes retain their own explicit
+  authorization boundaries.
 - Reference: `docs/ai/framework/rules/release-version-topology.md`
 
-3. Asyra Framework public documentation and website program
+4. Public fact reconciliation and website launch
 
-- Public package documentation and executable examples may proceed in parallel
-  with release preparation when they do not delay or take ownership of the
-  mandatory README release work.
-- Build the public Next.js/Tailwind website experience after public package and
-  create-app contracts are stable by default. Parallel UI work against a release
-  candidate requires a separate explicit user decision.
-- Execute the program through its seven bounded child plans; complete visual
-  reimagine before composed UI, keep Runtime Atlas separate from ordinary site
-  work, and keep production deployment separately authorized.
-- Program and child plans:
-  - `docs/ai/framework/plans/asyra-framework-website-plan.md`
-  - `docs/ai/framework/plans/asyra-public-package-documentation-plan.md`
-  - `docs/ai/framework/plans/asyra-executable-examples-plan.md`
-  - `docs/ai/framework/plans/asyra-website-visual-reimagine-plan.md`
-  - `docs/ai/framework/plans/asyra-website-platform-and-docs-plan.md`
-  - `docs/ai/framework/plans/asyra-website-landing-page-plan.md`
-  - `docs/ai/framework/plans/asyra-runtime-atlas-plan.md`
-  - `docs/ai/framework/plans/asyra-website-launch-and-operations-plan.md`
+- Replace only generated/provisional package versions, commands, support facts,
+  and verified URLs after their public owners resolve.
+- Repeat registry-only examples, generated-app onboarding, public links,
+  search, release inventory, affected visual cases, and final Preview gates.
+- Obtain separate website production-deployment authorization, deploy the exact
+  final candidate, and verify production.
+- Close the overall release train only when every child workstream and every
+  applicable external release owner is complete.
 
 ## Post-Release Roadmap
 

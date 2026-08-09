@@ -3,10 +3,10 @@
 ## Status
 
 Queued child plan of the
-[Asyra Framework Website Program](asyra-framework-website-plan.md). UI work is
-queued by default until stable Framework and CLI contracts are publicly
-verifiable. Parallel implementation against an exact release candidate requires
-a separate explicit user decision.
+[Asyra Framework Website Program](asyra-framework-website-plan.md). The user
+selected integrated implementation against one exact reviewed release
+candidate, so platform work may begin before registry publication after its
+content, example, and visual handoffs are accepted.
 
 Implementation also requires accepted public content, executable-example and
 visual handoffs, one exact approved toolchain, an exact website-platform
@@ -78,10 +78,11 @@ The first release uses local static search by default. Search results must map
 to stable headings and content IDs. Copy-as-Markdown must expose the approved
 page content and canonical source links without internal-only metadata.
 
-The site consumes the accepted `docs/public/*` content bundle and deterministic
-example inventory. Presentation adapters may add navigation and visual
-annotation but cannot silently rewrite content semantics or duplicate package
-versions as constants.
+The site consumes the accepted `docs/public/*` content bundle, deterministic
+example inventory, and stable README entry links. Presentation adapters may add
+navigation and visual annotation but cannot silently rewrite content semantics
+or duplicate package versions as constants. Candidate release facts remain
+generated and visibly provisional until public reconciliation.
 
 ## Shared Platform Contract
 

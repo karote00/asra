@@ -4,8 +4,8 @@
 
 Queued child plan of the
 [Asyra Framework Website Program](asyra-framework-website-plan.md). This
-workstream may run in parallel with release preparation when it does not delay
-or mutate the separately owned README release task.
+workstream progresses in parallel with the sibling README, executable-example,
+and visual workstreams against the same release candidate.
 
 Implementation may begin only after a thin public-documentation contract, an
 exact documentation-flow Inspector, executable content cases, source mapping,
@@ -25,7 +25,8 @@ This plan owns proposed public content under `docs/public/*`, its deterministic
 content metadata and indexes, and documentation-specific validation. It does
 not own:
 
-- root, package, Asyra Design, CLI, or generated-app README files;
+- root, package, Asyra Design, CLI, or generated-app README files owned by the
+  sibling README workstream;
 - sample implementation code owned by `docs/examples/*`;
 - website components, routes, styling, or search UI;
 - package behavior, exports, manifests, versions, or release publication; or
@@ -138,7 +139,8 @@ silently broaden Asyra Design behavior into a Framework capability claim.
 6. Author the Asyra Design case-study semantic source.
 7. Generate AI-readable indexes and manifest-derived release facts.
 8. Run drift, link, API-surface, readability, and content-case gates.
-9. Freeze the accepted content bundle for website consumption.
+9. Review terminology and cross-links with the sibling README candidate.
+10. Freeze the accepted content bundle for website consumption.
 
 ## Quality Gates
 
@@ -151,7 +153,7 @@ silently broaden Asyra Design behavior into a Framework capability claim.
 - visual, headless, Preset, App-domain, and AI-assisted language remains
   consistent with the umbrella product definition;
 - Markdown remains readable without the website runtime; and
-- the workstream does not mutate release README artifacts.
+- the workstream does not mutate sibling README artifacts.
 
 ## Stop Conditions
 
@@ -160,8 +162,9 @@ silently broaden Asyra Design behavior into a Framework capability claim.
 - An example link has no maintained executable owner.
 - A version, support fact, CLI command, or public URL is unverified.
 - Content would expose private operations, credentials, or internal-only docs.
-- The task would need to repair a README, implementation, manifest, or release
-  record outside this plan.
+- The task would need to repair a sibling README, implementation, manifest, or
+  release record outside this plan instead of returning the defect to its
+  owner.
 
 ## Definition of Done
 

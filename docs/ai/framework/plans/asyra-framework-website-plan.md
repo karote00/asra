@@ -7,16 +7,16 @@ program. It defines product meaning, workstream ownership, dependencies, and
 program-level acceptance. Detailed implementation belongs only to the child
 plans listed below.
 
-Public documentation and executable-example work may proceed in parallel with
-release preparation when it does not delay or take ownership of release work.
-Website UI implementation is queued by default until the stable Framework
-packages and `create-asyra-design-app` contracts are publicly verifiable.
-Starting UI implementation against a release candidate requires a separate
-explicit user decision and one exact reviewed artifact set.
+The user selected one integrated release train: README alignment, public
+documentation, examples, visual design, website implementation, release
+verification, and website launch progress through explicit handoffs and share
+one final completion decision. README work is not a standalone prerequisite
+that must finish before the other workstreams begin.
 
-README renewal remains a separate mandatory release task. This program neither
-owns nor completes the root, package, Asyra Design, CLI, or generated-app README
-updates.
+Website UI implementation may begin before registry publication after the
+content, executable-example, and visual handoffs are frozen against one exact
+reviewed release candidate. Final public versions, commands, URLs, and support
+claims remain generated or provisional until their public owners are verified.
 
 ## Product Definition
 
@@ -68,24 +68,27 @@ surface that:
 
 ## Workstream Ownership
 
-The program is split into seven independently reviewable child plans:
+The program is split into eight independently reviewable child plans:
 
-1. [Public Package Documentation](asyra-public-package-documentation-plan.md)
+1. [Public README and Entrypoint Alignment](asyra-public-readme-and-entrypoint-alignment-plan.md)
+   owns the root, package, Asyra Design, CLI, and generated-app README release
+   surfaces through their canonical owners and generation paths.
+2. [Public Package Documentation](asyra-public-package-documentation-plan.md)
    owns durable public guides, information architecture, package reference,
    AI-readable content, and semantic case-study content.
-2. [Executable Examples](asyra-executable-examples-plan.md) owns maintained
+3. [Executable Examples](asyra-executable-examples-plan.md) owns maintained
    sample code and the formal gates that prove documented flows still work.
-3. [Visual Reimagine](asyra-website-visual-reimagine-plan.md) owns generated
+4. [Visual Reimagine](asyra-website-visual-reimagine-plan.md) owns generated
    concepts, interaction and motion direction, responsive states, and the
    accepted visual specification before composed UI code.
-4. [Website Platform and Documentation Experience](asyra-website-platform-and-docs-plan.md)
+5. [Website Platform and Documentation Experience](asyra-website-platform-and-docs-plan.md)
    owns the site workspace, content adapter, documentation shell, search,
    reference/release surfaces, and common web foundations.
-5. [Landing Page and Product Narrative](asyra-website-landing-page-plan.md) owns
+6. [Landing Page and Product Narrative](asyra-website-landing-page-plan.md) owns
    the homepage implementation and its interactive product story.
-6. [Asyra Runtime Atlas](asyra-runtime-atlas-plan.md) owns the real-runtime
+7. [Asyra Runtime Atlas](asyra-runtime-atlas-plan.md) owns the real-runtime
    interactive lab, its six required executable cases, and runtime evidence.
-7. [Launch and Operations](asyra-website-launch-and-operations-plan.md) owns
+8. [Launch and Operations](asyra-website-launch-and-operations-plan.md) owns
    Preview closure and, only after explicit authorization, production
    deployment and post-deployment verification.
 
@@ -93,17 +96,26 @@ Asyra Design does not require a separate child plan. The public-documentation
 workstream owns its source-linked semantic case-study content; website
 workstreams own presentation of that approved content.
 
-## External Release Dependency
+## Integrated Release Ownership
 
-The separate release task owns all README updates and their generation paths,
-including the root repository's no-issues and no-external-contributions
-declaration. Release must not wait for the website, but it must not omit those
-README updates.
+README alignment is a sibling workstream inside this program, not an early
+one-off task. Its child plan coordinates each README through the correct root,
+package, App, CLI, or generator owner and must preserve the root repository's
+no-issues and no-external-contributions declaration.
 
-This program may consume only reviewed public documentation and verified
-manifest, artifact, registry, or deployment facts. If a required release fact
-is not verifiable, the dependent website surface stops rather than editing the
-release-owned README or inventing the fact.
+Framework package publication remains owned by
+[Framework Package Patch Release](framework-package-patch-release-plan.md).
+Applicable CLI publication and generated-app proof must use a new bounded
+release execution that follows the retained
+[create-asyra-design-app release contract](completed/create-asyra-design-app-release-plan.md)
+and its Inspector. Root family alignment remains a later separately authorized
+release stage. This program coordinates their handoffs but does not redefine or
+inherit their external-write authority.
+
+Before public verification, the site may consume one exact release-candidate
+inventory clearly marked as provisional. After publication, generated public
+facts must be reconciled against registry and deployment owners before the
+production website can launch.
 
 ## Shared Audience and Entry Paths
 
@@ -148,6 +160,8 @@ app-owned services, automation, or AI retrieval and actions remain first-class.
 - Canonical `docs/ai/framework/*` and `docs/ai/apps/asyra-design/*` contracts
   remain semantic authority; public pages curate them through explicit source
   mappings.
+- Public README alignment supplies concise entry surfaces and stable links into
+  the accepted documentation and examples; it does not duplicate full guides.
 - Public package documentation supplies the approved semantic content bundle.
 - Executable examples supply maintained code and machine-verifiable expected
   behavior. Public pages link to or extract from those examples rather than
@@ -163,18 +177,80 @@ app-owned services, automation, or AI retrieval and actions remain first-class.
 - Package versions, exports, support data, and release inventory derive from
   manifests, artifacts, and release records rather than hand-written prose.
 
-## Program Sequence
+## Integrated Release Train Sequence
 
-1. Freeze the public positioning and the child-plan boundaries.
-2. Build and verify public package documentation and executable examples.
-3. Produce and accept the image-first visual reimagine and motion direction.
-4. Freeze exact approved website toolchain versions and implement the common
-   platform and documentation experience.
-5. Implement Landing and Runtime Atlas as separate owner slices.
-6. Integrate approved Asyra Design, release, roadmap, and support content.
-7. Close a verified Preview across all workstreams.
-8. Obtain explicit production-deployment authorization and execute the launch
-   plan.
+### Phase 1: Freeze the shared public contract
+
+- Freeze positioning, audience, package inventory, public entry paths,
+  canonical sources, stable documentation routes, and child-plan ownership.
+- Freeze one release-candidate identity without publishing or inventing final
+  registry facts.
+
+### Phase 2: Build the evidence foundation
+
+- Inventory and prove the executable examples required by README and public
+  guides.
+- Freeze documentation metadata, source mapping, link conventions, and the
+  visual brief.
+
+### Phase 3: Run content and visual work in parallel
+
+- Draft and verify all README entry surfaces against the same examples and
+  public API inventory.
+- Author public package guides, tutorials, AI-readable content, and the Asyra
+  Design semantic case study.
+- Complete image-first Visual Reimagine, responsive states, motion storyboard,
+  visual inspection, and user acceptance.
+
+README and full documentation remain separate owners, but cross-links and
+terminology are reviewed together. Neither workstream waits for the other to be
+fully complete before beginning.
+
+### Phase 4: Freeze the integrated content candidate
+
+- Verify README, public docs, examples, canonical sources, generated version
+  inputs, and visual handoff as one internally consistent candidate.
+- Regenerate generated-app README/output only through the canonical release
+  generator after its source README is final for the candidate.
+
+### Phase 5: Implement the common website platform
+
+- Freeze exact approved toolchain versions.
+- Implement content ingestion, documentation shell, navigation, local search,
+  Examples, Asyra Design, Releases, and Roadmap surfaces against the candidate.
+
+### Phase 6: Implement Landing and Runtime Atlas in parallel
+
+- Landing consumes the accepted narrative and visual system.
+- Atlas consumes the accepted examples and real public runtime boundary.
+- Neither workstream may fork documentation semantics or example behavior.
+
+### Phase 7: Close one pre-publication Release Candidate
+
+- Run README, source mapping, content drift, example, artifact, package, CLI,
+  site build, accessibility, performance, visual, Atlas, clean-consumer, and
+  Preview gates against one exact source commit and candidate inventory.
+- Do not publish or deploy while any workstream remains incomplete.
+
+### Phase 8: Execute authorized public release writes
+
+- Obtain explicit authorization for each applicable external write.
+- Publish and verify Framework packages through their release owner.
+- Execute any applicable CLI/root release stage through its own contract and
+  authorization boundary.
+
+### Phase 9: Reconcile final public facts
+
+- Replace only generated/provisional registry, version, command, support, and
+  deployment facts with externally verified values.
+- Repeat registry-only examples, generated-app onboarding, public links,
+  search, release inventory, and final Preview gates.
+
+### Phase 10: Deploy and close the website
+
+- Obtain explicit website production-deployment authorization.
+- Deploy the exact final candidate, verify production, and close the entire
+  release train only when every child and applicable release owner is complete.
 
 Before implementation of any child plan, that task must have its own thin
 product/content contract, exact flow Inspector, executable product cases, and
@@ -183,7 +259,10 @@ Inspector to authorize its edits.
 
 ## Program Quality Gates
 
-- all child-plan acceptance gates pass against the same release inventory;
+- all eight child-plan acceptance gates pass against the same release
+  inventory;
+- all root, package, App, CLI, and generated-app README surfaces agree with the
+  accepted public docs, examples, support policy, and release facts;
 - every public behavior or support claim resolves to a canonical source;
 - every supported code flow resolves to an executable maintained example or
   an approved API-reference source;
@@ -196,8 +275,8 @@ Inspector to authorize its edits.
   and synchronized visual-review gates pass;
 - exact registry-only onboarding and clean-consumer flows pass before final
   public release claims; and
-- the website program has not mutated or taken ownership of release README
-  artifacts.
+- only the README workstream mutates its declared README owners, with generated
+  output changed solely through the canonical generator.
 
 ## Stop Conditions
 
@@ -207,8 +286,9 @@ Inspector to authorize its edits.
   requires Render/UI for canonical behavior, or presents possible app domains
   as built-in Framework capabilities.
 - Preset is presented as mandatory or as the owner of app domain behavior.
-- Release-owned README or manifest facts require repair from inside a website
-  workstream.
+- A workstream needs to mutate another workstream's README, documentation,
+  example, visual, website, package, or release owner instead of returning the
+  defect to that owner.
 - A package version, CLI command, public URL, support statement, or release
   capability is not externally verifiable when publication depends on it.
 - A workstream requires an unapproved dependency, hosted service, analytics,
@@ -218,11 +298,15 @@ Inspector to authorize its edits.
 
 ## Definition of Done
 
-- All seven child plans are complete against one verified release inventory.
+- All eight child plans and every applicable package/CLI/root release owner are
+  complete against one verified release inventory.
 - The public experience explains Asyra as infrastructure for visible and
   non-visible information-modeling products without overstating built-ins.
 - Every public package has usable documentation and every supported tutorial
   flow is backed by maintained executable evidence.
+- Root, all release package, Asyra Design, CLI, and generated-app README
+  surfaces are current, correctly linked, and preserve the required support and
+  contribution policy.
 - `create-asyra-design-app` and small Framework examples provide complementary
   beginner paths, including one AI-assisted bounded extension.
 - Landing, documentation, examples, releases, roadmap, Asyra Design, and
