@@ -22,7 +22,8 @@ import {
   type PeerAppliedRequest,
   type PublicationFrameHeader,
   type ResetDocumentRequest,
-  type SendAwarenessRequest
+  type SendAwarenessRequest,
+  type SourcePublicationSettlementMessage
 } from './src/collaboration/protocol'
 import { createFormalInitialDocument } from './src/collaboration/initial-document'
 import { isNonBlankString } from './src/collaboration/wire-values'
@@ -287,6 +288,13 @@ interface InboundPublicationRequest {
 interface SourceFrameAdmission {
   readonly header: PublicationFrameHeader
   readonly controller: AbortController
+}
+
+interface PendingSourcePublicationSettlement {
+  readonly requestId: string
+  readonly publicationId: string
+  settle(ok: boolean): void
+  abort(): void
 }
 
 interface InboundFrameAdmissionResult {
@@ -968,6 +976,8 @@ webSocketServer.on('connection', (socket) => {
   }
   const inboundRequests = new Map<string, InboundPublicationRequest>()
   let sourceFrameAdmission: SourceFrameAdmission | null = null
+  let pendingSourcePublicationSettlement: PendingSourcePublicationSettlement | null =
+    null
   let inboundFailed = false
   let controlTail = Promise.resolve()
 
@@ -979,7 +989,9 @@ webSocketServer.on('connection', (socket) => {
     if (inboundFailed) return
     inboundFailed = true
     sourceFrameAdmission?.controller.abort()
+    pendingSourcePublicationSettlement?.abort()
     sourceFrameAdmission = null
+    pendingSourcePublicationSettlement = null
     inboundRequests.clear()
     sendControl(socket, {
       type: CollaborationMessageTypes.CONNECTION_ERROR,
@@ -1149,6 +1161,19 @@ webSocketServer.on('connection', (socket) => {
     })
   }
 
+  const handleSourcePublicationSettlement = (
+    message: SourcePublicationSettlementMessage
+  ): void => {
+    const pending = pendingSourcePublicationSettlement
+    if (!pending || pending.requestId !== message.requestId) {
+      throw new SocketServerFailure(
+        'acknowledgement-failed',
+        '[collaboration] source publication settlement does not match an active proposal'
+      )
+    }
+    pending.settle(message.ok)
+  }
+
   const handleControl = async (encoded: string): Promise<void> => {
     let message
     try {
@@ -1201,6 +1226,9 @@ webSocketServer.on('connection', (socket) => {
         return
       case CollaborationMessageTypes.RESET_DOCUMENT:
         await handleResetDocument(message)
+        return
+      case CollaborationMessageTypes.SOURCE_PUBLICATION_SETTLEMENT:
+        handleSourcePublicationSettlement(message)
         return
       case CollaborationMessageTypes.SEND_PUBLICATION:
       case CollaborationMessageTypes.SEND_PUBLICATIONS:
@@ -1263,6 +1291,70 @@ webSocketServer.on('connection', (socket) => {
     request.currentPublicationId = undefined
     request.currentChunkCount = undefined
     return request.nextPublicationIndex === request.publicationCount
+  }
+
+  const awaitSourcePublicationSettlement = (
+    requestId: string,
+    publicationIds: readonly string[],
+    sequences: readonly number[],
+    signal: AbortSignal
+  ): Promise<boolean> => {
+    if (pendingSourcePublicationSettlement) {
+      throw new SocketServerFailure(
+        'transport-failed',
+        '[collaboration] source publication proposal overlapped'
+      )
+    }
+    const publicationId = publicationIds[0]
+    if (!publicationId) {
+      throw new SocketServerFailure(
+        'transport-failed',
+        '[collaboration] source publication proposal identity is missing'
+      )
+    }
+    return new Promise<boolean>((resolve, reject) => {
+      let settled = false
+      const finish = (operation: () => void): void => {
+        if (settled) return
+        settled = true
+        signal.removeEventListener('abort', abort)
+        if (pendingSourcePublicationSettlement === pending) {
+          pendingSourcePublicationSettlement = null
+        }
+        operation()
+      }
+      const abort = (): void => {
+        finish(() =>
+          reject(
+            new SocketServerFailure(
+              'transport-failed',
+              '[collaboration] source publication proposal was cancelled',
+              undefined,
+              publicationId
+            )
+          )
+        )
+      }
+      const pending: PendingSourcePublicationSettlement = {
+        requestId,
+        publicationId,
+        settle: (ok) => finish(() => resolve(ok)),
+        abort
+      }
+      pendingSourcePublicationSettlement = pending
+      signal.addEventListener('abort', abort, { once: true })
+      if (signal.aborted) {
+        abort()
+        return
+      }
+      const proposed = sendControl(socket, {
+        type: CollaborationMessageTypes.SOURCE_PUBLICATION_PROPOSED,
+        requestId,
+        publicationIds,
+        sequences
+      })
+      if (!proposed) abort()
+    })
   }
 
   const acceptCompletedPublicationRequest = async (
@@ -1363,6 +1455,20 @@ webSocketServer.on('connection', (socket) => {
         sequence: firstSequence + index,
         byteLength: publication.byteLength
       }))
+      const sourceApplied = await awaitSourcePublicationSettlement(
+        request.requestId,
+        sequenced.map(({ publicationId }) => publicationId),
+        sequenced.map(({ sequence }) => sequence),
+        signal
+      )
+      if (!sourceApplied) {
+        throw new SocketServerFailure(
+          'acknowledgement-failed',
+          '[collaboration] source rejected publication during canonical apply',
+          undefined,
+          sequenced[0]?.publicationId
+        )
+      }
       const persistenceCapacityStartedAtMs = performance.now()
       try {
         await room.persistenceQueue.enqueueBatchWhenAvailable(
@@ -1644,7 +1750,9 @@ webSocketServer.on('connection', (socket) => {
     clearTimeout(helloTimeout)
     inboundFailed = true
     sourceFrameAdmission?.controller.abort()
+    pendingSourcePublicationSettlement?.abort()
     sourceFrameAdmission = null
+    pendingSourcePublicationSettlement = null
     inboundRequests.clear()
     removePeer(peer)
   }

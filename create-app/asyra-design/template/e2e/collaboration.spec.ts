@@ -187,6 +187,78 @@ const seedPriorGenerationRemoval = async (page: Page, fileId: string) => {
   }, fileId)
 }
 
+const seedCurrentGenerationOrphanPropertyUpdate = async (
+  page: Page,
+  fileId: string
+) => {
+  await page.evaluate(async (documentId) => {
+    const publicationId = 'orphan-property-update-before-reconnect'
+    const propertyId = 'missing-property-before-reconnect'
+    const publication = {
+      publicationId,
+      artifactId: 'orphan-property-update-artifact',
+      transactionId: 1,
+      origin: 'action',
+      mode: 'progressive',
+      slices: [
+        {
+          sliceId: 'orphan-property-update-slice',
+          orderedIds: [propertyId],
+          batches: [
+            {
+              batchId: 'orphan-property-update-batch',
+              channel: 'props',
+              deliveries: [
+                {
+                  deliveryId: 'orphan-property-update-delivery',
+                  eventName: 'updateProperty',
+                  orderedIds: [propertyId],
+                  payload: {
+                    action: 'updateProperty',
+                    eventName: 'updateProperty',
+                    id: propertyId,
+                    key: 'width',
+                    before: 100,
+                    after: 120
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('collaboration-publications', 1)
+      request.addEventListener('success', () => resolve(request.result), {
+        once: true
+      })
+      request.addEventListener('error', () => reject(request.error), {
+        once: true
+      })
+    })
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(
+        'pending-publications',
+        'readwrite'
+      )
+      transaction.objectStore('pending-publications').put({
+        fileId: documentId,
+        publicationId,
+        appendOrder: 1,
+        documentGeneration: 0,
+        publication,
+        status: 'pending'
+      })
+      transaction.addEventListener('complete', () => resolve(), { once: true })
+      transaction.addEventListener('error', () => reject(transaction.error), {
+        once: true
+      })
+    })
+    database.close()
+  }, fileId)
+}
+
 test('keeps only the initial none-to-connected transition silent', async ({
   page
 }, testInfo) => {
@@ -273,6 +345,65 @@ test('does not replay a prior-generation removal after document Reset', async ({
       expect.stringContaining('[RenderApp] Render startup failed:')
     ])
   )
+})
+
+test('keeps the room live when a retained source publication cannot apply during recovery', async ({
+  page,
+  context
+}, testInfo) => {
+  const fileId = `rejected-source-recovery-${Date.now()}-${testInfo.workerIndex}`
+  const startupErrors: string[] = []
+  page.on('console', (message) => {
+    if (message.type() === 'error') startupErrors.push(message.text())
+  })
+
+  await page.goto(collaborationUrl(fileId))
+  await waitForAppReady(page)
+  await waitForCollaboration(page)
+  await seedCurrentGenerationOrphanPropertyUpdate(page, fileId)
+
+  await page.reload()
+  await waitForAppReady(page)
+  await waitForCollaboration(page)
+  await expect
+    .poll(() =>
+      page.evaluate(async () =>
+        (await import('../src/testing/runtime-access'))
+          .getActiveCollaborationHandle()
+          ?.getSessionState()
+      )
+    )
+    .toMatchObject({
+      connection: 'connected',
+      sync: 'conflicted',
+      pendingCount: 1,
+      disconnectedEpoch: 0,
+      notification: {
+        message:
+          'One or more offline changes need review and remain retained locally.',
+        type: 'conflicted'
+      }
+    })
+  await expect(page.locator('[role="alert"]')).toHaveText(
+    'One or more offline changes need review and remain retained locally.'
+  )
+  expect(startupErrors).not.toEqual(
+    expect.arrayContaining([
+      expect.stringContaining('[RenderApp] Render startup failed:')
+    ])
+  )
+
+  const peer = await context.newPage()
+  try {
+    await peer.goto(collaborationUrl(fileId))
+    await waitForAppReady(peer)
+    await waitForCollaboration(peer)
+    await createRectangle(peer, 0.45, 0.45)
+    await expect.poll(() => getElementCount(peer)).toBe(1)
+    await expect.poll(() => getElementCount(page)).toBe(1)
+  } finally {
+    await peer.close()
+  }
 })
 
 const getCanonicalSnapshot = (page: Page) =>

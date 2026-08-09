@@ -579,7 +579,10 @@ const requestPublicClient = async ({ port, origin, fileId, actorId }) => {
   return { socket, result: await ready }
 }
 
-const connectPublicClient = async (identity) => {
+const connectPublicClient = async (
+  identity,
+  { autoSettleSourcePublications = true } = {}
+) => {
   const { socket, result } = await requestPublicClient(identity)
   assert.equal(result.type, 'ready')
   assert.ok(result.bootstrap)
@@ -601,6 +604,20 @@ const connectPublicClient = async (identity) => {
     requestId,
     ok: true
   })
+  if (autoSettleSourcePublications) {
+    socket.on('message', (data, isBinary) => {
+      if (isBinary) return
+      const message = JSON.parse(rawDataToBuffer(data).toString('utf8'))
+      if (message.type !== 'source-publication-proposed') return
+      socket.send(
+        JSON.stringify({
+          type: 'source-publication-settlement',
+          requestId: message.requestId,
+          ok: true
+        })
+      )
+    })
+  }
   return socket
 }
 
@@ -1522,6 +1539,97 @@ test('socket server assigns one room sequence, deduplicates publication retries,
       acceptedSequences: [1]
     })
     await expectNoBinaryMessage(observer)
+  } finally {
+    await Promise.all(sockets.map((socket) => closeSocket(socket)))
+    await stopServer(child)
+  }
+})
+
+test('source recovery rejection abandons its tentative sequence before room admission', async () => {
+  const port = await getAvailablePort()
+  const origin = 'http://localhost:4340'
+  const child = startServer({ port, origin })
+  const sockets = []
+  try {
+    await waitForServer(child)
+    const source = await connectPublicClient(
+      {
+        port,
+        origin,
+        fileId: 'source-recovery-rejection-file',
+        actorId: 'source-recovery-rejection-source'
+      },
+      { autoSettleSourcePublications: false }
+    )
+    const peer = await connectPublicClient({
+      port,
+      origin,
+      fileId: 'source-recovery-rejection-file',
+      actorId: 'source-recovery-rejection-peer'
+    })
+    sockets.push(source, peer)
+
+    const requestId = 'source-recovery-rejection-request'
+    const publicationId = 'source-recovery-rejection-publication'
+    const sourceOutcome = waitForMessage(
+      source,
+      (message) =>
+        message.type === 'source-publication-proposed' ||
+        (message.type === 'response' && message.requestId === requestId),
+      'tentative source sequence proposal'
+    )
+    const peerPublication = waitForBinaryMessage(
+      peer,
+      'publication rejected by its source'
+    )
+    source.send(
+      createCanonicalPublicationFrame({
+        requestId,
+        publicationId,
+        after: 2
+      }),
+      { binary: true }
+    )
+
+    assert.deepEqual(await sourceOutcome, {
+      type: 'source-publication-proposed',
+      requestId,
+      publicationIds: [publicationId],
+      sequences: [1]
+    })
+
+    const rejection = responseFor(source, requestId)
+    source.send(
+      JSON.stringify({
+        type: 'source-publication-settlement',
+        requestId,
+        ok: false
+      })
+    )
+    assert.deepEqual(await rejection, {
+      type: 'response',
+      requestId,
+      ok: false,
+      error: {
+        code: 'acknowledgement-failed',
+        message:
+          '[collaboration] source rejected publication during canonical apply'
+      }
+    })
+    await noMessageBefore(peerPublication)
+
+    await closeSocket(peer)
+    sockets.splice(sockets.indexOf(peer), 1)
+    const reconnect = await requestPublicClient({
+      port,
+      origin,
+      fileId: 'source-recovery-rejection-file',
+      actorId: 'source-recovery-rejection-observer'
+    })
+    sockets.push(reconnect.socket)
+    assert.equal(reconnect.result.type, 'ready')
+    assert.equal(reconnect.result.bootstrap.headSequence, 0)
+    assert.deepEqual(reconnect.result.bootstrap.pendingTail, [])
   } finally {
     await Promise.all(sockets.map((socket) => closeSocket(socket)))
     await stopServer(child)

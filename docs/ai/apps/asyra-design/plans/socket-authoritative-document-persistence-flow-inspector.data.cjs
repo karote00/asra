@@ -277,11 +277,12 @@
       title: 'Retain and reconcile unaccepted local publications',
       ownerPackage: 'Asyra Design collaboration lifecycle and outbox',
       purpose:
-        'Durably retain every unaccepted local publication, keep local editing available across connection loss, and reconcile pending publications into one server-assigned order after a fresh handshake.',
+        'Durably retain every unaccepted local publication, keep local editing available across connection loss, and settle tentative source sequence proposals through ordered canonical recovery before final socket acceptance.',
       inputs: [
         'artifact:document-shared-publication',
         'artifact:socket-synchronized-session',
         'artifact:bootstrap-document-generation',
+        'artifact:source-publication-sequence-proposal',
         'artifact:source-publication-acceptance',
         'artifact:document-session-open-failure',
         'artifact:publication-sequence-failure',
@@ -291,6 +292,7 @@
       outputs: [
         'artifact:active-local-document-session',
         'artifact:recoverable-pending-publication',
+        'artifact:source-publication-apply-settlement',
         'artifact:reconciled-document-session',
         'artifact:connection-sync-state',
         'artifact:outbox-storage-failure'
@@ -300,11 +302,12 @@
         'The durable record contains the immutable SharedPublication and correlation metadata, never a Core snapshot or private Factory History.',
         'Each durable record is bound to one document generation; a successful handshake clears prior-generation Reset artifacts before any socket send or recovery apply, while records created before their first successful handshake bind to that generation.',
         'A matching socket source acceptance removes exactly one pending publication; response loss retransmits the same publication identity.',
+        'A tentative source sequence proposal is settled through the ordinary ordered canonical recovery boundary; an ordinary publication already present in the source runtime succeeds without a second canonical mutation.',
         'Initial connection failure and later disconnection leave Core, Canvas, actions, Undo, and Redo available.',
         'Connection starts at none and never returns to it; only none-to-connected is silent, while none-to-disconnected and connected-to-disconnected each produce one disconnect toast, disconnected-to-connected produces one reconnect toast, repeated same-state observations publish no new connection state, and publication-level failures remain console-only.',
         'A disconnected lifecycle schedules one non-overlapping reconnect attempt every 30000 ms.',
         'Reconnect obtains the latest checkpoint and socket tail, then applies accepted local recovery and peer publications in server sequence exactly once.',
-        'Same-property conflicts resolve by later server sequence; an unexpected atomic apply failure advances no sequence and restarts authoritative reconciliation instead of creating a socket semantic-conflict record.',
+        'Same-property conflicts resolve by later server sequence; an unexpected recovery apply failure rejects the tentative proposal, advances no sequence, and retains the outbox record as an explicit conflict without disabling the connection or other Actors, while failure of an already accepted peer sequence restarts authoritative reconciliation.',
         'IndexedDB quota or denial enters storage-failed and retains current-runtime memory evidence when possible without evicting older pending entries.'
       ],
       bypasses: [
@@ -352,34 +355,39 @@
       title: 'Assign document order and fan out live',
       ownerPackage: 'Asyra Design socket server',
       purpose:
-        'Admit one bounded opaque publication envelope, deduplicate exact encoded bytes, assign one monotonic document sequence, enqueue the original payload bytes, and broadcast them in that sequence order.',
+        'Admit one bounded opaque publication envelope, deduplicate exact encoded bytes, serialize one tentative next document sequence, and commit the original payload bytes to persistence and peer fan-out only after the source settles canonical apply at that sequence.',
       inputs: [
         'artifact:recoverable-pending-publication',
+        'artifact:source-publication-apply-settlement',
         'ready document-session identity',
         'bounded outer wire envelope and original encoded publication bytes',
         'current document head sequence',
         'current publication-id plus encoded-byte-digest acceptance index'
       ],
       outputs: [
+        'artifact:source-publication-sequence-proposal',
         'artifact:sequenced-document-publication',
         'artifact:source-publication-acceptance',
         'artifact:publication-sequence-failure'
       ],
       conditions: [
-        'One accepted new publication receives exactly the next document sequence.',
+        'One new publication receives a tentative next document sequence while room admission remains serialized, without advancing the room head, persistence queue, or peer stream.',
+        'A successful source apply settlement commits exactly the proposed next sequence; source rejection, disconnect, or inability to settle abandons the proposal without consuming a sequence.',
         'A retransmission with the accepted publication identity and exact encoded-byte digest resolves to its existing sequence and is not enqueued or broadcast twice.',
         'The source acceptance response carries the assigned sequence and does not claim peer apply or backend durability.',
         'Every peer receives the original encoded payload bytes in the server-assigned document order; only server-owned outer sequence and actor metadata may be reframed.',
-        'The sequenced opaque publication bytes are appended to the pending persistence queue before source acceptance completes.',
+        'The sequenced opaque publication bytes are appended to the pending persistence queue only after successful source apply settlement and before source acceptance completes.',
         'The live socket does not decode product payloads, construct an admission document, or reinterpret App route and payload semantics.'
       ],
       bypasses: [
         'A known retransmission bypasses new sequence allocation and duplicate fan-out.',
-        'An invalid session, publication identity, outer wire envelope, byte bound, chunk sequence, or changed payload digest is rejected before sequence allocation.'
+        'An invalid session, publication identity, outer wire envelope, byte bound, chunk sequence, or changed payload digest is rejected before sequence proposal.',
+        'A rejected or abandoned source apply proposal bypasses persistence enqueue, room-head advancement, peer fan-out, and source acceptance.'
       ],
       allowedContributors: [
         'Asyra Design outer wire-integrity and byte-bound validation',
         'Asyra Design document-session registry and sequencer',
+        'opaque source apply settlement for the proposed publication identity and sequence',
         'publication identity plus exact encoded-byte digest',
         'existing bounded WebSocket peer queues'
       ],
@@ -779,6 +787,24 @@
       producedArtifacts: ['artifact:source-publication-acceptance']
     },
     {
+      id: 'route-source-sequence-proposal-to-recovery',
+      from: 'sequence-live-publication',
+      to: 'recover-pending-publications',
+      kind: 'source-sequence-proposal',
+      predicate:
+        'The socket has serialized the tentative next sequence for a new recoverable publication without advancing the authoritative room.',
+      producedArtifacts: ['artifact:source-publication-sequence-proposal']
+    },
+    {
+      id: 'route-source-apply-settlement-to-sequencer',
+      from: 'recover-pending-publications',
+      to: 'sequence-live-publication',
+      kind: 'source-apply-settlement',
+      predicate:
+        'The source has atomically applied or rejected the proposed publication at its ordered canonical recovery boundary.',
+      producedArtifacts: ['artifact:source-publication-apply-settlement']
+    },
+    {
       id: 'route-sequenced-publication-to-peer',
       from: 'sequence-live-publication',
       to: 'apply-live-publication',
@@ -991,6 +1017,18 @@
       consumerStepIds: ['apply-live-publication', 'flush-persistence-window']
     },
     {
+      id: 'artifact:source-publication-sequence-proposal',
+      ownerStepId: 'sequence-live-publication',
+      channel: 'socket tentative source sequence proposal',
+      consumerStepIds: ['recover-pending-publications']
+    },
+    {
+      id: 'artifact:source-publication-apply-settlement',
+      ownerStepId: 'recover-pending-publications',
+      channel: 'App ordered canonical recovery settlement',
+      consumerStepIds: ['sequence-live-publication']
+    },
+    {
       id: 'artifact:source-publication-acceptance',
       ownerStepId: 'sequence-live-publication',
       channel: 'socket source acceptance',
@@ -1041,7 +1079,8 @@
     {
       id: 'artifact:publication-sequence-failure',
       ownerStepId: 'sequence-live-publication',
-      channel: 'socket source wire, identity, digest, or capacity rejection',
+      channel:
+        'socket source wire, identity, digest, capacity, or source apply rejection',
       consumerStepIds: ['recover-pending-publications']
     },
     {

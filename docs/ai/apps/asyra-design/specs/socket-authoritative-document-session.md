@@ -266,12 +266,27 @@ For each accepted publication, the socket server:
    identity without decoding the product payload;
 2. deduplicates a retransmission by publication identity and exact encoded-byte
    digest;
-3. assigns exactly one next document sequence;
-4. appends the sequenced opaque publication bytes to the document's pending
+3. serializes one tentative next document sequence without advancing the room
+   head, persistence queue, or peer stream;
+4. asks the source Actor to settle that publication through its ordinary
+   ordered canonical apply boundary at the tentative sequence;
+5. abandons the tentative sequence when source apply rejects, disconnects, or
+   cannot settle, retaining the originating outbox record as an explicit
+   conflict without polluting the authoritative room;
+6. after source apply succeeds, appends the sequenced opaque publication bytes
+   to the document's pending
    persistence queue;
-5. reframes only server-owned metadata and broadcasts the original encoded
+7. reframes only server-owned metadata and broadcasts the original encoded
    payload bytes to the other connected Actors in that sequence order; and
-6. acknowledges source acceptance with the assigned sequence.
+8. acknowledges source acceptance with the assigned sequence.
+
+The tentative sequence proposal is not source acceptance and never advances
+the authoritative room. It exists only so a recovering source can apply its
+retained publication after every earlier server sequence and before any later
+sequence. Ordinary publications that are already present in the source runtime
+settle this step without a second canonical mutation. The socket keeps room
+admission serialized until the source settles, so another publication cannot
+claim or overtake the tentative sequence.
 
 Source acceptance means the socket owns the publication in its current
 in-memory pending queue. It is distinct from backend durability. Peer apply
@@ -401,10 +416,12 @@ For concurrent recovery, the socket sequence remains the final order.
 Independent property updates remain independent; two accepted updates to the
 same property resolve by later server sequence. Scene Tree and other structural
 changes were admitted by their originating canonical owners. If a sequenced
-publication nevertheless cannot apply atomically to an Actor or the backend,
-that is an authoritative synchronization failure: no partial prefix or later
-sequence is accepted, and the affected owner resynchronizes from the latest
-authoritative checkpoint and contiguous tail.
+publication proposal cannot apply atomically to its recovering source, the
+proposal is rejected before room admission, the retained outbox record becomes
+an explicit conflict, and no partial prefix or later sequence is accepted. If
+an already accepted publication later cannot apply to a peer or the backend,
+that is an authoritative synchronization failure: the affected owner
+resynchronizes from the latest authoritative checkpoint and contiguous tail.
 
 ## Reset, Import, Export, and Serialization
 
@@ -527,9 +544,11 @@ Forbidden paths:
       and removes only publications acknowledged by identity.
 12. **Concurrent conflict**
     - Same-property conflicts follow server sequence. An unexpected structural
-      apply failure advances no sequence, leaves no partial mutation, and
-      requires authoritative resynchronization rather than semantic socket
-      admission or silent skip.
+      recovery-apply failure rejects its tentative source sequence, leaves no
+      room or canonical prefix, retains the outbox record as an explicit
+      conflict, and does not disable other Actors. A failure after completed
+      source acceptance requires authoritative resynchronization rather than
+      semantic socket admission or silent skip.
 13. **Recovery storage unavailable**
     - Local editing remains responsive, the current runtime retains pending
       publications when possible, one storage-failed transition is reported,
@@ -554,6 +573,9 @@ Forbidden paths:
 - Reconnect reconciles the latest server state and durable local publications
   into one server-assigned order, with explicit conflict and storage-failure
   states.
+- A retained recovery publication becomes authoritative only after its source
+  settles the tentative server sequence; a rejected source apply cannot enter
+  the room head, persistence queue, peer fan-out, or source acceptance.
 - Factory `SharedPublication` remains the one client change unit; no parallel
   persistence artifact contains undo History.
 - One local canonical data admission produces a trusted publication; later

@@ -25,6 +25,7 @@ import { CollaborationWebSocketProvider } from '../../collaboration/websocket-pr
 
 type ClientMessage = Readonly<{
   type: string
+  ok?: boolean
   requestId?: string
   frameId?: string
   publicationId?: string
@@ -1199,6 +1200,129 @@ describe('CollaborationWebSocketProvider real connection contract', () => {
       ])
       expect(firstSettlement).not.toBe('rejected')
       expect(secondSettlement).not.toBe('rejected')
+    } finally {
+      await provider.destroy()
+    }
+  })
+
+  it('rejects a failed recovery proposal without failing the live connection and admits the next source publication', async () => {
+    const sourceHeaders = new Map<string, PublicationFrameHeader>()
+    const settlements: ClientMessage[] = []
+    const server = await createLoopbackServer(
+      (socket, message) => {
+        if (message.type === 'hello') {
+          socket.send(JSON.stringify({ type: 'ready' }))
+          return
+        }
+        if (
+          message.type === 'send-publication' &&
+          message.requestId &&
+          message.publication
+        ) {
+          socket.send(
+            JSON.stringify({
+              type: 'source-publication-proposed',
+              requestId: message.requestId,
+              publicationIds: [message.publication.publicationId],
+              sequences: [1]
+            })
+          )
+          return
+        }
+        if (
+          message.type === 'source-publication-settlement' &&
+          message.requestId
+        ) {
+          const sourceHeader = sourceHeaders.get(message.requestId)
+          if (!sourceHeader) return
+          settlements.push(message)
+          socket.send(
+            JSON.stringify({
+              type: 'source-frame-admitted',
+              requestId: sourceHeader.requestId,
+              frameId: sourceHeader.frameId,
+              publicationId: sourceHeader.publicationId,
+              frameByteLength: sourceHeader.frameByteLength
+            })
+          )
+          socket.send(
+            JSON.stringify(
+              message.ok
+                ? {
+                    type: 'response',
+                    requestId: message.requestId,
+                    ok: true,
+                    acceptedSequences: [1]
+                  }
+                : {
+                    type: 'response',
+                    requestId: message.requestId,
+                    ok: false,
+                    error: {
+                      code: 'acknowledgement-failed',
+                      message:
+                        '[collaboration] source rejected publication during canonical apply'
+                    }
+                  }
+            )
+          )
+          return
+        }
+        if (message.type === 'send-awareness' && message.requestId) {
+          socket.send(
+            JSON.stringify({
+              type: 'response',
+              requestId: message.requestId,
+              ok: true
+            })
+          )
+        }
+      },
+      {
+        autoAdmitSourceFrames: false,
+        onSourceFrame: (_socket, header) => {
+          if (header.requestId) sourceHeaders.set(header.requestId, header)
+        }
+      }
+    )
+    const provider = createProvider(server.endpoint)
+    await provider.connect()
+    const recoveryFailure = new Error('missing active property')
+    const consumeAcceptedSource = vi.fn().mockRejectedValue(recoveryFailure)
+
+    try {
+      await expect(
+        provider.sendPublicationWithAcceptance(
+          publication,
+          consumeAcceptedSource
+        )
+      ).rejects.toMatchObject({
+        code: 'acknowledgement-failed',
+        message:
+          '[collaboration] source rejected publication during canonical apply'
+      })
+      expect(consumeAcceptedSource).toHaveBeenCalledOnce()
+      expect(consumeAcceptedSource).toHaveBeenCalledWith(publication)
+      expect(settlements).toEqual([
+        {
+          type: 'source-publication-settlement',
+          requestId: [...sourceHeaders.keys()][0],
+          ok: false
+        }
+      ])
+      expect(provider.getStatus()).toBe('connected')
+      await expect(
+        provider.sendAwareness({ actorId: 'actor-a', clock: 1, state: null })
+      ).resolves.toBeUndefined()
+      const nextPublication = createPublication({
+        suffix: 'after-rejected-recovery',
+        transactionId: 2
+      })
+      await expect(
+        provider.sendPublication(nextPublication)
+      ).resolves.toBeUndefined()
+      expect(provider.getAppliedDocumentSequence()).toBe(1)
+      expect(settlements.map(({ ok }) => ok)).toEqual([false, true])
     } finally {
       await provider.destroy()
     }

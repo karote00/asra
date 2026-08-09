@@ -78,8 +78,14 @@ interface ActivePublicationDelivery {
 interface SequencedSourceAcceptance {
   readonly acceptance: DocumentSourcePublicationAcceptance
   readonly generation: number
+  readonly requestId: string
   readonly pending: PendingPublicationRequest
-  state: 'awaiting-consumer' | 'applying'
+  readonly proposed: boolean
+  state:
+    | 'awaiting-consumer'
+    | 'applying'
+    | 'awaiting-server-acceptance'
+    | 'awaiting-server-rejection'
 }
 
 interface TransportWorkerEvent {
@@ -688,6 +694,39 @@ export class CollaborationWebSocketProvider implements Provider {
       pending.resolve()
       return
     }
+    if (response.type === 'source-publication-proposed') {
+      const pending = this.pendingRequests.get(response.requestId)
+      const sequence = response.sequences[0]
+      if (
+        !pending ||
+        pending.kind !== 'publication' ||
+        response.publicationIds.length !== 1 ||
+        response.publicationIds[0] !== pending.publication.publicationId ||
+        response.sequences.length !== 1 ||
+        !Number.isSafeInteger(sequence) ||
+        Number(sequence) <= 0
+      ) {
+        this.failTransportWorker(
+          new ProviderFailure(
+            'acknowledgement-failed',
+            '[collaboration] source publication proposal is invalid',
+            undefined,
+            pending?.kind === 'publication'
+              ? pending.publication.publicationId
+              : response.publicationIds[0]
+          ),
+          response.generation
+        )
+        return
+      }
+      this.proposeSourcePublication(
+        response.requestId,
+        pending,
+        Number(sequence),
+        response.generation
+      )
+      return
+    }
     if (response.type === 'request-accepted') {
       const pending = this.pendingRequests.get(response.requestId)
       if (!pending) return
@@ -709,6 +748,7 @@ export class CollaborationWebSocketProvider implements Provider {
         return
       }
       this.acceptSourcePublication(
+        response.requestId,
         pending,
         Number(sequence),
         response.generation
@@ -720,7 +760,11 @@ export class CollaborationWebSocketProvider implements Provider {
       if (!pending) return
       this.pendingRequests.delete(response.requestId)
       if (pending.kind === 'publication') {
-        this.releasePublicationCapacity()
+        if (
+          this.sourcePublicationAcceptance?.requestId === response.requestId
+        ) {
+          this.sourcePublicationAcceptance = null
+        }
       }
       pending.reject(
         toFailure(response.code, response.message, response.publicationId)
@@ -1108,6 +1152,7 @@ export class CollaborationWebSocketProvider implements Provider {
   }
 
   private acceptSourcePublication(
+    requestId: string,
     pending: PendingPublicationRequest,
     sequence: number,
     generation: number
@@ -1119,6 +1164,29 @@ export class CollaborationWebSocketProvider implements Provider {
     const appliedSequence = this.appliedDocumentSequence
     if (appliedSequence !== null && sequence <= appliedSequence) {
       pending.resolve(acceptance)
+      this.consumeNextDocumentSequence()
+      return
+    }
+    const proposed = this.sourcePublicationAcceptance
+    if (proposed?.requestId === requestId && proposed.proposed) {
+      if (
+        proposed.pending !== pending ||
+        proposed.acceptance.sequence !== sequence ||
+        proposed.state !== 'awaiting-server-acceptance'
+      ) {
+        const failure = new ProviderFailure(
+          'acknowledgement-failed',
+          '[collaboration] source publication acceptance does not match its proposal',
+          undefined,
+          pending.publication.publicationId
+        )
+        pending.reject(failure)
+        this.failTransportWorker(failure, generation)
+        return
+      }
+      this.appliedDocumentSequence = sequence
+      this.sourcePublicationAcceptance = null
+      pending.resolve(proposed.acceptance)
       this.consumeNextDocumentSequence()
       return
     }
@@ -1136,7 +1204,45 @@ export class CollaborationWebSocketProvider implements Provider {
     this.sourcePublicationAcceptance = {
       acceptance,
       generation,
+      requestId,
       pending,
+      proposed: false,
+      state: 'awaiting-consumer'
+    }
+    this.consumeNextDocumentSequence()
+  }
+
+  private proposeSourcePublication(
+    requestId: string,
+    pending: PendingPublicationRequest,
+    sequence: number,
+    generation: number
+  ): void {
+    if (
+      this.sourcePublicationAcceptance ||
+      this.appliedDocumentSequence === null ||
+      sequence <= this.appliedDocumentSequence
+    ) {
+      this.failTransportWorker(
+        new ProviderFailure(
+          'acknowledgement-failed',
+          '[collaboration] source publication proposal cannot enter the document sequence',
+          undefined,
+          pending.publication.publicationId
+        ),
+        generation
+      )
+      return
+    }
+    this.sourcePublicationAcceptance = {
+      acceptance: Object.freeze({
+        publicationId: pending.publication.publicationId,
+        sequence
+      }),
+      generation,
+      requestId,
+      pending,
+      proposed: true,
       state: 'awaiting-consumer'
     }
     this.consumeNextDocumentSequence()
@@ -1166,6 +1272,29 @@ export class CollaborationWebSocketProvider implements Provider {
             ) {
               return
             }
+            if (source.proposed) {
+              source.state = 'awaiting-server-acceptance'
+              try {
+                this.postToTransportWorker({
+                  type: 'settle-source-publication',
+                  generation: source.generation,
+                  requestId: source.requestId,
+                  outcome: 'applied'
+                })
+              } catch (error) {
+                source.pending.reject(error)
+                this.failTransportWorker(
+                  new ProviderFailure(
+                    'transport-failed',
+                    '[collaboration] source publication settlement failed',
+                    error,
+                    source.pending.publication.publicationId
+                  ),
+                  source.generation
+                )
+              }
+              return
+            }
             this.appliedDocumentSequence = source.acceptance.sequence
             this.sourcePublicationAcceptance = null
             source.pending.resolve(source.acceptance)
@@ -1173,6 +1302,29 @@ export class CollaborationWebSocketProvider implements Provider {
           },
           (error: unknown) => {
             if (this.sourcePublicationAcceptance !== source) return
+            if (source.proposed) {
+              source.state = 'awaiting-server-rejection'
+              try {
+                this.postToTransportWorker({
+                  type: 'settle-source-publication',
+                  generation: source.generation,
+                  requestId: source.requestId,
+                  outcome: 'failed'
+                })
+              } catch (settlementError) {
+                source.pending.reject(settlementError)
+                this.failTransportWorker(
+                  new ProviderFailure(
+                    'transport-failed',
+                    '[collaboration] source publication rejection failed',
+                    settlementError,
+                    source.pending.publication.publicationId
+                  ),
+                  source.generation
+                )
+              }
+              return
+            }
             this.sourcePublicationAcceptance = null
             source.pending.reject(error)
             this.failTransportWorker(

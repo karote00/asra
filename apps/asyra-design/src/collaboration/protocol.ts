@@ -26,7 +26,9 @@ export const CollaborationMessageTypes = {
   PEER_APPLIED: 'peer-applied',
   BOOTSTRAP_CONSUMED: 'bootstrap-consumed',
   RESET_DOCUMENT: 'reset-document',
+  SOURCE_PUBLICATION_SETTLEMENT: 'source-publication-settlement',
   SOURCE_FRAME_ADMITTED: 'source-frame-admitted',
+  SOURCE_PUBLICATION_PROPOSED: 'source-publication-proposed',
   READY: 'ready',
   RESPONSE: 'response',
   PUBLICATION: 'publication',
@@ -86,6 +88,12 @@ export interface ResetDocumentRequest {
   readonly requestId: string
 }
 
+export interface SourcePublicationSettlementMessage {
+  readonly type: typeof CollaborationMessageTypes.SOURCE_PUBLICATION_SETTLEMENT
+  readonly requestId: string
+  readonly ok: boolean
+}
+
 export type CollaborationRequestMessage =
   | SendPublicationRequest
   | SendPublicationsRequest
@@ -95,16 +103,17 @@ export type CollaborationRequestMessage =
   | BootstrapConsumedRequest
   | ResetDocumentRequest
 
+export type CollaborationClientMessage =
+  | CollaborationHelloMessage
+  | CollaborationRequestMessage
+  | SourcePublicationSettlementMessage
+
 type WithoutRequestId<T> = T extends CollaborationRequestMessage
   ? Omit<T, 'requestId'>
   : never
 
 export type CollaborationRequestInput =
   WithoutRequestId<CollaborationRequestMessage>
-
-export type CollaborationClientMessage =
-  | CollaborationHelloMessage
-  | CollaborationRequestMessage
 
 export interface CollaborationFailurePayload {
   readonly code: string
@@ -154,6 +163,13 @@ export interface SourceFrameAdmittedMessage {
   readonly frameByteLength: number
 }
 
+export interface SourcePublicationProposedMessage {
+  readonly type: typeof CollaborationMessageTypes.SOURCE_PUBLICATION_PROPOSED
+  readonly requestId: string
+  readonly publicationIds: readonly string[]
+  readonly sequences: readonly number[]
+}
+
 export interface PublicationMessage {
   readonly type: typeof CollaborationMessageTypes.PUBLICATION
   readonly publication: SharedPublication
@@ -199,6 +215,7 @@ export type CollaborationServerMessage =
   | SuccessfulResponseMessage
   | FailedResponseMessage
   | SourceFrameAdmittedMessage
+  | SourcePublicationProposedMessage
   | PublicationMessage
   | PublicationsMessage
   | AwarenessMessage
@@ -1560,7 +1577,9 @@ const collaborationControlMessageTypes = new Set<string>([
   CollaborationMessageTypes.PEER_APPLIED,
   CollaborationMessageTypes.BOOTSTRAP_CONSUMED,
   CollaborationMessageTypes.RESET_DOCUMENT,
+  CollaborationMessageTypes.SOURCE_PUBLICATION_SETTLEMENT,
   CollaborationMessageTypes.SOURCE_FRAME_ADMITTED,
+  CollaborationMessageTypes.SOURCE_PUBLICATION_PROPOSED,
   CollaborationMessageTypes.READY,
   CollaborationMessageTypes.RESPONSE,
   CollaborationMessageTypes.AWARENESS,
@@ -1809,6 +1828,14 @@ export const parseCollaborationClientMessage = (
             requestId: value.requestId
           }
         : undefined
+    case CollaborationMessageTypes.SOURCE_PUBLICATION_SETTLEMENT:
+      return isNonBlankString(value.requestId) && typeof value.ok === 'boolean'
+        ? {
+            type: value.type,
+            requestId: value.requestId,
+            ok: value.ok
+          }
+        : undefined
   }
 }
 
@@ -1864,6 +1891,20 @@ export const parseCollaborationServerMessage = (
             frameId: value.frameId,
             publicationId: value.publicationId,
             frameByteLength: value.frameByteLength
+          }
+        : undefined
+    case CollaborationMessageTypes.SOURCE_PUBLICATION_PROPOSED:
+      return isNonBlankString(value.requestId) &&
+        isStringArray(value.publicationIds) &&
+        value.publicationIds.length > 0 &&
+        hasUniqueStrings(value.publicationIds) &&
+        isContiguousPositiveIntegerArray(value.sequences) &&
+        value.publicationIds.length === value.sequences.length
+        ? {
+            type: value.type,
+            requestId: value.requestId,
+            publicationIds: value.publicationIds,
+            sequences: value.sequences
           }
         : undefined
     case CollaborationMessageTypes.PUBLICATION:

@@ -13,7 +13,8 @@ import {
   type CollaborationRequestMessage,
   type DocumentSessionBootstrap,
   type PublicationFrameHeader,
-  type PublicationFrameMessage
+  type PublicationFrameMessage,
+  type SourcePublicationSettlementMessage
 } from './protocol'
 import {
   PublicationCodecWorkerRuntime,
@@ -41,6 +42,13 @@ export interface SettleCollaborationPublicationRequest {
   readonly message?: string
 }
 
+export interface SettleSourceCollaborationPublicationRequest {
+  readonly type: 'settle-source-publication'
+  readonly generation: number
+  readonly requestId: string
+  readonly outcome: 'applied' | 'failed'
+}
+
 export interface DisconnectCollaborationTransportWorkerRequest {
   readonly type: 'disconnect'
   readonly generation: number
@@ -55,6 +63,7 @@ export type CollaborationTransportWorkerRequest =
   | ConnectCollaborationTransportWorkerRequest
   | SendCollaborationTransportRequest
   | SettleCollaborationPublicationRequest
+  | SettleSourceCollaborationPublicationRequest
   | DisconnectCollaborationTransportWorkerRequest
   | DestroyCollaborationTransportWorkerRequest
 
@@ -78,6 +87,14 @@ export interface CollaborationTransportRequestRejectedResponse {
   readonly code: string
   readonly message: string
   readonly publicationId?: string
+}
+
+export interface CollaborationSourcePublicationProposedResponse {
+  readonly type: 'source-publication-proposed'
+  readonly generation: number
+  readonly requestId: string
+  readonly publicationIds: readonly string[]
+  readonly sequences: readonly number[]
 }
 
 export interface CollaborationPublicationCapacityReleasedResponse {
@@ -155,6 +172,7 @@ export type CollaborationTransportWorkerResponse =
   | CollaborationTransportConnectedResponse
   | CollaborationTransportRequestAcceptedResponse
   | CollaborationTransportRequestRejectedResponse
+  | CollaborationSourcePublicationProposedResponse
   | CollaborationPublicationCapacityReleasedResponse
   | CollaborationPublicationDeliveryResponse
   | CollaborationTransportAwarenessResponse
@@ -204,10 +222,19 @@ interface ActiveOutboundPublication {
   readonly generation: number
   readonly requestId: string
   readonly publicationId: string
+  readonly publicationIds: readonly string[]
   readonly publicationCount: number
   frames: (ArrayBuffer | undefined)[]
   nextFrameIndex: number
   inFlightHeader?: PublicationFrameHeader
+  proposedSequences?: readonly number[]
+}
+
+interface PendingPublicationResponse {
+  readonly publicationId: string
+  readonly publicationIds: readonly string[]
+  readonly publicationCount: number
+  readonly proposedSequences?: readonly number[]
 }
 
 interface ActiveInboundPublication {
@@ -273,6 +300,20 @@ const publicationIdFromRequest = (
     ? message.publication.publicationId
     : (message.publications[0]?.publicationId ?? message.requestId)
 
+const publicationIdsFromRequest = (
+  message: Extract<
+    CollaborationRequestMessage,
+    {
+      type:
+        | typeof CollaborationMessageTypes.SEND_PUBLICATION
+        | typeof CollaborationMessageTypes.SEND_PUBLICATIONS
+    }
+  >
+): readonly string[] =>
+  message.type === CollaborationMessageTypes.SEND_PUBLICATION
+    ? [message.publication.publicationId]
+    : message.publications.map(({ publicationId }) => publicationId)
+
 export class CollaborationTransportWorkerRuntime {
   private readonly createWebSocket: (endpoint: string) => WebSocket
   private readonly postMessage: TransportWorkerPost
@@ -290,7 +331,7 @@ export class CollaborationTransportWorkerRuntime {
   private activeOutboundPublication: ActiveOutboundPublication | undefined
   private readonly pendingPublicationResponses = new Map<
     string,
-    Readonly<{ publicationId: string; publicationCount: number }>
+    PendingPublicationResponse
   >()
   private activeInboundPublication: ActiveInboundPublication | undefined
   private readonly pendingControlRequestIds = new Set<string>()
@@ -314,6 +355,10 @@ export class CollaborationTransportWorkerRuntime {
     }
     if (request.type === 'settle-publication') {
       this.settlePublication(request)
+      return
+    }
+    if (request.type === 'settle-source-publication') {
+      this.settleSourcePublication(request)
       return
     }
     if (request.type === 'disconnect') {
@@ -480,6 +525,9 @@ export class CollaborationTransportWorkerRuntime {
       case CollaborationMessageTypes.SOURCE_FRAME_ADMITTED:
         this.handleSourceFrameAdmitted(parsed)
         return
+      case CollaborationMessageTypes.SOURCE_PUBLICATION_PROPOSED:
+        this.handleSourcePublicationProposed(parsed)
+        return
       case CollaborationMessageTypes.RESPONSE:
         this.handleControlResponse(parsed)
         return
@@ -610,6 +658,10 @@ export class CollaborationTransportWorkerRuntime {
           response.jobId !== jobId
         ) {
           if (response.type === 'publication-codec-failure') {
+            this.postMessage({
+              type: 'publication-capacity-released',
+              generation: this.generation
+            })
             this.rejectRequest(
               message.requestId,
               'transport-failed',
@@ -637,6 +689,7 @@ export class CollaborationTransportWorkerRuntime {
           generation: this.generation,
           requestId: message.requestId,
           publicationId,
+          publicationIds: publicationIdsFromRequest(message),
           publicationCount:
             message.type === CollaborationMessageTypes.SEND_PUBLICATION
               ? 1
@@ -741,12 +794,86 @@ export class CollaborationTransportWorkerRuntime {
     }
     this.pendingPublicationResponses.set(active.requestId, {
       publicationId: active.publicationId,
-      publicationCount: active.publicationCount
+      publicationIds: active.publicationIds,
+      publicationCount: active.publicationCount,
+      ...(active.proposedSequences
+        ? { proposedSequences: active.proposedSequences }
+        : {})
     })
     this.activeOutboundPublication = undefined
     this.postMessage({
       type: 'publication-capacity-released',
       generation: this.generation
+    })
+  }
+
+  private handleSourcePublicationProposed(
+    message: Extract<
+      ReturnType<typeof parseCollaborationServerMessage>,
+      { type: typeof CollaborationMessageTypes.SOURCE_PUBLICATION_PROPOSED }
+    >
+  ): void {
+    if (!message) return
+    const active = this.activeOutboundPublication
+    if (active?.requestId === message.requestId) {
+      if (
+        active.proposedSequences ||
+        !active.inFlightHeader ||
+        active.nextFrameIndex + 1 !== active.frames.length ||
+        message.publicationIds.length !== active.publicationCount ||
+        message.sequences.length !== active.publicationCount ||
+        message.publicationIds.some(
+          (publicationId, index) =>
+            publicationId !== active.publicationIds[index]
+        )
+      ) {
+        this.fail(
+          'acknowledgement-failed',
+          '[collaboration] source publication proposal does not match',
+          active.publicationId,
+          true
+        )
+        return
+      }
+      active.proposedSequences = message.sequences
+      this.postMessage({
+        type: 'source-publication-proposed',
+        generation: this.generation,
+        requestId: message.requestId,
+        publicationIds: message.publicationIds,
+        sequences: message.sequences
+      })
+      return
+    }
+    const pending = this.pendingPublicationResponses.get(message.requestId)
+    if (
+      !pending ||
+      pending.proposedSequences ||
+      message.publicationIds.length !== pending.publicationCount ||
+      message.sequences.length !== pending.publicationCount ||
+      message.publicationIds.some(
+        (publicationId, index) =>
+          publicationId !== pending.publicationIds[index]
+      )
+    ) {
+      this.fail(
+        'acknowledgement-failed',
+        '[collaboration] source publication proposal does not match',
+        pending?.publicationId ?? message.publicationIds[0],
+        true
+      )
+      return
+    }
+    this.pendingPublicationResponses.set(message.requestId, {
+      ...pending,
+      proposedSequences: message.sequences
+    })
+    this.postMessage({
+      type: 'source-publication-proposed',
+      generation: this.generation,
+      requestId: message.requestId,
+      publicationIds: message.publicationIds,
+      sequences: message.sequences
     })
   }
 
@@ -785,7 +912,12 @@ export class CollaborationTransportWorkerRuntime {
         if (
           !message.acceptedSequences ||
           message.acceptedSequences.length !==
-            pendingPublication.publicationCount
+            pendingPublication.publicationCount ||
+          (pendingPublication.proposedSequences !== undefined &&
+            message.acceptedSequences.some(
+              (sequence, index) =>
+                sequence !== pendingPublication.proposedSequences?.[index]
+            ))
         ) {
           this.fail(
             'acknowledgement-failed',
@@ -971,7 +1103,44 @@ export class CollaborationTransportWorkerRuntime {
     )
   }
 
-  private sendInternalControl(message: CollaborationRequestMessage): void {
+  private settleSourcePublication(
+    request: SettleSourceCollaborationPublicationRequest
+  ): void {
+    const pending = this.pendingPublicationResponses.get(request.requestId)
+    const active = this.activeOutboundPublication
+    const activeProposal =
+      active?.requestId === request.requestId && active.proposedSequences
+        ? active
+        : undefined
+    if (!pending?.proposedSequences && !activeProposal) {
+      this.fail(
+        'acknowledgement-failed',
+        '[collaboration] invalid source publication settlement',
+        pending?.publicationId ?? active?.publicationId,
+        true
+      )
+      return
+    }
+    try {
+      this.sendInternalControl({
+        type: CollaborationMessageTypes.SOURCE_PUBLICATION_SETTLEMENT,
+        requestId: request.requestId,
+        ok: request.outcome === 'applied'
+      })
+    } catch (error) {
+      this.fail(
+        'transport-failed',
+        '[collaboration] source publication settlement send failed',
+        pending?.publicationId ?? activeProposal?.publicationId,
+        true,
+        error
+      )
+    }
+  }
+
+  private sendInternalControl(
+    message: CollaborationRequestMessage | SourcePublicationSettlementMessage
+  ): void {
     const socket = this.socket
     if (!this.connected || !socket || socket.readyState !== SOCKET_OPEN) {
       throw new Error('[collaboration] provider is not connected')
