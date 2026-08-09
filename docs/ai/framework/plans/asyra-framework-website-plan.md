@@ -213,8 +213,8 @@ branch while it remains the active owner task.
   a sibling branch.
 - A child branch may modify only its plan-owned implementation boundary and
   direct required contracts/tests.
-- Child branches merge or open a PR into
-  `codex/asyra-public-release-program`, never directly into `main`.
+- Every completed child branch opens a PR targeting
+  `codex/asyra-public-release-program`, never directly targeting `main`.
 - A child never merges another child directly. Shared outputs first land in the
   integration branch; dependent children start from or synchronize with the
   resulting accepted integration checkpoint.
@@ -230,6 +230,32 @@ branch while it remains the active owner task.
   accepted `origin/main`, rerun the complete program gates, and only then open
   or merge the final integration PR into `main` through the user-authorized
   repository workflow.
+
+### Pull Request Policy
+
+- Before the first child PR, publish the integration branch to the remote only
+  after explicit push authorization. A remote child PR cannot target a parent
+  branch that exists only locally.
+- A child may open as Draft after its bounded contract and branch are ready.
+  Mark it Ready only after the child plan's focused gates, staged-diff review,
+  and handoff evidence pass.
+- Every child PR uses `codex/asyra-public-release-program` as its base branch.
+  The integration branch uses `main` as its base only for the final program PR.
+- Use a normal PR merge commit by default so the child commits and PR boundary
+  remain traceable. Squash, rebase, force-push, or history rewrite requires a
+  separate explicit decision.
+- A local merge may be used only on a disposable verification branch to test
+  integration. It is not accepted as the completed child integration and must
+  not replace the child PR, CI, review, or merge record.
+- After a child PR merges, fast-forward the local integration branch from its
+  remote owner, run the bounded integration gates, and use that accepted commit
+  as the base for dependent children.
+- Integration-only corrections may commit directly to the integration branch
+  only when they are owned by the umbrella integration contract, do not belong
+  to a child implementation boundary, and pass their focused gates. They must
+  not become a route for bypassing child PR review.
+- Pushing a parent or child branch, creating a PR, and merging a PR remain
+  separate external operations and require the applicable user authorization.
 
 ### Dependency Batches
 
