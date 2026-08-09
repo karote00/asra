@@ -328,7 +328,7 @@ Append-only rule: do not edit/delete prior entries; add a superseding entry when
   - `docs/ai/framework/plans/node-24-runtime-upgrade-and-vercel-validation-plan.md`
   - `docs/ai/framework/plans/local-versioned-package-install-research-plan.md`
   - `docs/ai/framework/plans/framework-package-patch-release-plan.md`
-  - `docs/ai/framework/plans/create-asyra-design-app-release-plan.md`
+  - `docs/ai/framework/plans/completed/create-asyra-design-app-release-plan.md`
   - `docs/ai/framework/plans/asyra-framework-website-plan.md`
 - Related Commit(s):
   - pending

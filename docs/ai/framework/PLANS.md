@@ -61,16 +61,7 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
 - Reference:
   `docs/ai/framework/plans/framework-package-patch-release-plan.md`
 
-2. Formal `create-asyra-design-app` release
-
-- Begin only after the Framework patch set is publicly installable.
-- Apply user-specified Asyra/Asyra Design versions, regenerate through the
-  official script, prove the real registry-backed user path, and publish the
-  CLI only with separate authorization.
-- Reference:
-  `docs/ai/framework/plans/create-asyra-design-app-release-plan.md`
-
-3. Root `asyra` family alignment
+2. Root `asyra` family alignment
 
 - Begin only after the applicable Framework `a.b.n` packages and the
   corresponding create-app CLI release are publicly verified.
@@ -80,7 +71,7 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
   earlier stage.
 - Reference: `docs/ai/framework/rules/release-version-topology.md`
 
-4. Asyra Framework marketing and documentation website
+3. Asyra Framework marketing and documentation website
 
 - Build the public Next.js/Tailwind documentation experience after public
   package and create-app contracts are stable.

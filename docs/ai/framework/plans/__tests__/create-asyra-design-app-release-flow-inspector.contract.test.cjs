@@ -48,7 +48,7 @@ test('create-app release Inspector authority and exact owners resolve', () => {
   assert.equal(data.target.id, 'create-asyra-design-app-release')
   assert.equal(
     data.authority.specPath,
-    'docs/ai/framework/plans/create-asyra-design-app-release-plan.md'
+    'docs/ai/framework/plans/completed/create-asyra-design-app-release-plan.md'
   )
   assert.equal(data.steps.length, 12)
   assert.deepEqual(

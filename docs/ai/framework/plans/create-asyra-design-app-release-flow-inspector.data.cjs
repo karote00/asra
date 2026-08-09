@@ -4,7 +4,7 @@
   'use strict'
 
   const specPath =
-    'docs/ai/framework/plans/create-asyra-design-app-release-plan.md'
+    'docs/ai/framework/plans/completed/create-asyra-design-app-release-plan.md'
   const inspectorPath =
     'docs/ai/framework/plans/create-asyra-design-app-release-flow-inspector.data.cjs'
 
@@ -63,7 +63,7 @@
         'apps/asyra-design/package.json',
         'create-app/asyra-design/package.json',
         'packages/*/package.json',
-        'docs/ai/framework/plans/create-asyra-design-app-release-plan.md',
+        'docs/ai/framework/plans/completed/create-asyra-design-app-release-plan.md',
         'docs/ai/framework/plans/create-asyra-design-app-release-flow-inspector.data.cjs'
       ],
       specRefs: [
@@ -264,7 +264,7 @@
       implementationBoundary: [
         'create-app/asyra-design/package.json',
         'docs/ai/framework/rules/release-version-topology.md',
-        'docs/ai/framework/plans/create-asyra-design-app-release-plan.md',
+        'docs/ai/framework/plans/completed/create-asyra-design-app-release-plan.md',
         'docs/ai/framework/plans/create-asyra-design-app-release-flow-inspector.data.cjs'
       ],
       specRefs: [
@@ -506,7 +506,7 @@
       cacheDimensions: [],
       implementationBoundary: [
         'create-app/asyra-design',
-        'docs/ai/framework/plans/create-asyra-design-app-release-plan.md',
+        'docs/ai/framework/plans/completed/create-asyra-design-app-release-plan.md',
         'tmp/create-app-release-evidence'
       ],
       specRefs: [
@@ -608,7 +608,7 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
-        'docs/ai/framework/plans/create-asyra-design-app-release-plan.md',
+        'docs/ai/framework/plans/completed/create-asyra-design-app-release-plan.md',
         'docs/ai/framework/PLANS.md',
         'docs/ai/framework/plans/create-asyra-design-app-release-flow-inspector.data.cjs'
       ],
@@ -836,7 +836,7 @@
       {
         id: 'product-contract',
         label: 'Release Plan',
-        href: './create-asyra-design-app-release-plan.md',
+        href: './completed/create-asyra-design-app-release-plan.md',
         kind: 'authority'
       },
       {

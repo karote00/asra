@@ -17,8 +17,6 @@ Finalize a DONE plan with deterministic closeout records.
 - `docs/ai/framework/decisions/releases/unreleased.md` (or app counterpart)
 - `docs/ai/workflows/README.md`
 - `docs/ai/skills/plan-done-closeout/SKILL.md`
-- `docs/ai/framework/rules/release-version-topology.md`
-- `.changeset/config.json`
 
 ## Execution
 
@@ -26,17 +24,12 @@ Finalize a DONE plan with deterministic closeout records.
 2. move/record DONE plan under `plans/completed/` with completion summary
 3. append one decision-history entry linking the completed plan
 4. validate links/paths and remove stale active-plan references
-5. after every other closeout edit and gate passes, create and review the one
-   required Changeset record; release entries may contain only fixed-allowlist
-   Framework packages under `packages/*`, while root, private app, create-app
-   CLI, generated-template, and other changes use an empty Changeset; then run
-   `yarn changeset status --since <base-ref>`
-6. block merge readiness when the Changeset is absent unless the PR carries
-   exactly one valid `changeset-skip:docs-only` or
-   `changeset-skip:hotfix` flag under the skill's exception contract
-7. never infer or materialize a root or create-app CLI version from the
-   closeout record; those owners follow the manual authorization and ordering
-   contract in `release-version-topology.md`
+5. keep release iteration separate from closeout: do not create, inspect,
+   validate, or require a pending Changeset
+6. do not infer or materialize any Framework, root, private app, create-app
+   CLI, or generated-template version from the closeout record
+7. when a completed plan owns a release, summarize the already verified public
+   result without creating another version, tag, or publication side effect
 
 ## Output
 

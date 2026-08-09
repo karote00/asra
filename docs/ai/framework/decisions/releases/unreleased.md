@@ -2311,3 +2311,38 @@ unregister -> app migration -> core.start()` as the public app route.
   - [#112](https://github.com/karote00/asyra/pull/112)
 - Related Commit:
   - `20e359709` (`refactor: neutralize fork-facing identifiers`)
+
+## 2026-08-09 - Complete the public create-asyra-design-app release
+
+- Context:
+  - The canonical Asyra Design source, generated template, manually versioned
+    CLI, public Framework dependencies, registry artifact, exact public `npx`
+    path, and complete generated-app behavior matrix required one accepted
+    release decision.
+  - The feature branch intentionally iterated through scoped fixes and
+    publications before closeout; consumed Changesets and published versions
+    were release-stage evidence, not a reason to manufacture another closeout
+    release.
+- Decision:
+  - Accept the manifest-selected public `create-asyra-design-app` CLI release
+    as `READY` with no unresolved P0/P1/P2 finding.
+  - Close the formal CLI release plan after registry-only install, typecheck,
+    build, formal tests, maintained single- and multi-Actor E2E, high-detail
+    Collaboration Undo/Redo, startup, live interactions, and user manual
+    testing passed.
+  - Keep closeout non-releasing: it creates no Changeset, version bump, tag, or
+    publication.
+- Consequences:
+  - The exact public CLI command is the accepted generated-app consumer path.
+  - Root `asyra` remains unchanged and separately owned by the next authorized
+    release-sequence stage.
+  - The retained Inspector continues to document canonical generation,
+    registry-only proof, publication authorization, and public smoke ownership.
+- Related Plan:
+  - `docs/ai/framework/plans/completed/create-asyra-design-app-release-plan.md`
+- Related Inspector:
+  - `docs/ai/framework/plans/create-asyra-design-app-release-flow-inspector.data.cjs`
+- Related Pull Request:
+  - [#113](https://github.com/karote00/asyra/pull/113)
+- Accepted Source Commit:
+  - `0bbb1cc35dc3cb1eebae30b7c81c494afbd063f8`

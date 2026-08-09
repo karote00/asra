@@ -2,12 +2,31 @@
 
 ## Status
 
-Queued after every Framework version required by the canonical app is publicly
-available and verified. The CLI target is selected explicitly by the user and
-is never inferred or duplicated as a constant in this plan.
+Completed on 2026-08-09.
+
+Final decision: `READY`.
+
+The user-selected CLI target was generated only from the canonical Asyra Design
+source, published from the validated feature-branch source, installed through
+its exact public `npx` command, and accepted after the complete generated-app
+behavior matrix plus manual product testing passed.
 
 Root `asyra` remains unchanged throughout this plan. A private
 `@asyra/asyra-design` identity change also requires an explicit user decision.
+
+## Completion Summary
+
+- The canonical generator produced the public template without a template-only
+  repair.
+- Exact public Framework dependencies installed through the real generated-app
+  path with no workspace, link, portal, tarball, or registry substitution.
+- Typecheck, build, formal tests, maintained single- and multi-Actor E2E,
+  high-detail Collaboration Undo/Redo, startup, interactions, and manual
+  product validation passed.
+- Public CLI metadata, artifact integrity, exact command installability, root,
+  private-app, generated-template, and publication-scope exclusions were
+  verified.
+- No unresolved P0/P1/P2 finding or remaining release blocker was accepted.
 
 ## Goal
 
@@ -58,7 +77,7 @@ The create-app release Inspector must define one owner for:
 12. release records and final decision.
 
 The executable authority is
-`create-asyra-design-app-release-flow-inspector.data.cjs`.
+`docs/ai/framework/plans/create-asyra-design-app-release-flow-inspector.data.cjs`.
 
 ## Execution Plan
 
