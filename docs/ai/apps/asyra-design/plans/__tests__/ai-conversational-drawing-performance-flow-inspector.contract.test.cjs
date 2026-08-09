@@ -856,7 +856,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     text,
-    /guarded 16-item.*after each completed endpoint refactor.*exactly one production two-Actor 7,076-element.*named local-source, relay, and final checkpoints/i
+    /guarded 16-item.*after each completed endpoint refactor.*every required production two-Actor 7,076-element.*named local-source, relay, final, and release checkpoints.*standing product-owner authorization/i
   )
   assert.match(
     text,
@@ -1061,7 +1061,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     feature,
-    /Scenario: Each named endpoint checkpoint proves high-detail effectiveness without overwhelming the host[\s\S]*explicit product-owner approval.*7076-element creation[\s\S]*warm-up, or repeat[\s\S]*Actor A[\s\S]*Actor B[\s\S]*7076-element high-performance case.*500-percent[\s\S]*16-item and 1280-item.*250 percent[\s\S]*raw same-snapshot aggregate.*500 percent.*7076[\s\S]*400 percent.*16-item and 1280-item[\s\S]*invalid architecture attempt[\s\S]*stop the current benchmark action without stopping the implementation task[\s\S]*root cause[\s\S]*new iteration[\s\S]*five materially revised architecture attempts[\s\S]*rather than stopping the task/i
+    /Scenario: Each named endpoint checkpoint proves high-detail effectiveness without overwhelming the host[\s\S]*standing product-owner authorization.*without a separate permission prompt[\s\S]*creation-only[\s\S]*separate guarded Undo and Redo proof[\s\S]*Actor A[\s\S]*Actor B[\s\S]*7076-element high-performance case.*500-percent[\s\S]*16-item and 1280-item.*250 percent[\s\S]*raw same-snapshot aggregate.*500 percent.*7076[\s\S]*400 percent.*16-item and 1280-item[\s\S]*invalid architecture attempt[\s\S]*stop the current benchmark action without stopping the implementation task[\s\S]*root cause[\s\S]*new iteration[\s\S]*five materially revised architecture attempts[\s\S]*rather than stopping the task/i
   )
   assert.match(
     text,
@@ -1177,7 +1177,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     plan,
-    /raw CPU contract correction checkpoint[\s\S]*converted 397\.203-percent frontend[\s\S]*401\.175-percent aggregate[\s\S]*raw system\s+values were 199\.4 percent[\s\S]*209\.2 percent[\s\S]*neither user-defined limit was crossed[\s\S]*explicit product-owner approval/i
+    /raw CPU contract correction checkpoint[\s\S]*converted 397\.203-percent frontend[\s\S]*401\.175-percent aggregate[\s\S]*raw system\s+values were 199\.4 percent[\s\S]*209\.2 percent[\s\S]*neither user-defined limit was crossed/i
   )
   assert.match(
     text,
@@ -1185,7 +1185,7 @@ test('each ranked endpoint closes through the guarded proof schedule', () => {
   )
   assert.match(
     feature,
-    /Scenario: Converted CPU-time percentages cannot consume a high-detail proof[\s\S]*raw same-snapshot frontend value of 199\.4 percent[\s\S]*raw same-snapshot aggregate value of 209\.2 percent[\s\S]*converted 397\.203-percent frontend value and 401\.175-percent aggregate value.*rejected[\s\S]*no accepted baseline, architecture-attempt count, or next-owner selection[\s\S]*explicit product-owner approval/i
+    /Scenario: Converted CPU-time percentages cannot consume a high-detail proof[\s\S]*raw same-snapshot frontend value of 199\.4 percent[\s\S]*raw same-snapshot aggregate value of 209\.2 percent[\s\S]*converted 397\.203-percent frontend value and 401\.175-percent aggregate value.*rejected[\s\S]*no accepted baseline, architecture-attempt count, or next-owner selection[\s\S]*without requesting separate product-owner approval/i
   )
   assert.match(
     plan,
@@ -1542,7 +1542,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     proofText,
-    /one production two-Actor 7,076-element.*Actor A.*exact-bounds loading.*pan and zoom.*one terminal exact canonical summary/i
+    /guarded two-Actor creation.*Actor A.*exact-bounds loading.*pan and zoom.*one terminal exact canonical summary/i
   )
   assert.match(proofText, /connected exact-bounds loading/i)
   assert.match(
@@ -1551,7 +1551,7 @@ test('local progressive drawing paints exact bounds before cooperative canonical
   )
   assert.match(
     proofText,
-    /explicitly approved local-source, relay, or final checkpoint.*only high-detail invocation for the checkpoint.*no warm-up, repeat, or additional single-Actor/i
+    /required local-source, relay, final, or release checkpoint.*runs directly without a permission prompt/i
   )
   assert.match(proofText, /separately attributed WebSocket-server CPU/i)
   assert.match(

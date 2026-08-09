@@ -64,7 +64,8 @@ Feature: Conversational AI drawing performance
   Scenario: Each named endpoint checkpoint proves high-detail effectiveness without overwhelming the host
     Given one endpoint completed its focused formal tests and bounded review
     And its guarded 16-item safety proof completed below the fixed host limit
-    And the local-source, relay, or final checkpoint has explicit product-owner approval for at most one 7076-element creation with no follow-up, persistence, media, trace, CPU profile, warm-up, or repeat
+    And every required local-source, relay, final, or release checkpoint should run its guarded 7076-element proof directly under the standing product-owner authorization without a separate permission prompt
+    And the endpoint performance proof itself should remain creation-only with no follow-up, persistence, media, trace, CPU profile, or warm-up while the separate guarded Undo and Redo proof remains required by its owning flow
     And production build commands completed as separate setup outside the runtime guard and product timing
     And artifact attestation succeeded before Playwright started
     When the guarded endpoint benchmark starts
@@ -150,7 +151,7 @@ Feature: Conversational AI drawing performance
     When the performance evidence is evaluated against the raw 250-percent frontend and 400-percent aggregate limits
     Then the converted 397.203-percent frontend value and 401.175-percent aggregate value should be rejected as formal peak and stop evidence
     And the attempt should create no accepted baseline, architecture-attempt count, or next-owner selection
-    And no replacement 7076-element run should start before contract review, focused guard correction, a corrected guarded 16-item proof, bounded review, and explicit product-owner approval
+    And any required replacement 7076-element run should start directly after contract review, focused guard correction, a corrected guarded 16-item proof, and bounded review without requesting separate product-owner approval
 
   Scenario: Revised high-performance threshold requires a corrected local-source proof
     Given the earlier local-source 7076-element attempt stopped at a raw same-snapshot frontend value of 251.7 percent
