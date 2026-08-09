@@ -56,7 +56,8 @@ const getMouseButtonFromButtonsMask = (buttons: number): MouseButton => {
 }
 
 class InputSystem {
-  private _previousWatchedElement: Window | HTMLElement
+  private browserHost: Window | null
+  private pointerTarget: Window | HTMLElement | null
   private combinations: Combinations = {}
   private keyMap: KeyMap
   private activeKeys: Set<string>
@@ -68,7 +69,8 @@ class InputSystem {
   public registry: InputSystemRegistry
 
   constructor() {
-    this._previousWatchedElement = window
+    this.browserHost = null
+    this.pointerTarget = null
     this.keyMap = keymap
     this.activeKeys = new Set()
     this.listeners = new Map()
@@ -77,18 +79,89 @@ class InputSystem {
     this.pointerInputBlocked = false
     this.pointerCaptureId = null
     this.registry = new InputSystemRegistry()
-
-    this.setupListeners()
   }
 
-  private setupListeners() {
-    window.addEventListener('keydown', this.handleKeyDown)
-    window.addEventListener('keyup', this.handleKeyUp)
-    window.addEventListener('mousedown', this.handleMouseDown)
-    window.addEventListener('mouseup', this.handleMouseUp)
-    window.addEventListener('mousemove', this.handleMouseMove)
-    window.addEventListener('dblclick', this.handleDoubleClick)
-    window.addEventListener('wheel', this.handleWheel, WHEEL_EVENT_OPTIONS)
+  attachBrowserHost(
+    host: Window,
+    pointerTarget: Window | HTMLElement = host
+  ): void {
+    if (this.browserHost === host && this.pointerTarget === pointerTarget) {
+      return
+    }
+
+    if (this.pointerTarget && this.pointerTarget !== pointerTarget) {
+      this.removePointerListeners(this.pointerTarget)
+      this.pointerTarget = null
+    }
+
+    if (this.browserHost && this.browserHost !== host) {
+      this.removeKeyboardListeners(this.browserHost)
+      this.browserHost = null
+    }
+
+    if (!this.browserHost) {
+      this.addKeyboardListeners(host)
+      this.browserHost = host
+    }
+
+    if (!this.pointerTarget) {
+      this.addPointerListeners(pointerTarget)
+      this.pointerTarget = pointerTarget
+    }
+  }
+
+  detachBrowserHost(): void {
+    if (this.pointerTarget) {
+      this.removePointerListeners(this.pointerTarget)
+      this.pointerTarget = null
+    }
+    if (this.browserHost) {
+      this.removeKeyboardListeners(this.browserHost)
+      this.browserHost = null
+    }
+  }
+
+  private addKeyboardListeners(host: Window): void {
+    host.addEventListener('keydown', this.handleKeyDown)
+    host.addEventListener('keyup', this.handleKeyUp)
+  }
+
+  private removeKeyboardListeners(host: Window): void {
+    host.removeEventListener('keydown', this.handleKeyDown)
+    host.removeEventListener('keyup', this.handleKeyUp)
+  }
+
+  private addPointerListeners(target: Window | HTMLElement): void {
+    target.addEventListener('mousedown', this.handleMouseDown as EventListener)
+    target.addEventListener('mouseup', this.handleMouseUp as EventListener)
+    target.addEventListener('mousemove', this.handleMouseMove as EventListener)
+    target.addEventListener('dblclick', this.handleDoubleClick as EventListener)
+    target.addEventListener(
+      'wheel',
+      this.handleWheel as EventListener,
+      WHEEL_EVENT_OPTIONS
+    )
+  }
+
+  private removePointerListeners(target: Window | HTMLElement): void {
+    target.removeEventListener(
+      'mousedown',
+      this.handleMouseDown as EventListener
+    )
+    target.removeEventListener('mouseup', this.handleMouseUp as EventListener)
+    target.removeEventListener(
+      'mousemove',
+      this.handleMouseMove as EventListener
+    )
+    target.removeEventListener(
+      'dblclick',
+      this.handleDoubleClick as EventListener
+    )
+    target.removeEventListener(
+      'wheel',
+      this.handleWheel as EventListener,
+      WHEEL_EVENT_OPTIONS
+    )
   }
 
   setCombinations(combinations: Combinations) {
@@ -121,38 +194,14 @@ class InputSystem {
     return true
   }
 
-  switchWatchedElement(watchedElement: HTMLElement) {
-    this._previousWatchedElement.removeEventListener(
-      'mousedown',
-      this.handleMouseDown as EventListener
-    )
-    this._previousWatchedElement.removeEventListener(
-      'mouseup',
-      this.handleMouseUp as EventListener
-    )
-    this._previousWatchedElement.removeEventListener(
-      'mousemove',
-      this.handleMouseMove as EventListener
-    )
-    this._previousWatchedElement.removeEventListener(
-      'dblclick',
-      this.handleDoubleClick as EventListener
-    )
-    this._previousWatchedElement.removeEventListener(
-      'wheel',
-      this.handleWheel as EventListener,
-      WHEEL_EVENT_OPTIONS
-    )
-
-    watchedElement.addEventListener('mousedown', this.handleMouseDown)
-    watchedElement.addEventListener('mouseup', this.handleMouseUp)
-    watchedElement.addEventListener('mousemove', this.handleMouseMove)
-    watchedElement.addEventListener('dblclick', this.handleDoubleClick)
-    watchedElement.addEventListener('wheel', this.handleWheel, {
-      passive: false
-    })
-
-    this._previousWatchedElement = watchedElement
+  switchWatchedElement(watchedElement: HTMLElement): void {
+    const host = watchedElement.ownerDocument.defaultView
+    if (!host) {
+      throw new Error(
+        '[InputSystem] Watched element must belong to a document with a Window'
+      )
+    }
+    this.attachBrowserHost(host, watchedElement)
   }
 
   private startTimer(key: string) {
@@ -512,16 +561,24 @@ class InputSystem {
     return allModifiers
   }
 
-  dispose() {
+  private clearTransientState(): void {
     this.listeners.clear()
     this.timers.forEach((timer) => clearTimeout(timer))
     this.timers.clear()
     this.activeKeys.clear()
     this.combinations = {}
+    this._startPos = null
+    this.pointerInputBlocked = false
+    this.pointerCaptureId = null
+  }
+
+  dispose() {
+    this.detachBrowserHost()
+    this.clearTransientState()
   }
 
   reset() {
-    this.dispose()
+    this.clearTransientState()
   }
 }
 

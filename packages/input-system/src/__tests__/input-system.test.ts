@@ -22,6 +22,7 @@ import { CLEAR_KEY_TIME } from '../constants.js'
 describe('InputSystem', () => {
   let inputSystem: InputSystem
   let addEventListenerSpy: MockInstance
+  let removeEventListenerSpy: MockInstance
   let preventDefaultSpy: Mock
   let clearTimeoutSpy: MockInstance
   let setTimeoutSpy: MockInstance
@@ -32,6 +33,7 @@ describe('InputSystem', () => {
 
     // Mock window event listeners
     addEventListenerSpy = vi.spyOn(window, 'addEventListener')
+    removeEventListenerSpy = vi.spyOn(window, 'removeEventListener')
     preventDefaultSpy = vi.fn()
     clearTimeoutSpy = vi.spyOn(global, 'clearTimeout')
     setTimeoutSpy = vi.spyOn(global, 'setTimeout')
@@ -46,8 +48,17 @@ describe('InputSystem', () => {
     inputSystem = new InputSystem()
   })
 
-  // Test constructor and setupListeners
-  it('should set up event listeners on window during construction', () => {
+  it('constructs without attaching browser listeners', () => {
+    expect(addEventListenerSpy).not.toHaveBeenCalled()
+  })
+
+  it('attaches keyboard to the host and pointer events to one target exactly once', () => {
+    const canvas = document.createElement('canvas')
+    const canvasAddSpy = vi.spyOn(canvas, 'addEventListener')
+
+    inputSystem.attachBrowserHost(window, canvas)
+
+    expect(addEventListenerSpy).toHaveBeenCalledTimes(2)
     expect(addEventListenerSpy).toHaveBeenCalledWith(
       'keydown',
       expect.any(Function)
@@ -56,27 +67,79 @@ describe('InputSystem', () => {
       'keyup',
       expect.any(Function)
     )
-    expect(addEventListenerSpy).toHaveBeenCalledWith(
-      'mousedown',
-      expect.any(Function)
-    )
-    expect(addEventListenerSpy).toHaveBeenCalledWith(
-      'mouseup',
-      expect.any(Function)
-    )
-    expect(addEventListenerSpy).toHaveBeenCalledWith(
-      'mousemove',
-      expect.any(Function)
-    )
-    expect(addEventListenerSpy).toHaveBeenCalledWith(
-      'wheel',
-      expect.any(Function),
-      { passive: false }
-    )
-    expect(addEventListenerSpy).not.toHaveBeenCalledWith(
-      'contextmenu',
-      expect.any(Function)
-    )
+    expect(canvasAddSpy).toHaveBeenCalledTimes(5)
+    ;['mousedown', 'mouseup', 'mousemove', 'dblclick'].forEach((eventName) => {
+      expect(canvasAddSpy).toHaveBeenCalledWith(eventName, expect.any(Function))
+    })
+    expect(canvasAddSpy).toHaveBeenCalledWith('wheel', expect.any(Function), {
+      passive: false
+    })
+
+    addEventListenerSpy.mockClear()
+    canvasAddSpy.mockClear()
+    inputSystem.attachBrowserHost(window, canvas)
+
+    expect(addEventListenerSpy).not.toHaveBeenCalled()
+    expect(canvasAddSpy).not.toHaveBeenCalled()
+  })
+
+  it('switches pointer ownership without duplicating host listeners', () => {
+    const first = document.createElement('canvas')
+    const second = document.createElement('canvas')
+    const firstRemoveSpy = vi.spyOn(first, 'removeEventListener')
+    const secondAddSpy = vi.spyOn(second, 'addEventListener')
+    inputSystem.attachBrowserHost(window, first)
+    addEventListenerSpy.mockClear()
+    removeEventListenerSpy.mockClear()
+
+    inputSystem.switchWatchedElement(second)
+
+    expect(addEventListenerSpy).not.toHaveBeenCalled()
+    expect(removeEventListenerSpy).not.toHaveBeenCalled()
+    expect(firstRemoveSpy).toHaveBeenCalledTimes(5)
+    expect(secondAddSpy).toHaveBeenCalledTimes(5)
+  })
+
+  it('switches keyboard and pointer ownership together across documents', () => {
+    const first = document.createElement('canvas')
+    const firstRemoveSpy = vi.spyOn(first, 'removeEventListener')
+    const nextWindowAdd = vi.fn()
+    const nextWindow = {
+      addEventListener: nextWindowAdd,
+      removeEventListener: vi.fn()
+    } as unknown as Window
+    const secondAdd = vi.fn()
+    const second = {
+      ownerDocument: { defaultView: nextWindow },
+      addEventListener: secondAdd,
+      removeEventListener: vi.fn()
+    } as unknown as HTMLElement
+    inputSystem.attachBrowserHost(window, first)
+    removeEventListenerSpy.mockClear()
+
+    inputSystem.switchWatchedElement(second)
+
+    expect(firstRemoveSpy).toHaveBeenCalledTimes(5)
+    expect(removeEventListenerSpy).toHaveBeenCalledTimes(2)
+    expect(nextWindowAdd).toHaveBeenCalledTimes(2)
+    expect(secondAdd).toHaveBeenCalledTimes(5)
+  })
+
+  it('keeps browser attachment on reset and removes it on dispose', () => {
+    const canvas = document.createElement('canvas')
+    const canvasRemoveSpy = vi.spyOn(canvas, 'removeEventListener')
+    inputSystem.attachBrowserHost(window, canvas)
+    removeEventListenerSpy.mockClear()
+
+    inputSystem.reset()
+
+    expect(removeEventListenerSpy).not.toHaveBeenCalled()
+    expect(canvasRemoveSpy).not.toHaveBeenCalled()
+
+    inputSystem.dispose()
+
+    expect(removeEventListenerSpy).toHaveBeenCalledTimes(2)
+    expect(canvasRemoveSpy).toHaveBeenCalledTimes(5)
   })
 
   // Test handleKeyDown
