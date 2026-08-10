@@ -33,10 +33,12 @@ export interface AtlasCaseExecutor {
   advance(
     actionId: string,
     input: Readonly<Record<string, unknown>>
-  ): Promise<{ status?: AtlasEvidenceStatus; output?: unknown }> | {
-    status?: AtlasEvidenceStatus
-    output?: unknown
-  }
+  ):
+    | Promise<{ status?: AtlasEvidenceStatus; output?: unknown }>
+    | {
+        status?: AtlasEvidenceStatus
+        output?: unknown
+      }
   dispose?(): Promise<void> | void
 }
 
@@ -55,6 +57,6 @@ export function createAtlasCaseExecutor(
   definition: AtlasCaseDefinition
 ): AtlasCaseExecutor
 
-export function createAtlasRuntime(caseId: string): ReturnType<
-  typeof createAtlasRuntimeHarness
->
+export function createAtlasRuntime(
+  caseId: string
+): ReturnType<typeof createAtlasRuntimeHarness>
