@@ -6,7 +6,7 @@ const test = require('node:test')
 const data = require('../asyra-executable-examples-flow-inspector.data.cjs')
 
 const expectedExampleIds = [
-  'headless-core-information-model',
+  'core-information-model',
   'preset-2d-minimal',
   'preset-selective-defaults',
   'custom-component-schema',
@@ -15,7 +15,7 @@ const expectedExampleIds = [
   'custom-render-boundary',
   'collaboration-two-memory-actors',
   'ai-registered-action',
-  'headless-retrieval-action',
+  'app-retrieval-action',
   'generated-design-app-extension'
 ]
 
@@ -71,7 +71,7 @@ test('release inputs forbid example-owned versions and private resolution', () =
   assert.match(contract, /example-owned version literals/i)
 })
 
-test('Framework examples own cases 1 through 10 without domain overclaiming', () => {
+test('Framework examples own cases 1 through 10 without runtime or domain overclaiming', () => {
   const examples = step('author-framework-examples')
   const contract = [
     ...examples.conditions,
@@ -83,7 +83,8 @@ test('Framework examples own cases 1 through 10 without domain overclaiming', ()
   assert.equal(examples.ownerPackage, 'docs/examples')
   assert.match(examples.purpose, /examples 1 through 10/i)
   assert.match(contract, /stable example id/i)
-  assert.match(contract, /no Render, UI, or browser dependency/i)
+  assert.match(contract, /supported browser\/Core composition/i)
+  assert.match(contract, /does not claim a public Headless Core runtime/i)
   assert.match(contract, /inert when omitted/i)
   assert.match(contract, /no partial canonical state/i)
   assert.match(contract, /domain behavior claimed as Framework behavior/i)
@@ -127,6 +128,18 @@ test('consumer validation requires local and registry-only public execution', ()
   assert.match(contract, /manual-only expected output/i)
 })
 
+test('current examples keep Headless Core and Core Kernel in the future roadmap', () => {
+  const suiteContract = data.acceptanceContracts.find(
+    (contract) => contract.id === 'runtime-and-optional-boundaries'
+  )
+  const inspectorText = JSON.stringify(data)
+
+  assert.ok(suiteContract)
+  assert.match(inspectorText, /currently supported browser\/Core composition/i)
+  assert.match(inspectorText, /future Headless\/Core Kernel/i)
+  assert.doesNotMatch(inspectorText, /execute without Render, UI, or browser/i)
+})
+
 test('inventory is the deterministic tested handoff for docs and site', () => {
   const inventory = step('publish-example-inventory')
   const contract = [
@@ -165,14 +178,20 @@ test('every route and artifact resolves to one declared owner', () => {
       assert.ok(stepIds.has(route.to), `Unknown route target: ${route.id}`)
     }
     route.producedArtifacts.forEach((artifactId) => {
-      assert.ok(artifactIds.has(artifactId), `Unknown route artifact: ${artifactId}`)
+      assert.ok(
+        artifactIds.has(artifactId),
+        `Unknown route artifact: ${artifactId}`
+      )
     })
   })
 
   data.artifacts.forEach((artifact) => {
     assert.ok(stepIds.has(artifact.ownerStepId))
     artifact.consumerStepIds.forEach((consumerId) => {
-      assert.ok(stepIds.has(consumerId), `Unknown artifact consumer: ${consumerId}`)
+      assert.ok(
+        stepIds.has(consumerId),
+        `Unknown artifact consumer: ${consumerId}`
+      )
     })
   })
 })

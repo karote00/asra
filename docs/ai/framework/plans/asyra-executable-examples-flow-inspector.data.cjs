@@ -1,13 +1,12 @@
 ;(function () {
   'use strict'
 
-  const specPath =
-    'docs/ai/framework/plans/asyra-executable-examples-plan.md'
+  const specPath = 'docs/ai/framework/plans/asyra-executable-examples-plan.md'
   const inspectorPath =
     'docs/ai/framework/plans/asyra-executable-examples-flow-inspector.data.cjs'
 
   const exampleIds = [
-    'headless-core-information-model',
+    'core-information-model',
     'preset-2d-minimal',
     'preset-selective-defaults',
     'custom-component-schema',
@@ -16,7 +15,7 @@
     'custom-render-boundary',
     'collaboration-two-memory-actors',
     'ai-registered-action',
-    'headless-retrieval-action',
+    'app-retrieval-action',
     'generated-design-app-extension'
   ]
 
@@ -63,11 +62,7 @@
         'package.json',
         'packages/*/package.json'
       ],
-      specRefs: [
-        '#ownership-boundary',
-        '#example-contract',
-        '#quality-gates'
-      ],
+      specRefs: ['#ownership-boundary', '#example-contract', '#quality-gates'],
       failureOwnerStepId: 'resolve-release-inputs'
     },
     {
@@ -86,12 +81,12 @@
       outputs: ['artifact:framework-example-sources'],
       conditions: [
         'Every source declares a stable example id, objective, public package map, environment, run command, extractable region, and expected result.',
-        'Headless examples have no Render, UI, or browser dependency.',
+        'Every example uses a currently supported browser/Core composition and does not claim a public Headless Core runtime.',
         'Optional systems remain explicitly composed and inert when omitted.',
         'Failure examples assert no partial canonical state or unintended transaction commit.'
       ],
       bypasses: [
-        'A browser-dependent example separates runtime mechanics from presentation when the public contract permits headless validation.'
+        'A browser-dependent example separates canonical runtime assertions from pixel output when the current public contract permits that separation.'
       ],
       allowedContributors: [
         'public package roots',
@@ -185,7 +180,7 @@
       ],
       bypasses: [
         'Registry-only execution waits for the final publication checkpoint, while the same source first runs against approved local artifacts.',
-        'Browser presentation may use its declared browser gate while the separable runtime contract runs headlessly.'
+        'Browser presentation may use its declared browser gate while separable canonical mechanics use a supported non-pixel oracle inside the same current composition.'
       ],
       allowedContributors: [
         'approved packed or registry artifacts',
@@ -251,11 +246,7 @@
         'scripts/docs/**',
         'package.json'
       ],
-      specRefs: [
-        '#website-handoff',
-        '#quality-gates',
-        '#definition-of-done'
-      ],
+      specRefs: ['#website-handoff', '#quality-gates', '#definition-of-done'],
       failureOwnerStepId: 'publish-example-inventory'
     }
   ]
@@ -274,7 +265,8 @@
       from: 'resolve-release-inputs',
       to: 'author-generated-app-extension',
       kind: 'data',
-      predicate: 'The generated app and required public packages are available.',
+      predicate:
+        'The generated app and required public packages are available.',
       producedArtifacts: ['artifact:approved-package-inputs']
     },
     {
@@ -290,7 +282,8 @@
       from: 'author-generated-app-extension',
       to: 'verify-public-consumers',
       kind: 'runtime',
-      predicate: 'The bounded extension source is excluded from production bootstrap.',
+      predicate:
+        'The bounded extension source is excluded from production bootstrap.',
       producedArtifacts: ['artifact:generated-app-extension-source']
     },
     {
@@ -298,14 +291,16 @@
       from: 'verify-public-consumers',
       to: 'publish-example-inventory',
       kind: 'data',
-      predicate: 'All required example ids pass their applicable local artifact gates.',
+      predicate:
+        'All required example ids pass their applicable local artifact gates.',
       producedArtifacts: ['artifact:verified-examples']
     },
     {
       id: 'consume-public-example-inventory',
       from: 'publish-example-inventory',
       kind: 'terminal',
-      predicate: 'Documentation or the website requests tested example metadata or source regions.',
+      predicate:
+        'Documentation or the website requests tested example metadata or source regions.',
       producedArtifacts: ['artifact:public-example-inventory']
     }
   ]
@@ -379,10 +374,7 @@
       id: 'framework-remains-domain-neutral',
       statement:
         'Examples distinguish Framework mechanics, optional Preset defaults, and app-owned domain knowledge without promoting app behavior into Framework ownership.',
-      stepIds: [
-        'author-framework-examples',
-        'author-generated-app-extension'
-      ],
+      stepIds: ['author-framework-examples', 'author-generated-app-extension'],
       artifactIds: [
         'artifact:framework-example-sources',
         'artifact:generated-app-extension-source'
@@ -417,12 +409,13 @@
       )
     },
     {
-      id: 'headless-and-optional-boundaries',
-      title: 'Headless and optional boundaries',
+      id: 'runtime-and-optional-boundaries',
+      title: 'Current runtime and optional boundaries',
       stepIds: ['author-framework-examples', 'verify-public-consumers'],
       specRefs: ['#required-example-suite', '#quality-gates'],
       assertions: [
-        'Headless Core and retrieval examples execute without Render, UI, or browser dependencies.',
+        'Core information-model and app-owned retrieval examples execute inside the currently supported browser/Core composition.',
+        'The suite presents future Headless/Core Kernel work only as roadmap direction and never as a current public runtime.',
         'Preset, rendering, Collaboration, and AI capabilities appear only when explicitly composed.'
       ]
     },
