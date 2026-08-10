@@ -21,6 +21,11 @@ export function EvidenceHero({
         <span>{coordinate}</span>
         <span>VERIFIED PUBLIC SURFACE</span>
       </div>
+      <div aria-hidden="true" className="evidence-hero__instrument">
+        <span>{coordinate} / PUBLIC CONTRACT</span>
+        <i />
+        <i />
+      </div>
       <p className="section-eyebrow">{eyebrow}</p>
       <div className="evidence-hero__content">
         <h1>{title}</h1>

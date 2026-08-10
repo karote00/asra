@@ -12,11 +12,11 @@ export default function LandingPage() {
   return (
     <div className="landing-route">
       <LandingHero release={bundle.release} />
-      <LandingPossibilityField />
       <LandingStory />
       <LandingOwnershipExplorer />
       <LandingTopology />
       <LandingEntryEvidence bundle={bundle} />
+      <LandingPossibilityField />
     </div>
   )
 }

@@ -21,6 +21,7 @@ test('public routes do not expose executable validation examples', () => {
 test('Asyra Design route preserves reference-product and URL boundaries', () => {
   const bundle = loadContentBundle()
   const source = read('app/asyra-design/page.tsx')
+  const instrument = read('components/evidence-product-instrument.tsx')
   assert.match(source, /Reference product, not Framework owner/i)
   assert.match(source, /pageById\.get\('cases\/asyra-design'\)/)
   assert.match(source, /verifiedLandingFacts\.designApp\.href/)
@@ -33,6 +34,10 @@ test('Asyra Design route preserves reference-product and URL boundaries', () => 
     source,
     new RegExp(`https?://(?:www\\.)?${bundle.repositoryName}`, 'i')
   )
+  assert.match(source, /EvidenceProductInstrument/)
+  assert.match(instrument, /REFERENCE PRODUCT \/ COMPOSITION MAP/)
+  assert.match(instrument, /Your App/)
+  assert.match(instrument, /Asyra Framework/)
 })
 
 test('Releases route derives all candidate facts and package rows', () => {
@@ -43,6 +48,8 @@ test('Releases route derives all candidate facts and package rows', () => {
   assert.equal(bundle.release.publicationAuthorized, false)
   assert.match(source, /bundle\.packages\.map/)
   assert.match(source, /bundle\.release\.status/)
+  assert.match(source, /release-register/)
+  assert.match(source, /Publication authority/)
   assert.doesNotMatch(source, /releaseDate|publishedAt|latestVersion/)
 })
 
@@ -54,6 +61,15 @@ test('Roadmap route states that future non-visible runtime is not current suppor
     /not a current\s+public Headless Core or Core Kernel\s+contract/i
   )
   assert.match(source, /pageById\.get\('learn\/runtime-boundaries-roadmap'\)/)
+  assert.match(source, /roadmap-axis/)
+  assert.match(source, /Current infrastructure/)
+  assert.match(source, /Future runtime/)
+})
+
+test('supporting route hero uses the Revision 2 contract instrument', () => {
+  const source = read('components/evidence-hero.tsx')
+  assert.match(source, /evidence-hero__instrument/)
+  assert.match(source, /PUBLIC CONTRACT/)
 })
 
 test('status legend distinguishes current, App-owned, and roadmap meanings by shape', () => {

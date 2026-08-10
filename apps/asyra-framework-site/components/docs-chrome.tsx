@@ -32,6 +32,14 @@ export function DocsChrome({ bundle, page }: DocsChromeProps) {
 
   return (
     <div className="docs-page">
+      <div aria-hidden="true" className="docs-coordinate-bar">
+        <span>DOCUMENTATION / {page.section}</span>
+        <span>
+          PAGE {String(currentIndex + 1).padStart(2, '0')} /{' '}
+          {String(bundle.pages.length).padStart(2, '0')}
+        </span>
+        <span>{page.id}</span>
+      </div>
       <div className="docs-mobile-tools">
         <DocsMobileNavigation groups={mobileGroups} />
         <SearchDialog records={bundle.searchRecords} />

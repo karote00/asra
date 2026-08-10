@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { EvidenceHero } from '@/components/evidence-hero'
+import { EvidenceProductInstrument } from '@/components/evidence-product-instrument'
 import { MarkdownContent } from '@/components/markdown-content'
 import { StatusLegend } from '@/components/status-legend'
 import { loadContentBundle } from '@/lib/content'
@@ -29,6 +30,7 @@ export default function ReferenceProductPage() {
       >
         <StatusLegend />
       </EvidenceHero>
+      <EvidenceProductInstrument />
       <div className="case-study-layout">
         <aside className="case-study-rail">
           <p className="technical-label">BEGIN WITH THE PRODUCT</p>

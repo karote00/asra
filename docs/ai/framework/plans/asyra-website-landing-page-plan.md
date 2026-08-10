@@ -4,7 +4,8 @@
 
 Complete, Preview-ready child plan of the
 [Asyra Framework Website Program](completed/asyra-framework-website-plan.md). It begins
-from the accepted public content, Material Blueprint handoff, and preview-ready
+from the accepted public content, Material Blueprint / Instrument Sheet Revision
+2 handoff, and preview-ready
 common site platform on
 `codex/asyra-public-release-landing`.
 
@@ -35,7 +36,7 @@ predictable action path before exposing package names, APIs, or runtime jargon.
   Landing-owned components/data/tests, Landing styles in the shared stylesheet,
   and the exact site test/E2E wiring required to prove this child.
 - **Fixed discovery:** accepted public content/source mapping, generated release
-  inventory, the Material Blueprint handoff, current website
+  inventory, the Instrument Sheet Revision 2 handoff, current website
   platform contracts, repository policy files, and verified deployment facts.
 - **Required gates:** Landing Inspector, semantic/narrative tests, strict
   typecheck/lint, production build, route smoke, keyboard/touch/responsive/
@@ -43,7 +44,7 @@ predictable action path before exposing package names, APIs, or runtime jargon.
   repository gates, and PR CI.
 - **Excluded:** documentation semantics, Framework packages, Runtime
   Atlas execution, Asyra Design behavior, package publication, analytics, CMS,
-  production deployment, and the image-only second Reimage.
+  production deployment, generated raster assets, and unrelated product work.
 - **Stop:** a claim cannot resolve to accepted evidence; the implementation
   needs an unapproved dependency or duplicated Atlas behavior; the verified
   App URL ceases to be public; or a required gate fails without an in-boundary
@@ -181,11 +182,12 @@ remain informative and never fabricate Framework output.
 
 ## Completion Evidence
 
-- The Landing and Platform Inspectors pass 21 contract tests; the site passes
-  42 semantic, content, route, and accessibility tests.
-- The production build statically generates 51 routes. Route smoke verifies 49
-  public routes plus the explicit not-found case.
-- Eleven production-browser E2E cases cover desktop first-layer actions,
+- The website Inspectors pass their contract suites; the site passes 69
+  semantic, content, route, runtime, and accessibility tests.
+- The production build statically generates 50 routes. Route smoke verifies 48
+  public routes.
+- Thirteen Landing and Platform production-browser E2E cases cover desktop
+  first-layer actions,
   390px, 320px, 200 percent reflow, touch targets, keyboard owner selection,
   reduced motion, no horizontal overflow, no-client reading, same-origin
   code-native assets, and the accepted documentation platform cases.
@@ -197,10 +199,11 @@ remain informative and never fabricate Framework output.
   plan, Inspector, and tests now require synchronous static routes to render in
   the initial readable document; future asynchronous routes own local loading
   boundaries.
-- Repository integration passes `yarn test:ci` (78 repository script tests and
+- Repository integration passes `yarn test:ci` (72 repository script tests and
   21 workspace tasks), `yarn lint:ci` with zero errors, `yarn react:build` with
   20 workspace tasks, dependency validation across 22 workspaces, public docs
   validation for 41 pages, and README drift checks for 24 public surfaces and
   19 packages.
-- Production deployment, public indexing, analytics, and Runtime Atlas
-  execution remain intentionally outside this child.
+- Production promotion, public indexing changes, and analytics remain
+  intentionally outside this redesign review; Runtime Atlas execution remains
+  separately owned and is verified by its child plan.

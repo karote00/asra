@@ -13,7 +13,7 @@ test('Landing begins with an outcome anyone can understand before technical lang
   const hero = read('components/landing-hero.tsx')
   const source = `${page}\n${hero}`
 
-  assert.match(hero, /Build what your world needs\./)
+  assert.match(hero, /Build the model your world needs\./)
   assert.match(
     compact(hero),
     /You define the knowledge and rules\. Asyra gives your product a predictable path from intent to outcome\./
@@ -21,8 +21,10 @@ test('Landing begins with an outcome anyone can understand before technical lang
   assert.match(hero, /Start with a working product/)
   assert.match(hero, /See how Asyra works/)
   assert.match(hero, /Read documentation/)
+  assert.match(hero, /landing-hero__constellation/)
+  assert.match(compact(hero), /Canonical information/i)
 
-  const promiseAt = source.indexOf('Build what your world needs.')
+  const promiseAt = source.indexOf('Build the model your world needs.')
   const firstTechnicalTerm = Math.min(
     ...['Framework', 'Preset', 'Provider', 'API'].map((term) => {
       const index = source.indexOf(term)
@@ -96,6 +98,7 @@ test('Landing panorama is code-native, responsive, and motion-optional', () => {
   assert.match(styles, /\.landing-hero/)
   assert.match(styles, /\.landing-possibility/)
   assert.match(styles, /\.landing-story/)
+  assert.match(styles, /\.landing-hero__constellation/)
   assert.match(styles, /@media \(max-width: 390px\)/)
   assert.match(styles, /prefers-reduced-motion: reduce/)
   assert.doesNotMatch(

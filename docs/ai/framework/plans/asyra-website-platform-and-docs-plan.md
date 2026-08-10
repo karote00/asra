@@ -4,8 +4,8 @@
 
 Completed, preview-ready child plan of the
 [Asyra Framework Website Program](completed/asyra-framework-website-plan.md). Public
-content and the Material Blueprint visual handoff are accepted on the
-integration branch. Maintainer review on August 11, 2026, removed the separate
+content and the Material Blueprint / Instrument Sheet Revision 2 visual handoff
+are accepted on the integration branch. Maintainer review on August 11, 2026, removed the separate
 Executable Examples product surface: advanced documentation now owns those
 learning flows, while Asyra Design is the only directly operable product entry.
 
@@ -93,7 +93,8 @@ generated and visibly provisional until public reconciliation.
 
 ## Shared Platform Contract
 
-- Design tokens and shared primitives implement the accepted visual handoff.
+- Design tokens and shared primitives implement the accepted Instrument Sheet
+  Revision 2 visual handoff across every public route.
 - Landing and Atlas receive stable layout, navigation, metadata, focus, error,
   responsive, and reduced-motion primitives.
 - Content source mapping and release inventory are build inputs with drift
@@ -156,3 +157,20 @@ generated and visibly provisional until public reconciliation.
   across supported responsive states.
 - Landing and Atlas can build on stable accepted foundations.
 - Preview-ready platform gates pass without claiming production deployment.
+
+## Completion Evidence
+
+- Instrument Sheet Revision 2 is implemented with project-owned HTML, CSS,
+  SVG, and the existing Atlas Canvas projection; no generated raster or new
+  dependency ships in the website.
+- The Framework site passes 69 contract and unit tests, strict typecheck, site
+  lint, the 50-page production build, and smoke checks for 48 public routes.
+- The 19 synchronized browser cases pass with one worker. Inspected evidence
+  covers desktop and mobile documentation, advanced guides, search,
+  reduced-motion navigation, Asyra Design, Releases, Roadmap, Landing, and all
+  required Runtime Atlas states.
+- Repository integration passes `yarn lint:ci` with zero errors,
+  `yarn react:build` with 20 successful workspace tasks, and `yarn test:ci`
+  with 72 script tests plus 21 successful workspace tasks.
+- Production promotion remains outside this redesign review. The current
+  branch stays on Draft Preview until user acceptance.

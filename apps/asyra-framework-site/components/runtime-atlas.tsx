@@ -325,7 +325,9 @@ export function RuntimeAtlas() {
           07 / RUNTIME ATLAS
         </div>
         <div className="atlas-intro__copy">
-          <p className="technical-label">OPERATE THE PUBLIC RUNTIME</p>
+          <p className="atlas-observatory-label">
+            RUNTIME ATLAS / ONE STATE. MANY VIEWS.
+          </p>
           <h1 id="atlas-title">See what changed. See who owned it.</h1>
           <p>
             Choose a real case and run it in your browser. Asyra will show each

@@ -38,7 +38,9 @@ test('production explains Asyra globally and reaches its verified reference prod
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
   await expect(
-    page.getByRole('heading', { name: 'Build what your world needs.' })
+    page.getByRole('heading', {
+      name: 'Build the model your world needs.'
+    })
   ).toBeVisible()
   await expect(
     page.getByText('Framework owns reusable infrastructure.')

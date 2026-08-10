@@ -27,6 +27,23 @@ export default function RoadmapPage() {
         <StatusLegend />
       </EvidenceHero>
       <article className="roadmap-contract">
+        <div className="roadmap-axis" aria-label="Runtime boundary sequence">
+          <div data-status="current">
+            <span>01 / NOW</span>
+            <strong>Current infrastructure</strong>
+            <p>Public Framework contracts available to compose today.</p>
+          </div>
+          <div data-status="app">
+            <span>02 / YOUR DOMAIN</span>
+            <strong>App-owned products</strong>
+            <p>Your knowledge, policy, interfaces, and engines.</p>
+          </div>
+          <div data-status="roadmap">
+            <span>03 / FUTURE</span>
+            <strong>Future runtime</strong>
+            <p>Verified direction without a current public API claim.</p>
+          </div>
+        </div>
         <div className="roadmap-boundary-note">
           <span aria-hidden="true" />
           <p>

@@ -2,18 +2,19 @@
 
 ## Status
 
-The first implementation direction and its formal handoff are complete. Material
-Blueprint is the selected direction for Landing, documentation, Runtime Atlas,
-Asyra Design case-study, roadmap boundary, and motion implementation. Eight
-full-scale boards, fourteen required view states, responsive and reduced-motion
-rules, and production-asset boundaries are verified by the exact Visual
-Reimagine Inspector contract.
+The first implementation direction and its formal handoff are complete. After
+reviewing the initial implementation, the user explicitly selected **Material
+Blueprint / Instrument Sheet Revision 2** as the active direction for the whole
+public website: Landing, documentation, Runtime Atlas, Asyra Design case study,
+release and roadmap boundaries, shared foundations, and motion. The original
+eight full-scale boards remain inspected historical evidence; the active
+semantic translation is owned by the revised handoff and downstream site plans.
 
 This is a child plan of the
 [Asyra Framework Website Program](completed/asyra-framework-website-plan.md). Website
-implementation may now consume the frozen handoff. The image-only alternate
-Reimage remains intentionally scheduled after website implementation and launch;
-it cannot reopen this accepted implementation direction.
+implementation consumes the revised handoff. The user's later explicit decision
+supersedes the earlier image-only alternate-Reimage restriction and authorizes a
+coherent whole-site redesign on the existing website review branch.
 
 The reimagine segment requires its own visual-experience contract, exact flow
 Inspector, required view-state cases, and formal visual inspection. The user's
@@ -156,14 +157,21 @@ selected handoff then becomes the fixed input for Website Platform, Landing,
 and Runtime Atlas implementation. The user performs one final acceptance after
 the integrated program goal is complete.
 
-## Deferred Image-Only Alternate Reimage
+## User-Selected Revision Two Implementation
 
-After the implemented website and launch work are complete, generate one
-coherent second visual version for the user to explore. This final alternate
-set is image-only: it does not reopen the accepted handoff, mutate website
-code, change production assets, or trigger another implementation cycle. It
-must be materially different in composition and art direction rather than a
-palette swap.
+Instrument Sheet Revision 2 is a refinement of Material Blueprint, not a fourth
+unrelated concept direction. It keeps the paper, registration, ownership, route,
+transaction, and evidence semantics while making the whole site feel like one
+precise information-model instrument. Its defining composition is a warm ivory
+continuous sheet, a midnight observatory band for live evidence, cobalt intent,
+green verification, coral transaction/failure marks, condensed editorial type,
+architectural line work, and explicit page coordinates.
+
+The revision applies to the whole public website, including long-form docs,
+search and mobile navigation, supporting routes, status pages, and the real
+Runtime Atlas. The generated raster remains design evidence only. Downstream
+implementation recreates the direction with project-owned HTML, CSS, SVG,
+Canvas where already justified, and verified runtime data.
 
 ## Stages
 
@@ -175,6 +183,8 @@ palette swap.
 5. Produce annotated responsive and motion specifications.
 6. Freeze the selected direction through formal autonomous visual inspection.
 7. Freeze the accepted handoff for platform, Landing, and Atlas tasks.
+8. Record the user's Instrument Sheet Revision 2 selection and apply it across
+   every public site owner without turning the raster into a production asset.
 
 ## Quality Gates
 
@@ -212,5 +222,20 @@ palette swap.
   language without inventing independent styles.
 - Post-implementation synchronized visual review has a concrete accepted
   reference set.
-- The deferred second visual version is delivered as images only after the
-  integrated website is complete.
+- Instrument Sheet Revision 2 is implemented coherently across the whole public
+  website while its generated raster remains design evidence.
+
+## Completion Evidence
+
+- The user-selected Revision 2 direction is recorded in the visual handoff and
+  consumed by Platform, Landing, and Runtime Atlas Inspectors.
+- Every public route uses the same paper grid, condensed editorial hierarchy,
+  registration marks, semantic cobalt/green/coral roles, and midnight evidence
+  bay without embedding the generated raster.
+- Nineteen synchronized production-browser cases pass and every generated
+  screenshot was inspected, including desktop, mobile, reduced-motion,
+  advanced-guide, reference-product, release, roadmap, Atlas active, paused,
+  rejected, projection, and future-boundary states.
+- The visual implementation passes the 50-page production build, 48-route
+  smoke gate, 320px and desktop 200 percent reflow, reduced motion, keyboard,
+  touch-target, no-client-JavaScript reading, and same-origin asset checks.

@@ -16,6 +16,8 @@ const projection = fs.readFileSync(
 const styles = fs.readFileSync(path.join(appRoot, 'app/globals.css'), 'utf8')
 
 test('Atlas explains outcome and ownership before technical mechanics', () => {
+  assert.match(component, /RUNTIME ATLAS \/ ONE STATE\. MANY VIEWS\./)
+  assert.match(component, /atlas-observatory-label/)
   assert.match(component, /See what changed\. See who owned it\./)
   assert.match(component, /You do not need to read code first\./)
   assert.match(component, /START WITH AN OUTCOME/)

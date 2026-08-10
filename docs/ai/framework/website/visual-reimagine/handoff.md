@@ -3,10 +3,11 @@
 ## Authority And Selection
 
 This handoff translates the inspected Material Blueprint direction into an
-implementation contract. The selected direction is not a theme applied to a
-generic documentation template. It uses a continuous working sheet, structural
-registration marks, topology, transaction brackets, and evidence traces to make
-Asyra's ownership model visible.
+implementation contract. **Instrument Sheet Revision 2 is the active
+implementation direction** for every public website route. It is not a theme
+applied to a generic documentation template. It uses a continuous working sheet,
+structural registration marks, topology, transaction brackets, and evidence
+traces to make Asyra's ownership model visible.
 
 Material Blueprint is primary because it gives a worldwide non-engineer the
 clearest entrance: what they can create, which knowledge they own, and why the
@@ -19,6 +20,40 @@ The PNG boards are inspected visual evidence, not product copy, runtime truth, o
 production assets. Recreate the selected language with repository-owned HTML,
 CSS, SVG, Canvas, and verified runtime data. Do not import, crop, trace, or ship
 the generated rasters in the website.
+
+## Revision Two Whole-Site Composition
+
+The user-selected Revision 2 composite refines Material Blueprint into one
+editorial scientific instrument. Its composition, rather than the generated
+words or illustrative runtime values, governs the implementation:
+
+- the global shell is a warm ivory paper sheet with quiet grain, hairline grid,
+  crop marks, crosshair registration, coordinates, and generous unboxed space;
+- the header is light and architectural: black wordmark, compact uppercase
+  destinations, one outlined entry action, and a single bottom rule;
+- Landing begins with a condensed black outcome statement beside a code-native
+  constellation of App-owned product domains orbiting canonical information;
+- Describe, Act, and Verify form one numbered horizontal process band, not
+  three unrelated marketing cards;
+- Runtime Atlas is the major midnight observatory band. It uses faint blue
+  graph paper, real owner and evidence labels, an accepted-state instrument,
+  and downstream projection bays;
+- the three entry paths return to paper as equal outlined instruments with
+  cobalt, verification-green, and coral semantic rails;
+- Asyra Design uses an architectural line-work bay, an explicit responsibility
+  list, and a visible candidate-status instrument without imitating product
+  screenshots;
+- documentation, search, mobile navigation, Releases, Roadmap, 404, and content
+  failure extend the same sheet, rail, coordinate, code-bay, hatch, and evidence
+  grammar rather than inventing independent templates; and
+- the footer closes the sheet with source, policy, and visual-plus-machine
+  orientation rather than a generic multi-column marketing footer.
+
+Revision 2 sharpens the active palette to `#F4F0E6` paper, `#080E15` midnight,
+`#144BD6` cobalt intent, `#268451` accepted green, and `#F05A3E` transaction or
+failure coral. Existing semantic meanings remain unchanged. The generated
+composite is inspected design evidence only; all production geometry, text,
+state, and interaction remain code-native and owner-derived.
 
 ## Global Audience And Progressive Disclosure
 
@@ -238,7 +273,8 @@ explanation.
 
 ### Landing: Desktop And Mobile
 
-Use `selected-landing-responsive.png` for composition evidence. The narrative
+Use the Revision 2 composite as the active composition and
+`selected-landing-responsive.png` as earlier responsive evidence. The narrative
 order is outcome, creator ownership, Asyra responsibility, concrete App-owned
 possibilities, Describe–Act–Verify, two beginner entrances, then the technical
 route. The panorama is code-native line work and progressively simplifies at
@@ -247,7 +283,8 @@ and actions rather than becoming a reduced marketing page.
 
 ### Documentation: Desktop, Mobile Navigation, Mobile Reading
 
-Use `selected-docs-responsive.png`. Desktop has a stable hierarchy rail, a
+Use Revision 2 sheet, rail, coordinate, and dark evidence-bay grammar together
+with the earlier `selected-docs-responsive.png`. Desktop has a stable hierarchy rail, a
 62–68ch article, and a concise page evidence rail when room permits. Mobile
 navigation is the modal sheet defined above; mobile reading removes auxiliary
 rails before it reduces type or target size. Support language links to the
@@ -256,7 +293,8 @@ not imply an unverified stable release.
 
 ### Runtime Atlas: Default, Active Flow, Failure
 
-Use `selected-atlas-states.png`. Default state explains each layer without
+Use the Revision 2 midnight observatory as the active composition and
+`selected-atlas-states.png` as earlier state evidence. Default state explains each layer without
 motion. Active state traces intent to feature and API, opens the Factory-owned
 transaction, numbers canonical-owner activation, commits, then projects. The
 ledger reports time, event, owner, result, and evidence from verified runtime or
@@ -269,7 +307,8 @@ content authority.
 
 ### Asyra Design Case Study And Release/Roadmap Boundary
 
-Use `selected-case-roadmap.png`. Present Asyra Design as a real reference product
+Use the Revision 2 architectural product bay as the active composition and
+`selected-case-roadmap.png` as earlier boundary evidence. Present Asyra Design as a real reference product
 built on the Framework. Separate what the Framework currently supplies, what the
 App supplies, and what users may build. Use the indigo current bar, outline App
 possibility, green accepted diamond, and sourced roadmap hatch exactly as defined
@@ -295,5 +334,5 @@ from accepted public contracts and project-owned data.
 - Preserve ordinary URL navigation, selection, copy, print, and browser zoom.
 - The selected direction is frozen input for Website Platform, Landing, Docs,
   Runtime Atlas, synchronized visual review, and launch tasks.
-- The deferred second Reimage is images only after launch. It cannot reopen this
-  handoff or mutate the implemented website.
+- Instrument Sheet Revision 2 applies across the whole public website. Its
+  generated raster remains design evidence and never becomes a production asset.

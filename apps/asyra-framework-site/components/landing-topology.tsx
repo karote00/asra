@@ -19,7 +19,7 @@ export function LandingTopology() {
   return (
     <section aria-labelledby="topology-heading" className="landing-topology">
       <header className="landing-topology__header">
-        <p className="section-eyebrow">One intent, one controlled route</p>
+        <p className="section-eyebrow">Runtime Atlas / one state, many views</p>
         <div>
           <h2 id="topology-heading">Predictable from request to result.</h2>
           <p>

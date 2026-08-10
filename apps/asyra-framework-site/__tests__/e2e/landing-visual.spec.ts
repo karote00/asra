@@ -16,7 +16,7 @@ test('global desktop narrative puts plain outcomes and starting actions first', 
   await expect(
     page.getByRole('heading', {
       level: 1,
-      name: 'Build what your world needs.'
+      name: 'Build the model your world needs.'
     })
   ).toBeVisible()
   await expect(
@@ -63,7 +63,7 @@ test('global mobile narrative preserves the same promise, boundaries, and paths'
   await expect(
     page.getByRole('heading', {
       level: 1,
-      name: 'Build what your world needs.'
+      name: 'Build the model your world needs.'
     })
   ).toBeVisible()
   await expect(
@@ -116,7 +116,7 @@ test('320px and desktop 200 percent reflow preserve actions without horizontal o
   await expect(
     page.getByRole('heading', {
       level: 1,
-      name: 'Build what your world needs.'
+      name: 'Build the model your world needs.'
     })
   ).toBeVisible()
 })
@@ -151,7 +151,7 @@ test('reduced motion exposes the complete equivalent Landing state instantly', a
   await page.goto('/')
 
   const axisDuration = await page
-    .locator('.landing-hero__axis')
+    .locator('.landing-hero__routes')
     .first()
     .evaluate((element) =>
       Number.parseFloat(getComputedStyle(element).animationDuration)
@@ -183,7 +183,7 @@ test('basic narrative and ownership route remain readable without client JavaScr
   await expect(
     page.getByRole('heading', {
       level: 1,
-      name: 'Build what your world needs.'
+      name: 'Build the model your world needs.'
     })
   ).toBeVisible()
   await expect(

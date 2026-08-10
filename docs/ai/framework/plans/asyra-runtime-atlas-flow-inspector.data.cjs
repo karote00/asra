@@ -238,7 +238,7 @@ module.exports = Object.freeze({
       ],
       allowedContributors: [
         'Atlas worker evidence',
-        'accepted site foundations and Material Blueprint visual tokens',
+        'accepted site foundations and Instrument Sheet Revision 2 visual tokens',
         'semantic HTML, CSS, Canvas, and accessible controls'
       ],
       forbiddenContributors: [

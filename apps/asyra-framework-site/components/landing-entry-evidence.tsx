@@ -95,13 +95,31 @@ export function LandingEntryEvidence({ bundle }: LandingEntryEvidenceProps) {
         className="landing-reference"
       >
         <div className="landing-reference__drawing" aria-hidden="true">
-          <span>PRODUCT / 01</span>
-          <div>
-            <i />
-            <i />
-            <i />
+          <span>PRODUCT / 01 · REFERENCE PRODUCT</span>
+          <svg className="landing-reference__blueprint" viewBox="0 0 720 520">
+            <g className="landing-reference__construction">
+              <path d="M58 430L350 260L662 416L366 486Z" />
+              <path d="M92 410L92 238L352 100L352 260" />
+              <path d="M352 100L624 222V398" />
+              <path d="M92 238L366 356L624 222" />
+              <path d="M146 261V389M208 286V416M274 316V442" />
+              <path d="M408 126V330M472 155V356M540 186V381" />
+              <path d="M92 326L366 444L624 310" />
+              <path d="M58 430L58 450M350 260V282M662 416V438M366 486V506" />
+            </g>
+            <g className="landing-reference__structure">
+              <path d="M116 247L350 128L598 235V382L365 460L116 369Z" />
+              <path d="M116 305L365 406L598 322" />
+              <path d="M350 128V296L116 369M350 296L598 382" />
+              <path d="M170 331V387M228 354V411M430 380V438M492 359V417" />
+            </g>
+          </svg>
+          <div className="landing-reference__toolbar">
+            {Array.from({ length: 8 }, (_, index) => (
+              <i key={index} />
+            ))}
           </div>
-          <strong>AD</strong>
+          <b>CANONICAL MODEL / MULTI-VIEW</b>
         </div>
         <div className="landing-reference__copy">
           <p className="section-eyebrow">

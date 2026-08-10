@@ -12,6 +12,11 @@ observation contract, Atlas Inspector, production browser bundle, responsive
 experience, and synchronized visual evidence are complete. Production
 deployment remains owned by Launch and Operations.
 
+The user-selected Instrument Sheet Revision 2 handoff is the active whole-site
+visual direction. Atlas presentation adopts its midnight observatory, paper
+instrument surfaces, semantic color rails, and coordinate notation without
+changing any executing runtime case, evidence source, or ownership boundary.
+
 ## Goal
 
 Let visitors operate and inspect the real public Asyra runtime while seeing
@@ -237,17 +242,19 @@ interaction and evidence.
 ## Verification Evidence
 
 - Runtime Atlas Inspector contract: 10/10 passing.
-- Framework site contract and unit suite: 59/59 passing, including all six
+- Framework site contract and unit suite: 69/69 passing, including all six
   isolated runtime cases and stale-placeholder test removal.
 - Production-browser Atlas E2E: 6/6 passing for Run, Pause, Step, Replay,
   Reset, keyboard Escape, rejection, all six terminal results, 1440px, 390px,
   320px, desktop 200 percent reflow, reduced motion, no-JavaScript reading,
   resource budgets, and runtime budgets.
-- Production route smoke: 49 public routes passing.
-- Strict site typecheck, site lint, and the 51-page production build pass.
+- Production route smoke: 48 public routes passing.
+- Strict site typecheck, site lint, and the 50-page production build pass.
 - Synchronized screenshots and the live in-app browser review cover default,
   active, paused, accepted, rejected, App-owned projection, mobile, and
   future-Roadmap states with no remaining visual difference.
+- Repository integration passes `yarn test:ci` with 72 script tests and all 21
+  workspace test tasks, plus all 20 `yarn react:build` tasks.
 
 ## Stop Conditions
 

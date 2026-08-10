@@ -41,6 +41,20 @@ export default function ReleasesPage() {
           <p className="technical-label">CURRENT CANDIDATE</p>
           <h2 id="package-inventory">Public package inventory</h2>
         </div>
+        <div className="release-register" aria-label="Release contract status">
+          <div>
+            <span>Candidate state</span>
+            <strong>{bundle.release.status}</strong>
+          </div>
+          <div>
+            <span>Manifest records</span>
+            <strong>{bundle.release.packageCount} packages</strong>
+          </div>
+          <div>
+            <span>Publication authority</span>
+            <strong>Not authorized</strong>
+          </div>
+        </div>
         <div
           className="package-table"
           role="table"

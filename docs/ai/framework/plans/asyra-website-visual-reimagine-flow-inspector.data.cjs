@@ -341,9 +341,9 @@ module.exports = Object.freeze({
         'No intermediate manual checkpoint pauses work; the user accepts the integrated experience after the full goal completes.'
     }),
     Object.freeze({
-      id: 'alternate-reimage-is-image-only',
+      id: 'revision-two-is-active',
       statement:
-        'After the implemented website is complete, a materially different second visual version is delivered as images only and never reopens production implementation.'
+        'Instrument Sheet Revision 2 is the active direction for the whole public website, while its generated raster remains design evidence rather than a production asset.'
     })
   ])
 })

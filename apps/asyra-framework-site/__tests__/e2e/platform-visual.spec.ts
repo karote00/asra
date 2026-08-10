@@ -150,12 +150,18 @@ test('reduced motion replaces navigation travel with an equivalent instant state
   })
 })
 
-test('supporting routes expose exact status boundaries', async ({ page }) => {
+test('supporting routes expose exact status boundaries', async ({
+  page
+}, testInfo) => {
   const removedExamples = await page.request.get('/examples')
   expect(removedExamples.status()).toBe(404)
   await page.goto('/releases')
   await expect(page.locator('.package-row')).toHaveCount(19)
   await expect(page.getByText('publication not authorized')).toBeVisible()
+  await page.screenshot({
+    path: testInfo.outputPath('releases-desktop.png'),
+    fullPage: true
+  })
   await page.goto('/asyra-design')
   await expect(
     page.getByText('Reference product, not Framework owner')
@@ -172,10 +178,55 @@ test('supporting routes expose exact status boundaries', async ({ page }) => {
     elements.map((element) => element.getBoundingClientRect().width)
   )
   expect(new Set(actionWidths.map(Math.round)).size).toBe(1)
+  await page.screenshot({
+    path: testInfo.outputPath('reference-product-desktop.png'),
+    fullPage: true
+  })
   await page.goto('/roadmap')
   await expect(
     page.getByText(
       /not a current public Headless Core or Core Kernel contract/i
     )
   ).toBeVisible()
+  await page.screenshot({
+    path: testInfo.outputPath('roadmap-desktop.png'),
+    fullPage: true
+  })
+})
+
+test('supporting route instruments reflow without mobile overflow', async ({
+  page
+}, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+
+  for (const [route, selector, screenshot] of [
+    [
+      '/asyra-design',
+      '.evidence-product-instrument',
+      'reference-product-mobile.png'
+    ],
+    ['/releases', '.release-register', 'releases-mobile.png'],
+    ['/roadmap', '.roadmap-axis', 'roadmap-mobile.png']
+  ] as const) {
+    await page.goto(route)
+    await page.evaluate(() => document.fonts.ready)
+    const dimensions = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth
+    }))
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth)
+    const instrument = page.locator(selector)
+    await expect(instrument).toBeVisible()
+    if (route === '/asyra-design') {
+      const panel = await page
+        .locator('.evidence-product-instrument__panel')
+        .evaluate((element) => ({
+          clientHeight: element.clientHeight,
+          scrollHeight: element.scrollHeight
+        }))
+      expect(panel.scrollHeight).toBeLessThanOrEqual(panel.clientHeight)
+    }
+    await instrument.scrollIntoViewIfNeeded()
+    await page.screenshot({ path: testInfo.outputPath(screenshot) })
+  }
 })

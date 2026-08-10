@@ -53,7 +53,7 @@ module.exports = Object.freeze({
       inputs: [
         'artifact:verified-platform',
         'accepted public-content handoff',
-        'accepted Material Blueprint visual handoff',
+        'accepted Material Blueprint / Instrument Sheet Revision 2 visual handoff',
         'verified public Asyra Design alias'
       ],
       outputs: ['artifact:landing-contract'],
@@ -113,7 +113,7 @@ module.exports = Object.freeze({
       allowedContributors: [
         'artifact:landing-contract',
         'artifact:verified-platform',
-        'accepted public content and Material Blueprint semantics',
+        'accepted public content and Instrument Sheet Revision 2 semantics',
         'repository-owned semantic HTML, CSS, and SVG'
       ],
       forbiddenContributors: [

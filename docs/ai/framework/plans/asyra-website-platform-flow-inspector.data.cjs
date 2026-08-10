@@ -48,7 +48,7 @@ module.exports = Object.freeze({
         'Freeze exact toolchain, workspace ownership, source authorities, route cases, shared boundaries, and deterministic gates before workspace implementation.',
       inputs: [
         'accepted public-content handoff',
-        'accepted Material Blueprint visual handoff',
+        'accepted Material Blueprint / Instrument Sheet Revision 2 visual handoff',
         'repository Node, Yarn, React, TypeScript, workspace, and CI contracts'
       ],
       outputs: ['artifact:platform-contract'],
@@ -87,7 +87,7 @@ module.exports = Object.freeze({
       order: 2,
       ownerPackage: '@asyra/asyra-framework-site foundation',
       purpose:
-        'Create the strict Next.js workspace, metadata, Material Blueprint tokens, semantic shell, and accessible navigation foundations.',
+        'Create the strict Next.js workspace, metadata, Instrument Sheet Revision 2 tokens, semantic shell, and accessible navigation foundations.',
       inputs: ['artifact:platform-contract'],
       outputs: ['artifact:site-foundation'],
       conditions: [

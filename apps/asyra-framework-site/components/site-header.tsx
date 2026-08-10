@@ -14,12 +14,21 @@ export function SiteHeader() {
     <header className="site-header">
       <div className="site-header__inner">
         <Link className="wordmark" href="/" aria-label="Asyra home">
+          <span aria-hidden="true" className="wordmark__mark" />
           <span aria-hidden="true" className="wordmark__coordinate">
             00.00
           </span>
           <span>Asyra</span>
         </Link>
-        <SiteNavigation items={primaryNavigation} />
+        <div className="site-header__navigation">
+          <SiteNavigation items={primaryNavigation} />
+          <Link
+            className="site-header__cta"
+            href="/docs/start/create-design-app"
+          >
+            Get started <span aria-hidden="true">→</span>
+          </Link>
+        </div>
       </div>
     </header>
   )
