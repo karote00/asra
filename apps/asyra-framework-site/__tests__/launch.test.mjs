@@ -98,7 +98,10 @@ test('every indexable route owns its exact canonical path', () => {
 test('Framework site Vercel configuration builds only the site workspace from the monorepo', () => {
   const config = JSON.parse(read('vercel.json'))
   assert.equal(config.framework, 'nextjs')
-  assert.equal(config.installCommand, 'cd ../.. && yarn install --immutable')
+  assert.equal(
+    config.installCommand,
+    'cd ../.. && corepack enable && corepack prepare yarn@4.3.1 --activate && yarn install --immutable'
+  )
   assert.equal(config.buildCommand, 'yarn react:build')
   assert.equal(config.outputDirectory, undefined)
   assert.equal(config.git?.deploymentEnabled?.['*'], false)
