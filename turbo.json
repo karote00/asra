@@ -60,6 +60,13 @@
         "@asyra/render#build:render"
       ]
     },
+    "@asyra/asyra-framework-site#build:asyra-framework-site": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": []
+    },
     "@asyra/collaboration#build:collaboration": {
       "cache": false,
       "outputs": [
