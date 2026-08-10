@@ -26,23 +26,24 @@ Start the frontend development graph:
 yarn dev:all
 ```
 
-Open a non-empty document id such as:
+Open one required non-empty `fileId`, for example:
 
 ```text
 http://localhost:3000/?fileId=my-design
 ```
 
-`dev:all` starts package watchers and the App frontend. It does not start the
-document backend or socket server, and it does not recreate missing `dist`
-outputs after `yarn clean`; run `yarn react:build` again when those outputs have
-been removed.
+`dev:all` starts all workspace package watchers and the App dev server only. It
+does not start the document backend or socket server, build missing package
+outputs, or recreate `dist` after `yarn clean`; run `yarn react:build` again
+when those outputs have been removed.
 
 ## Editing paths
 
-The App always uses one document-session composition for a required `fileId`.
-When its socket service is unavailable, it enters the declared disconnected
-state and remains locally editable through a provisional document. Local
-publications stay in the App-owned recovery outbox for a later reconnect.
+The App always starts Collaboration for every required `fileId` and uses one
+document-session composition. When its socket service is unavailable, it
+enters the declared disconnected state and remains locally editable through a
+provisional document. Local publications stay in the IndexedDB recovery outbox
+until reconnect. The browser never writes a materialized document.
 
 That behavior is useful for frontend development, but it is not complete
 collaboration or durable backend persistence. To exercise those guarantees,
@@ -59,9 +60,11 @@ VITE_COLLABORATION_WS_URL=ws://127.0.0.1:4101/collaboration
 ```
 
 `APP_URL` is the frontend origin. `VITE_COLLABORATION_WS_URL` is the browser's
-socket endpoint. The socket server alone reads
-`DOCUMENT_PERSISTENCE_BACKEND_URL`; the browser reaches document Reset through
-the App's same-origin proxy.
+socket endpoint.
+
+The socket server reads and
+writes checkpoints only through `DOCUMENT_PERSISTENCE_BACKEND_URL`. The browser
+reaches document Reset through the App's same-origin proxy.
 
 ## Complete local services
 
