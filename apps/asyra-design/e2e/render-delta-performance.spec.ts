@@ -124,9 +124,8 @@ test.describe('Render delta performance budget', () => {
   }, testInfo) => {
     test.setTimeout(120_000)
 
-    await page.exposeFunction(
-      '__asyraRequestPerformanceTestGarbageCollection',
-      () => page.requestGC()
+    await page.exposeFunction('__requestPerformanceTestGarbageCollection', () =>
+      page.requestGC()
     )
 
     const rawProfile = await page.evaluate(
@@ -253,9 +252,9 @@ test.describe('Render delta performance budget', () => {
 
         const requestTestGarbageCollection = (
           globalThis as typeof globalThis & {
-            __asyraRequestPerformanceTestGarbageCollection?: () => Promise<void>
+            __requestPerformanceTestGarbageCollection?: () => Promise<void>
           }
-        ).__asyraRequestPerformanceTestGarbageCollection
+        ).__requestPerformanceTestGarbageCollection
         if (typeof requestTestGarbageCollection !== 'function') {
           throw new Error(
             'Performance test garbage-collection control is unavailable'
