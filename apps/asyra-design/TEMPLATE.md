@@ -36,9 +36,9 @@ is the App document and collaboration-room identity.
 ## Start editing
 
 The generated environment points to the local reference socket service. If
-that service is not running, the App enters its explicit disconnected state and
-remains locally editable through a provisional document. Local publications
-stay in the App-owned recovery outbox for a future reconnect.
+that service is not running, the App enters its explicit disconnected state.
+Local editing remains available through a provisional document, and local
+publications stay in the App-owned recovery outbox for a future reconnect.
 
 This is a valid frontend development path, but it is not durable persistence or
 multi-Actor collaboration. Start the complete services when you need to verify
