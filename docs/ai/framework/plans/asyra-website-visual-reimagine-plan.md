@@ -10,7 +10,7 @@ rules, and production-asset boundaries are verified by the exact Visual
 Reimagine Inspector contract.
 
 This is a child plan of the
-[Asyra Framework Website Program](asyra-framework-website-plan.md). Website
+[Asyra Framework Website Program](completed/asyra-framework-website-plan.md). Website
 implementation may now consume the frozen handoff. The image-only alternate
 Reimage remains intentionally scheduled after website implementation and launch;
 it cannot reopen this accepted implementation direction.

@@ -3,7 +3,7 @@
 ## Status
 
 Completed locally on August 10, 2026, as a child plan of the
-[Asyra Framework Website Program](asyra-framework-website-plan.md). The
+[Asyra Framework Website Program](completed/asyra-framework-website-plan.md). The
 accepted bundle contains 41 source-mapped public pages, guides for all 19
 release packages, deterministic human/AI indexes, and fail-closed freshness,
 link, example, and public-API validation.

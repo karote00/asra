@@ -2,17 +2,11 @@
 
 ## Status and Authority
 
-Active pre-release child on branch
-`codex/asyra-public-release-input-system`. Its executable architecture contract
-is
+Completed on August 10, 2026, through PR #116 and the integrated release train.
+The DOM-neutral import/construction contract, explicit browser listener
+lifecycle, existing visual input route, formal tests, and required CI gates are
+accepted. Its retained executable architecture contract is
 [`input-system-environment-neutrality-flow-inspector.data.cjs`](input-system-environment-neutrality-flow-inspector.data.cjs).
-
-This child targets `codex/asyra-public-release-program`. The product owner has
-authorized continuous execution of the complete release goal and withdrawn the
-intermediate manual-acceptance checkpoint. The child may merge after all
-required automated, visual, release-readiness, and PR checks pass for its
-current head; final product-owner acceptance occurs after the integrated goal
-is complete.
 
 ## Goal
 

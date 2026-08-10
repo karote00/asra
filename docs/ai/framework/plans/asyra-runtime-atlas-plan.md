@@ -3,7 +3,7 @@
 ## Status
 
 Required child plan of the
-[Asyra Framework Website Program](asyra-framework-website-plan.md). The Atlas
+[Asyra Framework Website Program](completed/asyra-framework-website-plan.md). The Atlas
 is a real-runtime product surface, not a decorative architecture diagram.
 
 Preview-ready on the accepted website platform and executable-example handoff

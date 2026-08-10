@@ -6,19 +6,13 @@ This file tracks framework planning topics and points to detailed references.
 
 ## Active Pre-Release Blockers
 
-1. Input System environment neutrality
+None.
 
-- Remove Input System's eager browser side effect, add explicit symmetric
-  browser listener ownership, and preserve the existing Core/Asyra Design
-  visual activation route.
-- Node-safe import is not a public Headless Core claim. Headless Core and Core
-  Kernel remain unscheduled post-release targets.
-- This architecture child requires direct product-owner testing and explicit
-  approval after its PR CI passes; it cannot auto-merge from green CI.
-- Active plan:
-  `docs/ai/framework/plans/input-system-environment-neutrality-plan.md`.
-- Inspector:
-  `docs/ai/framework/plans/input-system-environment-neutrality-flow-inspector.data.cjs`.
+The Input System environment-neutrality prerequisite completed on 2026-08-10.
+Its retained plan and Inspector are:
+
+- `docs/ai/framework/plans/input-system-environment-neutrality-plan.md`
+- `docs/ai/framework/plans/input-system-environment-neutrality-flow-inspector.data.cjs`
 
 No active App persistence blocker remains. The completed
 socket-authoritative document-session record is:
@@ -53,30 +47,10 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
 
 1. Integrated public release candidate
 
-- Execute README alignment, public package documentation, executable examples,
-  Visual Reimagine, website implementation, and release verification as one
-  coordinated train with separate owners. Complete the Input System environment
-  prerequisite before executable examples or public content freeze browser and
-  Node-import claims.
-- README is not an isolated first task. README, public docs, examples, and
-  visual work begin after the shared public contract and Input System
-  prerequisite are accepted, then progress through explicit handoffs.
-- Build the public Next.js/Tailwind website against one exact reviewed release
-  candidate before registry publication.
-- Close one pre-publication Release Candidate only after all nine child plans'
-  applicable README, content, example, site, Atlas, artifact, accessibility,
-  performance, visual, and Preview gates pass against one exact source commit.
-- Program and child plans:
-  - `docs/ai/framework/plans/asyra-framework-website-plan.md`
-  - `docs/ai/framework/plans/input-system-environment-neutrality-plan.md`
-  - `docs/ai/framework/plans/asyra-public-readme-and-entrypoint-alignment-plan.md`
-  - `docs/ai/framework/plans/asyra-public-package-documentation-plan.md`
-  - `docs/ai/framework/plans/asyra-executable-examples-plan.md`
-  - `docs/ai/framework/plans/asyra-website-visual-reimagine-plan.md`
-  - `docs/ai/framework/plans/asyra-website-platform-and-docs-plan.md`
-  - `docs/ai/framework/plans/asyra-website-landing-page-plan.md`
-  - `docs/ai/framework/plans/asyra-runtime-atlas-plan.md`
-  - `docs/ai/framework/plans/asyra-website-launch-and-operations-plan.md`
+- Completed on 2026-08-10 with all nine child workstreams, production website
+  verification, and integration PR CI accepted.
+- Completed plan:
+  `docs/ai/framework/plans/completed/asyra-framework-website-plan.md`
 
 2. Framework package publication
 

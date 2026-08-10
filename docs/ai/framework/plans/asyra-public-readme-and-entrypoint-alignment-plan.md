@@ -3,7 +3,7 @@
 ## Status
 
 Completed locally on August 10, 2026, as a child plan of the
-[Asyra Framework Website Program](asyra-framework-website-plan.md). The
+[Asyra Framework Website Program](completed/asyra-framework-website-plan.md). The
 accepted bundle contains all 24 public README surfaces, deterministic package
 generation for the 19 release packages, canonical generated-App
 synchronization, and fail-closed link, API, support-policy, and freshness

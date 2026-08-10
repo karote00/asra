@@ -3,7 +3,7 @@
 ## Status
 
 Complete, Preview-ready child plan of the
-[Asyra Framework Website Program](asyra-framework-website-plan.md). It begins
+[Asyra Framework Website Program](completed/asyra-framework-website-plan.md). It begins
 from the accepted public content, executable examples, Material Blueprint
 handoff, and preview-ready common site platform on
 `codex/asyra-public-release-landing`.

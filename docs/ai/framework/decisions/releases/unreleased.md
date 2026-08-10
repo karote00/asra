@@ -2382,3 +2382,35 @@ unregister -> app migration -> core.start()` as the public app route.
   - `docs/ai/framework/plans/headless-core-and-core-kernel-future-plan.md`
 - Research Report:
   - `docs/ai/framework/research/headless-core-and-core-kernel-architecture-research.md`
+
+## 2026-08-10 - Complete the Asyra public website program
+
+- Context:
+  - The public release needed one coordinated result across Input environment
+    neutrality, README entrypoints, package documentation, executable examples,
+    image-first visual direction, the website platform, Landing, Runtime Atlas,
+    and production launch operations.
+  - Each child used a dedicated branch and PR targeting the shared integration
+    branch; the Launch child closed only after production verification and full
+    PR CI passed.
+- Decision:
+  - Accept the integrated website program as complete with all nine child
+    workstreams merged through PRs #116–#125.
+  - Retain Material Blueprint as the implemented visual direction and keep the
+    requested second Reimage as a post-launch image-only exploration that does
+    not reopen the accepted website implementation.
+  - Accept `https://asyra-framework.vercel.app` as the public Framework site and
+    retain the exact deployment, verification, and rollback evidence in the
+    Launch plan.
+- Consequences:
+  - README, public documentation, examples, Landing, Runtime Atlas, release
+    facts, and the Asyra Design case study now share one verified public
+    narrative for engineers, non-engineers, and AI-assisted builders.
+  - Future Headless Core/Core Kernel work remains unscheduled and cannot be
+    inferred from the current browser/Core release.
+  - This closeout creates no Changeset, version bump, package publication, tag,
+    custom domain, analytics integration, or new external release authority.
+- Completed Plan:
+  - `docs/ai/framework/plans/completed/asyra-framework-website-plan.md`
+- Production Record:
+  - `docs/ai/framework/plans/asyra-website-launch-and-operations-plan.md`

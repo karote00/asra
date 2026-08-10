@@ -3,7 +3,7 @@
 ## Status
 
 Completed, preview-ready child plan of the
-[Asyra Framework Website Program](asyra-framework-website-plan.md). Public
+[Asyra Framework Website Program](completed/asyra-framework-website-plan.md). Public
 content, executable examples, and the Material Blueprint visual handoff are
 accepted on the integration branch. The common platform now production-builds
 on its dedicated child branch against that exact release candidate; production

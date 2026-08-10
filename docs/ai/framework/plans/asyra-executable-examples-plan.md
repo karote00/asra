@@ -2,13 +2,12 @@
 
 ## Status
 
-Queued child plan of the
-[Asyra Framework Website Program](asyra-framework-website-plan.md). Existing
-examples under `docs/examples/*` remain the initial repository owner and must
-be inventoried before new structures are introduced.
-
-Implementation requires an exact example-flow Inspector, executable product
-cases, approved public-package inputs, and a bounded Definition of Done.
+Completed on August 10, 2026, through PR #118 as a child of the
+[Asyra Framework Website Program](completed/asyra-framework-website-plan.md).
+The accepted bundle contains 11 maintained examples, deterministic extraction,
+public-package-only boundaries, expected-output checks, and source-linked
+documentation integration. Its exact example-flow Inspector, executable
+product cases, and bounded Definition of Done all pass.
 
 ## Goal
 

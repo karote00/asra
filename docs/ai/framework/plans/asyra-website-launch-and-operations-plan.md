@@ -3,7 +3,7 @@
 ## Status
 
 Final child plan of the
-[Asyra Framework Website Program](asyra-framework-website-plan.md).
+[Asyra Framework Website Program](completed/asyra-framework-website-plan.md).
 Implementation and production acceptance completed on August 10, 2026. The
 user granted explicit authority in this integrated release task to create one
 separate Vercel project for the Framework site, configure its non-secret
