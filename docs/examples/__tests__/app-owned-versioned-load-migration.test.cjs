@@ -20,6 +20,16 @@ const createRegistrar = () => {
   }
 }
 
+test('example publishes the stable app-versioned migration contract', async () => {
+  const { exampleDefinition } = await loadExample()
+
+  assert.equal(exampleDefinition.id, 'app-versioned-load-migration')
+  assert.deepEqual(exampleDefinition.publicPackages, [
+    '@asyra/core',
+    '@asyra/persistence'
+  ])
+})
+
 test('example accepts the public typed Core load-hook surface', () => {
   const rootNames = [
     path.resolve(__dirname, '../app-owned-versioned-load-migration.mjs'),
@@ -54,14 +64,11 @@ test('copyable domain example produces only the terminal schema', async () => {
   const registrar = createRegistrar()
   installExampleAppMigrations(registrar.core)
 
-  assert.deepEqual(
-    registrar.load({ version: 'v1', legacyTitle: 'Document' }),
-    {
-      version: 'v3',
-      title: 'Document',
-      metadata: { schema: 'v3' }
-    }
-  )
+  assert.deepEqual(registrar.load({ version: 'v1', legacyTitle: 'Document' }), {
+    version: 'v3',
+    title: 'Document',
+    metadata: { schema: 'v3' }
+  })
 })
 
 test('registers one dispatcher and follows a non-contiguous chain by version lookup', async () => {
@@ -326,13 +333,7 @@ test('missing or invalid migration batch options fail atomically with an app err
     AppMigrationError,
     registerAppVersionMigrations
   } = await loadExample()
-  const cases = [
-    undefined,
-    null,
-    {},
-    { migrations: null },
-    { migrations: {} }
-  ]
+  const cases = [undefined, null, {}, { migrations: null }, { migrations: {} }]
 
   cases.forEach((options) => {
     const registrar = createRegistrar()

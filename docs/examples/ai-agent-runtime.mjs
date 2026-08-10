@@ -9,8 +9,31 @@
  */
 import { createAiAgentRuntime } from '@asyra/ai-agent-runtime'
 
+import { definePublicExample } from './example-contract.mjs'
+
+export const exampleDefinition = definePublicExample({
+  id: 'ai-registered-action',
+  title: 'Execute one prepared action through a registered boundary',
+  objective:
+    'Compose a deterministic replaceable provider, permission policy, action catalog, and transaction runner without credentials or network access.',
+  publicPackages: ['@asyra/ai-agent-runtime'],
+  environment:
+    'Supported browser composition with Node.js artifact verification',
+  runCommand: 'yarn examples:run ai-registered-action',
+  sourceRegion: 'example',
+  expectedResult:
+    'One schema-backed visibility action commits once and preserves prepared argument identity.',
+  ownership: {
+    framework:
+      'AI Runtime owns orchestration, validation, permission, and transaction sequencing.',
+    preset: 'Not composed in this example.',
+    app: 'Owns provider behavior, action schema, permissions, and visibility meaning.'
+  }
+})
+
 const SET_VISIBILITY = 'set_visibility'
 
+// #region example
 export const createExampleAiRuntime = () => {
   const state = {
     visible: true
@@ -117,3 +140,4 @@ export const createExampleAiRuntime = () => {
       })
   })
 }
+// #endregion example

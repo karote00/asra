@@ -14,6 +14,28 @@
  * @typedef {Pick<import('@asyra/core').Core, 'registerLoadHook'>} LoadHookRegistrar
  */
 
+import { definePublicExample } from './example-contract.mjs'
+
+export const exampleDefinition = definePublicExample({
+  id: 'app-versioned-load-migration',
+  title: 'Migrate app documents before canonical apply',
+  objective:
+    'Register one connected app-owned version chain and reject invalid or asynchronous migration results before package owners apply data.',
+  publicPackages: ['@asyra/core', '@asyra/persistence'],
+  environment:
+    'Supported browser/Core load composition with Node.js artifact verification',
+  runCommand: 'yarn examples:run app-versioned-load-migration',
+  sourceRegion: 'example',
+  expectedResult:
+    'A v1 document reaches v3 through one deterministic chain; invalid inputs fail before canonical apply.',
+  ownership: {
+    framework:
+      'Core owns hook ordering and package-owner validation boundaries.',
+    preset: 'Not composed in this example.',
+    app: 'Owns document versions, migrations, and domain transforms.'
+  }
+})
+
 export const APP_MIGRATION_ERROR_CODES = Object.freeze({
   INVALID_CHAIN: 'INVALID_CHAIN',
   ALREADY_REGISTERED: 'ALREADY_REGISTERED',
@@ -128,9 +150,7 @@ const createConnectedMigrationRegistry = (migrations) => {
     return byFrom
   }
 
-  const heads = [...byFrom.values()].filter(
-    (step) => !incoming.has(step.from)
-  )
+  const heads = [...byFrom.values()].filter((step) => !incoming.has(step.from))
   if (heads.length !== 1) {
     throw new AppMigrationError(
       APP_MIGRATION_ERROR_CODES.INVALID_CHAIN,
@@ -175,6 +195,7 @@ const createConnectedMigrationRegistry = (migrations) => {
  *   migrations: readonly AppMigrationStep[]
  * }} options
  */
+// #region example
 export const registerAppVersionMigrations = (core, options) => {
   const registry = createConnectedMigrationRegistry(options?.migrations)
   if (registry.size === 0) {
@@ -279,3 +300,4 @@ export const installExampleAppMigrations = (core) => {
     ]
   })
 }
+// #endregion example

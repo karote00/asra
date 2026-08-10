@@ -14,6 +14,27 @@ import {
   MemoryProvider
 } from '@asyra/collaboration'
 
+import { definePublicExample } from './example-contract.mjs'
+
+export const exampleDefinition = definePublicExample({
+  id: 'collaboration-two-memory-actors',
+  title: 'Compose two non-durable in-memory actors',
+  objective:
+    'Connect two explicit clients, converge one shared counter transaction, and keep Awareness outside canonical publications.',
+  publicPackages: ['@asyra/collaboration', '@asyra/factory'],
+  environment: 'Browser-compatible ESM with Node.js artifact verification',
+  runCommand: 'yarn examples:run collaboration-two-memory-actors',
+  sourceRegion: 'example',
+  expectedResult:
+    'Actor B converges to Actor A value while presence remains app-owned ephemeral state.',
+  ownership: {
+    framework:
+      'Factory owns transactions; Collaboration owns explicit transport lifecycle and outcomes.',
+    preset: 'Not composed in this example.',
+    app: 'Owns room identity, payload validation, replay policy, and presence projection.'
+  }
+})
+
 const CHANNEL = 'document'
 const SET_VALUE = 'set-value'
 
@@ -25,6 +46,7 @@ const isSetValuePayload = (payload) =>
       typeof payload.after === 'number'
   )
 
+// #region example
 // The hub represents an app/server-owned live room and acknowledgement
 // boundary. Production apps can replace it with any Provider.
 export const createMemoryHub = (options = {}) => new MemoryHub(options)
@@ -147,3 +169,4 @@ export const createCollaboratingCounter = async ({
     }
   })
 }
+// #endregion example
