@@ -99,11 +99,12 @@ important, but it is not a current public Headless Core or Core Kernel runtime.
 
 ## Current release and roadmap
 
-The current release supports Node.js 24.x, Yarn 4.3.1, the official browser/Core
-composition, Preset `2D`, and engine-neutral `CUSTOM` composition. Production
-`3D`, `HYBRID`, auto-layout, unit-aware aggregation, public Headless Core, and a
-multi-runtime Core Kernel are future work and must not be inferred from today's
-package import safety.
+The current Framework package manifests define the release candidates and
+their exact package versions. The current release supports Node.js 24.x, Yarn
+4.3.1, the official browser/Core composition, Preset `2D`, and engine-neutral
+`CUSTOM` composition. Production `3D`, `HYBRID`, auto-layout, unit-aware
+aggregation, public Headless Core, and a multi-runtime Core Kernel are future
+work and must not be inferred from today's package import safety.
 
 Versions, entrypoints, environments, migration guidance, and publication
 status come from the
