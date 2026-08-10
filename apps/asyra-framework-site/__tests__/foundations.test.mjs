@@ -62,10 +62,10 @@ test('sitemap derives all content routes and uses the stable production origin',
   assert.match(source, /\.\.\.bundle\.pages\.map/)
   assert.equal(
     resolveSiteOrigin({
-      VERCEL_PROJECT_PRODUCTION_URL: 'asyra-framework.vercel.app',
-      VERCEL_URL: 'asyra-framework-git-preview.vercel.app'
+      VERCEL_PROJECT_PRODUCTION_URL: 'framework-site.example.test',
+      VERCEL_URL: 'preview-site.example.test'
     }),
-    'https://asyra-framework.vercel.app'
+    'https://framework-site.example.test'
   )
   assert.match(source, /resolveSiteOrigin\(\)/)
   assert.doesNotMatch(source, /process\.env\.VERCEL_URL/)

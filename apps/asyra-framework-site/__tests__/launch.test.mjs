@@ -12,17 +12,17 @@ test('stable site origin is explicit, production-safe, and never guessed from a 
   assert.equal(resolveSiteOrigin({}), 'http://127.0.0.1:3020')
   assert.equal(
     resolveSiteOrigin({
-      VERCEL_PROJECT_PRODUCTION_URL: 'asyra-framework.vercel.app',
-      VERCEL_URL: 'asyra-framework-git-branch.vercel.app'
+      VERCEL_PROJECT_PRODUCTION_URL: 'framework-site.example.test',
+      VERCEL_URL: 'preview-site.example.test'
     }),
-    'https://asyra-framework.vercel.app'
+    'https://framework-site.example.test'
   )
   assert.equal(
     resolveSiteOrigin({
-      NEXT_PUBLIC_SITE_URL: 'https://framework.asyra.dev/',
-      VERCEL_PROJECT_PRODUCTION_URL: 'asyra-framework.vercel.app'
+      NEXT_PUBLIC_SITE_URL: 'https://docs.example.test/',
+      VERCEL_PROJECT_PRODUCTION_URL: 'framework-site.example.test'
     }),
-    'https://framework.asyra.dev'
+    'https://docs.example.test'
   )
   assert.throws(
     () => resolveSiteOrigin({ NEXT_PUBLIC_SITE_URL: 'javascript:alert(1)' }),
@@ -31,7 +31,7 @@ test('stable site origin is explicit, production-safe, and never guessed from a 
   assert.throws(
     () =>
       resolveSiteOrigin({
-        NEXT_PUBLIC_SITE_URL: 'https://framework.asyra.dev/docs'
+        NEXT_PUBLIC_SITE_URL: 'https://docs.example.test/guide'
       }),
     /valid HTTPS origin/i
   )
