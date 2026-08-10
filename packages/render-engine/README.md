@@ -2,6 +2,11 @@
 
 Engine-independent contract shared by Render, official engines, and custom provider implementations.
 
+## Requirements
+
+- Node.js 24.x
+- Yarn 4.3.1 for this repository's maintained workflows
+
 ## Install
 
 ```bash

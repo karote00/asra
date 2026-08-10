@@ -106,6 +106,9 @@ their exact package versions. The current release supports Node.js 24.x, Yarn
 aggregation, public Headless Core, and a multi-runtime Core Kernel are future
 work and must not be inferred from today's package import safety.
 
+Publication still depends on the repository's release-readiness evidence; this
+README does not independently authorize a release.
+
 Versions, entrypoints, environments, migration guidance, and publication
 status come from the
 [Framework release support contract](docs/ai/framework/RELEASE_SUPPORT.md).

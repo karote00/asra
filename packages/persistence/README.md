@@ -2,6 +2,11 @@
 
 Read-only load-source, replaceable provider, and synchronous load/save hook contracts with browser and memory references.
 
+## Requirements
+
+- Node.js 24.x
+- Yarn 4.3.1 for this repository's maintained workflows
+
 ## Install
 
 ```bash

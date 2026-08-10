@@ -2,6 +2,11 @@
 
 Optional official design-tool baseline with selectable defaults and render profile policy.
 
+## Requirements
+
+- Node.js 24.x
+- Yarn 4.3.1 for this repository's maintained workflows
+
 ## Install
 
 ```bash

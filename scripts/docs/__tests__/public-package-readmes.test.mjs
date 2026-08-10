@@ -21,6 +21,7 @@ test('package README generator owns the exact release package set', async () => 
     assert.match(readme.path, /^packages\/[a-z0-9-]+\/README\.md$/)
     assert.match(readme.content, /## Owns\n/)
     assert.match(readme.content, /## Does not own\n/)
+    assert.match(readme.content, /Node\.js 24\.x/)
     assert.match(
       readme.content,
       /This repository does not accept external issues or contributions/

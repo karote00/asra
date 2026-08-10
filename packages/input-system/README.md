@@ -2,6 +2,11 @@
 
 Environment-neutral semantic input registration with explicit browser host attachment.
 
+## Requirements
+
+- Node.js 24.x
+- Yarn 4.3.1 for this repository's maintained workflows
+
 ## Install
 
 ```bash

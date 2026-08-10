@@ -2,6 +2,11 @@
 
 Canonical transaction grouping, rollback, Undo/Redo history, replay, and local shared-publication infrastructure.
 
+## Requirements
+
+- Node.js 24.x
+- Yarn 4.3.1 for this repository's maintained workflows
+
 ## Install
 
 ```bash

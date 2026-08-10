@@ -2,6 +2,11 @@
 
 Canonical named selection-channel state and explicit selection queries and operations.
 
+## Requirements
+
+- Node.js 24.x
+- Yarn 4.3.1 for this repository's maintained workflows
+
 ## Install
 
 ```bash

@@ -2,6 +2,11 @@
 
 Canonical property definitions, values, property-child graph, validation, and registration lifecycle.
 
+## Requirements
+
+- Node.js 24.x
+- Yarn 4.3.1 for this repository's maintained workflows
+
 ## Install
 
 ```bash
