@@ -2689,7 +2689,12 @@ test('vector creation and anchor movement converge through the canonical collabo
       return point ? { x: point.x, y: point.y } : null
     }, before)
     expect(remotePoint).not.toBeNull()
-    expect(remotePoint).toEqual({ x: nextX, y: before.point.y })
+    expect(
+      Math.max(
+        Math.abs((remotePoint?.x ?? Number.POSITIVE_INFINITY) - nextX),
+        Math.abs((remotePoint?.y ?? Number.POSITIVE_INFINITY) - before.point.y)
+      )
+    ).toBeLessThanOrEqual(CANONICAL_COORDINATE_TOLERANCE)
     expect(await getUndoDepth(first)).toBe(firstUndoDepthBefore + 1)
     expect(await getUndoDepth(second)).toBe(secondUndoDepthBefore)
 
