@@ -1,6 +1,6 @@
 # `create-asyra-design-app`
 
-Create an immediately editable Asyra Design product from the official
+Create an immediately editable **Asyra Design** product from the official
 standalone template. This is the recommended beginner entrance when you want to
 learn from a working product and continue building it directly or with an AI
 coding agent.
