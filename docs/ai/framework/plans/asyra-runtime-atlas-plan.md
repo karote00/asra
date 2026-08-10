@@ -6,9 +6,11 @@ Required child plan of the
 [Asyra Framework Website Program](asyra-framework-website-plan.md). The Atlas
 is a real-runtime product surface, not a decorative architecture diagram.
 
-Implementation begins only after approved executable examples, visual
-reimagine, common site platform, an exact Atlas Inspector, executable runtime
-cases, observation contracts, and bounded Definition of Done are ready.
+Preview-ready on the accepted website platform and executable-example handoff
+as of August 10, 2026. The bounded product contract, six exact browser cases,
+observation contract, Atlas Inspector, production browser bundle, responsive
+experience, and synchronized visual evidence are complete. Production
+deployment remains owned by Launch and Operations.
 
 ## Goal
 
@@ -77,6 +79,122 @@ Users must be able to replay, pause, step, reset, and compare relevant cases
 without creating ambiguous hidden state. Each case has deterministic initial
 state, action sequence, evidence record, expected result, and failure state.
 
+## Bounded Task Contract
+
+The first release owns one worldwide, plain-English `/atlas` experience where
+an engineer or non-engineer can run six exact cases and answer three questions:
+what was requested, which owner accepted it, and what verifiable state changed.
+Completion means every displayed runtime value comes from the isolated browser
+runtime, all six cases reach their declared result, and the responsive,
+accessibility, performance, production-build, and synchronized visual gates
+pass.
+
+Authorized mutation is limited to the Atlas plan and Inspector, the Framework
+site's Atlas route, Atlas-specific runtime adapter, components, styles, package
+dependencies, and Atlas-specific formal tests. The existing Framework package
+behavior, executable-example source semantics, Landing narrative, public docs,
+Asyra Design, publication state, and deployment remain unchanged.
+
+Discovery is fixed to the six mapped public examples, their package-root API
+owners, the accepted content/example inventories, the selected visual handoff,
+the Atlas route and its direct site consumers, and the formal gates named in
+this plan. Package-private imports, Framework behavior repair, new dependencies,
+production deployment, or a required case that cannot be proven through a
+current public browser path are stop conditions.
+
+## Supported Product Contract
+
+- Runtime execution occurs only in a resettable browser worker harness. This is
+  a browser/Core composition, not a Node, server, Headless Core, or Core Kernel
+  lifecycle claim.
+- Every reset terminates the prior worker and creates a new runtime. History,
+  registrations, providers, Awareness, and AI resources cannot leak between
+  runs or cases.
+- `Run` advances every remaining action, `Pause` stops automatic advancement,
+  `Step` advances exactly one action, `Replay` creates a fresh runtime before
+  advancing again, and `Reset` returns to the declared initial state.
+- Comparison uses completed evidence from two real runs. It never compares
+  predicted, placeholder, or fabricated results.
+- The page explains each case in plain English before showing package names,
+  events, transaction details, or serialized evidence.
+- Canvas, hierarchy, properties, serialization, search/index, and presence
+  views are explicitly App-owned projections or integrations over returned
+  evidence. They are never presented as alternate canonical state owners.
+- Unexpected worker, public API, validation, provider, or disposal failure is a
+  visible terminal error with its owning stage. It is never replaced by a
+  success fallback.
+
+Unsupported behavior includes production collaboration durability, network
+authentication, domain conflict policy, model-vendor calls, app-specific BIM,
+VR, physics, chemistry, or simulation rules, server execution, and any future
+Headless/Core Kernel lifecycle.
+
+## Public Runtime And Observation Contract
+
+Each case definition has a stable id, plain-language purpose, mapped maintained
+example ids, deterministic ordered actions, expected result, relevant package
+owners, and current/future boundary disclosure. The exact case ids are:
+
+1. `continuous-pointer-undo`
+2. `canonical-projection-fanout`
+3. `invalid-input-rollback`
+4. `collaboration-two-actors`
+5. `ai-registered-action`
+6. `machine-retrieval-action`
+
+Every worker response carries the selected case id, fresh run id, monotonically
+increasing sequence, action id, lifecycle status, declared owner, detached
+input, detached runtime output, conditions, bypasses, and failure detail when
+present. Owner labels and conditions come from the frozen case contract;
+canonical values, transaction depths, publications, action outcomes, and query
+results come only from the executing public runtime.
+
+Presentation may format, filter, draw, or compare returned evidence, but it may
+not synthesize a missing output, infer transaction success from pixels, mutate
+the worker's canonical state, or use React state as product evidence. The
+worker terminates on Reset, case change, page disposal, or unexpected failure.
+
+## Executable Product Cases
+
+### Continuous pointer and one Undo unit
+
+An App-owned pointer session enters Feature System, applies three visible value
+updates through one API/Factory transaction, commits exactly one new Undo unit,
+then proves Undo and Redo against the same owner event.
+
+### Canonical projection fan-out
+
+One registered Feature API changes a validated System Context information
+record inside one Factory transaction. The returned canonical snapshot feeds
+four explicitly App-owned projections: Canvas, hierarchy, properties, and
+detached serialization.
+
+### Invalid input rollback
+
+One session applies a valid preview and then receives a rejected value. The
+handler failure rolls the complete transaction back, retains the prior
+canonical value, and adds no Undo entry.
+
+### Two browser actors
+
+Two explicitly started MemoryProvider actors exchange one completed Factory
+publication. Actor B converges through its app-owned remote callback while
+Awareness remains a separate ephemeral projection and no durability is
+claimed.
+
+### Registered AI action
+
+A deterministic App-owned provider prepares one registered action. The AI
+runtime resolves, permits, and executes it through one app-owned transaction
+runner, with no network request, secret, vendor SDK, or direct canonical write.
+
+### Machine retrieval and registered action
+
+App-owned retrieval reads a current canonical information record without
+mutation. Only the registered Feature API changes its status. The UI labels
+this as current machine consumption inside a browser composition and routes
+Headless/Core Kernel to the Roadmap.
+
 ## Example and Platform Handoff
 
 Atlas cases may adapt the maintained executable examples only through a
@@ -115,6 +233,21 @@ interaction and evidence.
 - runtime and rendering performance budgets pass; and
 - visual review inspects default, active, success, failure, and future-roadmap
   disclosure states.
+
+## Verification Evidence
+
+- Runtime Atlas Inspector contract: 10/10 passing.
+- Framework site contract and unit suite: 59/59 passing, including all six
+  isolated runtime cases and stale-placeholder test removal.
+- Production-browser Atlas E2E: 6/6 passing for Run, Pause, Step, Replay,
+  Reset, keyboard Escape, rejection, all six terminal results, 1440px, 390px,
+  320px, desktop 200 percent reflow, reduced motion, no-JavaScript reading,
+  resource budgets, and runtime budgets.
+- Production route smoke: 49 public routes passing.
+- Strict site typecheck, site lint, and the 51-page production build pass.
+- Synchronized screenshots and the live in-app browser review cover default,
+  active, paused, accepted, rejected, App-owned projection, mobile, and
+  future-Roadmap states with no remaining visual difference.
 
 ## Stop Conditions
 

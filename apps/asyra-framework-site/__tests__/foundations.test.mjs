@@ -51,11 +51,10 @@ test('sitemap derives all content routes and uses only observed deployment hosts
   assert.doesNotMatch(source, new RegExp(`https://${bundle.repositoryName}\\.`))
 })
 
-test('accepted Landing is composed while Atlas remains a downstream placeholder', () => {
+test('accepted Landing and Runtime Atlas are both composed', () => {
   assert.match(read('app/page.tsx'), /<LandingHero/)
   assert.match(read('app/page.tsx'), /<LandingEntryEvidence/)
-  assert.match(
-    read('app/atlas/page.tsx'),
-    /belong to the dedicated\s+Atlas\s+implementation stage/i
-  )
+  const atlas = read('app/atlas/page.tsx')
+  assert.match(atlas, /<RuntimeAtlas\s*\/>/)
+  assert.match(atlas, /Operate six real Asyra browser cases/)
 })
