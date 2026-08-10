@@ -1,38 +1,12 @@
 # `@asyra/collaboration`
 
-Optional, provider-replaceable live transport for completed Asyra Factory
-publications and ephemeral Awareness.
+Optional provider-replaceable transport for completed Factory publications and separate ephemeral Awareness.
 
-The package owns connection lifecycle and FIFO publication handoff only. Apps
-remain responsible for payload validation, permissions, canonical remote apply,
-conflict policy, persistence, snapshots, and recovery.
+## Install
 
-Every Provider implements one data method in each direction:
-`sendPublication(publication)` and
-`onPublication(async (publication) => ...)`. Collaboration hands each immutable
-Factory-owned `SharedPublication` to `sendPublication` exactly once and in FIFO
-order without cloning or rebuilding it. It does not advance to the next
-publication until the current send settles. The receiving callback remains
-pending until the app finishes canonical remote apply.
-
-Concrete transports own bounded queues, wire framing, encoding, and any
-internal grouping that does not alter publication identity or order. Generic
-Collaboration owns none of those transport policies. If the Provider is not
-connected when a Factory publication arrives, Collaboration reports it as
-skipped and does not replay it after reconnect.
-
-`MemoryHub` and `MemoryProvider` are non-durable development references. They
-create one detached publication snapshot per receiving peer, retain no
-publication history, and do not echo the sender. Their one-slot peer capacity
-bounds pending app work without making the current sender Promise wait for peer
-apply. Disconnected peers miss publications and reconnect receives only future
-live publications. These in-process semantics are not wire serialization or a
-disk/database acknowledgement. Product apps that promise durable collaboration
-must supply an app-owned backend.
-
-An app apply failure reports a Collaboration `process-failed` outcome and
-rejects the Provider callback. It is not a `ProviderFailure`; that type remains
-reserved for connection and transport failures.
+```bash
+npm install @asyra/collaboration
+```
 
 ```ts
 import {
@@ -42,13 +16,35 @@ import {
 } from '@asyra/collaboration'
 ```
 
-See the
-[Collaboration package contract](https://github.com/karote00/asyra/blob/main/docs/ai/framework/packages/collaboration.md)
-for complete composition, lifecycle, provider, and app-ownership details.
+Use only the package root and the explicitly documented public subpaths.
 
-## Release support
+## Owns
 
-The `@asyra/collaboration` `0.2.5` ESM artifact supports Node.js 24.x. Use only
-package-root exports. The package is opt-in and creates no provider or network
-side effect until an app explicitly composes and connects it. See the
-[Framework release support contract](../../docs/ai/framework/RELEASE_SUPPORT.md).
+- explicit connection lifecycle and FIFO publication handoff
+- exclusive inbound callback delivery, provider outcomes, Awareness, and owned-resource cleanup
+
+## Does not own
+
+- canonical documents, payload validation, permissions, conflict policy, durable outboxes, checkpoints, or backend storage
+
+## Start here
+
+Compose it when an App already owns immutable Factory publications, a provider, and a validated canonical remote-apply route.
+
+## Lifecycle and composition
+
+Construction is inert. `start()` connects and subscribes; connected publications are sent once in FIFO order. Disconnected publications are skipped, not retained. `dispose()` releases only resources the composition owns.
+
+## Learn more
+
+- [Complete package guide](https://github.com/karote00/asyra/blob/main/docs/public/reference/packages/collaboration.md)
+- [Compose two non-durable in-memory actors](https://github.com/karote00/asyra/blob/main/docs/examples/network-collaboration-transport.mjs) — `yarn examples:run collaboration-two-memory-actors`
+- [Framework release support](https://github.com/karote00/asyra/blob/main/docs/ai/framework/RELEASE_SUPPORT.md)
+
+## Support and policy
+
+This repository does not accept external issues or contributions. You may use,
+inspect, and fork the package under the [MIT License](https://github.com/karote00/asyra/blob/main/LICENSE).
+Follow the [security policy](https://github.com/karote00/asyra/blob/main/SECURITY.md) for
+security-sensitive reports and the [root policy](https://github.com/karote00/asyra) for the
+current support boundary.

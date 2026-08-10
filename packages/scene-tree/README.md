@@ -1,13 +1,46 @@
 # `@asyra/scene-tree`
 
-Canonical hierarchy, element records, ownership relations, and detached scene
-serialization for Asyra documents.
+Canonical entity graph, parent/child hierarchy, identity, element/property relations, serialization, and local computed projection.
+
+## Install
+
+```bash
+npm install @asyra/scene-tree
+```
 
 ```ts
 import sceneTree from '@asyra/scene-tree'
 ```
 
-## Release support
+Use only the package root and the explicitly documented public subpaths.
 
-The `0.2.5` ESM artifact supports Node.js 24.x. Use only package-root exports.
-See the [Framework release support contract](../../docs/ai/framework/RELEASE_SUPPORT.md).
+## Owns
+
+- entity lifecycle, hierarchy/order, relation indexes, batch-only local computed projection, and prepared atomic hierarchy artifacts
+
+## Does not own
+
+- property definitions, UI policy, render objects, App Group command meaning, or computed data as canonical/shared/history state
+
+## Start here
+
+Use it for canonical entity and hierarchy products; coordinate property relations and cross-owner work through Core.
+
+## Lifecycle and composition
+
+Batches validate identity, membership, cycles, order, relations, and staleness before mutation. Prepared artifacts are instance-bound and one-shot. Local computed projection remains derived and never enters history, collaboration publication, or persistence.
+
+## Learn more
+
+- [Complete package guide](https://github.com/karote00/asyra/blob/main/docs/public/reference/packages/scene-tree.md)
+- [Register an app-owned component and schema](https://github.com/karote00/asyra/blob/main/docs/examples/custom-component-schema.mjs) — `yarn examples:run custom-component-schema`
+- [Model information before choosing an output](https://github.com/karote00/asyra/blob/main/docs/examples/core-information-model.mjs) — `yarn examples:run core-information-model`
+- [Framework release support](https://github.com/karote00/asyra/blob/main/docs/ai/framework/RELEASE_SUPPORT.md)
+
+## Support and policy
+
+This repository does not accept external issues or contributions. You may use,
+inspect, and fork the package under the [MIT License](https://github.com/karote00/asyra/blob/main/LICENSE).
+Follow the [security policy](https://github.com/karote00/asyra/blob/main/SECURITY.md) for
+security-sensitive reports and the [root policy](https://github.com/karote00/asyra) for the
+current support boundary.

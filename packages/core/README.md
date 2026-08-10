@@ -1,53 +1,48 @@
-# Core
+# `@asyra/core`
 
-`@asyra/core` coordinates framework lifecycle, persistence, app load hooks,
-package validation, and canonical state apply.
+Strict public composition facade and lifecycle coordinator for current Asyra Framework capabilities.
 
-## App-owned load migration
+## Install
 
-Register synchronous app migrations with `core.registerLoadHook(...)`. Hooks
-run from a registration snapshot taken at load start on that Core instance; a
-hook registered during execution begins with the next load. The first hook
-receives the unnormalized raw document as `unknown`, so app code narrows version eligibility.
-Every successful hook must return a `VersionedLoadDocument`; package fields stay
-raw until the complete chain reaches package-owner validation.
+```bash
+npm install @asyra/core
+```
 
-The app owns its connected linear migration chain and domain transforms. A
-copyable app helper can validate the complete batch and install one conditional
-dispatcher that repeatedly follows the current version; when no matching
-version exists, the document passes through unchanged. The helper permits one
-non-empty installation per Core instance, treats empty batches as no-ops, and
-keeps its instance-isolated installation guard app-owned. Core rejects Promise or
-invalid hook results before validation through `LoadHookExecutionError`, and
-contains an eventual rejected Promise behind that single synchronous failure.
-It does not infer app schema history, enforce an app target version, or provide
-a second migration pipeline.
+```ts
+import core from '@asyra/core'
+```
 
-After migration, Props Manager, Scene Tree, and System Context each produce a
-validation/fallback result as an owner-issued, instance-bound, one-shot
-artifact. Core obtains all artifacts before updating the version, then returns
-each complete artifact to its package apply facade without rerunning validators.
-Migration or validation failure cannot apply a canonical prefix. Direct and
-provider-backed loads share this exact ordering and only nullish input means no
-document.
+Use only the package root and the explicitly documented public subpaths.
 
-Load diagnostics run only after successful apply and only when warnings exist.
-Every hook receives detached diagnostics and post-apply load evidence assembled
-from normalized/validated apply inputs and applied managed-system serialization.
-The detached evidence is not a canonical state artifact or state owner. Mutation
-or failure remains observational and cannot change canonical state, load success,
-or later hooks in that emission. Core assembles evidence only when diagnostics
-and an observer exist; assembly failure skips emission and preserves load success.
+## Owns
 
-See `docs/examples/app-owned-versioned-load-migration.mjs` for a reusable
-connected-registry example.
+- composition closure, startup ordering, readiness, teardown, load coordination, and curated package facades
+- one pre-start render-engine provider and engine-neutral default adapter
 
-`core.setPersistence(...)` is a warn-once, load-only compatibility adapter for
-`core.setLoadSource(...)`. It remains available through the `0.2.x` migration
-window and is planned for removal in the next major release.
+## Does not own
 
-## Release support
+- App-domain rules, UI presentation, concrete engine resources, backend policy, permissions, or the future Core Kernel
 
-The `@asyra/core` `0.2.5` ESM artifact supports Node.js 24.x. Use only
-package-root or explicitly exported subpath APIs. See the
-[Framework release support contract](../../docs/ai/framework/RELEASE_SUPPORT.md).
+## Start here
+
+Use Core for supported App composition and extensions that cross canonical package owners. Register composition before the first `core.start(...)`.
+
+## Lifecycle and composition
+
+Startup validates and closes composition, initializes required runtime owners, loads canonical data, and publishes ready only after success. A failure tears down owned work and never reports false readiness. The current no-provider compatibility branch is not a public Headless lifecycle.
+
+## Learn more
+
+- [Complete package guide](https://github.com/karote00/asyra/blob/main/docs/public/reference/packages/core.md)
+- [Model information before choosing an output](https://github.com/karote00/asyra/blob/main/docs/examples/core-information-model.mjs) — `yarn examples:run core-information-model`
+- [Register an app-owned component and schema](https://github.com/karote00/asyra/blob/main/docs/examples/custom-component-schema.mjs) — `yarn examples:run custom-component-schema`
+- [Apply the complete official 2D baseline](https://github.com/karote00/asyra/blob/main/docs/examples/preset-2d-minimal.mjs) — `yarn examples:run preset-2d-minimal`
+- [Framework release support](https://github.com/karote00/asyra/blob/main/docs/ai/framework/RELEASE_SUPPORT.md)
+
+## Support and policy
+
+This repository does not accept external issues or contributions. You may use,
+inspect, and fork the package under the [MIT License](https://github.com/karote00/asyra/blob/main/LICENSE).
+Follow the [security policy](https://github.com/karote00/asyra/blob/main/SECURITY.md) for
+security-sensitive reports and the [root policy](https://github.com/karote00/asyra) for the
+current support boundary.
