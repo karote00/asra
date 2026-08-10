@@ -3,16 +3,18 @@
 ## Status
 
 Final child plan of the
-[Asyra Framework Website Program](asyra-framework-website-plan.md). Preview
-closure is authorized only as part of a future implementation task. The
-integrated release train requires a pre-publication Release Candidate Preview
-and a final post-registry Preview after generated fact reconciliation.
-Production deployment, domain mutation, external service creation, and other
-external writes require separate explicit user authorization at execution time.
+[Asyra Framework Website Program](asyra-framework-website-plan.md).
+Implementation is active on the dedicated Launch child branch. The user granted
+explicit authority in this integrated release task to create one separate
+Vercel project for the Framework site, configure its non-secret indexing flag,
+deploy the accepted candidate to production, verify it anonymously, and roll it
+back if a release-blocking production check fails. This authority does not
+extend to custom DNS, analytics, monitoring vendors, new secrets, package
+publication, or mutation of the existing Asyra Design project.
 
-Implementation requires an exact launch Inspector, environment and ownership
-contract, executable deployment cases, rollback path, and bounded Definition
-of Done.
+The exact launch Inspector, environment and ownership contract, executable
+deployment cases, rollback path, and bounded Definition of Done are frozen in
+[the Launch flow Inspector](asyra-website-launch-and-operations-flow-inspector.data.cjs).
 
 ## Goal
 
@@ -43,6 +45,52 @@ visual design. It cannot rewrite failed upstream work during launch closure.
   applicable approval.
 - No publication, tag, package release, merge, push, or unrelated external
   operation is implied by website deployment authority.
+
+For this task, production project creation, the project-scoped
+`NEXT_PUBLIC_SITE_INDEXING=true` setting, Preview and production deployment,
+stable provider alias assignment, anonymous verification, rollback, child PR
+push, CI, and merge are explicitly authorized. The root `.vercel` link and
+`https://asra.vercel.app` remain owned by Asyra Design and are immutable inputs.
+
+## Bounded Task Contract
+
+This child owns launch-only configuration, integrated Preview acceptance, a
+dedicated Vercel target, production deployment, canonical-origin metadata,
+robots and sitemap publication, security and cache headers, anonymous
+production verification, rollback proof, and the final public URL record.
+Observable completion requires one exact source commit to pass local and CI
+Preview gates, deploy through a project that is not the Asyra Design project,
+and pass every anonymous production case before it is recorded as accepted.
+
+Discovery is fixed to the accepted integration commit, the nine child plans,
+generated content and example inventories, the Framework site workspace, root
+hosting configuration and read-only existing project metadata, Vercel's
+authenticated project/deployment facts, and the launch gates named below.
+Upstream product semantics, package publication, custom DNS, analytics,
+monitoring services, new secrets, and Asyra Design deployment configuration are
+excluded. A source change after Preview acceptance, target collision, missing
+rollback candidate, secret exposure, or failed anonymous production gate is a
+stop condition.
+
+## Executable Launch Cases
+
+1. `distinct-project-preservation`: the Framework site resolves to a dedicated
+   project and the existing Asyra Design project id and stable alias remain
+   unchanged.
+2. `integrated-preview-acceptance`: one exact integration commit passes content,
+   examples, Atlas, build, type, lint, test, route, accessibility, responsive,
+   visual, clean-consumer, and release-readiness gates.
+3. `immutable-production-candidate`: production deploys the same accepted Git
+   commit and reviewed configuration, without an unreviewed rebuild source.
+4. `production-indexing-metadata`: production alone permits indexing and emits
+   canonical absolute sitemap, robots, social, and metadata URLs from the
+   accepted public origin.
+5. `anonymous-production-surface`: an unsigned visitor can load all public
+   routes, search, examples, Asyra Design evidence, releases, Roadmap, and every
+   Runtime Atlas case with required headers and budgets.
+6. `rollback-readiness`: the immediately previous healthy deployment remains a
+   resolvable rollback target; any blocking production result restores it or
+   leaves the failed candidate unpromoted.
 
 ## Preview Acceptance
 
@@ -90,16 +138,19 @@ that contradict the separately owned repository policy.
 
 1. Freeze hosting, environment, authorization, domain, rollback, and launch
    Inspector contracts.
-2. Build the pre-publication candidate and complete integrated Release
-   Candidate Preview acceptance.
-3. After authorized package/CLI/root release stages, reconcile only generated
-   public facts and complete final Preview acceptance.
-4. Present final Preview evidence and unresolved external decisions to the
-   user.
-5. Obtain explicit production-deployment authorization.
-6. Deploy the exact accepted final candidate.
-7. Run production verification and either accept or roll back.
-8. Record the verified public URL and approved operational ownership.
+2. Complete every tracked hosting, stable-origin, metadata, indexing, header,
+   smoke, and production-browser input before freezing the candidate.
+3. Build the candidate, reconcile generated public facts, open the child PR,
+   and accept one exact pushed commit only after local and CI Preview gates
+   pass.
+4. Resolve or create the authorized dedicated Vercel project and configure its
+   production-only non-secret environment without changing tracked source.
+5. Deploy the exact accepted candidate and retain its immutable deployment
+   identity and real rollback path.
+6. Run anonymous production verification and either accept or immediately
+   restore/unpromote the candidate.
+7. Record the verified public URL, exact source, deployment identity, rollback
+   procedure, evidence, and excluded operational ownership.
 
 ## Quality Gates
 
