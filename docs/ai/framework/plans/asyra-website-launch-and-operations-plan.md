@@ -4,17 +4,71 @@
 
 Final child plan of the
 [Asyra Framework Website Program](asyra-framework-website-plan.md).
-Implementation is active on the dedicated Launch child branch. The user granted
-explicit authority in this integrated release task to create one separate
-Vercel project for the Framework site, configure its non-secret indexing flag,
-deploy the accepted candidate to production, verify it anonymously, and roll it
-back if a release-blocking production check fails. This authority does not
-extend to custom DNS, analytics, monitoring vendors, new secrets, package
-publication, or mutation of the existing Asyra Design project.
+Implementation and production acceptance completed on August 10, 2026. The
+user granted explicit authority in this integrated release task to create one
+separate Vercel project for the Framework site, configure its non-secret
+indexing flag, deploy the accepted candidate to production, verify it
+anonymously, and roll it back if a release-blocking production check fails.
+This authority does not extend to custom DNS, analytics, monitoring vendors,
+new secrets, package publication, or mutation of the existing Asyra Design
+project.
 
 The exact launch Inspector, environment and ownership contract, executable
 deployment cases, rollback path, and bounded Definition of Done are frozen in
 [the Launch flow Inspector](asyra-website-launch-and-operations-flow-inspector.data.cjs).
+
+## Accepted Production Record
+
+- Public URL: `https://asyra-framework.vercel.app`
+- Immutable deployment URL:
+  `https://asyra-framework-k2r6q54s3-karote00s-projects.vercel.app`
+- Accepted website source:
+  `172fc1b5fa2fa57c40ab4daf72e4624e5d7f8a29`
+- Vercel deployment: `dpl_94LGWe6K5fu1hkztDgiPnpHp2ak8`
+- Dedicated project: `asyra-framework`
+  (`prj_IGSQKq4oQQPeXXQ948hiORc5BBAg`) in `karote00s-projects`
+  (`team_HpJaUNDTB6ZDFDRJMCnEkp4W`)
+- Existing Asyra Design project: unchanged
+  (`prj_rMVZ3Pq4G3cb0dPDZmDpYfZNAElJ`, `https://asra.vercel.app`)
+
+The accepted source passed Pull Request #125 `validate`, Framework release
+readiness, ordinary E2E, Collaboration E2E, Asyra Design Preview, and Framework
+site Preview checks before production deployment. The dedicated target uses
+Node `24.x`, Yarn `4.3.1` through Corepack, the generated Framework-site Turbo
+owner task, and the app-owned `dist` output. The tracked build contract and
+provider project settings were read back as equal before deployment.
+
+Production verification passed all 49 anonymous public route and metadata
+smoke checks, all three Launch production browser cases, and all 20 maintained
+site browser cases. The maintained cases cover search, Landing, documentation,
+Asyra Design evidence, releases, Roadmap, all six Runtime Atlas cases,
+accessibility, responsive layouts, reduced motion, no-client-JavaScript
+reading, and the bounded runtime and resource budgets. Synchronized agent
+review additionally inspected the live desktop Landing and an accepted Runtime
+Atlas execution; formal `390x844`, `320px`, and `200%` reflow cases own mobile
+evidence.
+
+Both accepted production URLs return the same anonymously accessible HTML over
+verified TLS. The stable alias exposes the reviewed CSP, permissions, referrer,
+HSTS, MIME-sniffing, framing, cache, robots, sitemap, and canonical metadata
+contracts. `NEXT_PUBLIC_SITE_INDEXING=true` exists only for the Production
+environment. Vercel Authentication is scoped to `preview`, so Preview URLs
+remain protected while the stable and immutable production URLs remain public.
+
+This is the first healthy production deployment. Its first-deployment rollback
+is exact unpromotion or deletion of
+`dpl_94LGWe6K5fu1hkztDgiPnpHp2ak8`, followed by anonymous verification that the
+stable alias no longer serves the rejected candidate. The exact deletion path
+was proven before acceptance against the failed candidate
+`dpl_HhMZzbYkmAKYCGpc1e7U58EgPcuW`, whose deployment lookup returned `404`
+after deletion. For the next release, the deployment recorded here becomes the
+previous healthy rollback target and must remain resolvable until the new
+candidate passes production verification.
+
+No custom DNS, analytics, monitoring vendor, new secret, package publication,
+or Asyra Design hosting mutation was introduced. The operations-record and
+canonical-oracle test commits follow the deployed source without changing the
+accepted website runtime and must pass the final child PR checks before merge.
 
 ## Goal
 
