@@ -76,6 +76,12 @@ test('canonical cases preserve transaction, projection, and rollback owners', ()
       'apps/asyra-framework-site/package.json'
     )
   )
+  assert.ok(canonical.implementationBoundary.includes('yarn.lock'))
+  assert.ok(
+    canonical.implementationBoundary.includes(
+      'apps/asyra-framework-site/__tests__/runtime-atlas-harness.test.mjs'
+    )
+  )
 })
 
 test('optional cases preserve Collaboration, AI, and retrieval boundaries', () => {
@@ -89,6 +95,12 @@ test('optional cases preserve Collaboration, AI, and retrieval boundaries', () =
   assert.ok(
     optional.implementationBoundary.includes(
       'apps/asyra-framework-site/package.json'
+    )
+  )
+  assert.ok(optional.implementationBoundary.includes('yarn.lock'))
+  assert.ok(
+    optional.implementationBoundary.includes(
+      'apps/asyra-framework-site/__tests__/runtime-atlas-harness.test.mjs'
     )
   )
 })
