@@ -2,15 +2,21 @@
 
 ## Status
 
-Queued child plan of the
+Active child plan of the
 [Asyra Framework Website Program](asyra-framework-website-plan.md). This
-workstream begins with the shared public contract and progresses in parallel
-with public documentation, executable examples, and Visual Reimagine. It is not
-a standalone prerequisite that must finish before those workstreams begin.
+workstream consumes the accepted public-documentation and executable-example
+handoffs while remaining independent from Visual Reimagine and website UI
+implementation.
 
 Implementation requires an exact README inventory, canonical owner mapping,
 content cases, generated-output route, link contract, and bounded Definition of
 Done.
+
+Architecture execution is governed by the
+[Asyra Public README Flow Inspector](asyra-public-readme-and-entrypoint-alignment-flow-inspector.data.cjs)
+and its contract test. Work advances one README owner step at a time; the
+generated template is produced only through the retained create-app release
+route.
 
 ## Goal
 
@@ -47,6 +53,31 @@ Ownership remains local to each surface:
   and next steps; and
 - the official generator owns generated-template README synchronization. A
   generated README is never hand-edited.
+
+The frozen inventory contains exactly 24 surfaces: one root README, 19 package
+READMEs derived from the Framework release inventory, one Asyra Design README,
+one canonical generated-app README source, one CLI README, and one generated
+README output.
+
+## Executable README Cases
+
+- the inventory equals the current manifest-derived 19-package release set and
+  all 24 paths exist exactly once;
+- every package README resolves its package manifest, public guide, approved
+  public entrypoints, and at least one maintained executable example;
+- root, App, canonical template source, CLI, and generated output each satisfy
+  their owner-specific required sections without duplicating full guides;
+- current browser/Core support, possible app domains, app-owned domain
+  knowledge, Preset defaults, and future Headless/Core Kernel work remain
+  distinct;
+- root and downstream surfaces consistently state that external issues and
+  contributions are not accepted;
+- repository, documentation, example, security, license, support, and policy
+  links resolve from their rendered owner context;
+- generated output is byte-identical to the canonical source selected by
+  `release-configs/asyra-design.json`; and
+- stale versions, unknown packages or examples, private imports, unsupported
+  public API names, broken links, or hand-edited generated output fail closed.
 
 ## Required Shared Contract
 
