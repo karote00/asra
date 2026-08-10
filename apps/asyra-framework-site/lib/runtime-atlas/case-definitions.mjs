@@ -64,10 +64,20 @@ export const ATLAS_CASES = Object.freeze([
       defineAction('register', 'Register the information model', 'App', {
         status: 'draft'
       }),
-      defineAction('approve', 'Approve through the Feature API', 'Feature System', {
-        status: 'approved'
-      }),
-      defineAction('project', 'Read canonical projections', 'App projections', {})
+      defineAction(
+        'approve',
+        'Approve through the Feature API',
+        'Feature System',
+        {
+          status: 'approved'
+        }
+      ),
+      defineAction(
+        'project',
+        'Read canonical projections',
+        'App projections',
+        {}
+      )
     ]
   }),
   defineCase({
@@ -101,8 +111,7 @@ export const ATLAS_CASES = Object.freeze([
     title: 'Two live actors, explicit ownership',
     plainLanguage:
       'Connect two in-browser participants, share one accepted change, and keep presence separate from the document.',
-    technicalSummary:
-      'Factory publication → Collaboration → App remote apply',
+    technicalSummary: 'Factory publication → Collaboration → App remote apply',
     expected:
       'Actor B converges to 7 while Actor A presence remains ephemeral and non-durable.',
     exampleIds: ['collaboration-two-memory-actors'],
@@ -111,7 +120,9 @@ export const ATLAS_CASES = Object.freeze([
       'Both actors start explicitly before publication.',
       'The receiving App validates the one supported document event.'
     ],
-    bypasses: ['No durability, authentication, replay, or conflict policy is implied.'],
+    bypasses: [
+      'No durability, authentication, replay, or conflict policy is implied.'
+    ],
     actions: [
       defineAction('connect', 'Connect both actors', 'Collaboration', {}),
       defineAction('publish', 'Share value 7', 'Factory', { value: 7 }),
@@ -137,13 +148,18 @@ export const ATLAS_CASES = Object.freeze([
       'The provider returns one registered action with schema-valid arguments.',
       'Permission and execution receive the same prepared arguments.'
     ],
-    bypasses: ['No model vendor, secret, network request, or direct AI state write exists.'],
+    bypasses: [
+      'No model vendor, secret, network request, or direct AI state write exists.'
+    ],
     actions: [
       defineAction('compose', 'Compose App-owned AI boundaries', 'App', {}),
-      defineAction('request', 'Prepare one registered action', 'App provider', {
-        intent: 'hide the example'
-      }),
-      defineAction('execute', 'Permit and execute', 'AI Runtime', {})
+      defineAction(
+        'run',
+        'Run provider, permission, and action flow',
+        'AI Runtime',
+        { intent: 'hide the example' }
+      ),
+      defineAction('verify', 'Verify the committed result', 'App', {})
     ]
   }),
   defineCase({
@@ -168,7 +184,12 @@ export const ATLAS_CASES = Object.freeze([
       defineAction('retrieve', 'Search for safety', 'App retrieval', {
         query: 'safety'
       }),
-      defineAction('approve', 'Approve through Feature API', 'Feature System', {})
+      defineAction(
+        'approve',
+        'Approve through Feature API',
+        'Feature System',
+        {}
+      )
     ]
   })
 ])

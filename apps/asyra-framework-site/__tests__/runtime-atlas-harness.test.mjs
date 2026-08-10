@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { ATLAS_CASE_IDS, ATLAS_CASES } from '../lib/runtime-atlas/case-definitions.mjs'
 import {
-  AtlasRuntimeUnavailableError,
+  ATLAS_CASE_IDS,
+  ATLAS_CASES
+} from '../lib/runtime-atlas/case-definitions.mjs'
+import {
   createAtlasRuntime,
   createAtlasRuntimeHarness
 } from '../lib/runtime-atlas/runtime.mjs'
@@ -95,9 +97,10 @@ test('dispose is idempotent and blocks later advancement', async () => {
   await assert.rejects(harness.advance(), /disposed/i)
 })
 
-test('production runtime fails closed when an optional case executor is not installed', () => {
-  assert.throws(
-    () => createAtlasRuntime('collaboration-two-actors'),
-    AtlasRuntimeUnavailableError
-  )
+test('production runtime installs every public Atlas case', async () => {
+  for (const caseId of ATLAS_CASE_IDS) {
+    const runtime = createAtlasRuntime(caseId)
+    assert.equal(runtime.snapshot().caseId, caseId)
+    await runtime.dispose()
+  }
 })

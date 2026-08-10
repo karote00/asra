@@ -109,6 +109,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asyra/asyra-framework-site@workspace:apps/asyra-framework-site"
   dependencies:
+    "@asyra/ai-agent-runtime": "workspace:*"
+    "@asyra/collaboration": "workspace:*"
     "@asyra/core": "workspace:*"
     "@asyra/factory": "workspace:*"
     "@asyra/feature-system": "workspace:*"

@@ -21,6 +21,8 @@
     "lint": "yarn --cwd ../.. eslint apps/asyra-framework-site"
   },
   "dependencies": {
+    "@asyra/ai-agent-runtime": "workspace:*",
+    "@asyra/collaboration": "workspace:*",
     "@asyra/core": "workspace:*",
     "@asyra/factory": "workspace:*",
     "@asyra/feature-system": "workspace:*",
