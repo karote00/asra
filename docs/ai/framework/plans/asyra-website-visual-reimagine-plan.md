@@ -8,7 +8,10 @@ must complete before Landing, documentation shell, Runtime Atlas, or any other
 major composed view begins implementation.
 
 The reimagine segment requires its own visual-experience contract, exact flow
-Inspector, required view-state cases, and user visual checkpoint.
+Inspector, required view-state cases, and formal visual inspection. The user's
+later program instruction removes the intermediate manual checkpoint: the
+accepted handoff is frozen autonomously and remains subject to the user's final
+integrated-goal acceptance.
 
 ## Goal
 
@@ -46,6 +49,20 @@ at least:
 At least one direction must prove long-form reading quality, responsive intent,
 keyboard/focus visibility, reduced-motion equivalence, and feasible production
 translation rather than only a dramatic hero image.
+
+The frozen view-state ids are:
+
+- `landing-desktop` and `landing-mobile`;
+- `docs-desktop`, `docs-mobile-navigation`, and `docs-mobile-reading`;
+- `atlas-default`, `atlas-active-flow`, and `atlas-failure`;
+- `asyra-design-case-study`;
+- `release-roadmap-boundary`; and
+- `motion-intent`, `motion-transaction`, `motion-projection`, and
+  `motion-reduced`.
+
+Composite boards may contain multiple ids only when each state remains legible
+at useful inspection scale. The reimagine must retain three distinct concept
+directions before selecting one implementation direction.
 
 ## Visual Language Contract
 
@@ -93,6 +110,22 @@ The accepted direction must specify:
 - motion tokens and reduced-motion equivalents; and
 - per-view annotations explaining which visual marks carry semantic meaning.
 
+The retained project evidence lives under
+`docs/ai/framework/website/visual-reimagine/`. `concept-manifest.json` owns the
+exact direction, selected-board, view-state, prompt, and inspection inventory;
+`handoff.md` owns the annotated implementation contract. Generated images are
+not production assets and never replace those semantic records.
+
+## Autonomous Inspection And Final Acceptance
+
+The Visual Reimagine child does not pause for an intermediate human checkpoint.
+Every generated board is inspected at full image scale; the retained direction
+must pass originality, hierarchy, responsive, reading, semantic-role,
+accessibility, reduced-motion, and implementation-feasibility checks. The
+selected handoff then becomes the fixed input for Website Platform, Landing,
+and Runtime Atlas implementation. The user performs one final acceptance after
+the integrated program goal is complete.
+
 ## Stages
 
 1. Freeze the visual brief from the accepted product/content contracts.
@@ -101,7 +134,7 @@ The accepted direction must specify:
    accessibility risk, semantic accuracy, and implementation feasibility.
 4. Select and refine one coherent direction.
 5. Produce annotated responsive and motion specifications.
-6. Obtain the user's explicit visual checkpoint acceptance.
+6. Freeze the selected direction through formal autonomous visual inspection.
 7. Freeze the accepted handoff for platform, Landing, and Atlas tasks.
 
 ## Quality Gates
@@ -114,7 +147,8 @@ The accepted direction must specify:
 - focus, contrast, reduced motion, touch targets, and failure states have an
   explicit feasible solution;
 - implementation does not require unapproved assets or dependencies; and
-- the user has accepted one exact annotated direction.
+- one exact annotated direction has passed the formal visual handoff gate and
+  is reserved for final integrated-goal acceptance.
 
 ## Stop Conditions
 
@@ -124,11 +158,13 @@ The accepted direction must specify:
   states.
 - Visual choices imply Render/UI are required for canonical behavior.
 - Implementation would require an unapproved external asset or toolchain.
-- The visual checkpoint is not accepted.
+- Formal inspection cannot select one direction without an unresolved semantic
+  or implementation-feasibility conflict.
 
 ## Definition of Done
 
-- One coherent image-first direction is accepted for all required surfaces.
+- One coherent image-first direction is formally selected for all required
+  surfaces and reserved for final integrated-goal acceptance.
 - Responsive, interaction, motion, accessibility, and semantic roles are
   annotated precisely enough for implementation.
 - Landing, platform, and Atlas tasks can consume the same frozen design
