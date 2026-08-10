@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "cd ../.. && corepack yarn install --immutable",
+  "buildCommand": "cd ../.. && corepack yarn turbo run build:asyra-framework-site --filter @asyra/asyra-framework-site",
+  "outputDirectory": "dist",
+  "git": {
+    "deploymentEnabled": {
+      "*": false
+    }
+  }
+}

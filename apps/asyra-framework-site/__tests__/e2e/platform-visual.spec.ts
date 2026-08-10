@@ -130,6 +130,15 @@ test('supporting routes expose exact status boundaries', async ({ page }) => {
   await expect(
     page.getByText('Reference product, not Framework owner')
   ).toBeVisible()
+  await expect(
+    page.getByRole('link', { name: 'Open Asyra Design' })
+  ).toHaveAttribute('href', 'https://asra.vercel.app')
+  const actions = page.locator('.case-study-actions a')
+  await expect(actions).toHaveCount(2)
+  const actionWidths = await actions.evaluateAll((elements) =>
+    elements.map((element) => element.getBoundingClientRect().width)
+  )
+  expect(new Set(actionWidths.map(Math.round)).size).toBe(1)
   await page.goto('/roadmap')
   await expect(
     page.getByText(

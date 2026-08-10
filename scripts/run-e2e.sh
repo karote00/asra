@@ -100,7 +100,8 @@ npx wait-on "$E2E_APP_URL" --timeout 60000
 # then run the remaining functional suite with its deterministic CI policy.
 if [ "${CI:-}" = "true" ]; then
   echo "Step 10: Running isolated render performance gate..."
-  yarn workspace @asyra/asyra-design playwright test --config playwright.config.ts e2e/render-delta-performance.spec.ts --workers=1
+  E2E_RENDER_PERFORMANCE_BROWSER=chromium \
+    yarn workspace @asyra/asyra-design playwright test --config playwright.config.ts e2e/render-delta-performance.spec.ts --workers=1
   echo "Step 11: Running functional Playwright tests..."
   E2E_SKIP_PERFORMANCE=true yarn test:e2e
 else

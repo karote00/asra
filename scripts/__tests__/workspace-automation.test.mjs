@@ -236,7 +236,7 @@ test('CI isolates the render performance budget before parallel functional E2E',
 
   assert.match(
     runner,
-    /playwright test --config playwright\.config\.ts e2e\/render-delta-performance\.spec\.ts --workers=1/
+    /E2E_RENDER_PERFORMANCE_BROWSER=chromium \\\s*yarn workspace @asyra\/asyra-design playwright test --config playwright\.config\.ts e2e\/render-delta-performance\.spec\.ts --workers=1/
   )
   assert.match(runner, /E2E_SKIP_PERFORMANCE=true yarn test:e2e/)
 })

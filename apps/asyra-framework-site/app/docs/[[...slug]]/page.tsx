@@ -21,7 +21,8 @@ export async function generateMetadata({
   if (!page) return { title: 'Documentation not found' }
   return {
     title: page.title,
-    description: page.description
+    description: page.description,
+    alternates: { canonical: page.route }
   }
 }
 
