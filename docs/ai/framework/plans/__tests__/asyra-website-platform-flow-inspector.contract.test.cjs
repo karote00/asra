@@ -92,6 +92,11 @@ test('documentation owns server reading and bounded browser enhancements', () =>
       'apps/asyra-framework-site/app/globals.css'
     )
   )
+  assert.ok(
+    documentationStep.implementationBoundary.includes(
+      'apps/asyra-framework-site/__tests__/docs.test.mjs'
+    )
+  )
 })
 
 test('supporting routes preserve App, release, and roadmap boundaries', () => {

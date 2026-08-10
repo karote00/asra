@@ -122,6 +122,7 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/app/atlas/page.tsx',
         'apps/asyra-framework-site/components/site-*.tsx',
         'apps/asyra-framework-site/components/icons.tsx',
+        'apps/asyra-framework-site/__tests__/foundation.test.mjs',
         'package.json',
         'yarn.lock',
         'turbo.json',
@@ -218,7 +219,8 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/components/docs-*.tsx',
         'apps/asyra-framework-site/components/markdown-*.tsx',
         'apps/asyra-framework-site/components/search-*.tsx',
-        'apps/asyra-framework-site/components/copy-markdown-button.tsx'
+        'apps/asyra-framework-site/components/copy-markdown-button.tsx',
+        'apps/asyra-framework-site/__tests__/docs.test.mjs'
       ],
       specRefs: [
         '#required-routes',
@@ -265,7 +267,8 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/app/roadmap/**',
         'apps/asyra-framework-site/app/globals.css',
         'apps/asyra-framework-site/components/evidence-*.tsx',
-        'apps/asyra-framework-site/components/status-*.tsx'
+        'apps/asyra-framework-site/components/status-*.tsx',
+        'apps/asyra-framework-site/__tests__/routes.test.mjs'
       ],
       specRefs: [
         '#required-routes',
@@ -307,7 +310,8 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/app/sitemap.ts',
         'apps/asyra-framework-site/app/globals.css',
         'apps/asyra-framework-site/components/foundation-*.tsx',
-        'apps/asyra-framework-site/components/status-*.tsx'
+        'apps/asyra-framework-site/components/status-*.tsx',
+        'apps/asyra-framework-site/__tests__/foundations.test.mjs'
       ],
       specRefs: [
         '#shared-platform-contract',
