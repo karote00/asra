@@ -103,17 +103,14 @@ test:e2e:balanced-ai-correctness` runs that heavy case explicitly with one
   then excludes that file while running the remaining functional suite with
   one worker; the formal timing thresholds are not relaxed to absorb runner
   contention, and the ordinary suite must return a deterministic teardown
+- the isolated timing gate sets `E2E_RENDER_PERFORMANCE_BROWSER=chromium` so
+  the ordinary config uses Playwright's installed Chromium binary; the
+  remaining functional suite continues to use the configured Google Chrome
+  channel
 - after creating the dense-vector fixture, the timing test waits for the active
   Collaboration session and publication outbox to become idle before installing
   phase timers; setup publication work is excluded without changing the normal
   App composition or timing thresholds
-- after the setup becomes idle and before installing phase timers, Playwright
-  requests one browser garbage collection so setup-owned allocations cannot be
-  charged to a later Render owner sample; the 12 measured product frames and
-  every count, total, p95, cold/steady max, and combined budget stay unchanged
-- before timers are installed, the test completes one unmeasured normal Render
-  frame and then waits two animation frames, isolating the first canvas/GPU
-  flush after test-only collection from the measured product frames
 - pull-request CI resolves the balanced AI heavy gate from the exact
   base-to-head changed paths in
   `scripts/balanced-ai-correctness-scope.mjs`; unrelated changes and scheduled
@@ -124,7 +121,8 @@ test:e2e:balanced-ai-correctness` runs that heavy case explicitly with one
   retains a separate max assertion, preventing p95 from degenerating into the
   same single-sample oracle while preserving every formal threshold
 - superseded runs for the same pull request or ref are cancelled, and both E2E
-  jobs install only the configured Chromium browser
+  jobs install only Chromium; the timing gate consumes that exact managed
+  binary while the functional suites keep their configured Chrome channel
 - the 7,076-element two-actor Agent recording remains the explicit
   `RUN_AI_CRDT_VIDEO=1` resource gate and is not materialized by
   default ordinary or collaboration CI

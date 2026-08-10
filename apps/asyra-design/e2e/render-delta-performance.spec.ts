@@ -124,10 +124,6 @@ test.describe('Render delta performance budget', () => {
   }, testInfo) => {
     test.setTimeout(120_000)
 
-    await page.exposeFunction('__requestPerformanceTestGarbageCollection', () =>
-      page.requestGC()
-    )
-
     const rawProfile = await page.evaluate(
       async ({ pointCount, sampleFrames, intersectionStep }) => {
         // E2E-only access to the currently composed framework runtime.
@@ -249,27 +245,6 @@ test.describe('Render delta performance budget', () => {
             'Collaboration runtime did not settle before isolated profiling'
           )
         }
-
-        const requestTestGarbageCollection = (
-          globalThis as typeof globalThis & {
-            __requestPerformanceTestGarbageCollection?: () => Promise<void>
-          }
-        ).__requestPerformanceTestGarbageCollection
-        if (typeof requestTestGarbageCollection !== 'function') {
-          throw new Error(
-            'Performance test garbage-collection control is unavailable'
-          )
-        }
-        await requestTestGarbageCollection()
-
-        const renderForStabilization = core.deps?.render
-        if (!renderForStabilization) {
-          throw new Error(
-            'Render runtime is unavailable for performance stabilization'
-          )
-        }
-        renderForStabilization.requestRender()
-        renderForStabilization.flushFrame()
 
         await new Promise<void>((resolve) =>
           requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
