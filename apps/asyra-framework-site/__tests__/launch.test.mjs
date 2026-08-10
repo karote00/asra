@@ -102,7 +102,7 @@ test('Framework site Vercel configuration builds only the site workspace from th
     config.installCommand,
     'cd ../.. && corepack yarn install --immutable'
   )
-  assert.equal(config.buildCommand, 'corepack yarn react:build')
+  assert.equal(config.buildCommand, 'cd ../.. && corepack yarn react:build')
   assert.equal(config.outputDirectory, undefined)
   assert.equal(config.git?.deploymentEnabled?.['*'], false)
 })
