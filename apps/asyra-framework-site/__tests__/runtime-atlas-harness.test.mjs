@@ -95,9 +95,9 @@ test('dispose is idempotent and blocks later advancement', async () => {
   await assert.rejects(harness.advance(), /disposed/i)
 })
 
-test('production runtime fails closed until its public case executor is installed', () => {
+test('production runtime fails closed when an optional case executor is not installed', () => {
   assert.throws(
-    () => createAtlasRuntime('continuous-pointer-undo'),
+    () => createAtlasRuntime('collaboration-two-actors'),
     AtlasRuntimeUnavailableError
   )
 })
