@@ -349,6 +349,13 @@ be idle and confirms that the session remains connected. This excludes fixture
 setup publication work from the measured Render phases without changing the
 ordinary App composition or any formal timing threshold.
 
+After that setup boundary and before installing the phase timers, Playwright
+requests one browser garbage collection. This prevents allocations owned by
+fixture creation, module loading, and Collaboration setup from becoming a
+runner-dependent pause inside a later strategy sample. The measured 12-frame
+product flow, sample counts, total, p95, cold/steady max budgets, and ordinary
+App composition remain unchanged.
+
 For this bounded 12-frame sample, p50 and p95 use the lower sample quantile at
 `floor((sampleCount - 1) * ratio)`. The maximum sample retains its own explicit
 oracle, so the p95 and max budgets remain independent. The first vector

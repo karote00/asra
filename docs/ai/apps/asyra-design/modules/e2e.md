@@ -107,6 +107,10 @@ test:e2e:balanced-ai-correctness` runs that heavy case explicitly with one
   Collaboration session and publication outbox to become idle before installing
   phase timers; setup publication work is excluded without changing the normal
   App composition or timing thresholds
+- after the setup becomes idle and before installing phase timers, Playwright
+  requests one browser garbage collection so setup-owned allocations cannot be
+  charged to a later Render owner sample; the 12 measured product frames and
+  every count, total, p95, cold/steady max, and combined budget stay unchanged
 - pull-request CI resolves the balanced AI heavy gate from the exact
   base-to-head changed paths in
   `scripts/balanced-ai-correctness-scope.mjs`; unrelated changes and scheduled
