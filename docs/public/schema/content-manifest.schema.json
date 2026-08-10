@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://asyra.dev/schemas/content-manifest.schema.json",
+  "title": "Asyra public documentation content manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "pages"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "pages": {
+      "type": "array",
+      "minItems": 41,
+      "maxItems": 41,
+      "items": {
+        "$ref": "#/$defs/page"
+      }
+    }
+  },
+  "$defs": {
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path",
+        "section",
+        "title",
+        "description",
+        "sources",
+        "packages",
+        "examples"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(overview|(start|learn|build|reference|cases)/[a-z0-9-]+(?:/[a-z0-9-]+)?)$"
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^(index|(?:start|learn|build|reference|cases)/[a-z0-9-]+(?:/[a-z0-9-]+)?)\\.md$"
+        },
+        "section": {
+          "enum": ["Overview", "Start", "Learn", "Build", "Reference", "Cases"]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sources": {
+          "$ref": "#/$defs/uniqueStrings"
+        },
+        "packages": {
+          "$ref": "#/$defs/uniqueStrings"
+        },
+        "examples": {
+          "$ref": "#/$defs/uniqueStrings"
+        }
+      }
+    },
+    "uniqueStrings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

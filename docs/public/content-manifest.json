@@ -1,0 +1,584 @@
+{
+  "schemaVersion": 1,
+  "pages": [
+    {
+      "id": "overview",
+      "path": "index.md",
+      "section": "Overview",
+      "title": "Asyra Framework",
+      "description": "Build domain-owned information products whose visual, collaborative, persistent, and AI-facing capabilities remain composable.",
+      "sources": [
+        "docs/ai/framework/FRAMEWORK_ESSENTIALS.md",
+        "docs/ai/framework/ARCHITECTURE.md",
+        "docs/examples/README.md"
+      ],
+      "packages": ["@asyra/core", "@asyra/preset"],
+      "examples": ["core-information-model", "preset-2d-minimal"]
+    },
+    {
+      "id": "start/create-design-app",
+      "path": "start/create-design-app.md",
+      "section": "Start",
+      "title": "Create a complete design app",
+      "description": "Begin with the maintained Asyra Design product template and extend it as an app owner.",
+      "sources": [
+        "create-app/asyra-design/package.json",
+        "create-app/asyra-design/template/README.md",
+        "apps/asyra-design/examples/review-queue-extension.mjs"
+      ],
+      "packages": ["@asyra/core", "@asyra/preset"],
+      "examples": ["generated-design-app-extension"]
+    },
+    {
+      "id": "start/extend-with-ai",
+      "path": "start/extend-with-ai.md",
+      "section": "Start",
+      "title": "Extend Asyra with an AI coding agent",
+      "description": "Give an AI agent bounded ownership, canonical APIs, and executable proof while you retain product decisions.",
+      "sources": [
+        "docs/ai/framework/WORKFLOW.md",
+        "docs/ai/apps/asyra-design/golden-paths/README.md",
+        "apps/asyra-design/examples/review-queue-extension.mjs"
+      ],
+      "packages": ["@asyra/core", "@asyra/feature-system"],
+      "examples": ["generated-design-app-extension"]
+    },
+    {
+      "id": "start/preset-2d",
+      "path": "start/preset-2d.md",
+      "section": "Start",
+      "title": "Compose the official 2D baseline",
+      "description": "Apply the optional official Preset before Core starts, then keep app-domain choices outside the Framework.",
+      "sources": [
+        "docs/ai/framework/golden-paths/preset-composition.md",
+        "docs/ai/framework/packages/preset.md",
+        "docs/examples/preset-2d-minimal.mjs"
+      ],
+      "packages": ["@asyra/core", "@asyra/preset"],
+      "examples": ["preset-2d-minimal"]
+    },
+    {
+      "id": "start/custom-composition",
+      "path": "start/custom-composition.md",
+      "section": "Start",
+      "title": "Compose only the infrastructure you need",
+      "description": "Start from Core and choose information, interaction, rendering, persistence, collaboration, and AI capabilities independently.",
+      "sources": [
+        "docs/ai/framework/ARCHITECTURE.md",
+        "docs/ai/framework/packages/core.md",
+        "docs/examples/create-core-composition.mjs"
+      ],
+      "packages": ["@asyra/core"],
+      "examples": ["core-information-model"]
+    },
+    {
+      "id": "learn/information-models",
+      "path": "learn/information-models.md",
+      "section": "Learn",
+      "title": "Information models come before output",
+      "description": "Define app-owned information and rules without forcing it to be visible, rendered, collaborative, or AI-operated.",
+      "sources": [
+        "docs/ai/framework/FRAMEWORK_ESSENTIALS.md",
+        "docs/ai/framework/packages/core.md",
+        "docs/examples/core-information-model.mjs"
+      ],
+      "packages": ["@asyra/core", "@asyra/system-context"],
+      "examples": ["core-information-model"]
+    },
+    {
+      "id": "learn/intent-and-features",
+      "path": "learn/intent-and-features.md",
+      "section": "Learn",
+      "title": "Intent enters through Features",
+      "description": "Translate user or agent intent into explicit Feature sessions rather than mutating owners from UI or transport code.",
+      "sources": [
+        "docs/ai/framework/WORKFLOW.md",
+        "docs/ai/framework/packages/feature-system.md",
+        "docs/examples/feature-session-undo.mjs"
+      ],
+      "packages": ["@asyra/feature-system", "@asyra/factory"],
+      "examples": ["feature-session-undo"]
+    },
+    {
+      "id": "learn/canonical-state",
+      "path": "learn/canonical-state.md",
+      "section": "Learn",
+      "title": "Give every state one canonical owner",
+      "description": "Separate canonical model state, local derived state, projection state, and remote transport state.",
+      "sources": [
+        "docs/ai/framework/ARCHITECTURE.md",
+        "docs/ai/framework/packages/system-context.md",
+        "docs/ai/framework/packages/props-manager.md"
+      ],
+      "packages": ["@asyra/system-context", "@asyra/props-manager"],
+      "examples": ["core-information-model"]
+    },
+    {
+      "id": "learn/transactions-and-durability",
+      "path": "learn/transactions-and-durability.md",
+      "section": "Learn",
+      "title": "One user intent, one transaction",
+      "description": "Commit, roll back, undo, redo, publish, and persist one intended action through one canonical boundary.",
+      "sources": [
+        "docs/ai/framework/packages/factory.md",
+        "docs/ai/framework/packages/reactive-events.md",
+        "docs/examples/feature-session-undo.mjs"
+      ],
+      "packages": ["@asyra/factory", "@asyra/reactive-events"],
+      "examples": ["feature-session-undo"]
+    },
+    {
+      "id": "learn/validation-load-migration",
+      "path": "learn/validation-load-migration.md",
+      "section": "Learn",
+      "title": "Validate at every write and load boundary",
+      "description": "Keep schema validation in the Framework while version interpretation and migration remain app-domain responsibilities.",
+      "sources": [
+        "docs/ai/framework/packages/props-manager.md",
+        "docs/ai/framework/packages/persistence.md",
+        "docs/examples/app-owned-versioned-load-migration.mjs"
+      ],
+      "packages": ["@asyra/core", "@asyra/persistence", "@asyra/props-manager"],
+      "examples": ["app-versioned-load-migration"]
+    },
+    {
+      "id": "learn/projection-registration-replacement",
+      "path": "learn/projection-registration-replacement.md",
+      "section": "Learn",
+      "title": "Register projections; replace providers",
+      "description": "Keep canonical information independent from render layers and engine providers so output can be extended or replaced.",
+      "sources": [
+        "docs/ai/framework/packages/render.md",
+        "docs/ai/framework/packages/render-engine.md",
+        "docs/ai/framework/golden-paths/replace-render-engine.md",
+        "docs/examples/custom-render-boundary.mjs"
+      ],
+      "packages": ["@asyra/render", "@asyra/render-engine"],
+      "examples": ["custom-render-boundary"]
+    },
+    {
+      "id": "learn/runtime-boundaries-roadmap",
+      "path": "learn/runtime-boundaries-roadmap.md",
+      "section": "Learn",
+      "title": "Current runtime and future Core Kernel",
+      "description": "Distinguish today's browser/Core composition from the researched Headless and Core Kernel direction for machine-facing products.",
+      "sources": [
+        "docs/ai/framework/packages/core.md",
+        "docs/ai/framework/packages/input-system.md",
+        "docs/ai/framework/plans/headless-core-and-core-kernel-future-plan.md",
+        "docs/ai/framework/research/headless-core-and-core-kernel-architecture-research.md"
+      ],
+      "packages": ["@asyra/core", "@asyra/input-system"],
+      "examples": ["core-information-model"]
+    },
+    {
+      "id": "build/custom-schema",
+      "path": "build/custom-schema.md",
+      "section": "Build",
+      "title": "Build a custom component and schema",
+      "description": "Register app-owned component meaning, property defaults, and validation through public Core APIs.",
+      "sources": [
+        "docs/ai/framework/packages/core.md",
+        "docs/ai/framework/packages/props-manager.md",
+        "docs/ai/framework/packages/scene-tree.md",
+        "docs/examples/custom-component-schema.mjs"
+      ],
+      "packages": ["@asyra/core", "@asyra/props-manager", "@asyra/scene-tree"],
+      "examples": ["custom-component-schema"]
+    },
+    {
+      "id": "build/feature-session",
+      "path": "build/feature-session.md",
+      "section": "Build",
+      "title": "Build a transaction-safe Feature session",
+      "description": "Map start, update, end, and cancellation to exactly one intended undo commit.",
+      "sources": [
+        "docs/ai/framework/packages/feature-system.md",
+        "docs/ai/framework/packages/factory.md",
+        "docs/examples/feature-session-undo.mjs"
+      ],
+      "packages": ["@asyra/factory", "@asyra/feature-system"],
+      "examples": ["feature-session-undo"]
+    },
+    {
+      "id": "build/render-boundary",
+      "path": "build/render-boundary.md",
+      "section": "Build",
+      "title": "Build a custom render boundary",
+      "description": "Provide an engine through the public provider contract without teaching Core a renderer-specific implementation.",
+      "sources": [
+        "docs/ai/framework/packages/render.md",
+        "docs/ai/framework/packages/render-engine.md",
+        "docs/examples/custom-render-boundary.mjs"
+      ],
+      "packages": ["@asyra/core", "@asyra/render", "@asyra/render-engine"],
+      "examples": ["custom-render-boundary"]
+    },
+    {
+      "id": "build/hierarchy-groups",
+      "path": "build/hierarchy-groups.md",
+      "section": "Build",
+      "title": "Build hierarchy and Group behavior",
+      "description": "Keep parent-child ordering canonical while group meaning and geometry policy remain app-owned.",
+      "sources": [
+        "docs/ai/framework/packages/scene-tree.md",
+        "docs/ai/framework/packages/core.md",
+        "docs/ai/apps/asyra-design/features/group-interactions.md"
+      ],
+      "packages": ["@asyra/core", "@asyra/scene-tree"],
+      "examples": ["custom-component-schema", "generated-design-app-extension"]
+    },
+    {
+      "id": "build/persistence-migration",
+      "path": "build/persistence-migration.md",
+      "section": "Build",
+      "title": "Build persistence with app-owned migration",
+      "description": "Load validated canonical state while the app owns document versions, migration rules, and unsupported-version policy.",
+      "sources": [
+        "docs/ai/framework/packages/persistence.md",
+        "docs/ai/framework/packages/props-manager.md",
+        "docs/examples/app-owned-versioned-load-migration.mjs"
+      ],
+      "packages": ["@asyra/core", "@asyra/persistence", "@asyra/props-manager"],
+      "examples": ["app-versioned-load-migration"]
+    },
+    {
+      "id": "build/collaboration",
+      "path": "build/collaboration.md",
+      "section": "Build",
+      "title": "Build opt-in collaboration",
+      "description": "Connect deterministic collaboration actors while the app owns transport, authorization, presence, and backend policy.",
+      "sources": [
+        "docs/ai/framework/packages/collaboration.md",
+        "docs/ai/apps/asyra-design/modules/collaboration-reference.md",
+        "docs/examples/network-collaboration-transport.mjs"
+      ],
+      "packages": ["@asyra/collaboration", "@asyra/factory"],
+      "examples": ["collaboration-two-memory-actors"]
+    },
+    {
+      "id": "build/ai-actions",
+      "path": "build/ai-actions.md",
+      "section": "Build",
+      "title": "Build registered AI actions",
+      "description": "Expose bounded action schemas and permissions so AI intent uses the same canonical transaction paths as people.",
+      "sources": [
+        "docs/ai/framework/packages/ai-agent-runtime.md",
+        "docs/ai/framework/golden-paths/compose-ai-agent-runtime.md",
+        "docs/examples/ai-agent-runtime.mjs"
+      ],
+      "packages": ["@asyra/ai-agent-runtime"],
+      "examples": ["ai-registered-action"]
+    },
+    {
+      "id": "build/app-retrieval-action",
+      "path": "build/app-retrieval-action.md",
+      "section": "Build",
+      "title": "Build app-owned AI retrieval and action",
+      "description": "Let the app retrieve domain context and register actions without presenting future Headless support as current behavior.",
+      "sources": [
+        "docs/ai/framework/packages/ai-agent-runtime.md",
+        "docs/ai/framework/packages/feature-system.md",
+        "docs/examples/app-retrieval-action.mjs"
+      ],
+      "packages": [
+        "@asyra/ai-agent-runtime",
+        "@asyra/core",
+        "@asyra/feature-system"
+      ],
+      "examples": ["app-retrieval-action"]
+    },
+    {
+      "id": "reference/packages/ai-agent-runtime",
+      "path": "reference/packages/ai-agent-runtime.md",
+      "section": "Reference",
+      "title": "@asyra/ai-agent-runtime",
+      "description": "Optional registry, schema, permission, and execution boundary for app-approved AI actions.",
+      "sources": [
+        "docs/ai/framework/packages/ai-agent-runtime.md",
+        "packages/ai-agent-runtime/package.json"
+      ],
+      "packages": ["@asyra/ai-agent-runtime"],
+      "examples": ["ai-registered-action", "app-retrieval-action"]
+    },
+    {
+      "id": "reference/packages/collaboration",
+      "path": "reference/packages/collaboration.md",
+      "section": "Reference",
+      "title": "@asyra/collaboration",
+      "description": "Optional deterministic replication adapters with app-owned network and service policy.",
+      "sources": [
+        "docs/ai/framework/packages/collaboration.md",
+        "packages/collaboration/package.json"
+      ],
+      "packages": ["@asyra/collaboration"],
+      "examples": ["collaboration-two-memory-actors"]
+    },
+    {
+      "id": "reference/packages/core",
+      "path": "reference/packages/core.md",
+      "section": "Reference",
+      "title": "@asyra/core",
+      "description": "The strict composition facade for Framework capabilities and lifecycle.",
+      "sources": [
+        "docs/ai/framework/packages/core.md",
+        "packages/core/package.json"
+      ],
+      "packages": ["@asyra/core"],
+      "examples": [
+        "core-information-model",
+        "custom-component-schema",
+        "preset-2d-minimal"
+      ]
+    },
+    {
+      "id": "reference/packages/design-system",
+      "path": "reference/packages/design-system.md",
+      "section": "Reference",
+      "title": "@asyra/design-system",
+      "description": "Optional reusable interface components; not a Core dependency or app-domain owner.",
+      "sources": [
+        "docs/ai/framework/packages/design-system.md",
+        "packages/design-system/package.json"
+      ],
+      "packages": ["@asyra/design-system"],
+      "examples": ["generated-design-app-extension"]
+    },
+    {
+      "id": "reference/packages/factory",
+      "path": "reference/packages/factory.md",
+      "section": "Reference",
+      "title": "@asyra/factory",
+      "description": "Canonical transactions, rollback, history replay, and shared change publication.",
+      "sources": [
+        "docs/ai/framework/packages/factory.md",
+        "packages/factory/package.json"
+      ],
+      "packages": ["@asyra/factory"],
+      "examples": ["feature-session-undo", "collaboration-two-memory-actors"]
+    },
+    {
+      "id": "reference/packages/feature-system",
+      "path": "reference/packages/feature-system.md",
+      "section": "Reference",
+      "title": "@asyra/feature-system",
+      "description": "Priority, exclusivity, conditions, and session lifecycle for intent handling.",
+      "sources": [
+        "docs/ai/framework/packages/feature-system.md",
+        "packages/feature-system/package.json"
+      ],
+      "packages": ["@asyra/feature-system"],
+      "examples": ["feature-session-undo", "app-retrieval-action"]
+    },
+    {
+      "id": "reference/packages/input-system",
+      "path": "reference/packages/input-system.md",
+      "section": "Reference",
+      "title": "@asyra/input-system",
+      "description": "Environment-neutral semantic input registration and dispatch infrastructure.",
+      "sources": [
+        "docs/ai/framework/packages/input-system.md",
+        "packages/input-system/package.json"
+      ],
+      "packages": ["@asyra/input-system"],
+      "examples": ["core-information-model"]
+    },
+    {
+      "id": "reference/packages/persistence",
+      "path": "reference/packages/persistence.md",
+      "section": "Reference",
+      "title": "@asyra/persistence",
+      "description": "Storage adapter and validated load boundary with app-owned migration meaning.",
+      "sources": [
+        "docs/ai/framework/packages/persistence.md",
+        "packages/persistence/package.json"
+      ],
+      "packages": ["@asyra/persistence"],
+      "examples": ["app-versioned-load-migration"]
+    },
+    {
+      "id": "reference/packages/preset",
+      "path": "reference/packages/preset.md",
+      "section": "Reference",
+      "title": "@asyra/preset",
+      "description": "Optional official design-tool baseline with selectable defaults and replaceable providers.",
+      "sources": [
+        "docs/ai/framework/packages/preset.md",
+        "packages/preset/package.json"
+      ],
+      "packages": ["@asyra/preset"],
+      "examples": ["preset-2d-minimal", "preset-selective-defaults"]
+    },
+    {
+      "id": "reference/packages/props-manager",
+      "path": "reference/packages/props-manager.md",
+      "section": "Reference",
+      "title": "@asyra/props-manager",
+      "description": "Property definitions, runtime values, schema validation, and registration lifecycle.",
+      "sources": [
+        "docs/ai/framework/packages/props-manager.md",
+        "packages/props-manager/package.json"
+      ],
+      "packages": ["@asyra/props-manager"],
+      "examples": ["custom-component-schema", "core-information-model"]
+    },
+    {
+      "id": "reference/packages/reactive-events",
+      "path": "reference/packages/reactive-events.md",
+      "section": "Reference",
+      "title": "@asyra/reactive-events",
+      "description": "Typed cross-package communication, transaction ownership, and replay-safe event routes.",
+      "sources": [
+        "docs/ai/framework/packages/reactive-events.md",
+        "packages/reactive-events/package.json"
+      ],
+      "packages": ["@asyra/reactive-events"],
+      "examples": ["feature-session-undo"]
+    },
+    {
+      "id": "reference/packages/render",
+      "path": "reference/packages/render.md",
+      "section": "Reference",
+      "title": "@asyra/render",
+      "description": "Projection, render-layer registration, interaction bridges, and renderer orchestration.",
+      "sources": [
+        "docs/ai/framework/packages/render.md",
+        "packages/render/package.json"
+      ],
+      "packages": ["@asyra/render"],
+      "examples": ["core-information-model", "custom-render-boundary"]
+    },
+    {
+      "id": "reference/packages/render-engine",
+      "path": "reference/packages/render-engine.md",
+      "section": "Reference",
+      "title": "@asyra/render-engine",
+      "description": "Public engine-provider contract that keeps renderer implementations replaceable.",
+      "sources": [
+        "docs/ai/framework/packages/render-engine.md",
+        "packages/render-engine/package.json"
+      ],
+      "packages": ["@asyra/render-engine"],
+      "examples": ["custom-render-boundary"]
+    },
+    {
+      "id": "reference/packages/render-engine-pixi",
+      "path": "reference/packages/render-engine-pixi.md",
+      "section": "Reference",
+      "title": "@asyra/render-engine-pixi",
+      "description": "Official optional Pixi provider for the current browser-based 2D baseline.",
+      "sources": [
+        "docs/ai/framework/packages/render-engine-pixi.md",
+        "packages/render-engine-pixi/package.json"
+      ],
+      "packages": ["@asyra/render-engine-pixi"],
+      "examples": ["preset-2d-minimal"]
+    },
+    {
+      "id": "reference/packages/scene-tree",
+      "path": "reference/packages/scene-tree.md",
+      "section": "Reference",
+      "title": "@asyra/scene-tree",
+      "description": "Canonical element hierarchy, ordering, component relations, and subtree operations.",
+      "sources": [
+        "docs/ai/framework/packages/scene-tree.md",
+        "packages/scene-tree/package.json"
+      ],
+      "packages": ["@asyra/scene-tree"],
+      "examples": ["custom-component-schema", "core-information-model"]
+    },
+    {
+      "id": "reference/packages/selection",
+      "path": "reference/packages/selection.md",
+      "section": "Reference",
+      "title": "@asyra/selection",
+      "description": "Selection channels and state infrastructure without app-specific selection policy.",
+      "sources": [
+        "docs/ai/framework/packages/selection.md",
+        "packages/selection/package.json"
+      ],
+      "packages": ["@asyra/selection"],
+      "examples": ["core-information-model"]
+    },
+    {
+      "id": "reference/packages/system-context",
+      "path": "reference/packages/system-context.md",
+      "section": "Reference",
+      "title": "@asyra/system-context",
+      "description": "Managed system-level properties and snapshots shared through canonical registration.",
+      "sources": [
+        "docs/ai/framework/packages/system-context.md",
+        "packages/system-context/package.json"
+      ],
+      "packages": ["@asyra/system-context"],
+      "examples": ["core-information-model"]
+    },
+    {
+      "id": "reference/packages/ui-context",
+      "path": "reference/packages/ui-context.md",
+      "section": "Reference",
+      "title": "@asyra/ui-context",
+      "description": "UI-facing derived property registration and computation without canonical model ownership.",
+      "sources": [
+        "docs/ai/framework/packages/ui-context.md",
+        "packages/ui-context/package.json"
+      ],
+      "packages": ["@asyra/ui-context"],
+      "examples": ["generated-design-app-extension"]
+    },
+    {
+      "id": "reference/packages/utils",
+      "path": "reference/packages/utils.md",
+      "section": "Reference",
+      "title": "@asyra/utils",
+      "description": "Small shared public utilities without Framework state or lifecycle ownership.",
+      "sources": [
+        "docs/ai/framework/packages/utils.md",
+        "packages/utils/package.json"
+      ],
+      "packages": ["@asyra/utils"],
+      "examples": ["generated-design-app-extension"]
+    },
+    {
+      "id": "reference/support-release",
+      "path": "reference/support-release.md",
+      "section": "Reference",
+      "title": "Support, security, and release boundaries",
+      "description": "Current runtime support, candidate status, security reporting, license, migration, and publication boundaries.",
+      "sources": [
+        "docs/ai/framework/RELEASE_SUPPORT.md",
+        "SECURITY.md",
+        "LICENSE",
+        "package.json"
+      ],
+      "packages": [],
+      "examples": []
+    },
+    {
+      "id": "cases/asyra-design",
+      "path": "cases/asyra-design.md",
+      "section": "Cases",
+      "title": "Asyra Design as a reference product",
+      "description": "See how one real product composes Framework infrastructure, Preset defaults, app-domain behavior, collaboration, persistence, and AI.",
+      "sources": [
+        "docs/ai/apps/asyra-design/APP_ESSENTIALS.md",
+        "docs/ai/apps/asyra-design/ARCHITECTURE.md",
+        "docs/ai/apps/asyra-design/modules/init-and-startup.md",
+        "apps/asyra-design/examples/review-queue-extension.mjs"
+      ],
+      "packages": [
+        "@asyra/core",
+        "@asyra/preset",
+        "@asyra/ai-agent-runtime",
+        "@asyra/collaboration",
+        "@asyra/persistence"
+      ],
+      "examples": [
+        "generated-design-app-extension",
+        "ai-registered-action",
+        "collaboration-two-memory-actors",
+        "app-versioned-load-migration"
+      ]
+    }
+  ]
+}

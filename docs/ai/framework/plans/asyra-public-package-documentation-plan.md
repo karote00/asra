@@ -2,7 +2,7 @@
 
 ## Status
 
-Queued child plan of the
+Active child plan of the
 [Asyra Framework Website Program](asyra-framework-website-plan.md). This
 workstream progresses in parallel with the sibling README, executable-example,
 and visual workstreams against the same release candidate.
@@ -10,6 +10,11 @@ and visual workstreams against the same release candidate.
 Implementation may begin only after a thin public-documentation contract, an
 exact documentation-flow Inspector, executable content cases, source mapping,
 and a bounded Definition of Done are complete and consistent.
+
+Architecture execution is governed by
+[Asyra Public Documentation Flow Inspector](asyra-public-package-documentation-flow-inspector.data.cjs)
+and its contract test. Public content implementation must advance one Inspector
+owner step at a time.
 
 ## Goal
 
@@ -70,6 +75,44 @@ The first public content bundle must include:
 5. Cases
    - Asyra Design as a source-linked reference product; and
    - conceptual guides that link to the executable Examples and Runtime Atlas.
+
+## Required Page Inventory
+
+The first accepted bundle contains exactly these stable page families:
+
+- `overview`;
+- four Start pages: `create-design-app`, `extend-with-ai`, `preset-2d`, and
+  `custom-composition`;
+- seven Learn pages: `information-models`, `intent-and-features`,
+  `canonical-state`, `transactions-and-durability`,
+  `validation-load-migration`, `projection-registration-replacement`, and
+  `runtime-boundaries-roadmap`;
+- eight Build pages: `custom-schema`, `feature-session`, `render-boundary`,
+  `hierarchy-groups`, `persistence-migration`, `collaboration`, `ai-actions`,
+  and `app-retrieval-action`;
+- one package guide for every package in the manifest-derived release
+  inventory;
+- `reference/support-release`; and
+- `cases/asyra-design`.
+
+The machine-readable manifest owns each page's stable id, Markdown path,
+section, title, canonical source paths, package relationships, and executable
+example ids. Generated indexes may add manifest-derived versions, exports, and
+source digests but may not introduce a page, id, or behavior claim.
+
+## Executable Content Cases
+
+- the manifest has the exact required page and 19-package guide set;
+- every page exists once and every Markdown page is manifest-owned;
+- every canonical source path exists and remains inside approved active
+  Framework, App, create-app, release, or example authorities;
+- every example id resolves to the verified executable-example inventory;
+- every package and public entrypoint resolves to the release inventory;
+- source drift, broken internal links, stale generated facts, forbidden
+  private/internal index content, or unsupported public API names fail closed;
+- Markdown remains readable without site code; and
+- current browser/Core support and future Headless/Core Kernel direction never
+  collapse into one claim.
 
 ## Package Guide Contract
 
