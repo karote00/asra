@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { PresetDefaults, PresetProfiles } from '@asyra/preset'
 
 import {
   exampleDefinition,
   runPreset2DMinimalExample
 } from '../../../../docs/examples/preset-2d-minimal.mjs'
-import { PresetDefaults, PresetProfiles } from '../index.js'
 
 describe('public Preset 2D example', () => {
   it('applies the complete official default baseline', () => {

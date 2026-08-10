@@ -49,3 +49,5 @@ export const runPresetSelectiveDefaultsExample = () => {
   return result
 }
 // #endregion example
+
+export const runExample = runPresetSelectiveDefaultsExample

@@ -9,7 +9,10 @@
  */
 import { createAiAgentRuntime } from '@asyra/ai-agent-runtime'
 
-import { definePublicExample } from './example-contract.mjs'
+import {
+  assertExampleResult,
+  definePublicExample
+} from './example-contract.mjs'
 
 export const exampleDefinition = definePublicExample({
   id: 'ai-registered-action',
@@ -141,3 +144,26 @@ export const createExampleAiRuntime = () => {
   })
 }
 // #endregion example
+
+export const runExample = async () => {
+  const example = createExampleAiRuntime()
+  try {
+    const outcome = await example.run()
+    const evidence = example.getEvidence()
+    assertExampleResult(outcome.status === 'executed', 'action executes')
+    assertExampleResult(
+      evidence.transaction.commits === 1 &&
+        evidence.transaction.rollbacks === 0,
+      'the transaction commits exactly once'
+    )
+    assertExampleResult(evidence.visible === false, 'visibility is updated')
+    return Object.freeze({
+      batchId: outcome.batchId,
+      status: outcome.status,
+      transaction: evidence.transaction,
+      visible: evidence.visible
+    })
+  } finally {
+    await example.dispose()
+  }
+}

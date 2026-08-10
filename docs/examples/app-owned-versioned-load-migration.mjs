@@ -14,7 +14,10 @@
  * @typedef {Pick<import('@asyra/core').Core, 'registerLoadHook'>} LoadHookRegistrar
  */
 
-import { definePublicExample } from './example-contract.mjs'
+import {
+  assertExampleResult,
+  definePublicExample
+} from './example-contract.mjs'
 
 export const exampleDefinition = definePublicExample({
   id: 'app-versioned-load-migration',
@@ -301,3 +304,36 @@ export const installExampleAppMigrations = (core) => {
   })
 }
 // #endregion example
+
+export const runExample = () => {
+  /** @type {Array<(document: unknown) => unknown>} */
+  const hooks = []
+  const registrar = {
+    /** @param {(document: unknown) => unknown} hook */
+    registerLoadHook: (hook) => hooks.push(hook)
+  }
+  installExampleAppMigrations(registrar)
+  /** @param {unknown} document */
+  const load = (document) =>
+    hooks.reduce((current, hook) => hook(current), document)
+  const migrated = /** @type {AppDocument} */ (
+    load({ version: 'v1', legacyTitle: 'Document' })
+  )
+  let invalidCode
+  try {
+    load({ legacyTitle: 'Missing version' })
+  } catch (error) {
+    invalidCode = error instanceof AppMigrationError ? error.code : undefined
+  }
+
+  assertExampleResult(migrated.version === 'v3', 'migration reaches v3')
+  assertExampleResult(
+    isRecord(migrated.metadata) && migrated.metadata.schema === 'v3',
+    'terminal schema is produced'
+  )
+  assertExampleResult(
+    invalidCode === APP_MIGRATION_ERROR_CODES.MISSING_VERSION,
+    'invalid data fails before canonical apply'
+  )
+  return Object.freeze({ invalidCode, migrated })
+}

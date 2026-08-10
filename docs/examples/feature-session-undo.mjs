@@ -114,3 +114,5 @@ export const runFeatureSessionUndoExample = async () => {
   }
 }
 // #endregion example
+
+export const runExample = runFeatureSessionUndoExample

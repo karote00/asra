@@ -75,3 +75,5 @@ export const runCustomComponentSchemaExample = () => {
   }
 }
 // #endregion example
+
+export const runExample = runCustomComponentSchemaExample

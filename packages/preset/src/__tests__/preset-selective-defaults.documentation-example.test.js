@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { PresetDefaults } from '@asyra/preset'
 
 import {
   exampleDefinition,
   runPresetSelectiveDefaultsExample
 } from '../../../../docs/examples/preset-selective-defaults.mjs'
-import { PresetDefaults } from '../index.js'
 
 describe('public selective Preset example', () => {
   it('expands Vector Editing to the exact ordered dependency closure', () => {

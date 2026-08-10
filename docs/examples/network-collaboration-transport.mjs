@@ -14,7 +14,10 @@ import {
   MemoryProvider
 } from '@asyra/collaboration'
 
-import { definePublicExample } from './example-contract.mjs'
+import {
+  assertExampleResult,
+  definePublicExample
+} from './example-contract.mjs'
 
 export const exampleDefinition = definePublicExample({
   id: 'collaboration-two-memory-actors',
@@ -109,7 +112,10 @@ export const createCollaboratingCounter = async ({
     documentId,
     roomId,
     actorId,
-    factory,
+    publicationSource: {
+      subscribe: (subscriber) =>
+        factory.subscribeToSharedPublication(subscriber)
+    },
     provider,
     processRemotePublication: (publication) => {
       const deliveryEntries = publication.slices.flatMap((slice) =>
@@ -170,3 +176,40 @@ export const createCollaboratingCounter = async ({
   })
 }
 // #endregion example
+
+export const runExample = async () => {
+  const hub = createMemoryHub()
+  const first = await createCollaboratingCounter({
+    hub,
+    documentId: 'example-document',
+    roomId: 'example-room',
+    actorId: 'actor-a'
+  })
+  const second = await createCollaboratingCounter({
+    hub,
+    documentId: 'example-document',
+    roomId: 'example-room',
+    actorId: 'actor-b'
+  })
+  try {
+    first.setValue(7)
+    await first.collaboration.whenIdle()
+    await second.collaboration.whenIdle()
+    await first.updatePresence({ tool: 'select' })
+    await second.collaboration.whenIdle()
+
+    const result = {
+      actorBValue: second.getValue(),
+      actorBPresenceTool: second.remotePresence.get('actor-a')?.tool
+    }
+    assertExampleResult(result.actorBValue === 7, 'Actor B converges')
+    assertExampleResult(
+      result.actorBPresenceTool === 'select',
+      'presence projects outside canonical state'
+    )
+    return Object.freeze(result)
+  } finally {
+    await first.dispose()
+    await second.dispose()
+  }
+}

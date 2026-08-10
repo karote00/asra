@@ -70,3 +70,26 @@ export const installReviewQueueExtension = () => {
   })
 }
 // #endregion example
+
+export const runExample = () => {
+  const extension = installReviewQueueExtension()
+  try {
+    const record = extension.api.add({
+      id: 'review-1',
+      title: 'Factory safety'
+    })
+    let duplicateRejected = false
+    try {
+      extension.api.add({ id: 'review-1', title: 'Duplicate' })
+    } catch {
+      duplicateRejected = true
+    }
+    const queue = extension.api.list()
+    if (!duplicateRejected || queue.length !== 1) {
+      throw new Error('Review extension left partial or duplicate state')
+    }
+    return Object.freeze({ duplicateRejected, queue, record })
+  } finally {
+    extension.dispose()
+  }
+}

@@ -42,3 +42,5 @@ export const runPreset2DMinimalExample = () => {
   return result
 }
 // #endregion example
+
+export const runExample = runPreset2DMinimalExample

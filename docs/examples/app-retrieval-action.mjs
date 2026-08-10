@@ -79,3 +79,5 @@ export const runAppRetrievalActionExample = () => {
   }
 }
 // #endregion example
+
+export const runExample = runAppRetrievalActionExample

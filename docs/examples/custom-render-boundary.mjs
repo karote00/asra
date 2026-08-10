@@ -66,3 +66,5 @@ export const runCustomRenderBoundaryExample = async () => {
   })
 }
 // #endregion example
+
+export const runExample = runCustomRenderBoundaryExample

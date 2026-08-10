@@ -69,3 +69,5 @@ export const runCoreInformationModelExample = () => {
   }
 }
 // #endregion example
+
+export const runExample = runCoreInformationModelExample
