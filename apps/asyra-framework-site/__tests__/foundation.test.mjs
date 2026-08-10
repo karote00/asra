@@ -20,7 +20,7 @@ test('workspace freezes the exact approved site toolchain', () => {
   assert.equal(manifest.devDependencies['@tailwindcss/postcss'], '4.3.3')
 })
 
-test('foundation exposes exact public destinations and downstream placeholders', () => {
+test('foundation exposes exact public destinations and accepted child surfaces', () => {
   const header = read('components/site-header.tsx')
   const landing = read('app/page.tsx')
   const atlas = read('app/atlas/page.tsx')
@@ -32,7 +32,8 @@ test('foundation exposes exact public destinations and downstream placeholders',
     '/roadmap',
     '/atlas'
   ].forEach((route) => assert.match(header, new RegExp(`href: '${route}'`)))
-  assert.match(landing, /owned by the next Landing implementation stage/i)
+  assert.match(landing, /<LandingHero/)
+  assert.match(landing, /<LandingEntryEvidence/)
   assert.match(atlas, /belong to the dedicated\s+Atlas\s+implementation stage/i)
 })
 

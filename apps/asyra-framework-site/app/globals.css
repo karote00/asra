@@ -2389,7 +2389,7 @@ a:focus-visible {
 }
 
 .landing-hero h1 {
-  max-width: 10ch;
+  max-width: 12ch;
   margin: 0;
   font-family: var(--display);
   font-size: clamp(70px, 9.8vw, 148px);

@@ -2,7 +2,7 @@
 
 ## Status
 
-Active child plan of the
+Complete, Preview-ready child plan of the
 [Asyra Framework Website Program](asyra-framework-website-plan.md). It begins
 from the accepted public content, executable examples, Material Blueprint
 handoff, and preview-ready common site platform on
@@ -12,6 +12,10 @@ Implementation requires the exact
 [Landing Inspector](asyra-website-landing-flow-inspector.data.cjs), executable
 narrative cases, and the bounded Definition of Done below. Production
 deployment and Runtime Atlas execution remain downstream owners.
+
+The child implementation, formal gates, and synchronized visual review are
+complete. PR CI and production deployment remain integration and Launch
+responsibilities rather than Landing evidence.
 
 ## Goal
 
@@ -176,3 +180,29 @@ remain informative and never fabricate Framework output.
 - Required interactions remain accessible, responsive, performant, and
   visually accepted.
 - The route is Preview-ready without claiming production deployment.
+
+## Completion Evidence
+
+- The Landing and Platform Inspectors pass 21 contract tests; the site passes
+  42 semantic, content, route, and accessibility tests.
+- The production build statically generates 51 routes. Route smoke verifies 49
+  public routes plus the explicit not-found case.
+- Eleven production-browser E2E cases cover desktop first-layer actions,
+  390px, 320px, 200 percent reflow, touch targets, keyboard owner selection,
+  reduced motion, no horizontal overflow, no-client reading, same-origin
+  code-native assets, and the accepted documentation platform cases.
+- Synchronized Desktop, Mobile, and selected-owner visual states were inspected
+  from the same production server. A formal first-fold regression now keeps all
+  three starting actions inside the 1440 by 1000 Desktop viewport.
+- The global `loading.tsx` streaming boundary was removed after the no-client
+  gate proved it hid otherwise static accepted content. The shared Platform
+  plan, Inspector, and tests now require synchronous static routes to render in
+  the initial readable document; future asynchronous routes own local loading
+  boundaries.
+- Repository integration passes `yarn test:ci` (78 repository script tests and
+  21 workspace tasks), `yarn lint:ci` with zero errors, `yarn react:build` with
+  20 workspace tasks, dependency validation across 22 workspaces, public docs
+  validation for 41 pages, and README drift checks for 24 public surfaces and
+  19 packages.
+- Production deployment, public indexing, analytics, and Runtime Atlas
+  execution remain intentionally outside this child.
