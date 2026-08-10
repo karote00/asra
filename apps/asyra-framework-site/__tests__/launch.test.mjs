@@ -102,8 +102,11 @@ test('Framework site Vercel configuration builds only the site workspace from th
     config.installCommand,
     'cd ../.. && corepack yarn install --immutable'
   )
-  assert.equal(config.buildCommand, 'cd ../.. && corepack yarn react:build')
-  assert.equal(config.outputDirectory, undefined)
+  assert.equal(
+    config.buildCommand,
+    'cd ../.. && corepack yarn turbo run build:asyra-framework-site --filter @asyra/asyra-framework-site'
+  )
+  assert.equal(config.outputDirectory, 'dist')
   assert.equal(config.git?.deploymentEnabled?.['*'], false)
 })
 
