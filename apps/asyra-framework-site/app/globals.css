@@ -2088,6 +2088,22 @@ a:focus-visible {
   max-width: 36ch;
 }
 
+.case-study-actions {
+  display: grid;
+  max-width: 420px;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.case-study-actions .primary-action {
+  width: 100%;
+}
+
+.case-study-action--secondary {
+  border-color: var(--rule-strong);
+  color: var(--ink);
+}
+
 .case-study-note {
   margin-top: 48px;
   padding-top: 18px;

@@ -9,7 +9,8 @@ import { loadContentBundle } from '@/lib/content'
 export const metadata: Metadata = {
   title: 'Release candidate inventory',
   description:
-    'Inspect manifest-derived Asyra package versions, public entrypoints, support, migration, deprecation, and security boundaries.'
+    'Inspect manifest-derived Asyra package versions, public entrypoints, support, migration, deprecation, and security boundaries.',
+  alternates: { canonical: '/releases' }
 }
 
 export default function ReleasesPage() {

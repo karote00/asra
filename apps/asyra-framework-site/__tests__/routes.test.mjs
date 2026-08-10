@@ -23,7 +23,12 @@ test('Asyra Design route preserves reference-product and URL boundaries', () => 
   const source = read('app/asyra-design/page.tsx')
   assert.match(source, /Reference product, not Framework owner/i)
   assert.match(source, /pageById\.get\('cases\/asyra-design'\)/)
-  assert.match(source, /No public Asyra Design deployment URL/i)
+  assert.match(source, /verifiedLandingFacts\.designApp\.href/)
+  assert.match(
+    source,
+    /Verified \{verifiedLandingFacts\.designApp\.verifiedAt\}/
+  )
+  assert.doesNotMatch(source, /No public Asyra Design deployment URL/i)
   assert.doesNotMatch(
     source,
     new RegExp(`https?://(?:www\\.)?${bundle.repositoryName}`, 'i')

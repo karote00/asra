@@ -4,7 +4,8 @@ import { RuntimeAtlas } from '@/components/runtime-atlas'
 export const metadata: Metadata = {
   title: 'Runtime Atlas',
   description:
-    'Operate six real Asyra browser cases and inspect intent, ownership, transactions, canonical state, optional composition, projections, and failure evidence.'
+    'Operate six real Asyra browser cases and inspect intent, ownership, transactions, canonical state, optional composition, projections, and failure evidence.',
+  alternates: { canonical: '/atlas' }
 }
 
 export default function RuntimeAtlasPage() {

@@ -7,7 +7,8 @@ import { loadContentBundle } from '@/lib/content'
 export const metadata: Metadata = {
   title: 'Current and future runtime boundaries',
   description:
-    'Separate current Asyra Framework support, App-owned product possibilities, and verified future runtime direction.'
+    'Separate current Asyra Framework support, App-owned product possibilities, and verified future runtime direction.',
+  alternates: { canonical: '/roadmap' }
 }
 
 export default function RoadmapPage() {

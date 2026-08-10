@@ -1,13 +1,10 @@
 import type { MetadataRoute } from 'next'
 import { loadContentBundle } from '@/lib/content'
-
-const siteOrigin = () => {
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
-  return 'http://localhost:3020'
-}
+import { resolveSiteOrigin } from '@/lib/site-origin'
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const bundle = loadContentBundle()
+  const origin = resolveSiteOrigin()
   const routes = [
     '/',
     '/examples',
@@ -18,7 +15,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...bundle.pages.map(({ route }) => route)
   ]
   return routes.map((route) => ({
-    url: new URL(route, siteOrigin()).toString(),
+    url: new URL(route, origin).toString(),
     changeFrequency: route.startsWith('/docs') ? 'weekly' : 'monthly',
     priority: route === '/' ? 1 : 0.7
   }))

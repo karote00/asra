@@ -6,7 +6,8 @@ import { loadContentBundle, sourceHref } from '@/lib/content'
 export const metadata: Metadata = {
   title: 'Executable examples',
   description:
-    'Run maintained Asyra examples that prove current public Framework behavior.'
+    'Run maintained Asyra examples that prove current public Framework behavior.',
+  alternates: { canonical: '/examples' }
 }
 
 export default function ExamplesPage() {

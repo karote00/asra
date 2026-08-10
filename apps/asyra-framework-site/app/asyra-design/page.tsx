@@ -5,11 +5,13 @@ import { EvidenceHero } from '@/components/evidence-hero'
 import { MarkdownContent } from '@/components/markdown-content'
 import { StatusLegend } from '@/components/status-legend'
 import { loadContentBundle } from '@/lib/content'
+import { verifiedLandingFacts } from '@/lib/landing-facts'
 
 export const metadata: Metadata = {
   title: 'Asyra Design reference product',
   description:
-    'See how the Asyra Design reference product composes Framework infrastructure with App-owned product knowledge.'
+    'See how the Asyra Design reference product composes Framework infrastructure with App-owned product knowledge.',
+  alternates: { canonical: '/asyra-design' }
 }
 
 export default function ReferenceProductPage() {
@@ -34,13 +36,27 @@ export default function ReferenceProductPage() {
             Generate an immediately usable App, then extend one bounded behavior
             through the public Framework route.
           </p>
-          <Link className="primary-action" href="/docs/start/create-design-app">
-            Start with Asyra Design
-            <ArrowRight aria-hidden="true" size={17} />
-          </Link>
+          <div className="case-study-actions">
+            <Link
+              className="primary-action"
+              href="/docs/start/create-design-app"
+            >
+              Start with Asyra Design
+              <ArrowRight aria-hidden="true" size={17} />
+            </Link>
+            <a
+              className="primary-action case-study-action--secondary"
+              href={verifiedLandingFacts.designApp.href}
+              rel="noreferrer"
+              target="_blank"
+            >
+              Open {verifiedLandingFacts.designApp.title}
+              <ArrowRight aria-hidden="true" size={17} />
+            </a>
+          </div>
           <p className="case-study-note">
-            No public Asyra Design deployment URL is shown until its canonical
-            URL is separately verified.
+            Verified {verifiedLandingFacts.designApp.verifiedAt} · public stable
+            alias
           </p>
         </aside>
         <article className="case-study-article">

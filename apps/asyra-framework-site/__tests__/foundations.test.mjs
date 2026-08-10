@@ -4,6 +4,7 @@ import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { loadContentBundle } from '../lib/content.mjs'
+import { isIndexingAuthorized, resolveSiteOrigin } from '../lib/site-origin.ts'
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (filePath) => fs.readFileSync(path.join(appRoot, filePath), 'utf8')
@@ -36,18 +37,38 @@ test('unsupported-browser state is global, explicit, and content-safe', () => {
 
 test('robots stay closed until production indexing is explicitly authorized', () => {
   const source = read('app/robots.ts')
-  assert.match(source, /VERCEL_ENV === 'production'/)
-  assert.match(source, /NEXT_PUBLIC_SITE_INDEXING === 'true'/)
+  assert.equal(
+    isIndexingAuthorized({
+      VERCEL_ENV: 'preview',
+      NEXT_PUBLIC_SITE_INDEXING: 'true'
+    }),
+    false
+  )
+  assert.equal(
+    isIndexingAuthorized({
+      VERCEL_ENV: 'production',
+      NEXT_PUBLIC_SITE_INDEXING: 'true'
+    }),
+    true
+  )
+  assert.match(source, /isIndexingAuthorized\(\)/)
   assert.match(source, /disallow: '\/'/)
 })
 
-test('sitemap derives all content routes and uses only observed deployment hosts', () => {
+test('sitemap derives all content routes and uses the stable production origin', () => {
   const bundle = loadContentBundle()
   const source = read('app/sitemap.ts')
   assert.equal(bundle.pages.length, 41)
   assert.match(source, /\.\.\.bundle\.pages\.map/)
-  assert.match(source, /process\.env\.VERCEL_URL/)
-  assert.match(source, /http:\/\/localhost:3020/)
+  assert.equal(
+    resolveSiteOrigin({
+      VERCEL_PROJECT_PRODUCTION_URL: 'asyra-framework.vercel.app',
+      VERCEL_URL: 'asyra-framework-git-preview.vercel.app'
+    }),
+    'https://asyra-framework.vercel.app'
+  )
+  assert.match(source, /resolveSiteOrigin\(\)/)
+  assert.doesNotMatch(source, /process\.env\.VERCEL_URL/)
   assert.doesNotMatch(source, new RegExp(`https://${bundle.repositoryName}\\.`))
 })
 

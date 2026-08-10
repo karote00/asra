@@ -13,9 +13,10 @@
     "react:build": "yarn build:asyra-framework-site",
     "typecheck": "tsc --noEmit",
     "test": "yarn test:local",
-    "test:contracts": "node --test ../../docs/ai/framework/plans/__tests__/*website-platform-flow-inspector.contract.test.cjs ../../docs/ai/framework/plans/__tests__/*website-landing-flow-inspector.contract.test.cjs ../../docs/ai/framework/plans/__tests__/*runtime-atlas-flow-inspector.contract.test.cjs",
+    "test:contracts": "node --test ../../docs/ai/framework/plans/__tests__/*website-platform-flow-inspector.contract.test.cjs ../../docs/ai/framework/plans/__tests__/*website-landing-flow-inspector.contract.test.cjs ../../docs/ai/framework/plans/__tests__/*runtime-atlas-flow-inspector.contract.test.cjs ../../docs/ai/framework/plans/__tests__/*website-launch-and-operations-flow-inspector.contract.test.cjs",
     "test:routes": "node scripts/route-smoke.mjs",
     "test:e2e": "playwright test --config playwright.config.ts",
+    "test:production": "node scripts/production-smoke.mjs && playwright test --config playwright.config.ts launch-production.spec.ts",
     "test:local": "yarn test:contracts && node --test __tests__/*.test.mjs",
     "test:ci": "yarn test:local",
     "lint": "yarn --cwd ../.. eslint apps/asyra-framework-site"
