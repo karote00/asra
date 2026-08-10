@@ -80,12 +80,18 @@ test('content adapter fails closed on drift and semantic rewrite', () => {
 })
 
 test('documentation owns server reading and bounded browser enhancements', () => {
-  const source = JSON.stringify(step('present-documentation'))
+  const documentationStep = step('present-documentation')
+  const source = JSON.stringify(documentationStep)
   assert.match(source, /renders without client JavaScript/i)
   assert.match(source, /stable page and heading ids/i)
   assert.match(source, /focus-contained, Escape-closeable/i)
   assert.match(source, /accepted page bytes and canonical source links/i)
   assert.match(source, /hosted search/i)
+  assert.ok(
+    documentationStep.implementationBoundary.includes(
+      'apps/asyra-framework-site/app/globals.css'
+    )
+  )
 })
 
 test('supporting routes preserve App, release, and roadmap boundaries', () => {

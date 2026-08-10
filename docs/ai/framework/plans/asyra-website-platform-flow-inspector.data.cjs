@@ -214,6 +214,7 @@ module.exports = Object.freeze({
       ],
       implementationBoundary: [
         'apps/asyra-framework-site/app/docs/**',
+        'apps/asyra-framework-site/app/globals.css',
         'apps/asyra-framework-site/components/docs-*.tsx',
         'apps/asyra-framework-site/components/markdown-*.tsx',
         'apps/asyra-framework-site/components/search-*.tsx',
@@ -262,6 +263,7 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/app/asyra-design/**',
         'apps/asyra-framework-site/app/releases/**',
         'apps/asyra-framework-site/app/roadmap/**',
+        'apps/asyra-framework-site/app/globals.css',
         'apps/asyra-framework-site/components/evidence-*.tsx',
         'apps/asyra-framework-site/components/status-*.tsx'
       ],
@@ -303,6 +305,7 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/app/loading.tsx',
         'apps/asyra-framework-site/app/robots.ts',
         'apps/asyra-framework-site/app/sitemap.ts',
+        'apps/asyra-framework-site/app/globals.css',
         'apps/asyra-framework-site/components/foundation-*.tsx',
         'apps/asyra-framework-site/components/status-*.tsx'
       ],
