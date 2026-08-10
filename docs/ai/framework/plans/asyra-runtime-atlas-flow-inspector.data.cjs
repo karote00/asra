@@ -201,6 +201,7 @@ module.exports = Object.freeze({
       implementationBoundary: [
         'apps/asyra-framework-site/package.json',
         'yarn.lock',
+        'apps/asyra-framework-site/lib/runtime-atlas/case-definitions.mjs',
         'apps/asyra-framework-site/lib/runtime-atlas/runtime.mjs',
         'apps/asyra-framework-site/__tests__/runtime-atlas-harness.test.mjs',
         'apps/asyra-framework-site/__tests__/runtime-atlas-composition.test.mjs'

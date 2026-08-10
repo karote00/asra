@@ -100,6 +100,11 @@ test('optional cases preserve Collaboration, AI, and retrieval boundaries', () =
   assert.ok(optional.implementationBoundary.includes('yarn.lock'))
   assert.ok(
     optional.implementationBoundary.includes(
+      'apps/asyra-framework-site/lib/runtime-atlas/case-definitions.mjs'
+    )
+  )
+  assert.ok(
+    optional.implementationBoundary.includes(
       'apps/asyra-framework-site/__tests__/runtime-atlas-harness.test.mjs'
     )
   )
