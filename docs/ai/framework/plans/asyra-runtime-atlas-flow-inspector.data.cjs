@@ -115,9 +115,9 @@ module.exports = Object.freeze({
       ],
       implementationBoundary: [
         'apps/asyra-framework-site/lib/runtime-atlas/case-definitions.mjs',
-        'apps/asyra-framework-site/lib/runtime-atlas/case-definitions.d.ts',
+        'apps/asyra-framework-site/lib/runtime-atlas/case-definitions.d.mts',
         'apps/asyra-framework-site/lib/runtime-atlas/runtime.mjs',
-        'apps/asyra-framework-site/lib/runtime-atlas/runtime.d.ts',
+        'apps/asyra-framework-site/lib/runtime-atlas/runtime.d.mts',
         'apps/asyra-framework-site/workers/runtime-atlas.worker.ts',
         'apps/asyra-framework-site/__tests__/runtime-atlas-harness.test.mjs'
       ],

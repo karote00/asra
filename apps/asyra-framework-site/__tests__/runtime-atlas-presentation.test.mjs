@@ -32,6 +32,8 @@ test('Atlas exposes literal replay controls and visible runtime status', () => {
     assert.match(component, new RegExp(`data-atlas-action="${action}"`))
   }
   assert.match(component, /role="status"/)
+  assert.match(component, /label: 'PAUSED'/)
+  assert.match(component, /tone: 'paused'/)
   assert.match(component, /role="alert"/)
   assert.match(component, /No replacement success result was created\./)
   assert.match(component, /prefers-reduced-motion: reduce/)

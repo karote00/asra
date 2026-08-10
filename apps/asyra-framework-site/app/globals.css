@@ -3294,6 +3294,12 @@ a:focus-visible {
   color: var(--intent);
 }
 
+.atlas-runtime-status--paused {
+  border: 2px dashed var(--intent);
+  background: rgb(23 63 143 / 7%);
+  color: var(--intent);
+}
+
 .atlas-runtime-status--accepted {
   border-color: var(--accepted);
   background: var(--accepted);

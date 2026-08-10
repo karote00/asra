@@ -6,9 +6,11 @@ Required child plan of the
 [Asyra Framework Website Program](asyra-framework-website-plan.md). The Atlas
 is a real-runtime product surface, not a decorative architecture diagram.
 
-Implementation in progress on the accepted website platform and executable-
-example handoff. The bounded product contract, six exact browser cases,
-observation contract, and Atlas Inspector were frozen on August 10, 2026.
+Preview-ready on the accepted website platform and executable-example handoff
+as of August 10, 2026. The bounded product contract, six exact browser cases,
+observation contract, Atlas Inspector, production browser bundle, responsive
+experience, and synchronized visual evidence are complete. Production
+deployment remains owned by Launch and Operations.
 
 ## Goal
 
@@ -231,6 +233,21 @@ interaction and evidence.
 - runtime and rendering performance budgets pass; and
 - visual review inspects default, active, success, failure, and future-roadmap
   disclosure states.
+
+## Verification Evidence
+
+- Runtime Atlas Inspector contract: 10/10 passing.
+- Framework site contract and unit suite: 59/59 passing, including all six
+  isolated runtime cases and stale-placeholder test removal.
+- Production-browser Atlas E2E: 6/6 passing for Run, Pause, Step, Replay,
+  Reset, keyboard Escape, rejection, all six terminal results, 1440px, 390px,
+  320px, desktop 200 percent reflow, reduced motion, no-JavaScript reading,
+  resource budgets, and runtime budgets.
+- Production route smoke: 49 public routes passing.
+- Strict site typecheck, site lint, and the 51-page production build pass.
+- Synchronized screenshots and the live in-app browser review cover default,
+  active, paused, accepted, rejected, App-owned projection, mobile, and
+  future-Roadmap states with no remaining visual difference.
 
 ## Stop Conditions
 

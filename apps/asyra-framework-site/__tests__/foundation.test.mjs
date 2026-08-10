@@ -11,6 +11,12 @@ test('workspace freezes the exact approved site toolchain', () => {
   const manifest = JSON.parse(read('package.json'))
   assert.deepEqual(manifest.engines, { node: '24.x' })
   assert.deepEqual(manifest.dependencies, {
+    '@asyra/ai-agent-runtime': 'workspace:*',
+    '@asyra/collaboration': 'workspace:*',
+    '@asyra/core': 'workspace:*',
+    '@asyra/factory': 'workspace:*',
+    '@asyra/feature-system': 'workspace:*',
+    '@asyra/reactive-events': 'workspace:*',
     'lucide-react': '1.31.0',
     next: '16.3.0',
     react: '19.1.0',
@@ -34,7 +40,8 @@ test('foundation exposes exact public destinations and accepted child surfaces',
   ].forEach((route) => assert.match(header, new RegExp(`href: '${route}'`)))
   assert.match(landing, /<LandingHero/)
   assert.match(landing, /<LandingEntryEvidence/)
-  assert.match(atlas, /belong to the dedicated\s+Atlas\s+implementation stage/i)
+  assert.match(atlas, /<RuntimeAtlas\s*\/>/)
+  assert.match(atlas, /Operate six real Asyra browser cases/)
 })
 
 test('navigation and visual tokens preserve accessibility and asset boundaries', () => {

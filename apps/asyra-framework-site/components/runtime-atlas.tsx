@@ -79,7 +79,7 @@ const outputPreview = (snapshot: RuntimeSnapshot | undefined) => {
   )
 }
 
-const statusFor = (snapshot: RuntimeSnapshot | null) => {
+const statusFor = (snapshot: RuntimeSnapshot | null, paused: boolean) => {
   const final = snapshot?.evidence.at(-1)
   if (!final) return { label: 'READY', tone: 'resting' }
   if (final.status === 'failed') return { label: 'FAILED', tone: 'failure' }
@@ -87,6 +87,7 @@ const statusFor = (snapshot: RuntimeSnapshot | null) => {
     return { label: 'REJECTED · NO CHANGE', tone: 'rejected' }
   }
   if (snapshot?.terminal) return { label: 'ACCEPTED', tone: 'accepted' }
+  if (paused) return { label: 'PAUSED', tone: 'paused' }
   return { label: 'RUNNING', tone: 'active' }
 }
 
@@ -99,6 +100,7 @@ export function RuntimeAtlas() {
   const [compareCaseId, setCompareCaseId] = useState(ATLAS_CASES[1].id)
   const [technical, setTechnical] = useState(false)
   const [autoRunning, setAutoRunning] = useState(false)
+  const [paused, setPaused] = useState(false)
   const [busy, setBusy] = useState(false)
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
   const [reducedMotion, setReducedMotion] = useState(false)
@@ -187,6 +189,7 @@ export function RuntimeAtlas() {
     runGenerationRef.current += 1
     activeRunRef.current = null
     setAutoRunning(false)
+    setPaused(false)
     setBusy(false)
     setRuntimeError(null)
     terminateWorker()
@@ -196,6 +199,7 @@ export function RuntimeAtlas() {
 
   const advanceOnce = useCallback(async () => {
     setBusy(true)
+    setPaused(false)
     setRuntimeError(null)
     try {
       let current = snapshotRef.current
@@ -221,6 +225,7 @@ export function RuntimeAtlas() {
   const pause = useCallback(() => {
     runGenerationRef.current += 1
     setAutoRunning(false)
+    setPaused(true)
   }, [])
 
   const runRemaining = useCallback(
@@ -229,6 +234,7 @@ export function RuntimeAtlas() {
       runGenerationRef.current = generation
       activeRunRef.current = generation
       setAutoRunning(true)
+      setPaused(false)
       setBusy(true)
       setRuntimeError(null)
       try {
@@ -305,7 +311,7 @@ export function RuntimeAtlas() {
     }
   }
 
-  const status = statusFor(snapshot)
+  const status = statusFor(snapshot, paused)
   const projectionOutput =
     selectedCaseId === 'canonical-projection-fanout'
       ? latestOutput(snapshot)

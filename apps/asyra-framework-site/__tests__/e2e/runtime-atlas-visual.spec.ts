@@ -44,7 +44,7 @@ const runCase = async (
 
 test('step, pause, resume, replay, and reset operate real worker evidence', async ({
   page
-}) => {
+}, testInfo) => {
   await openAtlas(page)
 
   await page.locator('[data-atlas-action="step"]').click()
@@ -72,15 +72,28 @@ test('step, pause, resume, replay, and reset operate real worker evidence', asyn
   await expect(page.locator('.atlas-ledger tbody tr')).toHaveCount(0)
   await expect(page.getByText('No events yet.')).toBeVisible()
 
-  await page.locator('[data-atlas-action="run"]').click()
+  const run = page.locator('[data-atlas-action="run"]')
+  await run.focus()
+  await expect(run).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(status(page)).toHaveAttribute('data-atlas-status', 'active')
+  await page.keyboard.press('Escape')
+  await expect(status(page)).toHaveAttribute('data-atlas-status', 'resting')
+  await expect(page.locator('.atlas-ledger tbody tr')).toHaveCount(0)
+
+  await run.click()
   await expect(status(page)).toHaveAttribute('data-atlas-status', 'active')
   await page.locator('[data-atlas-action="pause"]').click()
   await expect(page.locator('[data-atlas-action="run"]')).toBeEnabled({
     timeout: 2_000
   })
+  await expect(status(page)).toHaveAttribute('data-atlas-status', 'paused')
   const pausedCount = await page.locator('.atlas-ledger tbody tr').count()
   expect(pausedCount).toBeGreaterThan(0)
   expect(pausedCount).toBeLessThan(7)
+  await page.screenshot({
+    path: testInfo.outputPath('runtime-atlas-paused.png')
+  })
 
   await page.locator('[data-atlas-action="run"]').click()
   await expect(status(page)).toHaveAttribute('data-atlas-status', 'accepted', {
@@ -90,7 +103,7 @@ test('step, pause, resume, replay, and reset operate real worker evidence', asyn
 
 test('all six declared cases complete with their canonical terminal status', async ({
   page
-}) => {
+}, testInfo) => {
   await openAtlas(page)
 
   const cases = [
@@ -106,6 +119,11 @@ test('all six declared cases complete with their canonical terminal status', asy
     await runCase(page, caseId, expectedStatus)
     await expect(page.locator('.atlas-ledger tbody tr').last()).toBeVisible()
     await expect(page.locator('.atlas-runtime-error')).toHaveCount(0)
+    if (caseId === 'invalid-input-rollback') {
+      await page.screenshot({
+        path: testInfo.outputPath('runtime-atlas-rejected.png')
+      })
+    }
   }
 
   await expect(page.locator('.atlas-ledger tbody tr').last()).toContainText(
@@ -189,6 +207,36 @@ test('mobile and reduced-motion modes preserve controls and evidence', async ({
   await page.screenshot({
     path: testInfo.outputPath('runtime-atlas-mobile-controls.png')
   })
+  await scrollTo(page, '.atlas-closure')
+  await page.screenshot({
+    path: testInfo.outputPath('runtime-atlas-mobile-roadmap.png')
+  })
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.reload()
+  await expect(
+    page.getByRole('heading', { name: 'See what changed. See who owned it.' })
+  ).toBeVisible()
+  const phoneDimensions = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth
+  }))
+  expect(phoneDimensions.scrollWidth).toBeLessThanOrEqual(
+    phoneDimensions.clientWidth
+  )
+
+  await page.setViewportSize({ width: 720, height: 500 })
+  await page.reload()
+  await expect(
+    page.getByRole('heading', { name: 'See what changed. See who owned it.' })
+  ).toBeVisible()
+  const zoomedDimensions = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth
+  }))
+  expect(zoomedDimensions.scrollWidth).toBeLessThanOrEqual(
+    zoomedDimensions.clientWidth
+  )
 })
 
 test('the plain Atlas contract remains readable without client JavaScript', async ({
@@ -214,4 +262,49 @@ test('the plain Atlas contract remains readable without client JavaScript', asyn
   ).toBeVisible()
 
   await context.close()
+})
+
+test('the production route stays inside bounded resource and runtime budgets', async ({
+  page
+}) => {
+  await openAtlas(page)
+  const metrics = await page.evaluate(() => {
+    const navigation = performance.getEntriesByType(
+      'navigation'
+    )[0] as PerformanceNavigationTiming
+    const resources = performance.getEntriesByType(
+      'resource'
+    ) as PerformanceResourceTiming[]
+    const bytesFor = (type: string) =>
+      resources
+        .filter(({ initiatorType }) => initiatorType === type)
+        .reduce(
+          (total, resource) =>
+            total + (resource.encodedBodySize || resource.transferSize),
+          0
+        )
+    return {
+      cssBytes: bytesFor('link'),
+      domContentLoadedMs:
+        navigation.domContentLoadedEventEnd - navigation.startTime,
+      externalResources: resources
+        .map(({ name }) => new URL(name))
+        .filter(({ origin }) => origin !== window.location.origin).length,
+      loadMs: navigation.loadEventEnd - navigation.startTime,
+      scriptBytes: bytesFor('script')
+    }
+  })
+
+  expect(metrics.externalResources).toBe(0)
+  expect(metrics.domContentLoadedMs).toBeLessThan(3_000)
+  expect(metrics.loadMs).toBeLessThan(4_000)
+  expect(metrics.scriptBytes).toBeLessThan(3_000_000)
+  expect(metrics.cssBytes).toBeLessThan(250_000)
+
+  const startedAt = Date.now()
+  await page.locator('[data-atlas-action="run"]').click()
+  await expect(status(page)).toHaveAttribute('data-atlas-status', 'accepted', {
+    timeout: 4_000
+  })
+  expect(Date.now() - startedAt).toBeLessThan(4_000)
 })
