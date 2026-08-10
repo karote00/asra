@@ -139,9 +139,9 @@
       order: 1,
       laneId: 'release',
       title: 'Accept the Input System release child',
-      ownerPackage: 'release integration + product owner',
+      ownerPackage: 'release integration',
       purpose:
-        'Publish truthful Input lifecycle contracts, pass automated gates, then require direct product-owner browser testing before merge.',
+        'Publish truthful Input lifecycle contracts, pass every required gate for the current head, and continue the user-authorized release train without an intermediate manual checkpoint.',
       inputs: [
         'artifact:visual-input-compatibility',
         'synchronized docs and scoped Changeset',
@@ -151,16 +151,19 @@
       conditions: [
         'Docs distinguish Node-safe import from future Headless/Core Kernel support.',
         'The future plan cites the retained architecture research report.',
-        'The product owner personally exercises keyboard, pointer, wheel, and canvas behavior and explicitly approves merge.'
+        'All required automated and PR checks pass for the current head.',
+        'The product owner authorized continuous whole-goal execution with no intermediate product-owner checkpoint; final acceptance occurs after the integrated release goal.'
       ],
-      bypasses: ['There is no automated or agent-owned manual-test bypass.'],
+      bypasses: ['No failed or pending required check may be bypassed.'],
       allowedContributors: [
         'package and canonical docs',
         'ordinary scoped Changeset',
-        'focused tests, builds, lint, PR CI, and product-owner evidence'
+        'focused tests, builds, lint, visual review, E2E, release-readiness, and PR CI',
+        'the product owner continuous-execution authorization'
       ],
       forbiddenContributors: [
-        'automatic merge after CI',
+        'merging with a failed or pending required check',
+        'pausing for intermediate manual approval after the product owner withdrew that checkpoint',
         'claiming current public Headless Core support',
         'unrelated website, package, or domain changes'
       ],
@@ -230,7 +233,7 @@
     'Browser listeners exist only after explicit activation and have symmetric instance-owned cleanup.',
     'Core keeps its existing reactive watched-element route.',
     'Node-safe import is not represented as a public Headless Core or Core Kernel.',
-    'A green PR cannot bypass product-owner direct testing and approval.'
+    'A green current-head PR proceeds under the user continuous-execution authorization without an intermediate manual checkpoint.'
   ]
   const productCases = [
     { id: 'node-imports', summary: 'Input System and Core import without DOM globals.' },
@@ -243,7 +246,11 @@
     { id: 'dom-safe-imports', summary: 'Input and Core public imports are DOM-neutral.' },
     { id: 'exact-lifecycle', summary: 'Browser activation and cleanup are explicit and tested.' },
     { id: 'truthful-contracts', summary: 'Docs and Changeset match current behavior and future boundaries.' },
-    { id: 'owner-acceptance', summary: 'The product owner directly tests and approves merge.' }
+    {
+      id: 'continuous-acceptance',
+      summary:
+        'Required current-head gates pass and the authorized release train continues without intermediate approval.'
+    }
   ]
   const data = {
     schema: 'flow-inspector.v1',
@@ -251,7 +258,7 @@
       id: 'input-system-environment-neutrality',
       title: 'Input System Environment Neutrality Flow',
       summary:
-        'DOM-neutral construction, explicit browser listener ownership, preserved Core event integration, and owner-gated release acceptance.'
+        'DOM-neutral construction, explicit browser listener ownership, preserved Core event integration, and continuously authorized release acceptance.'
     },
     authority: {
       specPath,

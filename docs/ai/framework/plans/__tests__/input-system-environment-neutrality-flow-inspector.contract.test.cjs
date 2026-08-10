@@ -68,13 +68,14 @@ test('visual compatibility preserves the event boundary and excludes Headless Co
   assert.match(spec, /does not add a Headless Core runtime/i)
 })
 
-test('release acceptance requires truthful future references and owner testing', () => {
+test('release acceptance requires truthful future references and continuous authorized execution', () => {
   const acceptance = contractText(step('accept-input-release-child'))
   assert.match(acceptance, /Node-safe import from future Headless\/Core Kernel support/i)
   assert.match(acceptance, /future plan cites the retained architecture research report/i)
-  assert.match(acceptance, /personally exercises keyboard, pointer, wheel, and canvas/i)
-  assert.match(acceptance, /There is no automated or agent-owned manual-test bypass/i)
-  assert.match(acceptance, /automatic merge after CI/i)
+  assert.match(acceptance, /all required automated and PR checks pass for the current head/i)
+  assert.match(acceptance, /no intermediate product-owner checkpoint/i)
+  assert.match(acceptance, /No failed or pending required check may be bypassed/i)
+  assert.match(acceptance, /pausing for intermediate manual approval/i)
 })
 
 test('Inspector enumerates bounded product cases and definition of done', () => {
@@ -91,7 +92,7 @@ test('Inspector enumerates bounded product cases and definition of done', () => 
     'dom-safe-imports',
     'exact-lifecycle',
     'truthful-contracts',
-    'owner-acceptance'
+    'continuous-acceptance'
   ].forEach((id) => assert.ok(dodIds.has(id), `Missing DoD item: ${id}`))
 })
 

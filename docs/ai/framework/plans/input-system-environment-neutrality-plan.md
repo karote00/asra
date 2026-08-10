@@ -7,10 +7,12 @@ Active pre-release child on branch
 is
 [`input-system-environment-neutrality-flow-inspector.data.cjs`](input-system-environment-neutrality-flow-inspector.data.cjs).
 
-This child targets `codex/asyra-public-release-program`. Green PR CI is not
-merge authority: because the change moves browser listener activation out of
-construction, the product owner must exercise Asyra Design input directly and
-approve the merge.
+This child targets `codex/asyra-public-release-program`. The product owner has
+authorized continuous execution of the complete release goal and withdrawn the
+intermediate manual-acceptance checkpoint. The child may merge after all
+required automated, visual, release-readiness, and PR checks pass for its
+current head; final product-owner acceptance occurs after the integrated goal
+is complete.
 
 ## Goal
 
@@ -110,7 +112,7 @@ child.
 ## Implementation Segments
 
 1. [x] Freeze the Input-only contract, product cases, Inspector, scope, and
-       manual acceptance boundary.
+       continuous-execution acceptance boundary.
 2. [x] Add formal Node-import and listener-lifecycle regressions before the
        production change.
 3. [x] Make construction inert and add explicit, idempotent, symmetric browser
@@ -119,8 +121,8 @@ child.
        release-program wording, future plan, and research index.
 5. [ ] Run focused Input/Core tests, builds, app compatibility gates, lint, and
        child PR CI.
-6. [ ] Hand the green candidate to the product owner for direct browser input
-       testing and explicit merge approval.
+6. [ ] Merge the green candidate into the release program without pausing for
+       an intermediate product-owner checkpoint.
 
 ## Validation Gates
 
@@ -130,7 +132,8 @@ child.
 - focused Asyra Design input/startup tests followed by its applicable build/E2E
   compatibility gate
 - Inspector contract test, documentation-reference checks, root lint, and PR CI
-- product-owner direct keyboard, pointer, wheel, and canvas interaction test
+- synchronized live-app visual review plus keyboard, pointer, wheel, canvas,
+  Undo, and Redo E2E evidence
 
 ## Definition of Done
 
@@ -141,8 +144,10 @@ child.
 - current docs distinguish Node-safe imports from a future Headless/Core Kernel
   product contract;
 - public behavior has a scoped patch Changeset;
-- all automated gates and PR CI pass; and
-- the product owner personally validates input behavior and approves merge.
+- all required automated and PR checks pass for the current head; and
+- the user-authorized continuous execution proceeds without an intermediate
+  product-owner checkpoint, while final acceptance remains at the integrated
+  release-goal boundary.
 
 ## References
 
