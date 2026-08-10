@@ -1,0 +1,687 @@
+{
+  "pages": [
+    {
+      "id": "overview",
+      "pageSha256": "d08bd4c3702bf640733d4fc5bdd5999ab059ae8c6923b84862330181ff2ec37b",
+      "sources": [
+        {
+          "path": "docs/ai/framework/FRAMEWORK_ESSENTIALS.md",
+          "sha256": "30fb6c56669e377f01c30d92a4a078328ccb647f8931e20de48fdfbaf7dcfcce"
+        },
+        {
+          "path": "docs/ai/framework/ARCHITECTURE.md",
+          "sha256": "3a431cfab9f275213d335ef36a61bd3afcf7c2db29e1198a3e17807bfb7467c6"
+        },
+        {
+          "path": "docs/examples/README.md",
+          "sha256": "e154311615cc512973482734511f0e416971cb3c986c1ed0894f4802b543f7d4"
+        }
+      ]
+    },
+    {
+      "id": "start/create-design-app",
+      "pageSha256": "a01e9574ac7ca5e49d1404badd35f18ba06588ae80cf40ae27ae393921a0b01b",
+      "sources": [
+        {
+          "path": "create-app/asyra-design/package.json",
+          "sha256": "58039bcc66f90b3010420650becdf7c54648e69e7f155cbbcd72ea26c9dc7d80"
+        },
+        {
+          "path": "create-app/asyra-design/template/README.md",
+          "sha256": "9f0ae1fc7b57af99ee88da71198941bcf7788aa3876d61721e775b22a1832e01"
+        },
+        {
+          "path": "apps/asyra-design/examples/review-queue-extension.mjs",
+          "sha256": "93d491827426e4cc88e6229cac72d9a4ad0e8141a8763ee48c17f341e65f5b12"
+        }
+      ]
+    },
+    {
+      "id": "start/extend-with-ai",
+      "pageSha256": "b295a3327f48940adb93517dcaef01003fb4444640595c1cebe21466e98d14d3",
+      "sources": [
+        {
+          "path": "docs/ai/framework/WORKFLOW.md",
+          "sha256": "e456cb7358dcf89b141d60e8ff84ccad32dff77479d9ca7a277672d483ef01e5"
+        },
+        {
+          "path": "docs/ai/apps/asyra-design/golden-paths/README.md",
+          "sha256": "bece2a7bc849d221f46b4fc9557f454a34def84a16c556bb77d4065d1a4f786c"
+        },
+        {
+          "path": "apps/asyra-design/examples/review-queue-extension.mjs",
+          "sha256": "93d491827426e4cc88e6229cac72d9a4ad0e8141a8763ee48c17f341e65f5b12"
+        }
+      ]
+    },
+    {
+      "id": "start/preset-2d",
+      "pageSha256": "af69e58c9ee14ba209fb3789fcd78763d7d4aa323516f44f680ec75ecb91190b",
+      "sources": [
+        {
+          "path": "docs/ai/framework/golden-paths/preset-composition.md",
+          "sha256": "b2bd57ffa9582737da1e2fcfc9c93e4d28b6d7b2a9869433e38485130f1c08ca"
+        },
+        {
+          "path": "docs/ai/framework/packages/preset.md",
+          "sha256": "6063335cf9a2a4e5e51c81bdef13b0390b5cc00b82892ef7cc664c5e46b94f9c"
+        },
+        {
+          "path": "docs/examples/preset-2d-minimal.mjs",
+          "sha256": "5a6dfc5b77a2422b59d1d85b739ba7a2553676d24614bbba150268a94677d541"
+        }
+      ]
+    },
+    {
+      "id": "start/custom-composition",
+      "pageSha256": "f63fed6f29336a7171b4be0cb0b4f36f2d9fd8f54646f4bf566df06b77d691de",
+      "sources": [
+        {
+          "path": "docs/ai/framework/ARCHITECTURE.md",
+          "sha256": "3a431cfab9f275213d335ef36a61bd3afcf7c2db29e1198a3e17807bfb7467c6"
+        },
+        {
+          "path": "docs/ai/framework/packages/core.md",
+          "sha256": "eb59d200716536560a4f42189c0250dfc3a7d84ff776f0dcea35d3f934a7c27b"
+        },
+        {
+          "path": "docs/examples/create-core-composition.mjs",
+          "sha256": "f74985ff28181544bf66ff9e5d27b16972fece5cfcbfb41492ee3dfcfec48e96"
+        }
+      ]
+    },
+    {
+      "id": "learn/information-models",
+      "pageSha256": "f391742dff67cca0042c3aedd6e502125caafd844c9d7619aba4b1f7a27f639c",
+      "sources": [
+        {
+          "path": "docs/ai/framework/FRAMEWORK_ESSENTIALS.md",
+          "sha256": "30fb6c56669e377f01c30d92a4a078328ccb647f8931e20de48fdfbaf7dcfcce"
+        },
+        {
+          "path": "docs/ai/framework/packages/core.md",
+          "sha256": "eb59d200716536560a4f42189c0250dfc3a7d84ff776f0dcea35d3f934a7c27b"
+        },
+        {
+          "path": "docs/examples/core-information-model.mjs",
+          "sha256": "566af728ec73ca0e4d8818d48db52b50014383d061ab9981fece905aa012774d"
+        }
+      ]
+    },
+    {
+      "id": "learn/intent-and-features",
+      "pageSha256": "7f5480c1e38b22df39e11f39e65498e9e3ea83329b4bcdf936dc4dc2f870408a",
+      "sources": [
+        {
+          "path": "docs/ai/framework/WORKFLOW.md",
+          "sha256": "e456cb7358dcf89b141d60e8ff84ccad32dff77479d9ca7a277672d483ef01e5"
+        },
+        {
+          "path": "docs/ai/framework/packages/feature-system.md",
+          "sha256": "ccbae9eb0ba97e908aea445d6b9c47102d023a808f37447b72b5a01194aa7eec"
+        },
+        {
+          "path": "docs/examples/feature-session-undo.mjs",
+          "sha256": "f3599e843abd4f60815bc29bde2b0a3cd2f745df0d081513696d3a37ea355cff"
+        }
+      ]
+    },
+    {
+      "id": "learn/canonical-state",
+      "pageSha256": "6a04dea8ab91a39eada643ebc41630163af4f818d3d34d45d60fb03b6da944e2",
+      "sources": [
+        {
+          "path": "docs/ai/framework/ARCHITECTURE.md",
+          "sha256": "3a431cfab9f275213d335ef36a61bd3afcf7c2db29e1198a3e17807bfb7467c6"
+        },
+        {
+          "path": "docs/ai/framework/packages/system-context.md",
+          "sha256": "66f3107ca4921bad334d7954ff6335d3373c398b949fb58f4778b2bbe9480fa9"
+        },
+        {
+          "path": "docs/ai/framework/packages/props-manager.md",
+          "sha256": "99e3c4a6b1015fabf036429ffcb63620f4a27600928b768d64584b26395637a9"
+        }
+      ]
+    },
+    {
+      "id": "learn/transactions-and-durability",
+      "pageSha256": "5ab4843f18cab16ea5eb3c6556ad679ad6a92d43bd9c54fae9d6b1a87c419f3c",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/factory.md",
+          "sha256": "0a33117436c5547c188406d9a19b1a9b9d3dd4ce527e414402ecc032c8a1562f"
+        },
+        {
+          "path": "docs/ai/framework/packages/reactive-events.md",
+          "sha256": "84e51c0d6cdf49ed672257c433664b0ded00fc1aa3daf8c4edf13d794fff5c0c"
+        },
+        {
+          "path": "docs/examples/feature-session-undo.mjs",
+          "sha256": "f3599e843abd4f60815bc29bde2b0a3cd2f745df0d081513696d3a37ea355cff"
+        }
+      ]
+    },
+    {
+      "id": "learn/validation-load-migration",
+      "pageSha256": "71931af75da16e55163e8100c837a2c78c66354250602ff3f9feb0447e449d1c",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/props-manager.md",
+          "sha256": "99e3c4a6b1015fabf036429ffcb63620f4a27600928b768d64584b26395637a9"
+        },
+        {
+          "path": "docs/ai/framework/packages/persistence.md",
+          "sha256": "6ba31c6a0f2f12679cec282ec2bc5054c2cc110cb4e2d54555581b8402bae4a4"
+        },
+        {
+          "path": "docs/examples/app-owned-versioned-load-migration.mjs",
+          "sha256": "6124fa2a5f87490f2321544e4a22c0149ff1e80e1381d56e57bb67196b6a44ce"
+        }
+      ]
+    },
+    {
+      "id": "learn/projection-registration-replacement",
+      "pageSha256": "d3238a38739406f03f02f723820834a58001604fe6a01b4eb6147c695c193f81",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/render.md",
+          "sha256": "1e4ac2db7b96309ad33fb608e577b76dea46aa58ccb566adf5c5419524594e79"
+        },
+        {
+          "path": "docs/ai/framework/packages/render-engine.md",
+          "sha256": "def2bd6c85a83657d99aa45512e934e27e51b30cdf0ff0a813a0a457ab402f11"
+        },
+        {
+          "path": "docs/ai/framework/golden-paths/replace-render-engine.md",
+          "sha256": "d2b88fa80f0ac032ad8237dfebafce21b6da7e2bbe1342652efebe8142e5ed44"
+        },
+        {
+          "path": "docs/examples/custom-render-boundary.mjs",
+          "sha256": "8e90fa812722040cbe050ed3d14278c60bb48020224c86dda87e077f69921102"
+        }
+      ]
+    },
+    {
+      "id": "learn/runtime-boundaries-roadmap",
+      "pageSha256": "6d78485192e22c4e2b192bb35d88bfc50ffb9e1d91deb0fd760e0eb0a396cc95",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/core.md",
+          "sha256": "eb59d200716536560a4f42189c0250dfc3a7d84ff776f0dcea35d3f934a7c27b"
+        },
+        {
+          "path": "docs/ai/framework/packages/input-system.md",
+          "sha256": "823c675e3f8663fb976d78fa7f812514ecba6406ceb9264dfe52084203dbed9a"
+        },
+        {
+          "path": "docs/ai/framework/plans/headless-core-and-core-kernel-future-plan.md",
+          "sha256": "7df5b4318b9904be74931b349266c2e9014dae4b53ab864fd332c77710b09d6e"
+        },
+        {
+          "path": "docs/ai/framework/research/headless-core-and-core-kernel-architecture-research.md",
+          "sha256": "d016984e5ac8cd04a13e6e65024126a1dda1d376ef9906af5975a40948a567a2"
+        }
+      ]
+    },
+    {
+      "id": "build/custom-schema",
+      "pageSha256": "d80ae1c4b13e58123adecd3f17f5eb8d40393d6f68d08a23f32c1e50f043a8ff",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/core.md",
+          "sha256": "eb59d200716536560a4f42189c0250dfc3a7d84ff776f0dcea35d3f934a7c27b"
+        },
+        {
+          "path": "docs/ai/framework/packages/props-manager.md",
+          "sha256": "99e3c4a6b1015fabf036429ffcb63620f4a27600928b768d64584b26395637a9"
+        },
+        {
+          "path": "docs/ai/framework/packages/scene-tree.md",
+          "sha256": "713cf4b1579a2c8ba1ca1b8b6c4db4c05b796dc8d33b70c3f64396555115fd5d"
+        },
+        {
+          "path": "docs/examples/custom-component-schema.mjs",
+          "sha256": "1fdd3eb79306e1daf2eef5e7d758c36eb14c811d045dd5b0c7554b69d4163e9b"
+        }
+      ]
+    },
+    {
+      "id": "build/feature-session",
+      "pageSha256": "bf2ec96227db484d4cacacf0a862daedf30e34df7fec5835f0ec10b60a9cb51d",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/feature-system.md",
+          "sha256": "ccbae9eb0ba97e908aea445d6b9c47102d023a808f37447b72b5a01194aa7eec"
+        },
+        {
+          "path": "docs/ai/framework/packages/factory.md",
+          "sha256": "0a33117436c5547c188406d9a19b1a9b9d3dd4ce527e414402ecc032c8a1562f"
+        },
+        {
+          "path": "docs/examples/feature-session-undo.mjs",
+          "sha256": "f3599e843abd4f60815bc29bde2b0a3cd2f745df0d081513696d3a37ea355cff"
+        }
+      ]
+    },
+    {
+      "id": "build/render-boundary",
+      "pageSha256": "a2b4c18e69e7708a1f8403084b146176137449bafd2cf7621a6b8e055e05f7a0",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/render.md",
+          "sha256": "1e4ac2db7b96309ad33fb608e577b76dea46aa58ccb566adf5c5419524594e79"
+        },
+        {
+          "path": "docs/ai/framework/packages/render-engine.md",
+          "sha256": "def2bd6c85a83657d99aa45512e934e27e51b30cdf0ff0a813a0a457ab402f11"
+        },
+        {
+          "path": "docs/examples/custom-render-boundary.mjs",
+          "sha256": "8e90fa812722040cbe050ed3d14278c60bb48020224c86dda87e077f69921102"
+        }
+      ]
+    },
+    {
+      "id": "build/hierarchy-groups",
+      "pageSha256": "734c5d3272a8b9d29e180d60ed502f202202a95a46d3bce82f41951db8a6a576",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/scene-tree.md",
+          "sha256": "713cf4b1579a2c8ba1ca1b8b6c4db4c05b796dc8d33b70c3f64396555115fd5d"
+        },
+        {
+          "path": "docs/ai/framework/packages/core.md",
+          "sha256": "eb59d200716536560a4f42189c0250dfc3a7d84ff776f0dcea35d3f934a7c27b"
+        },
+        {
+          "path": "docs/ai/apps/asyra-design/features/group-interactions.md",
+          "sha256": "cb11ca7cb8d6b16949214d709afe790a91957fb235f1849e26ac956a3795e299"
+        }
+      ]
+    },
+    {
+      "id": "build/persistence-migration",
+      "pageSha256": "00c7a43d4c1906175ef19b8d751a1d8b7951dca21163c4ac52870a57f8f770bc",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/persistence.md",
+          "sha256": "6ba31c6a0f2f12679cec282ec2bc5054c2cc110cb4e2d54555581b8402bae4a4"
+        },
+        {
+          "path": "docs/ai/framework/packages/props-manager.md",
+          "sha256": "99e3c4a6b1015fabf036429ffcb63620f4a27600928b768d64584b26395637a9"
+        },
+        {
+          "path": "docs/examples/app-owned-versioned-load-migration.mjs",
+          "sha256": "6124fa2a5f87490f2321544e4a22c0149ff1e80e1381d56e57bb67196b6a44ce"
+        }
+      ]
+    },
+    {
+      "id": "build/collaboration",
+      "pageSha256": "d6e054899ce1236b0aee27c92848b634d578c87cda137d5f59b7499b0c53188f",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/collaboration.md",
+          "sha256": "9560111c9eaa9a05cc1d04a56638639d0ee68b673e9f34bd491ef01661e40f5a"
+        },
+        {
+          "path": "docs/ai/apps/asyra-design/modules/collaboration-reference.md",
+          "sha256": "d4df9ed4ba87cf34afa000240f3c1ac6b1726ed1a701d74dd6f989985cfcc68c"
+        },
+        {
+          "path": "docs/examples/network-collaboration-transport.mjs",
+          "sha256": "44dfda24ee19688e4d6e6541dead3525038c63569ff6781925677f439bde5a62"
+        }
+      ]
+    },
+    {
+      "id": "build/ai-actions",
+      "pageSha256": "121ca7c9abfeecd11c65e20ec521d6285debe3b9ec47d6776fa929fb73b72d3f",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/ai-agent-runtime.md",
+          "sha256": "b908338e74a5097cb51b6fbc42a3400137a498ee7e1625edb605cea99bb16a0e"
+        },
+        {
+          "path": "docs/ai/framework/golden-paths/compose-ai-agent-runtime.md",
+          "sha256": "8aea87d2242955e62c4795bef21e40457a49867f8d29fde904a7539da340a832"
+        },
+        {
+          "path": "docs/examples/ai-agent-runtime.mjs",
+          "sha256": "51718dbc0b68a45dc072ed1775a35f19412fe1759676896e7d06aae98e4b418a"
+        }
+      ]
+    },
+    {
+      "id": "build/app-retrieval-action",
+      "pageSha256": "6912f9fdefd1db1f8718dc2e23d0f3ca77ca4eb1c4aa552b4ce2db95d8749481",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/ai-agent-runtime.md",
+          "sha256": "b908338e74a5097cb51b6fbc42a3400137a498ee7e1625edb605cea99bb16a0e"
+        },
+        {
+          "path": "docs/ai/framework/packages/feature-system.md",
+          "sha256": "ccbae9eb0ba97e908aea445d6b9c47102d023a808f37447b72b5a01194aa7eec"
+        },
+        {
+          "path": "docs/examples/app-retrieval-action.mjs",
+          "sha256": "33c87879954d914636501f073bdb2133c699e934ade2aeedb1f3d168050cfaec"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/ai-agent-runtime",
+      "pageSha256": "fb7de79b9836e8d58735e95a3f347dbf66b78e47b3054a28a304abd8263b32c9",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/ai-agent-runtime.md",
+          "sha256": "b908338e74a5097cb51b6fbc42a3400137a498ee7e1625edb605cea99bb16a0e"
+        },
+        {
+          "path": "packages/ai-agent-runtime/package.json",
+          "sha256": "3e6a5ec1472ee54af9401eea6c4a59e8827a737e338a559d5ff320c3f185dea8"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/collaboration",
+      "pageSha256": "9640cdce67894ec522057132d45591aadfc9a4b4657b364ef3cd5485fe7354d8",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/collaboration.md",
+          "sha256": "9560111c9eaa9a05cc1d04a56638639d0ee68b673e9f34bd491ef01661e40f5a"
+        },
+        {
+          "path": "packages/collaboration/package.json",
+          "sha256": "dda1a90d41faa74850d32a9352d59ac7d63316c35c668c5ab63c5089627576d6"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/core",
+      "pageSha256": "5ecd6efe98db027df353cb1787e29e443a3b22be584f24685a241560265803be",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/core.md",
+          "sha256": "eb59d200716536560a4f42189c0250dfc3a7d84ff776f0dcea35d3f934a7c27b"
+        },
+        {
+          "path": "packages/core/package.json",
+          "sha256": "f010415b5a7d944a36a2008c03488a05277cad39bad7344c356bff28bc2bc93c"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/design-system",
+      "pageSha256": "8d7196f4b3b671b5f75c6ebc010bc025af8a9a46ca2d7271f70c7fb71375fd74",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/design-system.md",
+          "sha256": "94c0a88a9ba5d8b317784d22cdaae2201f26d7c7d70c6821adfcafa8d6e56d09"
+        },
+        {
+          "path": "packages/design-system/package.json",
+          "sha256": "ba12870de776cdd127c3d543a5c28c124af40604eb6f3aace66235fb85fe03e8"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/factory",
+      "pageSha256": "52a2f7b72127551ee81440b84c8cd3a9773cdd80a8f75d69405d9c7f60f16b82",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/factory.md",
+          "sha256": "0a33117436c5547c188406d9a19b1a9b9d3dd4ce527e414402ecc032c8a1562f"
+        },
+        {
+          "path": "packages/factory/package.json",
+          "sha256": "e20d4267046a4e83e7722ba1b470295a381c4315571f56bde828613b90479ec8"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/feature-system",
+      "pageSha256": "e6866488f48a0da39d52dc52571cf768f4dcb0857c216bd75ac192e446ff5f19",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/feature-system.md",
+          "sha256": "ccbae9eb0ba97e908aea445d6b9c47102d023a808f37447b72b5a01194aa7eec"
+        },
+        {
+          "path": "packages/feature-system/package.json",
+          "sha256": "de07a30757227af357f686a9bc07839d2205fe88d84465a785cffa7ddc37638d"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/input-system",
+      "pageSha256": "0c0a71283bb252bd458a57bbb2e9da36730e789fa15b42e68370ccf45db6cb57",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/input-system.md",
+          "sha256": "823c675e3f8663fb976d78fa7f812514ecba6406ceb9264dfe52084203dbed9a"
+        },
+        {
+          "path": "packages/input-system/package.json",
+          "sha256": "923f72abf4b09159dbf21a363f2123da95320ff7b2d1aecee74f59ed4cd15dcf"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/persistence",
+      "pageSha256": "72b0b20a095bc1810eb0e205d918c3244ec38b8553a5522cbe14d8bd10ca1157",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/persistence.md",
+          "sha256": "6ba31c6a0f2f12679cec282ec2bc5054c2cc110cb4e2d54555581b8402bae4a4"
+        },
+        {
+          "path": "packages/persistence/package.json",
+          "sha256": "e220c1fc59ee9d5b33f35a435819ece39217b976a06713db6d315a16a09c6725"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/preset",
+      "pageSha256": "fb36eca23dbf9ab2e3eb98687227dc5c829f16c4b30795b03d46aa99bc3cd3a0",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/preset.md",
+          "sha256": "6063335cf9a2a4e5e51c81bdef13b0390b5cc00b82892ef7cc664c5e46b94f9c"
+        },
+        {
+          "path": "packages/preset/package.json",
+          "sha256": "41799cf37c25e4bd3a60d83055861f52d40ae0fe8fb315fe1253680bfc2d8075"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/props-manager",
+      "pageSha256": "e3cc7c8303ea664cb4bf379ee643be7f8c50945cf8b56d0969170b8daaa32aed",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/props-manager.md",
+          "sha256": "99e3c4a6b1015fabf036429ffcb63620f4a27600928b768d64584b26395637a9"
+        },
+        {
+          "path": "packages/props-manager/package.json",
+          "sha256": "4bf251dfad60f61b6eb04c8b2b6b062e984b4d45dced00ccbd8c5b73141692ed"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/reactive-events",
+      "pageSha256": "192c8d9332c4edb26c057aa1066fe17c135d8795d3a90977754b6002954119ac",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/reactive-events.md",
+          "sha256": "84e51c0d6cdf49ed672257c433664b0ded00fc1aa3daf8c4edf13d794fff5c0c"
+        },
+        {
+          "path": "packages/reactive-events/package.json",
+          "sha256": "5cc3c03824321d210ff0f0139c15b387229e8f9cc3c223ea5a51c8b9df9f291b"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/render",
+      "pageSha256": "22a1a84fd95c97472f027596cb1d9843e5fd5e9d731e0131962d442fd713d281",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/render.md",
+          "sha256": "1e4ac2db7b96309ad33fb608e577b76dea46aa58ccb566adf5c5419524594e79"
+        },
+        {
+          "path": "packages/render/package.json",
+          "sha256": "ed4141bd276b0ca51d1d014156b72acd2bc927d4af3efd06382a06278ddbab4f"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/render-engine",
+      "pageSha256": "7d4cb1943f65aa33a5f171f5dac60725f2ad7e3610d7df6607c61a60f3c70a61",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/render-engine.md",
+          "sha256": "def2bd6c85a83657d99aa45512e934e27e51b30cdf0ff0a813a0a457ab402f11"
+        },
+        {
+          "path": "packages/render-engine/package.json",
+          "sha256": "f2483fcdb1668d1f4fd7dfcf088fcd7e0739b022468d38e7ed6f403c3645592f"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/render-engine-pixi",
+      "pageSha256": "45b73b43af275a9b4d4fc4f493c883723f43d2ceff864deea1947101911938fa",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/render-engine-pixi.md",
+          "sha256": "b117cd086ad0a5e8f48ba0ce5899a490c3044f7ee623a3d84d68093eb5f53e7c"
+        },
+        {
+          "path": "packages/render-engine-pixi/package.json",
+          "sha256": "f5cbf728d359a1cfb0fc799d98b9c2ece7a13b0ae1149a250adeaeaeeffe26c8"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/scene-tree",
+      "pageSha256": "4c47de80fadc3f4d28c4224b48e5ba65abf0dd9423ad78ae795b908f05998345",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/scene-tree.md",
+          "sha256": "713cf4b1579a2c8ba1ca1b8b6c4db4c05b796dc8d33b70c3f64396555115fd5d"
+        },
+        {
+          "path": "packages/scene-tree/package.json",
+          "sha256": "bf2a5f74de1f3a16c72c2271a2174e6bea04f951ff2ec5a97e32a35592811d65"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/selection",
+      "pageSha256": "a28fc0efcad3171edb523dcacc86c72c6e2a606b5bdf8862d536a3043af695be",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/selection.md",
+          "sha256": "60f3ba749e4aecad2e1e82fee554bf1425d6ea263e653332a8fed12bba439dbc"
+        },
+        {
+          "path": "packages/selection/package.json",
+          "sha256": "30686c22405a0936894e008bb6edd0e94d5ecae245b898e68e571ecdf9c9a3d1"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/system-context",
+      "pageSha256": "879a7bab436c4a33ff055ea04857546f8b6ada603eccd49d5b50fcfd3c441baa",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/system-context.md",
+          "sha256": "66f3107ca4921bad334d7954ff6335d3373c398b949fb58f4778b2bbe9480fa9"
+        },
+        {
+          "path": "packages/system-context/package.json",
+          "sha256": "286605a3fbafb32cd98c59ab997b66dee80a2dcea5d937731767e3cb89a74b48"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/ui-context",
+      "pageSha256": "407820036abb56109f8b750dda623e1671a49d2207c2c08fee6b45a0778d9551",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/ui-context.md",
+          "sha256": "b57c0333892ee97a36d37793b371763b0371f9c6efb8d0ee8a99b9f3985d511d"
+        },
+        {
+          "path": "packages/ui-context/package.json",
+          "sha256": "be1900844935a9b09b3ab5c640284b950fc731bbdc38ac8aa42a65dd378cf4cb"
+        }
+      ]
+    },
+    {
+      "id": "reference/packages/utils",
+      "pageSha256": "989de12242f09f6ab5b75d912a32d324b0091253c4359ad132298eba71ac949d",
+      "sources": [
+        {
+          "path": "docs/ai/framework/packages/utils.md",
+          "sha256": "a5135f15b3dc8338c0ad8f822a8ef29d293cd996dc517a71516f8cce629bf7d1"
+        },
+        {
+          "path": "packages/utils/package.json",
+          "sha256": "68b386bcfe219af070baeac8e730f808b6fb162b33aebb775008f823cc5c5a83"
+        }
+      ]
+    },
+    {
+      "id": "reference/support-release",
+      "pageSha256": "87d1c0892401984ff30a44d9686e5ca0992463008f03b658bd376db9187051d2",
+      "sources": [
+        {
+          "path": "docs/ai/framework/RELEASE_SUPPORT.md",
+          "sha256": "85e33ae6dfaf8ae3800e6216e8961c849acb71f78bd84b9a3e9827424108872a"
+        },
+        {
+          "path": "SECURITY.md",
+          "sha256": "eb63238d810e6f5c1672eb2b8c03d11595394dd00595337356531f9a929a12fd"
+        },
+        {
+          "path": "LICENSE",
+          "sha256": "14bee6a71b8d78b4d98cc35ab5f1a36c43842031170ebb39474e7b33f2b57e00"
+        },
+        {
+          "path": "package.json",
+          "sha256": "5c8c67681695c88ac200eb21973ddb77fb6e9a5649ff974df6e3fdc27a531dbc"
+        }
+      ]
+    },
+    {
+      "id": "cases/asyra-design",
+      "pageSha256": "cc1acff8fa578a1015ade8b65619203531fdaba097c0cd4c13732416015b47b7",
+      "sources": [
+        {
+          "path": "docs/ai/apps/asyra-design/APP_ESSENTIALS.md",
+          "sha256": "b329b4bdcb61049ace29bbb2fc157556656af5b3e3b202d7839f3f5ee3f2ddae"
+        },
+        {
+          "path": "docs/ai/apps/asyra-design/ARCHITECTURE.md",
+          "sha256": "36b5b3c871d96d1e2d828e159f38cd39881b7c4900262d4be91ee91775bd3b16"
+        },
+        {
+          "path": "docs/ai/apps/asyra-design/modules/init-and-startup.md",
+          "sha256": "9b0c693554569e2b7c176f72bae1fb71a2bd5e2de0cd8257e941450ea240ed3c"
+        },
+        {
+          "path": "apps/asyra-design/examples/review-queue-extension.mjs",
+          "sha256": "93d491827426e4cc88e6229cac72d9a4ad0e8141a8763ee48c17f341e65f5b12"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 1
+}
