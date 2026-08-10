@@ -108,11 +108,17 @@ test('supporting routes preserve App, release, and roadmap boundaries', () => {
 })
 
 test('shared foundations stay independent from Landing and Atlas owners', () => {
-  const source = JSON.stringify(step('expose-shared-foundations'))
+  const sharedStep = step('expose-shared-foundations')
+  const source = JSON.stringify(sharedStep)
   assert.match(source, /without inherited product story or runtime behavior/i)
   assert.match(source, /never fabricate output/i)
   assert.match(source, /Landing narrative implementation/i)
   assert.match(source, /Atlas executable cases or runtime state/i)
+  assert.ok(
+    sharedStep.implementationBoundary.includes(
+      'apps/asyra-framework-site/app/layout.tsx'
+    )
+  )
 })
 
 test('verification requires executable and synchronized evidence', () => {

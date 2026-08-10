@@ -303,6 +303,7 @@ module.exports = Object.freeze({
         'route-specific domain semantics in shared primitives'
       ],
       implementationBoundary: [
+        'apps/asyra-framework-site/app/layout.tsx',
         'apps/asyra-framework-site/app/error.tsx',
         'apps/asyra-framework-site/app/not-found.tsx',
         'apps/asyra-framework-site/app/loading.tsx',
