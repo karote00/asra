@@ -111,6 +111,9 @@ test:e2e:balanced-ai-correctness` runs that heavy case explicitly with one
   requests one browser garbage collection so setup-owned allocations cannot be
   charged to a later Render owner sample; the 12 measured product frames and
   every count, total, p95, cold/steady max, and combined budget stay unchanged
+- before timers are installed, the test completes one unmeasured normal Render
+  frame and then waits two animation frames, isolating the first canvas/GPU
+  flush after test-only collection from the measured product frames
 - pull-request CI resolves the balanced AI heavy gate from the exact
   base-to-head changed paths in
   `scripts/balanced-ai-correctness-scope.mjs`; unrelated changes and scheduled

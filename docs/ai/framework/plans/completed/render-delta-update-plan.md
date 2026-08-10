@@ -354,7 +354,10 @@ requests one browser garbage collection. This prevents allocations owned by
 fixture creation, module loading, and Collaboration setup from becoming a
 runner-dependent pause inside a later strategy sample. The measured 12-frame
 product flow, sample counts, total, p95, cold/steady max budgets, and ordinary
-App composition remain unchanged.
+App composition remain unchanged. The test then completes one unmeasured normal
+Render frame and waits two animation frames before installing timers, so the
+first canvas/GPU flush after the test-only collection belongs to setup rather
+than an arbitrary measured product frame.
 
 For this bounded 12-frame sample, p50 and p95 use the lower sample quantile at
 `floor((sampleCount - 1) * ratio)`. The maximum sample retains its own explicit

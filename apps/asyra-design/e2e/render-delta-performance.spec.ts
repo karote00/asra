@@ -263,6 +263,15 @@ test.describe('Render delta performance budget', () => {
         }
         await requestTestGarbageCollection()
 
+        const renderForStabilization = core.deps?.render
+        if (!renderForStabilization) {
+          throw new Error(
+            'Render runtime is unavailable for performance stabilization'
+          )
+        }
+        renderForStabilization.requestRender()
+        renderForStabilization.flushFrame()
+
         await new Promise<void>((resolve) =>
           requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
         )
