@@ -79,7 +79,6 @@ test('every indexable route owns its exact canonical path', () => {
   ;[
     ['app/asyra-design/page.tsx', '/asyra-design'],
     ['app/atlas/page.tsx', '/atlas'],
-    ['app/examples/page.tsx', '/examples'],
     ['app/releases/page.tsx', '/releases'],
     ['app/roadmap/page.tsx', '/roadmap']
   ].forEach(([filePath, route]) => {
@@ -89,6 +88,10 @@ test('every indexable route owns its exact canonical path', () => {
       filePath
     )
   })
+  assert.equal(
+    fs.existsSync(path.join(appRoot, 'app/examples/page.tsx')),
+    false
+  )
   assert.match(
     read('app/docs/[[...slug]]/page.tsx'),
     /alternates: \{ canonical: page\.route \}/

@@ -48,9 +48,9 @@ independent durability owner.
 
 ## Maintained use path
 
-Run `yarn examples:run feature-session-undo`. The
-[transaction-safe Feature guide](../../build/feature-session.md) explains one
-session, one commit, rollback, Undo, and Redo.
+The [transaction-safe Feature guide](../../build/feature-session.md) explains
+one session, one commit, rollback, Undo, and Redo with the exact owner call
+sequence.
 
 ## Replacement and disabled behavior
 
@@ -71,7 +71,7 @@ revive old snapshot/equality/finalize-save fallback paths.
 
 - [Package contract](../../../ai/framework/packages/factory.md)
 - [Package manifest](../../../../packages/factory/package.json)
-- [Executable transaction example](../../../examples/feature-session-undo.mjs)
+- [Transaction-safe Feature guide](../../build/feature-session.md)
 
 Version, dependencies, and the root public entrypoint are generated from the
 manifest. The documentation gate keeps this guide tied to the exact release

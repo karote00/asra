@@ -45,9 +45,9 @@ non-runtime.
 
 ## Maintained use path
 
-Run `yarn examples:run core-information-model` for a custom managed record. The
-[app retrieval/action guide](../../build/app-retrieval-action.md) uses a
-read-only snapshot and registered Feature API for mutation.
+Study [information models](../../learn/information-models.md) for a custom
+managed record. The [app retrieval/action guide](../../build/app-retrieval-action.md)
+uses a read-only snapshot and registered Feature API for mutation.
 
 ## Replacement and disabled behavior
 
@@ -67,7 +67,7 @@ mutate observable internals.
 
 - [Package contract](../../../ai/framework/packages/system-context.md)
 - [Package manifest](../../../../packages/system-context/package.json)
-- [Executable managed-model source](../../../examples/core-information-model.mjs)
+- [Information-model guide](../../learn/information-models.md)
 
 The root entrypoint, version, and dependencies are generated from the manifest
 and release-checked.

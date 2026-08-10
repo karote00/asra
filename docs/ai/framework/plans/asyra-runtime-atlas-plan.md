@@ -6,7 +6,7 @@ Required child plan of the
 [Asyra Framework Website Program](completed/asyra-framework-website-plan.md). The Atlas
 is a real-runtime product surface, not a decorative architecture diagram.
 
-Preview-ready on the accepted website platform and executable-example handoff
+Preview-ready on the accepted website platform and public-documentation handoff
 as of August 10, 2026. The bounded product contract, six exact browser cases,
 observation contract, Atlas Inspector, production browser bundle, responsive
 experience, and synchronized visual evidence are complete. Production
@@ -27,8 +27,8 @@ composition, observation/evidence adapters, controls, state visualization, and
 its six required executable cases.
 
 It does not own Framework behavior, package tests, public documentation prose,
-general website foundations, example source semantics, app domain policy,
-Asyra Design behavior, or production deployment.
+general website foundations, app domain policy, Asyra Design behavior, or
+production deployment.
 
 Atlas observations must come from public Framework paths or formally owned
 diagnostic evidence. It may not infer correctness from rendered pixels, invent
@@ -71,8 +71,8 @@ app-owned and must not be fabricated as Framework output.
 ## Interaction Contract
 
 Hover, keyboard focus, touch selection, and reduced-motion navigation must
-reveal equivalent owner, input, output, condition, bypass, and example-package
-information. AI, Collaboration, Provider, Render, and UI must never appear as
+reveal equivalent owner, input, output, condition, bypass, package, and related
+advanced-guide information. AI, Collaboration, Provider, Render, and UI must never appear as
 canonical document owners.
 
 Users must be able to replay, pause, step, reset, and compare relevant cases
@@ -92,11 +92,11 @@ pass.
 Authorized mutation is limited to the Atlas plan and Inspector, the Framework
 site's Atlas route, Atlas-specific runtime adapter, components, styles, package
 dependencies, and Atlas-specific formal tests. The existing Framework package
-behavior, executable-example source semantics, Landing narrative, public docs,
-Asyra Design, publication state, and deployment remain unchanged.
+behavior, Landing narrative, public docs, Asyra Design, publication state, and
+deployment remain unchanged.
 
-Discovery is fixed to the six mapped public examples, their package-root API
-owners, the accepted content/example inventories, the selected visual handoff,
+Discovery is fixed to the six runtime cases, their package-root API owners, the
+accepted public-content index, the selected visual handoff,
 the Atlas route and its direct site consumers, and the formal gates named in
 this plan. Package-private imports, Framework behavior repair, new dependencies,
 production deployment, or a required case that cannot be proven through a
@@ -131,8 +131,8 @@ Headless/Core Kernel lifecycle.
 
 ## Public Runtime And Observation Contract
 
-Each case definition has a stable id, plain-language purpose, mapped maintained
-example ids, deterministic ordered actions, expected result, relevant package
+Each case definition has a stable id, plain-language purpose, mapped advanced
+guide ids, deterministic ordered actions, expected result, relevant package
 owners, and current/future boundary disclosure. The exact case ids are:
 
 1. `continuous-pointer-undo`
@@ -195,11 +195,11 @@ mutation. Only the registered Feature API changes its status. The UI labels
 this as current machine consumption inside a browser composition and routes
 Headless/Core Kernel to the Roadmap.
 
-## Example and Platform Handoff
+## Documentation and Platform Handoff
 
-Atlas cases may adapt the maintained executable examples only through a
-verified browser/runtime adapter. Any necessary behavioral variant becomes an
-owned tested case rather than an inline fork.
+Atlas cases own their verified browser/runtime adapters. Each case links to the
+advanced guide that explains how an experienced user can build, call, and
+replace the corresponding product flow.
 
 The site platform supplies shared navigation, visual primitives, focus/error
 foundations, and content links. The Atlas owns only runtime-specific

@@ -38,7 +38,6 @@ Initialization creates one owned Pixi runtime behind opaque handles. Frame callb
 ## Learn more
 
 - [Complete package guide](https://github.com/karote00/asyra/blob/main/docs/public/reference/packages/render-engine-pixi.md)
-- [Apply the complete official 2D baseline](https://github.com/karote00/asyra/blob/main/docs/examples/preset-2d-minimal.mjs) — `yarn examples:run preset-2d-minimal`
 - [Framework release support](https://github.com/karote00/asyra/blob/main/docs/ai/framework/RELEASE_SUPPORT.md)
 
 ## Support and policy

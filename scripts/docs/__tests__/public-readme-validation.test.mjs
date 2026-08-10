@@ -7,6 +7,7 @@ import {
   validateGeneratedReadmePair,
   validatePublicReadmes,
   validateReadmeLinks,
+  validateReadmeLearningSurface,
   validateReadmeNamedImports,
   validateReadmePolicy
 } from '../public-readme-validation.mjs'
@@ -42,6 +43,23 @@ test('README policy rejects missing policy and external contribution invitations
       }),
     /invites unsupported external contributions/
   )
+})
+
+test('README learning surfaces reject retired example runners and source links', () => {
+  for (const source of [
+    'Run `yarn examples:run old-proof`.',
+    '[Examples](docs/examples/README.md)',
+    '[Extension](apps/asyra-design/examples/extension.mjs)'
+  ]) {
+    assert.throws(
+      () =>
+        validateReadmeLearningSurface({
+          source,
+          sourcePath: 'README.md'
+        }),
+      /removed executable-example surface/
+    )
+  }
 })
 
 test('README link validation rejects missing and unverified destinations', () => {

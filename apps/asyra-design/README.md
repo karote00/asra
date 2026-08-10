@@ -101,15 +101,10 @@ policy without creating a second browser canonical-state route. See the
 
 ## Extend the product
 
-The fastest maintained extension is the
-[App-owned review queue example](examples/review-queue-extension.mjs). It
-registers one Feature API, validates App-domain records, rejects duplicate ids
-atomically, and disposes its registration without changing Preset or Framework
-internals:
-
-```bash
-yarn examples:run generated-design-app-extension
-```
+Begin with the [generated-product extension guide](../../docs/public/start/create-design-app.md).
+It shows where an App-owned Feature lives, the public registration code, its
+call flow, expected result, rejection behavior, and lifecycle cleanup without
+changing Preset or Framework internals.
 
 Use these public paths depending on what you are adding:
 

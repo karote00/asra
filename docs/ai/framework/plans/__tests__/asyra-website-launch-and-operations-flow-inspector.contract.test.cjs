@@ -97,7 +97,7 @@ test('production verification is anonymous, indexed, complete, and fail closed',
   assert.match(source, /Robots permits production indexing/i)
   assert.match(
     source,
-    /Every public route, search path, example, release fact, Roadmap, Asyra Design link, and Runtime Atlas case works anonymously/i
+    /Every public route, search path, advanced guide, release fact, Roadmap, Asyra Design link, and Runtime Atlas case works anonymously/i
   )
   assert.match(
     source,

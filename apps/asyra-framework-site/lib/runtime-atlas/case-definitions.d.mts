@@ -12,7 +12,7 @@ export interface AtlasCaseDefinition {
   readonly plainLanguage: string
   readonly technicalSummary: string
   readonly expected: string
-  readonly exampleIds: readonly string[]
+  readonly guideIds: readonly string[]
   readonly owners: readonly string[]
   readonly conditions: readonly string[]
   readonly bypasses: readonly string[]

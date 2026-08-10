@@ -14,26 +14,36 @@ engine provider policy before Core starts.
 - `@asyra/preset`
 - a supported browser host for the current visual startup path
 
-## Use the maintained path
+## Where this runs
 
-Run the exact example:
+Call Preset from your browser app's composition entry, after constructing Core
+and before `core.start(...)`. In a generated Asyra Design app this boundary is
+the maintained startup module; in a custom app it belongs to your own bootstrap.
 
-```shell
-yarn examples:run preset-2d-minimal
+## Implementation
+
+Apply the complete official baseline when its defaults match the product:
+
+```ts
+import { applyPreset, PresetDefaults } from '@asyra/preset'
+
+const complete = applyPreset(core)
+
+const vectorEditingOnly = applyPreset(core, {
+  defaults: [PresetDefaults.VECTOR_EDITING]
+})
 ```
 
-The verified source calls `applyPreset(core)` while composition is open. The
-result reports profile `2D`, the official Pixi provider id, and the complete
-default catalog. Preset does not construct the engine, start Core, execute app
-callbacks, or publish runtime readiness.
+Choose one of these calls for a Core instance; do not apply both. The complete
+result reports profile `2D`, the official Pixi provider id, and the full
+default catalog. The selective call expands `VECTOR_EDITING` to its required
+official dependencies in deterministic catalog order.
 
 Use `PresetDefaults` when you want a selective official baseline. The
-[`preset-selective-defaults`](../../examples/preset-selective-defaults.mjs)
-example requests `VECTOR_EDITING` and verifies the exact dependency closure.
-Use an empty `defaults` list when you want the profile policy but no official
-default modules.
+snippet requests `VECTOR_EDITING`; use an empty `defaults` list when you want
+the profile policy but no official default modules.
 
-## Ownership and order
+## Flow
 
 The supported order is:
 
@@ -47,6 +57,20 @@ The supported order is:
 Validation fails before mutation. Installation or provider failure rolls back
 acquired resources in reverse order. Handle `PresetApplyError` as a real
 composition failure; do not continue with a partial baseline.
+
+## Expected result
+
+The returned frozen record tells the app which profile, engine policy, selected
+defaults, and dependency-expanded defaults were applied. Core remains
+unstarted until the app explicitly starts it. Invalid selection, unavailable
+profiles, installation failure, or provider binding failure leaves no partial
+Preset composition.
+
+## Ownership and order
+
+Preset owns its catalog and dependency graph. Core owns composition closure and
+startup. The app decides whether the complete or selective baseline belongs in
+the product and owns every domain rule layered above it.
 
 ## Replace instead of patching
 
@@ -62,7 +86,7 @@ Do not infer support from enum names or placeholder configuration.
 
 - [Preset composition contract](../../ai/framework/golden-paths/preset-composition.md)
 - [Preset package contract](../../ai/framework/packages/preset.md)
-- [Verified minimal 2D example](../../examples/preset-2d-minimal.mjs)
+- [Preset package guide](../reference/packages/preset.md)
 
 ## Next
 

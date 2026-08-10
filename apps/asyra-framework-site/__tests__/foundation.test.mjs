@@ -30,14 +30,10 @@ test('foundation exposes exact public destinations and accepted child surfaces',
   const header = read('components/site-header.tsx')
   const landing = read('app/page.tsx')
   const atlas = read('app/atlas/page.tsx')
-  ;[
-    '/docs',
-    '/examples',
-    '/asyra-design',
-    '/releases',
-    '/roadmap',
-    '/atlas'
-  ].forEach((route) => assert.match(header, new RegExp(`href: '${route}'`)))
+  ;['/docs', '/asyra-design', '/releases', '/roadmap', '/atlas'].forEach(
+    (route) => assert.match(header, new RegExp(`href: '${route}'`))
+  )
+  assert.doesNotMatch(header, /\/examples|Examples/)
   assert.match(landing, /<LandingHero/)
   assert.match(landing, /<LandingEntryEvidence/)
   assert.match(atlas, /<RuntimeAtlas\s*\/>/)

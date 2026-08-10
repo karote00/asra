@@ -30,6 +30,77 @@ domain prompt, provider credentials, and canonical common APIs.
 - `redactAiValue(...)` and `createAiRuntimeAudit(...)`
 - `createGenericHttpAiProvider(...)` for an app-selected safe endpoint
 
+## Where this runs
+
+Create one runtime inside the app Feature or service that owns the AI
+invocation lifecycle. Provider credentials and vendor calls belong behind the
+app's server boundary. Browser code receives a bounded provider adapter,
+registered actions, permission policy, and the same transaction runner used by
+ordinary product commands.
+
+## Implementation
+
+```ts
+import {
+  createAiAgentRuntime,
+  type AiActionDefinition
+} from '@asyra/ai-agent-runtime'
+
+const setVisibilityAction: AiActionDefinition<{
+  readonly visible: boolean
+}> = {
+  name: 'set_visibility',
+  description: 'Set one selected record visibility.',
+  inputSchema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['visible'],
+    properties: { visible: { type: 'boolean' } }
+  },
+  execute: async ({ visible }) => {
+    visibilityFeature.api.setVisible(visible)
+    return { visible }
+  }
+}
+
+const runtime = createAiAgentRuntime({
+  provider: {
+    requestActionBatch: async () => ({
+      batchId: 'visibility-batch',
+      actions: [{
+        id: 'visibility-1',
+        name: 'set_visibility',
+        arguments: { visible: false },
+        summary: { outcome: 'Hide the selected record' }
+      }]
+    })
+  },
+  actionDefinitions: [setVisibilityAction],
+  contextProvider: {
+    getContext: async () => ({ selectedIds: selectionFeature.api.ids() })
+  },
+  permissionPolicy: {
+    evaluate: async ({ action }) =>
+      action.name === 'set_visibility' ? 'allow' : 'deny'
+  },
+  confirmationHandler: {
+    confirm: async () => true
+  },
+  transactionRunner: {
+    run: async (_label, execute) => appTransactions.run(execute)
+  }
+})
+
+await runtime.run({
+  intent: 'Hide the selected record',
+  signal: featureAbortController.signal
+})
+```
+
+The deterministic provider above makes the orchestration readable. Replace it
+with an app-approved provider adapter; keep the action schema, permission, and
+executor boundaries unchanged.
+
 ## Flow
 
 1. A Feature starts one explicit AI invocation with an abort signal.
@@ -41,9 +112,6 @@ domain prompt, provider credentials, and canonical common APIs.
 7. One app transaction runs registered executors in order.
 8. Executors call the same app common APIs used by human interactions.
 9. Runtime returns a detached bounded result and audit.
-
-Use the deterministic, credential-free
-[`ai-registered-action`](../../examples/ai-agent-runtime.mjs) proof.
 
 ## Expected result
 
@@ -58,14 +126,10 @@ app transaction runner so its rollback contract owns reversal.
 
 ## Validate
 
-```shell
-yarn examples:run ai-registered-action
-yarn workspace @asyra/ai-agent-runtime test:local
-```
-
 Test default-deny permission, confirmation cancel, abort, provider failure,
 invalid and duplicate actions, executor rollback, redaction, progress observer
-containment, and disposal.
+containment, and disposal. Assert the canonical Feature result and the one
+transaction boundary; provider output alone is not success evidence.
 
 ## Forbidden shortcuts
 
@@ -80,7 +144,7 @@ containment, and disposal.
 
 - [AI Agent Runtime contract](../../ai/framework/packages/ai-agent-runtime.md)
 - [Composition golden path](../../ai/framework/golden-paths/compose-ai-agent-runtime.md)
-- [Executable registered-action example](../../examples/ai-agent-runtime.mjs)
+- [AI Agent Runtime package guide](../reference/packages/ai-agent-runtime.md)
 
 ## Next
 

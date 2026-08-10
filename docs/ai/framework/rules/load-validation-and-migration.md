@@ -53,4 +53,4 @@
 
 Reusable app-owned example:
 
-- `docs/examples/app-owned-versioned-load-migration.mjs`
+- `docs/public/build/persistence-migration.md`

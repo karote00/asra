@@ -9,7 +9,6 @@ const bundle = loadContentBundle()
 const routes = [
   '/',
   '/atlas',
-  '/examples',
   '/asyra-design',
   '/releases',
   '/roadmap',

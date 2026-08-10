@@ -38,7 +38,6 @@ Registration creates one managed derived source; canonical dependency changes re
 ## Learn more
 
 - [Complete package guide](https://github.com/karote00/asyra/blob/main/docs/public/reference/packages/ui-context.md)
-- [Extend a generated Asyra Design app](https://github.com/karote00/asyra/blob/main/apps/asyra-design/examples/review-queue-extension.mjs) — `yarn examples:run generated-design-app-extension`
 - [Framework release support](https://github.com/karote00/asyra/blob/main/docs/ai/framework/RELEASE_SUPPORT.md)
 
 ## Support and policy

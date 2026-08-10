@@ -88,7 +88,7 @@ This plan owns:
 - approved operational monitoring and incident ownership.
 
 It does not own package/CLI publication, README updates, package behavior,
-documentation semantics, examples, Landing narrative, Atlas behavior, or
+documentation semantics, advanced guides, Landing narrative, Atlas behavior, or
 visual design. It cannot rewrite failed upstream work during launch closure.
 
 ## Authorization Boundary
@@ -117,7 +117,7 @@ Preview gates, deploy through a project that is not the Asyra Design project,
 and pass every anonymous production case before it is recorded as accepted.
 
 Discovery is fixed to the accepted integration commit, the nine child plans,
-generated content and example inventories, the Framework site workspace, root
+generated content and advanced-guide contracts, the Framework site workspace, root
 hosting configuration and read-only existing project metadata, Vercel's
 authenticated project/deployment facts, and the launch gates named below.
 Upstream product semantics, package publication, custom DNS, analytics,
@@ -132,7 +132,7 @@ stop condition.
    project and the existing Asyra Design project id and stable alias remain
    unchanged.
 2. `integrated-preview-acceptance`: one exact integration commit passes content,
-   examples, Atlas, build, type, lint, test, route, accessibility, responsive,
+   advanced guides, Atlas, build, type, lint, test, route, accessibility, responsive,
    visual, clean-consumer, and release-readiness gates.
 3. `immutable-production-candidate`: production deploys the same accepted Git
    commit and reviewed configuration, without an unreviewed rebuild source.
@@ -140,7 +140,7 @@ stop condition.
    canonical absolute sitemap, robots, social, and metadata URLs from the
    accepted public origin.
 5. `anonymous-production-surface`: an unsigned visitor can load all public
-   routes, search, examples, Asyra Design evidence, releases, Roadmap, and every
+   routes, search, advanced guides, Asyra Design evidence, releases, Roadmap, and every
    Runtime Atlas case with required headers and budgets.
 6. `rollback-readiness`: the immediately previous healthy deployment remains a
    resolvable rollback target; any blocking production result restores it or
@@ -155,7 +155,7 @@ repeat the affected gates. The accepted final Preview must pass:
 
 - production build, test, lint, and type checks;
 - content source, drift, generated inventory, links, anchors, and search;
-- executable examples and all Runtime Atlas cases;
+- advanced implementation guides and all Runtime Atlas cases;
 - beginner generated-app and registry-only clean-consumer validation;
 - accessibility, responsive, reduced-motion, synchronized visual, and browser
   support cases;
@@ -171,7 +171,7 @@ After explicit production authority:
 2. apply only reviewed production configuration and secrets;
 3. deploy without rebuilding from an unreviewed source state;
 4. verify canonical domain, TLS, redirects, headers, cache, metadata, routes,
-   search, examples, Atlas, and verified external links;
+   search, advanced guides, Atlas, and verified external links;
 5. run bounded smoke, accessibility, and performance checks against production;
 6. confirm monitoring and incident ownership if approved; and
 7. roll back through the defined recoverable path if a release-blocking check
@@ -233,7 +233,7 @@ that contradict the separately owned repository policy.
 
 - One immutable Preview passes every program and launch gate.
 - Production deployment occurred only after explicit authorization.
-- The canonical public URL, routes, search, examples, Atlas, metadata, external
+- The canonical public URL, routes, search, advanced guides, Atlas, metadata, external
   links, accessibility, and performance are verified in production.
 - Rollback and operational ownership are documented and usable.
 - Package/CLI publication and unrelated external operations remain outside this

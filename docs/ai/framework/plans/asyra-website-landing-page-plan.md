@@ -4,8 +4,8 @@
 
 Complete, Preview-ready child plan of the
 [Asyra Framework Website Program](completed/asyra-framework-website-plan.md). It begins
-from the accepted public content, executable examples, Material Blueprint
-handoff, and preview-ready common site platform on
+from the accepted public content, Material Blueprint handoff, and preview-ready
+common site platform on
 `codex/asyra-public-release-landing`.
 
 Implementation requires the exact
@@ -35,13 +35,13 @@ predictable action path before exposing package names, APIs, or runtime jargon.
   Landing-owned components/data/tests, Landing styles in the shared stylesheet,
   and the exact site test/E2E wiring required to prove this child.
 - **Fixed discovery:** accepted public content/source mapping, generated release
-  and example inventories, the Material Blueprint handoff, current website
+  inventory, the Material Blueprint handoff, current website
   platform contracts, repository policy files, and verified deployment facts.
 - **Required gates:** Landing Inspector, semantic/narrative tests, strict
   typecheck/lint, production build, route smoke, keyboard/touch/responsive/
   reduced-motion E2E, synchronized live visual review, root dependency and
   repository gates, and PR CI.
-- **Excluded:** documentation semantics, examples, Framework packages, Runtime
+- **Excluded:** documentation semantics, Framework packages, Runtime
   Atlas execution, Asyra Design behavior, package publication, analytics, CMS,
   production deployment, and the image-only second Reimage.
 - **Stop:** a claim cannot resolve to accepted evidence; the implementation
@@ -51,12 +51,11 @@ predictable action path before exposing package names, APIs, or runtime jargon.
 
 ## Verified External Fact
 
-The current public Asyra Design entry is `https://asra.vercel.app`. On
-2026-08-10, GitHub deployment `5820501003` reported a successful Production
-deployment and the stable alias returned an anonymous document titled
-`Asyra Design`. Protected immutable Preview/Production URLs are not valid
-public CTAs. Launch and Operations must re-verify this alias before production
-website release.
+The current public Asyra Design entry is
+`https://asra.vercel.app/?fileId=asyra-framework-demo`. On 2026-08-11, the
+stable alias returned HTTP 200 and an `Asyra Design` document for that explicit
+non-empty document identity. Protected immutable Preview/Production URLs and
+the alias without a `fileId` are not valid public CTAs.
 
 ## Executable Product Cases
 
@@ -84,9 +83,8 @@ approved motion. It consumes public documentation, generated release facts,
 the accepted visual specification, the common website platform, and the Atlas
 entry surface.
 
-It does not own package/documentation semantics, executable example code, the
-full Runtime Atlas, Asyra Design behavior, package versions, README content, or
-production deployment.
+It does not own package/documentation semantics, the full Runtime Atlas, Asyra
+Design behavior, package versions, README content, or production deployment.
 
 ## Required Narrative
 
@@ -124,7 +122,7 @@ remain informative and never fabricate Framework output.
 ## Content Accuracy Contract
 
 - `create-asyra-design-app` is the working-product beginner entry.
-- Examples and Atlas are the Framework-learning entry.
+- Documentation and Runtime Atlas are the Framework-learning entry.
 - Framework, Preset, App, Provider, Backend, and product UI ownership remains
   explicit.
 - AI retrieval/action is app-owned and uses registered current APIs; a

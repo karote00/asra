@@ -41,29 +41,9 @@ test('documentation inputs derive the exact public release package facts', async
   }
 })
 
-test('documentation inputs reuse the exact verified example inventory', async () => {
+test('documentation inputs do not expose a repository example inventory', async () => {
   const inputs = await readApprovedDocumentationInputs({ repositoryRoot })
-  const inventory = JSON.parse(
-    fs.readFileSync(
-      path.join(repositoryRoot, 'docs/examples/inventory.json'),
-      'utf8'
-    )
-  )
-
-  assert.equal(inputs.examples.length, 11)
-  assert.deepEqual(
-    inputs.examples.map(({ id }) => id),
-    inventory.examples.map(({ id }) => id)
-  )
-  for (const example of inputs.examples) {
-    assert.ok(
-      ['apps/asyra-design/examples/', 'docs/examples/'].some((root) =>
-        example.source.startsWith(root)
-      )
-    )
-    assert.ok(example.publicPackages.length > 0)
-    assert.ok(Object.isFrozen(example))
-  }
+  assert.equal('examples' in inputs, false)
 })
 
 test('documentation authority rules are explicit, bounded, and public-safe', async () => {
@@ -75,7 +55,6 @@ test('documentation authority rules are explicit, bounded, and public-safe', asy
     'create-app/asyra-design/',
     'docs/ai/apps/asyra-design/',
     'docs/ai/framework/',
-    'docs/examples/',
     'packages/'
   ])
   assert.deepEqual(authority.allowedRootFiles, [

@@ -48,9 +48,9 @@ stays outside all of those canonical routes.
 
 ## Maintained use path
 
-Run `yarn examples:run collaboration-two-memory-actors` and follow
-[Build opt-in collaboration](../../build/collaboration.md). The example proves
-two actors converge while presence remains ephemeral.
+Follow [Build opt-in collaboration](../../build/collaboration.md) for the
+publication subscription, inbound app validation, remote transaction, and
+separate ephemeral presence flow.
 
 ## Replacement and disabled behavior
 
@@ -71,7 +71,7 @@ changes are outside package semver promises.
 
 - [Package contract](../../../ai/framework/packages/collaboration.md)
 - [Package manifest](../../../../packages/collaboration/package.json)
-- [Executable source](../../../examples/network-collaboration-transport.mjs)
+- [Opt-in collaboration guide](../../build/collaboration.md)
 
 Version, dependencies, and root export are manifest-generated in the public
 package reference. The documentation gate checks this guide against the exact

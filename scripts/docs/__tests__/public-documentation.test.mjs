@@ -31,6 +31,7 @@ test('public indexes derive the exact page, source, and API inventories', async 
     assert.ok(page.wordCount > 0)
     assert.ok(page.headings.length > 1)
     assert.ok(fs.existsSync(path.join(repositoryRoot, page.markdownPath)))
+    assert.equal('examples' in page, false)
   }
   for (const page of bundle.sourceMap.pages) {
     assert.ok(page.sources.length > 0)

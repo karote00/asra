@@ -12,10 +12,11 @@ const step = (id) => {
   return value
 }
 
-test('Landing authority resolves the accepted platform, content, examples, and visual handoff', () => {
+test('Landing authority resolves the accepted platform, content, and visual handoff', () => {
   Object.values(data.authority).forEach((filePath) => {
     assert.ok(fs.existsSync(path.join(repoRoot, filePath)), filePath)
   })
+  assert.equal('exampleInventoryPath' in data.authority, false)
 })
 
 test('Landing owns fourteen exact, unique product cases', () => {
@@ -40,11 +41,11 @@ test('Landing owns fourteen exact, unique product cases', () => {
 
 test('verified Asyra Design fact is public, dated, and evidence-backed', () => {
   assert.deepEqual(data.verifiedFacts.designApp, {
-    href: 'https://asra.vercel.app',
+    href: 'https://asra.vercel.app/?fileId=asyra-framework-demo',
     title: 'Asyra Design',
-    verifiedAt: '2026-08-10',
+    verifiedAt: '2026-08-11',
     evidence:
-      'GitHub deployment 5820501003 reported Production success; the stable alias returned an anonymous document titled Asyra Design.'
+      'The stable public alias returned Asyra Design for the explicit asyra-framework-demo document identity.'
   })
   assert.doesNotMatch(data.verifiedFacts.designApp.href, /-projects\.vercel\.app/)
 })
@@ -90,7 +91,8 @@ test('entries and evidence use generated facts and the verified public alias', (
   const entry = step('connect-entry-evidence')
   const source = JSON.stringify(entry)
   assert.match(source, /working-product beginner path/i)
-  assert.match(source, /Framework-learning paths/i)
+  assert.match(source, /Documentation and Runtime Atlas are Framework-learning paths/i)
+  assert.match(source, /non-empty fileId/i)
   assert.match(source, /derive from the content bundle/i)
   assert.match(source, /verified public alias/i)
   assert.match(source, /security, license, release, roadmap, and contribution-policy/i)

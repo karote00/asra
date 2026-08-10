@@ -22,7 +22,7 @@ truth or canonical state.
 
 ## Public APIs
 
-The current deterministic example uses:
+The implementation uses:
 
 - `core.defineSystemProperty(...)`
 - `core.getSystemContextSnapshot()`
@@ -34,6 +34,61 @@ The current deterministic example uses:
 For model-backed intent, invoke this Feature API from a registered
 `@asyra/ai-agent-runtime` action executor.
 
+## Where this runs
+
+Put retrieval beside the app's information model or index service. It reads a
+detached canonical snapshot and returns bounded identifiers. Put mutation in a
+Feature API. A UI command, automation, or registered AI action may call that
+same API after app permission succeeds.
+
+## Implementation
+
+```ts
+const RECORDS = 'app:records'
+type RecordStatus = 'open' | 'approved'
+type AppRecord = Readonly<{ label: string; status: RecordStatus }>
+type AppRecords = Readonly<Record<string, AppRecord>>
+
+core.defineSystemProperty(RECORDS, {
+  'record-a': { label: 'Cooling audit', status: 'open' },
+  'record-b': { label: 'Safety review', status: 'open' }
+})
+
+const getRecords = (): AppRecords =>
+  core.getSystemContextSnapshot()[RECORDS] as AppRecords
+
+const actions = core.defineFeature('app:record-actions', undefined, {
+  priority: 100,
+  exclusive: true,
+  api: {
+    setStatus(recordId: string, status: RecordStatus) {
+      const records = getRecords()
+      if (!records[recordId]) throw new Error(`Unknown record: ${recordId}`)
+      core.setSystemProperty(RECORDS, {
+        ...records,
+        [recordId]: { ...records[recordId], status }
+      })
+    }
+  }
+})
+
+export const retrieve = (query: string) => {
+  const records = getRecords()
+  return Object.entries(records)
+    .filter(([, record]) =>
+      record.label.toLowerCase().includes(query.toLowerCase())
+    )
+    .map(([id, record]) => ({ id, ...record }))
+}
+
+const [match] = retrieve('safety')
+if (!match) throw new Error('Safety review was not found')
+actions.api.setStatus(match.id, 'approved')
+```
+
+If canonical mutation in your app requires an explicit common transaction API,
+call it from `setStatus(...)`; do not let retrieval own that transaction.
+
 ## Flow
 
 1. Register an app-owned canonical record model.
@@ -43,12 +98,6 @@ For model-backed intent, invoke this Feature API from a registered
 5. Call the Feature/action API with stable identifiers and validated arguments.
 6. Let the API update the canonical owner inside the app's transaction policy.
 7. Rebuild derived retrieval data from committed canonical state as needed.
-
-Run:
-
-```shell
-yarn examples:run app-retrieval-action
-```
 
 ## Expected result
 
@@ -63,14 +112,9 @@ fallback; mutation still requires the registered owner route.
 
 ## Validate
 
-```shell
-yarn examples:run app-retrieval-action
-yarn workspace @asyra/core test:local
-yarn workspace @asyra/feature-system test:local
-```
-
 Add product tests for access control, stale index results, missing ids, schema
-validation, transaction rollback, and the disabled AI composition.
+validation, transaction rollback, and the disabled AI composition. Compare the
+canonical snapshot before and after retrieval to prove search is read-only.
 
 ## Forbidden shortcuts
 
@@ -86,7 +130,7 @@ validation, transaction rollback, and the disabled AI composition.
 
 - [AI Agent Runtime contract](../../ai/framework/packages/ai-agent-runtime.md)
 - [Feature System contract](../../ai/framework/packages/feature-system.md)
-- [Executable retrieval/action example](../../examples/app-retrieval-action.mjs)
+- [Information-model guide](../learn/information-models.md)
 
 ## Next
 

@@ -38,8 +38,6 @@ Preset validates the full selection, installs in catalog order, optionally binds
 ## Learn more
 
 - [Complete package guide](https://github.com/karote00/asyra/blob/main/docs/public/reference/packages/preset.md)
-- [Apply the complete official 2D baseline](https://github.com/karote00/asyra/blob/main/docs/examples/preset-2d-minimal.mjs) — `yarn examples:run preset-2d-minimal`
-- [Select one default and receive its exact closure](https://github.com/karote00/asyra/blob/main/docs/examples/preset-selective-defaults.mjs) — `yarn examples:run preset-selective-defaults`
 - [Framework release support](https://github.com/karote00/asyra/blob/main/docs/ai/framework/RELEASE_SUPPORT.md)
 
 ## Support and policy

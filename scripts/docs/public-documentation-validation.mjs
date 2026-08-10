@@ -3,6 +3,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
 
 import { readPublicContentContract } from './public-content-contract.mjs'
 import { checkPublicDocumentation } from './public-documentation.mjs'
@@ -29,6 +30,31 @@ const PACKAGE_GUIDE_HEADINGS = Object.freeze([
   '## Replacement and disabled behavior',
   '## Support, migration, and deprecation',
   '## Canonical sources and release inventory'
+])
+
+const ADVANCED_GUIDE_IDS = Object.freeze([
+  'start/create-design-app',
+  'start/extend-with-ai',
+  'start/preset-2d',
+  'start/custom-composition',
+  'learn/information-models',
+  'learn/transactions-and-durability',
+  'learn/validation-load-migration',
+  'learn/projection-registration-replacement',
+  'build/custom-schema',
+  'build/feature-session',
+  'build/persistence-migration',
+  'build/render-boundary',
+  'build/collaboration',
+  'build/ai-actions',
+  'build/app-retrieval-action'
+])
+
+const REMOVED_EXAMPLE_PATTERNS = Object.freeze([
+  /examples:run/,
+  /docs\/examples/,
+  /apps\/asyra-design\/examples/,
+  /(?:^|[./])examples\//m
 ])
 
 const markdownFilesBelow = (directory) => {
@@ -253,6 +279,52 @@ const validatePageStructure = ({ page, source }) => {
   }
 }
 
+const validateAdvancedGuide = ({ page, source }) => {
+  if (!ADVANCED_GUIDE_IDS.includes(page.id)) return false
+  for (const heading of [
+    '## Where this runs',
+    '## Implementation',
+    '## Flow',
+    '## Expected result'
+  ]) {
+    if (!source.includes(heading)) {
+      throw new Error(`${page.id} is missing ${heading}`)
+    }
+  }
+  if (!/```(?:ts|tsx)\n[\s\S]+?```/.test(source)) {
+    throw new Error(`${page.id} requires copyable TypeScript code`)
+  }
+  return true
+}
+
+const validateTypeScriptSnippets = ({ page, source }) => {
+  let count = 0
+  for (const match of source.matchAll(/```(ts|tsx)\n([\s\S]*?)```/g)) {
+    count += 1
+    const diagnostics = ts
+      .transpileModule(match[2], {
+        compilerOptions: {
+          jsx: ts.JsxEmit.ReactJSX,
+          module: ts.ModuleKind.ESNext,
+          target: ts.ScriptTarget.ESNext
+        },
+        fileName: `${page.id}.${match[1]}`,
+        reportDiagnostics: true
+      })
+      .diagnostics?.filter(
+        ({ category }) => category === ts.DiagnosticCategory.Error
+      )
+    if (diagnostics?.length) {
+      const message = ts.flattenDiagnosticMessageText(
+        diagnostics[0].messageText,
+        ' '
+      )
+      throw new Error(`${page.id} has invalid TypeScript code: ${message}`)
+    }
+  }
+  return count
+}
+
 export const validatePublicDocumentation = async ({ repositoryRoot }) => {
   const root = path.resolve(repositoryRoot)
   const bundle = await checkPublicDocumentation({ repositoryRoot: root })
@@ -279,10 +351,22 @@ export const validatePublicDocumentation = async ({ repositoryRoot }) => {
 
   let localLinkCount = 0
   let apiReferenceCount = 0
+  let advancedGuideCount = 0
+  let typescriptSnippetCount = 0
   for (const page of content.pages) {
     const filePath = path.join(root, 'docs/public', page.path)
     const source = fs.readFileSync(filePath, 'utf8')
+    const removedPattern = REMOVED_EXAMPLE_PATTERNS.find((pattern) =>
+      pattern.test(source)
+    )
+    if (removedPattern) {
+      throw new Error(
+        `${page.id} still exposes the removed executable-example surface`
+      )
+    }
     validatePageStructure({ page, source })
+    if (validateAdvancedGuide({ page, source })) advancedGuideCount += 1
+    typescriptSnippetCount += validateTypeScriptSnippets({ page, source })
     validatePublicImportMentions({
       apiIndex: bundle.apiIndex,
       pageId: page.id,
@@ -316,12 +400,14 @@ export const validatePublicDocumentation = async ({ repositoryRoot }) => {
   }
 
   return Object.freeze({
+    advancedGuideCount,
     apiReferenceCount,
     localLinkCount,
     packageGuideCount: content.pages.filter((page) =>
       page.id.startsWith('reference/packages/')
     ).length,
     pageCount: content.pages.length,
+    typescriptSnippetCount,
     unownedMarkdownCount: unownedMarkdown.length
   })
 }

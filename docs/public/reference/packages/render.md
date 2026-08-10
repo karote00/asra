@@ -50,9 +50,9 @@ providers translate them. Preset registers official strategies/layers and the
 
 ## Maintained use path
 
-Run `yarn examples:run custom-render-boundary` and follow
-[Build a custom render boundary](../../build/render-boundary.md). The current
-Core model example proves Render remains optional at the provider level.
+Follow [Build a custom render boundary](../../build/render-boundary.md). The
+[information-model guide](../../learn/information-models.md) explains how
+Render remains an optional projection of canonical information.
 
 ## Replacement and disabled behavior
 

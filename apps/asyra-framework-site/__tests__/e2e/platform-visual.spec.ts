@@ -54,6 +54,36 @@ test('desktop documentation keeps reading, navigation, search, and evidence visi
   })
 })
 
+test('advanced guides present validation knowledge as implementable product material', async ({
+  page
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/docs/build/render-boundary')
+  await page.evaluate(() => document.fonts.ready)
+
+  for (const heading of [
+    'Where this runs',
+    'Implementation',
+    'Flow',
+    'Expected result'
+  ]) {
+    await expect(page.getByRole('heading', { name: heading })).toBeVisible()
+  }
+
+  const implementation = page.locator('pre code').first()
+  await expect(implementation).toContainText('RenderEngineDrawOperation')
+  await expect(implementation).toContainText("case 'ellipse'")
+  await expect(implementation).toContainText("case 'poly'")
+  await expect(implementation).toContainText("case 'bezier-curve-to'")
+  await expect(page.getByText(/retained Path2D record/)).toBeVisible()
+  await expect(page.locator('body')).not.toContainText('yarn examples:run')
+
+  await page.screenshot({
+    path: testInfo.outputPath('advanced-render-guide.png'),
+    fullPage: true
+  })
+})
+
 test('mobile documentation navigation is modal, focus-safe, and reflows without overflow', async ({
   page
 }, testInfo) => {
@@ -121,8 +151,8 @@ test('reduced motion replaces navigation travel with an equivalent instant state
 })
 
 test('supporting routes expose exact status boundaries', async ({ page }) => {
-  await page.goto('/examples')
-  await expect(page.locator('.example-ledger > li')).toHaveCount(11)
+  const removedExamples = await page.request.get('/examples')
+  expect(removedExamples.status()).toBe(404)
   await page.goto('/releases')
   await expect(page.locator('.package-row')).toHaveCount(19)
   await expect(page.getByText('publication not authorized')).toBeVisible()
@@ -132,7 +162,10 @@ test('supporting routes expose exact status boundaries', async ({ page }) => {
   ).toBeVisible()
   await expect(
     page.getByRole('link', { name: 'Open Asyra Design' })
-  ).toHaveAttribute('href', 'https://asra.vercel.app')
+  ).toHaveAttribute(
+    'href',
+    'https://asra.vercel.app/?fileId=asyra-framework-demo'
+  )
   const actions = page.locator('.case-study-actions a')
   await expect(actions).toHaveCount(2)
   const actionWidths = await actions.evaluateAll((elements) =>

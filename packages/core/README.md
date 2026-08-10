@@ -34,14 +34,11 @@ Use Core for supported App composition and extensions that cross canonical packa
 
 ## Lifecycle and composition
 
-Startup validates and closes composition, initializes required runtime owners, loads canonical data, and publishes ready only after success. A failure tears down owned work and never reports false readiness. The current no-provider compatibility branch is not a public Headless lifecycle.
+Startup validates and closes composition, initializes required runtime owners, loads canonical data, and publishes ready only after success. App-owned migrations form one connected migration chain; an unmatched string version passes through to ordinary owner validation. A failure tears down owned work and never reports false readiness. The current no-provider compatibility branch is not a public Headless lifecycle.
 
 ## Learn more
 
 - [Complete package guide](https://github.com/karote00/asyra/blob/main/docs/public/reference/packages/core.md)
-- [Model information before choosing an output](https://github.com/karote00/asyra/blob/main/docs/examples/core-information-model.mjs) — `yarn examples:run core-information-model`
-- [Register an app-owned component and schema](https://github.com/karote00/asyra/blob/main/docs/examples/custom-component-schema.mjs) — `yarn examples:run custom-component-schema`
-- [Apply the complete official 2D baseline](https://github.com/karote00/asyra/blob/main/docs/examples/preset-2d-minimal.mjs) — `yarn examples:run preset-2d-minimal`
 - [Framework release support](https://github.com/karote00/asyra/blob/main/docs/ai/framework/RELEASE_SUPPORT.md)
 
 ## Support and policy

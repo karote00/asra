@@ -45,8 +45,9 @@ change Persistence ownership.
 
 ## Maintained use path
 
-Run `yarn examples:run app-versioned-load-migration` and follow
-[Build persistence with app-owned migration](../../build/persistence-migration.md).
+Follow [Build persistence with app-owned migration](../../build/persistence-migration.md)
+for the hook location, migration code, call flow, expected result, and failure
+boundary.
 
 ## Replacement and disabled behavior
 
@@ -66,7 +67,7 @@ transaction-settlement save contract exists.
 
 - [Package contract](../../../ai/framework/packages/persistence.md)
 - [Package manifest](../../../../packages/persistence/package.json)
-- [Executable migration source](../../../examples/app-owned-versioned-load-migration.mjs)
+- [App-owned migration guide](../../build/persistence-migration.md)
 
 The root entrypoint, version, and dependencies are generated from the manifest
 and checked by the documentation release gate.

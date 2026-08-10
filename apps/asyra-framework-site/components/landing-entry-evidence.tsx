@@ -24,7 +24,7 @@ export function LandingEntryEvidence({ bundle }: LandingEntryEvidenceProps) {
             Choose the distance you want to travel
           </p>
           <h2 id="entry-heading">
-            Begin with a product, a proof, or the parts.
+            Begin with a product, the documentation, or the parts.
           </h2>
           <p>
             You do not need to understand every package before beginning. Start
@@ -60,12 +60,12 @@ export function LandingEntryEvidence({ bundle }: LandingEntryEvidenceProps) {
             <p className="technical-label">Framework-learning path</p>
             <h3>Learn the Framework</h3>
             <p>
-              Run focused examples, then use Runtime Atlas to inspect how real
-              intent, ownership, transactions, outcomes, and failure paths fit
-              together.
+              Read task-focused guides with copyable code, then use Runtime
+              Atlas to inspect how intent, ownership, transactions, outcomes,
+              and failure paths fit together in a running system.
             </p>
             <div className="landing-entry__links">
-              <Link href="/examples">Run the examples</Link>
+              <Link href="/docs">Read the guides</Link>
               <Link href="/atlas">Open Runtime Atlas</Link>
             </div>
           </article>

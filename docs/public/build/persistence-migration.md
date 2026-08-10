@@ -28,8 +28,64 @@ selection, scheduling, authentication, retention, and backend topology.
   `LocalStoragePersistence`
 - `SaveHook` and `LoadHook`
 
-The maintained helper exports `registerAppVersionMigrations(...)` as copyable
-app code, not as a Framework API.
+The implementation below is an app-owned migration helper, not a Framework
+API.
+
+## Where this runs
+
+Install migration hooks in the app's document composition before Core starts.
+The provider returns untrusted data to the load source; migration happens
+before canonical package apply. Keep backend selection, retries, retention, and
+credentials in app/server adapters rather than the browser document model.
+
+## Implementation
+
+```ts
+type AppDocument = { version: string; [key: string]: unknown }
+type Migration = (document: AppDocument) => AppDocument
+
+const migrations = new Map<string, Migration>([
+  [
+    'v1',
+    (document) => {
+      const { legacyTitle, ...rest } = document
+      return { ...rest, version: 'v2', title: legacyTitle ?? '' }
+    }
+  ],
+  [
+    'v2',
+    (document) => ({
+      ...document,
+      version: 'v3',
+      metadata: { schema: 'v3' }
+    })
+  ]
+])
+
+core.registerLoadHook((rawDocument) => {
+  if (!rawDocument || typeof rawDocument !== 'object') {
+    throw new Error('Invalid document envelope')
+  }
+  if (typeof (rawDocument as { version?: unknown }).version !== 'string') {
+    throw new Error('Document version is required')
+  }
+  let document = rawDocument as AppDocument
+  const visited = new Set<string>()
+  while (migrations.has(document.version)) {
+    if (visited.has(document.version)) throw new Error('Migration cycle')
+    visited.add(document.version)
+    document = migrations.get(document.version)!(document)
+  }
+  if (document.version !== 'v3') {
+    throw new Error(`Unsupported document version: ${document.version}`)
+  }
+  return document
+})
+```
+
+Production registration should validate the entire transition batch up front:
+one head, no duplicate input/output versions, no disconnected components, and
+no asynchronous step results.
 
 ## Flow
 
@@ -42,13 +98,9 @@ app code, not as a Framework API.
 7. Let package owners validate the complete candidate before apply.
 8. Activate the document only after all owners accept it.
 
-Follow the exact
-[`app-versioned-load-migration`](../../examples/app-owned-versioned-load-migration.mjs)
-helper and its type/regression tests.
-
 ## Expected result
 
-The verified example migrates a `v1` document through one connected chain to
+The implementation migrates a `v1` document through one connected chain to
 `v3`. Missing versions, disconnected/cyclic chains, duplicate registration,
 asynchronous results, malformed results, and wrong output versions fail before
 canonical apply.
@@ -59,14 +111,8 @@ committed. The app decides retry and recovery policy.
 
 ## Validate
 
-```shell
-yarn examples:run app-versioned-load-migration
-yarn workspace @asyra/persistence test:local
-yarn workspace @asyra/props-manager test:local
-```
-
 Add round-trip, invalid-document, unsupported-version, partial-owner failure,
-and prior-document preservation tests for your app schema.
+prior-document preservation, and provider-failure tests for your app schema.
 
 ## Forbidden shortcuts
 
@@ -81,7 +127,7 @@ and prior-document preservation tests for your app schema.
 
 - [Persistence contract](../../ai/framework/packages/persistence.md)
 - [Props Manager contract](../../ai/framework/packages/props-manager.md)
-- [Executable migration example](../../examples/app-owned-versioned-load-migration.mjs)
+- [Validation and load boundaries](../learn/validation-load-migration.md)
 
 ## Next
 

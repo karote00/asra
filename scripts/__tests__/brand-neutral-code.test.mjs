@@ -106,6 +106,7 @@ const publicSlugs = new Set(
     return [name, unscopedName, packageSlug]
   })
 )
+const publicIdentityDataValues = new Set(['asyra-framework-demo'])
 const lowercaseIdentityOwnerPaths = new Set([
   'package.json',
   'scripts/__tests__/changeset-all-patch.test.mjs',
@@ -118,6 +119,14 @@ const capitalizedBrandIdentifierPattern = new RegExp(
 )
 
 const isAllowedPublicIdentity = (token, line, filePath) => {
+  const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  if (
+    publicIdentityDataValues.has(token) &&
+    new RegExp(`(['"])[^'"\\n]*${escapedToken}[^'"\\n]*\\1`, 'u').test(line)
+  ) {
+    return true
+  }
+
   if (token === repositoryDisplayName) {
     return !capitalizedBrandIdentifierPattern.test(line)
   }
@@ -169,6 +178,23 @@ test('Official display names remain distinct from branded code identifiers', () 
     isAllowedPublicIdentity(
       repositoryBrand,
       `const storageKey = '${repositoryBrand}'`,
+      fixturePath
+    ),
+    false
+  )
+  assert.equal(
+    isAllowedPublicIdentity(
+      'asyra-framework-demo',
+      "const demoUrl = 'https://asra.vercel.app/?fileId=asyra-framework-demo'",
+      fixturePath
+    ),
+    true
+  )
+  const brandedCamelCase = `${repositoryBrand}FrameworkDemo`
+  assert.equal(
+    isAllowedPublicIdentity(
+      brandedCamelCase,
+      `const ${brandedCamelCase} = true`,
       fixturePath
     ),
     false

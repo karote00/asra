@@ -602,11 +602,11 @@ export function RuntimeAtlas() {
             </ul>
           </section>
           <section>
-            <p className="technical-label">SOURCE EXAMPLES</p>
+            <p className="technical-label">ADVANCED GUIDES</p>
             <ul>
-              {definition.exampleIds.map((exampleId) => (
-                <li key={exampleId}>
-                  <Link href="/examples">{exampleId}</Link>
+              {definition.guideIds.map((guideId) => (
+                <li key={guideId}>
+                  <Link href={`/docs/${guideId}`}>{guideId}</Link>
                 </li>
               ))}
             </ul>

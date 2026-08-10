@@ -90,15 +90,15 @@ through Features and public APIs, add tests, and then expand the product.
 
 - [Generated-product walkthrough](https://github.com/karote00/asyra/blob/main/docs/public/start/create-design-app.md)
 - [Extend with an AI coding agent](https://github.com/karote00/asyra/blob/main/docs/public/start/extend-with-ai.md)
-- [Maintained review queue extension](https://github.com/karote00/asyra/blob/main/apps/asyra-design/examples/review-queue-extension.mjs)
-- [Framework learning examples](https://github.com/karote00/asyra/blob/main/docs/examples/README.md)
+- [Framework learning guides](https://github.com/karote00/asyra/blob/main/docs/public/index.md)
+- [Advanced implementation guides](https://github.com/karote00/asyra/blob/main/docs/public/build/custom-schema.md)
 - [Complete public documentation](https://github.com/karote00/asyra/blob/main/docs/public/index.md)
 - [Asyra Design case study](https://github.com/karote00/asyra/blob/main/docs/public/cases/asyra-design.md)
 
-`create-asyra-design-app` teaches how a real product uses Asyra. The smaller
-Framework examples remain a separate entrance for learning Core, Preset,
-transactions, schemas, custom rendering, collaboration, and registered AI
-actions without the full product stack.
+`create-asyra-design-app` teaches how a real product uses Asyra. The Framework
+documentation and Runtime Atlas remain a separate entrance for learning Core,
+Preset, transactions, schemas, custom rendering, collaboration, and registered
+AI actions without first understanding the full product stack.
 
 ## Verify
 

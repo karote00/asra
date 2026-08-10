@@ -48,9 +48,8 @@ optional React presentation package.
 
 ## Maintained use path
 
-Run `yarn examples:run preset-2d-minimal` and
-`yarn examples:run preset-selective-defaults`. Follow
-[Compose the official 2D baseline](../../start/preset-2d.md).
+Follow [Compose the official 2D baseline](../../start/preset-2d.md) for both the
+complete Preset call and selective dependency expansion.
 
 ## Replacement and disabled behavior
 

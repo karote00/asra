@@ -13,7 +13,6 @@ export interface PublicPage {
   description: string
   sources: string[]
   packages: string[]
-  examples: string[]
   route: string
   slug: string[]
   markdown: string
@@ -50,20 +49,8 @@ export interface PublicPackageRecord {
   version: string
   guideId: string
   guidePath: string
-  examples: string[]
   frameworkDependencies: string[]
   publicEntries: string[]
-}
-
-export interface PublicExampleRecord {
-  id: string
-  title: string
-  objective: string
-  expectedResult: string
-  environment: string
-  runCommand: string
-  source: string
-  snippet: string
 }
 
 export interface ContentBundle {
@@ -74,8 +61,6 @@ export interface ContentBundle {
   searchRecords: SearchRecord[]
   release: ReleaseCandidate
   packages: PublicPackageRecord[]
-  examples: PublicExampleRecord[]
-  runtime: { node: string; packageManager: string }
   repositoryName: string
   repositoryHref: string
   repoRoot: string

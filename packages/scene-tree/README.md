@@ -38,8 +38,6 @@ Batches validate identity, membership, cycles, order, relations, and staleness b
 ## Learn more
 
 - [Complete package guide](https://github.com/karote00/asyra/blob/main/docs/public/reference/packages/scene-tree.md)
-- [Register an app-owned component and schema](https://github.com/karote00/asyra/blob/main/docs/examples/custom-component-schema.mjs) — `yarn examples:run custom-component-schema`
-- [Model information before choosing an output](https://github.com/karote00/asyra/blob/main/docs/examples/core-information-model.mjs) — `yarn examples:run core-information-model`
 - [Framework release support](https://github.com/karote00/asyra/blob/main/docs/ai/framework/RELEASE_SUPPORT.md)
 
 ## Support and policy

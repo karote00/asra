@@ -6,7 +6,9 @@ Completed locally on August 10, 2026, as a child plan of the
 [Asyra Framework Website Program](completed/asyra-framework-website-plan.md). The
 accepted bundle contains 41 source-mapped public pages, guides for all 19
 release packages, deterministic human/AI indexes, and fail-closed freshness,
-link, example, and public-API validation.
+link, source, and public-API validation. On August 11, 2026, maintainer review
+replaced the executable-example handoff with self-contained advanced guides:
+the public website no longer asks readers to run repository example commands.
 
 The implementation advanced only after a thin public-documentation contract,
 an exact documentation-flow Inspector, executable content cases, source
@@ -33,7 +35,6 @@ not own:
 
 - root, package, Asyra Design, CLI, or generated-app README files owned by the
   sibling README workstream;
-- sample implementation code owned by `docs/examples/*`;
 - website components, routes, styling, or search UI;
 - package behavior, exports, manifests, versions, or release publication; or
 - internal architecture contracts under `docs/ai/*`.
@@ -75,7 +76,8 @@ The first public content bundle must include:
    - support, migration, deprecation, security, and release boundaries.
 5. Cases
    - Asyra Design as a source-linked reference product; and
-   - conceptual guides that link to the executable Examples and Runtime Atlas.
+   - conceptual guides that lead into advanced implementation guides and the
+     Runtime Atlas.
 
 ## Required Page Inventory
 
@@ -97,17 +99,16 @@ The first accepted bundle contains exactly these stable page families:
 - `cases/asyra-design`.
 
 The machine-readable manifest owns each page's stable id, Markdown path,
-section, title, canonical source paths, package relationships, and executable
-example ids. Generated indexes may add manifest-derived versions, exports, and
+section, title, canonical source paths, and package relationships. Generated
+indexes may add manifest-derived versions, exports, related-guide routes, and
 source digests but may not introduce a page, id, or behavior claim.
 
-## Executable Content Cases
+## Public Content Cases
 
 - the manifest has the exact required page and 19-package guide set;
 - every page exists once and every Markdown page is manifest-owned;
 - every canonical source path exists and remains inside approved active
-  Framework, App, create-app, release, or example authorities;
-- every example id resolves to the verified executable-example inventory;
+  Framework, App, create-app, release, or package authorities;
 - every package and public entrypoint resolves to the release inventory;
 - source drift, broken internal links, stale generated facts, forbidden
   private/internal index content, or unsupported public API names fail closed;
@@ -126,14 +127,15 @@ of the package set and count. Each guide must state:
 - prerequisites and supported public entrypoints;
 - initialization, lifecycle, inputs, outputs, and failure behavior;
 - package relationships without private or relative cross-package imports;
-- one minimal supported use path linked to maintained example code;
+- one minimal supported use path with copyable public-API code, its call
+  location, the complete ownership flow, and an observable result;
 - replacement, optionality, and disabled behavior where applicable;
 - current support, migration, and deprecation boundaries; and
 - canonical source links and last-reviewed release inventory.
 
 Do not create one artificial standalone sample for every package when the
 package is meaningful only as part of a real composition flow. Package guides
-may share one maintained cross-package example while explaining their own
+may link to the same advanced cross-package guide while explaining their own
 ownership precisely.
 
 ## Asyra Design Case-Study Content
@@ -152,7 +154,8 @@ silently broaden Asyra Design behavior into a Framework capability claim.
 ## AI-Readable Documentation Contract
 
 - Every task guide states prerequisites, exact public APIs, owner boundaries,
-  expected result, validation commands, and forbidden shortcuts.
+  copyable code, call location, execution flow, observable result, validation,
+  and forbidden shortcuts.
 - Pages use stable Markdown, predictable headings, source links, and bounded
   context suitable for retrieval.
 - A machine-readable content index and plain-text discovery surface may be
@@ -170,8 +173,9 @@ silently broaden Asyra Design behavior into a Framework capability claim.
 - Package versions, environments, exports, and support facts are generated
   from manifests, artifacts, declarations, and release records.
 - API reference derives only from approved public entrypoints and declarations.
-- Code blocks link to, import, or are verified against the executable-example
-  workstream; unsupported copy-pasted variants are forbidden.
+- Code blocks use approved public entrypoints and are reviewed against current
+  declarations, canonical contracts, and formal package behavior tests;
+  unsupported private or speculative variants are forbidden.
 - Root, package, App, CLI, generated-app, website, support, migration, and
   release links participate in link and stale-version validation.
 
@@ -194,7 +198,8 @@ silently broaden Asyra Design behavior into a Framework capability claim.
 - all public release packages resolve to one complete guide;
 - every behavior and support claim resolves to an active canonical source;
 - all public API names resolve to published entrypoints or declarations;
-- all code samples resolve to maintained executable evidence;
+- all code samples resolve to approved public entrypoints and current formal
+  package behavior;
 - source-map drift, broken-link, stale-version, and generated-inventory checks
   pass;
 - current visual, future non-visible, Preset, App-domain, and AI-assisted
@@ -206,7 +211,7 @@ silently broaden Asyra Design behavior into a Framework capability claim.
 
 - Canonical ownership or a public API contract is ambiguous.
 - A guide requires undocumented package-private behavior.
-- An example link has no maintained executable owner.
+- A documented call requires a private or unsupported API.
 - A version, support fact, CLI command, or public URL is unverified.
 - Content would expose private operations, credentials, or internal-only docs.
 - The task would need to repair a sibling README, implementation, manifest, or

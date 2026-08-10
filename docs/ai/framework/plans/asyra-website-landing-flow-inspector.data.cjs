@@ -29,18 +29,17 @@ module.exports = Object.freeze({
     contentManifestPath: 'docs/public/content-manifest.json',
     contentIndexPath: 'docs/public/generated/content-index.json',
     packageReferencePath: 'docs/public/generated/package-reference.json',
-    exampleInventoryPath: 'docs/examples/inventory.json',
     visualHandoffPath:
       'docs/ai/framework/website/visual-reimagine/handoff.md',
     workspacePath: 'apps/asyra-framework-site'
   }),
   verifiedFacts: Object.freeze({
     designApp: Object.freeze({
-      href: 'https://asra.vercel.app',
+      href: 'https://asra.vercel.app/?fileId=asyra-framework-demo',
       title: 'Asyra Design',
-      verifiedAt: '2026-08-10',
+      verifiedAt: '2026-08-11',
       evidence:
-        'GitHub deployment 5820501003 reported Production success; the stable alias returned an anonymous document titled Asyra Design.'
+        'The stable public alias returned Asyra Design for the explicit asyra-framework-demo document identity.'
     })
   }),
   caseIds,
@@ -53,7 +52,7 @@ module.exports = Object.freeze({
         'Freeze the global-audience narrative, exact product cases, accepted evidence, verified external fact, owner boundaries, and Landing gates before UI implementation.',
       inputs: [
         'artifact:verified-platform',
-        'accepted public-content and executable-example handoffs',
+        'accepted public-content handoff',
         'accepted Material Blueprint visual handoff',
         'verified public Asyra Design alias'
       ],
@@ -67,7 +66,7 @@ module.exports = Object.freeze({
       allowedContributors: [
         'Landing plan and Inspector',
         'artifact:verified-platform',
-        'accepted public content, example, and visual handoffs',
+        'accepted public content and visual handoffs',
         'recorded public deployment evidence'
       ],
       forbiddenContributors: [
@@ -205,9 +204,9 @@ module.exports = Object.freeze({
       outputs: ['artifact:complete-landing'],
       conditions: [
         'create-asyra-design-app is the working-product beginner path.',
-        'Examples and Runtime Atlas are Framework-learning paths and custom composition remains a distinct experienced path.',
+        'Documentation and Runtime Atlas are Framework-learning paths and custom composition remains a distinct experienced path.',
         'Candidate family and package count derive from the content bundle and publication is never implied.',
-        'Asyra Design is labelled a reference product, links only to the verified public alias, and never becomes Framework authority.',
+        'Asyra Design is labelled a reference product, links only to the verified public alias with one non-empty fileId, and never becomes Framework authority.',
         'Documentation, repository, security, license, release, roadmap, and contribution-policy destinations are present and exact.'
       ],
       bypasses: [

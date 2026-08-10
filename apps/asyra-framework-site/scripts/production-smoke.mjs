@@ -19,7 +19,6 @@ const bundle = loadContentBundle()
 const publicRoutes = [
   '/',
   '/atlas',
-  '/examples',
   '/asyra-design',
   '/releases',
   '/roadmap',
@@ -61,9 +60,9 @@ for (const header of [
   assert.ok(home.headers.get(header), `Missing ${header}`)
 }
 assert.ok(home.headers.get('cache-control'), 'Missing cache-control')
-assert.match(
-  home.body,
-  new RegExp(verifiedLandingFacts.designApp.href.replaceAll('.', '\\.'))
+assert.ok(
+  home.body.includes(verifiedLandingFacts.designApp.href),
+  'Landing is missing the verified Asyra Design URL'
 )
 
 const robotsResponse = await fetch(new URL('/robots.txt', origin))

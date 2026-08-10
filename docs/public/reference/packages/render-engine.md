@@ -48,9 +48,9 @@ concrete engine.
 
 ## Maintained use path
 
-Run `yarn examples:run custom-render-boundary`. The
-[custom render guide](../../build/render-boundary.md) lists integration proof
-beyond the shared conformance oracle.
+The [custom render guide](../../build/render-boundary.md) shows how a concrete
+Canvas translation sits behind semantic engine commands and which product
+behaviors must remain true when replacing the provider.
 
 ## Replacement and disabled behavior
 
@@ -70,7 +70,7 @@ frames, handle isolation, and normalized interaction.
 
 - [Package contract](../../../ai/framework/packages/render-engine.md)
 - [Package manifest](../../../../packages/render-engine/package.json)
-- [Executable conformance source](../../../examples/custom-render-boundary.mjs)
+- [Custom render-boundary guide](../../build/render-boundary.md)
 
 Version plus `.` and `./testing` entrypoints are generated from the manifest and
 verified against the release inventory.

@@ -38,7 +38,7 @@
 - rely on Core's per-load load-hook snapshot; the app transition registry is
   fixed when its dispatcher is registered
 - reusable copyable helper:
-  `docs/examples/app-owned-versioned-load-migration.mjs`
+  `docs/public/build/persistence-migration.md`
 
 3. Run framework validation/fallback pipeline
 

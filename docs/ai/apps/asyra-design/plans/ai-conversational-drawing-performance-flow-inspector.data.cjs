@@ -221,7 +221,8 @@
         'docs/ai/framework/API_SURFACES.md',
         'docs/ai/framework/packages/ai-agent-runtime.md',
         'docs/ai/framework/golden-paths/compose-ai-agent-runtime.md',
-        'docs/examples/ai-agent-runtime.mjs',
+        'docs/public/build/ai-actions.md',
+        'packages/ai-agent-runtime/src/__tests__/resolved-action-batch.test.ts',
         'docs/ai/apps/asyra-design/API_SURFACES.md'
       ],
       specRefs: [

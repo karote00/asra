@@ -38,7 +38,6 @@ Register stable definitions before use and release exact subscriptions. Missing 
 ## Learn more
 
 - [Complete package guide](https://github.com/karote00/asyra/blob/main/docs/public/reference/packages/reactive-events.md)
-- [Commit one session as one Undo unit](https://github.com/karote00/asyra/blob/main/docs/examples/feature-session-undo.mjs) — `yarn examples:run feature-session-undo`
 - [Framework release support](https://github.com/karote00/asyra/blob/main/docs/ai/framework/RELEASE_SUPPORT.md)
 
 ## Support and policy

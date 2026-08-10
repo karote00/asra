@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
-import { fileURLToPath } from 'node:url'
+import { URL, fileURLToPath } from 'node:url'
 import { verifiedLandingFacts } from '../lib/landing-facts.mjs'
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -11,12 +11,16 @@ const compact = (value) => value.replace(/\s+/g, ' ')
 
 test('Asyra Design uses the exact dated anonymously verified public fact', () => {
   assert.deepEqual(verifiedLandingFacts.designApp, {
-    href: 'https://asra.vercel.app',
+    href: 'https://asra.vercel.app/?fileId=asyra-framework-demo',
     title: 'Asyra Design',
-    verifiedAt: '2026-08-10',
+    verifiedAt: '2026-08-11',
     evidence:
-      'GitHub deployment 5820501003 reported Production success; the stable alias returned an anonymous document titled Asyra Design.'
+      'The stable alias returned an anonymous HTTP 200 document titled Asyra Design with the demo fileId in the requested URL.'
   })
+  assert.equal(
+    new URL(verifiedLandingFacts.designApp.href).searchParams.get('fileId'),
+    'asyra-framework-demo'
+  )
   assert.doesNotMatch(
     verifiedLandingFacts.designApp.href,
     /-projects\.vercel\.app/
@@ -27,7 +31,7 @@ test('three complementary starting paths are distinct and exact', () => {
   const entry = read('components/landing-entry-evidence.tsx')
   ;[
     ['/docs/start/create-design-app', 'Start with a working product'],
-    ['/examples', 'Learn the Framework'],
+    ['/docs', 'Learn the Framework'],
     ['/docs/start/custom-composition', 'Compose a custom product']
   ].forEach(([href, label]) => {
     assert.match(entry, new RegExp(`href="${href}"`))
@@ -35,6 +39,7 @@ test('three complementary starting paths are distinct and exact', () => {
   })
   assert.match(entry, /create-asyra-design-app/)
   assert.match(entry, /Runtime Atlas/)
+  assert.doesNotMatch(entry, /examples|\/examples/i)
   assert.match(entry, /App-owned information model/)
 })
 

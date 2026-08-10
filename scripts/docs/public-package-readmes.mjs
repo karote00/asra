@@ -56,7 +56,7 @@ const PACKAGE_COPY = Object.freeze({
     start:
       'Use Core for supported App composition and extensions that cross canonical package owners. Register composition before the first `core.start(...)`.',
     lifecycle:
-      'Startup validates and closes composition, initializes required runtime owners, loads canonical data, and publishes ready only after success. A failure tears down owned work and never reports false readiness. The current no-provider compatibility branch is not a public Headless lifecycle.',
+      'Startup validates and closes composition, initializes required runtime owners, loads canonical data, and publishes ready only after success. App-owned migrations form one connected migration chain; an unmatched string version passes through to ordinary owner validation. A failure tears down owned work and never reports false readiness. The current no-provider compatibility branch is not a public Headless lifecycle.',
     code: "import core from '@asyra/core'"
   }),
   'design-system': Object.freeze({
@@ -310,12 +310,6 @@ const packageReadme = async (packageRecord) => {
     throw new Error(`Missing package README copy for ${packageRecord.name}`)
   }
   const guideUrl = `${REPOSITORY_URL}/blob/main/${packageRecord.guide.path}`
-  const exampleLinks = packageRecord.examples
-    .map(
-      (example) =>
-        `- [${example.title}](${REPOSITORY_URL}/blob/main/${example.source}) — \`${example.runCommand}\``
-    )
-    .join('\n')
 
   return format(
     `# \`${packageRecord.name}\`
@@ -358,7 +352,6 @@ ${copy.lifecycle}
 ## Learn more
 
 - [Complete package guide](${guideUrl})
-${exampleLinks}
 - [Framework release support](${REPOSITORY_URL}/blob/main/docs/ai/framework/RELEASE_SUPPORT.md)
 
 ## Support and policy

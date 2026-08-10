@@ -19,7 +19,7 @@ module.exports = Object.freeze({
     programPath: 'docs/ai/framework/plans/asyra-framework-website-plan.md',
     siteWorkspacePath: 'apps/asyra-framework-site',
     contentIndexPath: 'docs/public/generated/content-index.json',
-    exampleInventoryPath: 'docs/examples/inventory.json',
+    advancedGuidesRoot: 'docs/public',
     rootHostingConfigPath: 'vercel.json',
     atlasPlanPath: 'docs/ai/framework/plans/asyra-runtime-atlas-plan.md'
   }),
@@ -82,7 +82,7 @@ module.exports = Object.freeze({
       outputs: ['artifact:accepted-preview'],
       conditions: [
         'The accepted commit is clean, pushed, immutable, and recorded before deployment.',
-        'Generated release, content, example, support, and external-link facts match their current owners.',
+        'Generated release, content, advanced-guide, support, and external-link facts match their current owners.',
         'Build, typecheck, lint, tests, routes, accessibility, performance, visual review, Atlas, clean-consumer, and release-readiness gates pass.'
       ],
       bypasses: [
@@ -110,8 +110,7 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/__tests__/launch.test.mjs',
         'apps/asyra-framework-site/__tests__/e2e/launch-production.spec.ts',
         'apps/asyra-framework-site/scripts/production-smoke.mjs',
-        'docs/public/generated/**',
-        'docs/examples/**',
+        'docs/public/**',
         'docs/ai/framework/plans/asyra-website-launch-and-operations-plan.md'
       ],
       specRefs: [
@@ -209,13 +208,13 @@ module.exports = Object.freeze({
       order: 5,
       ownerPackage: 'Anonymous production verification',
       purpose:
-        'Fail closed on anonymous route, TLS, redirect, headers, cache, indexing, metadata, sitemap, search, examples, Atlas, external-link, accessibility, responsive, or performance drift.',
+        'Fail closed on anonymous route, TLS, redirect, headers, cache, indexing, metadata, sitemap, search, advanced guides, Atlas, external-link, accessibility, responsive, or performance drift.',
       inputs: ['artifact:production-deployment', 'artifact:rollback-target'],
       outputs: ['artifact:verified-production'],
       conditions: [
         'The stable alias and immutable deployment use TLS and return the same accepted site.',
         'Robots permits production indexing and sitemap and metadata URLs use the stable accepted origin.',
-        'Every public route, search path, example, release fact, Roadmap, Asyra Design link, and Runtime Atlas case works anonymously.',
+        'Every public route, search path, advanced guide, release fact, Roadmap, Asyra Design link, and Runtime Atlas case works anonymously.',
         'Security, cache, accessibility, responsive, reduced-motion, performance, and failure behavior gates pass.'
       ],
       bypasses: [

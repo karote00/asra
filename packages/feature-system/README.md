@@ -38,8 +38,6 @@ A session starts, updates, and then ends or cancels before conflicting work. Can
 ## Learn more
 
 - [Complete package guide](https://github.com/karote00/asyra/blob/main/docs/public/reference/packages/feature-system.md)
-- [Commit one session as one Undo unit](https://github.com/karote00/asyra/blob/main/docs/examples/feature-session-undo.mjs) — `yarn examples:run feature-session-undo`
-- [Let app retrieval find; let Feature API mutate](https://github.com/karote00/asyra/blob/main/docs/examples/app-retrieval-action.mjs) — `yarn examples:run app-retrieval-action`
 - [Framework release support](https://github.com/karote00/asyra/blob/main/docs/ai/framework/RELEASE_SUPPORT.md)
 
 ## Support and policy

@@ -16,23 +16,61 @@ Registration should fail explicitly on duplicate or invalid ownership. Do not
 silently replace a strategy because two extensions chose the same id. Use the
 declared unregister/replacement path while composition permits it.
 
+## Where this runs
+
+Provider selection happens in the browser app's composition module before
+Core startup. The concrete adapter belongs in an app-owned or provider package;
+the rest of the app imports only `@asyra/render-engine` types and Render/Core
+facades.
+
+## Implementation
+
+Expose the concrete adapter as a provider function and bind it exactly once:
+
+```ts
+import type { RenderEngineProvider } from '@asyra/render-engine'
+import { applyPreset, PresetProfiles } from '@asyra/preset'
+import { createCanvasRenderEngine } from './canvas-render-engine'
+
+const canvasProvider: RenderEngineProvider = () => createCanvasRenderEngine()
+
+applyPreset(core, { profile: PresetProfiles.CUSTOM, defaults: [] })
+core.setRenderEngineProvider(canvasProvider)
+await core.start(document.querySelector('#app')!, {
+  width: window.innerWidth,
+  height: window.innerHeight
+})
+```
+
+`createCanvasRenderEngine()` is your adapter implementation. It keeps DOM nodes,
+Canvas contexts, SDK objects, resource caches, and handles behind the public
+engine-neutral methods.
+
+## Flow
+
+1. The app selects `CUSTOM` policy while composition is open.
+2. Core accepts one engine provider without constructing it immediately.
+3. Startup asks the provider for one engine and initializes it with the host.
+4. Render issues semantic commands and queries through the adapter.
+5. The adapter normalizes interactions back to engine-neutral events.
+6. App disposal destroys provider-owned objects and resources.
+
+## Expected result
+
+Canonical information projects through the custom provider without concrete
+SDK objects entering Core, Factory, Scene Tree, or app document state. Missing
+capabilities, invalid engines, initialization failure, and cleanup failure stay
+visible; none silently switches to Pixi.
+
 ## Provider replacement
 
 `@asyra/render-engine` defines the engine-neutral provider contract. The
 official `@asyra/render-engine-pixi` package is one optional implementation,
 selected by the current Preset `2D` profile. A custom app can choose
 `PresetProfiles.CUSTOM`, call `core.setRenderEngineProvider(...)` before
-startup, and verify its provider with the shared engine contract.
-
-Run:
-
-```shell
-yarn examples:run custom-render-boundary
-```
-
-The verified example proves the provider remains uninvolved until startup and
-that the custom engine stays behind the public boundary. Concrete SDK objects,
-resources, and handles must not escape into Core or canonical package state.
+startup, and verify actual product behavior at the adapter boundary. Concrete
+SDK objects, resources, and handles must not escape into Core or canonical
+package state.
 
 ## Layer ownership
 
@@ -64,7 +102,7 @@ errors and must not fall back to Pixi.
 - [Render contract](../../ai/framework/packages/render.md)
 - [Render Engine contract](../../ai/framework/packages/render-engine.md)
 - [Replace the default engine](../../ai/framework/golden-paths/replace-render-engine.md)
-- [Verified custom engine boundary](../../examples/custom-render-boundary.mjs)
+- [Custom render-boundary guide](../build/render-boundary.md)
 
 ## Next
 

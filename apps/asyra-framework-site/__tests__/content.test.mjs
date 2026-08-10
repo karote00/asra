@@ -13,11 +13,8 @@ test('content adapter verifies the complete release candidate inventory', () => 
   assert.equal(bundle.pageById.size, 41)
   assert.equal(bundle.pageByPath.size, 41)
   assert.equal(bundle.packages.length, 19)
-  assert.equal(bundle.examples.length, 11)
-  assert.deepEqual(bundle.runtime, {
-    node: '24.x',
-    packageManager: 'yarn@4.3.1'
-  })
+  assert.equal('examples' in bundle, false)
+  assert.equal('runtime' in bundle, false)
   assert.deepEqual(bundle.release, {
     family: '0.5',
     packageCount: 19,

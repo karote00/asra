@@ -16,7 +16,6 @@ export const PUBLIC_CONTENT_SCHEMA_PATH =
 
 const PAGE_KEYS = [
   'description',
-  'examples',
   'id',
   'packages',
   'path',
@@ -72,7 +71,6 @@ export const validatePublicContentManifest = ({
   }
 
   const packageNames = new Set(inputs.packages.map(({ name }) => name))
-  const exampleIds = new Set(inputs.examples.map(({ id }) => id))
   const paths = new Set()
 
   for (const page of manifest.pages) {
@@ -103,7 +101,6 @@ export const validatePublicContentManifest = ({
 
     assertUniqueStrings({ label: `${page.id} sources`, values: page.sources })
     assertUniqueStrings({ label: `${page.id} packages`, values: page.packages })
-    assertUniqueStrings({ label: `${page.id} examples`, values: page.examples })
     if (page.sources.length === 0) {
       throw new Error(`${page.id} requires at least one canonical source`)
     }
@@ -118,11 +115,6 @@ export const validatePublicContentManifest = ({
     for (const name of page.packages) {
       if (!packageNames.has(name)) {
         throw new Error(`${page.id} maps an unknown package: ${name}`)
-      }
-    }
-    for (const id of page.examples) {
-      if (!exampleIds.has(id)) {
-        throw new Error(`${page.id} maps an unknown example: ${id}`)
       }
     }
     if (page.id.startsWith('reference/packages/')) {

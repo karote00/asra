@@ -9,11 +9,9 @@
       "description": "Build domain-owned information products whose visual, collaborative, persistent, and AI-facing capabilities remain composable.",
       "sources": [
         "docs/ai/framework/FRAMEWORK_ESSENTIALS.md",
-        "docs/ai/framework/ARCHITECTURE.md",
-        "docs/examples/README.md"
+        "docs/ai/framework/ARCHITECTURE.md"
       ],
-      "packages": ["@asyra/core", "@asyra/preset"],
-      "examples": ["core-information-model", "preset-2d-minimal"]
+      "packages": ["@asyra/core", "@asyra/preset"]
     },
     {
       "id": "start/create-design-app",
@@ -23,11 +21,9 @@
       "description": "Begin with the maintained Asyra Design product template and extend it as an app owner.",
       "sources": [
         "create-app/asyra-design/package.json",
-        "create-app/asyra-design/template/README.md",
-        "apps/asyra-design/examples/review-queue-extension.mjs"
+        "create-app/asyra-design/template/README.md"
       ],
-      "packages": ["@asyra/core", "@asyra/preset"],
-      "examples": ["generated-design-app-extension"]
+      "packages": ["@asyra/core", "@asyra/preset"]
     },
     {
       "id": "start/extend-with-ai",
@@ -37,11 +33,9 @@
       "description": "Give an AI agent bounded ownership, canonical APIs, and executable proof while you retain product decisions.",
       "sources": [
         "docs/ai/framework/WORKFLOW.md",
-        "docs/ai/apps/asyra-design/golden-paths/README.md",
-        "apps/asyra-design/examples/review-queue-extension.mjs"
+        "docs/ai/apps/asyra-design/golden-paths/README.md"
       ],
-      "packages": ["@asyra/core", "@asyra/feature-system"],
-      "examples": ["generated-design-app-extension"]
+      "packages": ["@asyra/core", "@asyra/feature-system"]
     },
     {
       "id": "start/preset-2d",
@@ -51,11 +45,9 @@
       "description": "Apply the optional official Preset before Core starts, then keep app-domain choices outside the Framework.",
       "sources": [
         "docs/ai/framework/golden-paths/preset-composition.md",
-        "docs/ai/framework/packages/preset.md",
-        "docs/examples/preset-2d-minimal.mjs"
+        "docs/ai/framework/packages/preset.md"
       ],
-      "packages": ["@asyra/core", "@asyra/preset"],
-      "examples": ["preset-2d-minimal"]
+      "packages": ["@asyra/core", "@asyra/preset"]
     },
     {
       "id": "start/custom-composition",
@@ -65,11 +57,9 @@
       "description": "Start from Core and choose information, interaction, rendering, persistence, collaboration, and AI capabilities independently.",
       "sources": [
         "docs/ai/framework/ARCHITECTURE.md",
-        "docs/ai/framework/packages/core.md",
-        "docs/examples/create-core-composition.mjs"
+        "docs/ai/framework/packages/core.md"
       ],
-      "packages": ["@asyra/core"],
-      "examples": ["core-information-model"]
+      "packages": ["@asyra/core"]
     },
     {
       "id": "learn/information-models",
@@ -79,11 +69,9 @@
       "description": "Define app-owned information and rules without forcing it to be visible, rendered, collaborative, or AI-operated.",
       "sources": [
         "docs/ai/framework/FRAMEWORK_ESSENTIALS.md",
-        "docs/ai/framework/packages/core.md",
-        "docs/examples/core-information-model.mjs"
+        "docs/ai/framework/packages/core.md"
       ],
-      "packages": ["@asyra/core", "@asyra/system-context"],
-      "examples": ["core-information-model"]
+      "packages": ["@asyra/core", "@asyra/system-context"]
     },
     {
       "id": "learn/intent-and-features",
@@ -93,11 +81,9 @@
       "description": "Translate user or agent intent into explicit Feature sessions rather than mutating owners from UI or transport code.",
       "sources": [
         "docs/ai/framework/WORKFLOW.md",
-        "docs/ai/framework/packages/feature-system.md",
-        "docs/examples/feature-session-undo.mjs"
+        "docs/ai/framework/packages/feature-system.md"
       ],
-      "packages": ["@asyra/feature-system", "@asyra/factory"],
-      "examples": ["feature-session-undo"]
+      "packages": ["@asyra/feature-system", "@asyra/factory"]
     },
     {
       "id": "learn/canonical-state",
@@ -110,8 +96,7 @@
         "docs/ai/framework/packages/system-context.md",
         "docs/ai/framework/packages/props-manager.md"
       ],
-      "packages": ["@asyra/system-context", "@asyra/props-manager"],
-      "examples": ["core-information-model"]
+      "packages": ["@asyra/system-context", "@asyra/props-manager"]
     },
     {
       "id": "learn/transactions-and-durability",
@@ -121,11 +106,9 @@
       "description": "Commit, roll back, undo, redo, publish, and persist one intended action through one canonical boundary.",
       "sources": [
         "docs/ai/framework/packages/factory.md",
-        "docs/ai/framework/packages/reactive-events.md",
-        "docs/examples/feature-session-undo.mjs"
+        "docs/ai/framework/packages/reactive-events.md"
       ],
-      "packages": ["@asyra/factory", "@asyra/reactive-events"],
-      "examples": ["feature-session-undo"]
+      "packages": ["@asyra/factory", "@asyra/reactive-events"]
     },
     {
       "id": "learn/validation-load-migration",
@@ -135,11 +118,9 @@
       "description": "Keep schema validation in the Framework while version interpretation and migration remain app-domain responsibilities.",
       "sources": [
         "docs/ai/framework/packages/props-manager.md",
-        "docs/ai/framework/packages/persistence.md",
-        "docs/examples/app-owned-versioned-load-migration.mjs"
+        "docs/ai/framework/packages/persistence.md"
       ],
-      "packages": ["@asyra/core", "@asyra/persistence", "@asyra/props-manager"],
-      "examples": ["app-versioned-load-migration"]
+      "packages": ["@asyra/core", "@asyra/persistence", "@asyra/props-manager"]
     },
     {
       "id": "learn/projection-registration-replacement",
@@ -150,11 +131,9 @@
       "sources": [
         "docs/ai/framework/packages/render.md",
         "docs/ai/framework/packages/render-engine.md",
-        "docs/ai/framework/golden-paths/replace-render-engine.md",
-        "docs/examples/custom-render-boundary.mjs"
+        "docs/ai/framework/golden-paths/replace-render-engine.md"
       ],
-      "packages": ["@asyra/render", "@asyra/render-engine"],
-      "examples": ["custom-render-boundary"]
+      "packages": ["@asyra/render", "@asyra/render-engine"]
     },
     {
       "id": "learn/runtime-boundaries-roadmap",
@@ -168,8 +147,7 @@
         "docs/ai/framework/plans/headless-core-and-core-kernel-future-plan.md",
         "docs/ai/framework/research/headless-core-and-core-kernel-architecture-research.md"
       ],
-      "packages": ["@asyra/core", "@asyra/input-system"],
-      "examples": ["core-information-model"]
+      "packages": ["@asyra/core", "@asyra/input-system"]
     },
     {
       "id": "build/custom-schema",
@@ -180,11 +158,9 @@
       "sources": [
         "docs/ai/framework/packages/core.md",
         "docs/ai/framework/packages/props-manager.md",
-        "docs/ai/framework/packages/scene-tree.md",
-        "docs/examples/custom-component-schema.mjs"
+        "docs/ai/framework/packages/scene-tree.md"
       ],
-      "packages": ["@asyra/core", "@asyra/props-manager", "@asyra/scene-tree"],
-      "examples": ["custom-component-schema"]
+      "packages": ["@asyra/core", "@asyra/props-manager", "@asyra/scene-tree"]
     },
     {
       "id": "build/feature-session",
@@ -194,11 +170,9 @@
       "description": "Map start, update, end, and cancellation to exactly one intended undo commit.",
       "sources": [
         "docs/ai/framework/packages/feature-system.md",
-        "docs/ai/framework/packages/factory.md",
-        "docs/examples/feature-session-undo.mjs"
+        "docs/ai/framework/packages/factory.md"
       ],
-      "packages": ["@asyra/factory", "@asyra/feature-system"],
-      "examples": ["feature-session-undo"]
+      "packages": ["@asyra/factory", "@asyra/feature-system"]
     },
     {
       "id": "build/render-boundary",
@@ -208,16 +182,14 @@
       "description": "Provide an engine through the public provider contract without teaching Core a renderer-specific implementation.",
       "sources": [
         "docs/ai/framework/packages/render.md",
-        "docs/ai/framework/packages/render-engine.md",
-        "docs/examples/custom-render-boundary.mjs"
+        "docs/ai/framework/packages/render-engine.md"
       ],
       "packages": [
         "@asyra/core",
         "@asyra/preset",
         "@asyra/render",
         "@asyra/render-engine"
-      ],
-      "examples": ["custom-render-boundary"]
+      ]
     },
     {
       "id": "build/hierarchy-groups",
@@ -235,8 +207,7 @@
         "@asyra/preset",
         "@asyra/scene-tree",
         "@asyra/utils"
-      ],
-      "examples": ["custom-component-schema", "generated-design-app-extension"]
+      ]
     },
     {
       "id": "build/persistence-migration",
@@ -246,11 +217,9 @@
       "description": "Load validated canonical state while the app owns document versions, migration rules, and unsupported-version policy.",
       "sources": [
         "docs/ai/framework/packages/persistence.md",
-        "docs/ai/framework/packages/props-manager.md",
-        "docs/examples/app-owned-versioned-load-migration.mjs"
+        "docs/ai/framework/packages/props-manager.md"
       ],
-      "packages": ["@asyra/core", "@asyra/persistence", "@asyra/props-manager"],
-      "examples": ["app-versioned-load-migration"]
+      "packages": ["@asyra/core", "@asyra/persistence", "@asyra/props-manager"]
     },
     {
       "id": "build/collaboration",
@@ -260,11 +229,9 @@
       "description": "Connect deterministic collaboration actors while the app owns transport, authorization, presence, and backend policy.",
       "sources": [
         "docs/ai/framework/packages/collaboration.md",
-        "docs/ai/apps/asyra-design/modules/collaboration-reference.md",
-        "docs/examples/network-collaboration-transport.mjs"
+        "docs/ai/apps/asyra-design/modules/collaboration-reference.md"
       ],
-      "packages": ["@asyra/collaboration", "@asyra/factory"],
-      "examples": ["collaboration-two-memory-actors"]
+      "packages": ["@asyra/collaboration", "@asyra/factory"]
     },
     {
       "id": "build/ai-actions",
@@ -274,11 +241,9 @@
       "description": "Expose bounded action schemas and permissions so AI intent uses the same canonical transaction paths as people.",
       "sources": [
         "docs/ai/framework/packages/ai-agent-runtime.md",
-        "docs/ai/framework/golden-paths/compose-ai-agent-runtime.md",
-        "docs/examples/ai-agent-runtime.mjs"
+        "docs/ai/framework/golden-paths/compose-ai-agent-runtime.md"
       ],
-      "packages": ["@asyra/ai-agent-runtime"],
-      "examples": ["ai-registered-action"]
+      "packages": ["@asyra/ai-agent-runtime"]
     },
     {
       "id": "build/app-retrieval-action",
@@ -288,15 +253,13 @@
       "description": "Let the app retrieve domain context and register actions without presenting future Headless support as current behavior.",
       "sources": [
         "docs/ai/framework/packages/ai-agent-runtime.md",
-        "docs/ai/framework/packages/feature-system.md",
-        "docs/examples/app-retrieval-action.mjs"
+        "docs/ai/framework/packages/feature-system.md"
       ],
       "packages": [
         "@asyra/ai-agent-runtime",
         "@asyra/core",
         "@asyra/feature-system"
-      ],
-      "examples": ["app-retrieval-action"]
+      ]
     },
     {
       "id": "reference/packages/ai-agent-runtime",
@@ -308,8 +271,7 @@
         "docs/ai/framework/packages/ai-agent-runtime.md",
         "packages/ai-agent-runtime/package.json"
       ],
-      "packages": ["@asyra/ai-agent-runtime"],
-      "examples": ["ai-registered-action", "app-retrieval-action"]
+      "packages": ["@asyra/ai-agent-runtime"]
     },
     {
       "id": "reference/packages/collaboration",
@@ -321,8 +283,7 @@
         "docs/ai/framework/packages/collaboration.md",
         "packages/collaboration/package.json"
       ],
-      "packages": ["@asyra/collaboration"],
-      "examples": ["collaboration-two-memory-actors"]
+      "packages": ["@asyra/collaboration"]
     },
     {
       "id": "reference/packages/core",
@@ -334,12 +295,7 @@
         "docs/ai/framework/packages/core.md",
         "packages/core/package.json"
       ],
-      "packages": ["@asyra/core"],
-      "examples": [
-        "core-information-model",
-        "custom-component-schema",
-        "preset-2d-minimal"
-      ]
+      "packages": ["@asyra/core"]
     },
     {
       "id": "reference/packages/design-system",
@@ -351,8 +307,7 @@
         "docs/ai/framework/packages/design-system.md",
         "packages/design-system/package.json"
       ],
-      "packages": ["@asyra/design-system"],
-      "examples": ["generated-design-app-extension"]
+      "packages": ["@asyra/design-system"]
     },
     {
       "id": "reference/packages/factory",
@@ -364,8 +319,7 @@
         "docs/ai/framework/packages/factory.md",
         "packages/factory/package.json"
       ],
-      "packages": ["@asyra/factory"],
-      "examples": ["feature-session-undo", "collaboration-two-memory-actors"]
+      "packages": ["@asyra/factory"]
     },
     {
       "id": "reference/packages/feature-system",
@@ -377,8 +331,7 @@
         "docs/ai/framework/packages/feature-system.md",
         "packages/feature-system/package.json"
       ],
-      "packages": ["@asyra/feature-system"],
-      "examples": ["feature-session-undo", "app-retrieval-action"]
+      "packages": ["@asyra/feature-system"]
     },
     {
       "id": "reference/packages/input-system",
@@ -390,8 +343,7 @@
         "docs/ai/framework/packages/input-system.md",
         "packages/input-system/package.json"
       ],
-      "packages": ["@asyra/input-system"],
-      "examples": ["core-information-model"]
+      "packages": ["@asyra/input-system"]
     },
     {
       "id": "reference/packages/persistence",
@@ -403,8 +355,7 @@
         "docs/ai/framework/packages/persistence.md",
         "packages/persistence/package.json"
       ],
-      "packages": ["@asyra/persistence"],
-      "examples": ["app-versioned-load-migration"]
+      "packages": ["@asyra/persistence"]
     },
     {
       "id": "reference/packages/preset",
@@ -416,8 +367,7 @@
         "docs/ai/framework/packages/preset.md",
         "packages/preset/package.json"
       ],
-      "packages": ["@asyra/preset"],
-      "examples": ["preset-2d-minimal", "preset-selective-defaults"]
+      "packages": ["@asyra/preset"]
     },
     {
       "id": "reference/packages/props-manager",
@@ -429,8 +379,7 @@
         "docs/ai/framework/packages/props-manager.md",
         "packages/props-manager/package.json"
       ],
-      "packages": ["@asyra/props-manager"],
-      "examples": ["custom-component-schema", "core-information-model"]
+      "packages": ["@asyra/props-manager"]
     },
     {
       "id": "reference/packages/reactive-events",
@@ -442,8 +391,7 @@
         "docs/ai/framework/packages/reactive-events.md",
         "packages/reactive-events/package.json"
       ],
-      "packages": ["@asyra/reactive-events"],
-      "examples": ["feature-session-undo"]
+      "packages": ["@asyra/reactive-events"]
     },
     {
       "id": "reference/packages/render",
@@ -455,8 +403,7 @@
         "docs/ai/framework/packages/render.md",
         "packages/render/package.json"
       ],
-      "packages": ["@asyra/render"],
-      "examples": ["core-information-model", "custom-render-boundary"]
+      "packages": ["@asyra/render"]
     },
     {
       "id": "reference/packages/render-engine",
@@ -468,8 +415,7 @@
         "docs/ai/framework/packages/render-engine.md",
         "packages/render-engine/package.json"
       ],
-      "packages": ["@asyra/render-engine"],
-      "examples": ["custom-render-boundary"]
+      "packages": ["@asyra/render-engine"]
     },
     {
       "id": "reference/packages/render-engine-pixi",
@@ -481,8 +427,7 @@
         "docs/ai/framework/packages/render-engine-pixi.md",
         "packages/render-engine-pixi/package.json"
       ],
-      "packages": ["@asyra/render-engine-pixi"],
-      "examples": ["preset-2d-minimal"]
+      "packages": ["@asyra/render-engine-pixi"]
     },
     {
       "id": "reference/packages/scene-tree",
@@ -494,8 +439,7 @@
         "docs/ai/framework/packages/scene-tree.md",
         "packages/scene-tree/package.json"
       ],
-      "packages": ["@asyra/scene-tree"],
-      "examples": ["custom-component-schema", "core-information-model"]
+      "packages": ["@asyra/scene-tree"]
     },
     {
       "id": "reference/packages/selection",
@@ -507,8 +451,7 @@
         "docs/ai/framework/packages/selection.md",
         "packages/selection/package.json"
       ],
-      "packages": ["@asyra/selection"],
-      "examples": ["core-information-model"]
+      "packages": ["@asyra/selection"]
     },
     {
       "id": "reference/packages/system-context",
@@ -520,8 +463,7 @@
         "docs/ai/framework/packages/system-context.md",
         "packages/system-context/package.json"
       ],
-      "packages": ["@asyra/system-context"],
-      "examples": ["core-information-model"]
+      "packages": ["@asyra/system-context"]
     },
     {
       "id": "reference/packages/ui-context",
@@ -533,8 +475,7 @@
         "docs/ai/framework/packages/ui-context.md",
         "packages/ui-context/package.json"
       ],
-      "packages": ["@asyra/ui-context"],
-      "examples": ["generated-design-app-extension"]
+      "packages": ["@asyra/ui-context"]
     },
     {
       "id": "reference/packages/utils",
@@ -546,8 +487,7 @@
         "docs/ai/framework/packages/utils.md",
         "packages/utils/package.json"
       ],
-      "packages": ["@asyra/utils"],
-      "examples": ["generated-design-app-extension"]
+      "packages": ["@asyra/utils"]
     },
     {
       "id": "reference/support-release",
@@ -561,8 +501,7 @@
         "LICENSE",
         "package.json"
       ],
-      "packages": [],
-      "examples": []
+      "packages": []
     },
     {
       "id": "cases/asyra-design",
@@ -573,8 +512,7 @@
       "sources": [
         "docs/ai/apps/asyra-design/APP_ESSENTIALS.md",
         "docs/ai/apps/asyra-design/ARCHITECTURE.md",
-        "docs/ai/apps/asyra-design/modules/init-and-startup.md",
-        "apps/asyra-design/examples/review-queue-extension.mjs"
+        "docs/ai/apps/asyra-design/modules/init-and-startup.md"
       ],
       "packages": [
         "@asyra/core",
@@ -582,12 +520,6 @@
         "@asyra/ai-agent-runtime",
         "@asyra/collaboration",
         "@asyra/persistence"
-      ],
-      "examples": [
-        "generated-design-app-extension",
-        "ai-registered-action",
-        "collaboration-two-memory-actors",
-        "app-versioned-load-migration"
       ]
     }
   ]

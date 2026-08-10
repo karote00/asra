@@ -1,9 +1,9 @@
 export const verifiedLandingFacts = Object.freeze({
   designApp: Object.freeze({
-    href: 'https://asra.vercel.app',
+    href: 'https://asra.vercel.app/?fileId=asyra-framework-demo',
     title: 'Asyra Design',
-    verifiedAt: '2026-08-10',
+    verifiedAt: '2026-08-11',
     evidence:
-      'GitHub deployment 5820501003 reported Production success; the stable alias returned an anonymous document titled Asyra Design.'
+      'The stable alias returned an anonymous HTTP 200 document titled Asyra Design with the demo fileId in the requested URL.'
   })
 })

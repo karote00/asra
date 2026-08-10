@@ -8,14 +8,14 @@ import { loadContentBundle } from '../lib/content.mjs'
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = (filePath) => fs.readFileSync(path.join(appRoot, filePath), 'utf8')
 
-test('Examples route presents the exact maintained inventory', () => {
+test('public routes do not expose executable validation examples', () => {
   const bundle = loadContentBundle()
-  const source = read('app/examples/page.tsx')
-  assert.equal(bundle.examples.length, 11)
-  assert.match(source, /bundle\.examples\.map/)
-  assert.match(source, /example\.runCommand/)
-  assert.match(source, /example\.expectedResult/)
-  assert.match(source, /example\.source/)
+  assert.equal(
+    fs.existsSync(path.join(appRoot, 'app/examples/page.tsx')),
+    false
+  )
+  assert.equal('examples' in bundle, false)
+  assert.equal('runtime' in bundle, false)
 })
 
 test('Asyra Design route preserves reference-product and URL boundaries', () => {

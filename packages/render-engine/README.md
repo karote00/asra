@@ -38,7 +38,6 @@ Implement the contract when your App or package supplies a rendering engine; kee
 ## Learn more
 
 - [Complete package guide](https://github.com/karote00/asyra/blob/main/docs/public/reference/packages/render-engine.md)
-- [Prove an app-owned render-engine adapter](https://github.com/karote00/asyra/blob/main/docs/examples/custom-render-boundary.mjs) — `yarn examples:run custom-render-boundary`
 - [Framework release support](https://github.com/karote00/asyra/blob/main/docs/ai/framework/RELEASE_SUPPORT.md)
 
 ## Support and policy

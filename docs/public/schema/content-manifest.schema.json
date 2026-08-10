@@ -29,8 +29,7 @@
         "title",
         "description",
         "sources",
-        "packages",
-        "examples"
+        "packages"
       ],
       "properties": {
         "id": {
@@ -57,9 +56,6 @@
           "$ref": "#/$defs/uniqueStrings"
         },
         "packages": {
-          "$ref": "#/$defs/uniqueStrings"
-        },
-        "examples": {
           "$ref": "#/$defs/uniqueStrings"
         }
       }

@@ -7,7 +7,7 @@ const defineCase = (definition) =>
     actions: Object.freeze(definition.actions),
     conditions: Object.freeze(definition.conditions),
     bypasses: Object.freeze(definition.bypasses),
-    exampleIds: Object.freeze(definition.exampleIds),
+    guideIds: Object.freeze(definition.guideIds),
     owners: Object.freeze(definition.owners)
   })
 
@@ -22,7 +22,7 @@ export const ATLAS_CASES = Object.freeze([
       'Feature session → App API → Factory journal → one Undo unit',
     expected:
       'Three visible updates settle as one new Undo entry; Undo restores 0 and Redo restores 6.',
-    exampleIds: ['feature-session-undo'],
+    guideIds: ['build/feature-session'],
     owners: ['Feature System', 'App API', 'Factory'],
     conditions: [
       'The session remains open across every preview update.',
@@ -51,7 +51,7 @@ export const ATLAS_CASES = Object.freeze([
       'Feature API → Factory transaction → System Context → App projections',
     expected:
       'One canonical record reaches approved revision 2 and every App-owned projection reads that same result.',
-    exampleIds: ['core-information-model', 'custom-component-schema'],
+    guideIds: ['learn/information-models', 'build/custom-schema'],
     owners: ['Feature System', 'Factory', 'System Context', 'App projections'],
     conditions: [
       'The registered validator accepts only the declared record shape.',
@@ -90,7 +90,7 @@ export const ATLAS_CASES = Object.freeze([
       'Feature session failure → Factory rollback → no partial state',
     expected:
       'The rejected update restores value 0 and creates no new Undo entry.',
-    exampleIds: ['feature-session-undo'],
+    guideIds: ['build/feature-session'],
     owners: ['Feature System', 'App validation', 'Factory'],
     conditions: [
       'A value above the App-owned limit is rejected inside the active session.',
@@ -114,7 +114,7 @@ export const ATLAS_CASES = Object.freeze([
     technicalSummary: 'Factory publication → Collaboration → App remote apply',
     expected:
       'Actor B converges to 7 while Actor A presence remains ephemeral and non-durable.',
-    exampleIds: ['collaboration-two-memory-actors'],
+    guideIds: ['build/collaboration'],
     owners: ['Factory', 'Collaboration', 'MemoryProvider', 'App remote policy'],
     conditions: [
       'Both actors start explicitly before publication.',
@@ -142,7 +142,7 @@ export const ATLAS_CASES = Object.freeze([
       'AI provider → registered action → permission → App transaction',
     expected:
       'One visibility action executes, commits once, and makes the record hidden without any network call.',
-    exampleIds: ['ai-registered-action'],
+    guideIds: ['build/ai-actions'],
     owners: ['AI Runtime', 'App provider', 'App permission', 'App action'],
     conditions: [
       'The provider returns one registered action with schema-valid arguments.',
@@ -172,7 +172,7 @@ export const ATLAS_CASES = Object.freeze([
       'App retrieval → read-only result → Feature API → canonical state',
     expected:
       'Search returns Safety review without mutation; only the Feature API changes it to approved.',
-    exampleIds: ['app-retrieval-action'],
+    guideIds: ['build/app-retrieval-action'],
     owners: ['System Context', 'App retrieval', 'Feature System'],
     conditions: [
       'Search reads the canonical snapshot and owns its own matching policy.',

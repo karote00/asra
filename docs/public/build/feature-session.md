@@ -30,8 +30,72 @@ The maintained proof uses:
 - `factory.getUndoHistoryDepth()`, `factory.undo()`, and `factory.redo()`
 
 In an app, keep canonical mutations behind its existing common/Core APIs. The
-example's small local value exists only to make transaction evidence directly
-observable.
+small local value below only makes transaction evidence directly observable.
+
+## Where this runs
+
+Register the session in the app Feature that owns the gesture or long-running
+intent. Raw input and UI controllers call `handleStart`, `handleUpdate`, and
+`handleEnd`; canonical mutation stays in the app API invoked by the handlers.
+
+## Implementation
+
+```ts
+import factory from '@asyra/factory'
+import { SessionManager } from '@asyra/feature-system'
+
+const sessions = new SessionManager()
+const state = { value: 0 }
+const EVENT = 'app:set-value'
+const SESSION = 'app:value-drag'
+const FEATURE = 'app:value-tool'
+
+type ValuePayload = Readonly<{ before: number; after: number }>
+const readValuePayload = (payload: unknown): ValuePayload => {
+  if (
+    !payload ||
+    typeof payload !== 'object' ||
+    typeof (payload as ValuePayload).before !== 'number' ||
+    typeof (payload as ValuePayload).after !== 'number'
+  ) {
+    throw new Error('Invalid app:set-value payload')
+  }
+  return payload as ValuePayload
+}
+
+factory.registerTransactionInverter(EVENT, (event) => {
+  const payload = readValuePayload(event.payload)
+  return {
+    type: event.type,
+    payload: { before: payload.after, after: payload.before }
+  }
+})
+factory.registerTransactionReplayHandler(EVENT, (event) => {
+  state.value = readValuePayload(event.payload).after
+  return true
+})
+
+const applyValue = (after: number) => {
+  factory.updateTransaction({
+    type: 'updateTransaction',
+    eventName: EVENT,
+    payload: { before: state.value, after },
+    options: { rollbackable: true, undoable: true }
+  })
+  state.value = after
+}
+
+sessions.registerSession(SESSION, FEATURE, 100, true, 'rollback', {
+  onStart: () => ({ initialValue: state.value }),
+  onUpdate: ({ nextValue }: { nextValue: number }) => applyValue(nextValue),
+  onEnd: () => undefined,
+  onCancel: () => 'rollback'
+})
+```
+
+For a real product, `applyValue` calls the app's canonical common API. Keep the
+session open across pointer previews and close it only when the user intent is
+accepted or cancelled.
 
 ## Flow
 
@@ -42,9 +106,6 @@ observable.
 5. Finish through `handleEnd(...)` to create one commit.
 6. Let handler failure enter the declared cancellation/rollback path.
 7. Dispose the session and replay handler.
-
-Use the exact
-[`feature-session-undo`](../../examples/feature-session-undo.mjs) source region.
 
 ## Expected result
 
@@ -58,14 +119,9 @@ transaction, or partial canonical prefix.
 
 ## Validate
 
-```shell
-yarn examples:run feature-session-undo
-yarn workspace @asyra/feature-system test:local
-yarn workspace @asyra/factory test:local
-```
-
-For pointer or AI sessions, add a product test proving the complete start,
-update, end, cancellation, and interruption timeline.
+Add a product test that starts the session, performs several updates, ends it,
+then verifies one Undo unit. Add separate failure, cancellation, interruption,
+and cleanup cases that prove no partial state or active transaction remains.
 
 ## Forbidden shortcuts
 
@@ -80,7 +136,7 @@ update, end, cancellation, and interruption timeline.
 
 - [Feature System contract](../../ai/framework/packages/feature-system.md)
 - [Factory contract](../../ai/framework/packages/factory.md)
-- [Executable example](../../examples/feature-session-undo.mjs)
+- [Transactions and durability](../learn/transactions-and-durability.md)
 
 ## Next
 

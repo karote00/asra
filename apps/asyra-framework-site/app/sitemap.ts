@@ -7,7 +7,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const origin = resolveSiteOrigin()
   const routes = [
     '/',
-    '/examples',
     '/asyra-design',
     '/releases',
     '/roadmap',

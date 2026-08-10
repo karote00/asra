@@ -23,9 +23,28 @@ test('Atlas exposes six exact plain-language case contracts', () => {
     assert.ok(definition.plainLanguage.length > 40, definition.id)
     assert.ok(definition.expected.length > 40, definition.id)
     assert.ok(definition.actions.length >= 3, definition.id)
-    assert.ok(definition.exampleIds.length > 0, definition.id)
+    assert.ok(definition.guideIds.length > 0, definition.id)
     assert.ok(Object.isFrozen(definition), definition.id)
   })
+})
+
+test('Atlas cases link to exact advanced guides instead of executable examples', () => {
+  assert.deepEqual(
+    Object.fromEntries(
+      ATLAS_CASES.map(({ id, guideIds }) => [id, [...guideIds]])
+    ),
+    {
+      'continuous-pointer-undo': ['build/feature-session'],
+      'canonical-projection-fanout': [
+        'learn/information-models',
+        'build/custom-schema'
+      ],
+      'invalid-input-rollback': ['build/feature-session'],
+      'collaboration-two-actors': ['build/collaboration'],
+      'ai-registered-action': ['build/ai-actions'],
+      'machine-retrieval-action': ['build/app-retrieval-action']
+    }
+  )
 })
 
 test('harness advances in exact order with detached monotonic evidence', async () => {

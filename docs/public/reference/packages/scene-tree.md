@@ -47,9 +47,10 @@ policy.
 
 ## Maintained use path
 
-Run `yarn examples:run custom-component-schema` for component relations, then
-follow [Build hierarchy and Group behavior](../../build/hierarchy-groups.md)
-for the generated app's formal hierarchy route.
+Use [Build a custom component and schema](../../build/custom-schema.md) for
+component relations, then follow
+[Build hierarchy and Group behavior](../../build/hierarchy-groups.md) for the
+generated app's formal hierarchy route.
 
 ## Replacement and disabled behavior
 

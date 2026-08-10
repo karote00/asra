@@ -10,8 +10,7 @@ const authorityPaths = Object.freeze({
   manifest: 'docs/public/content-manifest.json',
   contentIndex: 'docs/public/generated/content-index.json',
   sourceMap: 'docs/public/generated/source-map.json',
-  packageReference: 'docs/public/generated/package-reference.json',
-  examples: 'docs/examples/inventory.json'
+  packageReference: 'docs/public/generated/package-reference.json'
 })
 
 const sha256 = (value) =>
@@ -89,7 +88,6 @@ export const loadContentBundle = ({
   const contentIndex = readJson(repoRoot, authorityPaths.contentIndex)
   const sourceMap = readJson(repoRoot, authorityPaths.sourceMap)
   const packageReference = readJson(repoRoot, authorityPaths.packageReference)
-  const examples = readJson(repoRoot, authorityPaths.examples)
   const repositoryManifest = readJson(repoRoot, 'package.json')
 
   if (typeof repositoryManifest.name !== 'string') {
@@ -113,13 +111,6 @@ export const loadContentBundle = ({
   }
   validateRelease(contentIndex.release, packageReference.packages.length)
   validateRelease(packageReference.release, packageReference.packages.length)
-  if (
-    examples.release.status !== 'CANDIDATE' ||
-    examples.release.packageCount !== packageReference.packages.length
-  ) {
-    throw new Error('Example inventory does not match the release candidate')
-  }
-
   const indexById = new Map(contentIndex.pages.map((page) => [page.id, page]))
   const sourcesById = new Map(sourceMap.pages.map((page) => [page.id, page]))
   const pages = manifest.pages.map((manifestPage) => {
@@ -180,8 +171,6 @@ export const loadContentBundle = ({
     searchRecords: Object.freeze(searchRecords),
     release: Object.freeze(contentIndex.release),
     packages: Object.freeze(packageReference.packages),
-    examples: Object.freeze(examples.examples),
-    runtime: Object.freeze(examples.runtime),
     repositoryName,
     repositoryHref,
     repoRoot

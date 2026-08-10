@@ -261,7 +261,7 @@ yarn workspace @asyra/collaboration example:collaboration
 ```
 
 Executable example:
-`docs/examples/network-collaboration-transport.mjs`.
+`docs/public/build/collaboration.md`.
 
 Product contract:
 `../plans/completed/canonical-projection-and-collaboration-contract-realignment-plan.md`.

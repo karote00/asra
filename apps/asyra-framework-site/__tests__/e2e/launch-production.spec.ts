@@ -45,7 +45,10 @@ test('production explains Asyra globally and reaches its verified reference prod
   ).toBeVisible()
   await expect(
     page.getByRole('link', { name: 'Open Asyra Design' })
-  ).toHaveAttribute('href', 'https://asra.vercel.app')
+  ).toHaveAttribute(
+    'href',
+    'https://asra.vercel.app/?fileId=asyra-framework-demo'
+  )
   const dimensions = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth

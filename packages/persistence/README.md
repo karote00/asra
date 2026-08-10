@@ -38,7 +38,6 @@ Compose a provider when the App needs a local or custom storage boundary; treat 
 ## Learn more
 
 - [Complete package guide](https://github.com/karote00/asyra/blob/main/docs/public/reference/packages/persistence.md)
-- [Migrate app documents before canonical apply](https://github.com/karote00/asyra/blob/main/docs/examples/app-owned-versioned-load-migration.mjs) — `yarn examples:run app-versioned-load-migration`
 - [Framework release support](https://github.com/karote00/asyra/blob/main/docs/ai/framework/RELEASE_SUPPORT.md)
 
 ## Support and policy

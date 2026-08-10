@@ -44,13 +44,74 @@ The template is a product, not a new Framework default. Its drawing behavior,
 document-session policy, panels, shortcuts, server adapters, and AI domain
 prompt belong to Asyra Design and may be replaced by your app.
 
+## Where this runs
+
+Product extensions live inside the generated app, not in Framework packages.
+For a new behavior, create a folder such as `src/features/review-queue/`, export
+its registration from `src/features/index.ts`, and let the existing startup
+import register it with the rest of the app Features.
+
+## Implementation
+
+This small queue is app-owned information. It uses the public Feature boundary
+for registration and disposal while keeping review meaning inside the app:
+
+```ts
+import { defineFeature } from '@asyra/core'
+
+const records = new Map<string, Readonly<{
+  id: string
+  title: string
+  status: 'pending'
+}>>()
+
+export const reviewQueue = defineFeature('app.reviewQueue', undefined, {
+  priority: 20,
+  exclusive: true,
+  api: {
+    add(input: { id: string; title: string }) {
+      if (!input.id.trim() || !input.title.trim()) {
+        throw new Error('Review records require an id and title')
+      }
+      if (records.has(input.id)) {
+        throw new Error(`Review record already exists: ${input.id}`)
+      }
+      const record = Object.freeze({ ...input, status: 'pending' as const })
+      records.set(record.id, record)
+      return record
+    },
+    list: () => [...records.values()]
+  }
+})
+```
+
+Import the module once from `src/features/index.ts`. UI code calls
+`reviewQueue.api.add(...)`; disposal belongs to the app lifecycle that owns the
+registration.
+
+## Flow
+
+1. The generated startup composes Preset and Core exactly as maintained.
+2. Importing the extension registers one app-owned Feature.
+3. A product surface calls the Feature API with user intent.
+4. The API validates review-domain input before storing it.
+5. The returned record drives UI, persistence, or later actions chosen by the
+   app.
+
+## Expected result
+
+One valid call adds one immutable pending record. A missing field or duplicate
+id throws before another record appears. Removing the extension registration
+also removes its public API without changing Core, Preset, or the generated
+document model.
+
 ## Extend one bounded behavior
 
-Study the verified
-[review queue extension](../../../apps/asyra-design/examples/review-queue-extension.mjs)
-through its inventory entry, `generated-design-app-extension`. It shows the
-expected extension shape without forking canonical state: register app-owned
-meaning, route intent through public APIs, and prove the result.
+Use the pattern above without forking canonical state: register app-owned
+meaning, route intent through public APIs, and verify the product result. If
+the behavior changes the generated document, replace the local `Map` with the
+existing generated common API and transaction route rather than adding a
+second document store.
 
 When working with an AI coding agent, continue with
 [Extend Asyra with an AI coding agent](extend-with-ai.md). Ask for one product
@@ -89,7 +150,7 @@ the generated common APIs and transaction boundaries.
 
 - [CLI contract](../../../create-app/asyra-design/README.md)
 - [Generated template contract](../../../create-app/asyra-design/template/README.md)
-- [Verified extension source](../../../apps/asyra-design/examples/review-queue-extension.mjs)
+- [Asyra Design Feature registrations](../../../create-app/asyra-design/template/src/features/index.ts)
 
 ## Next
 

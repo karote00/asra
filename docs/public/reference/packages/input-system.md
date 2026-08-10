@@ -49,7 +49,7 @@ and native context-menu acceptance.
 
 ## Maintained use path
 
-The `core-information-model` example proves Input can be part of the current
+The [information-model guide](../../learn/information-models.md) explains how Input can be part of the current
 Core artifact without an engine provider. For browser behavior, use the
 generated Asyra Design app and its formal input/viewport tests.
 

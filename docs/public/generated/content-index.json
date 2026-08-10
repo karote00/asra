@@ -1,12 +1,8 @@
 {
   "pages": [
     {
-      "contentSha256": "d08bd4c3702bf640733d4fc5bdd5999ab059ae8c6923b84862330181ff2ec37b",
+      "contentSha256": "bbc6650bfd5b7072004dfec7e0dfa9507c626e63280002c7eae147dbc0d43e3c",
       "description": "Build domain-owned information products whose visual, collaborative, persistent, and AI-facing capabilities remain composable.",
-      "examples": [
-        "core-information-model",
-        "preset-2d-minimal"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -26,7 +22,7 @@
         },
         {
           "depth": 2,
-          "title": "Verify the examples"
+          "title": "Learn from implementation guides"
         },
         {
           "depth": 2,
@@ -42,14 +38,11 @@
       "path": "index.md",
       "section": "Overview",
       "title": "Asyra Framework",
-      "wordCount": 433
+      "wordCount": 471
     },
     {
-      "contentSha256": "a01e9574ac7ca5e49d1404badd35f18ba06588ae80cf40ae27ae393921a0b01b",
+      "contentSha256": "3ddee02122b45472c57534ea1a189505b9e714ac1c7e1840093c1203d4733c89",
       "description": "Begin with the maintained Asyra Design product template and extend it as an app owner.",
-      "examples": [
-        "generated-design-app-extension"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -66,6 +59,22 @@
         {
           "depth": 2,
           "title": "What you receive"
+        },
+        {
+          "depth": 2,
+          "title": "Where this runs"
+        },
+        {
+          "depth": 2,
+          "title": "Implementation"
+        },
+        {
+          "depth": 2,
+          "title": "Flow"
+        },
+        {
+          "depth": 2,
+          "title": "Expected result"
         },
         {
           "depth": 2,
@@ -97,14 +106,11 @@
       "path": "start/create-design-app.md",
       "section": "Start",
       "title": "Create a complete design app",
-      "wordCount": 393
+      "wordCount": 593
     },
     {
-      "contentSha256": "b295a3327f48940adb93517dcaef01003fb4444640595c1cebe21466e98d14d3",
+      "contentSha256": "35b0da1b5dbd369f1ac3a5a1e513fda26e94fdeef3b7415024bab3390a664e71",
       "description": "Give an AI agent bounded ownership, canonical APIs, and executable proof while you retain product decisions.",
-      "examples": [
-        "generated-design-app-extension"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -116,7 +122,23 @@
         },
         {
           "depth": 2,
-          "title": "Start from maintained evidence"
+          "title": "Where this runs"
+        },
+        {
+          "depth": 2,
+          "title": "Implementation"
+        },
+        {
+          "depth": 2,
+          "title": "Flow"
+        },
+        {
+          "depth": 2,
+          "title": "Expected result"
+        },
+        {
+          "depth": 2,
+          "title": "Start from maintained contracts"
         },
         {
           "depth": 2,
@@ -144,14 +166,11 @@
       "path": "start/extend-with-ai.md",
       "section": "Start",
       "title": "Extend Asyra with an AI coding agent",
-      "wordCount": 482
+      "wordCount": 704
     },
     {
-      "contentSha256": "af69e58c9ee14ba209fb3789fcd78763d7d4aa323516f44f680ec75ecb91190b",
+      "contentSha256": "556962323fbe71309c0e639fe71489fa926334c223c845d42642790749ea50cc",
       "description": "Apply the optional official Preset before Core starts, then keep app-domain choices outside the Framework.",
-      "examples": [
-        "preset-2d-minimal"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -163,7 +182,19 @@
         },
         {
           "depth": 2,
-          "title": "Use the maintained path"
+          "title": "Where this runs"
+        },
+        {
+          "depth": 2,
+          "title": "Implementation"
+        },
+        {
+          "depth": 2,
+          "title": "Flow"
+        },
+        {
+          "depth": 2,
+          "title": "Expected result"
         },
         {
           "depth": 2,
@@ -191,14 +222,11 @@
       "path": "start/preset-2d.md",
       "section": "Start",
       "title": "Compose the official 2D baseline",
-      "wordCount": 355
+      "wordCount": 476
     },
     {
-      "contentSha256": "f63fed6f29336a7171b4be0cb0b4f36f2d9fd8f54646f4bf566df06b77d691de",
+      "contentSha256": "5799d58d89b31bf0d1c9eaf54f82dca2fa573d8cd27fce5e86451061b141047a",
       "description": "Start from Core and choose information, interaction, rendering, persistence, collaboration, and AI capabilities independently.",
-      "examples": [
-        "core-information-model"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -210,7 +238,19 @@
         },
         {
           "depth": 2,
-          "title": "Begin with information"
+          "title": "Where this runs"
+        },
+        {
+          "depth": 2,
+          "title": "Implementation"
+        },
+        {
+          "depth": 2,
+          "title": "Flow"
+        },
+        {
+          "depth": 2,
+          "title": "Expected result"
         },
         {
           "depth": 2,
@@ -237,14 +277,11 @@
       "path": "start/custom-composition.md",
       "section": "Start",
       "title": "Compose only the infrastructure you need",
-      "wordCount": 409
+      "wordCount": 549
     },
     {
-      "contentSha256": "f391742dff67cca0042c3aedd6e502125caafd844c9d7619aba4b1f7a27f639c",
+      "contentSha256": "9569bf993ca3bba0a634d47dbdb90dad5ec0f3dbd5acfca01695039000a4e821",
       "description": "Define app-owned information and rules without forcing it to be visible, rendered, collaborative, or AI-operated.",
-      "examples": [
-        "core-information-model"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -256,7 +293,19 @@
         },
         {
           "depth": 2,
-          "title": "Executable path"
+          "title": "Where this runs"
+        },
+        {
+          "depth": 2,
+          "title": "Implementation"
+        },
+        {
+          "depth": 2,
+          "title": "Flow"
+        },
+        {
+          "depth": 2,
+          "title": "Expected result"
         },
         {
           "depth": 2,
@@ -284,14 +333,11 @@
       "path": "learn/information-models.md",
       "section": "Learn",
       "title": "Information models come before output",
-      "wordCount": 420
+      "wordCount": 572
     },
     {
-      "contentSha256": "7f5480c1e38b22df39e11f39e65498e9e3ea83329b4bcdf936dc4dc2f870408a",
+      "contentSha256": "c0a40a212c6d163a2aa8b406d89731814ee36888f0e59da0706cee52287a5b83",
       "description": "Translate user or agent intent into explicit Feature sessions rather than mutating owners from UI or transport code.",
-      "examples": [
-        "feature-session-undo"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -303,7 +349,7 @@
         },
         {
           "depth": 2,
-          "title": "Executable path"
+          "title": "Maintained implementation path"
         },
         {
           "depth": 2,
@@ -331,14 +377,11 @@
       "path": "learn/intent-and-features.md",
       "section": "Learn",
       "title": "Intent enters through Features",
-      "wordCount": 345
+      "wordCount": 336
     },
     {
       "contentSha256": "6a04dea8ab91a39eada643ebc41630163af4f818d3d34d45d60fb03b6da944e2",
       "description": "Separate canonical model state, local derived state, projection state, and remote transport state.",
-      "examples": [
-        "core-information-model"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -381,11 +424,8 @@
       "wordCount": 416
     },
     {
-      "contentSha256": "5ab4843f18cab16ea5eb3c6556ad679ad6a92d43bd9c54fae9d6b1a87c419f3c",
+      "contentSha256": "aa61eaa0d22cf7375f760fac150725a7891e9330e34c01dcc6a5f5aed70d9c18",
       "description": "Commit, roll back, undo, redo, publish, and persist one intended action through one canonical boundary.",
-      "examples": [
-        "feature-session-undo"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -393,11 +433,19 @@
         },
         {
           "depth": 2,
-          "title": "The intended timeline"
+          "title": "Where this runs"
         },
         {
           "depth": 2,
-          "title": "Executable proof"
+          "title": "Implementation"
+        },
+        {
+          "depth": 2,
+          "title": "Flow"
+        },
+        {
+          "depth": 2,
+          "title": "Expected result"
         },
         {
           "depth": 2,
@@ -429,14 +477,11 @@
       "path": "learn/transactions-and-durability.md",
       "section": "Learn",
       "title": "One user intent, one transaction",
-      "wordCount": 378
+      "wordCount": 467
     },
     {
-      "contentSha256": "71931af75da16e55163e8100c837a2c78c66354250602ff3f9feb0447e449d1c",
+      "contentSha256": "d7894fe4db33ef86f93aad47a764c870559ea3a02e6dda5cf4e856cb9d932668",
       "description": "Keep schema validation in the Framework while version interpretation and migration remain app-domain responsibilities.",
-      "examples": [
-        "app-versioned-load-migration"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -445,6 +490,22 @@
         {
           "depth": 2,
           "title": "Write behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Where this runs"
+        },
+        {
+          "depth": 2,
+          "title": "Implementation"
+        },
+        {
+          "depth": 2,
+          "title": "Flow"
+        },
+        {
+          "depth": 2,
+          "title": "Expected result"
         },
         {
           "depth": 2,
@@ -477,14 +538,11 @@
       "path": "learn/validation-load-migration.md",
       "section": "Learn",
       "title": "Validate at every write and load boundary",
-      "wordCount": 348
+      "wordCount": 457
     },
     {
-      "contentSha256": "d3238a38739406f03f02f723820834a58001604fe6a01b4eb6147c695c193f81",
+      "contentSha256": "3e524e78dc85e45c6f41456a214d606a2795cc2f1e5c7d2d162f21d650c75175",
       "description": "Keep canonical information independent from render layers and engine providers so output can be extended or replaced.",
-      "examples": [
-        "custom-render-boundary"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -493,6 +551,22 @@
         {
           "depth": 2,
           "title": "Registration"
+        },
+        {
+          "depth": 2,
+          "title": "Where this runs"
+        },
+        {
+          "depth": 2,
+          "title": "Implementation"
+        },
+        {
+          "depth": 2,
+          "title": "Flow"
+        },
+        {
+          "depth": 2,
+          "title": "Expected result"
         },
         {
           "depth": 2,
@@ -528,14 +602,11 @@
       "path": "learn/projection-registration-replacement.md",
       "section": "Learn",
       "title": "Register projections; replace providers",
-      "wordCount": 378
+      "wordCount": 529
     },
     {
       "contentSha256": "6d78485192e22c4e2b192bb35d88bfc50ffb9e1d91deb0fd760e0eb0a396cc95",
       "description": "Distinguish today's browser/Core composition from the researched Headless and Core Kernel direction for machine-facing products.",
-      "examples": [
-        "core-information-model"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -578,11 +649,8 @@
       "wordCount": 475
     },
     {
-      "contentSha256": "d80ae1c4b13e58123adecd3f17f5eb8d40393d6f68d08a23f32c1e50f043a8ff",
+      "contentSha256": "3eca920e7bcd70b1599c366e517a0805b755477687639c403eeab03fe94ba5e1",
       "description": "Register app-owned component meaning, property defaults, and validation through public Core APIs.",
-      "examples": [
-        "custom-component-schema"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -599,6 +667,14 @@
         {
           "depth": 2,
           "title": "Public APIs"
+        },
+        {
+          "depth": 2,
+          "title": "Where this runs"
+        },
+        {
+          "depth": 2,
+          "title": "Implementation"
         },
         {
           "depth": 2,
@@ -635,14 +711,11 @@
       "path": "build/custom-schema.md",
       "section": "Build",
       "title": "Build a custom component and schema",
-      "wordCount": 426
+      "wordCount": 491
     },
     {
-      "contentSha256": "bf2ec96227db484d4cacacf0a862daedf30e34df7fec5835f0ec10b60a9cb51d",
+      "contentSha256": "bbef7ca06f5af1e5c1aa906676e3f561a844026aca22f6d50c0de12645205982",
       "description": "Map start, update, end, and cancellation to exactly one intended undo commit.",
-      "examples": [
-        "feature-session-undo"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -659,6 +732,14 @@
         {
           "depth": 2,
           "title": "Public APIs"
+        },
+        {
+          "depth": 2,
+          "title": "Where this runs"
+        },
+        {
+          "depth": 2,
+          "title": "Implementation"
         },
         {
           "depth": 2,
@@ -694,14 +775,11 @@
       "path": "build/feature-session.md",
       "section": "Build",
       "title": "Build a transaction-safe Feature session",
-      "wordCount": 414
+      "wordCount": 494
     },
     {
-      "contentSha256": "a2b4c18e69e7708a1f8403084b146176137449bafd2cf7621a6b8e055e05f7a0",
+      "contentSha256": "faaa4dac8dafcf3629af9209e55589362c4e47da5b859203d4a28676cf18ba62",
       "description": "Provide an engine through the public provider contract without teaching Core a renderer-specific implementation.",
-      "examples": [
-        "custom-render-boundary"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -718,6 +796,14 @@
         {
           "depth": 2,
           "title": "Public APIs"
+        },
+        {
+          "depth": 2,
+          "title": "Where this runs"
+        },
+        {
+          "depth": 2,
+          "title": "Implementation"
         },
         {
           "depth": 2,
@@ -755,15 +841,11 @@
       "path": "build/render-boundary.md",
       "section": "Build",
       "title": "Build a custom render boundary",
-      "wordCount": 388
+      "wordCount": 565
     },
     {
-      "contentSha256": "734c5d3272a8b9d29e180d60ed502f202202a95a46d3bce82f41951db8a6a576",
+      "contentSha256": "6f256d3cd000d3f6d400e0060e2c7f2aedaeeb7abb59164a45490ddd24066ae9",
       "description": "Keep parent-child ordering canonical while group meaning and geometry policy remain app-owned.",
-      "examples": [
-        "custom-component-schema",
-        "generated-design-app-extension"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -817,14 +899,11 @@
       "path": "build/hierarchy-groups.md",
       "section": "Build",
       "title": "Build hierarchy and Group behavior",
-      "wordCount": 489
+      "wordCount": 491
     },
     {
-      "contentSha256": "00c7a43d4c1906175ef19b8d751a1d8b7951dca21163c4ac52870a57f8f770bc",
+      "contentSha256": "86d200eff0f684716bce13b21c640bc87320af6798b5b4e2ef283b3b60591936",
       "description": "Load validated canonical state while the app owns document versions, migration rules, and unsupported-version policy.",
-      "examples": [
-        "app-versioned-load-migration"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -841,6 +920,14 @@
         {
           "depth": 2,
           "title": "Public APIs"
+        },
+        {
+          "depth": 2,
+          "title": "Where this runs"
+        },
+        {
+          "depth": 2,
+          "title": "Implementation"
         },
         {
           "depth": 2,
@@ -877,14 +964,11 @@
       "path": "build/persistence-migration.md",
       "section": "Build",
       "title": "Build persistence with app-owned migration",
-      "wordCount": 387
+      "wordCount": 445
     },
     {
-      "contentSha256": "d6e054899ce1236b0aee27c92848b634d578c87cda137d5f59b7499b0c53188f",
+      "contentSha256": "b291f5627d7da3e871d7251f051b6302d492a140e2d8f03f5c716b7912d16833",
       "description": "Connect deterministic collaboration actors while the app owns transport, authorization, presence, and backend policy.",
-      "examples": [
-        "collaboration-two-memory-actors"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -901,6 +985,14 @@
         {
           "depth": 2,
           "title": "Public APIs"
+        },
+        {
+          "depth": 2,
+          "title": "Where this runs"
+        },
+        {
+          "depth": 2,
+          "title": "Implementation"
         },
         {
           "depth": 2,
@@ -936,14 +1028,11 @@
       "path": "build/collaboration.md",
       "section": "Build",
       "title": "Build opt-in collaboration",
-      "wordCount": 426
+      "wordCount": 526
     },
     {
-      "contentSha256": "121ca7c9abfeecd11c65e20ec521d6285debe3b9ec47d6776fa929fb73b72d3f",
+      "contentSha256": "9bd412f41b3920a5c98b4d26d5003c086f608a87961a73fc0ecc68ad447bed92",
       "description": "Expose bounded action schemas and permissions so AI intent uses the same canonical transaction paths as people.",
-      "examples": [
-        "ai-registered-action"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -960,6 +1049,14 @@
         {
           "depth": 2,
           "title": "Public APIs"
+        },
+        {
+          "depth": 2,
+          "title": "Where this runs"
+        },
+        {
+          "depth": 2,
+          "title": "Implementation"
         },
         {
           "depth": 2,
@@ -994,14 +1091,11 @@
       "path": "build/ai-actions.md",
       "section": "Build",
       "title": "Build registered AI actions",
-      "wordCount": 418
+      "wordCount": 505
     },
     {
-      "contentSha256": "6912f9fdefd1db1f8718dc2e23d0f3ca77ca4eb1c4aa552b4ce2db95d8749481",
+      "contentSha256": "01b20d505114f8cbf51b53138054de4df25d3cbd20aac8273c4e9d5ca3ceef5b",
       "description": "Let the app retrieve domain context and register actions without presenting future Headless support as current behavior.",
-      "examples": [
-        "app-retrieval-action"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -1018,6 +1112,14 @@
         {
           "depth": 2,
           "title": "Public APIs"
+        },
+        {
+          "depth": 2,
+          "title": "Where this runs"
+        },
+        {
+          "depth": 2,
+          "title": "Implementation"
         },
         {
           "depth": 2,
@@ -1054,15 +1156,11 @@
       "path": "build/app-retrieval-action.md",
       "section": "Build",
       "title": "Build app-owned AI retrieval and action",
-      "wordCount": 433
+      "wordCount": 514
     },
     {
-      "contentSha256": "fb7de79b9836e8d58735e95a3f347dbf66b78e47b3054a28a304abd8263b32c9",
+      "contentSha256": "d89302dd045712e4c510fe1f85da2fec803c21f3332166bbb8f65051dac01254",
       "description": "Optional registry, schema, permission, and execution boundary for app-approved AI actions.",
-      "examples": [
-        "ai-registered-action",
-        "app-retrieval-action"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -1117,14 +1215,11 @@
       "path": "reference/packages/ai-agent-runtime.md",
       "section": "Reference",
       "title": "@asyra/ai-agent-runtime",
-      "wordCount": 423
+      "wordCount": 419
     },
     {
-      "contentSha256": "9640cdce67894ec522057132d45591aadfc9a4b4657b364ef3cd5485fe7354d8",
+      "contentSha256": "d89bff16e1372b77541c570df2d78a8ec84f4159d0e20f3919e77bc44b621cd5",
       "description": "Optional deterministic replication adapters with app-owned network and service policy.",
-      "examples": [
-        "collaboration-two-memory-actors"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -1179,16 +1274,11 @@
       "path": "reference/packages/collaboration.md",
       "section": "Reference",
       "title": "@asyra/collaboration",
-      "wordCount": 400
+      "wordCount": 399
     },
     {
-      "contentSha256": "5ecd6efe98db027df353cb1787e29e443a3b22be584f24685a241560265803be",
+      "contentSha256": "4289ac1abb0ff2432245a88e2163bc943ed05a6cfb94902b046ae29a1a9c7df0",
       "description": "The strict composition facade for Framework capabilities and lifecycle.",
-      "examples": [
-        "core-information-model",
-        "custom-component-schema",
-        "preset-2d-minimal"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -1243,14 +1333,11 @@
       "path": "reference/packages/core.md",
       "section": "Reference",
       "title": "@asyra/core",
-      "wordCount": 431
+      "wordCount": 434
     },
     {
       "contentSha256": "8d7196f4b3b671b5f75c6ebc010bc025af8a9a46ca2d7271f70c7fb71375fd74",
       "description": "Optional reusable interface components; not a Core dependency or app-domain owner.",
-      "examples": [
-        "generated-design-app-extension"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -1308,12 +1395,8 @@
       "wordCount": 407
     },
     {
-      "contentSha256": "52a2f7b72127551ee81440b84c8cd3a9773cdd80a8f75d69405d9c7f60f16b82",
+      "contentSha256": "7edf3e543bf4b3d7b2d2fb88dcc784a9deb28c6f20ce589c221eec241530d02b",
       "description": "Canonical transactions, rollback, history replay, and shared change publication.",
-      "examples": [
-        "feature-session-undo",
-        "collaboration-two-memory-actors"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -1368,15 +1451,11 @@
       "path": "reference/packages/factory.md",
       "section": "Reference",
       "title": "@asyra/factory",
-      "wordCount": 388
+      "wordCount": 389
     },
     {
-      "contentSha256": "e6866488f48a0da39d52dc52571cf768f4dcb0857c216bd75ac192e446ff5f19",
+      "contentSha256": "b61024b261c5d2083e9ea2f38239b00fbc1361b2a6c29e816615497dae683002",
       "description": "Priority, exclusivity, conditions, and session lifecycle for intent handling.",
-      "examples": [
-        "feature-session-undo",
-        "app-retrieval-action"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -1431,14 +1510,11 @@
       "path": "reference/packages/feature-system.md",
       "section": "Reference",
       "title": "@asyra/feature-system",
-      "wordCount": 402
+      "wordCount": 399
     },
     {
-      "contentSha256": "0c0a71283bb252bd458a57bbb2e9da36730e789fa15b42e68370ccf45db6cb57",
+      "contentSha256": "6a93322f1412e27132ae039576b5d3a51296fa5c9cc6dac322c1c1a97d4fe42b",
       "description": "Environment-neutral semantic input registration and dispatch infrastructure.",
-      "examples": [
-        "core-information-model"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -1493,14 +1569,11 @@
       "path": "reference/packages/input-system.md",
       "section": "Reference",
       "title": "@asyra/input-system",
-      "wordCount": 387
+      "wordCount": 389
     },
     {
-      "contentSha256": "72b0b20a095bc1810eb0e205d918c3244ec38b8553a5522cbe14d8bd10ca1157",
+      "contentSha256": "64aca2a9895ec0659813e582c537e92affb8871dccc39885953a4eca2666daa1",
       "description": "Storage adapter and validated load boundary with app-owned migration meaning.",
-      "examples": [
-        "app-versioned-load-migration"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -1555,15 +1628,11 @@
       "path": "reference/packages/persistence.md",
       "section": "Reference",
       "title": "@asyra/persistence",
-      "wordCount": 365
+      "wordCount": 372
     },
     {
-      "contentSha256": "fb36eca23dbf9ab2e3eb98687227dc5c829f16c4b30795b03d46aa99bc3cd3a0",
+      "contentSha256": "6decd16b73a5a41526c730fe457be980cd6769d08ee1e09224c69dc05fe4c510",
       "description": "Optional official design-tool baseline with selectable defaults and replaceable providers.",
-      "examples": [
-        "preset-2d-minimal",
-        "preset-selective-defaults"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -1621,12 +1690,8 @@
       "wordCount": 372
     },
     {
-      "contentSha256": "e3cc7c8303ea664cb4bf379ee643be7f8c50945cf8b56d0969170b8daaa32aed",
+      "contentSha256": "ef316ce4a8e632db5c9ba271b69a13528c1aad92e1226fe3b722643f974fc829",
       "description": "Property definitions, runtime values, schema validation, and registration lifecycle.",
-      "examples": [
-        "custom-component-schema",
-        "core-information-model"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -1681,14 +1746,11 @@
       "path": "reference/packages/props-manager.md",
       "section": "Reference",
       "title": "@asyra/props-manager",
-      "wordCount": 359
+      "wordCount": 354
     },
     {
-      "contentSha256": "192c8d9332c4edb26c057aa1066fe17c135d8795d3a90977754b6002954119ac",
+      "contentSha256": "534d53e7eae5e7f38ddbf2977688a63af2857553e1246ef4f77d5b9eb40df275",
       "description": "Typed cross-package communication, transaction ownership, and replay-safe event routes.",
-      "examples": [
-        "feature-session-undo"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -1746,12 +1808,8 @@
       "wordCount": 381
     },
     {
-      "contentSha256": "22a1a84fd95c97472f027596cb1d9843e5fd5e9d731e0131962d442fd713d281",
+      "contentSha256": "bef4926e98157e95bac359858e2868d30939b419876f0d00e2fe9d9f1511c62a",
       "description": "Projection, render-layer registration, interaction bridges, and renderer orchestration.",
-      "examples": [
-        "core-information-model",
-        "custom-render-boundary"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -1806,14 +1864,11 @@
       "path": "reference/packages/render.md",
       "section": "Reference",
       "title": "@asyra/render",
-      "wordCount": 401
+      "wordCount": 397
     },
     {
-      "contentSha256": "7d4cb1943f65aa33a5f171f5dac60725f2ad7e3610d7df6607c61a60f3c70a61",
+      "contentSha256": "212eb15123459dc4528adbc539861a4575ea7979da639ce6c339f7d18c854fcc",
       "description": "Public engine-provider contract that keeps renderer implementations replaceable.",
-      "examples": [
-        "custom-render-boundary"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -1868,14 +1923,11 @@
       "path": "reference/packages/render-engine.md",
       "section": "Reference",
       "title": "@asyra/render-engine",
-      "wordCount": 365
+      "wordCount": 374
     },
     {
-      "contentSha256": "45b73b43af275a9b4d4fc4f493c883723f43d2ceff864deea1947101911938fa",
+      "contentSha256": "5ced80e9d45c5efe14eb632d25c82ba5e2f729b4f95ec7059bba41881d29c95d",
       "description": "Official optional Pixi provider for the current browser-based 2D baseline.",
-      "examples": [
-        "preset-2d-minimal"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -1930,15 +1982,11 @@
       "path": "reference/packages/render-engine-pixi.md",
       "section": "Reference",
       "title": "@asyra/render-engine-pixi",
-      "wordCount": 349
+      "wordCount": 352
     },
     {
-      "contentSha256": "4c47de80fadc3f4d28c4224b48e5ba65abf0dd9423ad78ae795b908f05998345",
+      "contentSha256": "fda648ca19632219725d4512f8d603e8b3a62bd39e6c7d756ddb52351f176e93",
       "description": "Canonical element hierarchy, ordering, component relations, and subtree operations.",
-      "examples": [
-        "custom-component-schema",
-        "core-information-model"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -1993,14 +2041,11 @@
       "path": "reference/packages/scene-tree.md",
       "section": "Reference",
       "title": "@asyra/scene-tree",
-      "wordCount": 362
+      "wordCount": 366
     },
     {
       "contentSha256": "a28fc0efcad3171edb523dcacc86c72c6e2a606b5bdf8862d536a3043af695be",
       "description": "Selection channels and state infrastructure without app-specific selection policy.",
-      "examples": [
-        "core-information-model"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -2058,11 +2103,8 @@
       "wordCount": 342
     },
     {
-      "contentSha256": "879a7bab436c4a33ff055ea04857546f8b6ada603eccd49d5b50fcfd3c441baa",
+      "contentSha256": "41482ef59f07097c9a798c498b15296c3f1f5f60274bed86528ffecfbd0a954a",
       "description": "Managed system-level properties and snapshots shared through canonical registration.",
-      "examples": [
-        "core-information-model"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -2117,14 +2159,11 @@
       "path": "reference/packages/system-context.md",
       "section": "Reference",
       "title": "@asyra/system-context",
-      "wordCount": 336
+      "wordCount": 335
     },
     {
       "contentSha256": "407820036abb56109f8b750dda623e1671a49d2207c2c08fee6b45a0778d9551",
       "description": "UI-facing derived property registration and computation without canonical model ownership.",
-      "examples": [
-        "generated-design-app-extension"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -2182,11 +2221,8 @@
       "wordCount": 356
     },
     {
-      "contentSha256": "989de12242f09f6ab5b75d912a32d324b0091253c4359ad132298eba71ac949d",
+      "contentSha256": "eed3e7a356c8b12b78c9e5ec515e43c51f59b244cc77d3ce7f993f1556231e3c",
       "description": "Small shared public utilities without Framework state or lifecycle ownership.",
-      "examples": [
-        "generated-design-app-extension"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -2246,7 +2282,6 @@
     {
       "contentSha256": "87d1c0892401984ff30a44d9686e5ca0992463008f03b658bd376db9187051d2",
       "description": "Current runtime support, candidate status, security reporting, license, migration, and publication boundaries.",
-      "examples": [],
       "headings": [
         {
           "depth": 1,
@@ -2294,14 +2329,8 @@
       "wordCount": 470
     },
     {
-      "contentSha256": "cc1acff8fa578a1015ade8b65619203531fdaba097c0cd4c13732416015b47b7",
+      "contentSha256": "72787a20052774a2df21f3d75598430457dc57c9bef77f72eb70da3d8e364e3f",
       "description": "See how one real product composes Framework infrastructure, Preset defaults, app-domain behavior, collaboration, persistence, and AI.",
-      "examples": [
-        "generated-design-app-extension",
-        "ai-registered-action",
-        "collaboration-two-memory-actors",
-        "app-versioned-load-migration"
-      ],
       "headings": [
         {
           "depth": 1,
@@ -2349,7 +2378,7 @@
         },
         {
           "depth": 2,
-          "title": "Executable evidence"
+          "title": "Advanced implementation and verification"
         },
         {
           "depth": 2,
@@ -2368,7 +2397,7 @@
       "path": "cases/asyra-design.md",
       "section": "Cases",
       "title": "Asyra Design as a reference product",
-      "wordCount": 1284
+      "wordCount": 1298
     }
   ],
   "release": {

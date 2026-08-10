@@ -3,7 +3,6 @@ import { SiteNavigation } from '@/components/site-navigation'
 
 export const primaryNavigation = [
   { href: '/docs', label: 'Docs' },
-  { href: '/examples', label: 'Examples' },
   { href: '/asyra-design', label: 'Asyra Design' },
   { href: '/releases', label: 'Releases' },
   { href: '/roadmap', label: 'Roadmap' },
