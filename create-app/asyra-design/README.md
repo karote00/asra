@@ -49,7 +49,7 @@ pnpm start
 Open:
 
 ```text
-http://localhost:3000/?fileId=my-product
+http://localhost:3000/?fileId=my-design
 ```
 
 The non-empty `fileId` is the App document and collaboration-room identity.
