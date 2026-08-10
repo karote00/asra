@@ -39,8 +39,8 @@ and tell the agent to link or extend that evidence rather than copying an
 untested variant into documentation.
 
 The agent should inspect current public entrypoints and declarations before
-naming an API. Package-private imports such as `@asyra/package/src/...` and
-cross-package relative paths are not supported consumer contracts.
+naming an API. Package-private source imports and cross-package relative paths
+are not supported consumer contracts.
 
 ## Keep AI-created content canonical
 

@@ -43,6 +43,40 @@ test('public indexes derive the exact page, source, and API inventories', async 
       )
     }
   }
+  for (const packageRecord of bundle.apiIndex.packages) {
+    assert.deepEqual(
+      packageRecord.entries.map(({ path: entryPath }) => entryPath),
+      packageRecord.publicEntries
+    )
+    for (const entry of packageRecord.entries) {
+      if (entry.path.endsWith('.css')) {
+        assert.deepEqual(entry.symbols, [])
+        assert.deepEqual(entry.members, [])
+      } else {
+        assert.ok(entry.symbols.length > 0)
+        assert.deepEqual(entry.symbols, [...entry.symbols].sort())
+        assert.deepEqual(entry.members, [...entry.members].sort())
+      }
+    }
+  }
+  const core = bundle.apiIndex.packages.find(
+    ({ name }) => name === '@asyra/core'
+  )
+  assert.ok(
+    core.entries
+      .find(({ path: entryPath }) => entryPath === '.')
+      .symbols.includes('Core')
+  )
+  assert.ok(
+    core.entries
+      .find(({ path: entryPath }) => entryPath === './contracts')
+      .symbols.includes('SharedPublication')
+  )
+  assert.ok(
+    core.entries
+      .find(({ path: entryPath }) => entryPath === '.')
+      .members.includes('defineSystemProperty')
+  )
 })
 
 test('llms discovery is public-only and states the current/future boundary', async () => {

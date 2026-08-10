@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
 
 import { readPublicContentContract } from './public-content-contract.mjs'
 import {
@@ -46,6 +47,126 @@ const markdownWordCount = (source) => {
     .split(/\s+/)
     .filter(Boolean)
   return words.length
+}
+
+const sourcePathForTypesTarget = ({ directory, repositoryRoot, target }) => {
+  if (typeof target !== 'string' || !target.endsWith('.d.ts')) return null
+  const relativeSource = target
+    .replace(/^\.\/dist\//, 'src/')
+    .replace(/\.d\.ts$/, '.ts')
+  const sourcePath = path.join(
+    repositoryRoot,
+    'packages',
+    directory,
+    relativeSource
+  )
+  if (fs.existsSync(sourcePath)) return sourcePath
+  const tsxPath = sourcePath.replace(/\.ts$/, '.tsx')
+  if (fs.existsSync(tsxPath)) return tsxPath
+  throw new Error(
+    `Cannot resolve public declaration source for packages/${directory}/${target}`
+  )
+}
+
+const publicApiEntries = ({ packageReference, repositoryRoot }) => {
+  const records = packageReference.packages.flatMap((packageRecord) => {
+    const manifest = JSON.parse(
+      readSource(repositoryRoot, packageRecord.manifestPath)
+    )
+    return packageRecord.publicEntries.map((entryPath) => {
+      const exportValue =
+        typeof manifest.exports === 'string'
+          ? manifest.exports
+          : manifest.exports?.[entryPath]
+      let typesTarget = null
+      if (exportValue && typeof exportValue === 'object') {
+        typesTarget = exportValue.types
+      } else if (entryPath === '.') {
+        typesTarget = manifest.types
+      }
+      return {
+        entryPath,
+        name: packageRecord.name,
+        sourcePath: sourcePathForTypesTarget({
+          directory: packageRecord.directory,
+          repositoryRoot,
+          target: typesTarget
+        })
+      }
+    })
+  })
+  const rootNames = records.map(({ sourcePath }) => sourcePath).filter(Boolean)
+  const program = ts.createProgram(rootNames, {
+    jsx: ts.JsxEmit.ReactJSX,
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
+    skipLibCheck: true,
+    target: ts.ScriptTarget.ESNext
+  })
+  const checker = program.getTypeChecker()
+
+  const membersForExport = (exportSymbol) => {
+    const target =
+      exportSymbol.flags & ts.SymbolFlags.Alias
+        ? checker.getAliasedSymbol(exportSymbol)
+        : exportSymbol
+    const declaration = target.valueDeclaration ?? target.declarations?.[0]
+    if (!declaration) return []
+    const types = []
+    if (
+      target.flags &
+      (ts.SymbolFlags.Class |
+        ts.SymbolFlags.Interface |
+        ts.SymbolFlags.TypeAlias)
+    ) {
+      types.push(checker.getDeclaredTypeOfSymbol(target))
+    }
+    if (
+      target.flags &
+      (ts.SymbolFlags.Variable | ts.SymbolFlags.Property | ts.SymbolFlags.Alias)
+    ) {
+      types.push(checker.getTypeOfSymbolAtLocation(target, declaration))
+    }
+    return [
+      ...new Set(
+        types.flatMap((type) =>
+          checker
+            .getPropertiesOfType(type)
+            .map(({ name }) => name)
+            .filter((name) => !name.startsWith('__'))
+        )
+      )
+    ].sort()
+  }
+
+  return new Map(
+    packageReference.packages.map((packageRecord) => [
+      packageRecord.name,
+      records
+        .filter(({ name }) => name === packageRecord.name)
+        .map(({ entryPath, sourcePath }) => {
+          if (!sourcePath) {
+            return { members: [], path: entryPath, symbols: [] }
+          }
+          const sourceFile = program.getSourceFile(sourcePath)
+          const moduleSymbol =
+            sourceFile && checker.getSymbolAtLocation(sourceFile)
+          if (!moduleSymbol) {
+            throw new Error(
+              `Cannot resolve public module symbols for ${packageRecord.name}${entryPath === '.' ? '' : entryPath.slice(1)}`
+            )
+          }
+          const exportedSymbols = checker.getExportsOfModule(moduleSymbol)
+          return {
+            members: [
+              ...new Set(exportedSymbols.flatMap(membersForExport))
+            ].sort(),
+            path: entryPath,
+            symbols: exportedSymbols.map(({ name }) => name).sort()
+          }
+        })
+    ])
+  )
 }
 
 const serializeJson = (value) => `${JSON.stringify(value, null, 2)}\n`
@@ -127,8 +248,14 @@ export const createPublicDocumentationBundle = async ({ repositoryRoot }) => {
     schemaVersion: 1
   }
 
+  const apiEntriesByPackage = publicApiEntries({
+    packageReference,
+    repositoryRoot: root
+  })
+
   const apiIndex = {
     packages: packageReference.packages.map((packageRecord) => ({
+      entries: apiEntriesByPackage.get(packageRecord.name),
       frameworkDependencies: packageRecord.frameworkDependencies,
       guideId: packageRecord.guideId,
       guidePath: packageRecord.guidePath,

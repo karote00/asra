@@ -100,7 +100,7 @@
       "wordCount": 393
     },
     {
-      "contentSha256": "092efabb9483fedc1e6deeab009d591ffefec15d4033628e08898f329a0c018a",
+      "contentSha256": "b295a3327f48940adb93517dcaef01003fb4444640595c1cebe21466e98d14d3",
       "description": "Give an AI agent bounded ownership, canonical APIs, and executable proof while you retain product decisions.",
       "examples": [
         "generated-design-app-extension"
@@ -144,7 +144,7 @@
       "path": "start/extend-with-ai.md",
       "section": "Start",
       "title": "Extend Asyra with an AI coding agent",
-      "wordCount": 484
+      "wordCount": 482
     },
     {
       "contentSha256": "af69e58c9ee14ba209fb3789fcd78763d7d4aa323516f44f680ec75ecb91190b",
@@ -531,7 +531,7 @@
       "wordCount": 378
     },
     {
-      "contentSha256": "8b7b776142aab8a3527f488644945446426d3ce42f7ed812f0b0e9c34644f0b7",
+      "contentSha256": "6d78485192e22c4e2b192bb35d88bfc50ffb9e1d91deb0fd760e0eb0a396cc95",
       "description": "Distinguish today's browser/Core composition from the researched Headless and Core Kernel direction for machine-facing products.",
       "examples": [
         "core-information-model"
@@ -575,7 +575,7 @@
       "path": "learn/runtime-boundaries-roadmap.md",
       "section": "Learn",
       "title": "Current runtime and future Core Kernel",
-      "wordCount": 474
+      "wordCount": 475
     },
     {
       "contentSha256": "d80ae1c4b13e58123adecd3f17f5eb8d40393d6f68d08a23f32c1e50f043a8ff",
@@ -748,6 +748,7 @@
       "markdownPath": "docs/public/build/render-boundary.md",
       "packages": [
         "@asyra/core",
+        "@asyra/preset",
         "@asyra/render",
         "@asyra/render-engine"
       ],
@@ -757,7 +758,7 @@
       "wordCount": 388
     },
     {
-      "contentSha256": "d52ab6f4a33ebf140ebba338f5867b34d917d3e8256c3965313f07dde8215478",
+      "contentSha256": "734c5d3272a8b9d29e180d60ed502f202202a95a46d3bce82f41951db8a6a576",
       "description": "Keep parent-child ordering canonical while group meaning and geometry policy remain app-owned.",
       "examples": [
         "custom-component-schema",
@@ -2293,7 +2294,7 @@
       "wordCount": 470
     },
     {
-      "contentSha256": "321ad56ba4c5b8341d00225d52f72280842f6b6a02e7d2bc60323a94675f2225",
+      "contentSha256": "cc1acff8fa578a1015ade8b65619203531fdaba097c0cd4c13732416015b47b7",
       "description": "See how one real product composes Framework infrastructure, Preset defaults, app-domain behavior, collaboration, persistence, and AI.",
       "examples": [
         "generated-design-app-extension",
@@ -2367,7 +2368,7 @@
       "path": "cases/asyra-design.md",
       "section": "Cases",
       "title": "Asyra Design as a reference product",
-      "wordCount": 1280
+      "wordCount": 1284
     }
   ],
   "release": {

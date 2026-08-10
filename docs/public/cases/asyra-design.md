@@ -204,8 +204,8 @@ Framework composition, use the [official 2D baseline](../start/preset-2d.md) or
 - `yarn examples:run ai-registered-action`
 - `yarn examples:run collaboration-two-memory-actors`
 - `yarn examples:run app-versioned-load-migration`
-- `yarn workspace @asyra/asyra-design test:local`
-- `yarn workspace @asyra/asyra-design test:e2e`
+- `yarn test` in the generated app
+- `yarn test:e2e` in the generated app
 
 Use the smallest owner-focused test first, then the synchronized visual,
 collaboration, high-detail, or release gate appropriate to the changed product

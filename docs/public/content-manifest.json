@@ -211,7 +211,12 @@
         "docs/ai/framework/packages/render-engine.md",
         "docs/examples/custom-render-boundary.mjs"
       ],
-      "packages": ["@asyra/core", "@asyra/render", "@asyra/render-engine"],
+      "packages": [
+        "@asyra/core",
+        "@asyra/preset",
+        "@asyra/render",
+        "@asyra/render-engine"
+      ],
       "examples": ["custom-render-boundary"]
     },
     {

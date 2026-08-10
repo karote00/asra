@@ -70,7 +70,7 @@ silently create a visually grouped but canonically flat result.
 ```shell
 yarn workspace @asyra/scene-tree test:local
 yarn workspace @asyra/preset test:local
-yarn workspace @asyra/asyra-design test:local
+yarn test
 ```
 
 Test contiguous and non-contiguous moves, same-parent reorder, cross-parent

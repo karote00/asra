@@ -55,7 +55,7 @@ and transaction paths. See
 ## Do not claim yet
 
 - `createHeadlessCore()` or `startHeadless()`
-- a published `@asyra/core-kernel` package
+- a published Core Kernel package
 - no Render/Input/UI dependency in Core
 - supported Node or worker startup for the full Framework
 - multiple isolated Core runtimes in one process
