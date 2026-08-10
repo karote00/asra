@@ -1,0 +1,246 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-10",
+  "generator": {
+    "mode": "built-in image_gen",
+    "useCase": "ui-mockup",
+    "productionAsset": false
+  },
+  "globalAudience": {
+    "primary": "worldwide non-engineers and product creators",
+    "progressiveDisclosure": [
+      "plain-language possibility and outcome",
+      "creator-owned domain and predictable action",
+      "Framework route, transaction, owner, provider, and evidence"
+    ],
+    "localizationResilient": true
+  },
+  "directions": [
+    {
+      "id": "topology-observatory",
+      "path": "direction-topology-observatory.png",
+      "sha256": "86e9956d48375bb1a940bad56034a6eacd00ec4e14a2b37cd99d276b6237b90b",
+      "width": 1536,
+      "height": 1024,
+      "prompt": {
+        "primaryRequest": "Create an original shippable visual concept called Topology Observatory: an interactive observatory for deterministic information flows rather than a generic developer-docs template.",
+        "composition": "One dominant desktop Landing frame with legible mobile, documentation, and Runtime Atlas insets on a deep graphite coordinate plane.",
+        "narrative": "INFORMATION, EXECUTED. with working-product and Framework-learning entrances.",
+        "semantics": "UI intent to App Feature and API, then an orange transaction boundary around Factory and canonical owners, followed by UI projection; Preset and Provider remain dashed optional composition; future runtime is outside the active route.",
+        "constraints": "CSS-feasible geometry, accessible contrast, visible focus, readable mobile and documentation states, no external assets, no generic card grid, no glassmorphism, no unsupported Core Kernel claim."
+      },
+      "inspection": {
+        "fullScale": true,
+        "result": "pass-with-selection-risk",
+        "strengths": [
+          "distinctive topology and coordinate identity",
+          "strong Runtime Atlas and engineering-depth language",
+          "clear current, optional, transaction, accepted, and roadmap marks",
+          "credible dark shell plus warm reading surface"
+        ],
+        "risks": [
+          "above-the-fold narrative expects more technical literacy than the global audience contract permits",
+          "dense topology should appear after the plain-language value layer"
+        ]
+      }
+    },
+    {
+      "id": "material-blueprint",
+      "path": "direction-material-blueprint.png",
+      "sha256": "9467bf51a1b21e57e900d1c45e04ac8e516b3f51709830609e3ce36d768ce532",
+      "width": 1536,
+      "height": 1024,
+      "prompt": {
+        "primaryRequest": "Create an original shippable visual concept called Material Blueprint that lets a worldwide non-engineer understand Asyra before progressively revealing the technical Framework.",
+        "composition": "A global editorial Landing sheet with warm mineral paper, architectural registration marks, one continuous world-building fold, and mobile, documentation, and Runtime Atlas insets.",
+        "narrative": "BUILD THE TOOL YOUR WORLD NEEDS. You define the knowledge. Asyra keeps every action clear, safe, and reversible. Whiteboard, BIM, VR, and simulation remain App-owned examples.",
+        "semantics": "DESCRIBE to ACT to VERIFY, then Feature to API to transaction-bounded owners to projection; indigo canonical route, violet optional route, vermilion transaction, green accepted state, cross-hatched verified roadmap boundary.",
+        "constraints": "Plain international English first, localized-text resilience, 44px touch intent, long-form reading, shapes plus color, no external assets, no SaaS card grid, no invented roadmap items."
+      },
+      "inspection": {
+        "fullScale": true,
+        "result": "pass-selected-candidate",
+        "strengths": [
+          "clearest non-engineer value narrative",
+          "concrete possibilities remain explicitly App-owned examples",
+          "strong mobile and long-form reading hierarchy",
+          "technical depth arrives through progressive disclosure",
+          "warm material identity is distinctive yet implementable"
+        ],
+        "risks": [
+          "illustrated possibility panorama must be rebuilt as code-native line work rather than shipped as raster",
+          "technical blue annotation density must be reduced at narrow widths"
+        ]
+      }
+    },
+    {
+      "id": "signal-ledger",
+      "path": "direction-signal-ledger.png",
+      "sha256": "1b0524e1c21bd1caa1c604a1373323aed63718013ca69cf1da692adf45af2645",
+      "width": 1536,
+      "height": 1024,
+      "prompt": {
+        "primaryRequest": "Create an original shippable visual concept called Signal Ledger: a living ledger where knowledge becomes controlled, observable action.",
+        "composition": "A bold narrative column beside a continuous event ledger, with mobile, long-form documentation, and active/failure Runtime Atlas insets.",
+        "narrative": "FROM KNOWLEDGE TO ACTION. You bring the domain. Asyra brings the structure for safe, reversible action. Name what matters, define what can happen, and see every outcome.",
+        "semantics": "Idea, action, check, and result precede expandable Feature, API, transaction, owner, projection, and evidence details; accepted, optional, failure, and roadmap states use shape and text as well as color.",
+        "constraints": "Plain international English, localization resilience, 44px touch intent, light reading surface, no external assets, no generic dashboard or card grid, current examples separated from roadmap."
+      },
+      "inspection": {
+        "fullScale": true,
+        "result": "pass-supporting-direction",
+        "strengths": [
+          "best active, optional, failure, and roadmap state differentiation",
+          "plain and technical evidence views coexist",
+          "strong source for Runtime Atlas timeline and motion",
+          "high-energy identity remains CSS-feasible"
+        ],
+        "risks": [
+          "ledger density can overload the Landing page",
+          "large condensed type and technical rows require careful localization behavior"
+        ]
+      }
+    }
+  ],
+  "selectedDirectionId": "material-blueprint",
+  "selectionRationale": {
+    "primary": "Material Blueprint gives a worldwide non-engineer the clearest first explanation of Asyra through outcomes, creator ownership, and concrete product possibilities before it introduces Framework mechanics.",
+    "absorbedLanguage": [
+      "Topology Observatory coordinate and route language for Runtime Atlas depth",
+      "Signal Ledger state, failure, evidence, and timeline language"
+    ],
+    "implementationRule": "Generated raster boards are inspected visual evidence only; production visuals must be recreated with repository-owned HTML, CSS, SVG, Canvas, and runtime data."
+  },
+  "selectedBoards": [
+    {
+      "id": "landing-responsive",
+      "path": "selected-landing-responsive.png",
+      "sha256": "ca98293187f426fb5643eab695a470ddcdf988cf8aef821d8c5448169820c798",
+      "width": 1536,
+      "height": 1024,
+      "prompt": {
+        "purpose": "Resolve the Material Blueprint Landing page at desktop and 390px mobile widths.",
+        "requiredEvidence": "Plain-language value first, creator-owned product possibilities, Describe-Act-Verify progressive disclosure, two beginner entrances, and a technical route revealed only after the value story."
+      },
+      "inspection": {
+        "fullScale": true,
+        "result": "pass",
+        "findings": [
+          "Desktop and mobile preserve one narrative order.",
+          "A non-engineer can understand the outcome before seeing package or transaction language.",
+          "Create Asyra Design App and Learn the Framework are distinct, compatible beginner entrances."
+        ]
+      }
+    },
+    {
+      "id": "docs-responsive",
+      "path": "selected-docs-responsive.png",
+      "sha256": "456b7253dfdfd426a616fb8706065f72cabac885cba7d8034d465336fde8d416",
+      "width": 1536,
+      "height": 1024,
+      "prompt": {
+        "purpose": "Resolve long-form documentation at desktop, open mobile navigation, and mobile reading states.",
+        "requiredEvidence": "Persistent hierarchy without generic dashboard cards, readable measure, visible focus, release facts verified from manifests, and the repository support policy exposed without inventing community claims."
+      },
+      "inspection": {
+        "fullScale": true,
+        "result": "pass",
+        "findings": [
+          "Desktop reading, mobile navigation, and mobile content are separately legible.",
+          "The navigation sheet has a clear close affordance and returns to reading.",
+          "Release and support language stays tied to project-owned sources."
+        ]
+      }
+    },
+    {
+      "id": "atlas-states",
+      "path": "selected-atlas-states.png",
+      "sha256": "31f5e264ab02ca10f83ab07a4e4981fba7cddf3e5aa49a7b40ecc01d50436b5f",
+      "width": 1536,
+      "height": 1024,
+      "prompt": {
+        "purpose": "Resolve Runtime Atlas default, active transaction, accepted evidence, and failure states.",
+        "requiredEvidence": "Intent-to-feature route, transaction owner, canonical Scene and Props owners, optional Preset and Provider composition, projection, evidence ledger, and an explicit no-canonical-change failure result."
+      },
+      "inspection": {
+        "fullScale": true,
+        "result": "pass-with-recorded-raster-copy-deviation",
+        "findings": [
+          "Default, active, accepted, and failure states are distinguishable through shape, label, and color.",
+          "The active selector runs one transaction rather than implying a product-specific preset.",
+          "Failure visibly reverses the route and preserves canonical state."
+        ]
+      }
+    },
+    {
+      "id": "case-roadmap",
+      "path": "selected-case-roadmap.png",
+      "sha256": "a16efcd6565204332da1022fa1d11b2fdcf4dbdbe194c5de7cfb4596dd26063f",
+      "width": 1536,
+      "height": 1024,
+      "prompt": {
+        "purpose": "Resolve Asyra Design as a reference product and separate current Framework capability, App-owned possibilities, and verified roadmap boundaries.",
+        "requiredEvidence": "A real product path from creator intent to result, domain knowledge owned by the app, current capability marked with an indigo bar, app possibilities with outline circles, and roadmap with crosshatching."
+      },
+      "inspection": {
+        "fullScale": true,
+        "result": "pass",
+        "findings": [
+          "Asyra Design is clearly a reference product rather than the Framework boundary.",
+          "Whiteboard, BIM, VR, and simulation remain App-owned possibilities.",
+          "Current, possible, accepted, and roadmap meanings do not collapse into one status."
+        ]
+      }
+    },
+    {
+      "id": "motion-storyboard",
+      "path": "selected-motion-storyboard.png",
+      "sha256": "9ee260065f4852bbd27c7b568d4cd09bdf113b2ee95ce1560aff5da946fbfbcc",
+      "width": 1536,
+      "height": 1024,
+      "prompt": {
+        "purpose": "Resolve motion, interruption, focus, semantic timing, and reduced-motion equivalence across Landing, Docs, and Runtime Atlas.",
+        "requiredEvidence": "Five observable Atlas frames, pre-commit cancellation, post-commit persistence, focus continuity, entry-only Landing reveal, mobile navigation sheet behavior, and simultaneous reduced-motion state replacement."
+      },
+      "inspection": {
+        "fullScale": true,
+        "result": "pass",
+        "findings": [
+          "Factory is the transaction owner while Scene and Props remain canonical owners.",
+          "Content, order, focus, status, and evidence are identical in the reduced-motion equivalent.",
+          "Motion is bounded to 480ms and never uses autoplay, parallax, or scroll hijacking."
+        ]
+      }
+    }
+  ],
+  "viewStateCoverage": {
+    "landing-desktop": "landing-responsive",
+    "landing-mobile": "landing-responsive",
+    "docs-desktop": "docs-responsive",
+    "docs-mobile-navigation": "docs-responsive",
+    "docs-mobile-reading": "docs-responsive",
+    "atlas-default": "atlas-states",
+    "atlas-active-flow": "atlas-states",
+    "atlas-failure": "atlas-states",
+    "asyra-design-case-study": "case-roadmap",
+    "release-roadmap-boundary": "case-roadmap",
+    "motion-intent": "motion-storyboard",
+    "motion-transaction": "motion-storyboard",
+    "motion-projection": "motion-storyboard",
+    "motion-reduced": "motion-storyboard"
+  },
+  "imageTextDeviations": [
+    {
+      "path": "selected-atlas-states.png",
+      "generatedText": "WHY IT MATTERD",
+      "authoritativeText": "WHY IT MATTERS",
+      "resolution": "The implementation handoff and production copy use the authoritative text. The raster is layout and state evidence, never content authority."
+    }
+  ],
+  "deferredAlternateReimage": {
+    "timing": "after implemented website and launch completion",
+    "imagesOnly": true,
+    "reopensImplementation": false,
+    "requirement": "materially different composition and art direction, not a palette swap"
+  }
+}

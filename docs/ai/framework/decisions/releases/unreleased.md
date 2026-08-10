@@ -2346,3 +2346,71 @@ unregister -> app migration -> core.start()` as the public app route.
   - [#113](https://github.com/karote00/asyra/pull/113)
 - Accepted Source Commit:
   - `0bbb1cc35dc3cb1eebae30b7c81c494afbd063f8`
+
+## 2026-08-10 - Defer Headless Core and Core Kernel; retain Input environment neutrality
+
+- Context:
+  - Input System eagerly read `window` and registered listeners during
+    construction, preventing otherwise environment-neutral public imports.
+  - A proposed Headless Core factory exposed larger unresolved ownership issues:
+    package-default subscribers, process-scoped registries and Feature state,
+    and transaction replay owner routing could create false instance isolation.
+  - The public-release website plans were beginning to treat non-visible runtime
+    behavior as a current executable contract.
+- Decision:
+  - Keep the release-scoped Input System correction: import/construction is
+    DOM-neutral, and browser host/target listener ownership is explicit,
+    idempotent, transferable, and disposable.
+  - Preserve Core's existing typed watched-element event route and require
+    direct product-owner visual input testing before merge.
+  - Do not add `createHeadlessCore()`, `startHeadless()`, or a Core Kernel in the
+    initial release.
+  - Move Headless Core/Core Kernel to an unscheduled future plan and retain the
+    architecture research report as its indexed starting evidence.
+- Consequences:
+  - Node-safe Input/Core import is documented only as environment safety, not as
+    a non-visible runtime, no-Render/UI dependency, or isolation promise.
+  - Website, public docs, examples, and Runtime Atlas may explain the future
+    direction but cannot present Headless/Core Kernel behavior as current
+    support.
+  - Future activation requires a fresh current-code audit, explicit capability
+    decision, bounded plan, exact Inspector, test-first owner/isolation proofs,
+    and clean-consumer evidence.
+- Active Plan:
+  - `docs/ai/framework/plans/input-system-environment-neutrality-plan.md`
+- Future Plan:
+  - `docs/ai/framework/plans/headless-core-and-core-kernel-future-plan.md`
+- Research Report:
+  - `docs/ai/framework/research/headless-core-and-core-kernel-architecture-research.md`
+
+## 2026-08-10 - Complete the Asyra public website program
+
+- Context:
+  - The public release needed one coordinated result across Input environment
+    neutrality, README entrypoints, package documentation, executable examples,
+    image-first visual direction, the website platform, Landing, Runtime Atlas,
+    and production launch operations.
+  - Each child used a dedicated branch and PR targeting the shared integration
+    branch; the Launch child closed only after production verification and full
+    PR CI passed.
+- Decision:
+  - Accept the integrated website program as complete with all nine child
+    workstreams merged through PRs #116–#125.
+  - Retain Material Blueprint as the implemented visual direction and keep the
+    requested second Reimage as a post-launch image-only exploration that does
+    not reopen the accepted website implementation.
+  - Accept `https://asyra-framework.vercel.app` as the public Framework site and
+    retain the exact deployment, verification, and rollback evidence in the
+    Launch plan.
+- Consequences:
+  - README, public documentation, examples, Landing, Runtime Atlas, release
+    facts, and the Asyra Design case study now share one verified public
+    narrative for engineers, non-engineers, and AI-assisted builders.
+  - Future Headless Core/Core Kernel work remains unscheduled and cannot be
+    inferred from the current browser/Core release.
+  - This closeout creates no Changeset, version bump, package publication, tag,
+    custom domain, analytics integration, or new external release authority.
+- Completed Plan:
+  - `docs/ai/framework/plans/completed/asyra-framework-website-plan.md`
+- Production Record:
+  - `docs/ai/framework/plans/asyra-website-launch-and-operations-plan.md`

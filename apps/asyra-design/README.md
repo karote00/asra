@@ -1,181 +1,208 @@
 # Asyra Design
 
-Asyra Design is the open-source reference app built on the Asyra Framework. It
-provides a usable design canvas and demonstrates how an app can compose Asyra's
-state, rendering, interaction, and collaboration APIs.
+Asyra Design is the open-source reference product built with Asyra Framework.
+It is a real design tool and a maintained example of how an App composes
+Framework state, transactions, input, rendering, optional AI, collaboration,
+and backend services. Its design-tool behavior belongs to this App; it does not
+limit the kinds of products the Framework can support.
 
-## Requirements
+Requirements:
 
 - Node.js 24.x
 - Yarn 4.3.1
 
-Install dependencies from the repository root:
+## Start in this repository
+
+Install and build the monorepo once from the repository root:
 
 ```bash
 yarn install
-```
-
-On a fresh clone, build the workspace outputs once before starting development:
-
-```bash
 yarn react:build
 ```
 
-After running `yarn clean`, run `yarn react:build` again before starting
-development. Ordinary development sessions can reuse the existing outputs.
+Start the frontend development graph:
 
-## Local Service Configuration
+```bash
+yarn dev:all
+```
 
-The checked-in `apps/asyra-design/.env` configures the frontend, socket
-listener, and backend origin:
+Open one required non-empty `fileId`, for example:
+
+```text
+http://localhost:3000/?fileId=my-design
+```
+
+`dev:all` starts all workspace package watchers and the App dev server only. It
+does not start the document backend or socket server, build missing package
+outputs, or recreate `dist` after `yarn clean`; run `yarn react:build` again
+when those outputs have been removed.
+
+## Editing paths
+
+The App always starts Collaboration for every required `fileId` and uses one
+document-session composition. When its socket service is unavailable, it
+enters the declared disconnected state and remains locally editable through a
+provisional document. Local publications stay in the IndexedDB recovery outbox
+until reconnect. The browser never writes a materialized document.
+
+That behavior is useful for frontend development, but it is not complete
+collaboration or durable backend persistence. To exercise those guarantees,
+run the services in the next section.
+
+The checked-in `apps/asyra-design/.env` owns the local origins:
 
 ```dotenv
 APP_URL=http://localhost:3000
 COLLABORATION_WS_HOST=127.0.0.1
 COLLABORATION_WS_PORT=4101
 DOCUMENT_PERSISTENCE_BACKEND_URL=http://127.0.0.1:4201
+VITE_COLLABORATION_WS_URL=ws://127.0.0.1:4101/collaboration
 ```
 
-This repository reference app and the generated standalone template both point
-`VITE_COLLABORATION_WS_URL` at the local reference WebSocket service by default.
-Starting the backend, socket server, and app in order therefore exercises the
-complete document session without an extra environment edit. A consumer may
-clear the endpoint to use a same-origin `/collaboration` deployment route. See
-[`TEMPLATE.md`](TEMPLATE.md) for the generated-app contract.
+`APP_URL` is the frontend origin. `VITE_COLLABORATION_WS_URL` is the browser's
+socket endpoint.
 
-Vite, the normal Playwright suite, visual review, the collaboration E2E suite,
-and the socket server's Origin check use `APP_URL`. The socket server reads and
-writes checkpoints only through `DOCUMENT_PERSISTENCE_BACKEND_URL`; Vite uses
-that same backend origin to proxy the browser's same-origin
-`/api/documents/*` Reset DELETE during ordinary development. Neither derives
-the backend origin from the frontend URL.
+The socket server reads and
+writes checkpoints only through `DOCUMENT_PERSISTENCE_BACKEND_URL`. The browser
+reaches document Reset through the App's same-origin proxy.
 
-Reset always refreshes after the DELETE attempt settles. A storage-free demo
-without a reachable backend therefore still reloads the formal empty App; the
-failed request is diagnostic only and never blocks refresh.
+## Complete local services
 
-For example:
-
-```dotenv
-APP_URL=http://localhost:4317
-```
-
-## Start the Complete Local App
-
-Start the backend first:
+Start each owner in a separate terminal, in this order:
 
 ```bash
 yarn workspace @asyra/asyra-design document:backend
 ```
 
-Start the socket server in a second terminal:
-
 ```bash
 yarn workspace @asyra/asyra-design collaboration:server
 ```
-
-Start the frontend in a third terminal:
 
 ```bash
 yarn dev:all
 ```
 
-`dev:all` starts all workspace package watchers plus the App dev server only.
-It does not create missing workspace `dist` outputs. On a fresh clone, run
-`yarn install` and `yarn react:build` before `yarn dev:all`; after `yarn clean`,
-run `yarn react:build` before `yarn dev:all`. The backend and socket server
-remain the explicit first two terminals above.
+Open the same `fileId` in two windows to join one document session. Different
+ids remain isolated. Both single- and multi-Actor products use the same
+checkpoint-plus-tail handshake, Factory publication, socket sequence,
+three-second persistence window, and backend materialization path.
 
-Open one required non-empty `fileId`, for example:
-
-```text
-http://localhost:3000/?fileId=manual-design-file
-```
-
-Opening the same `fileId` in two windows joins the same document session;
-different values remain isolated. One Actor and multiple Actors use exactly
-the same checkpoint-plus-tail handshake, Factory publication, socket sequence,
-three-second persistence window, and backend materialization path. The
-frontend always starts Collaboration for every required `fileId`, including
-`crdt-7076-sample`.
-
-The browser never writes a materialized document. It stores only unaccepted
-local `SharedPublication` values in an IndexedDB recovery outbox and removes
-each one after matching socket source acceptance. Core remains the load owner
-and provides explicit serialization only for export and diagnostics.
-
-To restart already-built services without rebuilding:
+To restart services whose outputs are already built:
 
 ```bash
 yarn workspace @asyra/asyra-design document:backend:start
 yarn workspace @asyra/asyra-design collaboration:server:start
 ```
 
-You can inspect the connection in DevTools:
+The reference services intentionally include no login or permission database.
+A deployment must provide authorization, backup, retention, and operational
+policy without creating a second browser canonical-state route. See the
+[Collaboration reference](../../docs/ai/apps/asyra-design/modules/collaboration-reference.md).
 
-```js
-window.__Collaboration__?.getStatus()
-window.__Collaboration__?.getSessionState()
-window.__Collaboration__?.identity
-```
+## Extend the product
 
-The repository server intentionally has no login or permission database. A
-deployment must supply authorization, backup, and operational policy without
-changing the frontend document-session contract. See the complete ownership,
-data-flow, configuration, and extension contract in
-[`collaboration-reference.md`](../../docs/ai/apps/asyra-design/modules/collaboration-reference.md).
-
-## Public Frontend Deployment
-
-The public deployment ships the same full-stack frontend code but does not
-deploy the socket server or backend. An ordinary `fileId` therefore enters the
-disconnected state, displays one transition toast, and remains locally
-editable. Per-operation send failures stay in the console, and one
-non-overlapping reconnect attempt is scheduled every 30 seconds. This is not a
-second local-only mode.
-
-`crdt-7076-sample` uses this same disconnected socket composition. Opening
-`http://localhost:3000/?fileId=crdt-7076-sample` does not preload a drawing.
-After Actor A submits the checked-in reference image and exact instruction, the
-same-origin HTTP action-batch endpoint returns the prepared sample. Actor A
-then executes it through the ordinary Runtime/Core/Factory/Render path; with a
-socket, Actor B receives the result through CRDT, and without a socket Actor A
-still renders locally while the ordinary outbox retains its publication.
-
-## Tests
+The fastest maintained extension is the
+[App-owned review queue example](examples/review-queue-extension.mjs). It
+registers one Feature API, validates App-domain records, rejects duplicate ids
+atomically, and disposes its registration without changing Preset or Framework
+internals:
 
 ```bash
+yarn examples:run generated-design-app-extension
+```
+
+Use these public paths depending on what you are adding:
+
+- [Start from a generated Asyra Design product](../../docs/public/start/create-design-app.md)
+- [Extend it with an AI coding agent](../../docs/public/start/extend-with-ai.md)
+- [Build a custom schema](../../docs/public/build/custom-schema.md)
+- [Build a transaction-safe Feature](../../docs/public/build/feature-session.md)
+- [Add registered AI actions](../../docs/public/build/ai-actions.md)
+- [Asyra Design source-linked case study](../../docs/public/cases/asyra-design.md)
+
+App work belongs in `src/features`, `src/common-apis`, `src/controllers`,
+`src/init`, `src/render-layers`, or other explicit App owners. Do not put
+design-tool rules into Framework packages merely because several UI components
+need them.
+
+## Framework and App ownership
+
+| Layer        | Owns                                                                | Does not own                                             |
+| ------------ | ------------------------------------------------------------------- | -------------------------------------------------------- |
+| Framework    | canonical packages, transactions, validation, registration, runtime | design commands, panel policy, backend or AI domain      |
+| Preset       | selectable official defaults and current `2D` provider policy       | Core readiness, App workflows, universal product rules   |
+| Asyra Design | schemas, Features, common APIs, tools, UI, permissions, composition | Framework internals or backend durability authority      |
+| App services | socket protocol, sequencing, checkpoints, persistence, server AI    | browser UI, Core instances, canonical mutation shortcuts |
+
+The normal product path is:
+
+```text
+Input or UI intent
+→ App Feature
+→ App common API or controller
+→ Core and canonical Framework owner
+→ Factory transaction
+→ Render / UI projection
+→ optional App-owned transport and durability
+```
+
+AI-created elements use this same route. They remain ordinary editable Props
+and Scene information, one reversible transaction, one collaboration
+publication path, and one persistable document sequence—not an opaque AI-only
+object or render patch.
+
+Provider configuration is server-only:
+
+```dotenv
+AI_PROVIDER_ENDPOINT=https://your-adapter.example/actions
+AI_PROVIDER_MODEL=your-model
+AI_PROVIDER_API_KEY=your-secret
+```
+
+The browser receives none of these values. App startup makes no model request;
+execution begins only after explicit user intent and remains behind registered
+actions, permissions, confirmation, Feature, and transaction boundaries.
+
+## Verify
+
+Use owner-focused tests while developing, then the full App gates:
+
+```bash
+yarn workspace @asyra/asyra-design typecheck
 yarn workspace @asyra/asyra-design test:local
 yarn workspace @asyra/asyra-design test:e2e
 yarn workspace @asyra/asyra-design test:e2e:collaboration
 ```
 
-The Playwright suites use the DEV app runtime for their diagnostic
-canonical-state assertions through imported test access and the bounded
-document diagnostic service; the human-only DevTools globals are never an
-automation API. Production bundling remains a separate build gate.
-The collaboration E2E suite may reuse already-running app and WebSocket servers.
-It never replaces the manual two-window test surface.
+Production bundling remains a separate required gate:
 
-## Project Structure
+```bash
+yarn workspace @asyra/asyra-design react:build
+```
 
-- `src/` — app UI, features, common APIs, and runtime composition
-- `src/collaboration/` — always-on collaboration provider and app composition
-- `src/render-layers/` — app-owned overlay and preview layers
-- `e2e/` — browser behavior tests, including real multi-window collaboration
-- `collaboration-server.ts` — socket session, sequence, fan-out, and
-  persistence-queue server
-- `server/document-backend.ts` — ordered checkpoint materialization backend
-- `vite.collaboration-server.config.ts` — Node server build configuration
-- `app-environment.mjs` — shared app URL and reference server configuration
+The E2E suites use formal test access and the App's diagnostic service. Human
+DevTools globals are not an automation API.
 
-## Contributing
+## Deployment boundary
 
-Pull requests for app, framework-integration, and collaboration improvements are
-welcome. Preserve canonical state ownership, registered rendering boundaries,
-one intended undo unit per outer user interaction, and one shared publication
-per synchronous delivery action.
+The current public frontend deployment does not include the repository socket
+server or document backend. An ordinary `fileId` therefore reports a
+disconnected transition and remains locally editable; it does not silently
+claim collaboration or durability.
+
+`crdt-7076-sample` also uses the ordinary document-session and action-execution
+path. It is prepared only after the designated Actor submits the checked-in
+reference input; it is not a preload, alternate runtime, or hidden document
+source.
+
+## Support and contribution policy
+
+This repository does not accept external issues or contributions, including
+pull requests. You may inspect and fork the App, but product changes must retain
+the Framework/App ownership boundaries and formal test contracts described
+above. Follow the repository [security policy](../../SECURITY.md) for
+security-sensitive reports.
 
 ## License
 
-MIT
+[MIT](../../LICENSE)

@@ -9,8 +9,34 @@
  */
 import { createAiAgentRuntime } from '@asyra/ai-agent-runtime'
 
+import {
+  assertExampleResult,
+  definePublicExample
+} from './example-contract.mjs'
+
+export const exampleDefinition = definePublicExample({
+  id: 'ai-registered-action',
+  title: 'Execute one prepared action through a registered boundary',
+  objective:
+    'Compose a deterministic replaceable provider, permission policy, action catalog, and transaction runner without credentials or network access.',
+  publicPackages: ['@asyra/ai-agent-runtime'],
+  environment:
+    'Supported browser composition with Node.js artifact verification',
+  runCommand: 'yarn examples:run ai-registered-action',
+  sourceRegion: 'example',
+  expectedResult:
+    'One schema-backed visibility action commits once and preserves prepared argument identity.',
+  ownership: {
+    framework:
+      'AI Runtime owns orchestration, validation, permission, and transaction sequencing.',
+    preset: 'Not composed in this example.',
+    app: 'Owns provider behavior, action schema, permissions, and visibility meaning.'
+  }
+})
+
 const SET_VISIBILITY = 'set_visibility'
 
+// #region example
 export const createExampleAiRuntime = () => {
   const state = {
     visible: true
@@ -116,4 +142,28 @@ export const createExampleAiRuntime = () => {
         signal: new AbortController().signal
       })
   })
+}
+// #endregion example
+
+export const runExample = async () => {
+  const example = createExampleAiRuntime()
+  try {
+    const outcome = await example.run()
+    const evidence = example.getEvidence()
+    assertExampleResult(outcome.status === 'executed', 'action executes')
+    assertExampleResult(
+      evidence.transaction.commits === 1 &&
+        evidence.transaction.rollbacks === 0,
+      'the transaction commits exactly once'
+    )
+    assertExampleResult(evidence.visible === false, 'visibility is updated')
+    return Object.freeze({
+      batchId: outcome.batchId,
+      status: outcome.status,
+      transaction: evidence.transaction,
+      visible: evidence.visible
+    })
+  } finally {
+    await example.dispose()
+  }
 }

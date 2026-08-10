@@ -470,12 +470,9 @@ const prepareCompleteCatViewport = async (page: Page) => {
   }
   await page.evaluate(
     async ({ nextPosition, nextScale }) => {
-      ;(await import('../src/testing/runtime-access')).core
-        .setSystemProperty(
-          'zoom',
-          nextScale
-        )(await import('../src/testing/runtime-access'))
-        .core.setSystemProperty('viewportPosition', nextPosition)
+      const { core } = await import('../src/testing/runtime-access')
+      core.setSystemProperty('zoom', nextScale)
+      core.setSystemProperty('viewportPosition', nextPosition)
     },
     {
       nextPosition: position,

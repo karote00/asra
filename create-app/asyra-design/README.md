@@ -1,67 +1,152 @@
-# create-asyra-design-app
+# `create-asyra-design-app`
 
-⚠️ **Experimental project. APIs and structure may change before 1.0.**
+Create an immediately editable **Asyra Design** product from the official
+standalone template. This is the recommended beginner entrance when you want to
+learn from a working product and continue building it directly or with an AI
+coding agent.
 
-Official CLI for scaffolding the standalone **Asyra Design** reference app.
-
-## Requirements
+Requirements:
 
 - Node.js 24.x
 - Yarn, npm, or pnpm
 
 ## Create a project
 
-```shell
-npx create-asyra-design-app my-project
+```bash
+npx create-asyra-design-app my-product
 ```
 
-The CLI copies its bundled template, asks which package manager to use, and
-installs the generated app dependencies.
+The CLI asks which supported package manager to use, copies the verified
+template into one new directory, creates its package-manager files, and
+installs dependencies.
 
-For automation, select the package manager without an interactive prompt:
+For automation, select the package manager explicitly:
 
-```shell
-npx create-asyra-design-app my-project --package-manager=yarn
+```bash
+npx create-asyra-design-app my-product --package-manager=yarn
+npx create-asyra-design-app my-product --package-manager=npm
+npx create-asyra-design-app my-product --package-manager=pnpm
 ```
 
-Supported values are `yarn`, `npm`, and `pnpm`. The project name must be one
-directory name; absolute paths and parent-directory traversal are rejected.
+Both `--package-manager=value` and `--package-manager value` are supported.
+Project names must be one new directory name; absolute paths, `.`/`..`, nested
+paths, and existing targets are rejected.
 
-## Start the project
+## Start editing
 
-```shell
-cd my-project
+```bash
+cd my-product
 yarn start
 ```
 
-Open `http://localhost:3000/?fileId=my-design`. The `fileId` is required as the
-document-session identity.
+For npm or pnpm, use the exact start command printed by the CLI:
 
-For npm or pnpm, use the command printed by the CLI:
-
-```shell
+```bash
 npm run start
 pnpm start
 ```
 
-## Document-session behavior
+Open:
 
-The generated app always attempts its socket-authoritative document-session
-path. Its default `VITE_COLLABORATION_WS_URL` points to the local reference
-WebSocket service at `ws://127.0.0.1:4101/collaboration`. Start
-`document:backend`, `collaboration:server`, and `start` in separate terminals
-to run the complete reference persistence and collaboration composition
-without another environment edit. When that service is unavailable, the app
-enters the disconnected state and local editing remains available through the
-provisional document and recovery outbox. Clearing the endpoint intentionally
-uses the same-origin `/collaboration` deployment route.
+```text
+http://localhost:3000/?fileId=my-design
+```
 
-## Contributing
+The non-empty `fileId` is the App document and collaboration-room identity.
+The generated frontend remains locally editable when its reference socket
+service is unavailable, but that disconnected path is not durable backend
+persistence or multi-Actor collaboration.
 
-- `apps/asyra-design` is the canonical app source.
-- `create-app/asyra-design/template` is generated output and must not receive
-  hand-written product fixes.
+## Run the complete local services
+
+Start these in separate terminals:
+
+```bash
+yarn document:backend
+```
+
+```bash
+yarn collaboration:server
+```
+
+```bash
+yarn start
+```
+
+Use `npm run <script>` or `pnpm <script>` for the selected package manager. The
+generated environment points the browser to the local reference socket service
+and the socket server to the local document backend. Opening the same `fileId`
+in two windows exercises the complete checkpoint, live publication, and
+durability path.
+
+Production authentication, authorization, backup, retention, custom domain
+rules, and service topology remain App/backend responsibilities.
+
+## Continue with Asyra
+
+The generated project is normal source code. Start with one bounded App-owned
+extension, keep its domain rules out of Framework packages, route mutations
+through Features and public APIs, add tests, and then expand the product.
+
+- [Generated-product walkthrough](https://github.com/karote00/asyra/blob/main/docs/public/start/create-design-app.md)
+- [Extend with an AI coding agent](https://github.com/karote00/asyra/blob/main/docs/public/start/extend-with-ai.md)
+- [Maintained review queue extension](https://github.com/karote00/asyra/blob/main/apps/asyra-design/examples/review-queue-extension.mjs)
+- [Framework learning examples](https://github.com/karote00/asyra/blob/main/docs/examples/README.md)
+- [Complete public documentation](https://github.com/karote00/asyra/blob/main/docs/public/index.md)
+- [Asyra Design case study](https://github.com/karote00/asyra/blob/main/docs/public/cases/asyra-design.md)
+
+`create-asyra-design-app` teaches how a real product uses Asyra. The smaller
+Framework examples remain a separate entrance for learning Core, Preset,
+transactions, schemas, custom rendering, collaboration, and registered AI
+actions without the full product stack.
+
+## Verify
+
+Run the standalone gates after an extension:
+
+```bash
+yarn typecheck
+yarn react:build
+yarn test
+```
+
+With the complete services running:
+
+```bash
+yarn test:e2e
+yarn test:e2e:collaboration
+```
+
+Use the equivalent npm or pnpm script command when that manager was selected.
+
+## Generated project contract
+
+- `apps/asyra-design` is the canonical reference-product source.
+- `apps/asyra-design/TEMPLATE.md` is the canonical generated README source.
+- the official generator materializes
+  `create-app/asyra-design/template`; generated output receives no handwritten
+  product fixes.
+- Framework dependency versions are resolved from the reviewed release
+  manifests, and generated code uses declared public entrypoints only.
+- Framework owns deterministic mechanics, Preset owns optional official
+  defaults, the generated App owns product/domain behavior, and App services
+  own transport, authorization, durability, and model-provider policy.
+
+The generated project supports the current browser/Core composition, official
+Preset `2D`, and engine-neutral `CUSTOM` extension boundary. Public Headless
+Core, Core Kernel, production `3D`/`HYBRID`, auto-layout, and unit-aware
+aggregation are future work.
+
+## Support and contribution policy
+
+This repository does not accept external issues or contributions, including
+pull requests. You may use and fork the CLI and generated product under the MIT
+License. Follow the upstream
+[security policy](https://github.com/karote00/asyra/blob/main/SECURITY.md) for
+security-sensitive reports and the
+[release support contract](https://github.com/karote00/asyra/blob/main/docs/ai/framework/RELEASE_SUPPORT.md)
+for current runtime and package boundaries.
 
 ## License
 
-MIT
+[MIT](LICENSE)

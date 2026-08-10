@@ -1,83 +1,51 @@
-# Input System
+# `@asyra/input-system`
 
-A powerful and flexible keyboard and mouse event listener plugin designed for modern web applications. This library simplifies the handling of complex input combinations, making it easier to manage user interactions in your projects.
+Environment-neutral semantic input registration with explicit browser host attachment.
 
-## Features
+## Requirements
 
-- **Cross-Platform Support**: Works seamlessly on Windows, Mac, and Linux.
-- **Customizable Key Combinations**: Define your own keyboard shortcuts and mouse actions.
-- **Event Listeners**: Easily attach callbacks to specific actions.
-- **TypeScript Support**: Built with TypeScript for better type safety and developer experience.
+- Node.js 24.x
+- Yarn 4.3.1 for this repository's maintained workflows
 
-## Installation
-
-You can install the Input System package via npm or yarn:
-
-### Using npm
+## Install
 
 ```bash
 npm install @asyra/input-system
 ```
 
-### Using yarn
-
-```bash
-yarn add @asyra/input-system
-```
-
-## Usage
-
-The default browser singleton listens for raw input. Apps define named events by
-registering typed combinations, then attach and release listeners by callback
-identity:
-
-```typescript
+```ts
 import inputSystem, { keyMap } from '@asyra/input-system'
-import { InputType, ModifierKey, PointerKey } from '@asyra/utils'
-
-inputSystem.registry.registerKeyCombinations({
-  UNDO: [
-    {
-      type: InputType.KEYBOARD,
-      keys: [keyMap.keys.KeyZ],
-      modifiers: [ModifierKey.META]
-    }
-  ],
-  DRAG_START: [
-    {
-      type: InputType.POINTER,
-      keys: [PointerKey.LEFT_MOUSE_DOWN]
-    }
-  ]
-})
-
-const handleUndo = () => console.log('Undo triggered')
-
-inputSystem.on('UNDO', handleUndo)
-inputSystem.off('UNDO', handleUndo)
 ```
 
-Event names and combinations are app-owned. Register each event name once for a
-given registry. `off(...)` removes only the supplied listener and returns
-`false` when that listener is not registered.
+Use only the package root and the explicitly documented public subpaths.
 
-## Contributing
+## Owns
 
-This repository is not accepting external issues or pull requests at this time.
-You are welcome to fork the package and adapt it for your own application; see
-the repository root README for the current contribution policy.
+- normalized keyboard, pointer, wheel, and mapped-event routing
+- instance-owned browser attachment, switching, detach, reset, and disposal
 
-## License
+## Does not own
 
-This project is licensed under the MIT License.
+- Feature decisions, scene mutations, render-layer behavior, context-menu policy, or unconditional native-menu suppression
 
-## Release support
+## Start here
 
-The `@asyra/input-system` `0.2.5` ESM artifact supports Node.js 24.x. Use only
-package-root exports. See the
-[Framework release support contract](../../docs/ai/framework/RELEASE_SUPPORT.md).
+Import or construct it without browser globals; attach a browser host only when the runtime actually needs browser input.
 
-## Acknowledgments
+## Lifecycle and composition
 
-- Inspired by various input handling libraries and frameworks.
-- Thanks to the open-source community for their contributions and support.
+Attachment adds listeners to the selected host and target. Reattachment is idempotent and target switching removes prior listeners first. `reset()` preserves attachment; `dispose()` detaches and clears transient state. Node-safe construction does not imply Headless Core support.
+
+## Learn more
+
+- [Complete package guide](https://github.com/karote00/asyra/blob/main/docs/public/reference/packages/input-system.md)
+- [Model information before choosing an output](https://github.com/karote00/asyra/blob/main/docs/examples/core-information-model.mjs) — `yarn examples:run core-information-model`
+- [Framework release support](https://github.com/karote00/asyra/blob/main/docs/ai/framework/RELEASE_SUPPORT.md)
+
+## Support and policy
+
+This repository does not accept external issues or contributions. You may use,
+inspect, and fork the package under the [MIT License](https://github.com/karote00/asyra/blob/main/LICENSE).
+Follow the [security policy](https://github.com/karote00/asyra/blob/main/SECURITY.md) for
+security-sensitive reports and the [root policy](https://github.com/karote00/asyra) for the
+current support boundary.

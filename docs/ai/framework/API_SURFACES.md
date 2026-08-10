@@ -786,6 +786,14 @@ See `packages/collaboration.md` and
 
 - default `inputSystem` singleton
 - `InputSystem`, `InputSystemRegistry`, `InputEventCombo`
+- `InputSystem.attachBrowserHost(host: Window, pointerTarget?: Window | HTMLElement): void`
+- `InputSystem.detachBrowserHost(): void`
+- `InputSystem.switchWatchedElement(element: HTMLElement): void`
+- `InputSystem.reset(): void` clears transient state and preserves attachment
+- `InputSystem.dispose(): void` detaches browser listeners and clears transient
+  state
+- import/construction is DOM-neutral; browser listeners begin only through
+  explicit attachment or Core's existing watched-element event route
 
 ## `defineFeature` Contract (Authoritative)
 

@@ -60,6 +60,20 @@
         "@asyra/render#build:render"
       ]
     },
+    "@asyra/asyra-framework-site#build:asyra-framework-site": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "@asyra/ai-agent-runtime#build:ai-agent-runtime",
+        "@asyra/collaboration#build:collaboration",
+        "@asyra/core#build:core",
+        "@asyra/factory#build:factory",
+        "@asyra/feature-system#build:feature-system",
+        "@asyra/reactive-events#build:reactive-events"
+      ]
+    },
     "@asyra/collaboration#build:collaboration": {
       "cache": false,
       "outputs": [

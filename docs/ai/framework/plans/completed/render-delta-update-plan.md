@@ -349,6 +349,13 @@ be idle and confirms that the session remains connected. This excludes fixture
 setup publication work from the measured Render phases without changing the
 ordinary App composition or any formal timing threshold.
 
+Pull-request CI runs this timing fixture with the exact Playwright-managed
+Chromium binary installed by the workflow. The remaining functional E2E suite
+continues to use the configured Google Chrome channel. This pins the timing
+runner without changing the measured 12-frame product flow, sample counts,
+total, p95, cold/steady max budgets, ordinary App composition, or zero-retry
+policy.
+
 For this bounded 12-frame sample, p50 and p95 use the lower sample quantile at
 `floor((sampleCount - 1) * ratio)`. The maximum sample retains its own explicit
 oracle, so the p95 and max budgets remain independent. The first vector

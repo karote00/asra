@@ -3,7 +3,8 @@ import { URL } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   createCollaboratingCounter,
-  createMemoryHub
+  createMemoryHub,
+  exampleDefinition
 } from '../../../../docs/examples/network-collaboration-transport.mjs'
 
 describe('network collaboration documentation example', () => {
@@ -18,6 +19,7 @@ describe('network collaboration documentation example', () => {
   })
 
   it('connects two explicit clients, converges canonical state, and projects awareness', async () => {
+    expect(exampleDefinition.id).toBe('collaboration-two-memory-actors')
     const hub = createMemoryHub()
     const first = await createCollaboratingCounter({
       hub,
