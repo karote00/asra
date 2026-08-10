@@ -296,7 +296,8 @@ module.exports = Object.freeze({
       outputs: ['artifact:verified-public-readmes'],
       conditions: [
         'All executable README cases and quality gates pass.',
-        'Every link resolves and every public API reference belongs to an approved public entrypoint.'
+        'Every link resolves and every public API reference belongs to an approved public entrypoint.',
+        'The public-documentation source map deterministically acknowledges reviewed README source revisions without changing public page semantics.'
       ],
       bypasses: [
         'Website and deployment URLs remain deferred until verified by their owners.'
@@ -314,6 +315,7 @@ module.exports = Object.freeze({
         'apps/asyra-design/TEMPLATE.md',
         'create-app/asyra-design/README.md',
         'create-app/asyra-design/template/README.md',
+        'docs/public/generated/source-map.json',
         'scripts/docs/**',
         'package.json'
       ],

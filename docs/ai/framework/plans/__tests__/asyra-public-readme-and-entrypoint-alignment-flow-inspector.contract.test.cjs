@@ -85,6 +85,12 @@ test('verification fails closed on links, APIs, generated drift, and policy conf
   assert.match(source, /Every link resolves/i)
   assert.match(source, /approved public entrypoint/i)
   assert.match(source, /stale generated output/i)
+  assert.match(source, /source map deterministically acknowledges/i)
+  assert.ok(
+    verify.implementationBoundary.includes(
+      'docs/public/generated/source-map.json'
+    )
+  )
   assert.match(source, /No public surface invites external issues or contributions/i)
   assert.match(source, /Current browser\/Core support/i)
 })
