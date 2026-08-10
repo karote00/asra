@@ -136,8 +136,11 @@ for the full workflow.
   behavior.
 - `src/common-apis` sends canonical changes through public Core/Framework
   boundaries and one intended transaction.
+- `src/common-apis/hierarchy.ts` routes Group, ungroup, reparent, and reorder
+  behavior through canonical Scene Tree and transaction boundaries.
 - `src/collaboration` owns the App document-session adapter; Core owns canonical
-  load/apply, and generic Collaboration owns transport handoff only.
+  load migration, validation, and apply, while generic Collaboration owns
+  transport handoff only.
 - `src/ai` registers App actions, permissions, confirmation, and transaction
   execution. Model output is never canonical state.
 
@@ -170,8 +173,8 @@ Preset `2D`, and engine-neutral `CUSTOM` extension contracts. Production `3D`,
 `HYBRID`, auto-layout, unit-aware aggregation, public Headless Core, and a
 multi-runtime Core Kernel are future work.
 
-Optional AI is user-initiated. Model-backed execution is disabled until the App
-server has all three server-only values:
+Optional AI is user-initiated. To opt in to AI, submit an explicit App intent
+and configure the model-backed App server with all three server-only values:
 
 ```dotenv
 AI_PROVIDER_ENDPOINT=https://your-adapter.example/actions
