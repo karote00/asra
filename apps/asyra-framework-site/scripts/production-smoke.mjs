@@ -33,13 +33,18 @@ for (const route of publicRoutes) {
   assert.equal(new URL(response.url).origin, origin, `${route} changed origin`)
   const body = await response.text()
   assert.ok(body.length > 80, `${route} returned an empty public surface`)
-  const canonical = new URL(route, origin).toString()
-  const escapedCanonical = canonical.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  assert.match(
-    body,
-    new RegExp(`rel="canonical"[^>]+href="${escapedCanonical}"`),
-    `${route} canonical`
+  const canonicalMatch = body.match(/rel="canonical"[^>]+href="([^"]+)"/)
+  assert.ok(canonicalMatch, `${route} canonical`)
+  const canonical = new URL(canonicalMatch[1])
+  const expectedCanonical = new URL(route, origin)
+  assert.equal(canonical.origin, expectedCanonical.origin, `${route} origin`)
+  assert.equal(
+    canonical.pathname,
+    expectedCanonical.pathname,
+    `${route} canonical path`
   )
+  assert.equal(canonical.search, '', `${route} canonical query`)
+  assert.equal(canonical.hash, '', `${route} canonical hash`)
   responses.set(route, { body, headers: response.headers })
 }
 
