@@ -137,10 +137,11 @@
       allowedContributors: [
         'Asyra Design generated app extension surface',
         'public Framework package roots',
-        'app-owned domain code'
+        'app-owned domain code',
+        'release generator output for the exact maintained extension source and test'
       ],
       forbiddenContributors: [
-        'template dist edits',
+        'manual template dist edits outside the release generator',
         'Asyra Design production bootstrap changes',
         'private Framework source imports',
         'Framework-owned domain assumptions'
@@ -150,7 +151,9 @@
         'apps/asyra-design/examples/**',
         'apps/asyra-design/src/__tests__/*example*',
         'apps/asyra-design/package.json',
-        'apps/asyra-design/tsconfig.json'
+        'apps/asyra-design/tsconfig.json',
+        'create-app/asyra-design/template/examples/**',
+        'create-app/asyra-design/template/src/__tests__/*example*'
       ],
       specRefs: [
         '#required-example-suite',

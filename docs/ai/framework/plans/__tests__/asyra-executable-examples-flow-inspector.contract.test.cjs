@@ -104,10 +104,21 @@ test('generated app extension stays bounded and outside production bootstrap', (
   assert.match(contract, /does not change production behavior/i)
   assert.match(contract, /excluded from production bundles/i)
   assert.match(contract, /app-owned domain code/i)
-  assert.match(contract, /template dist edits/i)
+  assert.match(contract, /manual template dist edits/i)
+  assert.match(contract, /release generator/i)
   assert.match(contract, /production bootstrap changes/i)
   assert.ok(
     extension.implementationBoundary.includes('apps/asyra-design/examples/**')
+  )
+  assert.ok(
+    extension.implementationBoundary.includes(
+      'create-app/asyra-design/template/examples/**'
+    )
+  )
+  assert.ok(
+    extension.implementationBoundary.includes(
+      'create-app/asyra-design/template/src/__tests__/*example*'
+    )
   )
 })
 
