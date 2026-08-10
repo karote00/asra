@@ -1,0 +1,433 @@
+{
+  "examples": [
+    {
+      "environment": "Supported browser/Core composition with Node.js artifact verification",
+      "expectedResult": "The managed model reaches verified revision 1 without an engine provider or optional service.",
+      "id": "core-information-model",
+      "objective": "Define and update canonical app information while Render, Collaboration, and AI remain uncomposed.",
+      "order": 1,
+      "ownership": {
+        "framework": "Owns managed-property registration and deterministic updates.",
+        "preset": "Not composed in this example.",
+        "app": "Owns the status schema and its meaning."
+      },
+      "publicPackages": [
+        {
+          "name": "@asyra/core",
+          "publicEntries": [
+            ".",
+            "./canvas-pipeline-debugger",
+            "./contracts"
+          ],
+          "version": "0.5.2"
+        },
+        {
+          "name": "@asyra/factory",
+          "publicEntries": [
+            "."
+          ],
+          "version": "0.5.1"
+        },
+        {
+          "name": "@asyra/input-system",
+          "publicEntries": [
+            "."
+          ],
+          "version": "0.5.1"
+        },
+        {
+          "name": "@asyra/props-manager",
+          "publicEntries": [
+            "."
+          ],
+          "version": "0.5.1"
+        },
+        {
+          "name": "@asyra/render",
+          "publicEntries": [
+            ".",
+            "./canvas-pipeline-debugger"
+          ],
+          "version": "0.5.2"
+        },
+        {
+          "name": "@asyra/scene-tree",
+          "publicEntries": [
+            "."
+          ],
+          "version": "0.5.1"
+        },
+        {
+          "name": "@asyra/selection",
+          "publicEntries": [
+            "."
+          ],
+          "version": "0.5.0"
+        },
+        {
+          "name": "@asyra/system-context",
+          "publicEntries": [
+            "."
+          ],
+          "version": "0.5.0"
+        }
+      ],
+      "runCommand": "yarn examples:run core-information-model",
+      "snippet": "export const runCoreInformationModelExample = () => {\n  const { core } = createExampleCoreComposition()\n  core.defineSystemProperty(STATUS_KEY, {\n    revision: 0,\n    status: 'draft'\n  })\n\n  try {\n    core.setSystemProperty(STATUS_KEY, {\n      revision: 1,\n      status: 'verified'\n    })\n    const model = core.getSystemContextSnapshot()[STATUS_KEY]\n    const result = {\n      model,\n      optionalSystems: {\n        ai: 'not-composed',\n        collaboration: 'not-composed',\n        renderEngine: core.hasRenderEngineProvider()\n      }\n    }\n\n    assertExampleResult(model.status === 'verified', 'status is verified')\n    assertExampleResult(model.revision === 1, 'revision is one')\n    assertExampleResult(\n      result.optionalSystems.renderEngine === false,\n      'Render remains optional'\n    )\n    return Object.freeze(result)\n  } finally {\n    core.unregisterSystemProperty(STATUS_KEY)\n  }\n}\n",
+      "snippetSha256": "38f224ae4366575a66613faf37118cdfc06ff94fe8bdb5133705e8c80f32c79f",
+      "source": "docs/examples/core-information-model.mjs",
+      "sourceRegion": "example",
+      "title": "Model information before choosing an output"
+    },
+    {
+      "environment": "Supported browser/Core 2D composition with Node.js artifact verification",
+      "expectedResult": "Preset reports profile 2D, the Pixi provider id, and all official defaults exactly once.",
+      "id": "preset-2d-minimal",
+      "objective": "Compose the optional official design-tool defaults and Pixi provider policy in one pre-start operation.",
+      "order": 2,
+      "ownership": {
+        "framework": "Owns deterministic registration and provider boundaries.",
+        "preset": "Selects the official 2D provider and complete default catalog.",
+        "app": "Chooses whether this baseline belongs in its product."
+      },
+      "publicPackages": [
+        {
+          "name": "@asyra/core",
+          "publicEntries": [
+            ".",
+            "./canvas-pipeline-debugger",
+            "./contracts"
+          ],
+          "version": "0.5.2"
+        },
+        {
+          "name": "@asyra/preset",
+          "publicEntries": [
+            "."
+          ],
+          "version": "0.5.2"
+        }
+      ],
+      "runCommand": "yarn examples:run preset-2d-minimal",
+      "snippet": "export const runPreset2DMinimalExample = () => {\n  const { core } = createExampleCoreComposition()\n  const result = applyPreset(core)\n\n  assertExampleResult(result.profile === PresetProfiles['2D'], 'profile is 2D')\n  assertExampleResult(\n    result.presetEngineId === '@asyra/render-engine-pixi',\n    'the official Pixi provider is selected'\n  )\n  assertExampleResult(\n    result.appliedDefaults.length === Object.values(PresetDefaults).length,\n    'all official defaults are applied'\n  )\n  return result\n}\n",
+      "snippetSha256": "f7921cb9f0cdc4862b000b42e29df2f916ca80e7b07c5c744406e7fa47df979f",
+      "source": "docs/examples/preset-2d-minimal.mjs",
+      "sourceRegion": "example",
+      "title": "Apply the complete official 2D baseline"
+    },
+    {
+      "environment": "Supported browser/Core composition with Node.js artifact verification",
+      "expectedResult": "Vector Editing expands only to Vector, Selection, and Vector Editing in dependency order.",
+      "id": "preset-selective-defaults",
+      "objective": "Request Vector Editing alone and inspect deterministic dependency expansion before Core starts.",
+      "order": 3,
+      "ownership": {
+        "framework": "Owns registration and startup closure.",
+        "preset": "Owns the official dependency graph between selectable defaults.",
+        "app": "Chooses the one requested default and may replace other capabilities."
+      },
+      "publicPackages": [
+        {
+          "name": "@asyra/core",
+          "publicEntries": [
+            ".",
+            "./canvas-pipeline-debugger",
+            "./contracts"
+          ],
+          "version": "0.5.2"
+        },
+        {
+          "name": "@asyra/preset",
+          "publicEntries": [
+            "."
+          ],
+          "version": "0.5.2"
+        }
+      ],
+      "runCommand": "yarn examples:run preset-selective-defaults",
+      "snippet": "export const runPresetSelectiveDefaultsExample = () => {\n  const { core } = createExampleCoreComposition()\n  const result = applyPreset(core, {\n    defaults: [PresetDefaults.VECTOR_EDITING]\n  })\n  const expected = [\n    PresetDefaults.VECTOR,\n    PresetDefaults.SELECTION,\n    PresetDefaults.VECTOR_EDITING\n  ]\n\n  assertExampleResult(\n    JSON.stringify(result.selectedDefaults) ===\n      JSON.stringify([PresetDefaults.VECTOR_EDITING]),\n    'only Vector Editing is selected'\n  )\n  assertExampleResult(\n    JSON.stringify(result.appliedDefaults) === JSON.stringify(expected),\n    'dependency expansion is exact and ordered'\n  )\n  return result\n}\n",
+      "snippetSha256": "c6bc0599e96a975de93c58b5828760481090e074b7a1a5e73e2c2e64cc23ce3d",
+      "source": "docs/examples/preset-selective-defaults.mjs",
+      "sourceRegion": "example",
+      "title": "Select one default and receive its exact closure"
+    },
+    {
+      "environment": "Supported browser/Core composition with Node.js artifact verification",
+      "expectedResult": "The custom component resolves one review relation and creates validated default property data.",
+      "id": "custom-component-schema",
+      "objective": "Define a domain-neutral Framework component relation around an app-owned review-state schema.",
+      "order": 4,
+      "ownership": {
+        "framework": "Owns registration, relation integrity, and schema lookup.",
+        "preset": "Not composed; the example defines its own capability.",
+        "app": "Owns work-item and review-state domain meaning."
+      },
+      "publicPackages": [
+        {
+          "name": "@asyra/core",
+          "publicEntries": [
+            ".",
+            "./canvas-pipeline-debugger",
+            "./contracts"
+          ],
+          "version": "0.5.2"
+        },
+        {
+          "name": "@asyra/props-manager",
+          "publicEntries": [
+            "."
+          ],
+          "version": "0.5.1"
+        },
+        {
+          "name": "@asyra/scene-tree",
+          "publicEntries": [
+            "."
+          ],
+          "version": "0.5.1"
+        }
+      ],
+      "runCommand": "yarn examples:run custom-component-schema",
+      "snippet": "export const runCustomComponentSchemaExample = () => {\n  const { core } = createExampleCoreComposition()\n  const ReviewState = core.definePropertyComponent({\n    type: PROPERTY_TYPE,\n    defaults: { score: 0, status: 'draft' }\n  })\n  core.registerPropertySchema({\n    type: PROPERTY_TYPE,\n    fields: [\n      { key: 'status', kind: 'string', defaultValue: 'draft' },\n      { key: 'score', kind: 'number', defaultValue: 0 }\n    ]\n  })\n  core.defineComponent({\n    type: COMPONENT_TYPE,\n    properties: [{ name: 'review', type: PROPERTY_TYPE }]\n  })\n\n  try {\n    const review = new ReviewState({\n      id: 'review-1',\n      type: PROPERTY_TYPE,\n      score: 92,\n      status: 'approved'\n    })\n    const result = {\n      componentType: COMPONENT_TYPE,\n      relations: core.getComponentPropertyRelations(COMPONENT_TYPE),\n      schema: core.getPropertySchema(PROPERTY_TYPE),\n      value: {\n        score: review.get('score'),\n        status: review.get('status')\n      }\n    }\n\n    assertExampleResult(result.relations.length === 1, 'one relation exists')\n    assertExampleResult(result.value.score === 92, 'score is retained')\n    assertExampleResult(\n      result.value.status === 'approved',\n      'status is retained'\n    )\n    return Object.freeze(result)\n  } finally {\n    core.unregisterComponent(COMPONENT_TYPE)\n    core.unregisterPropertyRegistration(PROPERTY_TYPE)\n  }\n}\n",
+      "snippetSha256": "c7989f1122d5f5ef647865f6ed9660a63703d21f0d527b22220b4fe39ffc7518",
+      "source": "docs/examples/custom-component-schema.mjs",
+      "sourceRegion": "example",
+      "title": "Register an app-owned component and schema"
+    },
+    {
+      "environment": "Supported browser interaction composition with Node.js artifact verification",
+      "expectedResult": "A successful session commits one undoable value, Undo/Redo replay it, and a failing session restores the last commit.",
+      "id": "feature-session-undo",
+      "objective": "Run explicit start/update/end and prove that handler failure rolls back without adding history.",
+      "order": 5,
+      "ownership": {
+        "framework": "Feature System owns session ordering; Factory owns commit, rollback, and history replay.",
+        "preset": "Not composed in this example.",
+        "app": "Owns the value mutation API and chooses rollback cancellation policy."
+      },
+      "publicPackages": [
+        {
+          "name": "@asyra/factory",
+          "publicEntries": [
+            "."
+          ],
+          "version": "0.5.1"
+        },
+        {
+          "name": "@asyra/feature-system",
+          "publicEntries": [
+            "."
+          ],
+          "version": "0.5.1"
+        }
+      ],
+      "runCommand": "yarn examples:run feature-session-undo",
+      "snippet": "export const runFeatureSessionUndoExample = async () => {\n  const state = { value: 0 }\n  factory.registerTransactionInverter(EVENT, (event) => ({\n    type: event.type,\n    payload: {\n      before: event.payload.after,\n      after: event.payload.before\n    }\n  }))\n  const stopReplay = factory.registerTransactionReplayHandler(\n    EVENT,\n    (event) => {\n      state.value = event.payload.after\n      return true\n    }\n  )\n  const sessions = new SessionManager()\n  sessions.registerSession(SESSION, FEATURE, 100, true, 'rollback', {\n    onStart: () => ({ startedAt: state.value }),\n    onUpdate: (snapshot) => {\n      recordValue(state, snapshot.nextValue)\n      if (snapshot.fail === true) {\n        throw new Error('app mutation rejected')\n      }\n    },\n    onEnd: () => undefined,\n    onCancel: () => 'rollback'\n  })\n\n  try {\n    await sessions.handleStart(SESSION, {})\n    await sessions.handleUpdate(SESSION, { nextValue: 5 })\n    await sessions.handleEnd(SESSION, {})\n    const committedDepth = factory.getUndoHistoryDepth()\n    factory.undo()\n    const undone = state.value\n    factory.redo()\n    const redone = state.value\n\n    await sessions.handleStart(SESSION, {})\n    let rollbackError\n    try {\n      await sessions.handleUpdate(SESSION, { fail: true, nextValue: 9 })\n    } catch (error) {\n      rollbackError = error\n    }\n    const result = {\n      committedDepth,\n      rollbackDepth: factory.getUndoHistoryDepth(),\n      rollbackError: rollbackError?.message,\n      rolledBackValue: state.value,\n      undone,\n      redone\n    }\n\n    assertExampleResult(committedDepth === 1, 'session creates one Undo unit')\n    assertExampleResult(undone === 0, 'Undo restores the starting value')\n    assertExampleResult(redone === 5, 'Redo restores the committed value')\n    assertExampleResult(\n      result.rolledBackValue === 5,\n      'failed update rolls back completely'\n    )\n    assertExampleResult(\n      result.rollbackDepth === 1,\n      'rollback adds no history entry'\n    )\n    return Object.freeze(result)\n  } finally {\n    sessions.unregisterSession(SESSION, FEATURE)\n    stopReplay()\n  }\n}\n",
+      "snippetSha256": "29fdf9477139df49a889d2f6a20ff76d41ae79eacca081a20e2ee41dd95bc97f",
+      "source": "docs/examples/feature-session-undo.mjs",
+      "sourceRegion": "example",
+      "title": "Commit one session as one Undo unit"
+    },
+    {
+      "environment": "Supported browser/Core load composition with Node.js artifact verification",
+      "expectedResult": "A v1 document reaches v3 through one deterministic chain; invalid inputs fail before canonical apply.",
+      "id": "app-versioned-load-migration",
+      "objective": "Register one connected app-owned version chain and reject invalid or asynchronous migration results before package owners apply data.",
+      "order": 6,
+      "ownership": {
+        "framework": "Core owns hook ordering and package-owner validation boundaries.",
+        "preset": "Not composed in this example.",
+        "app": "Owns document versions, migrations, and domain transforms."
+      },
+      "publicPackages": [
+        {
+          "name": "@asyra/core",
+          "publicEntries": [
+            ".",
+            "./canvas-pipeline-debugger",
+            "./contracts"
+          ],
+          "version": "0.5.2"
+        },
+        {
+          "name": "@asyra/persistence",
+          "publicEntries": [
+            "."
+          ],
+          "version": "0.5.0"
+        }
+      ],
+      "runCommand": "yarn examples:run app-versioned-load-migration",
+      "snippet": "export const registerAppVersionMigrations = (core, options) => {\n  const registry = createConnectedMigrationRegistry(options?.migrations)\n  if (registry.size === 0) {\n    return\n  }\n  if (migrationInstallations.has(core)) {\n    throw new AppMigrationError(\n      APP_MIGRATION_ERROR_CODES.ALREADY_REGISTERED,\n      'This app migration helper already installed a dispatcher on the Core instance',\n      undefined\n    )\n  }\n\n  core.registerLoadHook((rawDocument) => {\n    let document = requireVersionedDocument(rawDocument)\n    const visited = new Set()\n\n    while (registry.has(document.version)) {\n      if (visited.has(document.version)) {\n        throw new AppMigrationError(\n          APP_MIGRATION_ERROR_CODES.INVALID_CHAIN,\n          `Migration dispatch encountered a cycle at ${document.version}`,\n          document.version\n        )\n      }\n      visited.add(document.version)\n\n      const step = /** @type {AppMigrationStep} */ (\n        registry.get(document.version)\n      )\n      const migrated = /** @type {unknown} */ (step.migrate(document))\n      if (\n        isRecord(migrated) &&\n        'then' in migrated &&\n        typeof migrated.then === 'function'\n      ) {\n        void Promise.resolve(migrated).catch(() => undefined)\n        throw new AppMigrationError(\n          APP_MIGRATION_ERROR_CODES.ASYNC_UNSUPPORTED,\n          `Migration from ${step.from} returned an unsupported asynchronous result`,\n          step.from\n        )\n      }\n      if (!isRecord(migrated) || typeof migrated.version !== 'string') {\n        throw new AppMigrationError(\n          APP_MIGRATION_ERROR_CODES.INVALID_STEP_RESULT,\n          `Migration from ${step.from} must return a document with version ${step.to}`,\n          undefined\n        )\n      }\n\n      const migratedVersion = migrated.version\n      if (migratedVersion !== step.to) {\n        throw new AppMigrationError(\n          APP_MIGRATION_ERROR_CODES.INVALID_STEP_RESULT,\n          `Migration from ${step.from} must produce version ${step.to}`,\n          migratedVersion\n        )\n      }\n\n      document = /** @type {AppDocument} */ (migrated)\n    }\n\n    return document\n  })\n  migrationInstallations.add(core)\n}\n\n/**\n * Copyable example only: replace these app schema fields with the product's\n * actual domain transforms.\n *\n * @param {LoadHookRegistrar} core\n */\nexport const installExampleAppMigrations = (core) => {\n  registerAppVersionMigrations(core, {\n    migrations: [\n      {\n        from: 'v1',\n        to: 'v2',\n        migrate: (document) => {\n          const { legacyTitle, ...rest } = document\n          return {\n            ...rest,\n            version: 'v2',\n            title: typeof legacyTitle === 'string' ? legacyTitle : ''\n          }\n        }\n      },\n      {\n        from: 'v2',\n        to: 'v3',\n        migrate: (document) => ({\n          ...document,\n          version: 'v3',\n          metadata: {\n            ...(isRecord(document.metadata) ? document.metadata : {}),\n            schema: 'v3'\n          }\n        })\n      }\n    ]\n  })\n}\n",
+      "snippetSha256": "9ea0291697f3728bcbe62eb5008ab9e13858c0cfb34e5068dcc5e6fac2176793",
+      "source": "docs/examples/app-owned-versioned-load-migration.mjs",
+      "sourceRegion": "example",
+      "title": "Migrate app documents before canonical apply"
+    },
+    {
+      "environment": "Supported CUSTOM browser composition with Node.js artifact verification",
+      "expectedResult": "The adapter completes initialize, object, resource, draw, resize, interaction, frame, and destroy contracts.",
+      "id": "custom-render-boundary",
+      "objective": "Wrap an app engine behind the public engine-neutral contract and run the official conformance oracle.",
+      "order": 7,
+      "ownership": {
+        "framework": "Owns the engine-neutral command and conformance contracts.",
+        "preset": "CUSTOM leaves engine ownership to the app.",
+        "app": "Owns the adapter and its concrete rendering behavior."
+      },
+      "publicPackages": [
+        {
+          "name": "@asyra/render-engine",
+          "publicEntries": [
+            ".",
+            "./testing"
+          ],
+          "version": "0.5.0"
+        }
+      ],
+      "runCommand": "yarn examples:run custom-render-boundary",
+      "snippet": "export const runCustomRenderBoundaryExample = async () => {\n  const concreteEngine = new RecordingRenderEngine({\n    name: 'example-concrete-engine'\n  })\n  const appOwnedAdapter = {\n    name: 'example-app-adapter',\n    capabilities: concreteEngine.capabilities,\n    initialize: (options) => concreteEngine.initialize(options),\n    execute: (command) => concreteEngine.execute(command),\n    query: (query) => concreteEngine.query(query),\n    subscribeToInteraction: (listener) =>\n      concreteEngine.subscribeToInteraction(listener),\n    requestFrame: (callback) => concreteEngine.requestFrame(callback),\n    cancelFrame: () => concreteEngine.cancelFrame(),\n    destroy: () => concreteEngine.destroy()\n  }\n  const report = await runRenderEngineContract({\n    createEngine: () => appOwnedAdapter,\n    emitInteraction: (_engine, event) => concreteEngine.emitInteraction(event),\n    getOperationTypes: () =>\n      concreteEngine.getOperations().map(({ type }) => type)\n  })\n\n  assertExampleResult(\n    report.engine === appOwnedAdapter,\n    'the app adapter remains the runtime boundary'\n  )\n  assertExampleResult(\n    report.operationTypes.at(-1) === 'destroy',\n    'the complete lifecycle reaches destroy'\n  )\n  return Object.freeze({\n    engineName: report.engine.name,\n    interactionCount: report.interactions.length,\n    operationTypes: report.operationTypes\n  })\n}\n",
+      "snippetSha256": "7812599dbaf8307c19f90b1a79e83084f37c9cabb27e6aa01f910bcd1be3d3a7",
+      "source": "docs/examples/custom-render-boundary.mjs",
+      "sourceRegion": "example",
+      "title": "Prove an app-owned render-engine adapter"
+    },
+    {
+      "environment": "Browser-compatible ESM with Node.js artifact verification",
+      "expectedResult": "Actor B converges to Actor A value while presence remains app-owned ephemeral state.",
+      "id": "collaboration-two-memory-actors",
+      "objective": "Connect two explicit clients, converge one shared counter transaction, and keep Awareness outside canonical publications.",
+      "order": 8,
+      "ownership": {
+        "framework": "Factory owns transactions; Collaboration owns explicit transport lifecycle and outcomes.",
+        "preset": "Not composed in this example.",
+        "app": "Owns room identity, payload validation, replay policy, and presence projection."
+      },
+      "publicPackages": [
+        {
+          "name": "@asyra/collaboration",
+          "publicEntries": [
+            "."
+          ],
+          "version": "0.5.2"
+        },
+        {
+          "name": "@asyra/factory",
+          "publicEntries": [
+            "."
+          ],
+          "version": "0.5.1"
+        }
+      ],
+      "runCommand": "yarn examples:run collaboration-two-memory-actors",
+      "snippet": "// The hub represents an app/server-owned live room and acknowledgement\n// boundary. Production apps can replace it with any Provider.\nexport const createMemoryHub = (options = {}) => new MemoryHub(options)\n\n// Awareness is app-owned presentation state. It never authorizes or applies a\n// canonical mutation and it is absent from document publications.\nexport const projectRemotePresence = (awareness, present) =>\n  awareness.observe((event) => {\n    if (event.type === 'updated') {\n      present.set(event.snapshot.actorId, event.snapshot.state)\n      return\n    }\n    present.delete(event.actorId)\n  })\n\nexport const createCollaboratingCounter = async ({\n  hub,\n  documentId,\n  roomId,\n  actorId\n}) => {\n  const factory = new Factory()\n  factory.registerSharedDataChannel(CHANNEL, new LocalSharedDataChannel())\n  const state = { value: 0 }\n\n  factory.registerTransactionInverter(SET_VALUE, (event) => ({\n    type: event.type,\n    payload: {\n      ...event.payload,\n      before: event.payload.after,\n      after: event.payload.before\n    }\n  }))\n  factory.registerTransactionReplayHandler(SET_VALUE, (event) => {\n    state.value = event.payload.after\n    return true\n  })\n\n  const recordAndApply = (payload) => {\n    factory.updateTransaction({\n      type: 'updateTransaction',\n      eventName: SET_VALUE,\n      payload,\n      options: {\n        undoable: true,\n        rollbackable: true,\n        shared: CHANNEL,\n        sharedDelivery: 'transaction-end'\n      }\n    })\n    state.value = payload.after\n  }\n\n  const provider = new MemoryProvider(hub, {\n    documentId,\n    roomId,\n    actorId\n  })\n  const collaboration = createCollaboration({\n    documentId,\n    roomId,\n    actorId,\n    publicationSource: {\n      subscribe: (subscriber) =>\n        factory.subscribeToSharedPublication(subscriber)\n    },\n    provider,\n    processRemotePublication: (publication) => {\n      const deliveryEntries = publication.slices.flatMap((slice) =>\n        slice.batches.flatMap((batch) =>\n          batch.deliveries.map((delivery) => ({\n            channel: batch.channel,\n            delivery\n          }))\n        )\n      )\n      if (\n        deliveryEntries.length === 0 ||\n        deliveryEntries.some(\n          ({ channel, delivery }) =>\n            channel !== CHANNEL ||\n            delivery.eventName !== SET_VALUE ||\n            !isSetValuePayload(delivery.payload)\n        )\n      ) {\n        throw new Error('Unsupported counter publication')\n      }\n      factory.runRemoteTransaction(() => {\n        deliveryEntries.forEach(({ delivery }) =>\n          recordAndApply(delivery.payload)\n        )\n      })\n    },\n    resourceOwnership: { provider: 'owned' }\n  })\n  const remotePresence = new Map()\n  const stopPresenceProjection = projectRemotePresence(\n    collaboration.awareness,\n    remotePresence\n  )\n\n  // Construction is inert. start() is the explicit live-connection point.\n  await collaboration.start()\n\n  return Object.freeze({\n    collaboration,\n    factory,\n    remotePresence,\n    getValue: () => state.value,\n    setValue: (after) => {\n      factory.startTransaction()\n      recordAndApply({ before: state.value, after })\n      factory.endTransaction()\n    },\n    undo: () => factory.undo(),\n    redo: () => factory.redo(),\n    updatePresence: (presence) => collaboration.updateAwareness(presence),\n    disconnect: () => collaboration.disconnect(),\n    reconnect: () => collaboration.reconnect(),\n    dispose: async () => {\n      stopPresenceProjection()\n      await collaboration.dispose()\n    }\n  })\n}\n",
+      "snippetSha256": "95b033af2f4fe7d014fab7c9e934b4f899291cb42615082546d7b865abdb568c",
+      "source": "docs/examples/network-collaboration-transport.mjs",
+      "sourceRegion": "example",
+      "title": "Compose two non-durable in-memory actors"
+    },
+    {
+      "environment": "Supported browser composition with Node.js artifact verification",
+      "expectedResult": "One schema-backed visibility action commits once and preserves prepared argument identity.",
+      "id": "ai-registered-action",
+      "objective": "Compose a deterministic replaceable provider, permission policy, action catalog, and transaction runner without credentials or network access.",
+      "order": 9,
+      "ownership": {
+        "framework": "AI Runtime owns orchestration, validation, permission, and transaction sequencing.",
+        "preset": "Not composed in this example.",
+        "app": "Owns provider behavior, action schema, permissions, and visibility meaning."
+      },
+      "publicPackages": [
+        {
+          "name": "@asyra/ai-agent-runtime",
+          "publicEntries": [
+            "."
+          ],
+          "version": "0.5.0"
+        }
+      ],
+      "runCommand": "yarn examples:run ai-registered-action",
+      "snippet": "export const createExampleAiRuntime = () => {\n  const state = {\n    visible: true\n  }\n  const transactionEvidence = {\n    commits: 0,\n    rollbacks: 0\n  }\n  const providerInputs = []\n  const serverArguments = {\n    visible: false\n  }\n\n  const runtime = createAiAgentRuntime({\n    provider: {\n      requestActionBatch: async (input) => {\n        providerInputs.push(input)\n        return {\n          batchId: 'example-batch',\n          explanation: 'Apply one registered action.',\n          actions: [\n            {\n              arguments: serverArguments,\n              id: 'visibility-1',\n              name: SET_VISIBILITY,\n              summary: {\n                affectedCount: 1,\n                kind: 'visibility'\n              }\n            }\n          ]\n        }\n      }\n    },\n    actionDefinitions: [\n      {\n        name: SET_VISIBILITY,\n        description: 'Set example visibility.',\n        inputSchema: {\n          type: 'object',\n          additionalProperties: false,\n          required: ['visible'],\n          properties: {\n            visible: {\n              type: 'boolean'\n            }\n          }\n        },\n        execute: async (args) => {\n          if (args !== serverArguments) {\n            throw new Error('Runtime replaced the server-prepared arguments.')\n          }\n          const { visible } = args\n          state.visible = visible\n          return {\n            visible\n          }\n        }\n      }\n    ],\n    contextProvider: {\n      getContext: async () => ({\n        currentVisibility: state.visible\n      })\n    },\n    permissionPolicy: {\n      evaluate: async ({ action }) => {\n        if (action.arguments !== serverArguments) {\n          throw new Error('Permission received different action arguments.')\n        }\n        return 'allow'\n      }\n    },\n    confirmationHandler: {\n      confirm: async () => false\n    },\n    transactionRunner: {\n      run: async (_label, execute) => {\n        try {\n          const result = await execute()\n          transactionEvidence.commits += 1\n          return result\n        } catch (error) {\n          transactionEvidence.rollbacks += 1\n          throw error\n        }\n      }\n    }\n  })\n\n  return Object.freeze({\n    dispose: () => runtime.dispose(),\n    getEvidence: () => ({\n      providerInputs: [...providerInputs],\n      transaction: {\n        ...transactionEvidence\n      },\n      visible: state.visible\n    }),\n    run: (intent = 'hide the example') =>\n      runtime.run({\n        intent,\n        signal: new AbortController().signal\n      })\n  })\n}\n",
+      "snippetSha256": "74ca4f4fedb78cc0b8e82ce6f948d9ebbce3bd8040d7a78df4e1e84371fdb7ff",
+      "source": "docs/examples/ai-agent-runtime.mjs",
+      "sourceRegion": "example",
+      "title": "Execute one prepared action through a registered boundary"
+    },
+    {
+      "environment": "Supported browser/Core composition with Node.js artifact verification",
+      "expectedResult": "Retrieval returns the matching record without mutation; the registered Feature API performs the only status change.",
+      "id": "app-retrieval-action",
+      "objective": "Query a canonical model through an app-owned index and route the accepted change through one registered action boundary.",
+      "order": 10,
+      "ownership": {
+        "framework": "Owns managed state and Feature registration boundaries.",
+        "preset": "Not composed in this example.",
+        "app": "Owns indexing, search policy, record schema, and action semantics."
+      },
+      "publicPackages": [
+        {
+          "name": "@asyra/core",
+          "publicEntries": [
+            ".",
+            "./canvas-pipeline-debugger",
+            "./contracts"
+          ],
+          "version": "0.5.2"
+        },
+        {
+          "name": "@asyra/feature-system",
+          "publicEntries": [
+            "."
+          ],
+          "version": "0.5.1"
+        }
+      ],
+      "runCommand": "yarn examples:run app-retrieval-action",
+      "snippet": "export const runAppRetrievalActionExample = () => {\n  const { core } = createExampleCoreComposition()\n  core.defineSystemProperty(RECORDS_KEY, {\n    'record-a': { label: 'Cooling audit', status: 'open' },\n    'record-b': { label: 'Safety review', status: 'open' }\n  })\n  const registration = core.defineFeature(FEATURE, undefined, {\n    priority: 100,\n    exclusive: true,\n    api: {\n      setStatus: (recordId, status) => {\n        const records = core.getSystemContextSnapshot()[RECORDS_KEY]\n        core.setSystemProperty(RECORDS_KEY, {\n          ...records,\n          [recordId]: { ...records[recordId], status }\n        })\n      }\n    }\n  })\n\n  try {\n    const retrieve = (query) => {\n      const records = core.getSystemContextSnapshot()[RECORDS_KEY]\n      return Object.entries(records)\n        .filter(([, record]) =>\n          record.label.toLowerCase().includes(query.toLowerCase())\n        )\n        .map(([id, record]) => ({ id, ...record }))\n    }\n    const before = core.getSystemContextSnapshot()[RECORDS_KEY]\n    const matches = retrieve('safety')\n    const afterSearch = core.getSystemContextSnapshot()[RECORDS_KEY]\n    registration.api.setStatus(matches[0].id, 'approved')\n    const afterAction = core.getSystemContextSnapshot()[RECORDS_KEY]\n    const result = { afterAction, afterSearch, before, matches }\n\n    assertExampleResult(matches.length === 1, 'retrieval is deterministic')\n    assertExampleResult(\n      JSON.stringify(before) === JSON.stringify(afterSearch),\n      'retrieval does not mutate canonical state'\n    )\n    assertExampleResult(\n      afterAction['record-b'].status === 'approved',\n      'the Feature API applies the accepted action'\n    )\n    return Object.freeze(result)\n  } finally {\n    registration.dispose()\n    core.unregisterSystemProperty(RECORDS_KEY)\n  }\n}\n",
+      "snippetSha256": "28d1ed1156195ed67fe9abe3a374849ed0387b32233abe533a7ee317ae4d4c8f",
+      "source": "docs/examples/app-retrieval-action.mjs",
+      "sourceRegion": "example",
+      "title": "Let app retrieval find; let Feature API mutate"
+    },
+    {
+      "environment": "Generated Asyra Design browser app; this module remains inert until explicitly imported.",
+      "expectedResult": "The registered Feature owns review-domain records, rejects duplicate IDs atomically, and disappears on dispose.",
+      "id": "generated-design-app-extension",
+      "objective": "Add one app-owned review queue through the public Feature boundary without changing the generated app bootstrap.",
+      "order": 11,
+      "ownership": {
+        "framework": "Asyra owns Feature registration, priority, exclusivity, public API exposure, and disposal.",
+        "preset": "The generated app keeps its existing 2D defaults; this extension does not reapply or modify Preset.",
+        "app": "The extension owns review record validation, queue ordering, and the explicit integration decision."
+      },
+      "publicPackages": [
+        {
+          "name": "@asyra/core",
+          "publicEntries": [
+            ".",
+            "./canvas-pipeline-debugger",
+            "./contracts"
+          ],
+          "version": "0.5.2"
+        }
+      ],
+      "runCommand": "yarn examples:run generated-design-app-extension",
+      "snippet": "export const installReviewQueueExtension = () => {\n  const records = new Map()\n\n  const api = {\n    add(input) {\n      if (\n        !input ||\n        typeof input.id !== 'string' ||\n        !input.id.trim() ||\n        typeof input.title !== 'string' ||\n        !input.title.trim()\n      ) {\n        throw new Error('Review records require non-empty id and title')\n      }\n      if (records.has(input.id)) {\n        throw new Error(`Review record already exists: ${input.id}`)\n      }\n\n      const record = snapshotRecord({\n        id: input.id,\n        status: 'pending',\n        title: input.title\n      })\n      records.set(record.id, record)\n      return record\n    },\n    list() {\n      return [...records.values()]\n    }\n  }\n\n  const feature = defineFeature(FEATURE_NAME, undefined, {\n    api,\n    priority: 20,\n    exclusive: true\n  })\n\n  return Object.freeze({\n    api: feature.api,\n    dispose: feature.dispose,\n    featureName: FEATURE_NAME\n  })\n}\n",
+      "snippetSha256": "7e4f61201238664d6ac2b7ffd7e9222169a115638c9870a5754f1916a0c10ad5",
+      "source": "apps/asyra-design/examples/review-queue-extension.mjs",
+      "sourceRegion": "example",
+      "title": "Extend a generated Asyra Design app"
+    }
+  ],
+  "release": {
+    "family": "0.5",
+    "packageCount": 19,
+    "status": "CANDIDATE",
+    "supportContract": "docs/ai/framework/RELEASE_SUPPORT.md"
+  },
+  "runtime": {
+    "node": "24.x",
+    "packageManager": "yarn@4.3.1"
+  },
+  "schemaVersion": 1
+}

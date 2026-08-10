@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "esModuleInterop": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2020"
+  },
+  "include": [
+    "app-owned-versioned-load-migration.mjs",
+    "app-owned-versioned-load-migration.type-test.ts"
+  ]
+}
