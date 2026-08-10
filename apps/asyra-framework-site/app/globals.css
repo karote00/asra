@@ -1517,3 +1517,70 @@ a:focus-visible {
     padding: 12px;
   }
 }
+
+.browser-support-state {
+  display: none;
+}
+
+.foundation-status {
+  max-width: var(--page-max);
+  min-height: calc(100svh - 72px);
+  margin: 0 auto;
+  padding: clamp(72px, 10vw, 144px) var(--gutter);
+  background:
+    linear-gradient(90deg, transparent 49.9%, rgba(20, 23, 28, 0.05) 50%, transparent 50.1%),
+    var(--paper);
+}
+
+.foundation-status__coordinate {
+  margin-bottom: clamp(56px, 9vw, 120px);
+  color: var(--transaction);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.foundation-status h1 {
+  max-width: 13ch;
+  margin: 0 0 30px;
+  font-family: var(--display);
+  font-size: clamp(48px, 8vw, 102px);
+  font-weight: 800;
+  letter-spacing: -0.055em;
+  line-height: 0.92;
+}
+
+.foundation-status__message {
+  max-width: 62ch;
+  margin-bottom: 32px;
+}
+
+.foundation-status__message code {
+  display: block;
+  margin-top: 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.foundation-status button.primary-action {
+  border-top: 0;
+  border-right: 0;
+  border-left: 0;
+  background: transparent;
+  font: inherit;
+}
+
+@supports not (display: grid) {
+  .browser-support-state {
+    display: block;
+    padding: 16px;
+    border-bottom: 2px solid var(--transaction);
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  .browser-support-state strong,
+  .browser-support-state span {
+    display: block;
+  }
+}

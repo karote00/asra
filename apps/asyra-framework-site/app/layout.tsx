@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
+import { FoundationBrowserSupport } from '@/components/foundation-browser-support'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 import './globals.css'
@@ -35,6 +36,7 @@ export default function RootLayout({
         <a className="skip-link" href="#main-content">
           Skip to content
         </a>
+        <FoundationBrowserSupport />
         <SiteHeader />
         <main id="main-content">{children}</main>
         <SiteFooter />

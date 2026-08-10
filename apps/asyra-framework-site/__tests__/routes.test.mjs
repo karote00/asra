@@ -42,7 +42,7 @@ test('Roadmap route states that future non-visible runtime is not current suppor
   assert.match(source, /Non-visible, AI-facing information products/i)
   assert.match(
     source,
-    /not a current public Headless Core or Core Kernel contract/i
+    /not a current\s+public Headless Core or Core Kernel\s+contract/i
   )
   assert.match(source, /pageById\.get\('learn\/runtime-boundaries-roadmap'\)/)
 })
