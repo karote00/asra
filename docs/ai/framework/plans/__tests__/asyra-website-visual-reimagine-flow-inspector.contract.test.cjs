@@ -34,6 +34,7 @@ test('visual brief preserves product, asset, and acceptance boundaries', () => {
   )
   assert.match(source, /No external asset, font, dependency/i)
   assert.match(source, /generic documentation templates/i)
+  assert.match(source, /global non-engineer/i)
   assert.match(source, /final integrated-goal acceptance/i)
 })
 
@@ -56,6 +57,7 @@ test('selection owns responsive, Atlas, failure, and reduced-motion states', () 
     /Long-form reading, focus visibility, touch targets, failure state/i
   )
   assert.match(source, /reduced-motion equivalence/i)
+  assert.match(source, /plain international English/i)
   assert.match(
     source,
     /Desktop, mobile, reading, navigation, active, failure, case, roadmap, and motion/i
@@ -66,6 +68,7 @@ test('handoff owns semantic tokens without becoming website implementation', () 
   const source = JSON.stringify(step('annotate-visual-handoff'))
   assert.match(source, /semantic tokens without authoring website components/i)
   assert.match(source, /Generated imagery remains evidence/i)
+  assert.match(source, /worldwide technical and non-technical audience/i)
   assert.match(source, /component implementation/i)
   assert.match(source, /new product claims/i)
 })
@@ -76,6 +79,15 @@ test('verification fails closed on incomplete or implementation-dependent eviden
   assert.match(source, /Every image is inspected/i)
   assert.match(source, /thumbnail-only review/i)
   assert.match(source, /No site source, package behavior, or external asset/i)
+})
+
+test('global comprehension and alternate image-only reimage stay explicit', () => {
+  const source = JSON.stringify([data.acceptanceContracts, data.invariants])
+  assert.match(source, /non-engineer can understand what Asyra enables/i)
+  assert.match(source, /localization-resilient layout/i)
+  assert.match(source, /materially different second visual version/i)
+  assert.match(source, /images only/i)
+  assert.match(source, /never reopens production implementation/i)
 })
 
 test('routes, artifacts, failure owners, and cache boundaries resolve', () => {

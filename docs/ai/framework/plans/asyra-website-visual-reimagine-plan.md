@@ -20,6 +20,12 @@ architecture and future direction before translating it into website code.
 The result must feel native to Asyra rather than like a generic documentation
 template with substituted colors.
 
+The audience is global and not limited to engineers. The primary narrative
+must let a non-engineer understand what Asyra enables, what the App creator
+owns, and why deterministic composition matters before encountering package,
+transaction, or runtime vocabulary. Technical depth remains available through
+progressive disclosure rather than becoming the price of entry.
+
 ## Ownership Boundary
 
 This plan owns concept images, annotated visual decisions, responsive states,
@@ -84,6 +90,22 @@ directions before selecting one implementation direction.
 - Typography prioritizes reading while retaining a technical monospace voice
   for code, owner labels, transaction state, and runtime evidence.
 
+## Global Audience Contract
+
+- Above-the-fold value language uses plain international English and concrete
+  outcomes; it does not require programming vocabulary, regional idioms, or
+  prior knowledge of canvases and runtimes.
+- Product possibilities such as whiteboards, BIM, VR, industrial simulation,
+  AI-facing information products, and unforeseen domains are shown as examples
+  of what an App may build, never built-in promises.
+- The first layer explains `you define the knowledge and product`; the second
+  explains `Asyra keeps actions, ownership, and outcomes predictable`; deeper
+  layers expose packages, transactions, providers, and evidence.
+- Layouts tolerate longer localized strings, preserve logical reading order,
+  and never encode meaning by color alone.
+- The technical visual language remains available to engineers without making
+  the non-engineer path a simplified or lesser experience.
+
 ## Motion Contract
 
 Motion may trace intent, open and close a transaction bracket, pulse an active
@@ -126,6 +148,15 @@ selected handoff then becomes the fixed input for Website Platform, Landing,
 and Runtime Atlas implementation. The user performs one final acceptance after
 the integrated program goal is complete.
 
+## Deferred Image-Only Alternate Reimage
+
+After the implemented website and launch work are complete, generate one
+coherent second visual version for the user to explore. This final alternate
+set is image-only: it does not reopen the accepted handoff, mutate website
+code, change production assets, or trigger another implementation cycle. It
+must be materially different in composition and art direction rather than a
+palette swap.
+
 ## Stages
 
 1. Freeze the visual brief from the accepted product/content contracts.
@@ -140,6 +171,8 @@ the integrated program goal is complete.
 ## Quality Gates
 
 - every required view/state is represented at useful inspection scale;
+- the first narrative layer is understandable without engineering knowledge
+  and the technical layer remains available through progressive disclosure;
 - visual roles do not imply incorrect Framework ownership;
 - current visual, future non-visible, and optional paths remain legible without
   collapsing roadmap work into current support;
@@ -171,3 +204,5 @@ the integrated program goal is complete.
   language without inventing independent styles.
 - Post-implementation synchronized visual review has a concrete accepted
   reference set.
+- The deferred second visual version is delivered as images only after the
+  integrated website is complete.

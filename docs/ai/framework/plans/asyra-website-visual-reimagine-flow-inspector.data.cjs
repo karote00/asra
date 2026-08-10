@@ -63,6 +63,7 @@ module.exports = Object.freeze({
       conditions: [
         'Three direction ids and all fourteen view-state ids are exact and unique.',
         'Current runtime, optional composition, app-owned domains, and future work remain visually distinct.',
+        'A global non-engineer can understand the first narrative layer before technical progressive disclosure.',
         'No external asset, font, dependency, or website implementation is authorized.'
       ],
       bypasses: [
@@ -132,6 +133,7 @@ module.exports = Object.freeze({
       outputs: ['artifact:selected-visual-boards'],
       conditions: [
         'All fourteen required view states resolve to one or more selected boards.',
+        'Landing begins with plain international English and concrete outcomes before package or transaction language.',
         'Long-form reading, focus visibility, touch targets, failure state, and reduced-motion equivalence are visible or annotated.',
         'The selected language can be translated with repository-owned CSS, SVG, and runtime primitives.'
       ],
@@ -169,6 +171,7 @@ module.exports = Object.freeze({
       outputs: ['artifact:annotated-visual-handoff'],
       conditions: [
         'The handoff defines semantic tokens without authoring website components.',
+        'The handoff defines progressive disclosure and localization-resilient layout for a worldwide technical and non-technical audience.',
         'Every selected board and view state has an annotation and implementation boundary.',
         'Generated imagery remains evidence rather than a production dependency.'
       ],
@@ -307,6 +310,18 @@ module.exports = Object.freeze({
         'Keyboard focus, contrast, touch targets, long-form reading, and reduced motion are first-class.',
         'Implementation requires no external asset, font, service, dependency, or generated raster at runtime.'
       ]
+    }),
+    Object.freeze({
+      id: 'global-progressive-understanding',
+      stepIds: [
+        'freeze-visual-brief',
+        'select-and-refine-direction',
+        'annotate-visual-handoff'
+      ],
+      assertions: [
+        'A non-engineer can understand what Asyra enables before encountering runtime vocabulary.',
+        'Plain international English, localization-resilient layout, and progressive technical depth serve a worldwide audience.'
+      ]
     })
   ]),
   invariants: Object.freeze([
@@ -324,6 +339,11 @@ module.exports = Object.freeze({
       id: 'final-acceptance-only',
       statement:
         'No intermediate manual checkpoint pauses work; the user accepts the integrated experience after the full goal completes.'
+    }),
+    Object.freeze({
+      id: 'alternate-reimage-is-image-only',
+      statement:
+        'After the implemented website is complete, a materially different second visual version is delivered as images only and never reopens production implementation.'
     })
   ])
 })
