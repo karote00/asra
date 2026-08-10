@@ -2,10 +2,18 @@
 
 ## Status
 
-Queued child plan of the
-[Asyra Framework Website Program](asyra-framework-website-plan.md). This plan
-must complete before Landing, documentation shell, Runtime Atlas, or any other
-major composed view begins implementation.
+The first implementation direction and its formal handoff are complete. Material
+Blueprint is the selected direction for Landing, documentation, Runtime Atlas,
+Asyra Design case-study, roadmap boundary, and motion implementation. Eight
+full-scale boards, fourteen required view states, responsive and reduced-motion
+rules, and production-asset boundaries are verified by the exact Visual
+Reimagine Inspector contract.
+
+This is a child plan of the
+[Asyra Framework Website Program](asyra-framework-website-plan.md). Website
+implementation may now consume the frozen handoff. The image-only alternate
+Reimage remains intentionally scheduled after website implementation and launch;
+it cannot reopen this accepted implementation direction.
 
 The reimagine segment requires its own visual-experience contract, exact flow
 Inspector, required view-state cases, and formal visual inspection. The user's
