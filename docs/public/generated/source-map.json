@@ -28,7 +28,7 @@
         },
         {
           "path": "create-app/asyra-design/template/README.md",
-          "sha256": "9f0ae1fc7b57af99ee88da71198941bcf7788aa3876d61721e775b22a1832e01"
+          "sha256": "841739f12e8ec0a90fc6900da9c8ebe4b481355394fb0886ddbbb17822950870"
         },
         {
           "path": "apps/asyra-design/examples/review-queue-extension.mjs",
@@ -656,7 +656,7 @@
         },
         {
           "path": "package.json",
-          "sha256": "5c8c67681695c88ac200eb21973ddb77fb6e9a5649ff974df6e3fdc27a531dbc"
+          "sha256": "f0e6a57289dff26dd359aa08a9d30884b7d7c9b50d2f64e4a40282e89c11cca3"
         }
       ]
     },
