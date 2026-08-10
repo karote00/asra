@@ -33,6 +33,11 @@ export interface SearchRecord {
   kind: 'page' | 'heading'
 }
 
+export interface ContentSection {
+  id: string
+  pageIds: string[]
+}
+
 export interface ReleaseCandidate {
   family: string
   packageCount: number
@@ -65,7 +70,7 @@ export interface ContentBundle {
   pages: PublicPage[]
   pageById: Map<string, PublicPage>
   pageByPath: Map<string, PublicPage>
-  sections: unknown[]
+  sections: ContentSection[]
   searchRecords: SearchRecord[]
   release: ReleaseCandidate
   packages: PublicPackageRecord[]
