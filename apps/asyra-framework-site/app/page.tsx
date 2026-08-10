@@ -1,25 +1,16 @@
-import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
-import { SiteFrame } from '@/components/site-frame'
+import { LandingHero } from '@/components/landing-hero'
+import { LandingPossibilityField } from '@/components/landing-possibility-field'
+import { LandingStory } from '@/components/landing-story'
+import { loadContentBundle } from '@/lib/content'
 
-export default function PlatformFoundationPage() {
+export default function LandingPage() {
+  const { release } = loadContentBundle()
+
   return (
-    <div className="foundation-page">
-      <SiteFrame eyebrow="Website platform foundation">
-        <div className="foundation-page__content">
-          <div>
-            <h1>The public Asyra experience is being assembled.</h1>
-            <p className="lede">
-              The documentation platform is ready. The complete product
-              narrative is owned by the next Landing implementation stage.
-            </p>
-          </div>
-          <Link className="primary-action" href="/docs">
-            Read the Framework documentation
-            <ArrowRight aria-hidden="true" size={18} />
-          </Link>
-        </div>
-      </SiteFrame>
+    <div className="landing-route">
+      <LandingHero release={release} />
+      <LandingPossibilityField />
+      <LandingStory />
     </div>
   )
 }
