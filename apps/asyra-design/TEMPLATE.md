@@ -27,7 +27,7 @@ yarn start
 Open a non-empty document id:
 
 ```text
-http://localhost:3000/?fileId=my-product
+http://localhost:3000/?fileId=my-design
 ```
 
 For npm or pnpm, use the equivalent command printed by the CLI. The `fileId`
