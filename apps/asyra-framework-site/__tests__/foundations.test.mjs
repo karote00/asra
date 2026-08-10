@@ -11,15 +11,17 @@ const read = (filePath) => fs.readFileSync(path.join(appRoot, filePath), 'utf8')
 test('not-found and content-failure states never fabricate fallback output', () => {
   const notFound = read('app/not-found.tsx')
   const error = read('app/error.tsx')
-  const loading = read('app/loading.tsx')
   assert.match(notFound, /No fallback page or guessed documentation/i)
   assert.match(
     error,
     /No fallback copy, release fact, or product output was fabricated/i
   )
   assert.match(error, /Retry this route/)
-  assert.match(loading, /No placeholder product output is\s+shown/i)
-  assert.match(loading, /aria-live="polite"/)
+})
+
+test('static public routes do not require JavaScript to leave a global loading shell', () => {
+  assert.equal(fs.existsSync(path.join(appRoot, 'app/loading.tsx')), false)
+  assert.doesNotMatch(read('app/layout.tsx'), /Suspense|fallback=/)
 })
 
 test('unsupported-browser state is global, explicit, and content-safe', () => {
@@ -49,11 +51,9 @@ test('sitemap derives all content routes and uses only observed deployment hosts
   assert.doesNotMatch(source, new RegExp(`https://${bundle.repositoryName}\\.`))
 })
 
-test('Landing and Atlas remain downstream placeholders', () => {
-  assert.match(
-    read('app/page.tsx'),
-    /owned by the next\s+Landing implementation stage/i
-  )
+test('accepted Landing is composed while Atlas remains a downstream placeholder', () => {
+  assert.match(read('app/page.tsx'), /<LandingHero/)
+  assert.match(read('app/page.tsx'), /<LandingEntryEvidence/)
   assert.match(
     read('app/atlas/page.tsx'),
     /belong to the dedicated\s+Atlas\s+implementation stage/i

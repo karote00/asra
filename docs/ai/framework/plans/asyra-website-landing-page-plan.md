@@ -2,17 +2,80 @@
 
 ## Status
 
-Queued child plan of the
+Complete, Preview-ready child plan of the
 [Asyra Framework Website Program](asyra-framework-website-plan.md). It begins
-only after the product/content contract, accepted visual reimagine, common site
-platform, Landing Inspector, executable narrative cases, and bounded Definition
-of Done are ready.
+from the accepted public content, executable examples, Material Blueprint
+handoff, and preview-ready common site platform on
+`codex/asyra-public-release-landing`.
+
+Implementation requires the exact
+[Landing Inspector](asyra-website-landing-flow-inspector.data.cjs), executable
+narrative cases, and the bounded Definition of Done below. Production
+deployment and Runtime Atlas execution remain downstream owners.
+
+The child implementation, formal gates, and synchronized visual review are
+complete. PR CI and production deployment remain integration and Launch
+responsibilities rather than Landing evidence.
 
 ## Goal
 
 Implement a distinctive Landing page that lets a visitor understand what Asyra
 is, choose an appropriate entry path, inspect its ownership model, and separate
 current Framework capabilities from app-owned possibilities and future work.
+
+The first layer is for everyone worldwide, including visitors who do not
+identify as engineers. It must explain the outcome, creator ownership, and
+predictable action path before exposing package names, APIs, or runtime jargon.
+
+## Bounded Task Contract
+
+- **Objective:** replace the `/` platform placeholder with the complete,
+  preview-ready product narrative and its bounded interactions.
+- **Authorized mutation:** the Landing plan and Inspector, the `/` route,
+  Landing-owned components/data/tests, Landing styles in the shared stylesheet,
+  and the exact site test/E2E wiring required to prove this child.
+- **Fixed discovery:** accepted public content/source mapping, generated release
+  and example inventories, the Material Blueprint handoff, current website
+  platform contracts, repository policy files, and verified deployment facts.
+- **Required gates:** Landing Inspector, semantic/narrative tests, strict
+  typecheck/lint, production build, route smoke, keyboard/touch/responsive/
+  reduced-motion E2E, synchronized live visual review, root dependency and
+  repository gates, and PR CI.
+- **Excluded:** documentation semantics, examples, Framework packages, Runtime
+  Atlas execution, Asyra Design behavior, package publication, analytics, CMS,
+  production deployment, and the image-only second Reimage.
+- **Stop:** a claim cannot resolve to accepted evidence; the implementation
+  needs an unapproved dependency or duplicated Atlas behavior; the verified
+  App URL ceases to be public; or a required gate fails without an in-boundary
+  owner correction.
+
+## Verified External Fact
+
+The current public Asyra Design entry is `https://asra.vercel.app`. On
+2026-08-10, GitHub deployment `5820501003` reported a successful Production
+deployment and the stable alias returned an anonymous document titled
+`Asyra Design`. Protected immutable Preview/Production URLs are not valid
+public CTAs. Launch and Operations must re-verify this alias before production
+website release.
+
+## Executable Product Cases
+
+The Landing Inspector owns these exact cases:
+
+1. global desktop first layer;
+2. global mobile first layer;
+3. working-product entry;
+4. Framework-learning entry;
+5. custom-product entry;
+6. deterministic intent-to-outcome path;
+7. Framework/Preset/App ownership explorer;
+8. optional composition and replaceable edge;
+9. App-owned domain possibilities;
+10. future machine-facing roadmap boundary;
+11. Asyra Design reference-product entry;
+12. release, source, security, license, and contribution evidence;
+13. reduced-motion equivalence; and
+14. basic narrative without client JavaScript.
 
 ## Ownership Boundary
 
@@ -117,3 +180,29 @@ remain informative and never fabricate Framework output.
 - Required interactions remain accessible, responsive, performant, and
   visually accepted.
 - The route is Preview-ready without claiming production deployment.
+
+## Completion Evidence
+
+- The Landing and Platform Inspectors pass 21 contract tests; the site passes
+  42 semantic, content, route, and accessibility tests.
+- The production build statically generates 51 routes. Route smoke verifies 49
+  public routes plus the explicit not-found case.
+- Eleven production-browser E2E cases cover desktop first-layer actions,
+  390px, 320px, 200 percent reflow, touch targets, keyboard owner selection,
+  reduced motion, no horizontal overflow, no-client reading, same-origin
+  code-native assets, and the accepted documentation platform cases.
+- Synchronized Desktop, Mobile, and selected-owner visual states were inspected
+  from the same production server. A formal first-fold regression now keeps all
+  three starting actions inside the 1440 by 1000 Desktop viewport.
+- The global `loading.tsx` streaming boundary was removed after the no-client
+  gate proved it hid otherwise static accepted content. The shared Platform
+  plan, Inspector, and tests now require synchronous static routes to render in
+  the initial readable document; future asynchronous routes own local loading
+  boundaries.
+- Repository integration passes `yarn test:ci` (78 repository script tests and
+  21 workspace tasks), `yarn lint:ci` with zero errors, `yarn react:build` with
+  20 workspace tasks, dependency validation across 22 workspaces, public docs
+  validation for 41 pages, and README drift checks for 24 public surfaces and
+  19 packages.
+- Production deployment, public indexing, analytics, and Runtime Atlas
+  execution remain intentionally outside this child.

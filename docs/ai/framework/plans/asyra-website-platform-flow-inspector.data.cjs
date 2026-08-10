@@ -287,10 +287,12 @@ module.exports = Object.freeze({
       outputs: ['artifact:shared-product-foundations'],
       conditions: [
         'Downstream surfaces receive stable primitives without inherited product story or runtime behavior.',
-        'Not-found, content-failure, and unsupported-browser cases are accessible and never fabricate output.'
+        'Not-found, content-failure, and unsupported-browser cases are accessible and never fabricate output.',
+        'Current synchronous static routes ship their accepted content in the initial readable document without a global loading.tsx streaming boundary.'
       ],
       bypasses: [
-        'Landing and Atlas placeholder routes are temporary ownership markers only.'
+        'Landing and Atlas placeholder routes are temporary ownership markers only.',
+        'A future asynchronous route owns a local Suspense and loading boundary instead of changing the global static-content contract.'
       ],
       allowedContributors: [
         'artifact:site-foundation',
@@ -300,13 +302,13 @@ module.exports = Object.freeze({
       forbiddenContributors: [
         'Landing narrative implementation',
         'Atlas executable cases or runtime state',
-        'route-specific domain semantics in shared primitives'
+        'route-specific domain semantics in shared primitives',
+        'global loading fallback that leaves accepted static content hidden until client JavaScript executes'
       ],
       implementationBoundary: [
         'apps/asyra-framework-site/app/layout.tsx',
         'apps/asyra-framework-site/app/error.tsx',
         'apps/asyra-framework-site/app/not-found.tsx',
-        'apps/asyra-framework-site/app/loading.tsx',
         'apps/asyra-framework-site/app/robots.ts',
         'apps/asyra-framework-site/app/sitemap.ts',
         'apps/asyra-framework-site/app/globals.css',

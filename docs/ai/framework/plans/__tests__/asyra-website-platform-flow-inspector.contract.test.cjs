@@ -114,10 +114,19 @@ test('shared foundations stay independent from Landing and Atlas owners', () => 
   assert.match(source, /never fabricate output/i)
   assert.match(source, /Landing narrative implementation/i)
   assert.match(source, /Atlas executable cases or runtime state/i)
+  assert.match(source, /without a global loading\.tsx streaming boundary/i)
+  assert.match(source, /future asynchronous route owns a local Suspense/i)
+  assert.match(source, /hidden until client JavaScript executes/i)
   assert.ok(
     sharedStep.implementationBoundary.includes(
       'apps/asyra-framework-site/app/layout.tsx'
     )
+  )
+  assert.equal(
+    sharedStep.implementationBoundary.includes(
+      'apps/asyra-framework-site/app/loading.tsx'
+    ),
+    false
   )
 })
 

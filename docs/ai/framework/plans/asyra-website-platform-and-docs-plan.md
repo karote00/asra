@@ -102,6 +102,9 @@ generated and visibly provisional until public reconciliation.
   checks, not ad hoc fetches.
 - The site remains usable when interactive examples or Atlas runtime is
   unavailable; failure states never fabricate product output.
+- Current synchronous static routes deliver their accepted content in the
+  initial readable document. The App root has no global `loading.tsx` streaming
+  boundary; a future asynchronous route must own any loading boundary locally.
 - Asyra Design links appear only after a canonical public URL is explicitly
   verified.
 
