@@ -39,7 +39,7 @@ test('production explains Asyra globally and reaches its verified reference prod
   await page.goto('/')
   await expect(
     page.getByRole('heading', {
-      name: 'Build the model your world needs.'
+      name: 'Build worlds from information.'
     })
   ).toBeVisible()
   await expect(

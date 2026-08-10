@@ -77,6 +77,33 @@ export function LandingOwnershipExplorer() {
         </p>
       </header>
 
+      <div className="landing-ownership__architecture">
+        <aside>
+          <p className="technical-label">You bring</p>
+          <ul>
+            <li>Domain knowledge</li>
+            <li>Business rules</li>
+            <li>Data and schemas</li>
+            <li>Product experience</li>
+          </ul>
+        </aside>
+        <div aria-hidden="true" className="landing-ownership__layers">
+          <span data-layer="domain">Domain model</span>
+          <span data-layer="app">App composition</span>
+          <span data-layer="runtime">Asyra runtime</span>
+          <strong>Asyra</strong>
+        </div>
+        <aside>
+          <p className="technical-label">Asyra provides</p>
+          <ul>
+            <li>Deterministic runtime</li>
+            <li>Executable models</li>
+            <li>Consistency and lineage</li>
+            <li>Replaceable projections</li>
+          </ul>
+        </aside>
+      </div>
+
       <div className="landing-ownership__summary">
         {owners.map(({ coordinate, label, summary }) => (
           <article key={label}>

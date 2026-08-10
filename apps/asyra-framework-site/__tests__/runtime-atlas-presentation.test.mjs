@@ -13,7 +13,10 @@ const projection = fs.readFileSync(
   path.join(appRoot, 'components/runtime-atlas-projection.tsx'),
   'utf8'
 )
-const styles = fs.readFileSync(path.join(appRoot, 'app/globals.css'), 'utf8')
+const styles = fs.readFileSync(
+  path.join(appRoot, 'app/styles/atlas.css'),
+  'utf8'
+)
 
 test('Atlas explains outcome and ownership before technical mechanics', () => {
   assert.match(component, /RUNTIME ATLAS \/ ONE STATE\. MANY VIEWS\./)

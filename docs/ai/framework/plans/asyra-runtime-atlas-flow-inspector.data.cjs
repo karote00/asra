@@ -18,8 +18,6 @@ module.exports = Object.freeze({
     contentIndexPath: 'docs/public/generated/content-index.json',
     visualHandoffPath:
       'docs/ai/framework/website/visual-reimagine/handoff.md',
-    selectedVisualPath:
-      'docs/ai/framework/website/visual-reimagine/selected-atlas-states.png',
     landingInspectorPath:
       'docs/ai/framework/plans/asyra-website-landing-flow-inspector.data.cjs',
     workspacePath: 'apps/asyra-framework-site'
@@ -238,7 +236,7 @@ module.exports = Object.freeze({
       ],
       allowedContributors: [
         'Atlas worker evidence',
-        'accepted site foundations and Instrument Sheet Revision 2 visual tokens',
+        'accepted site foundations and Cosmic Atlas Revision 2 visual tokens',
         'semantic HTML, CSS, Canvas, and accessible controls'
       ],
       forbiddenContributors: [
@@ -250,6 +248,7 @@ module.exports = Object.freeze({
       implementationBoundary: [
         'apps/asyra-framework-site/app/atlas/page.tsx',
         'apps/asyra-framework-site/app/globals.css',
+        'apps/asyra-framework-site/app/styles/atlas.css',
         'apps/asyra-framework-site/components/runtime-atlas.tsx',
         'apps/asyra-framework-site/components/runtime-atlas-projection.tsx',
         'apps/asyra-framework-site/__tests__/runtime-atlas-presentation.test.mjs',

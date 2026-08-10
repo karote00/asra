@@ -85,7 +85,7 @@ test('Landing ends with entry paths and exact public evidence', () => {
   assert.ok(topologyAt !== -1 && topologyAt < evidenceAt)
   assert.match(page, /bundle=\{bundle\}/)
 
-  const styles = read('app/globals.css')
+  const styles = read('app/styles/landing.css')
   assert.match(styles, /\.landing-entry/)
   assert.match(styles, /\.landing-evidence/)
   assert.match(styles, /@media \(max-width: 390px\)/)

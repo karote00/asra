@@ -3,12 +3,15 @@
 ## Status
 
 The first implementation direction and its formal handoff are complete. After
-reviewing the initial implementation, the user explicitly selected **Material
-Blueprint / Instrument Sheet Revision 2** as the active direction for the whole
-public website: Landing, documentation, Runtime Atlas, Asyra Design case study,
-release and roadmap boundaries, shared foundations, and motion. The original
-eight full-scale boards remain inspected historical evidence; the active
-semantic translation is owned by the revised handoff and downstream site plans.
+reviewing the implementation, the user explicitly corrected the active
+direction to **Cosmic Atlas Revision 2**, the dark whole-site composite with a
+deep navy shell, coral brand and actions, luminous cyan/violet/amber topology,
+warm light documentation surfaces, and rounded observatory frames. This
+direction applies to Landing, documentation, Runtime Atlas, Asyra Design case
+study, release and roadmap boundaries, shared foundations, and motion. The
+original eight full-scale boards remain inspected historical evidence; the
+active semantic translation is owned by the revised handoff and downstream site
+plans.
 
 This is a child plan of the
 [Asyra Framework Website Program](completed/asyra-framework-website-plan.md). Website
@@ -159,19 +162,20 @@ the integrated program goal is complete.
 
 ## User-Selected Revision Two Implementation
 
-Instrument Sheet Revision 2 is a refinement of Material Blueprint, not a fourth
-unrelated concept direction. It keeps the paper, registration, ownership, route,
-transaction, and evidence semantics while making the whole site feel like one
-precise information-model instrument. Its defining composition is a warm ivory
-continuous sheet, a midnight observatory band for live evidence, cobalt intent,
-green verification, coral transaction/failure marks, condensed editorial type,
-architectural line work, and explicit page coordinates.
+Cosmic Atlas Revision 2 is a whole-site refinement of Topology Observatory, not
+a dark color theme applied to the prior Material Blueprint layout. Its defining
+composition is a deep cosmic navy environment, fine star and orbit texture,
+coral Asyra identity and primary actions, luminous cyan/violet/amber domain
+nodes, large serif narrative type, rounded framed surfaces, warm light reading
+planes for documentation, and layered information-model topology.
 
-The revision applies to the whole public website, including long-form docs,
-search and mobile navigation, supporting routes, status pages, and the real
-Runtime Atlas. The generated raster remains design evidence only. Downstream
-implementation recreates the direction with project-owned HTML, CSS, SVG,
-Canvas where already justified, and verified runtime data.
+The revision replaces the complete visual system across the whole public
+website, including long-form docs, search and mobile navigation, supporting
+routes, status pages, and the real Runtime Atlas. Previous ivory-sheet layout,
+condensed display hierarchy, registration marks, and blueprint panels are not
+retained as the primary design. The generated raster remains design evidence
+only. Downstream implementation recreates the direction with project-owned
+HTML, CSS, SVG, Canvas where already justified, and verified runtime data.
 
 ## Stages
 
@@ -183,7 +187,7 @@ Canvas where already justified, and verified runtime data.
 5. Produce annotated responsive and motion specifications.
 6. Freeze the selected direction through formal autonomous visual inspection.
 7. Freeze the accepted handoff for platform, Landing, and Atlas tasks.
-8. Record the user's Instrument Sheet Revision 2 selection and apply it across
+8. Record the user's Cosmic Atlas Revision 2 selection and apply it across
    every public site owner without turning the raster into a production asset.
 
 ## Quality Gates
@@ -222,16 +226,16 @@ Canvas where already justified, and verified runtime data.
   language without inventing independent styles.
 - Post-implementation synchronized visual review has a concrete accepted
   reference set.
-- Instrument Sheet Revision 2 is implemented coherently across the whole public
+- Cosmic Atlas Revision 2 is implemented coherently across the whole public
   website while its generated raster remains design evidence.
 
 ## Completion Evidence
 
-- The user-selected Revision 2 direction is recorded in the visual handoff and
+- The user-selected dark Revision 2 direction is recorded in the visual handoff and
   consumed by Platform, Landing, and Runtime Atlas Inspectors.
-- Every public route uses the same paper grid, condensed editorial hierarchy,
-  registration marks, semantic cobalt/green/coral roles, and midnight evidence
-  bay without embedding the generated raster.
+- Every public route uses the same deep navy environment, serif narrative
+  hierarchy, coral/cyan/violet/amber topology, rounded observatory framing, and
+  warm light documentation strategy without embedding the generated raster.
 - Nineteen synchronized production-browser cases pass and every generated
   screenshot was inspected, including desktop, mobile, reduced-motion,
   advanced-guide, reference-product, release, roadmap, Atlas active, paused,

@@ -28,9 +28,9 @@ test('static public routes do not require JavaScript to leave a global loading s
 test('unsupported-browser state is global, explicit, and content-safe', () => {
   const layout = read('app/layout.tsx')
   const state = read('components/foundation-browser-support.tsx')
-  const styles = read('app/globals.css')
+  const styles = read('app/styles/foundation.css')
   assert.match(layout, /FoundationBrowserSupport/)
-  assert.match(state, /cannot present the Asyra working sheet/i)
+  assert.match(state, /cannot present the Asyra website/i)
   assert.match(state, /has not substituted simplified or fabricated content/i)
   assert.match(styles, /@supports not \(display: grid\)/)
 })

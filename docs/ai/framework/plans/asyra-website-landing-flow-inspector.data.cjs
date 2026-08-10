@@ -53,7 +53,7 @@ module.exports = Object.freeze({
       inputs: [
         'artifact:verified-platform',
         'accepted public-content handoff',
-        'accepted Material Blueprint / Instrument Sheet Revision 2 visual handoff',
+        'accepted Cosmic Atlas Revision 2 visual handoff',
         'verified public Asyra Design alias'
       ],
       outputs: ['artifact:landing-contract'],
@@ -113,7 +113,7 @@ module.exports = Object.freeze({
       allowedContributors: [
         'artifact:landing-contract',
         'artifact:verified-platform',
-        'accepted public content and Instrument Sheet Revision 2 semantics',
+        'accepted public content and Cosmic Atlas Revision 2 semantics',
         'repository-owned semantic HTML, CSS, and SVG'
       ],
       forbiddenContributors: [
@@ -125,6 +125,7 @@ module.exports = Object.freeze({
       implementationBoundary: [
         'apps/asyra-framework-site/app/page.tsx',
         'apps/asyra-framework-site/app/globals.css',
+        'apps/asyra-framework-site/app/styles/landing.css',
         'apps/asyra-framework-site/components/landing-hero.tsx',
         'apps/asyra-framework-site/components/landing-possibility-field.tsx',
         'apps/asyra-framework-site/components/landing-story.tsx',
@@ -176,6 +177,7 @@ module.exports = Object.freeze({
       implementationBoundary: [
         'apps/asyra-framework-site/app/page.tsx',
         'apps/asyra-framework-site/app/globals.css',
+        'apps/asyra-framework-site/app/styles/landing.css',
         'apps/asyra-framework-site/components/landing-ownership-explorer.tsx',
         'apps/asyra-framework-site/components/landing-topology.tsx',
         'apps/asyra-framework-site/__tests__/landing-ownership.test.mjs'
@@ -227,6 +229,7 @@ module.exports = Object.freeze({
       implementationBoundary: [
         'apps/asyra-framework-site/app/page.tsx',
         'apps/asyra-framework-site/app/globals.css',
+        'apps/asyra-framework-site/app/styles/landing.css',
         'apps/asyra-framework-site/components/landing-entry-evidence.tsx',
         'apps/asyra-framework-site/lib/landing-facts.mjs',
         'apps/asyra-framework-site/lib/landing-facts.d.ts',

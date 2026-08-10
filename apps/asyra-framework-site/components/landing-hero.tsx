@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { ArrowDownRight, ArrowRight } from 'lucide-react'
+import { ArrowRight, Play } from 'lucide-react'
 import type { ReleaseCandidate } from '@/lib/content'
 
 interface LandingHeroProps {
@@ -9,24 +9,15 @@ interface LandingHeroProps {
 export function LandingHero({ release }: LandingHeroProps) {
   return (
     <section aria-labelledby="landing-title" className="landing-hero">
-      <div aria-hidden="true" className="landing-hero__registration">
-        <span>00 / Public working sheet</span>
-        <span>Outcome before machinery</span>
-      </div>
-
       <div className="landing-hero__layout">
         <div className="landing-hero__message">
-          <p className="section-eyebrow">
-            Infrastructure for domain-owned information
-          </p>
-          <h1 id="landing-title">Build the model your world needs.</h1>
+          <h1 id="landing-title">Build worlds from information.</h1>
           <p className="landing-hero__lead">
-            You define the knowledge and rules. Asyra gives your product a
-            predictable path from intent to outcome.
+            From an idea to an <strong>executable model.</strong>
           </p>
           <p className="landing-hero__promise">
-            <strong>You own the meaning.</strong>
-            <span>Asyra makes it operable.</span>
+            You define the knowledge and rules. Asyra gives your product a
+            predictable path from intent to outcome.
           </p>
 
           <nav aria-label="Start with Asyra" className="landing-hero__actions">
@@ -34,18 +25,31 @@ export function LandingHero({ release }: LandingHeroProps) {
               className="landing-action landing-action--primary"
               href="/docs/start/create-design-app"
             >
-              <span>Start with a working product</span>
+              <span>
+                <strong>Start with a working product</strong>
+                <small>Explore a complete product built on Asyra.</small>
+              </span>
               <ArrowRight aria-hidden="true" size={18} />
             </Link>
-            <Link className="landing-action" href="/atlas">
-              <span>See how Asyra works</span>
-              <ArrowDownRight aria-hidden="true" size={18} />
-            </Link>
-            <Link className="landing-action" href="/docs">
-              <span>Read documentation</span>
+            <Link
+              className="landing-action landing-action--compose"
+              href="/docs/start/custom-composition"
+            >
+              <span>
+                <strong>Build your own system</strong>
+                <small>Compose a product around your domain.</small>
+              </span>
               <ArrowRight aria-hidden="true" size={18} />
             </Link>
           </nav>
+
+          <div className="landing-hero__secondary-actions">
+            <Link href="/atlas">
+              <Play aria-hidden="true" size={15} />
+              See how Asyra works
+            </Link>
+            <Link href="/docs">Read documentation</Link>
+          </div>
 
           <p className="landing-hero__release">
             <span>{release.status}</span>
@@ -102,8 +106,8 @@ export function LandingHero({ release }: LandingHeroProps) {
           </svg>
 
           <div aria-hidden="true" className="landing-hero__canonical-label">
-            <span>Canonical</span>
-            <strong>information</strong>
+            <span>Asyra</span>
+            <strong>Infrastructure</strong>
           </div>
 
           <ol
@@ -111,33 +115,33 @@ export function LandingHero({ release }: LandingHeroProps) {
             className="landing-hero__domain-list"
           >
             <li data-domain="bim">
-              <span>01</span>
+              <span>B</span>
               <strong>BIM</strong>
             </li>
             <li data-domain="whiteboard">
-              <span>02</span>
+              <span>W</span>
               <strong>Whiteboard</strong>
             </li>
             <li data-domain="vr">
-              <span>03</span>
+              <span>V</span>
               <strong>VR</strong>
             </li>
             <li data-domain="design">
-              <span>04</span>
+              <span>D</span>
               <strong>Design</strong>
             </li>
             <li data-domain="simulation">
-              <span>05</span>
-              <strong>Simulation</strong>
+              <span>4</span>
+              <strong>4D</strong>
             </li>
             <li data-domain="ai-model">
-              <span>06</span>
-              <strong>AI model</strong>
+              <span>AI</span>
+              <strong>AI</strong>
             </li>
           </ol>
 
           <figcaption>
-            Your domain supplies the rules. Each product remains App-owned.
+            Canonical information becomes many App-owned products.
           </figcaption>
         </figure>
       </div>

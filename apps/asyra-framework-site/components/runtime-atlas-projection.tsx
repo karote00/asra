@@ -53,9 +53,9 @@ export function RuntimeAtlasProjection({ output }: { output: unknown }) {
         0
       )
       context.clearRect(0, 0, DRAWING_WIDTH, DRAWING_HEIGHT)
-      context.fillStyle = '#fbf8f0'
+      context.fillStyle = '#071522'
       context.fillRect(0, 0, DRAWING_WIDTH, DRAWING_HEIGHT)
-      context.strokeStyle = '#b8b2a5'
+      context.strokeStyle = 'rgba(104, 221, 236, 0.12)'
       context.lineWidth = 1
       for (let x = 24; x < DRAWING_WIDTH; x += 24) {
         context.beginPath()
@@ -71,8 +71,8 @@ export function RuntimeAtlasProjection({ output }: { output: unknown }) {
       }
       if (!bounds) return
 
-      context.fillStyle = '#144bd6'
-      context.strokeStyle = '#080e15'
+      context.fillStyle = '#ff806c'
+      context.strokeStyle = '#f6f0e8'
       context.lineWidth = 3
       context.fillRect(
         Number(bounds.x),
@@ -86,7 +86,7 @@ export function RuntimeAtlasProjection({ output }: { output: unknown }) {
         Number(bounds.width),
         Number(bounds.height)
       )
-      context.fillStyle = '#fbf8f0'
+      context.fillStyle = '#020b15'
       context.font = '600 15px ui-sans-serif, system-ui, sans-serif'
       context.fillText(
         projection.canonical?.label ?? 'Information record',

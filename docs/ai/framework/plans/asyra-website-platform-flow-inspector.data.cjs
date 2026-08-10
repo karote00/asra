@@ -48,7 +48,7 @@ module.exports = Object.freeze({
         'Freeze exact toolchain, workspace ownership, source authorities, route cases, shared boundaries, and deterministic gates before workspace implementation.',
       inputs: [
         'accepted public-content handoff',
-        'accepted Material Blueprint / Instrument Sheet Revision 2 visual handoff',
+        'accepted Cosmic Atlas Revision 2 visual handoff',
         'repository Node, Yarn, React, TypeScript, workspace, and CI contracts'
       ],
       outputs: ['artifact:platform-contract'],
@@ -87,7 +87,7 @@ module.exports = Object.freeze({
       order: 2,
       ownerPackage: '@asyra/asyra-framework-site foundation',
       purpose:
-        'Create the strict Next.js workspace, metadata, Instrument Sheet Revision 2 tokens, semantic shell, and accessible navigation foundations.',
+        'Create the strict Next.js workspace, metadata, Cosmic Atlas Revision 2 tokens, semantic shell, and accessible navigation foundations.',
       inputs: ['artifact:platform-contract'],
       outputs: ['artifact:site-foundation'],
       conditions: [
@@ -115,6 +115,7 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/tsconfig.json',
         'apps/asyra-framework-site/app/layout.tsx',
         'apps/asyra-framework-site/app/globals.css',
+        'apps/asyra-framework-site/app/styles/foundation.css',
         'apps/asyra-framework-site/app/page.tsx',
         'apps/asyra-framework-site/app/atlas/page.tsx',
         'apps/asyra-framework-site/components/site-*.tsx',
@@ -211,6 +212,7 @@ module.exports = Object.freeze({
       implementationBoundary: [
         'apps/asyra-framework-site/app/docs/**',
         'apps/asyra-framework-site/app/globals.css',
+        'apps/asyra-framework-site/app/styles/docs.css',
         'apps/asyra-framework-site/components/docs-*.tsx',
         'apps/asyra-framework-site/components/markdown-*.tsx',
         'apps/asyra-framework-site/components/search-*.tsx',
@@ -260,6 +262,7 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/app/releases/**',
         'apps/asyra-framework-site/app/roadmap/**',
         'apps/asyra-framework-site/app/globals.css',
+        'apps/asyra-framework-site/app/styles/support.css',
         'apps/asyra-framework-site/components/evidence-*.tsx',
         'apps/asyra-framework-site/components/status-*.tsx',
         'apps/asyra-framework-site/__tests__/routes.test.mjs'
@@ -306,6 +309,7 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/app/robots.ts',
         'apps/asyra-framework-site/app/sitemap.ts',
         'apps/asyra-framework-site/app/globals.css',
+        'apps/asyra-framework-site/app/styles/foundation.css',
         'apps/asyra-framework-site/components/foundation-*.tsx',
         'apps/asyra-framework-site/components/status-*.tsx',
         'apps/asyra-framework-site/__tests__/foundations.test.mjs'

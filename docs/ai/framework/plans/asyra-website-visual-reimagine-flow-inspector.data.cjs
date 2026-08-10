@@ -343,7 +343,7 @@ module.exports = Object.freeze({
     Object.freeze({
       id: 'revision-two-is-active',
       statement:
-        'Instrument Sheet Revision 2 is the active direction for the whole public website, while its generated raster remains design evidence rather than a production asset.'
+        'Cosmic Atlas Revision 2 is the active dark direction for the whole public website, while its generated raster remains design evidence rather than a production asset.'
     })
   ])
 })

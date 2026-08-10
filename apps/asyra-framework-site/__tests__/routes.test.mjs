@@ -35,7 +35,7 @@ test('Asyra Design route preserves reference-product and URL boundaries', () => 
     new RegExp(`https?://(?:www\\.)?${bundle.repositoryName}`, 'i')
   )
   assert.match(source, /EvidenceProductInstrument/)
-  assert.match(instrument, /REFERENCE PRODUCT \/ COMPOSITION MAP/)
+  assert.match(instrument, /REFERENCE PRODUCT \/ LIVE COMPOSITION/)
   assert.match(instrument, /Your App/)
   assert.match(instrument, /Asyra Framework/)
 })
@@ -66,10 +66,13 @@ test('Roadmap route states that future non-visible runtime is not current suppor
   assert.match(source, /Future runtime/)
 })
 
-test('supporting route hero uses the Revision 2 contract instrument', () => {
+test('supporting route hero uses the Cosmic Atlas public-surface contract', () => {
   const source = read('components/evidence-hero.tsx')
-  assert.match(source, /evidence-hero__instrument/)
-  assert.match(source, /PUBLIC CONTRACT/)
+  const styles = read('app/styles/support.css')
+  assert.doesNotMatch(source, /evidence-hero__instrument/)
+  assert.match(source, /VERIFIED PUBLIC SURFACE/)
+  assert.match(styles, /radial-gradient/)
+  assert.match(styles, /var\(--cosmos\)/)
 })
 
 test('status legend distinguishes current, App-owned, and roadmap meanings by shape', () => {

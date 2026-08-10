@@ -4,7 +4,7 @@
 
 Completed, preview-ready child plan of the
 [Asyra Framework Website Program](completed/asyra-framework-website-plan.md). Public
-content and the Material Blueprint / Instrument Sheet Revision 2 visual handoff
+content and the Cosmic Atlas Revision 2 visual handoff
 are accepted on the integration branch. Maintainer review on August 11, 2026, removed the separate
 Executable Examples product surface: advanced documentation now owns those
 learning flows, while Asyra Design is the only directly operable product entry.
@@ -93,8 +93,10 @@ generated and visibly provisional until public reconciliation.
 
 ## Shared Platform Contract
 
-- Design tokens and shared primitives implement the accepted Instrument Sheet
-  Revision 2 visual handoff across every public route.
+- Design tokens and shared primitives implement the accepted Cosmic Atlas
+  Revision 2 visual handoff across every public route: a deep navy shell,
+  coral identity, semantic luminous topology, rounded frames, and warm light
+  documentation surfaces.
 - Landing and Atlas receive stable layout, navigation, metadata, focus, error,
   responsive, and reduced-motion primitives.
 - Content source mapping and release inventory are build inputs with drift
@@ -160,9 +162,10 @@ generated and visibly provisional until public reconciliation.
 
 ## Completion Evidence
 
-- Instrument Sheet Revision 2 is implemented with project-owned HTML, CSS,
-  SVG, and the existing Atlas Canvas projection; no generated raster or new
-  dependency ships in the website.
+- Cosmic Atlas Revision 2 is implemented with project-owned HTML, split CSS
+  layers, SVG, and the existing Atlas Canvas projection; no generated raster
+  or new dependency ships in the website. The former first-version stylesheet
+  is not retained or overridden.
 - The Framework site passes 69 contract and unit tests, strict typecheck, site
   lint, the 50-page production build, and smoke checks for 48 public routes.
 - The 19 synchronized browser cases pass with one worker. Inspected evidence

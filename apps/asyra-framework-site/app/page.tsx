@@ -12,8 +12,8 @@ export default function LandingPage() {
   return (
     <div className="landing-route">
       <LandingHero release={bundle.release} />
-      <LandingStory />
       <LandingOwnershipExplorer />
+      <LandingStory />
       <LandingTopology />
       <LandingEntryEvidence bundle={bundle} />
       <LandingPossibilityField />

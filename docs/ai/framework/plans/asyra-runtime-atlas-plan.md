@@ -12,10 +12,11 @@ observation contract, Atlas Inspector, production browser bundle, responsive
 experience, and synchronized visual evidence are complete. Production
 deployment remains owned by Launch and Operations.
 
-The user-selected Instrument Sheet Revision 2 handoff is the active whole-site
-visual direction. Atlas presentation adopts its midnight observatory, paper
-instrument surfaces, semantic color rails, and coordinate notation without
-changing any executing runtime case, evidence source, or ownership boundary.
+The user-selected Cosmic Atlas Revision 2 handoff is the active whole-site
+visual direction. Atlas presentation adopts its deep cosmic observatory,
+rounded dark evidence surfaces, coral/cyan/violet/amber causal routes, and
+luminous state nodes without changing any executing runtime case, evidence
+source, or ownership boundary.
 
 ## Goal
 

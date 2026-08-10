@@ -13,7 +13,7 @@ test('Landing begins with an outcome anyone can understand before technical lang
   const hero = read('components/landing-hero.tsx')
   const source = `${page}\n${hero}`
 
-  assert.match(hero, /Build the model your world needs\./)
+  assert.match(hero, /Build worlds from information\./)
   assert.match(
     compact(hero),
     /You define the knowledge and rules\. Asyra gives your product a predictable path from intent to outcome\./
@@ -24,7 +24,7 @@ test('Landing begins with an outcome anyone can understand before technical lang
   assert.match(hero, /landing-hero__constellation/)
   assert.match(compact(hero), /Canonical information/i)
 
-  const promiseAt = source.indexOf('Build the model your world needs.')
+  const promiseAt = source.indexOf('Build worlds from information.')
   const firstTechnicalTerm = Math.min(
     ...['Framework', 'Preset', 'Provider', 'API'].map((term) => {
       const index = source.indexOf(term)
@@ -85,7 +85,7 @@ test('Describe, Act, Verify tells one plain-language deterministic story', () =>
 
 test('Landing panorama is code-native, responsive, and motion-optional', () => {
   const page = read('app/page.tsx')
-  const styles = read('app/globals.css')
+  const styles = read('app/styles/landing.css')
   const components = [
     read('components/landing-hero.tsx'),
     read('components/landing-possibility-field.tsx'),

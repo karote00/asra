@@ -69,16 +69,16 @@ test('ownership and route stay readable without client execution', () => {
   assert.doesNotMatch(topology, /@asyra\//)
 })
 
-test('Landing composes narrative, ownership, and topology in progressive order', () => {
+test('Landing follows the selected hero, ownership plane, story, and topology order', () => {
   const page = read('app/page.tsx')
   const narrativeAt = page.indexOf('<LandingStory')
   const ownershipAt = page.indexOf('<LandingOwnershipExplorer')
   const topologyAt = page.indexOf('<LandingTopology')
   assert.ok(narrativeAt !== -1)
-  assert.ok(narrativeAt < ownershipAt)
-  assert.ok(ownershipAt < topologyAt)
+  assert.ok(ownershipAt < narrativeAt)
+  assert.ok(narrativeAt < topologyAt)
 
-  const styles = read('app/globals.css')
+  const styles = read('app/styles/landing.css')
   assert.match(styles, /\.landing-ownership/)
   assert.match(styles, /\.landing-topology/)
   assert.match(

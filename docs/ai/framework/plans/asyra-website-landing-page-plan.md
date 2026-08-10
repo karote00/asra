@@ -4,8 +4,7 @@
 
 Complete, Preview-ready child plan of the
 [Asyra Framework Website Program](completed/asyra-framework-website-plan.md). It begins
-from the accepted public content, Material Blueprint / Instrument Sheet Revision
-2 handoff, and preview-ready
+from the accepted public content, Cosmic Atlas Revision 2 handoff, and preview-ready
 common site platform on
 `codex/asyra-public-release-landing`.
 
@@ -36,7 +35,7 @@ predictable action path before exposing package names, APIs, or runtime jargon.
   Landing-owned components/data/tests, Landing styles in the shared stylesheet,
   and the exact site test/E2E wiring required to prove this child.
 - **Fixed discovery:** accepted public content/source mapping, generated release
-  inventory, the Instrument Sheet Revision 2 handoff, current website
+  inventory, the Cosmic Atlas Revision 2 handoff, current website
   platform contracts, repository policy files, and verified deployment facts.
 - **Required gates:** Landing Inspector, semantic/narrative tests, strict
   typecheck/lint, production build, route smoke, keyboard/touch/responsive/

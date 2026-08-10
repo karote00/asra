@@ -2,19 +2,20 @@
 
 ## Authority And Selection
 
-This handoff translates the inspected Material Blueprint direction into an
-implementation contract. **Instrument Sheet Revision 2 is the active
-implementation direction** for every public website route. It is not a theme
-applied to a generic documentation template. It uses a continuous working sheet,
-structural registration marks, topology, transaction brackets, and evidence
-traces to make Asyra's ownership model visible.
+This handoff translates the inspected dark whole-site composite into an
+implementation contract. **Cosmic Atlas Revision 2 is the active
+implementation direction** for every public website route. It is not a dark
+theme applied to the previous Material Blueprint layout. It uses a deep cosmic
+navy environment, luminous topology, framed information surfaces, layered
+infrastructure, and warm light reading planes to make Asyra's ownership model
+visible.
 
-Material Blueprint is primary because it gives a worldwide non-engineer the
-clearest entrance: what they can create, which knowledge they own, and why the
-result remains understandable. Topology Observatory contributes coordinates and
-route depth to Runtime Atlas. Signal Ledger contributes state, failure, evidence,
-and timeline language. The rejected directions remain useful evidence, but their
-technical density must not become the Landing page's price of entry.
+Cosmic Atlas Revision 2 is primary because it gives a worldwide non-engineer a
+clear, memorable entrance: build worlds from information, retain ownership of
+domain expertise, and use Asyra as deterministic infrastructure. Topology
+Observatory contributes causal-map depth. Signal Ledger contributes state,
+failure, evidence, and timeline language. Material Blueprint remains historical
+evidence only and no longer governs the production layout, type, or palette.
 
 The PNG boards are inspected visual evidence, not product copy, runtime truth, or
 production assets. Recreate the selected language with repository-owned HTML,
@@ -23,37 +24,39 @@ the generated rasters in the website.
 
 ## Revision Two Whole-Site Composition
 
-The user-selected Revision 2 composite refines Material Blueprint into one
-editorial scientific instrument. Its composition, rather than the generated
-words or illustrative runtime values, governs the implementation:
+The user-selected Revision 2 composite defines one cosmic information-model
+environment. Its composition, rather than the generated words or illustrative
+runtime values, governs the implementation:
 
-- the global shell is a warm ivory paper sheet with quiet grain, hairline grid,
-  crop marks, crosshair registration, coordinates, and generous unboxed space;
-- the header is light and architectural: black wordmark, compact uppercase
-  destinations, one outlined entry action, and a single bottom rule;
-- Landing begins with a condensed black outcome statement beside a code-native
-  constellation of App-owned product domains orbiting canonical information;
-- Describe, Act, and Verify form one numbered horizontal process band, not
-  three unrelated marketing cards;
-- Runtime Atlas is the major midnight observatory band. It uses faint blue
-  graph paper, real owner and evidence labels, an accepted-state instrument,
-  and downstream projection bays;
-- the three entry paths return to paper as equal outlined instruments with
-  cobalt, verification-green, and coral semantic rails;
-- Asyra Design uses an architectural line-work bay, an explicit responsibility
-  list, and a visible candidate-status instrument without imitating product
-  screenshots;
+- the global shell is deep cosmic navy with a restrained star field, fine orbit
+  traces, low-contrast rules, and generous breathing room;
+- the header is dark and quiet: a coral Asyra wordmark, small human-readable
+  destinations, one rounded coral entry action, and no blueprint registration
+  marks;
+- Landing begins with a large warm-white serif outcome statement beside a
+  code-native constellation of App-owned product domains orbiting Asyra;
+- the ownership explanation becomes a large warm light rounded plane inside the
+  dark shell, with a layered infrastructure object between App inputs and Asyra
+  guarantees;
+- Runtime Atlas is a full dark causal-map observatory with coral plus cyan,
+  violet, and amber nodes, routes, selection detail, filters, and real worker
+  evidence;
+- the three entry paths use dark translucent framed panels with colored semantic
+  edges rather than equal paper instruments;
+- Asyra Design uses a dark framed product composition and explicit
+  responsibility map without imitating a screenshot;
 - documentation, search, mobile navigation, Releases, Roadmap, 404, and content
-  failure extend the same sheet, rail, coordinate, code-bay, hatch, and evidence
-  grammar rather than inventing independent templates; and
-- the footer closes the sheet with source, policy, and visual-plus-machine
-  orientation rather than a generic multi-column marketing footer.
+  failure use the same dark shell and rounded framing; documentation keeps a
+  warm light documentation surface for sustained reading; and
+- the footer closes the dark frame with concise source, policy, and
+  visual-plus-machine orientation.
 
-Revision 2 sharpens the active palette to `#F4F0E6` paper, `#080E15` midnight,
-`#144BD6` cobalt intent, `#268451` accepted green, and `#F05A3E` transaction or
-failure coral. Existing semantic meanings remain unchanged. The generated
-composite is inspected design evidence only; all production geometry, text,
-state, and interaction remain code-native and owner-derived.
+Revision 2 uses `#020B15` cosmic navy, `#071522` elevated navy, `#F3EEE7` warm
+light surface, `#FF806C` coral brand and primary action, `#68DDEC` cyan,
+`#A56DFF` violet, `#F2B64F` amber, and `#58C879` accepted green. Existing owner,
+optional, failure, roadmap, and evidence meanings remain explicit in text and
+shape. The generated composite is inspected design evidence only; all production
+geometry, text, state, and interaction remain code-native and owner-derived.
 
 ## Global Audience And Progressive Disclosure
 
@@ -106,8 +109,8 @@ Every major view may share these parts without requiring one universal component
 
 - **Header:** Asyra wordmark, primary destinations, release evidence, and one
   clear entry action.
-- **Working frame:** warm reading sheet within the dark site shell; never a pile
-  of interchangeable floating cards.
+- **Working frame:** rounded dark observatory frame, or a warm light
+  documentation plane within that frame; never a generic dashboard card grid.
 - **Section band:** eyebrow, outcome-led heading, concise explanation, then an
   optional technical reveal.
 - **Semantic mark:** route, bracket, owner node, accepted diamond, failure X, or
@@ -121,13 +124,13 @@ inside the navigation animation.
 
 ## Typography
 
-- Display: `"Arial Narrow", "Aptos Display", "Helvetica Neue", sans-serif`.
-  Use weight and tracking, not an external condensed-font dependency.
+- Display: `Iowan Old Style`, `Palatino Linotype`, `Book Antiqua`, Georgia,
+  serif for narrative headings. No external font dependency is required.
 - Body: `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
   "Segoe UI", sans-serif`.
 - Technical: `ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
   "Liberation Mono", monospace`.
-- Display scale: `clamp(48px, 8vw, 112px)` with line-height 0.88–0.98.
+- Display scale: `clamp(52px, 7vw, 104px)` with line-height 0.94–1.04.
 - H1 below the hero: `clamp(40px, 5vw, 72px)`; H2: `clamp(30px, 3.5vw, 48px)`;
   H3: 22–28px; body: 17–19px at 1.6–1.75; small evidence: 13–14px at 1.45.
 - Do not set ordinary prose below 16px. Mono labels use uppercase only for short
@@ -139,28 +142,29 @@ inside the navigation animation.
 
 | Token | Value | Semantic role |
 | --- | --- | --- |
-| `--paper` | `#F3EFE3` | primary reading and working surface |
-| `--paper-elevated` | `#FAF7EF` | focused inset without glass effects |
-| `--ink` | `#14171C` | body text and canonical neutral marks |
-| `--shell` | `#071018` | site frame and Runtime Atlas surround |
-| `--intent` | `#173F8F` | intent, canonical apply route, links, focus |
-| `--transaction` | `#E25532` | transaction bracket and failure geometry |
-| `--accepted` | `#2E6B4A` | committed or verified result |
-| `--optional` | `#7655A8` | optional composition and provider route |
-| `--roadmap` | `#76736C` | verified future boundary and muted metadata |
-| `--rule` | `#B8B2A5` | ordinary divider and registration mark |
+| `--cosmos` | `#020B15` | global dark environment |
+| `--cosmos-elevated` | `#071522` | framed dark information surface |
+| `--surface` | `#F3EEE7` | sustained-reading and ownership surface |
+| `--surface-ink` | `#17202A` | text on warm light surfaces |
+| `--starlight` | `#F6F0E8` | primary text on the cosmic shell |
+| `--coral` | `#FF806C` | Asyra brand, primary action, failure emphasis |
+| `--cyan` | `#68DDEC` | projection and information route |
+| `--violet` | `#A56DFF` | optional composition and AI-facing route |
+| `--amber` | `#F2B64F` | evidence, time, and persistence route |
+| `--accepted` | `#58C879` | committed or verified result |
+| `--rule-dark` | `#33414E` | borders and quiet topology on dark surfaces |
+| `--rule-light` | `#D8D0C7` | borders on warm light surfaces |
 
-On `--paper`, contrast ratios are approximately 15.63:1 for ink, 8.52:1 for
-intent, 5.51:1 for accepted, and 5.03:1 for optional. Transaction orange is
-3.27:1 on paper: use it for brackets, thick geometry, icons, or large labels,
-not small body copy. Error explanations use ink with an orange X and explicit
-text. Paper on the dark shell is 16.66:1.
+Ordinary text on the cosmic shell uses warm white or a tested muted blue-gray;
+small coral, cyan, violet, or amber text is used only when its contrast remains
+accessible. Color never carries state alone. Error explanations use starlight or
+surface ink with a coral X and explicit status copy.
 
-Surfaces use 1px rules, occasional 2px semantic routes, and square or 2–6px
-corners. No glassmorphism, ambient gradient blobs, generic drop-shadow stacks,
-or decorative card grids. Depth comes from containment, crop, coordinates,
-overlap, and route continuity. Paper grain and architectural line texture must
-be lightweight CSS or SVG patterns and must disappear under forced-colors or
+Primary frames use 1px low-contrast rules, 18–32px corner radii, and restrained
+inner highlights. Luminous shadows are reserved for semantic topology nodes and
+active routes, not generic cards. Depth comes from layered planes, orbit lines,
+route continuity, and dark-to-light surface contrast. Star and orbit texture
+must be lightweight CSS or SVG patterns and disappear under forced colors or
 when they reduce readability.
 
 ## Spacing And Density
@@ -273,7 +277,7 @@ explanation.
 
 ### Landing: Desktop And Mobile
 
-Use the Revision 2 composite as the active composition and
+Use the Cosmic Atlas Revision 2 composite as the active composition and
 `selected-landing-responsive.png` as earlier responsive evidence. The narrative
 order is outcome, creator ownership, Asyra responsibility, concrete App-owned
 possibilities, Describe–Act–Verify, two beginner entrances, then the technical
@@ -283,7 +287,8 @@ and actions rather than becoming a reduced marketing page.
 
 ### Documentation: Desktop, Mobile Navigation, Mobile Reading
 
-Use Revision 2 sheet, rail, coordinate, and dark evidence-bay grammar together
+Use the Cosmic Atlas dark shell, warm light reading plane, rounded rail, and
+dark evidence-bay grammar together
 with the earlier `selected-docs-responsive.png`. Desktop has a stable hierarchy rail, a
 62–68ch article, and a concise page evidence rail when room permits. Mobile
 navigation is the modal sheet defined above; mobile reading removes auxiliary
@@ -293,7 +298,7 @@ not imply an unverified stable release.
 
 ### Runtime Atlas: Default, Active Flow, Failure
 
-Use the Revision 2 midnight observatory as the active composition and
+Use the Cosmic Atlas causal-map observatory as the active composition and
 `selected-atlas-states.png` as earlier state evidence. Default state explains each layer without
 motion. Active state traces intent to feature and API, opens the Factory-owned
 transaction, numbers canonical-owner activation, commits, then projects. The
@@ -307,7 +312,7 @@ content authority.
 
 ### Asyra Design Case Study And Release/Roadmap Boundary
 
-Use the Revision 2 architectural product bay as the active composition and
+Use the Cosmic Atlas dark product frame as the active composition and
 `selected-case-roadmap.png` as earlier boundary evidence. Present Asyra Design as a real reference product
 built on the Framework. Separate what the Framework currently supplies, what the
 App supplies, and what users may build. Use the indigo current bar, outline App
@@ -334,5 +339,5 @@ from accepted public contracts and project-owned data.
 - Preserve ordinary URL navigation, selection, copy, print, and browser zoom.
 - The selected direction is frozen input for Website Platform, Landing, Docs,
   Runtime Atlas, synchronized visual review, and launch tasks.
-- Instrument Sheet Revision 2 applies across the whole public website. Its
+- Cosmic Atlas Revision 2 applies across the whole public website. Its
   generated raster remains design evidence and never becomes a production asset.

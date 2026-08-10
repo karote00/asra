@@ -1,10 +1,11 @@
 import Link from 'next/link'
+import { BrandLogo } from '@/components/brand-logo'
 
 export function SiteFooter() {
   return (
     <footer className="site-footer">
       <div className="site-footer__identity">
-        <span aria-hidden="true" className="site-footer__mark" />
+        <BrandLogo className="site-footer__logo" />
         <div>
           <p className="technical-label">Asyra Framework</p>
           <p>
