@@ -2,14 +2,15 @@
 
 ## Status
 
-Active child plan of the
-[Asyra Framework Website Program](asyra-framework-website-plan.md). This
-workstream progresses in parallel with the sibling README, executable-example,
-and visual workstreams against the same release candidate.
+Completed locally on August 10, 2026, as a child plan of the
+[Asyra Framework Website Program](asyra-framework-website-plan.md). The
+accepted bundle contains 41 source-mapped public pages, guides for all 19
+release packages, deterministic human/AI indexes, and fail-closed freshness,
+link, example, and public-API validation.
 
-Implementation may begin only after a thin public-documentation contract, an
-exact documentation-flow Inspector, executable content cases, source mapping,
-and a bounded Definition of Done are complete and consistent.
+The implementation advanced only after a thin public-documentation contract,
+an exact documentation-flow Inspector, executable content cases, source
+mapping, and a bounded Definition of Done were complete and consistent.
 
 Architecture execution is governed by
 [Asyra Public Documentation Flow Inspector](asyra-public-package-documentation-flow-inspector.data.cjs)
