@@ -125,6 +125,7 @@ module.exports = Object.freeze({
         'package.json',
         'yarn.lock',
         'turbo.json',
+        'eslint.config.js',
         '.gitignore'
       ],
       specRefs: [

@@ -67,6 +67,7 @@ test('site foundation owns web structure without downstream product meaning', ()
   assert.match(source, /Landing and Atlas receive placeholders/i)
   assert.match(source, /generated raster production assets/i)
   assert.match(source, /external font, UI kit, analytics, or CMS/i)
+  assert.match(source, /eslint\.config\.js/i)
 })
 
 test('content adapter fails closed on drift and semantic rewrite', () => {

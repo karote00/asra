@@ -16,7 +16,13 @@ export default tseslint.config(
   js.configs.recommended,
   includeIgnoreFile(gitignorePath),
   {
-    ignores: ['.claude/**/*', 'docs/**/*', '**/*.md', '**/*.mdx']
+    ignores: [
+      '.claude/**/*',
+      'docs/**/*',
+      '**/*.md',
+      '**/*.mdx',
+      '**/next-env.d.ts'
+    ]
   },
   tseslint.configs.recommended,
   tseslint.configs.strict,
