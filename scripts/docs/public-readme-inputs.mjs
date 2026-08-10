@@ -96,10 +96,7 @@ export const readApprovedReadmeInputs = async ({ repositoryRoot }) => {
     }
   })
 
-  const releaseConfigPath = path.join(
-    root,
-    'release-configs/asyra-design.json'
-  )
+  const releaseConfigPath = path.join(root, 'release-configs/asyra-design.json')
   const releaseConfig = readJson(releaseConfigPath)
   if (releaseConfig.readme !== 'apps/asyra-design/TEMPLATE.md') {
     throw new Error('Asyra Design generated README source contract changed')

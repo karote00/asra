@@ -15,7 +15,10 @@ test('README inputs derive the exact release surfaces and owners', async () => {
   assert.equal(inputs.packages.length, 19)
   assert.equal(inputs.specialSurfaces.length, 5)
   assert.equal(inputs.surfaces.length, 24)
-  assert.equal(new Set(inputs.surfaces.map(({ path: value }) => value)).size, 24)
+  assert.equal(
+    new Set(inputs.surfaces.map(({ path: value }) => value)).size,
+    24
+  )
   assert.deepEqual(inputs.generatedReadme, {
     configPath: 'release-configs/asyra-design.json',
     output: 'create-app/asyra-design/template/README.md',

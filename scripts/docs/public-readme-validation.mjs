@@ -2,7 +2,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, URL } from 'node:url'
 
 import { validatePublicImportMentions } from './public-documentation-validation.mjs'
 import { checkPublicDocumentation } from './public-documentation.mjs'
