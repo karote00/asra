@@ -2,15 +2,19 @@
 
 ## Status
 
-Active child plan of the
+Completed, preview-ready child plan of the
 [Asyra Framework Website Program](asyra-framework-website-plan.md). Public
 content, executable examples, and the Material Blueprint visual handoff are
-accepted on the integration branch. Platform implementation is active on a
-dedicated child branch against that exact release candidate.
+accepted on the integration branch. The common platform now production-builds
+on its dedicated child branch against that exact release candidate; production
+deployment remains owned by Launch and Operations.
 
-Implementation also requires accepted public content, executable-example and
-visual handoffs, one exact approved toolchain, an exact website-platform
-Inspector, executable route/content cases, and a bounded Definition of Done.
+Completion evidence includes 51 prerendered Next.js routes, a 49-endpoint
+production route smoke, the exact 41-page/19-package/11-example content checks,
+26 website tests plus the 11-case Inspector contract, four Chromium
+desktop/mobile/reduced-motion/supporting-route cases, synchronized live visual
+review, strict typecheck/lint, dependency and generated-content checks, the
+full repository build, and all 21 repository `test:ci` workspace tasks.
 
 ## Goal
 

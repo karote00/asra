@@ -46,7 +46,7 @@ test('sitemap derives all content routes and uses only observed deployment hosts
   assert.match(source, /\.\.\.bundle\.pages\.map/)
   assert.match(source, /process\.env\.VERCEL_URL/)
   assert.match(source, /http:\/\/localhost:3020/)
-  assert.doesNotMatch(source, /https:\/\/asyra\./)
+  assert.doesNotMatch(source, new RegExp(`https://${bundle.repositoryName}\\.`))
 })
 
 test('Landing and Atlas remain downstream placeholders', () => {

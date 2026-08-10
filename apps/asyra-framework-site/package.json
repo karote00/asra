@@ -13,7 +13,9 @@
     "react:build": "yarn build:asyra-framework-site",
     "typecheck": "tsc --noEmit",
     "test": "yarn test:local",
-    "test:contracts": "node --test ../../docs/ai/framework/plans/__tests__/asyra-website-platform-flow-inspector.contract.test.cjs",
+    "test:contracts": "node --test ../../docs/ai/framework/plans/__tests__/*website-platform-flow-inspector.contract.test.cjs",
+    "test:routes": "node scripts/route-smoke.mjs",
+    "test:e2e": "playwright test --config playwright.config.ts",
     "test:local": "yarn test:contracts && node --test __tests__/*.test.mjs",
     "test:ci": "yarn test:local",
     "lint": "yarn --cwd ../.. eslint apps/asyra-framework-site"
@@ -25,6 +27,7 @@
     "react-dom": "19.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "^16.18.121",
     "@types/react": "^19.0.0",

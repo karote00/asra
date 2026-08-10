@@ -109,6 +109,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asyra/asyra-framework-site@workspace:apps/asyra-framework-site"
   dependencies:
+    "@playwright/test": "npm:^1.57.0"
     "@tailwindcss/postcss": "npm:4.3.3"
     "@types/node": "npm:^16.18.121"
     "@types/react": "npm:^19.0.0"

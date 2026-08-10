@@ -5,6 +5,7 @@ import type { Route } from 'next'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 interface MobileDocsItem {
   href: string
@@ -74,48 +75,51 @@ export function DocsMobileNavigation({ groups }: DocsMobileNavigationProps) {
         <Menu aria-hidden="true" size={18} />
         Browse documentation
       </button>
-      {open ? (
-        <div className="docs-navigation-layer">
-          <button
-            aria-label="Close documentation navigation"
-            className="navigation-backdrop"
-            onClick={close}
-            tabIndex={-1}
-            type="button"
-          />
-          <div
-            aria-label="Documentation navigation"
-            aria-modal="true"
-            className="docs-navigation-sheet"
-            id={dialogId}
-            onKeyDown={onDialogKeyDown}
-            ref={dialogRef}
-            role="dialog"
-          >
-            <div className="navigation-sheet__header">
-              <span className="technical-label">DOCUMENTATION</span>
+      {open
+        ? createPortal(
+            <div className="docs-navigation-layer">
               <button
                 aria-label="Close documentation navigation"
-                className="icon-button"
+                className="navigation-backdrop"
                 onClick={close}
+                tabIndex={-1}
                 type="button"
+              />
+              <div
+                aria-label="Documentation navigation"
+                aria-modal="true"
+                className="docs-navigation-sheet"
+                id={dialogId}
+                onKeyDown={onDialogKeyDown}
+                ref={dialogRef}
+                role="dialog"
               >
-                <X aria-hidden="true" size={21} />
-              </button>
-            </div>
-            {groups.map((group) => (
-              <section key={group.id}>
-                <p>{group.label}</p>
-                {group.items.map((item) => (
-                  <Link href={item.href as Route} key={item.href}>
-                    {item.label}
-                  </Link>
+                <div className="navigation-sheet__header">
+                  <span className="technical-label">DOCUMENTATION</span>
+                  <button
+                    aria-label="Close documentation navigation"
+                    className="icon-button"
+                    onClick={close}
+                    type="button"
+                  >
+                    <X aria-hidden="true" size={21} />
+                  </button>
+                </div>
+                {groups.map((group) => (
+                  <section key={group.id}>
+                    <p>{group.label}</p>
+                    {group.items.map((item) => (
+                      <Link href={item.href as Route} key={item.href}>
+                        {item.label}
+                      </Link>
+                    ))}
+                  </section>
                 ))}
-              </section>
-            ))}
-          </div>
-        </div>
-      ) : null}
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   )
 }

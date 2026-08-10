@@ -22,7 +22,7 @@ const readJson = (repoRoot, filePath) =>
 
 export const resolveRepositoryRoot = () => {
   const candidates = [
-    process.env.ASYRA_REPOSITORY_ROOT,
+    process.env.FRAMEWORK_SITE_REPOSITORY_ROOT,
     process.cwd(),
     path.resolve(process.cwd(), '../..'),
     path.resolve(appRoot, '../..')
@@ -90,6 +90,13 @@ export const loadContentBundle = ({
   const sourceMap = readJson(repoRoot, authorityPaths.sourceMap)
   const packageReference = readJson(repoRoot, authorityPaths.packageReference)
   const examples = readJson(repoRoot, authorityPaths.examples)
+  const repositoryManifest = readJson(repoRoot, 'package.json')
+
+  if (typeof repositoryManifest.name !== 'string') {
+    throw new Error('Website repository identity is unavailable')
+  }
+  const repositoryName = repositoryManifest.name
+  const repositoryHref = `https://github.com/karote00/${encodeURIComponent(repositoryName)}`
 
   if (manifest.pages.length !== 41) {
     throw new Error(
@@ -175,6 +182,8 @@ export const loadContentBundle = ({
     packages: Object.freeze(packageReference.packages),
     examples: Object.freeze(examples.examples),
     runtime: Object.freeze(examples.runtime),
+    repositoryName,
+    repositoryHref,
     repoRoot
   })
 }
@@ -182,12 +191,12 @@ export const loadContentBundle = ({
 const sourceRevision = () =>
   process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || 'main'
 
-const githubSourceHref = (repoPath, hash = '') => {
+export const sourceHref = (bundle, repoPath, hash = '') => {
   const encodedPath = repoPath
     .split('/')
     .map((segment) => encodeURIComponent(segment))
     .join('/')
-  return `https://github.com/karote00/asyra/blob/${sourceRevision()}/${encodedPath}${hash}`
+  return `${bundle.repositoryHref}/blob/${sourceRevision()}/${encodedPath}${hash}`
 }
 
 export const resolveContentHref = ({ bundle, page, href }) => {
@@ -201,7 +210,7 @@ export const resolveContentHref = ({ bundle, page, href }) => {
   const publicPage = bundle.pageByPath.get(repoPath)
   const hash = fragment ? `#${fragment}` : ''
   if (publicPage) return `${publicPage.route}${hash}`
-  return githubSourceHref(repoPath, hash)
+  return sourceHref(bundle, repoPath, hash)
 }
 
 export const pageForSlug = (bundle, slug = []) => {

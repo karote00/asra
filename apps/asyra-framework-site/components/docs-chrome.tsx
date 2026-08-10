@@ -7,17 +7,12 @@ import { DocsNavigation, sectionLabel } from '@/components/docs-navigation'
 import { DocsTableOfContents } from '@/components/docs-table-of-contents'
 import { MarkdownContent } from '@/components/markdown-content'
 import { SearchDialog } from '@/components/search-dialog'
+import { sourceHref } from '@/lib/content'
 
 interface DocsChromeProps {
   bundle: ContentBundle
   page: PublicPage
 }
-
-const sourceRevision = () =>
-  process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || 'main'
-
-const sourceHref = (sourcePath: string) =>
-  `https://github.com/karote00/asyra/blob/${sourceRevision()}/${sourcePath}`
 
 export function DocsChrome({ bundle, page }: DocsChromeProps) {
   const currentIndex = bundle.pages.findIndex(({ id }) => id === page.id)
@@ -85,7 +80,7 @@ export function DocsChrome({ bundle, page }: DocsChromeProps) {
             <ul>
               {page.sourceRecords.map((source) => (
                 <li key={source.path}>
-                  <a href={sourceHref(source.path)} rel="noreferrer">
+                  <a href={sourceHref(bundle, source.path)} rel="noreferrer">
                     {source.path}
                   </a>
                   <code>{source.sha256.slice(0, 10)}</code>

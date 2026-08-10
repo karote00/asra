@@ -116,6 +116,7 @@ a:focus-visible {
   font-weight: 800;
   letter-spacing: -0.04em;
   text-decoration: none;
+  text-transform: uppercase;
 }
 
 .wordmark__coordinate,
@@ -290,6 +291,7 @@ a:focus-visible {
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .section-eyebrow {

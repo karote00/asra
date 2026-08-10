@@ -15,7 +15,7 @@ export function SiteFrame({
     <section className="site-frame">
       <div aria-hidden="true" className="site-frame__registration">
         <span>{coordinate}</span>
-        <span>ASYRA / PUBLIC WORKING SHEET</span>
+        <span>Asyra / Public Working Sheet</span>
       </div>
       <p className="section-eyebrow">{eyebrow}</p>
       {children}

@@ -19,11 +19,15 @@ test('Examples route presents the exact maintained inventory', () => {
 })
 
 test('Asyra Design route preserves reference-product and URL boundaries', () => {
+  const bundle = loadContentBundle()
   const source = read('app/asyra-design/page.tsx')
   assert.match(source, /Reference product, not Framework owner/i)
   assert.match(source, /pageById\.get\('cases\/asyra-design'\)/)
   assert.match(source, /No public Asyra Design deployment URL/i)
-  assert.doesNotMatch(source, /https?:\/\/(?:www\.)?asyra/i)
+  assert.doesNotMatch(
+    source,
+    new RegExp(`https?://(?:www\\.)?${bundle.repositoryName}`, 'i')
+  )
 })
 
 test('Releases route derives all candidate facts and package rows', () => {

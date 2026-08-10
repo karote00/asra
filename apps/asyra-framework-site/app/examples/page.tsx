@@ -1,16 +1,13 @@
 import type { Metadata } from 'next'
 import { ArrowUpRight, Terminal } from 'lucide-react'
 import { EvidenceHero } from '@/components/evidence-hero'
-import { loadContentBundle } from '@/lib/content'
+import { loadContentBundle, sourceHref } from '@/lib/content'
 
 export const metadata: Metadata = {
   title: 'Executable examples',
   description:
     'Run maintained Asyra examples that prove current public Framework behavior.'
 }
-
-const sourceRevision = () =>
-  process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || 'main'
 
 export default function ExamplesPage() {
   const bundle = loadContentBundle()
@@ -53,10 +50,7 @@ export default function ExamplesPage() {
                 <Terminal aria-hidden="true" size={15} />
                 {example.runCommand}
               </code>
-              <a
-                href={`https://github.com/karote00/asyra/blob/${sourceRevision()}/${example.source}`}
-                rel="noreferrer"
-              >
+              <a href={sourceHref(bundle, example.source)} rel="noreferrer">
                 Inspect maintained source
                 <ArrowUpRight aria-hidden="true" size={15} />
               </a>

@@ -76,6 +76,8 @@ export interface ContentBundle {
   packages: PublicPackageRecord[]
   examples: PublicExampleRecord[]
   runtime: { node: string; packageManager: string }
+  repositoryName: string
+  repositoryHref: string
   repoRoot: string
 }
 
@@ -94,6 +96,11 @@ export function resolveContentHref(input: {
   page: PublicPage
   href: string
 }): string
+export function sourceHref(
+  bundle: ContentBundle,
+  repoPath: string,
+  hash?: string
+): string
 export function pageForSlug(
   bundle: ContentBundle,
   slug?: string[]

@@ -24,6 +24,10 @@ test('content adapter verifies the complete release candidate inventory', () => 
     publicationAuthorized: false,
     status: 'CANDIDATE'
   })
+  assert.equal(
+    bundle.repositoryHref.endsWith(`/${bundle.repositoryName}`),
+    true
+  )
 })
 
 test('every page has one stable route, digest, heading set, and search record', () => {
@@ -56,13 +60,18 @@ test('public Markdown links resolve to website routes and canonical source evide
     resolveContentHref({ bundle, page: overview, href: '#current-support' }),
     '#current-support'
   )
+  const canonicalSource = resolveContentHref({
+    bundle,
+    page: overview,
+    href: '../ai/framework/ARCHITECTURE.md'
+  })
+  assert.equal(
+    canonicalSource.startsWith(`${bundle.repositoryHref}/blob/`),
+    true
+  )
   assert.match(
-    resolveContentHref({
-      bundle,
-      page: overview,
-      href: '../ai/framework/ARCHITECTURE.md'
-    }),
-    /^https:\/\/github\.com\/karote00\/asyra\/blob\/(?:main|[a-f0-9]+)\/docs\/ai\/framework\/ARCHITECTURE\.md$/
+    canonicalSource,
+    /\/(?:main|[a-f0-9]+)\/docs\/ai\/framework\/ARCHITECTURE\.md$/
   )
 })
 

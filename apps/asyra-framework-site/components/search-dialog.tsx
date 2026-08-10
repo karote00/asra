@@ -4,6 +4,7 @@ import { Search, X } from 'lucide-react'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { SearchRecord } from '@/lib/content'
 
 interface SearchDialogProps {
@@ -35,6 +36,7 @@ export function SearchDialog({ records }: SearchDialogProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        if (!triggerRef.current?.getClientRects().length) return
         event.preventDefault()
         setOpen(true)
       }
@@ -91,63 +93,70 @@ export function SearchDialog({ records }: SearchDialogProps) {
         Search docs
         <kbd>⌘ K</kbd>
       </button>
-      {open ? (
-        <div className="search-layer">
-          <button
-            aria-label="Close search"
-            className="navigation-backdrop"
-            onClick={close}
-            tabIndex={-1}
-            type="button"
-          />
-          <div
-            aria-label="Search documentation"
-            aria-modal="true"
-            className="search-dialog"
-            id={dialogId}
-            onKeyDown={onDialogKeyDown}
-            ref={dialogRef}
-            role="dialog"
-          >
-            <div className="search-input-row">
-              <Search aria-hidden="true" size={19} />
-              <input
-                aria-label="Search documentation"
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search concepts, packages, and actions"
-                ref={inputRef}
-                type="search"
-                value={query}
+      {open
+        ? createPortal(
+            <div className="search-layer">
+              <button
+                aria-label="Close search"
+                className="navigation-backdrop"
+                onClick={close}
+                tabIndex={-1}
+                type="button"
               />
-              <button aria-label="Close search" onClick={close} type="button">
-                <X aria-hidden="true" size={20} />
-              </button>
-            </div>
-            <p aria-live="polite" className="search-count">
-              {results.length} {results.length === 1 ? 'result' : 'results'}
-            </p>
-            <div className="search-results">
-              {results.map((record) => (
-                <Link
-                  href={record.href as Route}
-                  key={record.id}
-                  onClick={close}
-                >
-                  <span>{record.section}</span>
-                  <strong>{record.title}</strong>
-                  <small>{record.description}</small>
-                </Link>
-              ))}
-              {results.length === 0 ? (
-                <p className="search-empty">
-                  No matching page or heading. Try a package name or product
-                  action.
+              <div
+                aria-label="Search documentation"
+                aria-modal="true"
+                className="search-dialog"
+                id={dialogId}
+                onKeyDown={onDialogKeyDown}
+                ref={dialogRef}
+                role="dialog"
+              >
+                <div className="search-input-row">
+                  <Search aria-hidden="true" size={19} />
+                  <input
+                    aria-label="Search documentation"
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search concepts, packages, and actions"
+                    ref={inputRef}
+                    type="search"
+                    value={query}
+                  />
+                  <button
+                    aria-label="Close search"
+                    onClick={close}
+                    type="button"
+                  >
+                    <X aria-hidden="true" size={20} />
+                  </button>
+                </div>
+                <p aria-live="polite" className="search-count">
+                  {results.length} {results.length === 1 ? 'result' : 'results'}
                 </p>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      ) : null}
+                <div className="search-results">
+                  {results.map((record) => (
+                    <Link
+                      href={record.href as Route}
+                      key={record.id}
+                      onClick={close}
+                    >
+                      <span>{record.section}</span>
+                      <strong>{record.title}</strong>
+                      <small>{record.description}</small>
+                    </Link>
+                  ))}
+                  {results.length === 0 ? (
+                    <p className="search-empty">
+                      No matching page or heading. Try a package name or product
+                      action.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </>
   )
 }

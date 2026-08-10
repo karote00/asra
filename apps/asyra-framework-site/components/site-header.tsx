@@ -18,7 +18,7 @@ export function SiteHeader() {
           <span aria-hidden="true" className="wordmark__coordinate">
             00.00
           </span>
-          <span>ASYRA</span>
+          <span>Asyra</span>
         </Link>
         <SiteNavigation items={primaryNavigation} />
       </div>

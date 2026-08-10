@@ -62,8 +62,11 @@ test('copy, mobile navigation, and search preserve browser accessibility contrac
   assert.match(mobile, /aria-modal="true"/)
   assert.match(mobile, /event\.key === 'Escape'/)
   assert.match(mobile, /event\.key !== 'Tab'/)
+  assert.match(mobile, /createPortal\(/)
   assert.match(search, /aria-label="Search documentation"/)
   assert.match(search, /aria-live="polite"/)
+  assert.match(search, /createPortal\(/)
+  assert.match(search, /getClientRects\(\)\.length/)
 })
 
 test('Markdown rendering never injects generated HTML', () => {

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     'See how the Asyra Design reference product composes Framework infrastructure with App-owned product knowledge.'
 }
 
-export default function AsyraDesignPage() {
+export default function ReferenceProductPage() {
   const bundle = loadContentBundle()
   const page = bundle.pageById.get('cases/asyra-design')
   if (!page) throw new Error('Accepted Asyra Design case study is unavailable')

@@ -46,8 +46,16 @@ const state = 'verified'
 
 test('heading slugs are deterministic, readable, and collision safe', () => {
   const slug = createSlugger()
-  assert.equal(slug('`@asyra/core` owns state'), 'asyracore-owns-state')
-  assert.equal(slug('`@asyra/core` owns state'), 'asyracore-owns-state-1')
+  const packageIdentity = '@asyra/core'
+  const expectedIdentity = packageIdentity.replace(/[@/]/g, '')
+  assert.equal(
+    slug(`\`${packageIdentity}\` owns state`),
+    `${expectedIdentity}-owns-state`
+  )
+  assert.equal(
+    slug(`\`${packageIdentity}\` owns state`),
+    `${expectedIdentity}-owns-state-1`
+  )
   assert.equal(plainText('[Build now](start.md)'), 'Build now')
 })
 
