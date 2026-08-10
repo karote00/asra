@@ -225,7 +225,12 @@
         "docs/ai/framework/packages/core.md",
         "docs/ai/apps/asyra-design/features/group-interactions.md"
       ],
-      "packages": ["@asyra/core", "@asyra/scene-tree"],
+      "packages": [
+        "@asyra/core",
+        "@asyra/preset",
+        "@asyra/scene-tree",
+        "@asyra/utils"
+      ],
       "examples": ["custom-component-schema", "generated-design-app-extension"]
     },
     {
