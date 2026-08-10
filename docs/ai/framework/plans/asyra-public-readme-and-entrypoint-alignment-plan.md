@@ -2,15 +2,22 @@
 
 ## Status
 
-Queued child plan of the
-[Asyra Framework Website Program](asyra-framework-website-plan.md). This
-workstream begins with the shared public contract and progresses in parallel
-with public documentation, executable examples, and Visual Reimagine. It is not
-a standalone prerequisite that must finish before those workstreams begin.
+Completed locally on August 10, 2026, as a child plan of the
+[Asyra Framework Website Program](asyra-framework-website-plan.md). The
+accepted bundle contains all 24 public README surfaces, deterministic package
+generation for the 19 release packages, canonical generated-App
+synchronization, and fail-closed link, API, support-policy, and freshness
+validation.
 
 Implementation requires an exact README inventory, canonical owner mapping,
 content cases, generated-output route, link contract, and bounded Definition of
 Done.
+
+Architecture execution is governed by the
+[Asyra Public README Flow Inspector](asyra-public-readme-and-entrypoint-alignment-flow-inspector.data.cjs)
+and its contract test. Work advances one README owner step at a time; the
+generated template is produced only through the retained create-app release
+route.
 
 ## Goal
 
@@ -47,6 +54,39 @@ Ownership remains local to each surface:
   and next steps; and
 - the official generator owns generated-template README synchronization. A
   generated README is never hand-edited.
+
+The frozen inventory contains exactly 24 surfaces: one root README, 19 package
+READMEs derived from the Framework release inventory, one Asyra Design README,
+one canonical generated-app README source, one CLI README, and one generated
+README output.
+
+Public documentation fingerprints canonical README sources. This workstream
+may therefore regenerate only `docs/public/generated/source-map.json` through
+the official public-documentation generator after README review. That file is a
+freshness acknowledgement, not README ownership of public-page semantics or
+any other generated documentation artifact.
+
+## Executable README Cases
+
+- the inventory equals the current manifest-derived 19-package release set and
+  all 24 paths exist exactly once;
+- every package README resolves its package manifest, public guide, approved
+  public entrypoints, and at least one maintained executable example;
+- root, App, canonical template source, CLI, and generated output each satisfy
+  their owner-specific required sections without duplicating full guides;
+- current browser/Core support, possible app domains, app-owned domain
+  knowledge, Preset defaults, and future Headless/Core Kernel work remain
+  distinct;
+- root and downstream surfaces consistently state that external issues and
+  contributions are not accepted;
+- repository, documentation, example, security, license, support, and policy
+  links resolve from their rendered owner context;
+- generated output is byte-identical to the canonical source selected by
+  `release-configs/asyra-design.json`; and
+- the public-documentation source map deterministically acknowledges the
+  reviewed README source revisions; and
+- stale versions, unknown packages or examples, private imports, unsupported
+  public API names, broken links, or hand-edited generated output fail closed.
 
 ## Required Shared Contract
 
@@ -159,6 +199,8 @@ CLI publication is applicable.
 - root and downstream contribution wording do not invite unsupported issues or
   external contributions;
 - generated-template synchronization and CLI artifact README checks pass; and
+- the public-documentation source-map freshness check passes without a public
+  page or content-index rewrite; and
 - no generated output receives a hand-written repair.
 
 ## Stop Conditions
