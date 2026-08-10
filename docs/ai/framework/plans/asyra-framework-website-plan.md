@@ -20,11 +20,14 @@ claims remain generated or provisional until their public owners are verified.
 
 ## Product Definition
 
-Asyra is a deterministic execution kernel and modular infrastructure for
-declarative information-modeling products. Products may be visual, headless,
-or both. A machine-facing product may exist primarily so AI systems and other
-app-owned services can retrieve information and execute registered actions
-without any Render or UI dependency.
+Asyra is deterministic, modular infrastructure for declarative
+information-modeling products. The initial release supports the verified
+browser/Core composition and visual product paths. Its long-term direction also
+includes non-visible, machine-facing products built so AI systems and other
+app-owned services can retrieve information and execute registered actions.
+That direction is not yet a public Headless Core or Core Kernel runtime: public
+content must not claim a Node startup lifecycle, no-Render/UI dependency graph,
+or multi-runtime isolation before those contracts exist.
 
 Asyra is not limited to design tools or canvas products. Apps may use it to
 build design tools, whiteboards, BIM systems, VR experiences, industrial
@@ -68,27 +71,31 @@ surface that:
 
 ## Workstream Ownership
 
-The program is split into eight independently reviewable child plans:
+The program is split into nine independently reviewable child plans:
 
-1. [Public README and Entrypoint Alignment](asyra-public-readme-and-entrypoint-alignment-plan.md)
+1. [Input System Environment Neutrality](input-system-environment-neutrality-plan.md)
+   owns DOM-neutral Input/Core imports, explicit browser listener lifecycle,
+   and preservation of existing visual input activation. It must pass PR CI and
+   direct product-owner testing before merge.
+2. [Public README and Entrypoint Alignment](asyra-public-readme-and-entrypoint-alignment-plan.md)
    owns the root, package, Asyra Design, CLI, and generated-app README release
    surfaces through their canonical owners and generation paths.
-2. [Public Package Documentation](asyra-public-package-documentation-plan.md)
+3. [Public Package Documentation](asyra-public-package-documentation-plan.md)
    owns durable public guides, information architecture, package reference,
    AI-readable content, and semantic case-study content.
-3. [Executable Examples](asyra-executable-examples-plan.md) owns maintained
+4. [Executable Examples](asyra-executable-examples-plan.md) owns maintained
    sample code and the formal gates that prove documented flows still work.
-4. [Visual Reimagine](asyra-website-visual-reimagine-plan.md) owns generated
+5. [Visual Reimagine](asyra-website-visual-reimagine-plan.md) owns generated
    concepts, interaction and motion direction, responsive states, and the
    accepted visual specification before composed UI code.
-5. [Website Platform and Documentation Experience](asyra-website-platform-and-docs-plan.md)
+6. [Website Platform and Documentation Experience](asyra-website-platform-and-docs-plan.md)
    owns the site workspace, content adapter, documentation shell, search,
    reference/release surfaces, and common web foundations.
-6. [Landing Page and Product Narrative](asyra-website-landing-page-plan.md) owns
+7. [Landing Page and Product Narrative](asyra-website-landing-page-plan.md) owns
    the homepage implementation and its interactive product story.
-7. [Asyra Runtime Atlas](asyra-runtime-atlas-plan.md) owns the real-runtime
+8. [Asyra Runtime Atlas](asyra-runtime-atlas-plan.md) owns the real-runtime
    interactive lab, its six required executable cases, and runtime evidence.
-8. [Launch and Operations](asyra-website-launch-and-operations-plan.md) owns
+9. [Launch and Operations](asyra-website-launch-and-operations-plan.md) owns
    Preview closure and, only after explicit authorization, production
    deployment and post-deployment verification.
 
@@ -136,9 +143,11 @@ boundaries without requiring the complete Asyra Design service stack.
 
 ### Compose a custom product
 
-Experienced consumers may begin with public Framework packages, headless Core,
-Preset `2D`, or profile `CUSTOM`. Headless products whose only consumers are
-app-owned services, automation, or AI retrieval and actions remain first-class.
+Experienced consumers may begin with public Framework packages, Preset `2D`, or
+profile `CUSTOM` to compose a product around current public contracts.
+Non-visible products whose consumers are app-owned services, automation, or AI
+retrieval/actions remain an important future direction; the website must route
+that topic to the Roadmap instead of inventing a current Headless API.
 
 ## Shared Preset Contract
 
@@ -191,14 +200,15 @@ edits land only through their own reviewed branches.
 Each child task receives a new branch from the latest validated integration-
 branch checkpoint:
 
-1. `codex/asyra-public-release-readme`
-2. `codex/asyra-public-release-docs`
-3. `codex/asyra-public-release-examples`
-4. `codex/asyra-public-release-visual-reimagine`
-5. `codex/asyra-public-release-site-platform`
-6. `codex/asyra-public-release-landing`
-7. `codex/asyra-public-release-runtime-atlas`
-8. `codex/asyra-public-release-launch`
+1. `codex/asyra-public-release-input-system`
+2. `codex/asyra-public-release-readme`
+3. `codex/asyra-public-release-docs`
+4. `codex/asyra-public-release-examples`
+5. `codex/asyra-public-release-visual-reimagine`
+6. `codex/asyra-public-release-site-platform`
+7. `codex/asyra-public-release-landing`
+8. `codex/asyra-public-release-runtime-atlas`
+9. `codex/asyra-public-release-launch`
 
 Create a child branch only when that child task begins. Never reuse a completed
 or merged child branch for a later task. If a child needs multiple bounded
@@ -259,15 +269,19 @@ branch while it remains the active owner task.
 
 ### Dependency Batches
 
-1. Foundation batch: README, Public Documentation, Executable Examples, and
+1. Runtime prerequisite: Input System Environment Neutrality lands only after
+   its focused, integration, PR CI, and product-owner direct-test gates pass.
+   No downstream workstream may turn Node-safe import into a Headless/Core
+   Kernel support claim.
+2. Foundation batch: README, Public Documentation, Executable Examples, and
    Visual Reimagine may progress in parallel after their shared contract is
    frozen. Examples must land before the final README/documentation content
    freeze; accepted Visual Reimagine must land before composed UI work.
-2. Platform batch: Website Platform begins from the accepted foundation
+3. Platform batch: Website Platform begins from the accepted foundation
    checkpoint.
-3. Product-surface batch: Landing and Runtime Atlas begin from the accepted
+4. Product-surface batch: Landing and Runtime Atlas begin from the accepted
    platform checkpoint and may progress in parallel.
-4. Launch batch: Launch and Operations begins only after all seven upstream
+5. Launch batch: Launch and Operations begins only after all eight upstream
    children and the integrated pre-publication Release Candidate pass.
 
 ## Integrated Release Train Sequence
@@ -281,6 +295,8 @@ branch while it remains the active owner task.
 
 ### Phase 2: Build the evidence foundation
 
+- Complete and directly accept the Input System environment prerequisite before
+  examples or content freeze browser lifecycle and Node-import claims.
 - Inventory and prove the executable examples required by README and public
   guides.
 - Freeze documentation metadata, source mapping, link conventions, and the
@@ -352,7 +368,7 @@ Inspector to authorize its edits.
 
 ## Program Quality Gates
 
-- all eight child-plan acceptance gates pass against the same release
+- all nine child-plan acceptance gates pass against the same release
   inventory;
 - all root, package, App, CLI, and generated-app README surfaces agree with the
   accepted public docs, examples, support policy, and release facts;
@@ -361,8 +377,9 @@ Inspector to authorize its edits.
   an approved API-reference source;
 - no public runtime surface imports package-private source or unpublished
   package paths;
-- visible, headless, Preset, App-owned domain, AI-assisted, and optional-system
-  boundaries remain consistent across documentation, Landing, and Atlas;
+- current visual, future non-visible, Preset, App-owned domain, AI-assisted, and
+  optional-system boundaries remain consistent across documentation, Landing,
+  Atlas, and Roadmap;
 - route, anchor, search, source mapping, version, and broken-link checks pass;
 - keyboard, touch, focus, responsive, reduced-motion, contrast, performance,
   and synchronized visual-review gates pass;
@@ -391,10 +408,11 @@ Inspector to authorize its edits.
 
 ## Definition of Done
 
-- All eight child plans and every applicable package/CLI/root release owner are
+- All nine child plans and every applicable package/CLI/root release owner are
   complete against one verified release inventory.
-- The public experience explains Asyra as infrastructure for visible and
-  non-visible information-modeling products without overstating built-ins.
+- The public experience explains current visual product composition and the
+  future non-visible information-modeling direction without overstating
+  built-ins or current runtime support.
 - Every public package has usable documentation and every supported tutorial
   flow is backed by maintained executable evidence.
 - Root, all release package, Asyra Design, CLI, and generated-app README
@@ -405,8 +423,9 @@ Inspector to authorize its edits.
 - Landing, documentation, examples, releases, roadmap, Asyra Design, and
   Runtime Atlas surfaces are responsive, accessible, visually accepted, and
   production-built.
-- The Atlas proves real public intent, transaction, canonical owner,
-  projection, optional-composition, failure, and headless paths.
+- The Atlas proves real current public intent, transaction, canonical owner,
+  projection, optional-composition, and failure paths; future Headless/Core
+  Kernel work appears only as Roadmap content until executable support exists.
 - Preview closure passes before any production write.
 - Production deployment is complete only after separate explicit authority and
   deployed verification; publication, tagging, and unrelated release actions

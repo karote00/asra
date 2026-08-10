@@ -70,8 +70,9 @@ Dependency direction is strict:
 - `@asyra/preset` installs the selected official default dependency closure and
   binds the preset-owned Pixi provider only for profile `2D`; custom providers
   bind through Core when profile is `CUSTOM`;
-- Core owns the default `RenderAdapter`, provider facade, exact headless
-  normalization, startup, and renderer teardown;
+- Core owns the default `RenderAdapter`, provider facade, exact missing-provider
+  no-canvas compatibility normalization, startup, and renderer teardown. This
+  internal compatibility branch is not a public Headless Core/Core Kernel;
 - Render, Core, and apps remain concrete-engine-neutral.
 
 ## Canonical Intent Flow
@@ -233,9 +234,11 @@ applyPreset(core, { profile?, defaults? })
 - Preset owns deterministic pre-start composition and rollback coordination,
   but does not execute app customization or declare Core ready.
 - Profile selects engine policy only; defaults select official modules only.
-- Core owns an engine-neutral `RenderAdapter` by default. An exact missing
-  provider becomes headless only in Core startup; direct Render and real engine
-  failures remain strict.
+- Core owns an engine-neutral `RenderAdapter` by default. Core alone may
+  normalize an exact missing-provider result to its existing no-canvas
+  compatibility path; direct Render and real engine failures remain strict.
+  The path still uses `core.start(container, options)` and does not establish a
+  public Headless Core/Core Kernel contract.
 - An optional app-owned collaboration session registers through Core's neutral
   lifecycle contract. Core owns prepare -> renderer -> observers -> checkpoint
   load -> Feature initialization -> activation -> ready and disposes the

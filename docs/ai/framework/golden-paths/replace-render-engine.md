@@ -58,8 +58,10 @@ const render = new Render({ engineProvider: provider })
 
 Direct `Render.init()` without a provider throws
 `MissingRenderEngineProviderError`. Only Core may normalize that exact absence
-to headless startup. Provider callback, engine validation, capability, and
-initialization failures always remain real errors.
+to its existing no-canvas compatibility path. That path still uses the ordinary
+Core startup contract and is not a public Headless Core/Core Kernel. Provider
+callback, engine validation, capability, and initialization failures always
+remain real errors.
 
 ## Verify Integration
 

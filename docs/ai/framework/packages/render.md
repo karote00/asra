@@ -22,7 +22,7 @@ results/interactions back to framework-facing APIs.
   Core constructs its default adapter with the injected Core-bound instance.
 - Every direct `Render`/`RenderAdapter` initialization fails with
   `MissingRenderEngineProviderError` when no provider is configured; Render
-  never chooses headless or falls back to Pixi.
+  never chooses Core's no-canvas compatibility path or falls back to Pixi.
 - Render extension APIs should be surfaced through `@asyra/core` when a Core
   facade exists. Normal app bootstrap relies on the Core-owned adapter.
 - Render owns the engine-neutral `RenderLayerRegistration` shape. Core

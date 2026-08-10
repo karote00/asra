@@ -53,6 +53,14 @@ dependency hoisting are not part of the public contract.
 The formal artifact gates run on Node.js 24.x. A run on another Node version is
 diagnostic evidence only and cannot produce the final `READY` decision.
 
+The `@asyra/input-system` and default `@asyra/core` public entries import in the
+supported Node runtime without eager DOM access. `InputSystem` construction also
+registers no browser listeners. Browser consumers explicitly attach a host, or
+use the existing Core visual startup route that selects the rendered canvas.
+This environment-safety statement is not a supported Headless Core startup,
+Core Kernel, server runtime, worker runtime, no-Render/UI dependency, or
+multi-runtime isolation claim. Those remain unscheduled roadmap research.
+
 The official 2D path uses `@asyra/preset` with
 `@asyra/render-engine-pixi`. CUSTOM composition is supported through the
 engine-neutral public render contracts; the adopting app owns its renderer and

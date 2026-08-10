@@ -108,7 +108,8 @@ The accepted direction must specify:
 
 - every required view/state is represented at useful inspection scale;
 - visual roles do not imply incorrect Framework ownership;
-- visual, headless, and optional paths remain legible;
+- current visual, future non-visible, and optional paths remain legible without
+  collapsing roadmap work into current support;
 - mobile and long-form reading are first-class;
 - focus, contrast, reduced motion, touch targets, and failure states have an
   explicit feasible solution;

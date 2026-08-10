@@ -114,8 +114,10 @@ System orchestrator and lifecycle coordinator.
   source for this startup, activate it after Feature initialization, and publish
   ready only after activation settles
 - with the Core-owned adapter only, normalize the exact missing-provider error
-  to headless startup: no canvas/input surface, but observers, persistence load,
-  Feature initialization, and ready still complete
+  to the existing no-canvas compatibility path: no canvas/input surface, but
+  observers, persistence load, Feature initialization, and ready still complete;
+  this remains `core.start(container, options)` and is not a public Headless
+  Core/Core Kernel lifecycle
 - reject provider callback, invalid-engine, capability, engine initialization,
   and advanced-renderer failures without initializing later phases or
   publishing false ready
@@ -354,7 +356,8 @@ explicit ordinary app composition.
 
 - Core initialization works without UI framework assumptions.
 - Real renderer/engine failure does not initialize observers/features or publish
-  ready; missing provider alone completes the documented headless Core path.
+  ready; missing provider alone completes the documented no-canvas compatibility
+  path without creating a public Headless Core claim.
 - Core source contains no Pixi or concrete engine dependency.
 - The optional Canvas Pipeline Debugger uses only the Core facade and
   engine-neutral Render subpath; no concrete engine or product-state write is
