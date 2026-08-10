@@ -34,12 +34,14 @@ The page must include:
    manifest-verified support statement;
 2. an Atlas entry or bounded embedded overview that never forks Atlas logic;
 3. one-intent/one-deterministic-pipeline explanation;
-4. one canonical model serving visual projections, headless consumers, or
-   both;
+4. one canonical model serving visual projections and app-owned machine
+   consumers through current public contracts, with non-visible runtime work
+   marked as future;
 5. Framework/Preset/App ownership explorer;
 6. replaceable-edge and optional-capability demonstration;
 7. possible domains such as design, whiteboard, BIM, VR, industrial
-   simulation, and headless AI systems, explicitly separated from built-ins;
+   simulation, and future non-visible AI systems, explicitly separated from
+   built-ins and current release support;
 8. Asyra Design reference-product case study and verified deployment link;
 9. current release, unsupported behavior, and roadmap boundary; and
 10. documentation, repository, security, license, release, and
@@ -48,9 +50,9 @@ The page must include:
 ## Interaction and Motion Contract
 
 Interactions may reveal ownership, trace intent, open transaction brackets,
-fan out projections, compare visual/headless compositions, or expose optional
-systems. They must use accepted visual semantics and provide keyboard, touch,
-focus, and reduced-motion equivalents.
+fan out projections, compare current and roadmap compositions, or expose
+optional systems. They must use accepted visual semantics and provide keyboard,
+touch, focus, and reduced-motion equivalents.
 
 The page must not require motion, canvas, WebGL, or the Atlas runtime to access
 the core proposition and navigation. Failure or deferred interactive states
@@ -62,8 +64,9 @@ remain informative and never fabricate Framework output.
 - Examples and Atlas are the Framework-learning entry.
 - Framework, Preset, App, Provider, Backend, and product UI ownership remains
   explicit.
-- Headless AI retrieval/action is a first-class app composition, not a built-in
-  domain or autonomous permission bypass.
+- AI retrieval/action is app-owned and uses registered current APIs; a
+  non-visible Headless/Core Kernel runtime is future work, not a built-in domain
+  or autonomous permission bypass.
 - BIM, VR, physics, chemistry, 4D simulation, and other future domains remain
   app-owned possibilities unless separately verified as current packages.
 - All versions, URLs, support statements, and release claims are generated or
@@ -84,7 +87,8 @@ remain informative and never fabricate Framework output.
 
 - every claim resolves to approved content or generated release facts;
 - first-time visitors can distinguish Framework, Preset, and App ownership;
-- visual and headless product paths receive equal semantic validity;
+- current visual paths and the future non-visible direction are both legible
+  without presenting roadmap work as release support;
 - CTA destinations and verified external links resolve;
 - keyboard, touch, focus, reduced-motion, responsive, and contrast cases pass;
 - no interaction duplicates or fakes Runtime Atlas evidence;

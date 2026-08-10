@@ -137,6 +137,7 @@ describe('Asyra Design AI document interaction integration', () => {
     document.body.append(viewport)
 
     const receivedWheel = vi.fn()
+    inputSystem.switchWatchedElement(canvas)
     inputSystem.registry.register(TEST_WHEEL_INPUT, [
       {
         type: InputType.WHEEL,
@@ -220,6 +221,7 @@ describe('Asyra Design AI document interaction integration', () => {
       release()
       inputSystem.off(TEST_WHEEL_INPUT, receivedWheel)
       inputSystem.registry.unregister(TEST_WHEEL_INPUT)
+      inputSystem.detachBrowserHost()
     }
   })
 })

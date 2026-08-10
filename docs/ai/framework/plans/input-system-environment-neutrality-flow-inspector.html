@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Input System Environment Neutrality Flow Inspector</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+        background: #0d1117;
+        color: #e6edf3;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(640px, 1fr) 420px;
+        min-height: 100vh;
+      }
+      main,
+      aside {
+        padding: 24px;
+      }
+      aside {
+        border-left: 1px solid #30363d;
+        background: #0b0f14;
+      }
+      .muted {
+        color: #8b949e;
+      }
+      .filters,
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 16px 0;
+      }
+      button,
+      a {
+        color: #58a6ff;
+      }
+      button {
+        border: 1px solid #30363d;
+        border-radius: 12px;
+        padding: 12px;
+        background: #161b22;
+        cursor: pointer;
+        text-align: left;
+      }
+      button.active,
+      button.selected {
+        border-color: #58a6ff;
+        background: #13233a;
+      }
+      .lane {
+        margin-top: 24px;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 12px;
+      }
+      .card {
+        width: 100%;
+        color: inherit;
+      }
+      code {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      li {
+        margin-bottom: 8px;
+      }
+      @media (max-width: 980px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        aside {
+          border-left: 0;
+          border-top: 1px solid #30363d;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <main>
+        <h1 id="title"></h1>
+        <p id="summary" class="muted"></p>
+        <nav id="links" class="links"></nav>
+        <div id="filters" class="filters"></div>
+        <div id="flow"></div>
+      </main>
+      <aside id="detail"></aside>
+    </div>
+    <script src="./input-system-environment-neutrality-flow-inspector.data.cjs"></script>
+    <script>
+      ;(() => {
+        const data = globalThis.FLOW_INSPECTOR_DATA
+        const byId = (id) => document.getElementById(id)
+        const title = byId('title'),
+          summary = byId('summary'),
+          links = byId('links')
+        const filters = byId('filters'),
+          flow = byId('flow'),
+          detail = byId('detail')
+        let activeLane = 'all',
+          selectedStepId = data.steps[0]?.id
+        title.textContent = data.target.title
+        summary.textContent = data.target.summary
+        data.links.forEach((item) => {
+          const link = document.createElement('a')
+          link.href = item.href
+          link.textContent = item.label
+          links.append(link)
+        })
+        const renderList = (label, values) => {
+          const section = document.createElement('section'),
+            heading = document.createElement('h3'),
+            list = document.createElement('ul')
+          heading.textContent = label
+          values.forEach((value) => {
+            const item = document.createElement('li'),
+              code = document.createElement('code')
+            code.textContent = value
+            item.append(code)
+            list.append(item)
+          })
+          section.append(heading, list)
+          return section
+        }
+        const renderDetail = () => {
+          const owner = data.steps.find((item) => item.id === selectedStepId)
+          detail.replaceChildren()
+          if (!owner) return
+          const heading = document.createElement('h2'),
+            packageName = document.createElement('p'),
+            purpose = document.createElement('p')
+          heading.textContent = owner.title
+          packageName.className = 'muted'
+          packageName.textContent = `${owner.id} · ${owner.ownerPackage}`
+          purpose.textContent = owner.purpose
+          detail.append(heading, packageName, purpose)
+          ;[
+            ['Inputs', owner.inputs],
+            ['Outputs', owner.outputs],
+            ['Conditions', owner.conditions],
+            ['Bypasses', owner.bypasses],
+            ['Allowed contributors', owner.allowedContributors],
+            ['Forbidden contributors', owner.forbiddenContributors],
+            ['Implementation boundary', owner.implementationBoundary],
+            ['Spec refs', owner.specRefs]
+          ].forEach(([label, values]) =>
+            detail.append(renderList(label, values))
+          )
+        }
+        const renderFlow = () => {
+          flow.replaceChildren()
+          data.lanes
+            .filter((lane) => activeLane === 'all' || lane.id === activeLane)
+            .sort((a, b) => a.order - b.order)
+            .forEach((lane) => {
+              const section = document.createElement('section'),
+                heading = document.createElement('h2'),
+                cards = document.createElement('div')
+              section.className = 'lane'
+              heading.textContent = lane.title
+              cards.className = 'cards'
+              data.steps
+                .filter((item) => item.laneId === lane.id)
+                .sort((a, b) => a.order - b.order)
+                .forEach((owner) => {
+                  const card = document.createElement('button'),
+                    name = document.createElement('h3'),
+                    packageName = document.createElement('p'),
+                    purpose = document.createElement('p')
+                  card.type = 'button'
+                  card.className = `card${owner.id === selectedStepId ? ' selected' : ''}`
+                  name.textContent = owner.title
+                  packageName.className = 'muted'
+                  packageName.textContent = owner.ownerPackage
+                  purpose.textContent = owner.purpose
+                  card.append(name, packageName, purpose)
+                  card.addEventListener('click', () => {
+                    selectedStepId = owner.id
+                    renderFlow()
+                    renderDetail()
+                  })
+                  cards.append(card)
+                })
+              section.append(heading, cards)
+              flow.append(section)
+            })
+        }
+        ;[{ id: 'all', title: 'All owners', order: 0 }, ...data.lanes].forEach(
+          (lane) => {
+            const button = document.createElement('button')
+            button.type = 'button'
+            button.textContent = lane.title
+            button.className = lane.id === activeLane ? 'active' : ''
+            button.addEventListener('click', () => {
+              activeLane = lane.id
+              Array.from(filters.children).forEach((child) =>
+                child.classList.toggle('active', child === button)
+              )
+              renderFlow()
+            })
+            filters.append(button)
+          }
+        )
+        renderFlow()
+        renderDetail()
+      })()
+    </script>
+  </body>
+</html>

@@ -52,7 +52,8 @@ Ownership remains local to each surface:
 
 Every applicable README must use the same verified:
 
-- Asyra product definition and visible/headless scope;
+- Asyra product definition, current visual scope, and future non-visible
+  Headless/Core Kernel boundary;
 - Framework/Preset/App/domain ownership language;
 - package and public-entrypoint inventory;
 - `create-asyra-design-app` beginner positioning;
@@ -69,7 +70,8 @@ and CLI wording must not create conflicting contribution routes.
 
 ### Root
 
-- broad Framework positioning, including non-visual and AI-facing products;
+- broad Framework positioning, including the non-visible and AI-facing future
+  direction without claiming it as current runtime support;
 - package, generated-app, public docs, examples, Asyra Design, Atlas, release,
   security, license, and roadmap navigation;
 - verified quick-start choices; and

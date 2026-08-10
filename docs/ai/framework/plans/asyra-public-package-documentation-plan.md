@@ -43,10 +43,11 @@ The first public content bundle must include:
    - create a working Asyra Design app;
    - extend it directly or with an AI coding agent;
    - compose a minimal Preset `2D` consumer; and
-   - compose a headless or profile `CUSTOM` consumer.
+   - compose a current public Framework or profile `CUSTOM` consumer.
 2. Learn
    - declarative information models;
-   - visible, headless, and machine-facing composition;
+   - visual and machine-facing composition through current public contracts,
+     plus the future non-visible roadmap boundary;
    - intent and Feature execution;
    - canonical state owners;
    - transaction, rollback, undo/redo, and durability;
@@ -60,7 +61,8 @@ The first public content bundle must include:
    - persistence and migration;
    - opt-in Collaboration and app-owned transport policy;
    - registered AI actions and permissions; and
-   - headless AI retrieval/action with app-owned domain policy.
+   - app-owned AI retrieval/action through registered current APIs, with
+     Headless/Core Kernel support identified as future work.
 4. Reference
    - every public release package;
    - public entrypoints, types, lifecycle, errors, and relationships; and
@@ -133,7 +135,8 @@ silently broaden Asyra Design behavior into a Framework capability claim.
 
 1. Freeze the content schema, source mapping, page inventory, and exclusions.
 2. Create the public-documentation Inspector and executable content cases.
-3. Author Start and Learn paths, including visual and headless compositions.
+3. Author Start and Learn paths, including visual, custom, and machine-facing
+   current compositions plus an explicit future-runtime boundary.
 4. Author Build guides around real cross-package consumer flows.
 5. Author and verify all public package guides and generated API reference.
 6. Author the Asyra Design case-study semantic source.
@@ -150,8 +153,8 @@ silently broaden Asyra Design behavior into a Framework capability claim.
 - all code samples resolve to maintained executable evidence;
 - source-map drift, broken-link, stale-version, and generated-inventory checks
   pass;
-- visual, headless, Preset, App-domain, and AI-assisted language remains
-  consistent with the umbrella product definition;
+- current visual, future non-visible, Preset, App-domain, and AI-assisted
+  language remains consistent with the umbrella product definition;
 - Markdown remains readable without the website runtime; and
 - the workstream does not mutate sibling README artifacts.
 
@@ -170,7 +173,8 @@ silently broaden Asyra Design behavior into a Framework capability claim.
 
 - All release Framework packages have complete, source-mapped public guides.
 - Start, Learn, Build, Reference, and Case content supports beginner,
-  experienced, visual, and headless paths.
+  experienced, visual, custom, and machine-facing current paths while routing
+  Headless/Core Kernel expectations to the Roadmap.
 - Asyra Design has one approved semantic case-study source.
 - AI-readable content and indexes are bounded, current, and safe to publish.
 - Generated facts and API reference match the exact verified release inventory.
