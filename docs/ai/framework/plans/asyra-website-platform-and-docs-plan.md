@@ -2,11 +2,11 @@
 
 ## Status
 
-Queued child plan of the
-[Asyra Framework Website Program](asyra-framework-website-plan.md). The user
-selected integrated implementation against one exact reviewed release
-candidate, so platform work may begin before registry publication after its
-content, example, and visual handoffs are accepted.
+Active child plan of the
+[Asyra Framework Website Program](asyra-framework-website-plan.md). Public
+content, executable examples, and the Material Blueprint visual handoff are
+accepted on the integration branch. Platform implementation is active on a
+dedicated child branch against that exact release candidate.
 
 Implementation also requires accepted public content, executable-example and
 visual handoffs, one exact approved toolchain, an exact website-platform
@@ -40,11 +40,16 @@ production deployment.
 
 ## Technology Contract
 
-- Next.js App Router with one exact approved major/minor range frozen before
-  workspace creation; no open-ended `14 or newer` contract.
+- Next.js App Router `16.3.0` on the repository-owned Node.js `24.x` and Yarn
+  `4.3.1` runtime.
+- Existing React and React DOM `19.1.0` resolutions; this child does not upgrade
+  the repository React runtime.
 - TypeScript strict mode.
-- Tailwind CSS.
-- Lucide React.
+- Existing TypeScript `5.8.3` lock resolution from the repository's `^5.7.2`
+  contract.
+- Tailwind CSS `4.3.3` with its official `@tailwindcss/postcss` `4.3.3`
+  companion.
+- Lucide React `1.31.0`.
 - Static-first content and metadata; client runtime only where interaction,
   browser APIs, or real runtime composition requires it.
 - Semantic HTML, SVG, and CSS for navigation and explanations. Basic content
@@ -52,10 +57,10 @@ production deployment.
 - Website runtime code imports only public package roots or explicitly exported
   `@asyra/*` subpaths.
 
-The user selected these primary technologies, but adding them and freezing
-exact versions is an implementation checkpoint. Any further dependency, CMS,
-hosted search, analytics, binary, external asset, or toolchain upgrade requires
-explicit approval.
+The user selected these primary technologies and authorized the integrated
+implementation. The exact versions above are the bounded implementation
+checkpoint. Any further dependency, CMS, hosted search, analytics, binary,
+external asset, or toolchain upgrade requires explicit approval.
 
 ## Required Routes
 
