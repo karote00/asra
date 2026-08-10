@@ -64,21 +64,33 @@ test('browser harness owns reset isolation, stepping, replay, and visible failur
 })
 
 test('canonical cases preserve transaction, projection, and rollback owners', () => {
-  const source = JSON.stringify(step('execute-canonical-runtime-cases'))
+  const canonical = step('execute-canonical-runtime-cases')
+  const source = JSON.stringify(canonical)
   assert.match(source, /Three pointer updates settle as exactly one new Undo unit/i)
   assert.match(source, /One Feature API mutation returns canonical state/i)
   assert.match(source, /Rejected input rolls back completely/i)
   assert.match(source, /@asyra\/feature-system/i)
   assert.match(source, /pixel-derived success/i)
+  assert.ok(
+    canonical.implementationBoundary.includes(
+      'apps/asyra-framework-site/package.json'
+    )
+  )
 })
 
 test('optional cases preserve Collaboration, AI, and retrieval boundaries', () => {
-  const source = JSON.stringify(step('execute-optional-composition-cases'))
+  const optional = step('execute-optional-composition-cases')
+  const source = JSON.stringify(optional)
   assert.match(source, /Two explicitly started browser actors converge/i)
   assert.match(source, /prepared AI action executes through registered App policy/i)
   assert.match(source, /Retrieval is read-only/i)
   assert.match(source, /AI direct canonical mutation/i)
   assert.match(source, /Awareness as canonical state/i)
+  assert.ok(
+    optional.implementationBoundary.includes(
+      'apps/asyra-framework-site/package.json'
+    )
+  )
 })
 
 test('presentation keeps plain language first and projections App-owned', () => {

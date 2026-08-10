@@ -156,6 +156,7 @@ module.exports = Object.freeze({
         'hard-coded successful output'
       ],
       implementationBoundary: [
+        'apps/asyra-framework-site/package.json',
         'apps/asyra-framework-site/lib/runtime-atlas/runtime.mjs',
         'apps/asyra-framework-site/__tests__/runtime-atlas-canonical.test.mjs'
       ],
@@ -196,6 +197,7 @@ module.exports = Object.freeze({
         'retrieval side effect'
       ],
       implementationBoundary: [
+        'apps/asyra-framework-site/package.json',
         'apps/asyra-framework-site/lib/runtime-atlas/runtime.mjs',
         'apps/asyra-framework-site/__tests__/runtime-atlas-composition.test.mjs'
       ],
