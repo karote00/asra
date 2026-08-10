@@ -1,0 +1,2453 @@
+{
+  "pages": [
+    {
+      "contentSha256": "d08bd4c3702bf640733d4fc5bdd5999ab059ae8c6923b84862330181ff2ec37b",
+      "description": "Build domain-owned information products whose visual, collaborative, persistent, and AI-facing capabilities remain composable.",
+      "examples": [
+        "core-information-model",
+        "preset-2d-minimal"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Asyra Framework"
+        },
+        {
+          "depth": 2,
+          "title": "Choose your entry"
+        },
+        {
+          "depth": 2,
+          "title": "The owner model"
+        },
+        {
+          "depth": 2,
+          "title": "Current support"
+        },
+        {
+          "depth": 2,
+          "title": "Verify the examples"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        }
+      ],
+      "id": "overview",
+      "markdownPath": "docs/public/index.md",
+      "packages": [
+        "@asyra/core",
+        "@asyra/preset"
+      ],
+      "path": "index.md",
+      "section": "Overview",
+      "title": "Asyra Framework",
+      "wordCount": 433
+    },
+    {
+      "contentSha256": "a01e9574ac7ca5e49d1404badd35f18ba06588ae80cf40ae27ae393921a0b01b",
+      "description": "Begin with the maintained Asyra Design product template and extend it as an app owner.",
+      "examples": [
+        "generated-design-app-extension"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Create a complete design app"
+        },
+        {
+          "depth": 2,
+          "title": "Prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Create and start"
+        },
+        {
+          "depth": 2,
+          "title": "What you receive"
+        },
+        {
+          "depth": 2,
+          "title": "Extend one bounded behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Optional local services"
+        },
+        {
+          "depth": 2,
+          "title": "Validate before extending further"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "start/create-design-app",
+      "markdownPath": "docs/public/start/create-design-app.md",
+      "packages": [
+        "@asyra/core",
+        "@asyra/preset"
+      ],
+      "path": "start/create-design-app.md",
+      "section": "Start",
+      "title": "Create a complete design app",
+      "wordCount": 393
+    },
+    {
+      "contentSha256": "092efabb9483fedc1e6deeab009d591ffefec15d4033628e08898f329a0c018a",
+      "description": "Give an AI agent bounded ownership, canonical APIs, and executable proof while you retain product decisions.",
+      "examples": [
+        "generated-design-app-extension"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Extend Asyra with an AI coding agent"
+        },
+        {
+          "depth": 2,
+          "title": "Give the agent a bounded task contract"
+        },
+        {
+          "depth": 2,
+          "title": "Start from maintained evidence"
+        },
+        {
+          "depth": 2,
+          "title": "Keep AI-created content canonical"
+        },
+        {
+          "depth": 2,
+          "title": "Review the result"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "start/extend-with-ai",
+      "markdownPath": "docs/public/start/extend-with-ai.md",
+      "packages": [
+        "@asyra/core",
+        "@asyra/feature-system"
+      ],
+      "path": "start/extend-with-ai.md",
+      "section": "Start",
+      "title": "Extend Asyra with an AI coding agent",
+      "wordCount": 484
+    },
+    {
+      "contentSha256": "af69e58c9ee14ba209fb3789fcd78763d7d4aa323516f44f680ec75ecb91190b",
+      "description": "Apply the optional official Preset before Core starts, then keep app-domain choices outside the Framework.",
+      "examples": [
+        "preset-2d-minimal"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Compose the official 2D baseline"
+        },
+        {
+          "depth": 2,
+          "title": "Prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Use the maintained path"
+        },
+        {
+          "depth": 2,
+          "title": "Ownership and order"
+        },
+        {
+          "depth": 2,
+          "title": "Replace instead of patching"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "start/preset-2d",
+      "markdownPath": "docs/public/start/preset-2d.md",
+      "packages": [
+        "@asyra/core",
+        "@asyra/preset"
+      ],
+      "path": "start/preset-2d.md",
+      "section": "Start",
+      "title": "Compose the official 2D baseline",
+      "wordCount": 355
+    },
+    {
+      "contentSha256": "f63fed6f29336a7171b4be0cb0b4f36f2d9fd8f54646f4bf566df06b77d691de",
+      "description": "Start from Core and choose information, interaction, rendering, persistence, collaboration, and AI capabilities independently.",
+      "examples": [
+        "core-information-model"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Compose only the infrastructure you need"
+        },
+        {
+          "depth": 2,
+          "title": "Current composition boundary"
+        },
+        {
+          "depth": 2,
+          "title": "Begin with information"
+        },
+        {
+          "depth": 2,
+          "title": "Choose capabilities explicitly"
+        },
+        {
+          "depth": 2,
+          "title": "Validate the boundary"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "start/custom-composition",
+      "markdownPath": "docs/public/start/custom-composition.md",
+      "packages": [
+        "@asyra/core"
+      ],
+      "path": "start/custom-composition.md",
+      "section": "Start",
+      "title": "Compose only the infrastructure you need",
+      "wordCount": 409
+    },
+    {
+      "contentSha256": "f391742dff67cca0042c3aedd6e502125caafd844c9d7619aba4b1f7a27f639c",
+      "description": "Define app-owned information and rules without forcing it to be visible, rendered, collaborative, or AI-operated.",
+      "examples": [
+        "core-information-model"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Information models come before output"
+        },
+        {
+          "depth": 2,
+          "title": "Ownership"
+        },
+        {
+          "depth": 2,
+          "title": "Executable path"
+        },
+        {
+          "depth": 2,
+          "title": "Information can have many projections"
+        },
+        {
+          "depth": 2,
+          "title": "Validate your model"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "learn/information-models",
+      "markdownPath": "docs/public/learn/information-models.md",
+      "packages": [
+        "@asyra/core",
+        "@asyra/system-context"
+      ],
+      "path": "learn/information-models.md",
+      "section": "Learn",
+      "title": "Information models come before output",
+      "wordCount": 420
+    },
+    {
+      "contentSha256": "7f5480c1e38b22df39e11f39e65498e9e3ea83329b4bcdf936dc4dc2f870408a",
+      "description": "Translate user or agent intent into explicit Feature sessions rather than mutating owners from UI or transport code.",
+      "examples": [
+        "feature-session-undo"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Intent enters through Features"
+        },
+        {
+          "depth": 2,
+          "title": "Ownership route"
+        },
+        {
+          "depth": 2,
+          "title": "Executable path"
+        },
+        {
+          "depth": 2,
+          "title": "Failure and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Validate a Feature"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "learn/intent-and-features",
+      "markdownPath": "docs/public/learn/intent-and-features.md",
+      "packages": [
+        "@asyra/feature-system",
+        "@asyra/factory"
+      ],
+      "path": "learn/intent-and-features.md",
+      "section": "Learn",
+      "title": "Intent enters through Features",
+      "wordCount": 345
+    },
+    {
+      "contentSha256": "6a04dea8ab91a39eada643ebc41630163af4f818d3d34d45d60fb03b6da944e2",
+      "description": "Separate canonical model state, local derived state, projection state, and remote transport state.",
+      "examples": [
+        "core-information-model"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Give every state one canonical owner"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical owners"
+        },
+        {
+          "depth": 2,
+          "title": "Write route"
+        },
+        {
+          "depth": 2,
+          "title": "Load and remote changes"
+        },
+        {
+          "depth": 2,
+          "title": "Validate ownership"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "learn/canonical-state",
+      "markdownPath": "docs/public/learn/canonical-state.md",
+      "packages": [
+        "@asyra/system-context",
+        "@asyra/props-manager"
+      ],
+      "path": "learn/canonical-state.md",
+      "section": "Learn",
+      "title": "Give every state one canonical owner",
+      "wordCount": 416
+    },
+    {
+      "contentSha256": "5ab4843f18cab16ea5eb3c6556ad679ad6a92d43bd9c54fae9d6b1a87c419f3c",
+      "description": "Commit, roll back, undo, redo, publish, and persist one intended action through one canonical boundary.",
+      "examples": [
+        "feature-session-undo"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "One user intent, one transaction"
+        },
+        {
+          "depth": 2,
+          "title": "The intended timeline"
+        },
+        {
+          "depth": 2,
+          "title": "Executable proof"
+        },
+        {
+          "depth": 2,
+          "title": "Durability is broader than storage"
+        },
+        {
+          "depth": 2,
+          "title": "Avoid split ownership"
+        },
+        {
+          "depth": 2,
+          "title": "Validate a transaction"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "learn/transactions-and-durability",
+      "markdownPath": "docs/public/learn/transactions-and-durability.md",
+      "packages": [
+        "@asyra/factory",
+        "@asyra/reactive-events"
+      ],
+      "path": "learn/transactions-and-durability.md",
+      "section": "Learn",
+      "title": "One user intent, one transaction",
+      "wordCount": 378
+    },
+    {
+      "contentSha256": "71931af75da16e55163e8100c837a2c78c66354250602ff3f9feb0447e449d1c",
+      "description": "Keep schema validation in the Framework while version interpretation and migration remain app-domain responsibilities.",
+      "examples": [
+        "app-versioned-load-migration"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Validate at every write and load boundary"
+        },
+        {
+          "depth": 2,
+          "title": "Write behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Load behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Failure behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Validate the path"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "learn/validation-load-migration",
+      "markdownPath": "docs/public/learn/validation-load-migration.md",
+      "packages": [
+        "@asyra/core",
+        "@asyra/persistence",
+        "@asyra/props-manager"
+      ],
+      "path": "learn/validation-load-migration.md",
+      "section": "Learn",
+      "title": "Validate at every write and load boundary",
+      "wordCount": 348
+    },
+    {
+      "contentSha256": "d3238a38739406f03f02f723820834a58001604fe6a01b4eb6147c695c193f81",
+      "description": "Keep canonical information independent from render layers and engine providers so output can be extended or replaced.",
+      "examples": [
+        "custom-render-boundary"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Register projections; replace providers"
+        },
+        {
+          "depth": 2,
+          "title": "Registration"
+        },
+        {
+          "depth": 2,
+          "title": "Provider replacement"
+        },
+        {
+          "depth": 2,
+          "title": "Layer ownership"
+        },
+        {
+          "depth": 2,
+          "title": "Failure and absence"
+        },
+        {
+          "depth": 2,
+          "title": "Validate replacement"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "learn/projection-registration-replacement",
+      "markdownPath": "docs/public/learn/projection-registration-replacement.md",
+      "packages": [
+        "@asyra/render",
+        "@asyra/render-engine"
+      ],
+      "path": "learn/projection-registration-replacement.md",
+      "section": "Learn",
+      "title": "Register projections; replace providers",
+      "wordCount": 378
+    },
+    {
+      "contentSha256": "8b7b776142aab8a3527f488644945446426d3ce42f7ed812f0b0e9c34644f0b7",
+      "description": "Distinguish today's browser/Core composition from the researched Headless and Core Kernel direction for machine-facing products.",
+      "examples": [
+        "core-information-model"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Current runtime and future Core Kernel"
+        },
+        {
+          "depth": 2,
+          "title": "What is current"
+        },
+        {
+          "depth": 2,
+          "title": "What is future"
+        },
+        {
+          "depth": 2,
+          "title": "What you can build now"
+        },
+        {
+          "depth": 2,
+          "title": "Do not claim yet"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "learn/runtime-boundaries-roadmap",
+      "markdownPath": "docs/public/learn/runtime-boundaries-roadmap.md",
+      "packages": [
+        "@asyra/core",
+        "@asyra/input-system"
+      ],
+      "path": "learn/runtime-boundaries-roadmap.md",
+      "section": "Learn",
+      "title": "Current runtime and future Core Kernel",
+      "wordCount": 474
+    },
+    {
+      "contentSha256": "d80ae1c4b13e58123adecd3f17f5eb8d40393d6f68d08a23f32c1e50f043a8ff",
+      "description": "Register app-owned component meaning, property defaults, and validation through public Core APIs.",
+      "examples": [
+        "custom-component-schema"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Build a custom component and schema"
+        },
+        {
+          "depth": 2,
+          "title": "Prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Ownership"
+        },
+        {
+          "depth": 2,
+          "title": "Public APIs"
+        },
+        {
+          "depth": 2,
+          "title": "Flow"
+        },
+        {
+          "depth": 2,
+          "title": "Expected result"
+        },
+        {
+          "depth": 2,
+          "title": "Validate"
+        },
+        {
+          "depth": 2,
+          "title": "Forbidden shortcuts"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "build/custom-schema",
+      "markdownPath": "docs/public/build/custom-schema.md",
+      "packages": [
+        "@asyra/core",
+        "@asyra/props-manager",
+        "@asyra/scene-tree"
+      ],
+      "path": "build/custom-schema.md",
+      "section": "Build",
+      "title": "Build a custom component and schema",
+      "wordCount": 426
+    },
+    {
+      "contentSha256": "bf2ec96227db484d4cacacf0a862daedf30e34df7fec5835f0ec10b60a9cb51d",
+      "description": "Map start, update, end, and cancellation to exactly one intended undo commit.",
+      "examples": [
+        "feature-session-undo"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Build a transaction-safe Feature session"
+        },
+        {
+          "depth": 2,
+          "title": "Prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Ownership"
+        },
+        {
+          "depth": 2,
+          "title": "Public APIs"
+        },
+        {
+          "depth": 2,
+          "title": "Flow"
+        },
+        {
+          "depth": 2,
+          "title": "Expected result"
+        },
+        {
+          "depth": 2,
+          "title": "Validate"
+        },
+        {
+          "depth": 2,
+          "title": "Forbidden shortcuts"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "build/feature-session",
+      "markdownPath": "docs/public/build/feature-session.md",
+      "packages": [
+        "@asyra/factory",
+        "@asyra/feature-system"
+      ],
+      "path": "build/feature-session.md",
+      "section": "Build",
+      "title": "Build a transaction-safe Feature session",
+      "wordCount": 414
+    },
+    {
+      "contentSha256": "a2b4c18e69e7708a1f8403084b146176137449bafd2cf7621a6b8e055e05f7a0",
+      "description": "Provide an engine through the public provider contract without teaching Core a renderer-specific implementation.",
+      "examples": [
+        "custom-render-boundary"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Build a custom render boundary"
+        },
+        {
+          "depth": 2,
+          "title": "Prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Ownership"
+        },
+        {
+          "depth": 2,
+          "title": "Public APIs"
+        },
+        {
+          "depth": 2,
+          "title": "Flow"
+        },
+        {
+          "depth": 2,
+          "title": "Expected result"
+        },
+        {
+          "depth": 2,
+          "title": "Validate"
+        },
+        {
+          "depth": 2,
+          "title": "Forbidden shortcuts"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "build/render-boundary",
+      "markdownPath": "docs/public/build/render-boundary.md",
+      "packages": [
+        "@asyra/core",
+        "@asyra/render",
+        "@asyra/render-engine"
+      ],
+      "path": "build/render-boundary.md",
+      "section": "Build",
+      "title": "Build a custom render boundary",
+      "wordCount": 388
+    },
+    {
+      "contentSha256": "d52ab6f4a33ebf140ebba338f5867b34d917d3e8256c3965313f07dde8215478",
+      "description": "Keep parent-child ordering canonical while group meaning and geometry policy remain app-owned.",
+      "examples": [
+        "custom-component-schema",
+        "generated-design-app-extension"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Build hierarchy and Group behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Ownership"
+        },
+        {
+          "depth": 2,
+          "title": "Public APIs"
+        },
+        {
+          "depth": 2,
+          "title": "Flow"
+        },
+        {
+          "depth": 2,
+          "title": "Expected result"
+        },
+        {
+          "depth": 2,
+          "title": "Validate"
+        },
+        {
+          "depth": 2,
+          "title": "Forbidden shortcuts"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "build/hierarchy-groups",
+      "markdownPath": "docs/public/build/hierarchy-groups.md",
+      "packages": [
+        "@asyra/core",
+        "@asyra/preset",
+        "@asyra/scene-tree",
+        "@asyra/utils"
+      ],
+      "path": "build/hierarchy-groups.md",
+      "section": "Build",
+      "title": "Build hierarchy and Group behavior",
+      "wordCount": 489
+    },
+    {
+      "contentSha256": "00c7a43d4c1906175ef19b8d751a1d8b7951dca21163c4ac52870a57f8f770bc",
+      "description": "Load validated canonical state while the app owns document versions, migration rules, and unsupported-version policy.",
+      "examples": [
+        "app-versioned-load-migration"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Build persistence with app-owned migration"
+        },
+        {
+          "depth": 2,
+          "title": "Prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Ownership"
+        },
+        {
+          "depth": 2,
+          "title": "Public APIs"
+        },
+        {
+          "depth": 2,
+          "title": "Flow"
+        },
+        {
+          "depth": 2,
+          "title": "Expected result"
+        },
+        {
+          "depth": 2,
+          "title": "Validate"
+        },
+        {
+          "depth": 2,
+          "title": "Forbidden shortcuts"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "build/persistence-migration",
+      "markdownPath": "docs/public/build/persistence-migration.md",
+      "packages": [
+        "@asyra/core",
+        "@asyra/persistence",
+        "@asyra/props-manager"
+      ],
+      "path": "build/persistence-migration.md",
+      "section": "Build",
+      "title": "Build persistence with app-owned migration",
+      "wordCount": 387
+    },
+    {
+      "contentSha256": "d6e054899ce1236b0aee27c92848b634d578c87cda137d5f59b7499b0c53188f",
+      "description": "Connect deterministic collaboration actors while the app owns transport, authorization, presence, and backend policy.",
+      "examples": [
+        "collaboration-two-memory-actors"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Build opt-in collaboration"
+        },
+        {
+          "depth": 2,
+          "title": "Prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Ownership"
+        },
+        {
+          "depth": 2,
+          "title": "Public APIs"
+        },
+        {
+          "depth": 2,
+          "title": "Flow"
+        },
+        {
+          "depth": 2,
+          "title": "Expected result"
+        },
+        {
+          "depth": 2,
+          "title": "Validate"
+        },
+        {
+          "depth": 2,
+          "title": "Forbidden shortcuts"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "build/collaboration",
+      "markdownPath": "docs/public/build/collaboration.md",
+      "packages": [
+        "@asyra/collaboration",
+        "@asyra/factory"
+      ],
+      "path": "build/collaboration.md",
+      "section": "Build",
+      "title": "Build opt-in collaboration",
+      "wordCount": 426
+    },
+    {
+      "contentSha256": "121ca7c9abfeecd11c65e20ec521d6285debe3b9ec47d6776fa929fb73b72d3f",
+      "description": "Expose bounded action schemas and permissions so AI intent uses the same canonical transaction paths as people.",
+      "examples": [
+        "ai-registered-action"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Build registered AI actions"
+        },
+        {
+          "depth": 2,
+          "title": "Prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Ownership"
+        },
+        {
+          "depth": 2,
+          "title": "Public APIs"
+        },
+        {
+          "depth": 2,
+          "title": "Flow"
+        },
+        {
+          "depth": 2,
+          "title": "Expected result"
+        },
+        {
+          "depth": 2,
+          "title": "Validate"
+        },
+        {
+          "depth": 2,
+          "title": "Forbidden shortcuts"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "build/ai-actions",
+      "markdownPath": "docs/public/build/ai-actions.md",
+      "packages": [
+        "@asyra/ai-agent-runtime"
+      ],
+      "path": "build/ai-actions.md",
+      "section": "Build",
+      "title": "Build registered AI actions",
+      "wordCount": 418
+    },
+    {
+      "contentSha256": "6912f9fdefd1db1f8718dc2e23d0f3ca77ca4eb1c4aa552b4ce2db95d8749481",
+      "description": "Let the app retrieve domain context and register actions without presenting future Headless support as current behavior.",
+      "examples": [
+        "app-retrieval-action"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Build app-owned AI retrieval and action"
+        },
+        {
+          "depth": 2,
+          "title": "Prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Ownership"
+        },
+        {
+          "depth": 2,
+          "title": "Public APIs"
+        },
+        {
+          "depth": 2,
+          "title": "Flow"
+        },
+        {
+          "depth": 2,
+          "title": "Expected result"
+        },
+        {
+          "depth": 2,
+          "title": "Validate"
+        },
+        {
+          "depth": 2,
+          "title": "Forbidden shortcuts"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        },
+        {
+          "depth": 2,
+          "title": "Next"
+        }
+      ],
+      "id": "build/app-retrieval-action",
+      "markdownPath": "docs/public/build/app-retrieval-action.md",
+      "packages": [
+        "@asyra/ai-agent-runtime",
+        "@asyra/core",
+        "@asyra/feature-system"
+      ],
+      "path": "build/app-retrieval-action.md",
+      "section": "Build",
+      "title": "Build app-owned AI retrieval and action",
+      "wordCount": 433
+    },
+    {
+      "contentSha256": "fb7de79b9836e8d58735e95a3f347dbf66b78e47b3054a28a304abd8263b32c9",
+      "description": "Optional registry, schema, permission, and execution boundary for app-approved AI actions.",
+      "examples": [
+        "ai-registered-action",
+        "app-retrieval-action"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/ai-agent-runtime"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/ai-agent-runtime",
+      "markdownPath": "docs/public/reference/packages/ai-agent-runtime.md",
+      "packages": [
+        "@asyra/ai-agent-runtime"
+      ],
+      "path": "reference/packages/ai-agent-runtime.md",
+      "section": "Reference",
+      "title": "@asyra/ai-agent-runtime",
+      "wordCount": 423
+    },
+    {
+      "contentSha256": "9640cdce67894ec522057132d45591aadfc9a4b4657b364ef3cd5485fe7354d8",
+      "description": "Optional deterministic replication adapters with app-owned network and service policy.",
+      "examples": [
+        "collaboration-two-memory-actors"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/collaboration"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/collaboration",
+      "markdownPath": "docs/public/reference/packages/collaboration.md",
+      "packages": [
+        "@asyra/collaboration"
+      ],
+      "path": "reference/packages/collaboration.md",
+      "section": "Reference",
+      "title": "@asyra/collaboration",
+      "wordCount": 400
+    },
+    {
+      "contentSha256": "5ecd6efe98db027df353cb1787e29e443a3b22be584f24685a241560265803be",
+      "description": "The strict composition facade for Framework capabilities and lifecycle.",
+      "examples": [
+        "core-information-model",
+        "custom-component-schema",
+        "preset-2d-minimal"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/core"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/core",
+      "markdownPath": "docs/public/reference/packages/core.md",
+      "packages": [
+        "@asyra/core"
+      ],
+      "path": "reference/packages/core.md",
+      "section": "Reference",
+      "title": "@asyra/core",
+      "wordCount": 431
+    },
+    {
+      "contentSha256": "8d7196f4b3b671b5f75c6ebc010bc025af8a9a46ca2d7271f70c7fb71375fd74",
+      "description": "Optional reusable interface components; not a Core dependency or app-domain owner.",
+      "examples": [
+        "generated-design-app-extension"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/design-system"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/design-system",
+      "markdownPath": "docs/public/reference/packages/design-system.md",
+      "packages": [
+        "@asyra/design-system"
+      ],
+      "path": "reference/packages/design-system.md",
+      "section": "Reference",
+      "title": "@asyra/design-system",
+      "wordCount": 407
+    },
+    {
+      "contentSha256": "52a2f7b72127551ee81440b84c8cd3a9773cdd80a8f75d69405d9c7f60f16b82",
+      "description": "Canonical transactions, rollback, history replay, and shared change publication.",
+      "examples": [
+        "feature-session-undo",
+        "collaboration-two-memory-actors"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/factory"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/factory",
+      "markdownPath": "docs/public/reference/packages/factory.md",
+      "packages": [
+        "@asyra/factory"
+      ],
+      "path": "reference/packages/factory.md",
+      "section": "Reference",
+      "title": "@asyra/factory",
+      "wordCount": 388
+    },
+    {
+      "contentSha256": "e6866488f48a0da39d52dc52571cf768f4dcb0857c216bd75ac192e446ff5f19",
+      "description": "Priority, exclusivity, conditions, and session lifecycle for intent handling.",
+      "examples": [
+        "feature-session-undo",
+        "app-retrieval-action"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/feature-system"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/feature-system",
+      "markdownPath": "docs/public/reference/packages/feature-system.md",
+      "packages": [
+        "@asyra/feature-system"
+      ],
+      "path": "reference/packages/feature-system.md",
+      "section": "Reference",
+      "title": "@asyra/feature-system",
+      "wordCount": 402
+    },
+    {
+      "contentSha256": "0c0a71283bb252bd458a57bbb2e9da36730e789fa15b42e68370ccf45db6cb57",
+      "description": "Environment-neutral semantic input registration and dispatch infrastructure.",
+      "examples": [
+        "core-information-model"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/input-system"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/input-system",
+      "markdownPath": "docs/public/reference/packages/input-system.md",
+      "packages": [
+        "@asyra/input-system"
+      ],
+      "path": "reference/packages/input-system.md",
+      "section": "Reference",
+      "title": "@asyra/input-system",
+      "wordCount": 387
+    },
+    {
+      "contentSha256": "72b0b20a095bc1810eb0e205d918c3244ec38b8553a5522cbe14d8bd10ca1157",
+      "description": "Storage adapter and validated load boundary with app-owned migration meaning.",
+      "examples": [
+        "app-versioned-load-migration"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/persistence"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/persistence",
+      "markdownPath": "docs/public/reference/packages/persistence.md",
+      "packages": [
+        "@asyra/persistence"
+      ],
+      "path": "reference/packages/persistence.md",
+      "section": "Reference",
+      "title": "@asyra/persistence",
+      "wordCount": 365
+    },
+    {
+      "contentSha256": "fb36eca23dbf9ab2e3eb98687227dc5c829f16c4b30795b03d46aa99bc3cd3a0",
+      "description": "Optional official design-tool baseline with selectable defaults and replaceable providers.",
+      "examples": [
+        "preset-2d-minimal",
+        "preset-selective-defaults"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/preset"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/preset",
+      "markdownPath": "docs/public/reference/packages/preset.md",
+      "packages": [
+        "@asyra/preset"
+      ],
+      "path": "reference/packages/preset.md",
+      "section": "Reference",
+      "title": "@asyra/preset",
+      "wordCount": 372
+    },
+    {
+      "contentSha256": "e3cc7c8303ea664cb4bf379ee643be7f8c50945cf8b56d0969170b8daaa32aed",
+      "description": "Property definitions, runtime values, schema validation, and registration lifecycle.",
+      "examples": [
+        "custom-component-schema",
+        "core-information-model"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/props-manager"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/props-manager",
+      "markdownPath": "docs/public/reference/packages/props-manager.md",
+      "packages": [
+        "@asyra/props-manager"
+      ],
+      "path": "reference/packages/props-manager.md",
+      "section": "Reference",
+      "title": "@asyra/props-manager",
+      "wordCount": 359
+    },
+    {
+      "contentSha256": "192c8d9332c4edb26c057aa1066fe17c135d8795d3a90977754b6002954119ac",
+      "description": "Typed cross-package communication, transaction ownership, and replay-safe event routes.",
+      "examples": [
+        "feature-session-undo"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/reactive-events"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/reactive-events",
+      "markdownPath": "docs/public/reference/packages/reactive-events.md",
+      "packages": [
+        "@asyra/reactive-events"
+      ],
+      "path": "reference/packages/reactive-events.md",
+      "section": "Reference",
+      "title": "@asyra/reactive-events",
+      "wordCount": 381
+    },
+    {
+      "contentSha256": "22a1a84fd95c97472f027596cb1d9843e5fd5e9d731e0131962d442fd713d281",
+      "description": "Projection, render-layer registration, interaction bridges, and renderer orchestration.",
+      "examples": [
+        "core-information-model",
+        "custom-render-boundary"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/render"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/render",
+      "markdownPath": "docs/public/reference/packages/render.md",
+      "packages": [
+        "@asyra/render"
+      ],
+      "path": "reference/packages/render.md",
+      "section": "Reference",
+      "title": "@asyra/render",
+      "wordCount": 401
+    },
+    {
+      "contentSha256": "7d4cb1943f65aa33a5f171f5dac60725f2ad7e3610d7df6607c61a60f3c70a61",
+      "description": "Public engine-provider contract that keeps renderer implementations replaceable.",
+      "examples": [
+        "custom-render-boundary"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/render-engine"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/render-engine",
+      "markdownPath": "docs/public/reference/packages/render-engine.md",
+      "packages": [
+        "@asyra/render-engine"
+      ],
+      "path": "reference/packages/render-engine.md",
+      "section": "Reference",
+      "title": "@asyra/render-engine",
+      "wordCount": 365
+    },
+    {
+      "contentSha256": "45b73b43af275a9b4d4fc4f493c883723f43d2ceff864deea1947101911938fa",
+      "description": "Official optional Pixi provider for the current browser-based 2D baseline.",
+      "examples": [
+        "preset-2d-minimal"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/render-engine-pixi"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/render-engine-pixi",
+      "markdownPath": "docs/public/reference/packages/render-engine-pixi.md",
+      "packages": [
+        "@asyra/render-engine-pixi"
+      ],
+      "path": "reference/packages/render-engine-pixi.md",
+      "section": "Reference",
+      "title": "@asyra/render-engine-pixi",
+      "wordCount": 349
+    },
+    {
+      "contentSha256": "4c47de80fadc3f4d28c4224b48e5ba65abf0dd9423ad78ae795b908f05998345",
+      "description": "Canonical element hierarchy, ordering, component relations, and subtree operations.",
+      "examples": [
+        "custom-component-schema",
+        "core-information-model"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/scene-tree"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/scene-tree",
+      "markdownPath": "docs/public/reference/packages/scene-tree.md",
+      "packages": [
+        "@asyra/scene-tree"
+      ],
+      "path": "reference/packages/scene-tree.md",
+      "section": "Reference",
+      "title": "@asyra/scene-tree",
+      "wordCount": 362
+    },
+    {
+      "contentSha256": "a28fc0efcad3171edb523dcacc86c72c6e2a606b5bdf8862d536a3043af695be",
+      "description": "Selection channels and state infrastructure without app-specific selection policy.",
+      "examples": [
+        "core-information-model"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/selection"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/selection",
+      "markdownPath": "docs/public/reference/packages/selection.md",
+      "packages": [
+        "@asyra/selection"
+      ],
+      "path": "reference/packages/selection.md",
+      "section": "Reference",
+      "title": "@asyra/selection",
+      "wordCount": 342
+    },
+    {
+      "contentSha256": "879a7bab436c4a33ff055ea04857546f8b6ada603eccd49d5b50fcfd3c441baa",
+      "description": "Managed system-level properties and snapshots shared through canonical registration.",
+      "examples": [
+        "core-information-model"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/system-context"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/system-context",
+      "markdownPath": "docs/public/reference/packages/system-context.md",
+      "packages": [
+        "@asyra/system-context"
+      ],
+      "path": "reference/packages/system-context.md",
+      "section": "Reference",
+      "title": "@asyra/system-context",
+      "wordCount": 336
+    },
+    {
+      "contentSha256": "407820036abb56109f8b750dda623e1671a49d2207c2c08fee6b45a0778d9551",
+      "description": "UI-facing derived property registration and computation without canonical model ownership.",
+      "examples": [
+        "generated-design-app-extension"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/ui-context"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/ui-context",
+      "markdownPath": "docs/public/reference/packages/ui-context.md",
+      "packages": [
+        "@asyra/ui-context"
+      ],
+      "path": "reference/packages/ui-context.md",
+      "section": "Reference",
+      "title": "@asyra/ui-context",
+      "wordCount": 356
+    },
+    {
+      "contentSha256": "989de12242f09f6ab5b75d912a32d324b0091253c4359ad132298eba71ac949d",
+      "description": "Small shared public utilities without Framework state or lifecycle ownership.",
+      "examples": [
+        "generated-design-app-extension"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "@asyra/utils"
+        },
+        {
+          "depth": 2,
+          "title": "Owns"
+        },
+        {
+          "depth": 2,
+          "title": "Does not own"
+        },
+        {
+          "depth": 2,
+          "title": "Compose when"
+        },
+        {
+          "depth": 2,
+          "title": "Public entrypoints and prerequisites"
+        },
+        {
+          "depth": 2,
+          "title": "Lifecycle, inputs, outputs, and failure"
+        },
+        {
+          "depth": 2,
+          "title": "Relationships"
+        },
+        {
+          "depth": 2,
+          "title": "Maintained use path"
+        },
+        {
+          "depth": 2,
+          "title": "Replacement and disabled behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Support, migration, and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources and release inventory"
+        }
+      ],
+      "id": "reference/packages/utils",
+      "markdownPath": "docs/public/reference/packages/utils.md",
+      "packages": [
+        "@asyra/utils"
+      ],
+      "path": "reference/packages/utils.md",
+      "section": "Reference",
+      "title": "@asyra/utils",
+      "wordCount": 400
+    },
+    {
+      "contentSha256": "87d1c0892401984ff30a44d9686e5ca0992463008f03b658bd376db9187051d2",
+      "description": "Current runtime support, candidate status, security reporting, license, migration, and publication boundaries.",
+      "examples": [],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Support, security, and release boundaries"
+        },
+        {
+          "depth": 2,
+          "title": "Candidate package set"
+        },
+        {
+          "depth": 2,
+          "title": "Supported environment"
+        },
+        {
+          "depth": 2,
+          "title": "Optional systems"
+        },
+        {
+          "depth": 2,
+          "title": "Security reporting"
+        },
+        {
+          "depth": 2,
+          "title": "Migration and deprecation"
+        },
+        {
+          "depth": 2,
+          "title": "Reproducible readiness"
+        },
+        {
+          "depth": 2,
+          "title": "License"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        }
+      ],
+      "id": "reference/support-release",
+      "markdownPath": "docs/public/reference/support-release.md",
+      "packages": [],
+      "path": "reference/support-release.md",
+      "section": "Reference",
+      "title": "Support, security, and release boundaries",
+      "wordCount": 470
+    },
+    {
+      "contentSha256": "321ad56ba4c5b8341d00225d52f72280842f6b6a02e7d2bc60323a94675f2225",
+      "description": "See how one real product composes Framework infrastructure, Preset defaults, app-domain behavior, collaboration, persistence, and AI.",
+      "examples": [
+        "generated-design-app-extension",
+        "ai-registered-action",
+        "collaboration-two-memory-actors",
+        "app-versioned-load-migration"
+      ],
+      "headings": [
+        {
+          "depth": 1,
+          "title": "Asyra Design as a reference product"
+        },
+        {
+          "depth": 2,
+          "title": "Ownership at a glance"
+        },
+        {
+          "depth": 2,
+          "title": "Startup composition"
+        },
+        {
+          "depth": 2,
+          "title": "Product intent and common APIs"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical state and rendering"
+        },
+        {
+          "depth": 2,
+          "title": "Hierarchy and Group behavior"
+        },
+        {
+          "depth": 2,
+          "title": "Transactions, Undo, and Redo"
+        },
+        {
+          "depth": 2,
+          "title": "Document session, Collaboration, and persistence"
+        },
+        {
+          "depth": 2,
+          "title": "Optional AI actions"
+        },
+        {
+          "depth": 2,
+          "title": "Disabled and failure behavior"
+        },
+        {
+          "depth": 2,
+          "title": "What to reuse and what to replace"
+        },
+        {
+          "depth": 2,
+          "title": "Executable evidence"
+        },
+        {
+          "depth": 2,
+          "title": "Canonical sources"
+        }
+      ],
+      "id": "cases/asyra-design",
+      "markdownPath": "docs/public/cases/asyra-design.md",
+      "packages": [
+        "@asyra/core",
+        "@asyra/preset",
+        "@asyra/ai-agent-runtime",
+        "@asyra/collaboration",
+        "@asyra/persistence"
+      ],
+      "path": "cases/asyra-design.md",
+      "section": "Cases",
+      "title": "Asyra Design as a reference product",
+      "wordCount": 1280
+    }
+  ],
+  "release": {
+    "family": "0.5",
+    "packageCount": 19,
+    "publicationAuthorized": false,
+    "status": "CANDIDATE"
+  },
+  "schemaVersion": 1,
+  "sections": [
+    {
+      "id": "overview",
+      "pageIds": [
+        "overview"
+      ]
+    },
+    {
+      "id": "start",
+      "pageIds": [
+        "start/create-design-app",
+        "start/extend-with-ai",
+        "start/preset-2d",
+        "start/custom-composition"
+      ]
+    },
+    {
+      "id": "learn",
+      "pageIds": [
+        "learn/information-models",
+        "learn/intent-and-features",
+        "learn/canonical-state",
+        "learn/transactions-and-durability",
+        "learn/validation-load-migration",
+        "learn/projection-registration-replacement",
+        "learn/runtime-boundaries-roadmap"
+      ]
+    },
+    {
+      "id": "build",
+      "pageIds": [
+        "build/custom-schema",
+        "build/feature-session",
+        "build/render-boundary",
+        "build/hierarchy-groups",
+        "build/persistence-migration",
+        "build/collaboration",
+        "build/ai-actions",
+        "build/app-retrieval-action"
+      ]
+    },
+    {
+      "id": "reference",
+      "pageIds": [
+        "reference/packages/ai-agent-runtime",
+        "reference/packages/collaboration",
+        "reference/packages/core",
+        "reference/packages/design-system",
+        "reference/packages/factory",
+        "reference/packages/feature-system",
+        "reference/packages/input-system",
+        "reference/packages/persistence",
+        "reference/packages/preset",
+        "reference/packages/props-manager",
+        "reference/packages/reactive-events",
+        "reference/packages/render",
+        "reference/packages/render-engine",
+        "reference/packages/render-engine-pixi",
+        "reference/packages/scene-tree",
+        "reference/packages/selection",
+        "reference/packages/system-context",
+        "reference/packages/ui-context",
+        "reference/packages/utils",
+        "reference/support-release"
+      ]
+    },
+    {
+      "id": "cases",
+      "pageIds": [
+        "cases/asyra-design"
+      ]
+    }
+  ]
+}

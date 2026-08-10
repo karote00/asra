@@ -1,0 +1,264 @@
+{
+  "packages": [
+    {
+      "frameworkDependencies": [],
+      "guideId": "reference/packages/ai-agent-runtime",
+      "guidePath": "docs/public/reference/packages/ai-agent-runtime.md",
+      "name": "@asyra/ai-agent-runtime",
+      "publicEntries": [
+        "."
+      ],
+      "version": "0.5.0"
+    },
+    {
+      "frameworkDependencies": [
+        "@asyra/factory",
+        "@asyra/utils"
+      ],
+      "guideId": "reference/packages/collaboration",
+      "guidePath": "docs/public/reference/packages/collaboration.md",
+      "name": "@asyra/collaboration",
+      "publicEntries": [
+        "."
+      ],
+      "version": "0.5.2"
+    },
+    {
+      "frameworkDependencies": [
+        "@asyra/factory",
+        "@asyra/feature-system",
+        "@asyra/input-system",
+        "@asyra/persistence",
+        "@asyra/props-manager",
+        "@asyra/reactive-events",
+        "@asyra/render",
+        "@asyra/render-engine",
+        "@asyra/scene-tree",
+        "@asyra/selection",
+        "@asyra/system-context",
+        "@asyra/ui-context",
+        "@asyra/utils"
+      ],
+      "guideId": "reference/packages/core",
+      "guidePath": "docs/public/reference/packages/core.md",
+      "name": "@asyra/core",
+      "publicEntries": [
+        ".",
+        "./canvas-pipeline-debugger",
+        "./contracts"
+      ],
+      "version": "0.5.2"
+    },
+    {
+      "frameworkDependencies": [
+        "@asyra/utils"
+      ],
+      "guideId": "reference/packages/design-system",
+      "guidePath": "docs/public/reference/packages/design-system.md",
+      "name": "@asyra/design-system",
+      "publicEntries": [
+        ".",
+        "./index.css"
+      ],
+      "version": "0.5.0"
+    },
+    {
+      "frameworkDependencies": [
+        "@asyra/reactive-events",
+        "@asyra/utils"
+      ],
+      "guideId": "reference/packages/factory",
+      "guidePath": "docs/public/reference/packages/factory.md",
+      "name": "@asyra/factory",
+      "publicEntries": [
+        "."
+      ],
+      "version": "0.5.1"
+    },
+    {
+      "frameworkDependencies": [
+        "@asyra/reactive-events",
+        "@asyra/utils"
+      ],
+      "guideId": "reference/packages/feature-system",
+      "guidePath": "docs/public/reference/packages/feature-system.md",
+      "name": "@asyra/feature-system",
+      "publicEntries": [
+        "."
+      ],
+      "version": "0.5.1"
+    },
+    {
+      "frameworkDependencies": [
+        "@asyra/reactive-events",
+        "@asyra/utils"
+      ],
+      "guideId": "reference/packages/input-system",
+      "guidePath": "docs/public/reference/packages/input-system.md",
+      "name": "@asyra/input-system",
+      "publicEntries": [
+        "."
+      ],
+      "version": "0.5.1"
+    },
+    {
+      "frameworkDependencies": [
+        "@asyra/utils"
+      ],
+      "guideId": "reference/packages/persistence",
+      "guidePath": "docs/public/reference/packages/persistence.md",
+      "name": "@asyra/persistence",
+      "publicEntries": [
+        "."
+      ],
+      "version": "0.5.0"
+    },
+    {
+      "frameworkDependencies": [
+        "@asyra/core",
+        "@asyra/reactive-events",
+        "@asyra/render-engine",
+        "@asyra/render-engine-pixi",
+        "@asyra/ui-context",
+        "@asyra/utils"
+      ],
+      "guideId": "reference/packages/preset",
+      "guidePath": "docs/public/reference/packages/preset.md",
+      "name": "@asyra/preset",
+      "publicEntries": [
+        "."
+      ],
+      "version": "0.5.2"
+    },
+    {
+      "frameworkDependencies": [
+        "@asyra/reactive-events",
+        "@asyra/utils"
+      ],
+      "guideId": "reference/packages/props-manager",
+      "guidePath": "docs/public/reference/packages/props-manager.md",
+      "name": "@asyra/props-manager",
+      "publicEntries": [
+        "."
+      ],
+      "version": "0.5.1"
+    },
+    {
+      "frameworkDependencies": [
+        "@asyra/persistence",
+        "@asyra/utils"
+      ],
+      "guideId": "reference/packages/reactive-events",
+      "guidePath": "docs/public/reference/packages/reactive-events.md",
+      "name": "@asyra/reactive-events",
+      "publicEntries": [
+        "."
+      ],
+      "version": "0.5.1"
+    },
+    {
+      "frameworkDependencies": [
+        "@asyra/factory",
+        "@asyra/reactive-events",
+        "@asyra/render-engine",
+        "@asyra/scene-tree",
+        "@asyra/selection",
+        "@asyra/utils"
+      ],
+      "guideId": "reference/packages/render",
+      "guidePath": "docs/public/reference/packages/render.md",
+      "name": "@asyra/render",
+      "publicEntries": [
+        ".",
+        "./canvas-pipeline-debugger"
+      ],
+      "version": "0.5.2"
+    },
+    {
+      "frameworkDependencies": [],
+      "guideId": "reference/packages/render-engine",
+      "guidePath": "docs/public/reference/packages/render-engine.md",
+      "name": "@asyra/render-engine",
+      "publicEntries": [
+        ".",
+        "./testing"
+      ],
+      "version": "0.5.0"
+    },
+    {
+      "frameworkDependencies": [
+        "@asyra/render-engine"
+      ],
+      "guideId": "reference/packages/render-engine-pixi",
+      "guidePath": "docs/public/reference/packages/render-engine-pixi.md",
+      "name": "@asyra/render-engine-pixi",
+      "publicEntries": [
+        "."
+      ],
+      "version": "0.5.0"
+    },
+    {
+      "frameworkDependencies": [
+        "@asyra/props-manager",
+        "@asyra/reactive-events",
+        "@asyra/utils"
+      ],
+      "guideId": "reference/packages/scene-tree",
+      "guidePath": "docs/public/reference/packages/scene-tree.md",
+      "name": "@asyra/scene-tree",
+      "publicEntries": [
+        "."
+      ],
+      "version": "0.5.1"
+    },
+    {
+      "frameworkDependencies": [
+        "@asyra/utils"
+      ],
+      "guideId": "reference/packages/selection",
+      "guidePath": "docs/public/reference/packages/selection.md",
+      "name": "@asyra/selection",
+      "publicEntries": [
+        "."
+      ],
+      "version": "0.5.0"
+    },
+    {
+      "frameworkDependencies": [
+        "@asyra/utils"
+      ],
+      "guideId": "reference/packages/system-context",
+      "guidePath": "docs/public/reference/packages/system-context.md",
+      "name": "@asyra/system-context",
+      "publicEntries": [
+        "."
+      ],
+      "version": "0.5.0"
+    },
+    {
+      "frameworkDependencies": [
+        "@asyra/scene-tree",
+        "@asyra/selection",
+        "@asyra/utils"
+      ],
+      "guideId": "reference/packages/ui-context",
+      "guidePath": "docs/public/reference/packages/ui-context.md",
+      "name": "@asyra/ui-context",
+      "publicEntries": [
+        "."
+      ],
+      "version": "0.5.1"
+    },
+    {
+      "frameworkDependencies": [],
+      "guideId": "reference/packages/utils",
+      "guidePath": "docs/public/reference/packages/utils.md",
+      "name": "@asyra/utils",
+      "publicEntries": [
+        "."
+      ],
+      "version": "0.5.0"
+    }
+  ],
+  "schemaVersion": 1
+}

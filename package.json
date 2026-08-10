@@ -43,6 +43,8 @@
     "examples:verify": "node scripts/release/examples-readiness.mjs",
     "examples:verify:prebuilt": "node scripts/release/examples-readiness.mjs --prebuilt",
     "examples:verify:registry": "node scripts/release/examples-readiness.mjs --registry",
+    "docs:public": "node scripts/docs/public-documentation.mjs --write",
+    "docs:public:check": "node scripts/docs/public-documentation.mjs --check",
     "bump:workspace": "node scripts/bump-workspace-versions.js",
     "release:app": "node scripts/release-template.js",
     "release:app:build": "node scripts/build-release-template.js",
