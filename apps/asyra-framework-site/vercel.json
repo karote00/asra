@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "installCommand": "cd ../.. && corepack enable && corepack prepare yarn@4.3.1 --activate && yarn install --immutable",
-  "buildCommand": "yarn react:build",
+  "installCommand": "cd ../.. && corepack yarn install --immutable",
+  "buildCommand": "corepack yarn react:build",
   "git": {
     "deploymentEnabled": {
       "*": false

@@ -100,9 +100,9 @@ test('Framework site Vercel configuration builds only the site workspace from th
   assert.equal(config.framework, 'nextjs')
   assert.equal(
     config.installCommand,
-    'cd ../.. && corepack enable && corepack prepare yarn@4.3.1 --activate && yarn install --immutable'
+    'cd ../.. && corepack yarn install --immutable'
   )
-  assert.equal(config.buildCommand, 'yarn react:build')
+  assert.equal(config.buildCommand, 'corepack yarn react:build')
   assert.equal(config.outputDirectory, undefined)
   assert.equal(config.git?.deploymentEnabled?.['*'], false)
 })
