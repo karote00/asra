@@ -411,39 +411,72 @@ main {
 
 .galaxy-map__flare-field {
   color: #fff2d0;
+  mix-blend-mode: screen;
 }
 
 .galaxy-map__flare-bloom {
   fill: currentColor;
-  opacity: 0.56;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-width: 2.4;
+  opacity: 0.34;
 }
 
-.galaxy-map__flare-rays {
-  fill: none;
+.galaxy-map__flare-corona {
+  fill: currentColor;
+  opacity: 0.42;
+}
+
+.galaxy-map__flare-primary {
+  fill: #fff9e9;
+}
+
+.galaxy-map__flare-primary--vertical {
+  opacity: 0.96;
+}
+
+.galaxy-map__flare-primary--horizontal {
   opacity: 0.78;
-  stroke: rgba(255, 250, 236, 0.9);
+}
+
+.galaxy-map__flare-spectral-needles,
+.galaxy-map__flare-microburst {
+  fill: none;
   stroke-linecap: round;
-  stroke-width: 0.34;
+}
+
+.galaxy-map__flare-spectral-needles {
+  opacity: 0.38;
+  stroke: rgba(116, 201, 237, 0.72);
+  stroke-width: 0.24;
+}
+
+.galaxy-map__flare-microburst {
+  opacity: 0.58;
+  stroke: rgba(255, 220, 157, 0.84);
+  stroke-width: 0.22;
 }
 
 .galaxy-map__flare-core {
-  fill: #fffdf4;
-  opacity: 0.94;
+  fill: #ffffff;
+  opacity: 1;
 }
 
 .galaxy-map__flare-field--cyan {
   color: #78e6ef;
 }
 
-.galaxy-map__flare-field--cyan .galaxy-map__flare-rays {
-  stroke: rgba(183, 249, 250, 0.84);
+.galaxy-map__flare-field--cyan .galaxy-map__flare-primary {
+  fill: #dffeff;
+}
+
+.galaxy-map__flare-field--cyan .galaxy-map__flare-spectral-needles {
+  stroke: rgba(133, 229, 247, 0.76);
+}
+
+.galaxy-map__flare-field--cyan .galaxy-map__flare-microburst {
+  stroke: rgba(174, 247, 248, 0.78);
 }
 
 .galaxy-map__flare-field--cyan .galaxy-map__flare-core {
-  fill: #d5fcfc;
+  fill: #f3ffff;
 }
 
 .galaxy-map__core-energy {

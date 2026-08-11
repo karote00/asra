@@ -110,16 +110,25 @@ test('global desktop narrative puts plain outcomes and starting actions first', 
         .locator('.galaxy-map--desktop .galaxy-map__flares')
         .getAttribute('data-flare-count')
     )
-  ).toBeGreaterThanOrEqual(12)
-  await expect(
-    page.locator('.galaxy-map--desktop .galaxy-map__flare-bloom')
-  ).toHaveCount(2)
-  await expect(
-    page.locator('.galaxy-map--desktop .galaxy-map__flare-rays')
-  ).toHaveCount(2)
-  await expect(
-    page.locator('.galaxy-map--desktop .galaxy-map__flare-core')
-  ).toHaveCount(2)
+  ).toBe(16)
+  const desktopFlares = page.locator('.galaxy-map--desktop .galaxy-map__flares')
+  await expect(desktopFlares).toHaveAttribute('data-hero-flare-count', '3')
+  await expect(desktopFlares).toHaveAttribute('data-bright-flare-count', '6')
+  await expect(desktopFlares).toHaveAttribute('data-spark-flare-count', '7')
+  for (const layer of [
+    'bloom',
+    'corona',
+    'primary--vertical',
+    'primary--horizontal',
+    'spectral-needles',
+    'microburst',
+    'core'
+  ]) {
+    await expect(
+      page.locator(`.galaxy-map--desktop .galaxy-map__flare-${layer}`)
+    ).toHaveCount(2)
+  }
+  await expect(desktopFlares.locator('path')).toHaveCount(14)
   const flareBlur = page.locator(
     '.galaxy-map--desktop defs filter[id$="-flare-bloom"] feGaussianBlur'
   )
@@ -203,6 +212,10 @@ test('global desktop narrative puts plain outcomes and starting actions first', 
   await page.screenshot({
     path: testInfo.outputPath('landing-hero-desktop.png')
   })
+  await desktopFlares.screenshot({
+    animations: 'disabled',
+    path: testInfo.outputPath('landing-flare-field-desktop.png')
+  })
   await page.locator('.landing-ownership').scrollIntoViewIfNeeded()
   await page.screenshot({
     path: testInfo.outputPath('landing-layers-desktop.png')
@@ -265,6 +278,9 @@ test('global mobile narrative preserves the same promise, boundaries, and paths'
     }))
   expect(mobileGalaxyBudget.elements).toBeLessThanOrEqual(220)
   expect(mobileGalaxyBudget.animations).toBeLessThanOrEqual(24)
+  const mobileFlares = page.locator('.galaxy-map--mobile .galaxy-map__flares')
+  await expect(mobileFlares).toHaveAttribute('data-flare-count', '16')
+  await expect(mobileFlares.locator('path')).toHaveCount(14)
   const mobileFlow = await page.evaluate(() => {
     const title = document.querySelector('#landing-title')
     const galaxy = document.querySelector('.landing-galaxy')
@@ -333,6 +349,10 @@ test('global mobile narrative preserves the same promise, boundaries, and paths'
 
   await page.screenshot({
     path: testInfo.outputPath('landing-hero-mobile.png')
+  })
+  await mobileFlares.screenshot({
+    animations: 'disabled',
+    path: testInfo.outputPath('landing-flare-field-mobile.png')
   })
   await page.screenshot({
     path: testInfo.outputPath('landing-mobile.png'),

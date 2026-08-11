@@ -20,6 +20,25 @@ interface Domain {
 }
 
 type GalaxyVariant = 'desktop' | 'mobile'
+type ReferenceFlareTier = 'hero' | 'bright' | 'spark'
+
+interface ReferenceFlare {
+  tier: ReferenceFlareTier
+  x: number
+  y: number
+}
+
+interface FlareTierMetric {
+  burstCount: number
+  burstReach: number
+  coreRadius: number
+  coronaRadius: number
+  diagonalReach: number
+  horizontalReach: number
+  horizontalWidth: number
+  verticalReach: number
+  verticalWidth: number
+}
 
 interface ParticlePoint {
   color?: string
@@ -195,23 +214,59 @@ const filamentPaths = [
 ] as const
 
 const desktopFlares = [
-  [91, 329],
-  [143, 241],
-  [173, 418],
-  [221, 183],
-  [246, 367],
-  [287, 146],
-  [302, 442],
-  [343, 225],
-  [392, 171],
-  [437, 427],
-  [478, 236],
-  [521, 378],
-  [557, 172],
-  [604, 313],
-  [649, 399],
-  [686, 257]
-] as const
+  { tier: 'hero', x: 91, y: 329 },
+  { tier: 'bright', x: 143, y: 241 },
+  { tier: 'spark', x: 173, y: 418 },
+  { tier: 'bright', x: 221, y: 183 },
+  { tier: 'spark', x: 246, y: 367 },
+  { tier: 'bright', x: 287, y: 146 },
+  { tier: 'spark', x: 302, y: 442 },
+  { tier: 'hero', x: 343, y: 225 },
+  { tier: 'bright', x: 392, y: 171 },
+  { tier: 'spark', x: 437, y: 427 },
+  { tier: 'spark', x: 478, y: 236 },
+  { tier: 'bright', x: 521, y: 378 },
+  { tier: 'spark', x: 557, y: 172 },
+  { tier: 'bright', x: 604, y: 313 },
+  { tier: 'hero', x: 649, y: 399 },
+  { tier: 'spark', x: 686, y: 257 }
+] as const satisfies readonly ReferenceFlare[]
+
+const flareTierMetrics: Record<ReferenceFlareTier, FlareTierMetric> = {
+  hero: {
+    burstCount: 10,
+    burstReach: 6.8,
+    coreRadius: 0.82,
+    coronaRadius: 3.7,
+    diagonalReach: 8.4,
+    horizontalReach: 11.8,
+    horizontalWidth: 0.5,
+    verticalReach: 16.5,
+    verticalWidth: 0.56
+  },
+  bright: {
+    burstCount: 7,
+    burstReach: 4.5,
+    coreRadius: 0.68,
+    coronaRadius: 2.75,
+    diagonalReach: 5.8,
+    horizontalReach: 8.1,
+    horizontalWidth: 0.42,
+    verticalReach: 11.2,
+    verticalWidth: 0.48
+  },
+  spark: {
+    burstCount: 4,
+    burstReach: 2.8,
+    coreRadius: 0.52,
+    coronaRadius: 1.9,
+    diagonalReach: 3.7,
+    horizontalReach: 5.2,
+    horizontalWidth: 0.34,
+    verticalReach: 7.2,
+    verticalWidth: 0.4
+  }
+}
 
 interface DustBand {
   count: number
@@ -375,6 +430,88 @@ const circleSubpath = ({ radius, x, y }: ParticlePoint) => {
   const cy = rounded(y)
   return `M${left} ${cy}a${r} ${r} 0 1 0 ${rounded(r * 2)} 0a${r} ${r} 0 1 0-${rounded(r * 2)} 0`
 }
+
+const diamondSubpath = ({
+  horizontalRadius,
+  verticalRadius,
+  x,
+  y
+}: {
+  horizontalRadius: number
+  verticalRadius: number
+  x: number
+  y: number
+}) =>
+  `M${rounded(x)} ${rounded(y - verticalRadius)}L${rounded(
+    x + horizontalRadius
+  )} ${rounded(y)}L${rounded(x)} ${rounded(
+    y + verticalRadius
+  )}L${rounded(x - horizontalRadius)} ${rounded(y)}Z`
+
+const coronaSubpath = ({
+  radius,
+  x,
+  y
+}: {
+  radius: number
+  x: number
+  y: number
+}) => {
+  const shoulder = radius * 0.28
+  return `M${rounded(x)} ${rounded(y - radius)}L${rounded(
+    x + shoulder
+  )} ${rounded(y - shoulder)}L${rounded(x + radius)} ${rounded(
+    y
+  )}L${rounded(x + shoulder)} ${rounded(y + shoulder)}L${rounded(
+    x
+  )} ${rounded(y + radius)}L${rounded(x - shoulder)} ${rounded(
+    y + shoulder
+  )}L${rounded(x - radius)} ${rounded(y)}L${rounded(
+    x - shoulder
+  )} ${rounded(y - shoulder)}Z`
+}
+
+const spectralNeedleSubpath = ({
+  reach,
+  x,
+  y
+}: {
+  reach: number
+  x: number
+  y: number
+}) => {
+  const diagonal = reach * 0.707
+  return `M${rounded(x - diagonal)} ${rounded(
+    y - diagonal
+  )}L${rounded(x + diagonal)} ${rounded(y + diagonal)}M${rounded(
+    x - diagonal
+  )} ${rounded(y + diagonal)}L${rounded(x + diagonal)} ${rounded(y - diagonal)}`
+}
+
+const microBurstSubpath = ({
+  index,
+  metric,
+  scale,
+  x,
+  y
+}: {
+  index: number
+  metric: FlareTierMetric
+  scale: number
+  x: number
+  y: number
+}) =>
+  Array.from({ length: metric.burstCount }, (_, rayIndex) => {
+    const angle = index * 0.61 + (rayIndex / metric.burstCount) * Math.PI * 2
+    const start = metric.coronaRadius * scale * 1.25
+    const variance = 0.5 + unitHash(index * 17 + rayIndex, 509) * 0.5
+    const end = start + metric.burstReach * scale * variance
+    return `M${rounded(x + Math.cos(angle) * start)} ${rounded(
+      y + Math.sin(angle) * start
+    )}L${rounded(x + Math.cos(angle) * end)} ${rounded(
+      y + Math.sin(angle) * end
+    )}`
+  }).join('')
 
 const groupParticlePaths = (
   particles: readonly ParticlePoint[],
@@ -547,30 +684,103 @@ function GalaxyScene({ variant }: { variant: GalaxyVariant }) {
   const backgroundPaths = mobile
     ? mobileBackgroundPaths
     : desktopBackgroundPaths
-  const flares = mobile
-    ? desktopFlares.map(([x, y]) => [4 + x * 0.542, y * 0.68] as const)
-    : desktopFlares.map(([x, y]) => [x, y - 24] as const)
+  const flareScale = mobile ? 0.82 : 1
+  const flares = desktopFlares.map((flare, index) => ({
+    index,
+    tier: flare.tier,
+    tone: index % 4 === 0 ? ('cyan' as const) : ('warm' as const),
+    x: mobile ? 4 + flare.x * 0.542 : flare.x,
+    y: mobile ? flare.y * 0.68 : flare.y - 24
+  }))
+  const flareTierCounts = flares.reduce(
+    (counts, flare) => ({
+      ...counts,
+      [flare.tier]: counts[flare.tier] + 1
+    }),
+    { bright: 0, hero: 0, spark: 0 } as Record<ReferenceFlareTier, number>
+  )
   const flareFields = (['warm', 'cyan'] as const).map((tone) => {
-    const points = flares.filter((_, index) =>
-      tone === 'cyan' ? index % 4 === 0 : index % 4 !== 0
-    )
+    const points = flares.filter((flare) => flare.tone === tone)
     return {
-      circles: points
-        .map(([x, y], index) =>
+      bloom: points
+        .map(({ tier, x, y }) => {
+          const metric = flareTierMetrics[tier]
+          return `${coronaSubpath({
+            radius: metric.coronaRadius * flareScale * 1.35,
+            x,
+            y
+          })}${diamondSubpath({
+            horizontalRadius: metric.verticalWidth * flareScale * 2.2,
+            verticalRadius: metric.verticalReach * flareScale,
+            x,
+            y
+          })}${diamondSubpath({
+            horizontalRadius: metric.horizontalReach * flareScale,
+            verticalRadius: metric.horizontalWidth * flareScale * 2.2,
+            x,
+            y
+          })}`
+        })
+        .join(''),
+      cores: points
+        .map(({ tier, x, y }) =>
           circleSubpath({
             opacity: 1,
-            radius: index % 4 === 0 ? 1.05 : 0.68,
+            radius: flareTierMetrics[tier].coreRadius * flareScale,
             x,
             y
           })
         )
         .join(''),
-      rays: points
-        .map(([x, y], index) => {
-          const reach = index % 3 === 0 ? 9 : 6
-          return `M${rounded(x - reach)} ${rounded(y)}H${rounded(
-            x + reach
-          )}M${rounded(x)} ${rounded(y - reach)}V${rounded(y + reach)}`
+      coronas: points
+        .map(({ tier, x, y }) =>
+          coronaSubpath({
+            radius: flareTierMetrics[tier].coronaRadius * flareScale,
+            x,
+            y
+          })
+        )
+        .join(''),
+      horizontalSpikes: points
+        .map(({ tier, x, y }) => {
+          const metric = flareTierMetrics[tier]
+          return diamondSubpath({
+            horizontalRadius: metric.horizontalReach * flareScale,
+            verticalRadius: metric.horizontalWidth * flareScale,
+            x,
+            y
+          })
+        })
+        .join(''),
+      microBursts: points
+        .map(({ index, tier, x, y }) =>
+          microBurstSubpath({
+            index,
+            metric: flareTierMetrics[tier],
+            scale: flareScale,
+            x,
+            y
+          })
+        )
+        .join(''),
+      spectralNeedles: points
+        .map(({ tier, x, y }) =>
+          spectralNeedleSubpath({
+            reach: flareTierMetrics[tier].diagonalReach * flareScale,
+            x,
+            y
+          })
+        )
+        .join(''),
+      verticalSpikes: points
+        .map(({ tier, x, y }) => {
+          const metric = flareTierMetrics[tier]
+          return diamondSubpath({
+            horizontalRadius: metric.verticalWidth * flareScale,
+            verticalRadius: metric.verticalReach * flareScale,
+            x,
+            y
+          })
         })
         .join(''),
       tone
@@ -814,19 +1024,41 @@ function GalaxyScene({ variant }: { variant: GalaxyVariant }) {
         ))}
       </g>
 
-      <g className="galaxy-map__flares" data-flare-count={flares.length}>
-        {flareFields.map(({ circles, rays, tone }) => (
+      <g
+        className="galaxy-map__flares"
+        data-bright-flare-count={flareTierCounts.bright}
+        data-flare-count={flares.length}
+        data-hero-flare-count={flareTierCounts.hero}
+        data-spark-flare-count={flareTierCounts.spark}
+      >
+        {flareFields.map((field) => (
           <g
-            className={`galaxy-map__flare-field galaxy-map__flare-field--${tone}`}
-            key={tone}
+            className={`galaxy-map__flare-field galaxy-map__flare-field--${field.tone}`}
+            key={field.tone}
           >
             <path
               className="galaxy-map__flare-bloom"
-              d={`${circles}${rays}`}
+              d={field.bloom}
               filter={`url(#${prefix}-flare-bloom)`}
             />
-            <path className="galaxy-map__flare-rays" d={rays} />
-            <path className="galaxy-map__flare-core" d={circles} />
+            <path className="galaxy-map__flare-corona" d={field.coronas} />
+            <path
+              className="galaxy-map__flare-primary galaxy-map__flare-primary--vertical"
+              d={field.verticalSpikes}
+            />
+            <path
+              className="galaxy-map__flare-primary galaxy-map__flare-primary--horizontal"
+              d={field.horizontalSpikes}
+            />
+            <path
+              className="galaxy-map__flare-spectral-needles"
+              d={field.spectralNeedles}
+            />
+            <path
+              className="galaxy-map__flare-microburst"
+              d={field.microBursts}
+            />
+            <path className="galaxy-map__flare-core" d={field.cores} />
           </g>
         ))}
       </g>
