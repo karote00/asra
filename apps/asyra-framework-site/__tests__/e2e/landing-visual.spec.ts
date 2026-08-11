@@ -175,13 +175,10 @@ test('global mobile narrative preserves the same promise, boundaries, and paths'
   const mobileWordmark = page.locator('.site-header .wordmark__logo')
   await expect(mobileWordmark).toHaveCSS('width', '120px')
   if (shouldComparePixelBaselines) {
-    await expect(mobileWordmark).toHaveScreenshot(
-      'brand-wordmark-mobile.png',
-      {
-        animations: 'disabled',
-        maxDiffPixels: 0
-      }
-    )
+    await expect(mobileWordmark).toHaveScreenshot('brand-wordmark-mobile.png', {
+      animations: 'disabled',
+      maxDiffPixels: 0
+    })
   }
   await mobileWordmark.screenshot({
     animations: 'disabled',
