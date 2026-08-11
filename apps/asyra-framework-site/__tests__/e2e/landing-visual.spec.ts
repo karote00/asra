@@ -63,9 +63,17 @@ test('global desktop narrative puts plain outcomes and starting actions first', 
   expect(desktopDomainDisc).not.toBeNull()
   expect(desktopDomainDisc?.width).toBeGreaterThanOrEqual(82)
   expect(desktopDomainDisc?.width).toBeLessThanOrEqual(94)
+  await expect(
+    page.locator('.galaxy-map--desktop .galaxy-map__gravity-current')
+  ).toHaveCount(4)
   expect(
-    await page.locator('.galaxy-map--desktop .galaxy-map__orbit').count()
-  ).toBeGreaterThanOrEqual(14)
+    await page
+      .locator('.galaxy-map--desktop .galaxy-map__current-fragment')
+      .count()
+  ).toBeGreaterThanOrEqual(10)
+  await expect(
+    page.locator('.galaxy-map--desktop .galaxy-map__node-approaches path')
+  ).toHaveCount(6)
   expect(
     Number(
       await page

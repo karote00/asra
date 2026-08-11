@@ -63,7 +63,7 @@ const desktopDomains: readonly Domain[] = [
     tone: 'coral',
     x: 356,
     y: 74,
-    route: 'M366 298C361 234 357 139 356 74'
+    route: 'M354 126C357 108 357 90 356 74'
   },
   {
     id: 'bim',
@@ -71,7 +71,7 @@ const desktopDomains: readonly Domain[] = [
     tone: 'cyan',
     x: 570,
     y: 194,
-    route: 'M366 298C435 265 499 214 570 194'
+    route: 'M515 215C533 209 552 201 570 194'
   },
   {
     id: 'simulation',
@@ -79,7 +79,7 @@ const desktopDomains: readonly Domain[] = [
     tone: 'amber',
     x: 566,
     y: 410,
-    route: 'M366 298C433 326 504 382 566 410'
+    route: 'M515 382C534 392 551 402 566 410'
   },
   {
     id: 'ai-model',
@@ -87,7 +87,7 @@ const desktopDomains: readonly Domain[] = [
     tone: 'violet',
     x: 363,
     y: 507,
-    route: 'M366 298C357 374 362 445 363 507'
+    route: 'M363 449C361 470 362 490 363 507'
   },
   {
     id: 'vr',
@@ -95,7 +95,7 @@ const desktopDomains: readonly Domain[] = [
     tone: 'blue',
     x: 174,
     y: 400,
-    route: 'M366 298C299 319 228 372 174 400'
+    route: 'M226 372C208 381 190 392 174 400'
   },
   {
     id: 'whiteboard',
@@ -103,7 +103,7 @@ const desktopDomains: readonly Domain[] = [
     tone: 'violet',
     x: 165,
     y: 166,
-    route: 'M366 298C294 273 228 189 165 166'
+    route: 'M218 191C199 182 181 172 165 166'
   }
 ] as const
 
@@ -114,7 +114,7 @@ const mobileDomains: readonly Domain[] = [
     tone: 'coral',
     x: 226,
     y: 45,
-    route: 'M201 219C207 166 218 92 226 45'
+    route: 'M218 91C222 74 224 57 226 45'
   },
   {
     id: 'bim',
@@ -122,7 +122,7 @@ const mobileDomains: readonly Domain[] = [
     tone: 'cyan',
     x: 352,
     y: 139,
-    route: 'M201 219C250 199 308 157 352 139'
+    route: 'M310 158C325 152 340 145 352 139'
   },
   {
     id: 'simulation',
@@ -130,7 +130,7 @@ const mobileDomains: readonly Domain[] = [
     tone: 'amber',
     x: 345,
     y: 291,
-    route: 'M201 219C254 238 306 273 345 291'
+    route: 'M308 274C322 281 334 287 345 291'
   },
   {
     id: 'ai-model',
@@ -138,7 +138,7 @@ const mobileDomains: readonly Domain[] = [
     tone: 'violet',
     x: 222,
     y: 380,
-    route: 'M201 219C198 278 216 338 222 380'
+    route: 'M218 342C220 356 221 370 222 380'
   },
   {
     id: 'vr',
@@ -146,7 +146,7 @@ const mobileDomains: readonly Domain[] = [
     tone: 'blue',
     x: 70,
     y: 301,
-    route: 'M201 219C154 242 105 277 70 301'
+    route: 'M108 282C94 288 81 296 70 301'
   },
   {
     id: 'whiteboard',
@@ -154,40 +154,30 @@ const mobileDomains: readonly Domain[] = [
     tone: 'violet',
     x: 63,
     y: 153,
-    route: 'M201 219C155 201 108 167 63 153'
+    route: 'M101 166C88 161 74 156 63 153'
   }
 ] as const
 
-const referenceOrbitPaths = [
-  'M52 347C114 142 308 69 514 119c157 38 234 142 185 249-60 131-295 183-483 98',
-  'M75 410C182 546 450 562 625 430c138-104 126-261-19-344',
-  'M101 270C211 105 459 64 635 176c137 87 141 226 28 316',
-  'M112 478C43 370 102 221 237 150c149-78 346-48 447 67',
-  'M166 154C71 264 86 415 211 491c132 80 326 50 432-65',
-  'M195 493C89 421 82 283 177 197c109-98 300-106 426-16',
-  'M206 203C307 120 485 139 573 236c74 82 47 188-59 238',
-  'M220 438C153 362 181 251 285 207c105-45 237-8 285 75',
-  'M244 253C320 188 451 205 509 277c50 62 20 139-58 168',
-  'M271 417C213 375 221 292 292 257c77-38 178-6 202 55',
-  'M276 277C339 233 437 260 461 319c20 48-29 98-96 103',
-  'M69 329C179 319 241 210 346 166c134-56 285-13 362 84',
-  'M86 389C207 364 260 460 389 478c121 18 249-26 301-106',
-  'M128 192C220 272 322 278 421 216c89-56 193-46 265 17',
-  'M110 454C213 400 286 301 393 276c127-29 231 21 289 107',
-  'M174 118C263 196 359 211 460 162c91-44 184-19 240 46'
+const referenceGravityCurrentPaths = [
+  'M36 372C104 164 292 102 474 127c156 22 247 110 232 202',
+  'M78 427C188 506 366 522 516 464c105-40 161-111 174-197',
+  'M118 242C232 152 378 140 500 196c85 39 128 103 118 169',
+  'M92 384C198 346 257 243 362 201c112-44 234-4 300 87'
 ] as const
 
-const referenceLocalArcs = [
-  'M258 375C295 402 347 407 386 385',
-  'M286 246C333 215 395 220 428 255',
-  'M301 430C363 461 438 446 472 402',
-  'M187 327C225 282 279 260 329 267',
-  'M366 184C419 173 477 193 506 229',
-  'M396 469C456 468 513 438 536 397',
-  'M130 383C178 406 231 399 268 370',
-  'M488 250C536 265 566 299 574 336',
-  'M220 184C268 151 326 145 372 166',
-  'M494 361C535 345 578 355 604 382'
+const referenceCurrentFragments = [
+  'M110 440C164 464 220 463 268 440',
+  'M134 206C191 174 253 160 314 169',
+  'M223 224C276 199 337 201 381 225',
+  'M249 410C295 440 356 447 405 427',
+  'M294 251C344 222 407 230 444 267',
+  'M335 438C393 464 462 447 496 405',
+  'M404 180C463 175 527 199 558 237',
+  'M469 250C525 269 559 308 560 349',
+  'M492 390C539 379 582 393 607 422',
+  'M160 337C202 296 250 278 295 282',
+  'M75 329C126 316 171 291 205 256',
+  'M548 188C601 203 647 236 675 274'
 ] as const
 
 const filamentPaths = [
@@ -731,22 +721,27 @@ function GalaxyScene({ variant }: { variant: GalaxyVariant }) {
 
       <g className="galaxy-map__field--outer">
         <g
-          className="galaxy-map__orbits"
+          className="galaxy-map__gravity-currents"
           mask={`url(#${prefix}-depth-mask)`}
           transform={orbitTransform}
         >
-          {referenceOrbitPaths.map((path, index) => (
+          {referenceGravityCurrentPaths.map((path, index) => (
             <path
-              className={`galaxy-map__orbit galaxy-map__orbit--${index % 4}`}
+              className={`galaxy-map__gravity-current galaxy-map__gravity-current--${index}`}
               d={path}
               key={path}
+              stroke={
+                index === 3
+                  ? `url(#${prefix}-cool-line)`
+                  : `url(#${prefix}-warm-line)`
+              }
             />
           ))}
         </g>
-        <g className="galaxy-map__local-arcs" transform={orbitTransform}>
-          {referenceLocalArcs.map((path, index) => (
+        <g className="galaxy-map__current-fragments" transform={orbitTransform}>
+          {referenceCurrentFragments.map((path, index) => (
             <path
-              className={`galaxy-map__local-arc galaxy-map__local-arc--${index % 3}`}
+              className={`galaxy-map__current-fragment galaxy-map__current-fragment--${index % 3}`}
               d={path}
               key={path}
             />
@@ -800,7 +795,7 @@ function GalaxyScene({ variant }: { variant: GalaxyVariant }) {
         ))}
       </g>
 
-      <g className="galaxy-map__routes">
+      <g className="galaxy-map__node-approaches">
         {domains.map(({ id, route }) => (
           <path d={route} key={id} />
         ))}

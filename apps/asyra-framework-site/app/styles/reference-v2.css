@@ -297,47 +297,52 @@ main {
   fill: rgba(60, 143, 174, 0.17);
 }
 
-.galaxy-map__orbits,
-.galaxy-map__local-arcs,
+.galaxy-map__gravity-currents,
+.galaxy-map__current-fragments,
 .galaxy-map__filaments,
-.galaxy-map__routes {
+.galaxy-map__node-approaches {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-.galaxy-map__orbits {
-  stroke: rgba(223, 172, 132, 0.25);
-  stroke-width: 0.72;
+.galaxy-map__gravity-current {
+  opacity: 0.42;
+  stroke-width: 0.86;
 }
 
-.galaxy-map__orbit--1 {
-  stroke: rgba(204, 92, 61, 0.42);
-  stroke-dasharray: 1.2 5.8;
+.galaxy-map__gravity-current--1 {
+  opacity: 0.27;
+  stroke-width: 0.62;
 }
 
-.galaxy-map__orbit--2 {
-  stroke: rgba(91, 213, 228, 0.3);
-  stroke-dasharray: 1 7.4;
+.galaxy-map__gravity-current--2 {
+  opacity: 0.34;
+  stroke-width: 0.74;
 }
 
-.galaxy-map__orbit--3 {
-  stroke: rgba(238, 189, 118, 0.38);
-  stroke-dasharray: 8 15;
+.galaxy-map__gravity-current--3 {
+  opacity: 0.38;
+  stroke-width: 0.68;
 }
 
-.galaxy-map__local-arcs {
-  stroke: rgba(240, 166, 104, 0.34);
-  stroke-dasharray: 2 4.5;
-  stroke-width: 0.78;
+.galaxy-map__current-fragments {
+  stroke: rgba(240, 166, 104, 0.36);
+  stroke-width: 0.68;
 }
 
-.galaxy-map__local-arc--1 {
+.galaxy-map__current-fragment--0 {
+  stroke-dasharray: 22 9 2 15 6 24;
+}
+
+.galaxy-map__current-fragment--1 {
   stroke: rgba(103, 222, 234, 0.35);
+  stroke-dasharray: 1 6 10 13 2 21;
 }
 
-.galaxy-map__local-arc--2 {
+.galaxy-map__current-fragment--2 {
   stroke: rgba(250, 219, 169, 0.28);
+  stroke-dasharray: 31 12 4 20;
 }
 
 .galaxy-map__filament {
@@ -364,13 +369,13 @@ main {
   stroke-width: 1.45;
 }
 
-.galaxy-map__routes {
-  stroke: rgba(235, 143, 91, 0.38);
-  stroke-dasharray: 1.2 7;
-  stroke-width: 0.72;
+.galaxy-map__node-approaches {
+  stroke: rgba(235, 143, 91, 0.34);
+  stroke-dasharray: 1 6 9 12;
+  stroke-width: 0.66;
 }
 
-.galaxy-map__routes path:nth-child(2n) {
+.galaxy-map__node-approaches path:nth-child(2n) {
   stroke: rgba(109, 213, 229, 0.25);
 }
 
