@@ -19,6 +19,8 @@ import {
   type AtlasCaseDefinition
 } from '@/lib/runtime-atlas/case-definitions.mjs'
 import { RuntimeAtlasProjection } from './runtime-atlas-projection'
+import { AtlasNetwork } from './atlas-network'
+import { GalaxyMap } from './galaxy-map'
 
 type EvidenceStatus = 'completed' | 'rejected' | 'failed'
 
@@ -319,7 +321,7 @@ export function RuntimeAtlas() {
   const completedComparison = completedRuns[compareCaseId]
 
   return (
-    <main className="atlas-page">
+    <div className="atlas-page">
       <section className="atlas-intro" aria-labelledby="atlas-title">
         <div className="atlas-intro__coordinate" aria-hidden="true">
           07 / RUNTIME ATLAS
@@ -328,13 +330,10 @@ export function RuntimeAtlas() {
           <p className="atlas-observatory-label">
             RUNTIME ATLAS / ONE STATE. MANY VIEWS.
           </p>
-          <h1 id="atlas-title">See what changed. See who owned it.</h1>
-          <p>
-            Choose a real case and run it in your browser. Asyra will show each
-            accepted action, the owner responsible for it, and the evidence that
-            remains. You do not need to read code first.
-          </p>
+          <h1 id="atlas-title">Runtime Atlas</h1>
+          <p>Explore the causal map of executable information.</p>
         </div>
+        <GalaxyMap className="atlas-mobile-galaxy" />
         <div className="atlas-intro__promise" aria-label="Runtime promise">
           <span>DESCRIBE</span>
           <ArrowRight aria-hidden="true" size={18} />
@@ -378,11 +377,20 @@ export function RuntimeAtlas() {
         </aside>
 
         <div className="atlas-lab">
+          <AtlasNetwork
+            activeStep={snapshot?.evidence.length ?? 0}
+            caseTitle={definition.title}
+            status={status.label}
+          />
+
           <header className="atlas-lab__header">
             <div>
               <p className="technical-label">CASE {definition.coordinate}</p>
               <h2>{definition.title}</h2>
               <p>{definition.plainLanguage}</p>
+              <p className="atlas-lab__guidance">
+                You do not need to read code first.
+              </p>
             </div>
             <div className="atlas-view-toggle" aria-label="Explanation depth">
               <button
@@ -689,6 +697,6 @@ export function RuntimeAtlas() {
           </Link>
         </div>
       </section>
-    </main>
+    </div>
   )
 }

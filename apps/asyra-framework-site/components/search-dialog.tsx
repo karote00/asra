@@ -90,7 +90,7 @@ export function SearchDialog({ records }: SearchDialogProps) {
         type="button"
       >
         <Search aria-hidden="true" size={16} />
-        Search docs
+        Search docs, concepts, and guides…
         <kbd>⌘ K</kbd>
       </button>
       {open

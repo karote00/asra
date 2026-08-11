@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
+import { AsyraMark } from '@/components/asyra-mark'
 
 const owners = [
   {
@@ -36,6 +37,58 @@ const owners = [
 type OwnerId = (typeof owners)[number]['id']
 
 export function LandingOwnershipExplorer() {
+  return (
+    <section
+      aria-labelledby="ownership-heading"
+      className="landing-ownership"
+      id="why-asyra"
+    >
+      <header className="landing-section-heading">
+        <p className="section-eyebrow">The Asyra Framework</p>
+        <h2 id="ownership-heading">
+          Deterministic by design. Composable by nature.
+        </h2>
+        <p>
+          Asyra gives you the primitives to model information as code—clear,
+          consistent, and composable. From concepts to runtime, every layer is
+          built to scale with confidence.
+        </p>
+      </header>
+
+      <div className="landing-ownership__architecture">
+        <aside>
+          <p className="technical-label">You bring</p>
+          <ul>
+            <li>Domain knowledge</li>
+            <li>Business rules</li>
+            <li>Data and schemas</li>
+            <li>Product experience</li>
+          </ul>
+        </aside>
+        <div aria-hidden="true" className="landing-ownership__layers">
+          <span data-layer="experience">Experience layer</span>
+          <span data-layer="information">Information layer</span>
+          <span data-layer="runtime">Runtime layer</span>
+          <span data-layer="foundation">Foundation layer</span>
+          <strong>
+            <AsyraMark />
+          </strong>
+        </div>
+        <aside>
+          <p className="technical-label">Asyra provides</p>
+          <ul>
+            <li>Deterministic runtime</li>
+            <li>Executable models</li>
+            <li>Consistency and lineage</li>
+            <li>Replaceable projections</li>
+          </ul>
+        </aside>
+      </div>
+    </section>
+  )
+}
+
+export function LandingOwnershipDetails() {
   const [selectedId, setSelectedId] = useState<OwnerId>('framework')
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([])
   const selected = owners.find(({ id }) => id === selectedId) ?? owners[0]
@@ -67,42 +120,18 @@ export function LandingOwnershipExplorer() {
   }
 
   return (
-    <section aria-labelledby="ownership-heading" className="landing-ownership">
-      <header className="landing-section-heading">
+    <section
+      aria-labelledby="owner-details-heading"
+      className="landing-owner-details"
+    >
+      <header className="landing-section-heading landing-section-heading--compact">
         <p className="section-eyebrow">Know who owns what</p>
-        <h2 id="ownership-heading">Keep meaning and machinery separate.</h2>
+        <h2 id="owner-details-heading">Keep meaning and machinery separate.</h2>
         <p>
-          Clear ownership lets a small app grow without turning every package,
-          provider, projection, and screen into a competing source of truth.
+          Clear ownership lets a product grow without turning packages,
+          providers, projections, and screens into competing sources of truth.
         </p>
       </header>
-
-      <div className="landing-ownership__architecture">
-        <aside>
-          <p className="technical-label">You bring</p>
-          <ul>
-            <li>Domain knowledge</li>
-            <li>Business rules</li>
-            <li>Data and schemas</li>
-            <li>Product experience</li>
-          </ul>
-        </aside>
-        <div aria-hidden="true" className="landing-ownership__layers">
-          <span data-layer="domain">Domain model</span>
-          <span data-layer="app">App composition</span>
-          <span data-layer="runtime">Asyra runtime</span>
-          <strong>Asyra</strong>
-        </div>
-        <aside>
-          <p className="technical-label">Asyra provides</p>
-          <ul>
-            <li>Deterministic runtime</li>
-            <li>Executable models</li>
-            <li>Consistency and lineage</li>
-            <li>Replaceable projections</li>
-          </ul>
-        </aside>
-      </div>
 
       <div className="landing-ownership__summary">
         {owners.map(({ coordinate, label, summary }) => (

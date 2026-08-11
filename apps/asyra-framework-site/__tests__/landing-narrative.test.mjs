@@ -11,20 +11,24 @@ const compact = (value) => value.replace(/\s+/g, ' ')
 test('Landing begins with an outcome anyone can understand before technical language', () => {
   const page = read('app/page.tsx')
   const hero = read('components/landing-hero.tsx')
-  const source = `${page}\n${hero}`
+  const galaxy = read('components/galaxy-map.tsx')
+  const source = `${page}\n${hero}\n${galaxy}`
 
-  assert.match(hero, /Build worlds from information\./)
   assert.match(
     compact(hero),
-    /You define the knowledge and rules\. Asyra gives your product a predictable path from intent to outcome\./
+    /<span>Build worlds<\/span> <span>from information\.<\/span>/
   )
-  assert.match(hero, /Start with a working product/)
-  assert.match(hero, /See how Asyra works/)
-  assert.match(hero, /Read documentation/)
-  assert.match(hero, /landing-hero__constellation/)
-  assert.match(compact(hero), /Canonical information/i)
+  assert.match(
+    compact(hero),
+    /Asyra is deterministic infrastructure for executable information models\. You bring domain expertise\. We provide the runtime that makes it real\./
+  )
+  assert.match(hero, /Start with a product/)
+  assert.match(hero, /See Asyra in 90 seconds/)
+  assert.match(hero, /landing-galaxy/)
+  assert.match(galaxy, /galaxy-map__core-mark/)
+  assert.equal((galaxy.match(/className="galaxy-map__orbit"/g) ?? []).length, 7)
 
-  const promiseAt = source.indexOf('Build worlds from information.')
+  const promiseAt = source.indexOf('<span>Build worlds</span>')
   const firstTechnicalTerm = Math.min(
     ...['Framework', 'Preset', 'Provider', 'API'].map((term) => {
       const index = source.indexOf(term)
@@ -37,9 +41,9 @@ test('Landing begins with an outcome anyone can understand before technical lang
 test('Landing keeps all beginner actions in semantic server-rendered order', () => {
   const hero = read('components/landing-hero.tsx')
   const entries = [
-    ['/docs/start/create-design-app', 'Start with a working product'],
-    ['/atlas', 'See how Asyra works'],
-    ['/docs', 'Read documentation']
+    ['/docs/start/create-design-app', 'Start with a product'],
+    ['/docs/start/custom-composition', 'Build your own system'],
+    ['/atlas', 'See Asyra in 90 seconds']
   ]
 
   entries.forEach(([href, label]) => {
@@ -85,9 +89,10 @@ test('Describe, Act, Verify tells one plain-language deterministic story', () =>
 
 test('Landing panorama is code-native, responsive, and motion-optional', () => {
   const page = read('app/page.tsx')
-  const styles = read('app/styles/landing.css')
+  const styles = `${read('app/styles/landing.css')}\n${read('app/styles/reference-v2.css')}`
   const components = [
     read('components/landing-hero.tsx'),
+    read('components/galaxy-map.tsx'),
     read('components/landing-possibility-field.tsx'),
     read('components/landing-story.tsx')
   ].join('\n')
@@ -98,8 +103,8 @@ test('Landing panorama is code-native, responsive, and motion-optional', () => {
   assert.match(styles, /\.landing-hero/)
   assert.match(styles, /\.landing-possibility/)
   assert.match(styles, /\.landing-story/)
-  assert.match(styles, /\.landing-hero__constellation/)
-  assert.match(styles, /@media \(max-width: 390px\)/)
+  assert.match(styles, /\.galaxy-map__spirals/)
+  assert.match(styles, /@media \(max-width: 760px\)/)
   assert.match(styles, /prefers-reduced-motion: reduce/)
   assert.doesNotMatch(
     components,

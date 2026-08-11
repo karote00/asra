@@ -136,6 +136,26 @@ test('canonical state creates four explicitly App-owned projections', async ({
 }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await openAtlas(page)
+  await expect(page.locator('.site-header .wordmark__logo')).toBeVisible()
+  await expect(page.locator('.atlas-network')).toBeVisible()
+  expect(
+    await page
+      .locator('#atlas-title')
+      .evaluate((title) => Number.parseFloat(getComputedStyle(title).fontSize))
+  ).toBeLessThanOrEqual(48)
+  await expect(page.locator('.atlas-intro__copy > p:last-child')).toHaveText(
+    'Explore the causal map of executable information.'
+  )
+  await expect(page.locator('.atlas-network__major-node')).toHaveCount(6)
+  expect(
+    await page.locator('.atlas-network__node').count()
+  ).toBeGreaterThanOrEqual(34)
+  expect(
+    await page.locator('.atlas-network__edge').count()
+  ).toBeGreaterThanOrEqual(40)
+  await page.screenshot({
+    path: testInfo.outputPath('runtime-atlas-overview.png')
+  })
   await runCase(page, 'canonical-projection-fanout')
 
   await expect(
@@ -176,6 +196,8 @@ test('mobile and reduced-motion modes preserve controls and evidence', async ({
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 320, height: 760 })
   await openAtlas(page)
+  await expect(page.locator('.atlas-network')).toBeVisible()
+  await expect(page.locator('.atlas-network__major-node')).toHaveCount(6)
 
   const controls = page.locator('.atlas-control')
   const targets = await controls.evaluateAll((elements) =>
@@ -215,8 +237,17 @@ test('mobile and reduced-motion modes preserve controls and evidence', async ({
   await page.setViewportSize({ width: 390, height: 844 })
   await page.reload()
   await expect(
-    page.getByRole('heading', { name: 'See what changed. See who owned it.' })
+    page.getByRole('heading', { level: 1, name: 'Runtime Atlas' })
   ).toBeVisible()
+  expect(
+    await page
+      .locator('#atlas-title')
+      .evaluate((title) => Number.parseFloat(getComputedStyle(title).fontSize))
+  ).toBeLessThanOrEqual(34)
+  await scrollTo(page)
+  await page.screenshot({
+    path: testInfo.outputPath('runtime-atlas-mobile.png')
+  })
   const phoneDimensions = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
     scrollWidth: document.documentElement.scrollWidth
@@ -228,7 +259,7 @@ test('mobile and reduced-motion modes preserve controls and evidence', async ({
   await page.setViewportSize({ width: 720, height: 500 })
   await page.reload()
   await expect(
-    page.getByRole('heading', { name: 'See what changed. See who owned it.' })
+    page.getByRole('heading', { level: 1, name: 'Runtime Atlas' })
   ).toBeVisible()
   const zoomedDimensions = await page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
@@ -250,7 +281,7 @@ test('the plain Atlas contract remains readable without client JavaScript', asyn
   await page.goto('/atlas')
 
   await expect(
-    page.getByRole('heading', { name: 'See what changed. See who owned it.' })
+    page.getByRole('heading', { level: 1, name: 'Runtime Atlas' })
   ).toBeVisible()
   await expect(page.getByText('Six real cases')).toBeVisible()
   await expect(

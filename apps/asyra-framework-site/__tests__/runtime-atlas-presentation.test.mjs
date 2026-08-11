@@ -13,15 +13,16 @@ const projection = fs.readFileSync(
   path.join(appRoot, 'components/runtime-atlas-projection.tsx'),
   'utf8'
 )
-const styles = fs.readFileSync(
-  path.join(appRoot, 'app/styles/atlas.css'),
-  'utf8'
-)
+const styles = [
+  fs.readFileSync(path.join(appRoot, 'app/styles/atlas.css'), 'utf8'),
+  fs.readFileSync(path.join(appRoot, 'app/styles/reference-v2.css'), 'utf8')
+].join('\n')
 
 test('Atlas explains outcome and ownership before technical mechanics', () => {
   assert.match(component, /RUNTIME ATLAS \/ ONE STATE\. MANY VIEWS\./)
   assert.match(component, /atlas-observatory-label/)
-  assert.match(component, /See what changed\. See who owned it\./)
+  assert.match(component, /<h1 id="atlas-title">Runtime Atlas<\/h1>/)
+  assert.match(component, /Explore the causal map of executable information\./)
   assert.match(component, /You do not need to read code first\./)
   assert.match(component, /START WITH AN OUTCOME/)
   assert.match(component, /Plain explanation/)

@@ -19,19 +19,44 @@ test('global desktop narrative puts plain outcomes and starting actions first', 
       name: 'Build worlds from information.'
     })
   ).toBeVisible()
+  await expect(page.locator('#landing-title > span')).toHaveCount(2)
+  const desktopTitleLines = await page
+    .locator('#landing-title > span')
+    .evaluateAll((lines) => lines.map((line) => line.getBoundingClientRect()))
+  expect(desktopTitleLines[0].top).toBeLessThan(desktopTitleLines[1].top)
+  expect(desktopTitleLines[0].left).toBe(desktopTitleLines[1].left)
+  const desktopReferenceFrame = await page.evaluate(() => {
+    const title = document.querySelector('#landing-title')
+    const play = document.querySelector('.landing-hero__secondary-actions a')
+    const core = document.querySelector('.galaxy-map__core')
+    if (!title || !play || !core) return null
+    const coreBox = core.getBoundingClientRect()
+    return {
+      coreCenterX: coreBox.left + coreBox.width / 2,
+      playTop: play.getBoundingClientRect().top,
+      titleTop: title.getBoundingClientRect().top
+    }
+  })
+  expect(desktopReferenceFrame).not.toBeNull()
+  expect(desktopReferenceFrame?.titleTop).toBeGreaterThanOrEqual(230)
+  expect(desktopReferenceFrame?.titleTop).toBeLessThanOrEqual(285)
+  expect(desktopReferenceFrame?.playTop).toBeLessThanOrEqual(790)
+  expect(desktopReferenceFrame?.coreCenterX).toBeLessThanOrEqual(970)
+  await expect(page.locator('.site-header .brand-logo__letter')).toHaveCount(5)
+  await expect(page.locator('.landing-galaxy')).toBeVisible()
+  await expect(page.locator('.galaxy-map__orbit')).toHaveCount(7)
+  await expect(page.locator('.galaxy-map__domain')).toHaveCount(6)
+  expect(
+    await page.locator('.galaxy-map__star').count()
+  ).toBeGreaterThanOrEqual(80)
+  await expect(page.locator('.galaxy-map__core-mark')).toBeVisible()
   await expect(
-    page.getByRole('link', { name: 'Start with a working product' })
-  ).toBeVisible()
+    page.locator('.landing-capability-flow__runtime li')
+  ).toHaveCount(5)
+  await expect(page.getByRole('link', { name: 'Explore' })).toBeVisible()
   await expect(
-    page.getByRole('link', { name: 'See how Asyra works' })
+    page.getByRole('link', { name: 'See Asyra in 90 seconds' })
   ).toBeVisible()
-  await expect(
-    page.getByRole('link', { name: 'Read documentation' })
-  ).toBeVisible()
-  const actionsBottom = await page
-    .locator('.landing-hero__actions')
-    .evaluate((element) => element.getBoundingClientRect().bottom)
-  expect(actionsBottom).toBeLessThanOrEqual(1000)
 
   const order = await page.evaluate(() => {
     const hero = document.querySelector('.landing-hero')
@@ -42,11 +67,29 @@ test('global desktop narrative puts plain outcomes and starting actions first', 
       : 0
   })
   expect(order).toBeTruthy()
-  await expect(page.getByText('19 public packages').first()).toBeVisible()
+  await expect(page.locator('.landing-hero__release')).toBeHidden()
+  await expect(
+    page.locator('.landing-evidence__candidate').getByText('19 public packages')
+  ).toBeVisible()
 
   const dimensions = await pageDimensions(page)
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth)
 
+  await page.screenshot({
+    path: testInfo.outputPath('landing-hero-desktop.png')
+  })
+  await page.locator('.landing-ownership').scrollIntoViewIfNeeded()
+  await page.screenshot({
+    path: testInfo.outputPath('landing-layers-desktop.png')
+  })
+  await page.locator('.landing-capability-flow').scrollIntoViewIfNeeded()
+  await page.screenshot({
+    path: testInfo.outputPath('landing-capability-desktop.png')
+  })
+  await page.locator('.landing-topology').scrollIntoViewIfNeeded()
+  await page.screenshot({
+    path: testInfo.outputPath('landing-runtime-desktop.png')
+  })
   await page.screenshot({
     path: testInfo.outputPath('landing-desktop.png'),
     fullPage: true
@@ -66,8 +109,40 @@ test('global mobile narrative preserves the same promise, boundaries, and paths'
       name: 'Build worlds from information.'
     })
   ).toBeVisible()
+  await expect(page.locator('#landing-title > span')).toHaveCount(2)
+  await expect(page.locator('.landing-galaxy')).toBeVisible()
+  await expect(page.locator('.galaxy-map__domain')).toHaveCount(6)
+  const mobileFlow = await page.evaluate(() => {
+    const title = document.querySelector('#landing-title')
+    const galaxy = document.querySelector('.landing-galaxy')
+    const actions = document.querySelector('.landing-hero__actions')
+    if (!title || !galaxy || !actions) return false
+    const titleBottom = title.getBoundingClientRect().bottom
+    const galaxyBox = galaxy.getBoundingClientRect()
+    const actionsTop = actions.getBoundingClientRect().top
+    return titleBottom < galaxyBox.top && galaxyBox.bottom < actionsTop
+  })
+  expect(mobileFlow).toBe(true)
+  const referenceFrame = await page.evaluate(() => {
+    const header = document.querySelector('.site-header')
+    const title = document.querySelector('#landing-title')
+    const galaxy = document.querySelector('.landing-galaxy')
+    const actions = document.querySelector('.landing-hero__actions')
+    if (!header || !title || !galaxy || !actions) return null
+    return {
+      actionsTop: actions.getBoundingClientRect().top,
+      galaxyWidth: galaxy.getBoundingClientRect().width,
+      headerHeight: header.getBoundingClientRect().height,
+      titleTop: title.getBoundingClientRect().top
+    }
+  })
+  expect(referenceFrame).not.toBeNull()
+  expect(referenceFrame?.headerHeight).toBeGreaterThanOrEqual(76)
+  expect(referenceFrame?.titleTop).toBeGreaterThanOrEqual(132)
+  expect(referenceFrame?.galaxyWidth).toBeGreaterThanOrEqual(380)
+  expect(referenceFrame?.actionsTop).toBeGreaterThanOrEqual(620)
   await expect(
-    page.getByRole('link', { name: 'Start with a working product' })
+    page.getByRole('link', { name: 'Start with a product' })
   ).toBeVisible()
   await expect(
     page.getByText('App-owned possibilities — not built-in features')
@@ -80,6 +155,9 @@ test('global mobile narrative preserves the same promise, boundaries, and paths'
   const dimensions = await pageDimensions(page)
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth)
 
+  await page.screenshot({
+    path: testInfo.outputPath('landing-hero-mobile.png')
+  })
   await page.screenshot({
     path: testInfo.outputPath('landing-mobile.png'),
     fullPage: true
@@ -151,7 +229,7 @@ test('reduced motion exposes the complete equivalent Landing state instantly', a
   await page.goto('/')
 
   const axisDuration = await page
-    .locator('.landing-hero__routes')
+    .locator('.galaxy-map__spirals')
     .first()
     .evaluate((element) =>
       Number.parseFloat(getComputedStyle(element).animationDuration)
@@ -198,9 +276,7 @@ test('basic narrative and ownership route remain readable without client JavaScr
   await expect(
     page.getByText('Factory transaction', { exact: true })
   ).toBeVisible()
-  await expect(
-    page.getByRole('link', { name: 'Start with a working product' })
-  ).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Explore' })).toBeVisible()
 
   await context.close()
 })

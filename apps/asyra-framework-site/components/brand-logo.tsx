@@ -8,20 +8,30 @@ export function BrandLogo({ className }: BrandLogoProps) {
       aria-hidden="true"
       className={className}
       focusable="false"
-      viewBox="0 0 154 32"
+      viewBox="0 0 114 26"
     >
       <g
         fill="none"
         stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2.4"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+        strokeWidth="1.75"
       >
-        <path d="M2 27 14 4l12 23M7.5 18h13" />
-        <path d="M52 7.5c-2.4-2.4-5.6-3.5-9.1-3.5-5.6 0-9.4 2.7-9.4 6.8 0 4.5 4 5.6 9.5 6.7 5.2 1 8.7 2.1 8.7 6.3 0 3.5-3.4 5.7-9.1 5.7-4.3 0-7.9-1.5-10.5-4.4" />
-        <path d="m59 4 10.8 13.2L80.5 4M69.8 17.2V28" />
-        <path d="M89 28V4h10.4c6.3 0 10.1 2.8 10.1 7.6 0 4.9-3.8 7.8-10.1 7.8H89M100.1 19.4 111 28" />
-        <path d="m121 27 12-23 12 23M126.5 18h13" />
+        <g className="brand-logo__letter" data-letter="A">
+          <path d="M1.5 23 10 3l8.5 20M5.7 14.2h8.6" />
+        </g>
+        <g className="brand-logo__letter" data-letter="S">
+          <path d="m41 5-4-2H28l-4 3v4l4 3h8l4 3v4l-4 3H27l-4-3" />
+        </g>
+        <g className="brand-logo__letter" data-letter="Y">
+          <path d="m47 3 8 10 8-10M55 13v10" />
+        </g>
+        <g className="brand-logo__letter" data-letter="R">
+          <path d="M70 23V3h9.5c5 0 7.5 2.2 7.5 6s-2.5 6-7.5 6H70M79.5 15 88 23" />
+        </g>
+        <g className="brand-logo__letter" data-letter="A">
+          <path d="m95.5 23 8.5-20 8.5 20m-12.8-8.8h8.6" />
+        </g>
       </g>
     </svg>
   )

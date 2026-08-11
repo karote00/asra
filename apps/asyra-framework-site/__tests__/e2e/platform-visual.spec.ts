@@ -7,20 +7,20 @@ test('desktop documentation keeps reading, navigation, search, and evidence visi
   await page.goto('/docs')
   await page.evaluate(() => document.fonts.ready)
 
-  await expect(page.getByRole('heading', { level: 1 })).toContainText(
-    'Asyra Framework'
-  )
+  await expect(page.locator('.docs-page[data-docs-view="home"]')).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Docs')
+  await expect(page.locator('.docs-home-atlas__card')).toHaveCount(6)
+  await expect(page.locator('.docs-home-query')).toBeVisible()
   await expect(
     page.getByRole('navigation', { name: 'Documentation', exact: true })
   ).toBeVisible()
-  await expect(
-    page.getByRole('navigation', { name: 'On this page' })
-  ).toBeVisible()
-  await expect(page.getByText('RELEASE CANDIDATE · 0.5 FAMILY')).toBeVisible()
+  const workspaceBox = await page.locator('.docs-home__workspace').boundingBox()
+  expect(workspaceBox).not.toBeNull()
+  expect(workspaceBox?.width).toBeLessThanOrEqual(1344)
 
-  const articleBox = await page.locator('.docs-article').boundingBox()
-  expect(articleBox).not.toBeNull()
-  expect(articleBox?.width).toBeLessThanOrEqual(860)
+  await page.screenshot({
+    path: testInfo.outputPath('docs-home-desktop.png')
+  })
 
   await page.keyboard.press('Control+k')
   const search = page.getByRole('dialog', { name: 'Search documentation' })
@@ -46,7 +46,7 @@ test('desktop documentation keeps reading, navigation, search, and evidence visi
   expect(searchOwnsItsPixels).toBe(true)
   await page.keyboard.press('Escape')
   await expect(search).toBeHidden()
-  await expect(page.locator('.docs-left-rail .search-trigger')).toBeFocused()
+  await expect(page.locator('.docs-home__hero .search-trigger')).toBeFocused()
 
   await page.screenshot({
     path: testInfo.outputPath('docs-desktop.png'),

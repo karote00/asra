@@ -28,10 +28,13 @@ test('workspace freezes the exact approved site toolchain', () => {
 
 test('foundation exposes exact public destinations and accepted child surfaces', () => {
   const header = read('components/site-header.tsx')
+  const footer = read('components/site-footer.tsx')
+  const publicNavigation = `${header}\n${footer}`
   const landing = read('app/page.tsx')
   const atlas = read('app/atlas/page.tsx')
   ;['/docs', '/asyra-design', '/releases', '/roadmap', '/atlas'].forEach(
-    (route) => assert.match(header, new RegExp(`href: '${route}'`))
+    (route) =>
+      assert.match(publicNavigation, new RegExp(route.replace('/', '\\/')))
   )
   assert.doesNotMatch(header, /\/examples|Examples/)
   assert.match(landing, /<LandingHero/)
@@ -42,22 +45,27 @@ test('foundation exposes exact public destinations and accepted child surfaces',
 
 test('navigation and visual tokens preserve accessibility and asset boundaries', () => {
   const navigation = read('components/site-navigation.tsx')
-  const styles = read('app/styles/foundation.css')
+  const referenceStyles = read('app/styles/reference-v2.css')
+  const styles = `${read('app/styles/foundation.css')}\n${referenceStyles}`
   const docsStyles = read('app/styles/docs.css')
   const landingStyles = read('app/styles/landing.css')
+  const action = read('components/site-header-action.tsx')
   assert.match(navigation, /aria-modal="true"/)
   assert.match(navigation, /event.key !== 'Escape'/)
   assert.match(navigation, /triggerRef\.current\?\.focus\(\)/)
-  assert.match(styles, /--cosmos: #020b15/)
-  assert.match(styles, /--cosmos-elevated: #071522/)
-  assert.match(styles, /--surface: #f3eee7/)
-  assert.match(styles, /--coral: #ff806c/)
-  assert.match(styles, /--cyan: #68ddec/)
-  assert.match(styles, /--violet: #a56dff/)
-  assert.match(styles, /--amber: #f2b64f/)
+  assert.match(referenceStyles, /--cosmos: #020a13/)
+  assert.match(referenceStyles, /--cosmos-elevated: #06131f/)
+  assert.match(referenceStyles, /--surface: #f1ece4/)
+  assert.match(referenceStyles, /--coral: #ff735c/)
+  assert.match(referenceStyles, /--cyan: #62d7eb/)
+  assert.match(referenceStyles, /--violet: #9a6ae8/)
+  assert.match(referenceStyles, /--amber: #efa63d/)
   assert.match(styles, /color-scheme: dark/)
-  assert.match(styles, /body[^}]*background:[^;]*var\(--cosmos\)/s)
-  assert.match(styles, /\.site-header[^}]*background:[^;]*var\(--cosmos\)/s)
+  assert.match(referenceStyles, /body[^}]*background-image:/s)
+  assert.match(
+    referenceStyles,
+    /\.site-header[^}]*background:[^;]*rgba\(2, 10, 19/s
+  )
   assert.match(
     docsStyles,
     /\.docs-layout[^}]*background:[^;]*var\(--surface\)/s
@@ -66,9 +74,17 @@ test('navigation and visual tokens preserve accessibility and asset boundaries',
     landingStyles,
     /\.landing-hero[^}]*background:[^;]*var\(--cosmos\)/s
   )
-  assert.match(read('components/site-header.tsx'), /Explore/)
+  assert.match(action, /pathname === '\/'/)
+  assert.match(action, /Explore/)
+  assert.match(action, /site-header__utility/)
   assert.match(read('components/site-header.tsx'), /BrandLogo/)
-  assert.match(read('components/brand-logo.tsx'), /viewBox="0 0 154 32"/)
+  assert.match(read('components/brand-logo.tsx'), /viewBox="0 0 114 26"/)
+  assert.equal(
+    (read('components/brand-logo.tsx').match(/brand-logo__letter/g) ?? [])
+      .length,
+    5
+  )
+  assert.match(read('components/galaxy-map.tsx'), /galaxy-map__core-mark/)
   assert.doesNotMatch(
     [
       read('components/site-frame.tsx'),
@@ -83,6 +99,7 @@ test('navigation and visual tokens preserve accessibility and asset boundaries',
   assert.doesNotMatch(
     [
       navigation,
+      action,
       styles,
       docsStyles,
       landingStyles,

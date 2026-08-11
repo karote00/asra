@@ -1,6 +1,8 @@
 import { LandingHero } from '@/components/landing-hero'
 import { LandingEntryEvidence } from '@/components/landing-entry-evidence'
 import { LandingOwnershipExplorer } from '@/components/landing-ownership-explorer'
+import { LandingOwnershipDetails } from '@/components/landing-ownership-explorer'
+import { LandingCapabilityFlow } from '@/components/landing-capability-flow'
 import { LandingPossibilityField } from '@/components/landing-possibility-field'
 import { LandingStory } from '@/components/landing-story'
 import { LandingTopology } from '@/components/landing-topology'
@@ -13,7 +15,9 @@ export default function LandingPage() {
     <div className="landing-route">
       <LandingHero release={bundle.release} />
       <LandingOwnershipExplorer />
+      <LandingCapabilityFlow />
       <LandingStory />
+      <LandingOwnershipDetails />
       <LandingTopology />
       <LandingEntryEvidence bundle={bundle} />
       <LandingPossibilityField />

@@ -1,13 +1,14 @@
 import Link from 'next/link'
 import { BrandLogo } from '@/components/brand-logo'
+import { SiteHeaderAction } from '@/components/site-header-action'
 import { SiteNavigation } from '@/components/site-navigation'
 
 export const primaryNavigation = [
+  { href: '/#why-asyra', label: 'Why Asyra' },
+  { href: '/asyra-design', label: 'Products' },
+  { href: '/atlas', label: 'Runtime Atlas' },
   { href: '/docs', label: 'Docs' },
-  { href: '/asyra-design', label: 'Asyra Design' },
-  { href: '/releases', label: 'Releases' },
-  { href: '/roadmap', label: 'Roadmap' },
-  { href: '/atlas', label: 'Runtime Atlas' }
+  { href: '/roadmap', label: 'Roadmap' }
 ] as const
 
 export function SiteHeader() {
@@ -19,12 +20,7 @@ export function SiteHeader() {
         </Link>
         <div className="site-header__navigation">
           <SiteNavigation items={primaryNavigation} />
-          <Link
-            className="site-header__cta"
-            href="/docs/start/create-design-app"
-          >
-            Explore <span aria-hidden="true">✦</span>
-          </Link>
+          <SiteHeaderAction />
         </div>
       </div>
     </header>

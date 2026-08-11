@@ -3,6 +3,7 @@ import Link from 'next/link'
 import type { ContentBundle, PublicPage } from '@/lib/content'
 import { CopyMarkdownButton } from '@/components/copy-markdown-button'
 import { DocsMobileNavigation } from '@/components/docs-mobile-navigation'
+import { DocsHome } from '@/components/docs-home'
 import { DocsNavigation, sectionLabel } from '@/components/docs-navigation'
 import { DocsTableOfContents } from '@/components/docs-table-of-contents'
 import { MarkdownContent } from '@/components/markdown-content'
@@ -15,6 +16,8 @@ interface DocsChromeProps {
 }
 
 export function DocsChrome({ bundle, page }: DocsChromeProps) {
+  if (page.route === '/docs') return <DocsHome bundle={bundle} />
+
   const currentIndex = bundle.pages.findIndex(({ id }) => id === page.id)
   const previous = currentIndex > 0 ? bundle.pages[currentIndex - 1] : undefined
   const next =
