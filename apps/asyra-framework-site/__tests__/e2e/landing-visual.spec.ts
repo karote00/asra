@@ -55,21 +55,53 @@ test('global desktop narrative puts plain outcomes and starting actions first', 
   await expect(
     page.locator('.galaxy-map--desktop .galaxy-map__domain')
   ).toHaveCount(6)
+  const desktopDomainDisc = await page
+    .locator(
+      '.galaxy-map--desktop [data-domain="design"] .galaxy-map__domain-disc'
+    )
+    .boundingBox()
+  expect(desktopDomainDisc).not.toBeNull()
+  expect(desktopDomainDisc?.width).toBeGreaterThanOrEqual(82)
+  expect(desktopDomainDisc?.width).toBeLessThanOrEqual(94)
   expect(
     await page.locator('.galaxy-map--desktop .galaxy-map__orbit').count()
   ).toBeGreaterThanOrEqual(14)
   expect(
-    await page
-      .locator('.galaxy-map--desktop .galaxy-map__dust-particle')
-      .count()
+    Number(
+      await page
+        .locator('.galaxy-map--desktop .galaxy-map__particle-field')
+        .getAttribute('data-particle-count')
+    )
   ).toBeGreaterThanOrEqual(760)
   expect(
-    await page
-      .locator('.galaxy-map--desktop .galaxy-map__cyan-particle')
-      .count()
+    Number(
+      await page
+        .locator('.galaxy-map--desktop .galaxy-map__particle-field')
+        .getAttribute('data-cyan-count')
+    )
   ).toBeGreaterThanOrEqual(70)
+  await expect(
+    page.locator(
+      '.galaxy-map--desktop .galaxy-map__domain-particles, .galaxy-map--desktop .galaxy-map__domain-halo, .galaxy-map--desktop .galaxy-map__core-ring--outer'
+    )
+  ).toHaveCount(0)
+  const desktopGalaxyBudget = await page
+    .locator('.galaxy-map--desktop')
+    .evaluate((galaxy) => ({
+      animations: Array.from(galaxy.querySelectorAll('*')).reduce(
+        (total, element) => total + element.getAnimations().length,
+        0
+      ),
+      elements: galaxy.querySelectorAll('*').length
+    }))
+  expect(desktopGalaxyBudget.elements).toBeLessThanOrEqual(240)
+  expect(desktopGalaxyBudget.animations).toBeLessThanOrEqual(30)
   expect(
-    await page.locator('.galaxy-map--desktop .galaxy-map__flare').count()
+    Number(
+      await page
+        .locator('.galaxy-map--desktop .galaxy-map__flares')
+        .getAttribute('data-flare-count')
+    )
   ).toBeGreaterThanOrEqual(12)
   await expect(
     page.locator('.galaxy-map--desktop .galaxy-map__hot-core')
@@ -185,6 +217,30 @@ test('global mobile narrative preserves the same promise, boundaries, and paths'
   await expect(
     page.locator('.galaxy-map--mobile .galaxy-map__domain')
   ).toHaveCount(6)
+  const mobileDomainDisc = await page
+    .locator(
+      '.galaxy-map--mobile [data-domain="design"] .galaxy-map__domain-disc'
+    )
+    .boundingBox()
+  expect(mobileDomainDisc).not.toBeNull()
+  expect(mobileDomainDisc?.width).toBeGreaterThanOrEqual(50)
+  expect(mobileDomainDisc?.width).toBeLessThanOrEqual(58)
+  await expect(
+    page.locator(
+      '.galaxy-map--mobile .galaxy-map__domain-particles, .galaxy-map--mobile .galaxy-map__domain-halo, .galaxy-map--mobile .galaxy-map__core-ring--outer'
+    )
+  ).toHaveCount(0)
+  const mobileGalaxyBudget = await page
+    .locator('.galaxy-map--mobile')
+    .evaluate((galaxy) => ({
+      animations: Array.from(galaxy.querySelectorAll('*')).reduce(
+        (total, element) => total + element.getAnimations().length,
+        0
+      ),
+      elements: galaxy.querySelectorAll('*').length
+    }))
+  expect(mobileGalaxyBudget.elements).toBeLessThanOrEqual(220)
+  expect(mobileGalaxyBudget.animations).toBeLessThanOrEqual(24)
   const mobileFlow = await page.evaluate(() => {
     const title = document.querySelector('#landing-title')
     const galaxy = document.querySelector('.landing-galaxy')

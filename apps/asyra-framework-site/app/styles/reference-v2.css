@@ -271,16 +271,21 @@ main {
   opacity: 0.82;
 }
 
-.galaxy-map__background-star {
+.galaxy-map__background-star-field {
   fill: #d8eef2;
+  opacity: 0.42;
 }
 
-.galaxy-map__background-star:nth-child(7n) {
+.galaxy-map__background-star-field--warm {
   fill: #f2b77d;
 }
 
-.galaxy-map__background-star:nth-child(13n) {
+.galaxy-map__background-star-field--cyan {
   fill: #68dce9;
+}
+
+.galaxy-map__background-star-field--1 {
+  opacity: 0.76;
 }
 
 .galaxy-map__fog {
@@ -369,23 +374,44 @@ main {
   stroke: rgba(109, 213, 229, 0.25);
 }
 
-.galaxy-map__dust-particle {
-  transform-box: fill-box;
-  transform-origin: center;
+.galaxy-map__dust-path {
+  fill: #df7550;
+  opacity: 0.34;
 }
 
-.galaxy-map__cyan-particle {
+.galaxy-map__dust-path--gold {
+  fill: #eaa35d;
+}
+
+.galaxy-map__dust-path--white {
+  fill: #fff1d5;
+}
+
+.galaxy-map__dust-path--cyan {
+  fill: #63dbe9;
   filter: drop-shadow(0 0 2px rgba(102, 224, 236, 0.78));
 }
 
-.galaxy-map__flare {
+.galaxy-map__dust-path--ember {
+  fill: #c85b3d;
+}
+
+.galaxy-map__dust-path--1 {
+  opacity: 0.58;
+}
+
+.galaxy-map__dust-path--2 {
+  opacity: 0.87;
+}
+
+.galaxy-map__flare-field {
   fill: #fff9e8;
   stroke: rgba(255, 246, 224, 0.88);
   stroke-linecap: round;
   stroke-width: 0.48;
 }
 
-.galaxy-map__flare:nth-child(4n) {
+.galaxy-map__flare-field--cyan {
   fill: #a4f4f8;
   stroke: rgba(103, 221, 235, 0.78);
 }
@@ -412,7 +438,12 @@ main {
   mix-blend-mode: screen;
 }
 
-.galaxy-map__core-burst-particle:nth-child(11n) {
+.galaxy-map__core-burst-path {
+  opacity: 0.64;
+}
+
+.galaxy-map__core-burst-path--1 {
+  opacity: 0.94;
   filter: drop-shadow(0 0 3px rgba(255, 246, 213, 0.95));
 }
 
@@ -422,28 +453,16 @@ main {
   opacity: 0.24;
 }
 
-.galaxy-map__core-ring {
+.galaxy-map__core-disc {
   fill: rgba(3, 13, 21, 0.62);
-  stroke: rgba(235, 134, 84, 0.72);
-}
-
-.galaxy-map__core-ring--outer {
-  fill: rgba(222, 102, 62, 0.055);
-  stroke-dasharray: 2 4;
-  stroke-width: 0.9;
-}
-
-.galaxy-map__core-ring--inner {
   stroke: rgba(243, 147, 92, 0.58);
   stroke-width: 0.72;
+  filter: drop-shadow(0 0 9px rgba(226, 99, 61, 0.42));
 }
 
 .galaxy-map__core-mark {
-  fill: none;
-  stroke: #eb7655;
-  stroke-linecap: square;
-  stroke-linejoin: miter;
-  stroke-width: 3.2;
+  fill: #eb7655;
+  filter: drop-shadow(0 0 3px rgba(235, 118, 85, 0.48));
 }
 
 .galaxy-map__domain {
@@ -471,25 +490,10 @@ main {
   transform-origin: center;
 }
 
-.galaxy-map__domain-particles {
-  fill: none;
-  stroke: color-mix(in srgb, currentColor 34%, transparent);
-  stroke-dasharray: 0.8 5.6;
-  stroke-linecap: round;
-  stroke-width: 2.1;
-}
-
-.galaxy-map__domain-halo {
-  fill: color-mix(in srgb, currentColor 4%, transparent);
-  stroke: color-mix(in srgb, currentColor 29%, transparent);
-  stroke-dasharray: 12 5 1 8;
-  stroke-width: 0.66;
-}
-
 .galaxy-map__domain-disc {
-  fill: rgba(4, 17, 28, 0.92);
+  fill: color-mix(in srgb, currentColor 14%, rgba(4, 17, 28, 0.94));
   stroke: currentColor;
-  stroke-width: 0.92;
+  stroke-width: 0.78;
   filter: drop-shadow(0 0 7px currentColor);
 }
 
@@ -498,13 +502,13 @@ main {
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 1.18;
+  stroke-width: 1.32;
 }
 
 .galaxy-map__domain text {
   fill: #ddd9d1;
   font-family: var(--body);
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 420;
   letter-spacing: 0.015em;
 }
@@ -514,6 +518,7 @@ main {
 .galaxy-map__filaments,
 .galaxy-map__core-energy,
 .galaxy-map__domain-body,
+.galaxy-map__flares,
 .galaxy-map__twinkle--0,
 .galaxy-map__twinkle--1,
 .galaxy-map__twinkle--2,
@@ -545,6 +550,11 @@ main {
 .galaxy-map__filaments {
   transform-origin: 46% 52%;
   animation: galaxy-filament-shift 24s ease-in-out infinite alternate;
+}
+
+.galaxy-map__flares {
+  transform-origin: 46% 52%;
+  animation: galaxy-flare-breathe 7.2s ease-in-out infinite alternate;
 }
 
 .galaxy-map__core-energy {
@@ -1999,7 +2009,7 @@ main {
   }
 
   .galaxy-map__domain text {
-    font-size: 10.5px;
+    font-size: 11.5px;
   }
 
   .landing-hero__action-region {
@@ -2284,6 +2294,11 @@ main {
 @keyframes galaxy-mobile-dust-drift {
   0% { transform: translate(-1px, 1px) rotate(-0.18deg); }
   100% { transform: translate(1px, -1px) rotate(0.2deg); }
+}
+
+@keyframes galaxy-flare-breathe {
+  0% { opacity: 0.7; }
+  100% { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

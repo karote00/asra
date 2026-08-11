@@ -136,3 +136,23 @@ test('Galaxy follows the approved irregular reference and motion contract', () =
     /prefers-reduced-motion:\s*reduce[\s\S]*animation:\s*none\s*!important/
   )
 })
+
+test('Galaxy keeps the reference glyphs and visual density without per-star DOM cost', () => {
+  const galaxy = read('components/galaxy-map.tsx')
+  const styles = read('app/styles/reference-v2.css')
+
+  assert.match(galaxy, /const referenceDomainIconPaths/)
+  assert.match(galaxy, /const referenceCoreMarkPath/)
+  ;['design', 'bim', 'simulation', 'ai-model', 'vr', 'whiteboard'].forEach(
+    (domain) => assert.match(galaxy, new RegExp(`['"]${domain}['"]`))
+  )
+  assert.match(galaxy, /galaxy-map__particle-field/)
+  assert.match(galaxy, /data-particle-count/)
+  assert.match(galaxy, /data-cyan-count/)
+  assert.doesNotMatch(galaxy, /galaxy-map__domain-particles/)
+  assert.doesNotMatch(galaxy, /galaxy-map__domain-halo/)
+  assert.doesNotMatch(galaxy, /galaxy-map__core-ring--outer/)
+  assert.doesNotMatch(styles, /\.galaxy-map__domain-particles/)
+  assert.doesNotMatch(styles, /\.galaxy-map__domain-halo/)
+  assert.doesNotMatch(styles, /\.galaxy-map__core-ring--outer/)
+})

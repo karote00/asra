@@ -21,6 +21,41 @@ interface Domain {
 
 type GalaxyVariant = 'desktop' | 'mobile'
 
+interface ParticlePoint {
+  color?: string
+  group?: number
+  opacity: number
+  radius: number
+  tone?: DustBand['tone']
+  x: number
+  y: number
+}
+
+interface ParticlePath {
+  count: number
+  d: string
+  key: string
+  luster: number
+  tone: string
+}
+
+const referenceDomainIconPaths: Record<DomainId, readonly string[]> = {
+  design: ['M0-12 10-6v12L0 12-10 6V-6Z', 'M-10-6 0 0 10-6M0 0v12'],
+  bim: ['M-11-11H3l8 8v14h-22Z', 'M-4-11v22M3-11v8h8M-11-4H4M-11 4h22'],
+  simulation: ['M0-11a11 11 0 1 1 0 22 11 11 0 0 1 0-22', 'M0-7v8l6 4'],
+  'ai-model': [
+    'M0-5 5 0 0 5-5 0Z',
+    'M0-14v5M-2-12h4M0 9v5m-2-2h4M-14 0h5m-3-2v4M9 0h5m-2-2v4'
+  ],
+  vr: [
+    'M-12-1c0-6 5-9 12-9s12 3 12 9v5c0 3-2 5-5 5H4L1 5h-2L-4 9h-3c-3 0-5-2-5-5Z',
+    'M-8-2c2-3 5-4 8-4s6 1 8 4M-7 1h4l3 3 3-3h4'
+  ],
+  whiteboard: ['M-13 5c4 0 5-14 9-14 5 0-1 13 4 13 4 0 5-12 10-12', 'm7-1 3 3']
+}
+
+const referenceCoreMarkPath = 'M0-25 23 24 13 28 0 5-13 28-23 24Z'
+
 const desktopDomains: readonly Domain[] = [
   {
     id: 'design',
@@ -342,12 +377,37 @@ const unitHash = (index: number, salt: number) => {
   return (value >>> 0) / 0xffffffff
 }
 
-const toneColor = (tone: DustBand['tone'], index: number) => {
-  if (tone === 'cyan') return index % 5 === 0 ? '#d7fbff' : '#63dbe9'
-  if (tone === 'white') return index % 4 === 0 ? '#fff8e8' : '#ffd2a2'
-  if (tone === 'gold') return index % 7 === 0 ? '#fff4d0' : '#eaa35d'
-  if (tone === 'ember') return index % 6 === 0 ? '#ffc796' : '#c85b3d'
-  return index % 8 === 0 ? '#fff0d8' : '#df7550'
+const rounded = (value: number) => Number(value.toFixed(2))
+
+const circleSubpath = ({ radius, x, y }: ParticlePoint) => {
+  const r = rounded(radius)
+  const left = rounded(x - radius)
+  const cy = rounded(y)
+  return `M${left} ${cy}a${r} ${r} 0 1 0 ${rounded(r * 2)} 0a${r} ${r} 0 1 0-${rounded(r * 2)} 0`
+}
+
+const groupParticlePaths = (
+  particles: readonly ParticlePoint[],
+  keyFor: (particle: ParticlePoint, index: number) => string
+) => {
+  const groups = new Map<string, ParticlePoint[]>()
+  particles.forEach((particle, index) => {
+    const key = keyFor(particle, index)
+    const bucket = groups.get(key)
+    if (bucket) bucket.push(particle)
+    else groups.set(key, [particle])
+  })
+
+  return Array.from(groups, ([key, points]): ParticlePath => {
+    const [tone, luster = '1'] = key.split(':')
+    return {
+      count: points.length,
+      d: points.map(circleSubpath).join(''),
+      key,
+      luster: Number(luster),
+      tone
+    }
+  })
 }
 
 const createDustParticles = (bands: readonly DustBand[], saltOffset: number) =>
@@ -442,33 +502,49 @@ const mobileCoreBurstParticles = createCoreBurstParticles(
   701
 )
 
+const dustPathKey = (particle: ParticlePoint) => {
+  let luster = 0
+  if (particle.opacity > 0.72) luster = 2
+  else if (particle.opacity > 0.43) luster = 1
+  return `${particle.tone ?? 'warm'}:${luster}:${particle.group ?? 0}`
+}
+
+const backgroundPathKey = (particle: ParticlePoint, index: number) => {
+  let tone = 'white'
+  if (index % 13 === 0) tone = 'cyan'
+  else if (index % 7 === 0) tone = 'warm'
+  const luster = particle.opacity > 0.55 || particle.radius > 1 ? 1 : 0
+  return `${tone}:${luster}`
+}
+
+const corePathKey = (particle: ParticlePoint) => {
+  const luster = particle.opacity > 0.78 || particle.radius > 1.7 ? 1 : 0
+  return `${particle.color ?? '#f4b66e'}:${luster}`
+}
+
+const desktopDustPaths = groupParticlePaths(desktopDustParticles, dustPathKey)
+const mobileDustPaths = groupParticlePaths(mobileDustParticles, dustPathKey)
+const desktopBackgroundPaths = groupParticlePaths(
+  desktopBackgroundStars,
+  backgroundPathKey
+)
+const mobileBackgroundPaths = groupParticlePaths(
+  mobileBackgroundStars,
+  backgroundPathKey
+)
+const desktopCoreBurstPaths = groupParticlePaths(
+  desktopCoreBurstParticles,
+  corePathKey
+)
+const mobileCoreBurstPaths = groupParticlePaths(
+  mobileCoreBurstParticles,
+  corePathKey
+)
+
 function DomainIcon({ id }: { id: DomainId }) {
-  if (id === 'design') {
-    return <path d="m-9-5 9-5 9 5V6L0 11-9 6Zm0 0L0 0l9-5M0 0v11" />
-  }
-  if (id === 'bim') {
-    return (
-      <>
-        <rect height="22" width="18" x="-9" y="-11" />
-        <path d="M-3-11v22M3-11v22M-9-4h18M-9 4h18" />
-      </>
-    )
-  }
-  if (id === 'simulation') {
-    return (
-      <>
-        <circle cx="0" cy="0" r="10" />
-        <path d="M0-6v7l6 4" />
-      </>
-    )
-  }
-  if (id === 'ai-model') {
-    return <path d="M0-11 3-4l7 4-7 4-3 7-3-7-7-4 7-4Zm8 12 2 4 4 2-4 2-2 4" />
-  }
-  if (id === 'vr') {
-    return <path d="M-13 3c1-8 4-12 13-12S12-5 13 3l-3 6-6-5h-8l-6 5Z" />
-  }
-  return <path d="M-12 6c4 0 5-13 9-13 4 0 1 12 5 12 4 0 5-11 10-11" />
+  return referenceDomainIconPaths[id].map((path) => (
+    <path d={path} key={path} />
+  ))
 }
 
 function GalaxyScene({ variant }: { variant: GalaxyVariant }) {
@@ -476,15 +552,40 @@ function GalaxyScene({ variant }: { variant: GalaxyVariant }) {
   const prefix = `galaxy-${variant}`
   const domains = mobile ? mobileDomains : desktopDomains
   const dustParticles = mobile ? mobileDustParticles : desktopDustParticles
-  const coreBurstParticles = mobile
-    ? mobileCoreBurstParticles
-    : desktopCoreBurstParticles
-  const backgroundStars = mobile
-    ? mobileBackgroundStars
-    : desktopBackgroundStars
+  const dustPaths = mobile ? mobileDustPaths : desktopDustPaths
+  const coreBurstPaths = mobile ? mobileCoreBurstPaths : desktopCoreBurstPaths
+  const backgroundPaths = mobile
+    ? mobileBackgroundPaths
+    : desktopBackgroundPaths
   const flares = mobile
     ? desktopFlares.map(([x, y]) => [4 + x * 0.542, y * 0.68] as const)
     : desktopFlares.map(([x, y]) => [x, y - 24] as const)
+  const flareFields = (['warm', 'cyan'] as const).map((tone) => {
+    const points = flares.filter((_, index) =>
+      tone === 'cyan' ? index % 4 === 0 : index % 4 !== 0
+    )
+    return {
+      circles: points
+        .map(([x, y], index) =>
+          circleSubpath({
+            opacity: 1,
+            radius: index % 4 === 0 ? 2.2 : 1.35,
+            x,
+            y
+          })
+        )
+        .join(''),
+      rays: points
+        .map(([x, y], index) => {
+          const reach = index % 3 === 0 ? 9 : 6
+          return `M${rounded(x - reach)} ${rounded(y)}H${rounded(
+            x + reach
+          )}M${rounded(x)} ${rounded(y - reach)}V${rounded(y + reach)}`
+        })
+        .join(''),
+      tone
+    }
+  })
   const orbitTransform = mobile
     ? 'translate(4 0) scale(.542 .68)'
     : 'translate(0 -24)'
@@ -591,14 +692,11 @@ function GalaxyScene({ variant }: { variant: GalaxyVariant }) {
       />
 
       <g className="galaxy-map__background-stars">
-        {backgroundStars.map((star, index) => (
-          <circle
-            className={`galaxy-map__background-star galaxy-map__twinkle--${index % 5}`}
-            cx={star.x}
-            cy={star.y}
-            key={`${variant}-background-${index}`}
-            opacity={star.opacity}
-            r={star.radius}
+        {backgroundPaths.map((field, index) => (
+          <path
+            className={`galaxy-map__background-star-field galaxy-map__background-star-field--${field.tone} galaxy-map__background-star-field--${field.luster} galaxy-map__twinkle--${index % 5}`}
+            d={field.d}
+            key={`${variant}-background-${field.key}`}
           />
         ))}
       </g>
@@ -677,7 +775,11 @@ function GalaxyScene({ variant }: { variant: GalaxyVariant }) {
       </g>
 
       <g
-        className="galaxy-map__field--dust"
+        className="galaxy-map__field--dust galaxy-map__particle-field"
+        data-cyan-count={
+          dustParticles.filter((particle) => particle.tone === 'cyan').length
+        }
+        data-particle-count={dustParticles.length}
         filter={`url(#${prefix}-particle-glow)`}
       >
         {[0, 1, 2].map((group) => (
@@ -685,21 +787,15 @@ function GalaxyScene({ variant }: { variant: GalaxyVariant }) {
             className={`galaxy-map__dust-stream galaxy-map__dust-stream--${group}`}
             key={group}
           >
-            {dustParticles.map((particle, index) =>
-              particle.group === group ? (
-                <circle
-                  className={`galaxy-map__dust-particle ${
-                    particle.tone === 'cyan' ? 'galaxy-map__cyan-particle' : ''
-                  } galaxy-map__twinkle--${index % 5}`}
-                  cx={particle.x}
-                  cy={particle.y}
-                  fill={toneColor(particle.tone, index)}
-                  key={`${variant}-dust-${index}`}
-                  opacity={particle.opacity}
-                  r={particle.radius}
+            {dustPaths
+              .filter((field) => Number(field.key.split(':')[2]) === group)
+              .map((field) => (
+                <path
+                  className={`galaxy-map__dust-path galaxy-map__dust-path--${field.tone} galaxy-map__dust-path--${field.luster}`}
+                  d={field.d}
+                  key={`${variant}-dust-${field.key}`}
                 />
-              ) : null
-            )}
+              ))}
           </g>
         ))}
       </g>
@@ -710,15 +806,14 @@ function GalaxyScene({ variant }: { variant: GalaxyVariant }) {
         ))}
       </g>
 
-      <g className="galaxy-map__flares">
-        {flares.map(([x, y], index) => (
+      <g className="galaxy-map__flares" data-flare-count={flares.length}>
+        {flareFields.map(({ circles, rays, tone }) => (
           <g
-            className={`galaxy-map__flare galaxy-map__twinkle--${index % 5}`}
-            key={`${x}-${y}`}
-            transform={`translate(${x} ${y})`}
+            className={`galaxy-map__flare-field galaxy-map__flare-field--${tone}`}
+            key={tone}
           >
-            <circle r={index % 4 === 0 ? 2.2 : 1.35} />
-            <path d={index % 3 === 0 ? 'M-9 0H9M0-9V9' : 'M-6 0H6M0-6V6'} />
+            <path d={circles} />
+            <path d={rays} />
           </g>
         ))}
       </g>
@@ -734,15 +829,12 @@ function GalaxyScene({ variant }: { variant: GalaxyVariant }) {
           transform={`rotate(-14 ${coreX} ${coreY})`}
         />
         <g className="galaxy-map__core-burst">
-          {coreBurstParticles.map((particle, index) => (
-            <circle
-              className={`galaxy-map__core-burst-particle galaxy-map__twinkle--${index % 5}`}
-              cx={particle.x}
-              cy={particle.y}
-              fill={particle.color}
-              key={`${variant}-core-burst-${index}`}
-              opacity={particle.opacity}
-              r={particle.radius}
+          {coreBurstPaths.map((field) => (
+            <path
+              className={`galaxy-map__core-burst-path galaxy-map__core-burst-path--${field.luster}`}
+              d={field.d}
+              fill={field.tone}
+              key={`${variant}-core-burst-${field.key}`}
             />
           ))}
         </g>
@@ -780,18 +872,8 @@ function GalaxyScene({ variant }: { variant: GalaxyVariant }) {
         className="galaxy-map__core"
         transform={`translate(${coreX} ${coreY})`}
       >
-        <circle
-          className="galaxy-map__core-ring galaxy-map__core-ring--outer"
-          r={mobile ? 39 : 64}
-        />
-        <circle
-          className="galaxy-map__core-ring galaxy-map__core-ring--inner"
-          r={mobile ? 29 : 52}
-        />
-        <path
-          className="galaxy-map__core-mark"
-          d="m-20 25 20-44 20 44M-11 15 0 4l11 11M0-19V4"
-        />
+        <circle className="galaxy-map__core-disc" r={mobile ? 29 : 52} />
+        <path className="galaxy-map__core-mark" d={referenceCoreMarkPath} />
       </g>
 
       {domains.map(({ id, label, tone, x, y }, index) => (
@@ -805,18 +887,8 @@ function GalaxyScene({ variant }: { variant: GalaxyVariant }) {
           <g
             className={`galaxy-map__domain-body galaxy-map__domain-body--${index}`}
           >
-            <circle
-              className="galaxy-map__domain-particles"
-              r={mobile ? 35 : 38}
-            />
-            <circle
-              className="galaxy-map__domain-halo galaxy-map__domain-halo--offset"
-              cx="-2"
-              cy="1"
-              r={mobile ? 31 : 34}
-            />
-            <circle className="galaxy-map__domain-disc" r={mobile ? 24 : 25} />
-            <g className="galaxy-map__domain-icon" transform="scale(.9)">
+            <circle className="galaxy-map__domain-disc" r={mobile ? 27 : 34} />
+            <g className="galaxy-map__domain-icon">
               <DomainIcon id={id} />
             </g>
             <text textAnchor="middle" x="0" y={mobile ? 43 : 53}>
