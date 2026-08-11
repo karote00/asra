@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
-import { AsyraMark } from '@/components/asyra-mark'
+import { FrameworkMark } from '@/components/framework-mark'
 
 const owners = [
   {
@@ -41,7 +41,7 @@ export function LandingOwnershipExplorer() {
     <section
       aria-labelledby="ownership-heading"
       className="landing-ownership"
-      id="why-asyra"
+      id="why-framework"
     >
       <header className="landing-section-heading">
         <p className="section-eyebrow">The Asyra Framework</p>
@@ -71,7 +71,7 @@ export function LandingOwnershipExplorer() {
           <span data-layer="runtime">Runtime layer</span>
           <span data-layer="foundation">Foundation layer</span>
           <strong>
-            <AsyraMark />
+            <FrameworkMark />
           </strong>
         </div>
         <aside>

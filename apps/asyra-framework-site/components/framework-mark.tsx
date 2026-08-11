@@ -1,8 +1,8 @@
-interface AsyraMarkProps {
+interface FrameworkMarkProps {
   className?: string
 }
 
-export function AsyraMark({ className }: AsyraMarkProps) {
+export function FrameworkMark({ className }: FrameworkMarkProps) {
   return (
     <svg
       aria-hidden="true"

@@ -185,7 +185,7 @@ export function AtlasNetwork({
         <dl>
           <div>
             <dt>ID</dt>
-            <dd>ASYRA-FLOW-01</dd>
+            <dd>RW-7A3C-9821</dd>
           </div>
           <div>
             <dt>Type</dt>

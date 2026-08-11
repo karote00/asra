@@ -4,7 +4,7 @@ import { SiteHeaderAction } from '@/components/site-header-action'
 import { SiteNavigation } from '@/components/site-navigation'
 
 export const primaryNavigation = [
-  { href: '/#why-asyra', label: 'Why Asyra' },
+  { href: '/#why-framework', label: 'Why Asyra' },
   { href: '/asyra-design', label: 'Products' },
   { href: '/atlas', label: 'Runtime Atlas' },
   { href: '/docs', label: 'Docs' },
