@@ -128,6 +128,14 @@ test('Galaxy follows the approved irregular reference and motion contract', () =
   assert.match(galaxy, /0 0 420 430/)
   assert.match(galaxy, /galaxy-map__hot-core/)
   assert.match(galaxy, /galaxy-map__flare/)
+  assert.match(galaxy, /galaxy-map__flare-bloom/)
+  assert.match(galaxy, /galaxy-map__flare-rays/)
+  assert.match(galaxy, /galaxy-map__flare-core/)
+  assert.match(galaxy, /\$\{prefix\}-flare-bloom/)
+  assert.match(
+    galaxy,
+    /id=\{`\$\{prefix\}-flare-bloom`\}[\s\S]*?<feGaussianBlur/
+  )
   assert.match(galaxy, /galaxy-map__occlusion/)
   assert.doesNotMatch(galaxy, /arm\s*=\s*index\s*%\s*4/)
   assert.doesNotMatch(galaxy, /referenceOrbitPaths|referenceLocalArcs/)

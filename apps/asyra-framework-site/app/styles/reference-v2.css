@@ -410,15 +410,40 @@ main {
 }
 
 .galaxy-map__flare-field {
-  fill: #fff9e8;
-  stroke: rgba(255, 246, 224, 0.88);
+  color: #fff2d0;
+}
+
+.galaxy-map__flare-bloom {
+  fill: currentColor;
+  opacity: 0.56;
+  stroke: currentColor;
   stroke-linecap: round;
-  stroke-width: 0.48;
+  stroke-width: 2.4;
+}
+
+.galaxy-map__flare-rays {
+  fill: none;
+  opacity: 0.78;
+  stroke: rgba(255, 250, 236, 0.9);
+  stroke-linecap: round;
+  stroke-width: 0.34;
+}
+
+.galaxy-map__flare-core {
+  fill: #fffdf4;
+  opacity: 0.94;
 }
 
 .galaxy-map__flare-field--cyan {
-  fill: #a4f4f8;
-  stroke: rgba(103, 221, 235, 0.78);
+  color: #78e6ef;
+}
+
+.galaxy-map__flare-field--cyan .galaxy-map__flare-rays {
+  stroke: rgba(183, 249, 250, 0.84);
+}
+
+.galaxy-map__flare-field--cyan .galaxy-map__flare-core {
+  fill: #d5fcfc;
 }
 
 .galaxy-map__core-energy {

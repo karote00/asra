@@ -559,7 +559,7 @@ function GalaxyScene({ variant }: { variant: GalaxyVariant }) {
         .map(([x, y], index) =>
           circleSubpath({
             opacity: 1,
-            radius: index % 4 === 0 ? 2.2 : 1.35,
+            radius: index % 4 === 0 ? 1.05 : 0.68,
             x,
             y
           })
@@ -636,6 +636,19 @@ function GalaxyScene({ variant }: { variant: GalaxyVariant }) {
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
+        </filter>
+        <filter
+          id={`${prefix}-flare-bloom`}
+          x="-10%"
+          y="-18%"
+          width="120%"
+          height="136%"
+          colorInterpolationFilters="sRGB"
+        >
+          <feGaussianBlur
+            in="SourceGraphic"
+            stdDeviation={mobile ? '1.25' : '1.8'}
+          />
         </filter>
         <filter
           id={`${prefix}-fog`}
@@ -807,8 +820,13 @@ function GalaxyScene({ variant }: { variant: GalaxyVariant }) {
             className={`galaxy-map__flare-field galaxy-map__flare-field--${tone}`}
             key={tone}
           >
-            <path d={circles} />
-            <path d={rays} />
+            <path
+              className="galaxy-map__flare-bloom"
+              d={`${circles}${rays}`}
+              filter={`url(#${prefix}-flare-bloom)`}
+            />
+            <path className="galaxy-map__flare-rays" d={rays} />
+            <path className="galaxy-map__flare-core" d={circles} />
           </g>
         ))}
       </g>

@@ -112,6 +112,22 @@ test('global desktop narrative puts plain outcomes and starting actions first', 
     )
   ).toBeGreaterThanOrEqual(12)
   await expect(
+    page.locator('.galaxy-map--desktop .galaxy-map__flare-bloom')
+  ).toHaveCount(2)
+  await expect(
+    page.locator('.galaxy-map--desktop .galaxy-map__flare-rays')
+  ).toHaveCount(2)
+  await expect(
+    page.locator('.galaxy-map--desktop .galaxy-map__flare-core')
+  ).toHaveCount(2)
+  const flareBlur = page.locator(
+    '.galaxy-map--desktop defs filter[id$="-flare-bloom"] feGaussianBlur'
+  )
+  await expect(flareBlur).toHaveCount(1)
+  expect(Number(await flareBlur.getAttribute('stdDeviation'))).toBeGreaterThan(
+    0
+  )
+  await expect(
     page.locator('.galaxy-map--desktop .galaxy-map__hot-core')
   ).toBeVisible()
   await expect(
