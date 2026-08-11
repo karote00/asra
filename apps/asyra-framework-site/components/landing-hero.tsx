@@ -30,9 +30,6 @@ export function LandingHero({ release }: LandingHeroProps) {
           className="landing-hero__instrument"
         >
           <GalaxyMap className="landing-galaxy" />
-          <figcaption>
-            One deterministic infrastructure. Infinite domain possibilities.
-          </figcaption>
         </figure>
 
         <div className="landing-hero__action-region">

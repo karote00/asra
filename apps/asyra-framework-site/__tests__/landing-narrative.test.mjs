@@ -26,7 +26,7 @@ test('Landing begins with an outcome anyone can understand before technical lang
   assert.match(hero, /See Asyra in 90 seconds/)
   assert.match(hero, /landing-galaxy/)
   assert.match(galaxy, /galaxy-map__core-mark/)
-  assert.equal((galaxy.match(/className="galaxy-map__orbit"/g) ?? []).length, 7)
+  assert.match(galaxy, /referenceOrbitPaths/)
 
   const promiseAt = source.indexOf('<span>Build worlds</span>')
   const firstTechnicalTerm = Math.min(
@@ -103,7 +103,7 @@ test('Landing panorama is code-native, responsive, and motion-optional', () => {
   assert.match(styles, /\.landing-hero/)
   assert.match(styles, /\.landing-possibility/)
   assert.match(styles, /\.landing-story/)
-  assert.match(styles, /\.galaxy-map__spirals/)
+  assert.match(styles, /\.galaxy-map__filaments/)
   assert.match(styles, /@media \(max-width: 760px\)/)
   assert.match(styles, /prefers-reduced-motion: reduce/)
   assert.doesNotMatch(
@@ -111,4 +111,28 @@ test('Landing panorama is code-native, responsive, and motion-optional', () => {
     /<canvas|WebGL|requestAnimationFrame|setInterval/
   )
   assert.doesNotMatch(components, /\.png|\.jpg|\.jpeg|\.webp|https?:\/\//i)
+})
+
+test('Galaxy follows the approved irregular reference and motion contract', () => {
+  const galaxy = read('components/galaxy-map.tsx')
+  const hero = read('components/landing-hero.tsx')
+  const styles = read('app/styles/reference-v2.css')
+
+  assert.match(galaxy, /desktopDomains/)
+  assert.match(galaxy, /mobileDomains/)
+  assert.match(galaxy, /referenceOrbitPaths/)
+  assert.match(galaxy, /referenceLocalArcs/)
+  assert.match(galaxy, /galaxy-map--desktop/)
+  assert.match(galaxy, /galaxy-map--mobile/)
+  assert.match(galaxy, /0 0 420 430/)
+  assert.match(galaxy, /galaxy-map__hot-core/)
+  assert.match(galaxy, /galaxy-map__flare/)
+  assert.match(galaxy, /galaxy-map__occlusion/)
+  assert.doesNotMatch(galaxy, /arm\s*=\s*index\s*%\s*4/)
+  assert.doesNotMatch(hero, /<figcaption>/)
+  assert.doesNotMatch(styles, /@keyframes galaxy-drift/)
+  assert.match(
+    styles,
+    /prefers-reduced-motion:\s*reduce[\s\S]*animation:\s*none\s*!important/
+  )
 })

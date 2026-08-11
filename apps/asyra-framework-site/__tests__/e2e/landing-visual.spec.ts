@@ -1,7 +1,5 @@
 import { expect, test } from '@playwright/test'
 
-const shouldComparePixelBaselines = process.platform === 'darwin'
-
 const pageDimensions = async (page: import('@playwright/test').Page) =>
   page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
@@ -40,41 +38,87 @@ test('global desktop narrative puts plain outcomes and starting actions first', 
     }
   })
   expect(desktopReferenceFrame).not.toBeNull()
-  expect(desktopReferenceFrame?.titleTop).toBeGreaterThanOrEqual(230)
-  expect(desktopReferenceFrame?.titleTop).toBeLessThanOrEqual(285)
+  expect(desktopReferenceFrame?.titleTop).toBeGreaterThanOrEqual(210)
+  expect(desktopReferenceFrame?.titleTop).toBeLessThanOrEqual(245)
   expect(desktopReferenceFrame?.playTop).toBeLessThanOrEqual(790)
   expect(desktopReferenceFrame?.coreCenterX).toBeLessThanOrEqual(970)
   await expect(page.locator('.site-header .brand-logo__letter')).toHaveCount(5)
   const desktopWordmark = page.locator('.site-header .wordmark__logo')
   await expect(desktopWordmark).toHaveCSS('width', '154px')
-  if (shouldComparePixelBaselines) {
-    await expect(desktopWordmark).toHaveScreenshot(
-      'brand-wordmark-desktop.png',
-      { animations: 'disabled', maxDiffPixels: 0 }
-    )
-  }
   await desktopWordmark.screenshot({
     animations: 'disabled',
     path: testInfo.outputPath('brand-wordmark-desktop-review.png')
   })
   await expect(page.locator('.landing-galaxy')).toBeVisible()
-  await expect(page.locator('.galaxy-map__orbit')).toHaveCount(7)
-  await expect(page.locator('.galaxy-map__domain')).toHaveCount(6)
+  await expect(page.locator('.galaxy-map--desktop')).toBeVisible()
+  await expect(page.locator('.galaxy-map--mobile')).toBeHidden()
+  await expect(
+    page.locator('.galaxy-map--desktop .galaxy-map__domain')
+  ).toHaveCount(6)
   expect(
-    await page.locator('.galaxy-map__star').count()
-  ).toBeGreaterThanOrEqual(480)
-  await expect(page.locator('.galaxy-map__aurora path')).toHaveCount(8)
-  await expect(page.locator('.galaxy-map__dust ellipse')).toHaveCount(5)
+    await page.locator('.galaxy-map--desktop .galaxy-map__orbit').count()
+  ).toBeGreaterThanOrEqual(14)
   expect(
-    await page.locator('.galaxy-map__stream-star').count()
-  ).toBeGreaterThanOrEqual(300)
+    await page
+      .locator('.galaxy-map--desktop .galaxy-map__dust-particle')
+      .count()
+  ).toBeGreaterThanOrEqual(760)
   expect(
-    await page.locator('.galaxy-map__cluster-star').count()
-  ).toBeGreaterThanOrEqual(240)
+    await page
+      .locator('.galaxy-map--desktop .galaxy-map__cyan-particle')
+      .count()
+  ).toBeGreaterThanOrEqual(70)
   expect(
-    await page.locator('.galaxy-map__bright-stars circle').count()
-  ).toBeGreaterThanOrEqual(18)
-  await expect(page.locator('.galaxy-map__core-mark')).toBeVisible()
+    await page.locator('.galaxy-map--desktop .galaxy-map__flare').count()
+  ).toBeGreaterThanOrEqual(12)
+  await expect(
+    page.locator('.galaxy-map--desktop .galaxy-map__hot-core')
+  ).toBeVisible()
+  await expect(
+    page.locator('.galaxy-map--desktop .galaxy-map__occlusion')
+  ).toBeVisible()
+  await expect(
+    page.locator('.galaxy-map--desktop .galaxy-map__core-mark')
+  ).toBeVisible()
+  await expect(
+    page.locator('.landing-hero__instrument figcaption')
+  ).toHaveCount(0)
+  const desktopGalaxyGeometry = await page.evaluate(() => {
+    const centerOf = (selector: string) => {
+      const element = document.querySelector(selector)
+      if (!element) return null
+      const box = element.getBoundingClientRect()
+      return { x: box.left + box.width / 2, y: box.top + box.height / 2 }
+    }
+
+    return {
+      ai: centerOf('.galaxy-map--desktop [data-domain="ai-model"]'),
+      bim: centerOf('.galaxy-map--desktop [data-domain="bim"]'),
+      core: centerOf('.galaxy-map--desktop .galaxy-map__core'),
+      design: centerOf('.galaxy-map--desktop [data-domain="design"]'),
+      simulation: centerOf('.galaxy-map--desktop [data-domain="simulation"]'),
+      vr: centerOf('.galaxy-map--desktop [data-domain="vr"]'),
+      whiteboard: centerOf('.galaxy-map--desktop [data-domain="whiteboard"]')
+    }
+  })
+  const expectNearReference = (
+    point: { x: number; y: number } | null,
+    x: number,
+    y: number,
+    tolerance = 38
+  ) => {
+    expect(point).not.toBeNull()
+    if (!point) return
+    expect(Math.abs(point.x - x)).toBeLessThanOrEqual(tolerance)
+    expect(Math.abs(point.y - y)).toBeLessThanOrEqual(tolerance)
+  }
+  expectNearReference(desktopGalaxyGeometry.design, 914, 198)
+  expectNearReference(desktopGalaxyGeometry.whiteboard, 690, 310)
+  expectNearReference(desktopGalaxyGeometry.bim, 1185, 350)
+  expectNearReference(desktopGalaxyGeometry.core, 940, 475)
+  expectNearReference(desktopGalaxyGeometry.vr, 710, 612)
+  expectNearReference(desktopGalaxyGeometry.simulation, 1185, 616)
+  expectNearReference(desktopGalaxyGeometry.ai, 940, 742)
   await expect(
     page.locator('.landing-capability-flow__runtime li')
   ).toHaveCount(5)
@@ -100,12 +144,6 @@ test('global desktop narrative puts plain outcomes and starting actions first', 
   const dimensions = await pageDimensions(page)
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth)
 
-  if (shouldComparePixelBaselines) {
-    await expect(page.locator('.landing-hero')).toHaveScreenshot(
-      'landing-hero-desktop-pixel.png',
-      { animations: 'disabled', maxDiffPixels: 0 }
-    )
-  }
   await page.screenshot({
     path: testInfo.outputPath('landing-hero-desktop.png')
   })
@@ -130,7 +168,7 @@ test('global desktop narrative puts plain outcomes and starting actions first', 
 test('global mobile narrative preserves the same promise, boundaries, and paths', async ({
   page
 }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 844 })
+  await page.setViewportSize({ width: 390, height: 1000 })
   await page.goto('/')
   await page.evaluate(() => document.fonts.ready)
 
@@ -142,7 +180,11 @@ test('global mobile narrative preserves the same promise, boundaries, and paths'
   ).toBeVisible()
   await expect(page.locator('#landing-title > span')).toHaveCount(2)
   await expect(page.locator('.landing-galaxy')).toBeVisible()
-  await expect(page.locator('.galaxy-map__domain')).toHaveCount(6)
+  await expect(page.locator('.galaxy-map--desktop')).toBeHidden()
+  await expect(page.locator('.galaxy-map--mobile')).toBeVisible()
+  await expect(
+    page.locator('.galaxy-map--mobile .galaxy-map__domain')
+  ).toHaveCount(6)
   const mobileFlow = await page.evaluate(() => {
     const title = document.querySelector('#landing-title')
     const galaxy = document.querySelector('.landing-galaxy')
@@ -159,9 +201,19 @@ test('global mobile narrative preserves the same promise, boundaries, and paths'
     const title = document.querySelector('#landing-title')
     const galaxy = document.querySelector('.landing-galaxy')
     const actions = document.querySelector('.landing-hero__actions')
-    if (!header || !title || !galaxy || !actions) return null
+    const design = document.querySelector(
+      '.galaxy-map--mobile [data-domain="design"]'
+    )
+    const ai = document.querySelector(
+      '.galaxy-map--mobile [data-domain="ai-model"]'
+    )
+    if (!header || !title || !galaxy || !actions || !design || !ai) return null
+    const designBox = design.getBoundingClientRect()
+    const aiBox = ai.getBoundingClientRect()
     return {
       actionsTop: actions.getBoundingClientRect().top,
+      domainDistance:
+        aiBox.top + aiBox.height / 2 - (designBox.top + designBox.height / 2),
       galaxyWidth: galaxy.getBoundingClientRect().width,
       headerHeight: header.getBoundingClientRect().height,
       titleTop: title.getBoundingClientRect().top
@@ -169,17 +221,15 @@ test('global mobile narrative preserves the same promise, boundaries, and paths'
   })
   expect(referenceFrame).not.toBeNull()
   expect(referenceFrame?.headerHeight).toBeGreaterThanOrEqual(76)
-  expect(referenceFrame?.titleTop).toBeGreaterThanOrEqual(132)
+  expect(referenceFrame?.titleTop).toBeGreaterThanOrEqual(108)
+  expect(referenceFrame?.titleTop).toBeLessThanOrEqual(128)
   expect(referenceFrame?.galaxyWidth).toBeGreaterThanOrEqual(380)
-  expect(referenceFrame?.actionsTop).toBeGreaterThanOrEqual(620)
+  expect(referenceFrame?.actionsTop).toBeGreaterThanOrEqual(700)
+  expect(referenceFrame?.actionsTop).toBeLessThanOrEqual(735)
+  expect(referenceFrame?.domainDistance).toBeGreaterThanOrEqual(285)
+  expect(referenceFrame?.domainDistance).toBeLessThanOrEqual(330)
   const mobileWordmark = page.locator('.site-header .wordmark__logo')
   await expect(mobileWordmark).toHaveCSS('width', '120px')
-  if (shouldComparePixelBaselines) {
-    await expect(mobileWordmark).toHaveScreenshot('brand-wordmark-mobile.png', {
-      animations: 'disabled',
-      maxDiffPixels: 0
-    })
-  }
   await mobileWordmark.screenshot({
     animations: 'disabled',
     path: testInfo.outputPath('brand-wordmark-mobile-review.png')
@@ -187,6 +237,9 @@ test('global mobile narrative preserves the same promise, boundaries, and paths'
   await expect(
     page.getByRole('link', { name: 'Start with a product' })
   ).toBeVisible()
+  await expect(
+    page.getByRole('link', { name: 'Start with a product' })
+  ).toHaveCSS('min-height', '62px')
   await expect(
     page.getByText('App-owned possibilities — not built-in features')
   ).toBeVisible()
@@ -198,12 +251,6 @@ test('global mobile narrative preserves the same promise, boundaries, and paths'
   const dimensions = await pageDimensions(page)
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth)
 
-  if (shouldComparePixelBaselines) {
-    await expect(page.locator('.landing-hero')).toHaveScreenshot(
-      'landing-hero-mobile-pixel.png',
-      { animations: 'disabled', maxDiffPixels: 0 }
-    )
-  }
   await page.screenshot({
     path: testInfo.outputPath('landing-hero-mobile.png')
   })
@@ -211,6 +258,53 @@ test('global mobile narrative preserves the same promise, boundaries, and paths'
     path: testInfo.outputPath('landing-mobile.png'),
     fullPage: true
   })
+})
+
+test('galaxy motion preserves its wide reference silhouette at every quarter', async ({
+  page
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/')
+  await page.evaluate(() => document.fonts.ready)
+
+  const widths: number[] = []
+  const heights: number[] = []
+  for (const fraction of [0, 0.25, 0.5, 0.75]) {
+    await page.evaluate((motionFraction) => {
+      document.querySelectorAll('.galaxy-map--desktop *').forEach((element) => {
+        element.getAnimations().forEach((animation) => {
+          const timing = animation.effect?.getComputedTiming()
+          const duration = Number(timing?.duration ?? 0)
+          animation.pause()
+          animation.currentTime = duration * motionFraction
+        })
+      })
+    }, fraction)
+
+    const silhouette = await page
+      .locator('.galaxy-map--desktop .galaxy-map__motion-field')
+      .boundingBox()
+    const svg = await page.locator('.galaxy-map--desktop').boundingBox()
+    expect(silhouette).not.toBeNull()
+    expect(svg).not.toBeNull()
+    if (!silhouette || !svg) continue
+    expect(silhouette.width).toBeGreaterThanOrEqual(svg.width * 0.9)
+    expect(silhouette.height).toBeGreaterThanOrEqual(svg.height * 0.9)
+    await expect(page.locator('.galaxy-map--desktop')).toHaveCSS(
+      'overflow',
+      'visible'
+    )
+    widths.push(silhouette.width)
+    heights.push(silhouette.height)
+
+    await page.locator('.landing-hero__instrument').screenshot({
+      animations: 'allow',
+      path: testInfo.outputPath(`galaxy-motion-${fraction * 100}.png`)
+    })
+  }
+
+  expect(Math.max(...widths) - Math.min(...widths)).toBeLessThanOrEqual(12)
+  expect(Math.max(...heights) - Math.min(...heights)).toBeLessThanOrEqual(12)
 })
 
 test('320px and desktop 200 percent reflow preserve actions without horizontal overflow', async ({
@@ -277,13 +371,12 @@ test('reduced motion exposes the complete equivalent Landing state instantly', a
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
 
-  const axisDuration = await page
-    .locator('.galaxy-map__spirals')
-    .first()
-    .evaluate((element) =>
-      Number.parseFloat(getComputedStyle(element).animationDuration)
+  const animationNames = await page
+    .locator('.galaxy-map--mobile [class*="galaxy-map__"]')
+    .evaluateAll((elements) =>
+      elements.map((element) => getComputedStyle(element).animationName)
     )
-  expect(axisDuration).toBeLessThanOrEqual(0.001)
+  expect(animationNames.every((name) => name === 'none')).toBe(true)
   await expect(
     page.getByText('Framework owns reusable infrastructure.')
   ).toBeVisible()

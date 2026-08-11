@@ -2,18 +2,338 @@ interface GalaxyMapProps {
   className?: string
 }
 
-const starRadiusFor = (index: number) => {
-  if (index % 41 === 0) return 1.65
-  if (index % 13 === 0) return 0.92
-  if (index % 5 === 0) return 0.58
-  return 0.34
+type DomainId =
+  | 'design'
+  | 'bim'
+  | 'simulation'
+  | 'ai-model'
+  | 'vr'
+  | 'whiteboard'
+
+interface Domain {
+  id: DomainId
+  label: string
+  tone: 'coral' | 'cyan' | 'amber' | 'violet' | 'blue'
+  x: number
+  y: number
+  route: string
 }
 
-const starColorFor = (index: number) => {
-  if (index % 9 === 0) return '#ff8a73'
-  if (index % 7 === 0) return '#6de6f2'
-  return '#d8e7ef'
+type GalaxyVariant = 'desktop' | 'mobile'
+
+const desktopDomains: readonly Domain[] = [
+  {
+    id: 'design',
+    label: 'Design',
+    tone: 'coral',
+    x: 356,
+    y: 74,
+    route: 'M366 298C361 234 357 139 356 74'
+  },
+  {
+    id: 'bim',
+    label: 'BIM',
+    tone: 'cyan',
+    x: 570,
+    y: 194,
+    route: 'M366 298C435 265 499 214 570 194'
+  },
+  {
+    id: 'simulation',
+    label: '4D',
+    tone: 'amber',
+    x: 566,
+    y: 410,
+    route: 'M366 298C433 326 504 382 566 410'
+  },
+  {
+    id: 'ai-model',
+    label: 'AI',
+    tone: 'violet',
+    x: 363,
+    y: 507,
+    route: 'M366 298C357 374 362 445 363 507'
+  },
+  {
+    id: 'vr',
+    label: 'VR',
+    tone: 'blue',
+    x: 174,
+    y: 400,
+    route: 'M366 298C299 319 228 372 174 400'
+  },
+  {
+    id: 'whiteboard',
+    label: 'Whiteboard',
+    tone: 'violet',
+    x: 165,
+    y: 166,
+    route: 'M366 298C294 273 228 189 165 166'
+  }
+] as const
+
+const mobileDomains: readonly Domain[] = [
+  {
+    id: 'design',
+    label: 'Design',
+    tone: 'coral',
+    x: 226,
+    y: 45,
+    route: 'M201 219C207 166 218 92 226 45'
+  },
+  {
+    id: 'bim',
+    label: 'BIM',
+    tone: 'cyan',
+    x: 352,
+    y: 139,
+    route: 'M201 219C250 199 308 157 352 139'
+  },
+  {
+    id: 'simulation',
+    label: '4D',
+    tone: 'amber',
+    x: 345,
+    y: 291,
+    route: 'M201 219C254 238 306 273 345 291'
+  },
+  {
+    id: 'ai-model',
+    label: 'AI',
+    tone: 'violet',
+    x: 222,
+    y: 380,
+    route: 'M201 219C198 278 216 338 222 380'
+  },
+  {
+    id: 'vr',
+    label: 'VR',
+    tone: 'blue',
+    x: 70,
+    y: 301,
+    route: 'M201 219C154 242 105 277 70 301'
+  },
+  {
+    id: 'whiteboard',
+    label: 'Whiteboard',
+    tone: 'violet',
+    x: 63,
+    y: 153,
+    route: 'M201 219C155 201 108 167 63 153'
+  }
+] as const
+
+const referenceOrbitPaths = [
+  'M52 347C114 142 308 69 514 119c157 38 234 142 185 249-60 131-295 183-483 98',
+  'M75 410C182 546 450 562 625 430c138-104 126-261-19-344',
+  'M101 270C211 105 459 64 635 176c137 87 141 226 28 316',
+  'M112 478C43 370 102 221 237 150c149-78 346-48 447 67',
+  'M166 154C71 264 86 415 211 491c132 80 326 50 432-65',
+  'M195 493C89 421 82 283 177 197c109-98 300-106 426-16',
+  'M206 203C307 120 485 139 573 236c74 82 47 188-59 238',
+  'M220 438C153 362 181 251 285 207c105-45 237-8 285 75',
+  'M244 253C320 188 451 205 509 277c50 62 20 139-58 168',
+  'M271 417C213 375 221 292 292 257c77-38 178-6 202 55',
+  'M276 277C339 233 437 260 461 319c20 48-29 98-96 103',
+  'M69 329C179 319 241 210 346 166c134-56 285-13 362 84',
+  'M86 389C207 364 260 460 389 478c121 18 249-26 301-106',
+  'M128 192C220 272 322 278 421 216c89-56 193-46 265 17',
+  'M110 454C213 400 286 301 393 276c127-29 231 21 289 107',
+  'M174 118C263 196 359 211 460 162c91-44 184-19 240 46'
+] as const
+
+const referenceLocalArcs = [
+  'M258 375C295 402 347 407 386 385',
+  'M286 246C333 215 395 220 428 255',
+  'M301 430C363 461 438 446 472 402',
+  'M187 327C225 282 279 260 329 267',
+  'M366 184C419 173 477 193 506 229',
+  'M396 469C456 468 513 438 536 397',
+  'M130 383C178 406 231 399 268 370',
+  'M488 250C536 265 566 299 574 336',
+  'M220 184C268 151 326 145 372 166',
+  'M494 361C535 345 578 355 604 382'
+] as const
+
+const filamentPaths = [
+  'M28 360C104 191 270 101 447 122c153 19 252 105 271 201',
+  'M44 409C158 510 345 522 493 462c132-53 198-146 189-232',
+  'M71 292C158 185 292 142 423 169c111 23 184 88 201 160',
+  'M102 455C172 382 226 283 329 233c107-52 226-33 302 35',
+  'M141 170C230 226 301 267 400 230c103-39 190-25 246 33',
+  'M154 427C227 456 319 443 371 389c49-50 100-72 162-66',
+  'M208 233C287 181 408 193 471 260c54 57 34 124-28 165',
+  'M228 393C189 339 220 275 288 248c71-28 161-3 195 49',
+  'M275 420C345 453 433 426 462 370c25-48-15-96-75-102',
+  'M84 370C159 357 228 329 284 287',
+  'M402 194C482 188 565 226 612 285'
+] as const
+
+const desktopFlares = [
+  [91, 329],
+  [143, 241],
+  [173, 418],
+  [221, 183],
+  [246, 367],
+  [287, 146],
+  [302, 442],
+  [343, 225],
+  [392, 171],
+  [437, 427],
+  [478, 236],
+  [521, 378],
+  [557, 172],
+  [604, 313],
+  [649, 399],
+  [686, 257]
+] as const
+
+interface DustBand {
+  count: number
+  cx: number
+  cy: number
+  from: number
+  radius: number
+  rise: number
+  span: number
+  squash: number
+  twist: number
+  tone: 'warm' | 'gold' | 'white' | 'cyan' | 'ember'
+  width: number
 }
+
+const desktopDustBands: readonly DustBand[] = [
+  {
+    count: 164,
+    cx: 343,
+    cy: 324,
+    from: -0.45,
+    radius: 18,
+    rise: 158,
+    span: 8.1,
+    squash: 0.53,
+    twist: 0.09,
+    tone: 'white',
+    width: 22
+  },
+  {
+    count: 143,
+    cx: 340,
+    cy: 329,
+    from: 1.65,
+    radius: 64,
+    rise: 260,
+    span: 4.8,
+    squash: 0.49,
+    twist: -0.12,
+    tone: 'warm',
+    width: 28
+  },
+  {
+    count: 128,
+    cx: 360,
+    cy: 303,
+    from: 3.45,
+    radius: 86,
+    rise: 226,
+    span: 3.46,
+    squash: 0.43,
+    twist: 0.18,
+    tone: 'gold',
+    width: 19
+  },
+  {
+    count: 117,
+    cx: 347,
+    cy: 334,
+    from: 0.12,
+    radius: 76,
+    rise: 268,
+    span: 3.72,
+    squash: 0.55,
+    twist: -0.08,
+    tone: 'ember',
+    width: 24
+  },
+  {
+    count: 103,
+    cx: 337,
+    cy: 321,
+    from: 2.5,
+    radius: 128,
+    rise: 214,
+    span: 2.78,
+    squash: 0.62,
+    twist: 0.14,
+    tone: 'warm',
+    width: 31
+  },
+  {
+    count: 91,
+    cx: 368,
+    cy: 316,
+    from: -1.82,
+    radius: 112,
+    rise: 248,
+    span: 3.12,
+    squash: 0.48,
+    twist: -0.16,
+    tone: 'cyan',
+    width: 20
+  },
+  {
+    count: 79,
+    cx: 326,
+    cy: 338,
+    from: 0.9,
+    radius: 177,
+    rise: 184,
+    span: 2.34,
+    squash: 0.65,
+    twist: 0.11,
+    tone: 'gold',
+    width: 34
+  },
+  {
+    count: 67,
+    cx: 352,
+    cy: 306,
+    from: 4.55,
+    radius: 194,
+    rise: 149,
+    span: 1.94,
+    squash: 0.44,
+    twist: -0.13,
+    tone: 'cyan',
+    width: 18
+  },
+  {
+    count: 55,
+    cx: 348,
+    cy: 326,
+    from: 2.95,
+    radius: 222,
+    rise: 116,
+    span: 1.72,
+    squash: 0.58,
+    twist: 0.2,
+    tone: 'white',
+    width: 26
+  }
+] as const
+
+const mobileDustBands: readonly DustBand[] = desktopDustBands.map(
+  (band, index) => ({
+    ...band,
+    count: Math.max(38, Math.round(band.count * 0.56)),
+    cx: 199 + (band.cx - 348) * 0.28,
+    cy: band.cy * 0.68 + (index % 3) * 1.3,
+    radius: band.radius * 0.59,
+    rise: band.rise * 0.64,
+    squash: Math.min(0.76, band.squash * 1.15),
+    width: band.width * 0.72
+  })
+)
 
 const unitHash = (index: number, salt: number) => {
   let value = Math.imul(index + 1, 0x45d9f3b) ^ Math.imul(salt, 0x27d4eb2d)
@@ -22,175 +342,491 @@ const unitHash = (index: number, salt: number) => {
   return (value >>> 0) / 0xffffffff
 }
 
-const stars = Array.from({ length: 520 }, (_, index) => {
-  const clustered = index >= 390
-  const angle = unitHash(index, 17) * Math.PI * 10
-  const distance = 34 + unitHash(index, 29) * 285
-  const clusterX = 380 + Math.cos(angle) * distance * 1.08
-  const clusterY = 310 + Math.sin(angle) * distance * 0.66
-
-  return {
-    color: starColorFor(index),
-    opacity: 0.18 + unitHash(index, 43) * 0.72,
-    radius: starRadiusFor(index),
-    x: clustered ? clusterX : 14 + unitHash(index, 53) * 732,
-    y: clustered ? clusterY : 12 + unitHash(index, 71) * 596
-  }
-})
-
-const streamStarColorFor = (index: number) => {
-  if (index % 17 === 0) return '#65d8e9'
-  if (index % 9 === 0) return '#ffd0a0'
-  return '#ff765d'
+const toneColor = (tone: DustBand['tone'], index: number) => {
+  if (tone === 'cyan') return index % 5 === 0 ? '#d7fbff' : '#63dbe9'
+  if (tone === 'white') return index % 4 === 0 ? '#fff8e8' : '#ffd2a2'
+  if (tone === 'gold') return index % 7 === 0 ? '#fff4d0' : '#eaa35d'
+  if (tone === 'ember') return index % 6 === 0 ? '#ffc796' : '#c85b3d'
+  return index % 8 === 0 ? '#fff0d8' : '#df7550'
 }
 
-const streamStars = Array.from({ length: 340 }, (_, index) => {
-  const arm = index % 4
-  const step = Math.floor(index / 4)
-  const progress = step / 84
-  const angle = progress * Math.PI * 2.55 + arm * (Math.PI / 2)
-  const distance = 28 + progress * 274 + (unitHash(index, 83) - 0.5) * 15
+const createDustParticles = (bands: readonly DustBand[], saltOffset: number) =>
+  bands.flatMap((band, bandIndex) =>
+    Array.from({ length: band.count }, (_, index) => {
+      const progress = (index + unitHash(index, 11 + bandIndex)) / band.count
+      const angle =
+        band.from +
+        progress * band.span +
+        Math.sin(progress * Math.PI * 3.1) * band.twist
+      const radialJitter =
+        (unitHash(index, saltOffset + bandIndex * 17) - 0.5) * band.width
+      const radius = band.radius + progress * band.rise + radialJitter
+      const lateral =
+        (unitHash(index, saltOffset + 91 + bandIndex * 13) - 0.5) * band.width
 
-  return {
-    color: streamStarColorFor(index),
-    opacity: 0.22 + unitHash(index, 97) * 0.68,
-    radius: 0.25 + unitHash(index, 109) * 0.72,
-    x: 380 + Math.cos(angle) * distance * 1.06,
-    y: 310 + Math.sin(angle) * distance * 0.64
-  }
-})
+      return {
+        group: bandIndex % 3,
+        opacity: 0.2 + unitHash(index, saltOffset + 131 + bandIndex) * 0.74,
+        radius: 0.24 + unitHash(index, saltOffset + 173 + bandIndex) * 0.94,
+        tone: band.tone,
+        x: band.cx + Math.cos(angle) * radius + Math.sin(angle) * lateral,
+        y:
+          band.cy +
+          Math.sin(angle) * radius * band.squash +
+          Math.cos(angle) * lateral * 0.48
+      }
+    })
+  )
 
-const clusterStarColorFor = (index: number) => {
-  if (index % 19 === 0) return '#fff1d7'
-  if (index % 11 === 0) return '#ffbb7d'
-  return '#ff7459'
-}
+const createBackgroundStars = (
+  count: number,
+  width: number,
+  height: number,
+  salt: number
+) =>
+  Array.from({ length: count }, (_, index) => ({
+    opacity: 0.13 + unitHash(index, salt + 31) * 0.64,
+    radius: index % 53 === 0 ? 1.38 : 0.22 + unitHash(index, salt + 53) * 0.58,
+    x: 8 + unitHash(index, salt + 71) * (width - 16),
+    y: 8 + unitHash(index, salt + 89) * (height - 16)
+  }))
 
-const clusterStars = Array.from({ length: 280 }, (_, index) => {
-  const angle = unitHash(index, 127) * Math.PI * 2
-  const distance = Math.pow(unitHash(index, 139), 1.65) * 188
+const desktopDustParticles = createDustParticles(
+  desktopDustBands.map((band) => ({ ...band, cy: band.cy - 24 })),
+  211
+)
+const mobileDustParticles = createDustParticles(mobileDustBands, 311)
+const desktopBackgroundStars = createBackgroundStars(340, 760, 620, 401)
+const mobileBackgroundStars = createBackgroundStars(210, 420, 430, 503)
 
-  return {
-    color: clusterStarColorFor(index),
-    opacity: 0.3 + unitHash(index, 149) * 0.67,
-    radius: 0.28 + unitHash(index, 157) * 0.94,
-    x: 340 + Math.cos(angle) * distance * 1.12,
-    y: 320 + Math.sin(angle) * distance * 0.58
-  }
-})
+const createCoreBurstParticles = (
+  count: number,
+  cx: number,
+  cy: number,
+  xSpread: number,
+  ySpread: number,
+  salt: number
+) =>
+  Array.from({ length: count }, (_, index) => {
+    const angle = unitHash(index, salt + 17) * Math.PI * 2
+    const distance = Math.pow(unitHash(index, salt + 31), 1.72)
+    let color = '#f4b66e'
+    if (index % 13 === 0) color = '#d9fbff'
+    else if (index % 3 === 0) color = '#fffdf1'
+    let radius = 0.32 + unitHash(index, salt + 59) * 1.16
+    if (index % 17 === 0) radius = 2.35
 
-const auroraRibbons = [
-  {
-    color: 'url(#galaxy-aurora-coral)',
-    d: 'M72 356C151 186 352 105 552 164c137 40 186 142 127 226-72 102-282 126-437 58',
-    opacity: 0.2,
-    width: 3.5
-  },
-  {
-    color: 'url(#galaxy-aurora-gold)',
-    d: 'M96 421c123 102 352 111 503 7 122-84 119-199 2-267',
-    opacity: 0.17,
-    width: 3
-  },
-  {
-    color: 'url(#galaxy-aurora-coral)',
-    d: 'M134 286c102-112 304-149 452-72 107 56 129 147 51 207-94 73-291 47-390-42',
-    opacity: 0.26,
-    width: 2.5
-  },
-  {
-    color: 'url(#galaxy-aurora-cyan)',
-    d: 'M122 454c86 60 248 77 373 35 141-47 222-151 178-232-47-86-204-119-335-55',
-    opacity: 0.16,
-    width: 2
-  },
-  {
-    color: 'url(#galaxy-aurora-gold)',
-    d: 'M190 409c-67-83-13-177 101-208 113-31 252 11 292 91 36 72-38 143-153 143',
-    opacity: 0.3,
-    width: 1.7
-  },
-  {
-    color: 'url(#galaxy-aurora-coral)',
-    d: 'M208 222c-58 51-40 123 38 167 82 46 215 47 286-7 61-46 43-107-20-142',
-    opacity: 0.34,
-    width: 1.45
-  },
-  {
-    color: 'url(#galaxy-aurora-violet)',
-    d: 'M268 418c-65-35-85-95-44-139 47-50 156-62 230-22 65 35 76 91 26 126',
-    opacity: 0.24,
-    width: 1.2
-  },
-  {
-    color: 'url(#galaxy-aurora-gold)',
-    d: 'M292 367c-43-29-46-69-4-94 46-27 126-18 157 18 26 31 2 68-48 76',
-    opacity: 0.44,
-    width: 1
-  }
-] as const
+    return {
+      color,
+      opacity: 0.48 + unitHash(index, salt + 47) * 0.52,
+      radius,
+      x: cx + Math.cos(angle) * distance * xSpread,
+      y: cy + Math.sin(angle) * distance * ySpread
+    }
+  })
 
-const brightStars = [
-  [286, 232, 2.2],
-  [485, 216, 2.6],
-  [514, 356, 2],
-  [270, 398, 2.5],
-  [382, 170, 1.8],
-  [376, 452, 2.2],
-  [196, 316, 1.5],
-  [230, 184, 1.35],
-  [315, 145, 1.15],
-  [438, 137, 1.4],
-  [558, 257, 1.7],
-  [601, 334, 1.25],
-  [553, 444, 1.55],
-  [460, 485, 1.3],
-  [326, 489, 1.15],
-  [205, 450, 1.35],
-  [152, 371, 1.6],
-  [177, 247, 1.25],
-  [346, 253, 1.1],
-  [430, 337, 1.2],
-  [334, 366, 1.05],
-  [454, 393, 1.25]
-] as const
+const desktopCoreBurstParticles = createCoreBurstParticles(
+  210,
+  285,
+  298,
+  155,
+  65,
+  601
+)
+const mobileCoreBurstParticles = createCoreBurstParticles(
+  62,
+  180,
+  218,
+  60,
+  31,
+  701
+)
 
-const domains = [
-  { id: 'design', label: 'Design', tone: 'coral', x: 380, y: 78 },
-  { id: 'bim', label: 'BIM', tone: 'cyan', x: 596, y: 194 },
-  { id: 'simulation', label: '4D', tone: 'amber', x: 598, y: 424 },
-  { id: 'ai-model', label: 'AI', tone: 'violet', x: 380, y: 544 },
-  { id: 'vr', label: 'VR', tone: 'blue', x: 164, y: 424 },
-  { id: 'whiteboard', label: 'Whiteboard', tone: 'violet', x: 164, y: 194 }
-] as const
-
-function DomainIcon({ id }: { id: (typeof domains)[number]['id'] }) {
+function DomainIcon({ id }: { id: DomainId }) {
   if (id === 'design') {
-    return <path d="m-10-6 10-6 10 6v12L0 12-10 6Zm0 0L0 0l10-6M0 0v12" />
+    return <path d="m-9-5 9-5 9 5V6L0 11-9 6Zm0 0L0 0l9-5M0 0v11" />
   }
   if (id === 'bim') {
     return (
       <>
-        <rect height="24" width="20" x="-10" y="-12" />
-        <path d="M-3-12v24M4-12v24M-10-4h20M-10 4h20" />
+        <rect height="22" width="18" x="-9" y="-11" />
+        <path d="M-3-11v22M3-11v22M-9-4h18M-9 4h18" />
       </>
     )
   }
   if (id === 'simulation') {
     return (
       <>
-        <circle cx="0" cy="0" r="11" />
-        <path d="M0-7v8l6 4" />
+        <circle cx="0" cy="0" r="10" />
+        <path d="M0-6v7l6 4" />
       </>
     )
   }
   if (id === 'ai-model') {
-    return <path d="M0-12 3-4l8 4-8 4-3 8-3-8-8-4 8-4Zm8 13 2 5 5 2-5 2-2 5" />
+    return <path d="M0-11 3-4l7 4-7 4-3 7-3-7-7-4 7-4Zm8 12 2 4 4 2-4 2-2 4" />
   }
   if (id === 'vr') {
-    return <path d="M-14 3c1-9 4-13 14-13S13-6 14 3l-3 7-7-5h-8l-7 5Z" />
+    return <path d="M-13 3c1-8 4-12 13-12S12-5 13 3l-3 6-6-5h-8l-6 5Z" />
   }
-  return <path d="M-13 7c4 0 5-14 10-14 4 0 1 13 5 13 5 0 6-12 11-12" />
+  return <path d="M-12 6c4 0 5-13 9-13 4 0 1 12 5 12 4 0 5-11 10-11" />
+}
+
+function GalaxyScene({ variant }: { variant: GalaxyVariant }) {
+  const mobile = variant === 'mobile'
+  const prefix = `galaxy-${variant}`
+  const domains = mobile ? mobileDomains : desktopDomains
+  const dustParticles = mobile ? mobileDustParticles : desktopDustParticles
+  const coreBurstParticles = mobile
+    ? mobileCoreBurstParticles
+    : desktopCoreBurstParticles
+  const backgroundStars = mobile
+    ? mobileBackgroundStars
+    : desktopBackgroundStars
+  const flares = mobile
+    ? desktopFlares.map(([x, y]) => [4 + x * 0.542, y * 0.68] as const)
+    : desktopFlares.map(([x, y]) => [x, y - 24] as const)
+  const orbitTransform = mobile
+    ? 'translate(4 0) scale(.542 .68)'
+    : 'translate(0 -24)'
+  const coreX = mobile ? 201 : 366
+  const coreY = mobile ? 219 : 298
+
+  return (
+    <>
+      <defs>
+        <radialGradient id={`${prefix}-ambient`} cx="43%" cy="52%" r="59%">
+          <stop offset="0" stopColor="#fff3dc" stopOpacity=".44" />
+          <stop offset=".08" stopColor="#e89a63" stopOpacity=".34" />
+          <stop offset=".25" stopColor="#a74732" stopOpacity=".15" />
+          <stop offset=".55" stopColor="#29597a" stopOpacity=".07" />
+          <stop offset="1" stopColor="#020a13" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id={`${prefix}-core`} cx="42%" cy="48%" r="54%">
+          <stop offset="0" stopColor="#ffffff" stopOpacity="1" />
+          <stop offset=".09" stopColor="#fff5d5" stopOpacity=".96" />
+          <stop offset=".25" stopColor="#f0ad68" stopOpacity=".76" />
+          <stop offset=".52" stopColor="#b95637" stopOpacity=".33" />
+          <stop offset="1" stopColor="#7d3027" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={`${prefix}-warm-line`} x1="0" x2="1">
+          <stop offset="0" stopColor="#b8563d" stopOpacity="0" />
+          <stop offset=".24" stopColor="#dc7950" stopOpacity=".62" />
+          <stop offset=".54" stopColor="#fff0c8" stopOpacity=".88" />
+          <stop offset=".83" stopColor="#c75f40" stopOpacity=".46" />
+          <stop offset="1" stopColor="#c75f40" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id={`${prefix}-cool-line`} x1="0" x2="1">
+          <stop offset="0" stopColor="#64dce9" stopOpacity="0" />
+          <stop offset=".48" stopColor="#92edf4" stopOpacity=".62" />
+          <stop offset="1" stopColor="#4485b1" stopOpacity="0" />
+        </linearGradient>
+        <filter
+          id={`${prefix}-soft-glow`}
+          x="-100%"
+          y="-100%"
+          width="300%"
+          height="300%"
+        >
+          <feGaussianBlur stdDeviation={mobile ? '5' : '7'} result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <filter
+          id={`${prefix}-particle-glow`}
+          x="-40%"
+          y="-60%"
+          width="180%"
+          height="220%"
+        >
+          <feGaussianBlur stdDeviation=".8" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        <filter
+          id={`${prefix}-fog`}
+          x="-45%"
+          y="-80%"
+          width="190%"
+          height="260%"
+        >
+          <feGaussianBlur stdDeviation={mobile ? '14' : '22'} />
+        </filter>
+        <mask id={`${prefix}-depth-mask`}>
+          <rect
+            fill="white"
+            height={mobile ? 430 : 620}
+            width={mobile ? 420 : 760}
+          />
+          <ellipse
+            cx={coreX + (mobile ? 5 : 12)}
+            cy={coreY + 5}
+            fill="black"
+            opacity=".56"
+            rx={mobile ? 34 : 61}
+            ry={mobile ? 21 : 34}
+            transform={`rotate(-16 ${coreX} ${coreY})`}
+          />
+        </mask>
+      </defs>
+
+      <rect
+        className="galaxy-map__motion-bounds"
+        fill="transparent"
+        height={mobile ? 406 : 596}
+        width={mobile ? 404 : 736}
+        x="12"
+        y="12"
+      />
+      <ellipse
+        className="galaxy-map__ambient"
+        cx={coreX - (mobile ? 8 : 29)}
+        cy={coreY + 3}
+        fill={`url(#${prefix}-ambient)`}
+        rx={mobile ? 196 : 354}
+        ry={mobile ? 191 : 230}
+      />
+
+      <g className="galaxy-map__background-stars">
+        {backgroundStars.map((star, index) => (
+          <circle
+            className={`galaxy-map__background-star galaxy-map__twinkle--${index % 5}`}
+            cx={star.x}
+            cy={star.y}
+            key={`${variant}-background-${index}`}
+            opacity={star.opacity}
+            r={star.radius}
+          />
+        ))}
+      </g>
+
+      <g
+        className="galaxy-map__fog galaxy-map__fog--rear"
+        filter={`url(#${prefix}-fog)`}
+      >
+        <ellipse
+          cx={coreX - (mobile ? 16 : 61)}
+          cy={coreY + (mobile ? 5 : 9)}
+          rx={mobile ? 92 : 181}
+          ry={mobile ? 28 : 50}
+          transform={`rotate(-24 ${coreX} ${coreY})`}
+        />
+        <ellipse
+          cx={coreX + (mobile ? 31 : 82)}
+          cy={coreY - (mobile ? 29 : 42)}
+          rx={mobile ? 101 : 204}
+          ry={mobile ? 23 : 45}
+          transform={`rotate(21 ${coreX} ${coreY})`}
+        />
+        <ellipse
+          className="galaxy-map__fog--cool"
+          cx={coreX + (mobile ? 14 : 102)}
+          cy={coreY + (mobile ? 35 : 52)}
+          rx={mobile ? 124 : 236}
+          ry={mobile ? 23 : 48}
+          transform={`rotate(-13 ${coreX} ${coreY})`}
+        />
+      </g>
+
+      <g className="galaxy-map__field--outer">
+        <g
+          className="galaxy-map__orbits"
+          mask={`url(#${prefix}-depth-mask)`}
+          transform={orbitTransform}
+        >
+          {referenceOrbitPaths.map((path, index) => (
+            <path
+              className={`galaxy-map__orbit galaxy-map__orbit--${index % 4}`}
+              d={path}
+              key={path}
+            />
+          ))}
+        </g>
+        <g className="galaxy-map__local-arcs" transform={orbitTransform}>
+          {referenceLocalArcs.map((path, index) => (
+            <path
+              className={`galaxy-map__local-arc galaxy-map__local-arc--${index % 3}`}
+              d={path}
+              key={path}
+            />
+          ))}
+        </g>
+      </g>
+
+      <g
+        className="galaxy-map__filaments"
+        filter={`url(#${prefix}-soft-glow)`}
+        mask={`url(#${prefix}-depth-mask)`}
+        transform={orbitTransform}
+      >
+        {filamentPaths.map((path, index) => (
+          <path
+            className={`galaxy-map__filament galaxy-map__filament--${index % 4}`}
+            d={path}
+            key={path}
+            stroke={
+              index % 5 === 3
+                ? `url(#${prefix}-cool-line)`
+                : `url(#${prefix}-warm-line)`
+            }
+          />
+        ))}
+      </g>
+
+      <g
+        className="galaxy-map__field--dust"
+        filter={`url(#${prefix}-particle-glow)`}
+      >
+        {[0, 1, 2].map((group) => (
+          <g
+            className={`galaxy-map__dust-stream galaxy-map__dust-stream--${group}`}
+            key={group}
+          >
+            {dustParticles.map((particle, index) =>
+              particle.group === group ? (
+                <circle
+                  className={`galaxy-map__dust-particle ${
+                    particle.tone === 'cyan' ? 'galaxy-map__cyan-particle' : ''
+                  } galaxy-map__twinkle--${index % 5}`}
+                  cx={particle.x}
+                  cy={particle.y}
+                  fill={toneColor(particle.tone, index)}
+                  key={`${variant}-dust-${index}`}
+                  opacity={particle.opacity}
+                  r={particle.radius}
+                />
+              ) : null
+            )}
+          </g>
+        ))}
+      </g>
+
+      <g className="galaxy-map__routes">
+        {domains.map(({ id, route }) => (
+          <path d={route} key={id} />
+        ))}
+      </g>
+
+      <g className="galaxy-map__flares">
+        {flares.map(([x, y], index) => (
+          <g
+            className={`galaxy-map__flare galaxy-map__twinkle--${index % 5}`}
+            key={`${x}-${y}`}
+            transform={`translate(${x} ${y})`}
+          >
+            <circle r={index % 4 === 0 ? 2.2 : 1.35} />
+            <path d={index % 3 === 0 ? 'M-9 0H9M0-9V9' : 'M-6 0H6M0-6V6'} />
+          </g>
+        ))}
+      </g>
+
+      <g className="galaxy-map__hot-core" filter={`url(#${prefix}-soft-glow)`}>
+        <ellipse
+          className="galaxy-map__core-energy"
+          cx={coreX - 9}
+          cy={coreY + 2}
+          fill={`url(#${prefix}-core)`}
+          rx={mobile ? 60 : 98}
+          ry={mobile ? 43 : 62}
+          transform={`rotate(-14 ${coreX} ${coreY})`}
+        />
+        <g className="galaxy-map__core-burst">
+          {coreBurstParticles.map((particle, index) => (
+            <circle
+              className={`galaxy-map__core-burst-particle galaxy-map__twinkle--${index % 5}`}
+              cx={particle.x}
+              cy={particle.y}
+              fill={particle.color}
+              key={`${variant}-core-burst-${index}`}
+              opacity={particle.opacity}
+              r={particle.radius}
+            />
+          ))}
+        </g>
+        <circle
+          className="galaxy-map__core-hotspot galaxy-map__core-hotspot--a"
+          cx={coreX - 22}
+          cy={coreY - 5}
+          r={mobile ? 5 : 8}
+        />
+        <circle
+          className="galaxy-map__core-hotspot galaxy-map__core-hotspot--b"
+          cx={coreX + 9}
+          cy={coreY + 11}
+          r={mobile ? 3.5 : 5.5}
+        />
+        <circle
+          className="galaxy-map__core-hotspot galaxy-map__core-hotspot--c"
+          cx={coreX - 3}
+          cy={coreY - 18}
+          r={mobile ? 2.5 : 4.5}
+        />
+      </g>
+
+      <path
+        className="galaxy-map__occlusion"
+        d={
+          mobile
+            ? 'M91 240C137 224 182 219 225 229c53 12 88 38 128 37-30 31-98 38-157 24-48-13-82-33-105-50Z'
+            : 'M132 361C224 319 319 311 402 336c104 31 171 93 253 89-55 67-189 80-302 39-94-34-165-78-221-103Z'
+        }
+        transform={mobile ? undefined : 'translate(0 -24)'}
+      />
+
+      <g
+        className="galaxy-map__core"
+        transform={`translate(${coreX} ${coreY})`}
+      >
+        <circle
+          className="galaxy-map__core-ring galaxy-map__core-ring--outer"
+          r={mobile ? 39 : 64}
+        />
+        <circle
+          className="galaxy-map__core-ring galaxy-map__core-ring--inner"
+          r={mobile ? 29 : 52}
+        />
+        <path
+          className="galaxy-map__core-mark"
+          d="m-20 25 20-44 20 44M-11 15 0 4l11 11M0-19V4"
+        />
+      </g>
+
+      {domains.map(({ id, label, tone, x, y }, index) => (
+        <g
+          className="galaxy-map__domain"
+          data-domain={id}
+          data-tone={tone}
+          key={id}
+          transform={`translate(${x} ${y})`}
+        >
+          <g
+            className={`galaxy-map__domain-body galaxy-map__domain-body--${index}`}
+          >
+            <circle
+              className="galaxy-map__domain-particles"
+              r={mobile ? 35 : 38}
+            />
+            <circle
+              className="galaxy-map__domain-halo galaxy-map__domain-halo--offset"
+              cx="-2"
+              cy="1"
+              r={mobile ? 31 : 34}
+            />
+            <circle className="galaxy-map__domain-disc" r={mobile ? 24 : 25} />
+            <g className="galaxy-map__domain-icon" transform="scale(.9)">
+              <DomainIcon id={id} />
+            </g>
+            <text textAnchor="middle" x="0" y={mobile ? 43 : 53}>
+              {label}
+            </text>
+          </g>
+        </g>
+      ))}
+    </>
+  )
 }
 
 export function GalaxyMap({ className }: GalaxyMapProps) {
@@ -198,316 +834,22 @@ export function GalaxyMap({ className }: GalaxyMapProps) {
     <div className={className}>
       <svg
         aria-hidden="true"
-        className="galaxy-map"
+        className="galaxy-map galaxy-map--desktop"
         focusable="false"
         viewBox="0 0 760 620"
       >
-        <defs>
-          <radialGradient id="galaxy-nebula" cx="50%" cy="50%" r="50%">
-            <stop offset="0" stopColor="#ffc0a1" stopOpacity=".62" />
-            <stop offset=".13" stopColor="#ff795f" stopOpacity=".34" />
-            <stop offset=".34" stopColor="#d65142" stopOpacity=".14" />
-            <stop offset=".6" stopColor="#7868da" stopOpacity=".11" />
-            <stop offset="1" stopColor="#020a13" stopOpacity="0" />
-          </radialGradient>
-          <radialGradient id="galaxy-dust-coral">
-            <stop offset="0" stopColor="#ff8a69" stopOpacity=".72" />
-            <stop offset=".46" stopColor="#db4e3e" stopOpacity=".24" />
-            <stop offset="1" stopColor="#db4e3e" stopOpacity="0" />
-          </radialGradient>
-          <radialGradient id="galaxy-dust-gold">
-            <stop offset="0" stopColor="#ffc07c" stopOpacity=".62" />
-            <stop offset=".48" stopColor="#e36f42" stopOpacity=".2" />
-            <stop offset="1" stopColor="#e36f42" stopOpacity="0" />
-          </radialGradient>
-          <radialGradient id="galaxy-dust-blue">
-            <stop offset="0" stopColor="#62d7eb" stopOpacity=".3" />
-            <stop offset=".55" stopColor="#406eae" stopOpacity=".11" />
-            <stop offset="1" stopColor="#406eae" stopOpacity="0" />
-          </radialGradient>
-          <linearGradient id="galaxy-aurora-coral" x1="0" x2="1">
-            <stop offset="0" stopColor="#ff6d54" stopOpacity="0" />
-            <stop offset=".32" stopColor="#ff7459" stopOpacity=".78" />
-            <stop offset=".58" stopColor="#ffc197" stopOpacity=".94" />
-            <stop offset="1" stopColor="#ff6d54" stopOpacity="0" />
-          </linearGradient>
-          <linearGradient id="galaxy-aurora-gold" x1="0" x2="1">
-            <stop offset="0" stopColor="#ff9d56" stopOpacity="0" />
-            <stop offset=".46" stopColor="#ffd199" stopOpacity=".82" />
-            <stop offset="1" stopColor="#ef704d" stopOpacity="0" />
-          </linearGradient>
-          <linearGradient id="galaxy-aurora-cyan" x1="0" x2="1">
-            <stop offset="0" stopColor="#60d5eb" stopOpacity="0" />
-            <stop offset=".5" stopColor="#74deec" stopOpacity=".54" />
-            <stop offset="1" stopColor="#525bba" stopOpacity="0" />
-          </linearGradient>
-          <linearGradient id="galaxy-aurora-violet" x1="0" x2="1">
-            <stop offset="0" stopColor="#9a6ae8" stopOpacity="0" />
-            <stop offset=".5" stopColor="#bc7be9" stopOpacity=".58" />
-            <stop offset="1" stopColor="#ff7960" stopOpacity="0" />
-          </linearGradient>
-          <radialGradient id="galaxy-core" cx="50%" cy="45%" r="55%">
-            <stop offset="0" stopColor="#ffb19d" stopOpacity=".9" />
-            <stop offset=".28" stopColor="#ff725c" stopOpacity=".42" />
-            <stop offset="1" stopColor="#ff725c" stopOpacity="0" />
-          </radialGradient>
-          <filter
-            id="galaxy-soft-glow"
-            x="-100%"
-            y="-100%"
-            width="300%"
-            height="300%"
-          >
-            <feGaussianBlur stdDeviation="7" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <filter
-            id="galaxy-star-glow"
-            x="-300%"
-            y="-300%"
-            width="700%"
-            height="700%"
-          >
-            <feGaussianBlur stdDeviation="2.3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <filter
-            id="galaxy-particle-glow"
-            x="-20%"
-            y="-30%"
-            width="140%"
-            height="160%"
-          >
-            <feGaussianBlur stdDeviation="1.15" result="particleBlur" />
-            <feMerge>
-              <feMergeNode in="particleBlur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <filter
-            id="galaxy-aurora-glow"
-            x="-30%"
-            y="-50%"
-            width="160%"
-            height="200%"
-          >
-            <feGaussianBlur stdDeviation="5" result="auroraBlur" />
-            <feMerge>
-              <feMergeNode in="auroraBlur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <filter
-            id="galaxy-dust-blur"
-            x="-40%"
-            y="-60%"
-            width="180%"
-            height="220%"
-          >
-            <feGaussianBlur stdDeviation="18" />
-          </filter>
-        </defs>
-
-        <ellipse
-          cx="350"
-          cy="320"
-          fill="url(#galaxy-nebula)"
-          rx="300"
-          ry="225"
-        />
-        <g className="galaxy-map__dust" filter="url(#galaxy-dust-blur)">
-          <ellipse
-            cx="306"
-            cy="320"
-            fill="url(#galaxy-dust-coral)"
-            rx="188"
-            ry="54"
-            transform="rotate(-21 306 320)"
-          />
-          <ellipse
-            cx="395"
-            cy="287"
-            fill="url(#galaxy-dust-gold)"
-            rx="162"
-            ry="42"
-            transform="rotate(18 395 287)"
-          />
-          <ellipse
-            cx="460"
-            cy="351"
-            fill="url(#galaxy-dust-coral)"
-            rx="206"
-            ry="48"
-            transform="rotate(-14 460 351)"
-          />
-          <ellipse
-            cx="430"
-            cy="260"
-            fill="url(#galaxy-dust-blue)"
-            rx="245"
-            ry="64"
-            transform="rotate(24 430 260)"
-          />
-          <ellipse
-            cx="345"
-            cy="343"
-            fill="url(#galaxy-dust-gold)"
-            rx="112"
-            ry="82"
-          />
+        <g className="galaxy-map__motion-field">
+          <GalaxyScene variant="desktop" />
         </g>
-        <g className="galaxy-map__aurora" filter="url(#galaxy-aurora-glow)">
-          {auroraRibbons.map((ribbon) => (
-            <path
-              d={ribbon.d}
-              key={ribbon.d}
-              opacity={ribbon.opacity}
-              stroke={ribbon.color}
-              strokeWidth={ribbon.width}
-            />
-          ))}
-        </g>
-        <g
-          className="galaxy-map__stream-stars"
-          filter="url(#galaxy-particle-glow)"
-        >
-          {streamStars.map((star, index) => (
-            <circle
-              className="galaxy-map__stream-star"
-              cx={star.x}
-              cy={star.y}
-              fill={star.color}
-              key={`${index}-${star.x}`}
-              opacity={star.opacity}
-              r={star.radius}
-            />
-          ))}
-        </g>
-        <g
-          className="galaxy-map__cluster-stars"
-          filter="url(#galaxy-particle-glow)"
-        >
-          {clusterStars.map((star, index) => (
-            <circle
-              className="galaxy-map__cluster-star"
-              cx={star.x}
-              cy={star.y}
-              fill={star.color}
-              key={`${index}-${star.y}`}
-              opacity={star.opacity}
-              r={star.radius}
-            />
-          ))}
-        </g>
-        <g className="galaxy-map__stars">
-          {stars.map((star, index) => (
-            <circle
-              className="galaxy-map__star"
-              cx={star.x}
-              cy={star.y}
-              fill={star.color}
-              key={`${star.x}-${star.y}`}
-              opacity={star.opacity}
-              r={star.radius}
-            />
-          ))}
-        </g>
-
-        <g className="galaxy-map__spirals">
-          <path d="M84 337C180 166 383 118 566 183c117 41 151 137 93 208-82 101-305 94-433 13-91-57-91-139-21-191 78-59 234-59 329 4 80 53 85 125 21 166-66 42-189 30-251-20-47-38-39-86 8-108 51-24 133-7 159 28" />
-          <path d="M109 252c126-113 320-139 465-64 124 64 146 172 60 239-103 80-309 53-408-42-72-69-45-142 36-173 93-36 222 4 267 77 35 56 6 109-57 120-68 12-143-25-155-73-9-36 29-66 73-60" />
-          <path d="M147 461c81 50 213 66 330 38 133-31 222-119 201-205-20-83-132-140-262-132-131 8-231 80-225 157 6 74 109 123 215 107 92-14 151-72 133-126-16-48-91-76-159-55-50 15-78 52-60 82" />
-        </g>
-
-        <g className="galaxy-map__orbits">
-          <circle className="galaxy-map__orbit" cx="380" cy="310" r="104" />
-          <circle className="galaxy-map__orbit" cx="380" cy="310" r="190" />
-          <ellipse
-            className="galaxy-map__orbit"
-            cx="380"
-            cy="310"
-            rx="282"
-            ry="124"
-          />
-          <ellipse
-            className="galaxy-map__orbit"
-            cx="380"
-            cy="310"
-            rx="286"
-            ry="146"
-            transform="rotate(31 380 310)"
-          />
-          <ellipse
-            className="galaxy-map__orbit"
-            cx="380"
-            cy="310"
-            rx="286"
-            ry="146"
-            transform="rotate(-31 380 310)"
-          />
-          <ellipse
-            className="galaxy-map__orbit"
-            cx="380"
-            cy="310"
-            rx="238"
-            ry="205"
-            transform="rotate(61 380 310)"
-          />
-          <ellipse
-            className="galaxy-map__orbit"
-            cx="380"
-            cy="310"
-            rx="238"
-            ry="205"
-            transform="rotate(-61 380 310)"
-          />
-        </g>
-
-        <g className="galaxy-map__routes">
-          {domains.map(({ id, x, y }) => (
-            <path d={`M380 310L${x} ${y}`} key={id} />
-          ))}
-        </g>
-
-        <g className="galaxy-map__core" filter="url(#galaxy-soft-glow)">
-          <circle cx="380" cy="310" fill="url(#galaxy-core)" r="84" />
-          <circle cx="380" cy="310" r="49" />
-          <circle cx="380" cy="310" r="35" />
-          <path
-            className="galaxy-map__core-mark"
-            d="m354 340 26-58 26 58m-41-14 15-15 15 15m-15-44v29"
-          />
-        </g>
-
-        {domains.map(({ id, label, tone, x, y }) => (
-          <g
-            className="galaxy-map__domain"
-            data-domain={id}
-            data-tone={tone}
-            key={id}
-            transform={`translate(${x} ${y})`}
-          >
-            <circle className="galaxy-map__domain-halo" r="42" />
-            <circle className="galaxy-map__domain-disc" r="28" />
-            <g className="galaxy-map__domain-icon">
-              <DomainIcon id={id} />
-            </g>
-            <text textAnchor="middle" x="0" y="51">
-              {label}
-            </text>
-          </g>
-        ))}
-
-        <g className="galaxy-map__bright-stars" filter="url(#galaxy-star-glow)">
-          {brightStars.map(([cx, cy, radius]) => (
-            <circle cx={cx} cy={cy} key={`${cx}-${cy}`} r={radius} />
-          ))}
+      </svg>
+      <svg
+        aria-hidden="true"
+        className="galaxy-map galaxy-map--mobile"
+        focusable="false"
+        viewBox="0 0 420 430"
+      >
+        <g className="galaxy-map__motion-field">
+          <GalaxyScene variant="mobile" />
         </g>
       </svg>
     </div>
