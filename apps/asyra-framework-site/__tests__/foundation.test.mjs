@@ -78,7 +78,7 @@ test('navigation and visual tokens preserve accessibility and asset boundaries',
   assert.match(action, /Explore/)
   assert.match(action, /site-header__utility/)
   assert.match(read('components/site-header.tsx'), /BrandLogo/)
-  assert.match(read('components/brand-logo.tsx'), /viewBox="0 0 114 26"/)
+  assert.match(read('components/brand-logo.tsx'), /viewBox="0 0 124 24"/)
   assert.equal(
     (read('components/brand-logo.tsx').match(/brand-logo__letter/g) ?? [])
       .length,
@@ -106,5 +106,22 @@ test('navigation and visual tokens preserve accessibility and asset boundaries',
       read('app/layout.tsx')
     ].join('\n'),
     /visual-reimagine|\.png|\.jpg|\.webp/i
+  )
+})
+
+test('brand wordmark uses the compact rounded reference geometry', () => {
+  const brandLogo = read('components/brand-logo.tsx')
+
+  assert.match(brandLogo, /viewBox="0 0 124 24"/)
+  assert.match(brandLogo, /strokeLinecap="round"/)
+  assert.match(brandLogo, /strokeLinejoin="round"/)
+  assert.match(brandLogo, /strokeWidth="2\.5"/)
+  assert.match(
+    brandLogo,
+    /data-letter="S"[\s\S]*?<path d="[^"]*[CQ][^"]*" \/>/i
+  )
+  assert.match(
+    brandLogo,
+    /data-letter="R"[\s\S]*?<path d="[^"]*[CQ][^"]*" \/>/i
   )
 })

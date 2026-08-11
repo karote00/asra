@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
 
+const shouldComparePixelBaselines = process.platform === 'darwin'
+
 const pageDimensions = async (page: import('@playwright/test').Page) =>
   page.evaluate(() => ({
     clientWidth: document.documentElement.clientWidth,
@@ -43,12 +45,35 @@ test('global desktop narrative puts plain outcomes and starting actions first', 
   expect(desktopReferenceFrame?.playTop).toBeLessThanOrEqual(790)
   expect(desktopReferenceFrame?.coreCenterX).toBeLessThanOrEqual(970)
   await expect(page.locator('.site-header .brand-logo__letter')).toHaveCount(5)
+  const desktopWordmark = page.locator('.site-header .wordmark__logo')
+  await expect(desktopWordmark).toHaveCSS('width', '154px')
+  if (shouldComparePixelBaselines) {
+    await expect(desktopWordmark).toHaveScreenshot(
+      'brand-wordmark-desktop.png',
+      { animations: 'disabled', maxDiffPixels: 0 }
+    )
+  }
+  await desktopWordmark.screenshot({
+    animations: 'disabled',
+    path: testInfo.outputPath('brand-wordmark-desktop-review.png')
+  })
   await expect(page.locator('.landing-galaxy')).toBeVisible()
   await expect(page.locator('.galaxy-map__orbit')).toHaveCount(7)
   await expect(page.locator('.galaxy-map__domain')).toHaveCount(6)
   expect(
     await page.locator('.galaxy-map__star').count()
-  ).toBeGreaterThanOrEqual(80)
+  ).toBeGreaterThanOrEqual(480)
+  await expect(page.locator('.galaxy-map__aurora path')).toHaveCount(8)
+  await expect(page.locator('.galaxy-map__dust ellipse')).toHaveCount(5)
+  expect(
+    await page.locator('.galaxy-map__stream-star').count()
+  ).toBeGreaterThanOrEqual(300)
+  expect(
+    await page.locator('.galaxy-map__cluster-star').count()
+  ).toBeGreaterThanOrEqual(240)
+  expect(
+    await page.locator('.galaxy-map__bright-stars circle').count()
+  ).toBeGreaterThanOrEqual(18)
   await expect(page.locator('.galaxy-map__core-mark')).toBeVisible()
   await expect(
     page.locator('.landing-capability-flow__runtime li')
@@ -75,6 +100,12 @@ test('global desktop narrative puts plain outcomes and starting actions first', 
   const dimensions = await pageDimensions(page)
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth)
 
+  if (shouldComparePixelBaselines) {
+    await expect(page.locator('.landing-hero')).toHaveScreenshot(
+      'landing-hero-desktop-pixel.png',
+      { animations: 'disabled', maxDiffPixels: 0 }
+    )
+  }
   await page.screenshot({
     path: testInfo.outputPath('landing-hero-desktop.png')
   })
@@ -141,6 +172,21 @@ test('global mobile narrative preserves the same promise, boundaries, and paths'
   expect(referenceFrame?.titleTop).toBeGreaterThanOrEqual(132)
   expect(referenceFrame?.galaxyWidth).toBeGreaterThanOrEqual(380)
   expect(referenceFrame?.actionsTop).toBeGreaterThanOrEqual(620)
+  const mobileWordmark = page.locator('.site-header .wordmark__logo')
+  await expect(mobileWordmark).toHaveCSS('width', '120px')
+  if (shouldComparePixelBaselines) {
+    await expect(mobileWordmark).toHaveScreenshot(
+      'brand-wordmark-mobile.png',
+      {
+        animations: 'disabled',
+        maxDiffPixels: 0
+      }
+    )
+  }
+  await mobileWordmark.screenshot({
+    animations: 'disabled',
+    path: testInfo.outputPath('brand-wordmark-mobile-review.png')
+  })
   await expect(
     page.getByRole('link', { name: 'Start with a product' })
   ).toBeVisible()
@@ -155,6 +201,12 @@ test('global mobile narrative preserves the same promise, boundaries, and paths'
   const dimensions = await pageDimensions(page)
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth)
 
+  if (shouldComparePixelBaselines) {
+    await expect(page.locator('.landing-hero')).toHaveScreenshot(
+      'landing-hero-mobile-pixel.png',
+      { animations: 'disabled', maxDiffPixels: 0 }
+    )
+  }
   await page.screenshot({
     path: testInfo.outputPath('landing-hero-mobile.png')
   })

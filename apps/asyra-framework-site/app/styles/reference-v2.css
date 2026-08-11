@@ -69,11 +69,13 @@ main {
 }
 
 .wordmark__logo {
-  width: 110px;
+  width: 154px;
 }
 
 .brand-logo__letter {
-  filter: drop-shadow(0 0 7px rgba(255, 115, 92, 0.16));
+  filter:
+    drop-shadow(0 0 2px rgba(255, 115, 92, 0.42))
+    drop-shadow(0 0 7px rgba(255, 115, 92, 0.2));
 }
 
 .site-header__navigation {
@@ -240,6 +242,22 @@ main {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.galaxy-map__dust,
+.galaxy-map__aurora {
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.galaxy-map__dust {
+  opacity: 0.92;
+}
+
+.galaxy-map__aurora {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .galaxy-map__spirals {
@@ -1597,7 +1615,7 @@ main {
   }
 
   .wordmark__logo {
-    width: 96px;
+    width: 120px;
   }
 
   .site-header__cta,
