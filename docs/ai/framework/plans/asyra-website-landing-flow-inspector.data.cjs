@@ -1,18 +1,16 @@
 const caseIds = Object.freeze([
-  'global-desktop-first-layer',
-  'global-mobile-first-layer',
-  'working-product-entry',
-  'framework-learning-entry',
-  'custom-product-entry',
-  'deterministic-path',
-  'ownership-explorer',
-  'optional-composition',
-  'app-domain-possibilities',
-  'future-machine-facing-roadmap',
-  'asyra-design-reference',
-  'release-policy-evidence',
-  'reduced-motion-equivalence',
-  'no-client-basic-narrative'
+  'desktop-editorial-composition',
+  'mobile-single-column-reflow',
+  'result-first-hero',
+  'unlimited-domain-examples',
+  'grow-without-rebuild',
+  'shared-human-ai-action-path',
+  'one-source-across-views',
+  'clickable-placeholder-actions',
+  'responsive-transparent-raster-assets',
+  'perceptually-sharp-raster-rendering',
+  'open-source-2026-footer',
+  'no-client-reduced-motion-reading'
 ])
 
 const step = (definition) =>
@@ -20,60 +18,56 @@ const step = (definition) =>
 
 module.exports = Object.freeze({
   authority: Object.freeze({
-    specPath:
-      'docs/ai/framework/plans/asyra-website-landing-page-plan.md',
+    specPath: 'docs/ai/framework/plans/asyra-website-landing-page-plan.md',
     inspectorPath:
       'docs/ai/framework/plans/asyra-website-landing-flow-inspector.data.cjs',
-    platformInspectorPath:
-      'docs/ai/framework/plans/asyra-website-platform-flow-inspector.data.cjs',
-    contentManifestPath: 'docs/public/content-manifest.json',
-    contentIndexPath: 'docs/public/generated/content-index.json',
-    packageReferencePath: 'docs/public/generated/package-reference.json',
-    visualHandoffPath:
-      'docs/ai/framework/website/visual-reimagine/handoff.md',
-    workspacePath: 'apps/asyra-framework-site'
-  }),
-  verifiedFacts: Object.freeze({
-    designApp: Object.freeze({
-      href: 'https://asra.vercel.app/?fileId=asyra-framework-demo',
-      title: 'Asyra Design',
-      verifiedAt: '2026-08-11',
-      evidence:
-        'The stable public alias returned Asyra Design for the explicit asyra-framework-demo document identity.'
-    })
+    workspacePath: 'apps/asyra-framework-site',
+    visualReferencePath:
+      'docs/ai/framework/website/asyra-landing-v04-approved.png'
   }),
   caseIds,
   steps: Object.freeze([
     step({
-      id: 'freeze-landing-contract',
+      id: 'freeze-result-first-contract',
       order: 1,
       ownerPackage: 'Website Landing contract',
       purpose:
-        'Freeze the global-audience narrative, exact product cases, accepted evidence, verified external fact, owner boundaries, and Landing gates before UI implementation.',
+        'Freeze V04 as the authority for the retained composition, accept the six supplied transparent Photoroom illustrations with one adaptive CSS grid-and-shadow stage, and retire Visible Change and Impact Preview from the public narrative.',
       inputs: [
-        'artifact:verified-platform',
-        'accepted public-content handoff',
-        'accepted Cosmic Atlas Revision 2 visual handoff',
-        'verified public Asyra Design alias'
+        'user-approved V04 Landing reference',
+        'product-owner copy and identity corrections',
+        'product-owner adaptive grid, alpha-shadow, and asset-specific directional shadow decision',
+        'product-owner local-only artwork decision',
+        'current Framework product truth',
+        'existing Website environment setup'
       ],
-      outputs: ['artifact:landing-contract'],
+      outputs: ['artifact:result-first-contract'],
       conditions: [
-        'The first layer explains outcome, creator ownership, and predictable action in plain international English before Framework mechanics.',
-        'The fourteen product cases are exact and cover desktop, mobile, entry paths, ownership, current/future boundaries, evidence, reduced motion, and no-client reading.',
-        'Every release, support, URL, and product-capability claim resolves to accepted content, generated facts, or recorded external verification.'
+        'The approved V04 image is the visual authority for the retained composition; the product-owner-approved V09 closing concept is the explicit closing exception.',
+        'Visible Change and Impact Preview contribute no public UI, copy, JavaScript, or selected illustration.',
+        'All existing committed and uncommitted website UI, CSS, tests, and assets are replaced while environment setup is retained.',
+        'Every public hyperlink remains clickable even when its destination is a placeholder.',
+        'Every selected illustration uses the shared adaptive CSS engineering grid plus an asset-specific alpha-derived drop shadow with directional contact and cast vectors, without code-drawing internal diagram topology.',
+        'Source artwork, historical design experiments, and unselected derivative history are Git-ignored local-only inputs excluded from default CI; the eighteen selected public derivatives are the committed public derivatives and production deployment assets.',
+        'The footer identifies 2026 open source work and contains no company identity.'
       ],
-      bypasses: ['No Landing code may bypass contract readiness.'],
+      bypasses: [
+        'No removed Website implementation may contribute UI, CSS, illustration, route, or copy.'
+      ],
       allowedContributors: [
         'Landing plan and Inspector',
-        'artifact:verified-platform',
-        'accepted public content and visual handoffs',
-        'recorded public deployment evidence'
+        'approved V04 reference',
+        'product-owner-approved V09 closing concept',
+        'product-owner adaptive grid, alpha-shadow, and asset-specific directional shadow decision',
+        'product-owner local-only artwork decision',
+        'product-owner corrections including the retired change-impact sections',
+        'current Framework product truth'
       ],
       forbiddenContributors: [
-        'unverified URL or hand-written package version',
-        'Framework capability inferred from a possible app domain',
-        'Runtime Atlas output or duplicated executable case',
-        'unapproved dependency, hosted service, or generated raster asset'
+        'removed Website implementation',
+        'unverified product capability',
+        'new dependency',
+        'external production asset'
       ],
       implementationBoundary: [
         'docs/ai/framework/plans/asyra-website-landing-page-plan.md',
@@ -81,246 +75,217 @@ module.exports = Object.freeze({
         'docs/ai/framework/plans/__tests__/asyra-website-landing-flow-inspector.contract.test.cjs'
       ],
       specRefs: [
-        '#bounded-task-contract',
-        '#verified-external-fact',
-        '#executable-product-cases',
-        '#definition-of-done'
+        '#visual-authority',
+        '#product-cases',
+        '#content-contract',
+        '#quality-gates'
       ],
-      failureOwnerStepId: 'freeze-landing-contract'
+      failureOwnerStepId: 'freeze-result-first-contract'
     }),
     step({
-      id: 'present-global-narrative',
+      id: 'render-result-first-page',
       order: 2,
-      ownerPackage: 'Website Landing global narrative',
+      ownerPackage: 'Website Landing page',
       purpose:
-        'Present the outcome-led hero, creator-owned domain panorama, Describe-Act-Verify story, app-owned possibilities, and explicit future boundary as semantic code-native content.',
-      inputs: [
-        'artifact:landing-contract',
-        'artifact:verified-platform',
-        'accepted public information-model and runtime-boundary content'
-      ],
-      outputs: ['artifact:global-landing-narrative'],
+        'Render one semantic result-first page with the approved copy, modern system sans typography, six supplied true-alpha Photoroom illustrations, and one adaptive CSS grid-and-shadow stage.',
+      inputs: ['artifact:result-first-contract'],
+      outputs: ['artifact:result-first-page'],
       conditions: [
-        'The H1 and lead are understandable without package or API knowledge.',
-        'Desktop and mobile retain the same narrative and beginner actions in logical DOM order.',
-        'Design, whiteboard, BIM, VR, industrial simulation, and knowledge products are labelled App-owned possibilities rather than built-ins.',
-        'Machine-facing information products are visibly Roadmap and never current Headless/Core Kernel support.',
-        'The panorama uses HTML, CSS, and SVG only and has an equivalent structured text explanation.'
+        'The hero reports the product outcome before implementation detail.',
+        'Any field is shown as an open-ended possibility, not a catalog of built-in apps.',
+        'People and AI use the same action path for a feature built once.',
+        'Every section preserves the approved title, reference line breaks, exact proof image, and V04 vertical rhythm.',
+        'Each active complex visual uses a hash-locked product-owner-supplied Photoroom true-alpha master and three source-bounded lossless responsive WebP derivatives.',
+        'Every selected derivative contains both transparent and opaque pixels, never exceeds its native master width, and preserves the supplied subject pixels through premultiplied-alpha resizing.',
+        'The 2400px Domain Rail master is never artificially enlarged and may use a minimum 1.1 source pixels per rendered CSS pixel at the widest review size; the other illustrations remain at least 2x at their supported review sizes.',
+        'Every illustration container uses the same CSS stage contract: clamp-scaled minor and major grid lines, intersection nodes, a stage-aware fade mask, and alpha-derived drop-shadow depth.',
+        'Contact and cast shadows follow a per-illustration lower-right perspective vector matched to the supplied top-left lighting and apparent elevation; dark stages add a restrained blue ambient reflection without recoloring source pixels.',
+        'The CSS grid and drop shadow are decoration only and never recreate, replace, or modify internal diagram topology, labels, connectors, or signal colors.',
+        'The closing-grid-v07-desktop raster and all prior V04 through V12 raster sources remain preserved but are never selected.',
+        'V09 through V14 Grow experiments remain preserved but unselected.',
+        'Every desktop and mobile complex visual passes the edge-contrast sharpness oracle after fresh high-resolution rendering.',
+        'Every supplied master preserves its object count, topology, connector, signal color, and label intent; CSS owns only the shared background grid and alpha-derived shadow.',
+        'Exact labels and simple domain icons are deterministically raster-composited into one authored continuous domain rail after generation so model text cannot drift.',
+        'The domain rail preserves reference card proportions, both edge assemblies, continuous tracks, exact in-card labels, and reference bottom clearance without repeating a crop that already contains rail or background pixels.',
+        'Rejected V07 desktop experiment assets, closing-core-v07, closing-core-v08, and closing-core-v12 remain preserved but are never selected.',
+        'The rejected V08 Grow remains preserved but is never selected; the retired Visible Change assets also remain preserved but are never selected.',
+        'Rejected V09 Grow remains preserved but is never selected because it flattened the approved asymmetric layers into one smooth trough.',
+        'Rejected V10 Grow remains preserved but is never selected because its procedurally redrawn material frequency does not match the adjacent V06 modules.',
+        'V11 through V14 Grow restoration and single-pipe experiments remain preserved but are never selected.',
+        'The supplied Hero preserves raised blue fasteners; the supplied Domain Rail preserves exact ten domain icons and labels; the supplied One Source preserves top-inset labels and relief depth.',
+        'The supplied transparent closing master preserves a centered protected domain core, one continuous blue infrastructure loop, four symmetric directional bridges, and a complete gunmetal frame; the shared CSS stage supplies the surrounding engineering grid.',
+        'No unreviewed generative topology drift, relabeling, recoloring, or substitute visual may contribute.',
+        'Display and body typography use a modern system sans stack with no legacy display serif or external font dependency.',
+        'Display headings use weight 500 or below with line height at least 1.0, and multiline proof and closing headings use at least 1.04.',
+        'CTA hover and focus are brighter than the default red.',
+        'The same complete narrative remains in DOM order at desktop, mobile, and without JavaScript.'
       ],
       bypasses: [
-        'Decorative line reveal may be absent; the complete narrative and semantic marks remain visible.'
+        'If an image does not load, semantic headings and descriptive alt text preserve the complete reading.'
       ],
       allowedContributors: [
-        'artifact:landing-contract',
-        'artifact:verified-platform',
-        'accepted public content and Cosmic Atlas Revision 2 semantics',
-        'repository-owned semantic HTML, CSS, and SVG'
+        'artifact:result-first-contract',
+        'approved V04 composition and topology',
+        'immutable product-owner-supplied Photoroom true-alpha masters',
+        'supplied closing concept preserved through three transparent responsive widths',
+        'preserved rejected V07 desktop raster refinements',
+        'reviewed V08 desktop raster corrections',
+        'preserved rejected V09 through V14 Grow experiments',
+        'preserved in-image labels and simple domain icons',
+        'semantic React server components',
+        'project-owned source-bounded lossless true-alpha responsive assets',
+        'modern system sans typography',
+        'CSS responsive layout',
+        'shared adaptive CSS grid and asset-specific alpha-derived directional drop shadows'
       ],
       forbiddenContributors: [
-        'generated raster or external media',
-        'canvas, WebGL, autoplay loop, parallax, or scroll hijacking',
-        'technical density before the first plain-language promise and beginner actions',
-        'domain possibility presented as a package or turnkey feature'
+        'removed Website implementation',
+        'active V04 or V05 crop pixels',
+        'active V09 through V14 Grow experiments',
+        'simple V04 pixel enlargement',
+        'newly drawn active Grow material or geometry',
+        'repeated card crops that contain rail or background pixels',
+        'unreviewed generative topology drift',
+        'invented or merged Grow connector geometry',
+        'code-drawn SVG complex diagrams',
+        'CSS-drawn internal diagram topology',
+        'raster section-background grid plates',
+        'canvas or WebGL',
+        'icon-library diagram substitutes',
+        'Framework runtime package import'
       ],
       implementationBoundary: [
         'apps/asyra-framework-site/app/page.tsx',
         'apps/asyra-framework-site/app/globals.css',
-        'apps/asyra-framework-site/app/styles/landing.css',
-        'apps/asyra-framework-site/components/landing-hero.tsx',
-        'apps/asyra-framework-site/components/landing-possibility-field.tsx',
-        'apps/asyra-framework-site/components/landing-story.tsx',
-        'apps/asyra-framework-site/__tests__/landing-narrative.test.mjs'
+        'apps/asyra-framework-site/app/layout.tsx',
+        'apps/asyra-framework-site/app/error.tsx',
+        'apps/asyra-framework-site/app/not-found.tsx',
+        'apps/asyra-framework-site/app/robots.ts',
+        'apps/asyra-framework-site/app/sitemap.ts',
+        'apps/asyra-framework-site/artwork/v06',
+        'apps/asyra-framework-site/artwork/v07',
+        'apps/asyra-framework-site/artwork/v08',
+        'apps/asyra-framework-site/artwork/v09',
+        'apps/asyra-framework-site/artwork/v07-desktop',
+        'apps/asyra-framework-site/artwork/v08-desktop',
+        'apps/asyra-framework-site/artwork/v09-desktop',
+        'apps/asyra-framework-site/artwork/v10-desktop',
+        'apps/asyra-framework-site/artwork/v11-desktop',
+        'apps/asyra-framework-site/artwork/v12-desktop',
+        'apps/asyra-framework-site/artwork/v13-desktop',
+        'apps/asyra-framework-site/artwork/v14-desktop',
+        'apps/asyra-framework-site/artwork/v12-transparent',
+        'apps/asyra-framework-site/artwork/photoroom',
+        'apps/asyra-framework-site/public/illustrations',
+        'apps/asyra-framework-site/scripts/build-v06-assets.py',
+        'apps/asyra-framework-site/scripts/build-closing-v07-superres.py',
+        'apps/asyra-framework-site/scripts/build-closing-v08-geometric.py',
+        'apps/asyra-framework-site/scripts/build-closing-v09-concept.py',
+        'apps/asyra-framework-site/scripts/build-v07-desktop-assets.py',
+        'apps/asyra-framework-site/scripts/build-v08-desktop-assets.py',
+        'apps/asyra-framework-site/scripts/build-v09-grow-desktop.py',
+        'apps/asyra-framework-site/scripts/build-v10-grow-desktop.py',
+        'apps/asyra-framework-site/scripts/build-v11-grow-desktop.py',
+        'apps/asyra-framework-site/scripts/build-v12-grow-connector-preview.py',
+        'apps/asyra-framework-site/scripts/build-v13-grow-connector-preview.py',
+        'apps/asyra-framework-site/scripts/build-v14-grow-connector-preview.py',
+        'apps/asyra-framework-site/scripts/build-transparent-v12-assets.py',
+        'apps/asyra-framework-site/scripts/verify-transparent-v12-assets.py',
+        'apps/asyra-framework-site/scripts/build-photoroom-assets.py'
       ],
       specRefs: [
-        '#required-narrative',
-        '#content-accuracy-contract',
-        '#interaction-and-motion-contract',
-        '#quality-gates'
+        '#visual-authority',
+        '#content-contract',
+        '#ownership-boundary'
       ],
-      failureOwnerStepId: 'present-global-narrative'
+      failureOwnerStepId: 'render-result-first-page'
     }),
     step({
-      id: 'explain-ownership-composition',
+      id: 'verify-result-first-page',
       order: 3,
-      ownerPackage: 'Website Landing ownership explanation',
-      purpose:
-        'Explain Framework, Preset, App, optional composition, replaceable edges, and the deterministic intent-to-outcome route without simulating Runtime Atlas execution.',
-      inputs: [
-        'artifact:landing-contract',
-        'artifact:global-landing-narrative',
-        'accepted ownership, transaction, projection, and Preset contracts'
-      ],
-      outputs: ['artifact:landing-ownership-experience'],
-      conditions: [
-        'Framework, Preset, and App ownership remains visible before any interactive detail selection.',
-        'The explorer is keyboard, touch, focus, and screen-reader operable with one selected owner at a time.',
-        'The technical route is Intent to Feature to API to Factory transaction to canonical owners to projection to accepted result.',
-        'Preset and Provider are optional dashed composition; projection is a consumer rather than a canonical owner.',
-        'The Atlas entry states that executable proof belongs to Runtime Atlas and never fabricates a run result.'
-      ],
-      bypasses: [
-        'Without client JavaScript, the static ownership summary and complete technical route remain readable.',
-        'Reduced motion replaces route reveal with the same immediate semantic state.'
-      ],
-      allowedContributors: [
-        'artifact:landing-contract',
-        'artifact:global-landing-narrative',
-        'accepted public ownership and transaction content',
-        'bounded browser state for owner-detail selection only'
-      ],
-      forbiddenContributors: [
-        'Framework package runtime imported into Landing',
-        'fake transaction result, event ledger, timing, or canonical evidence',
-        'Preset or Provider shown as mandatory',
-        'React state presented as canonical product state'
-      ],
-      implementationBoundary: [
-        'apps/asyra-framework-site/app/page.tsx',
-        'apps/asyra-framework-site/app/globals.css',
-        'apps/asyra-framework-site/app/styles/landing.css',
-        'apps/asyra-framework-site/components/landing-ownership-explorer.tsx',
-        'apps/asyra-framework-site/components/landing-topology.tsx',
-        'apps/asyra-framework-site/__tests__/landing-ownership.test.mjs'
-      ],
-      specRefs: [
-        '#required-narrative',
-        '#interaction-and-motion-contract',
-        '#content-accuracy-contract',
-        '#definition-of-done'
-      ],
-      failureOwnerStepId: 'explain-ownership-composition'
-    }),
-    step({
-      id: 'connect-entry-evidence',
-      order: 4,
-      ownerPackage: 'Website Landing entries and evidence',
-      purpose:
-        'Connect the three starting paths, Runtime Atlas entry, verified Asyra Design reference, generated release facts, repository, security, license, release, and contribution-policy evidence.',
-      inputs: [
-        'artifact:landing-contract',
-        'artifact:global-landing-narrative',
-        'artifact:landing-ownership-experience',
-        'artifact:verified-site-content',
-        'verified public Asyra Design alias'
-      ],
-      outputs: ['artifact:complete-landing'],
-      conditions: [
-        'create-asyra-design-app is the working-product beginner path.',
-        'Documentation and Runtime Atlas are Framework-learning paths and custom composition remains a distinct experienced path.',
-        'Candidate family and package count derive from the content bundle and publication is never implied.',
-        'Asyra Design is labelled a reference product, links only to the verified public alias with one non-empty fileId, and never becomes Framework authority.',
-        'Documentation, repository, security, license, release, roadmap, and contribution-policy destinations are present and exact.'
-      ],
-      bypasses: [
-        'If the public App alias is no longer anonymously available, the Landing build fails its link contract instead of substituting a Preview URL.'
-      ],
-      allowedContributors: [
-        'artifact:verified-site-content',
-        'project-owned repository and policy files',
-        'recorded verified public link facts',
-        'ordinary internal and external links'
-      ],
-      forbiddenContributors: [
-        'protected deployment URL',
-        'unpublished package version or registry claim',
-        'public issues or contribution invitation',
-        'Asyra Design product behavior copied into the Framework narrative'
-      ],
-      implementationBoundary: [
-        'apps/asyra-framework-site/app/page.tsx',
-        'apps/asyra-framework-site/app/globals.css',
-        'apps/asyra-framework-site/app/styles/landing.css',
-        'apps/asyra-framework-site/components/landing-entry-evidence.tsx',
-        'apps/asyra-framework-site/lib/landing-facts.mjs',
-        'apps/asyra-framework-site/lib/landing-facts.d.ts',
-        'apps/asyra-framework-site/__tests__/landing-entry.test.mjs'
-      ],
-      specRefs: [
-        '#verified-external-fact',
-        '#required-narrative',
-        '#content-accuracy-contract',
-        '#quality-gates'
-      ],
-      failureOwnerStepId: 'connect-entry-evidence'
-    }),
-    step({
-      id: 'verify-landing',
-      order: 5,
       ownerPackage: 'Website Landing verification',
       purpose:
-        'Fail closed on narrative drift, missing entry/evidence, inaccessible interaction, responsive or reduced-motion failure, visual divergence, link error, performance regression, or production-build failure.',
-      inputs: [
-        'artifact:global-landing-narrative',
-        'artifact:landing-ownership-experience',
-        'artifact:complete-landing'
-      ],
-      outputs: ['artifact:verified-landing'],
+        'Fail closed on structural drift, stale content, opaque assets, broken links, overflow, visual divergence, or build failure.',
+      inputs: ['artifact:result-first-page'],
+      outputs: ['artifact:verified-result-first-page'],
       conditions: [
-        'Inspector, semantic tests, strict typecheck, lint, dependency checks, production build, route smoke, and root integration gates pass.',
-        'Desktop, 390px, 320px, keyboard, touch, 200 percent zoom, reduced-motion, no-overflow, and synchronized live visual cases pass.',
-        'The fourteen exact product cases remain evidence-backed and no current/future or Framework/App boundary drifts.'
+        'Inspector, semantic regression, typecheck, lint, production build, and route smoke pass.',
+        'Synchronized full-page and section-level 1440px, 864px, 820px, 390px, and 320px production screenshots are inspected.',
+        'Desktop and mobile edge-contrast sharpness oracles and computed display typography constraints pass.',
+        'Default, hover, and focus CTA states are captured and inspected.',
+        'Default CI validates committed public derivatives without local artwork and never requires the Git-ignored artwork directory.',
+        'When artwork is available on an authoring workstation, ASYRA_LOCAL_ARTWORK_TESTS=1 verifies immutable-master hashes and local build-source contracts before changed derivatives are accepted.',
+        'Every selected derivative must pass true-alpha, source-bounded width, checkerboard, and actual-section-background verification before deployment.',
+        'The adaptive CSS grid and alpha-derived drop shadow are asserted from computed styles and inspected at 2048px, 1440px, 864px, 820px, 390px, and 320px.',
+        'Six distinct computed shadow vectors are asserted at 2048px, 1440px, 864px, 820px, 390px, and 320px; section crops confirm the contact, cast, and dark-stage ambient layers remain visible without clipping.',
+        'The supplied Hero, Domain Rail, Grow, Same Path, One Source, and Closing derivatives are inspected at 1440px and 2048px with section crops before deployment.',
+        'No-client and reduced-motion modes preserve the complete reading and actions.',
+        'The retired change-impact sections remain absent at every breakpoint and without JavaScript.'
       ],
       bypasses: [
-        'Production deployment remains owned by Launch and Operations.',
-        'Runtime Atlas execution remains owned by the Atlas child.'
+        'Production deployment occurs only after every Landing gate passes.'
       ],
       allowedContributors: [
-        'deterministic project-owned tests',
-        'production build and route artifacts',
-        'synchronized browser evidence',
-        'bounded public-link verification'
+        'formal tests',
+        'production build',
+        'same-state production screenshots',
+        'manual visual comparison after formal oracles'
       ],
       forbiddenContributors: [
-        'manual inspection as sole evidence',
-        'deployment success used as product correctness proof',
-        'missing-case allowlist',
-        'fake Atlas evidence'
+        'development-server-only evidence',
+        'one overview screenshot as sole evidence',
+        'claiming visual completion without inspecting output'
       ],
       implementationBoundary: [
-        'apps/asyra-framework-site/**',
-        'docs/ai/framework/plans/asyra-website-landing-page-plan.md',
-        'docs/ai/framework/plans/asyra-website-landing-flow-inspector.data.cjs',
-        'docs/ai/framework/plans/__tests__/asyra-website-landing-flow-inspector.contract.test.cjs'
+        '.gitignore',
+        'apps/asyra-framework-site/package.json',
+        'apps/asyra-framework-site/__tests__/editorial-landing.test.mjs',
+        'apps/asyra-framework-site/__tests__/e2e/editorial-landing-visual.spec.ts',
+        'apps/asyra-framework-site/scripts/route-smoke.mjs',
+        'apps/asyra-framework-site/scripts/production-smoke.mjs',
+        'apps/asyra-framework-site/scripts/build-transparent-v12-assets.py',
+        'apps/asyra-framework-site/scripts/verify-transparent-v12-assets.py',
+        'apps/asyra-framework-site/scripts/build-photoroom-assets.py'
       ],
       specRefs: ['#quality-gates', '#definition-of-done'],
-      failureOwnerStepId: 'verify-landing'
+      failureOwnerStepId: 'verify-result-first-page'
     })
   ]),
-  artifacts: Object.freeze(
-    [
-      ['artifact:landing-contract', 'freeze-landing-contract'],
-      ['artifact:global-landing-narrative', 'present-global-narrative'],
-      ['artifact:landing-ownership-experience', 'explain-ownership-composition'],
-      ['artifact:complete-landing', 'connect-entry-evidence'],
-      ['artifact:verified-landing', 'verify-landing']
-    ].map(([id, ownerStepId]) => Object.freeze({ id, ownerStepId }))
-  ),
-  routes: Object.freeze(
-    [
-      ['freeze-landing-contract', 'present-global-narrative', 'artifact:landing-contract'],
-      ['present-global-narrative', 'explain-ownership-composition', 'artifact:global-landing-narrative'],
-      ['freeze-landing-contract', 'connect-entry-evidence', 'artifact:landing-contract'],
-      ['present-global-narrative', 'connect-entry-evidence', 'artifact:global-landing-narrative'],
-      ['explain-ownership-composition', 'connect-entry-evidence', 'artifact:landing-ownership-experience'],
-      ['present-global-narrative', 'verify-landing', 'artifact:global-landing-narrative'],
-      ['explain-ownership-composition', 'verify-landing', 'artifact:landing-ownership-experience'],
-      ['connect-entry-evidence', 'verify-landing', 'artifact:complete-landing']
-    ].map(([from, to, artifactId], index) =>
-      Object.freeze({
-        id: `landing-route-${String(index + 1).padStart(2, '0')}`,
-        from,
-        to,
-        producedArtifacts: Object.freeze([artifactId])
-      })
-    )
-  ),
+  artifacts: Object.freeze([
+    Object.freeze({
+      id: 'artifact:result-first-contract',
+      ownerStepId: 'freeze-result-first-contract'
+    }),
+    Object.freeze({
+      id: 'artifact:result-first-page',
+      ownerStepId: 'render-result-first-page'
+    }),
+    Object.freeze({
+      id: 'artifact:verified-result-first-page',
+      ownerStepId: 'verify-result-first-page'
+    })
+  ]),
+  routes: Object.freeze([
+    Object.freeze({
+      id: 'contract-to-page',
+      from: 'freeze-result-first-contract',
+      to: 'render-result-first-page',
+      producedArtifacts: ['artifact:result-first-contract']
+    }),
+    Object.freeze({
+      id: 'page-to-verification',
+      from: 'render-result-first-page',
+      to: 'verify-result-first-page',
+      producedArtifacts: ['artifact:result-first-page']
+    })
+  ]),
   invariants: Object.freeze([
-    'A worldwide non-engineer understands possibility, creator ownership, and predictable action before technical depth.',
-    'create-asyra-design-app, Framework learning, and custom composition remain complementary entry paths.',
-    'Possible app domains never become built-in Framework claims.',
-    'Future machine-facing products remain Roadmap until a public Headless/Core Kernel contract exists.',
-    'Landing never executes or fabricates Runtime Atlas evidence.',
-    'Generated visual boards remain evidence and never production assets.',
-    'No production deployment occurs in the Landing child.'
+    'Any field may define the product while Asyra never decides its domain.',
+    'A feature built once gives people and AI the same action path.',
+    'Complex diagrams use the six immutable supplied Photoroom true-alpha masters with one shared CSS grid-and-shadow stage, while prior and rejected experiments remain preserved but unselected.',
+    'The footer says 2026 open source and makes no company identity claim.',
+    'All links remain keyboard-focusable and clickable while placeholder destinations are allowed.',
+    'Visible Change and Impact Preview remain absent from the public narrative.',
+    'Production deployment occurs only after every Landing gate passes.'
   ])
 })

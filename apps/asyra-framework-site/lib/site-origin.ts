@@ -41,7 +41,7 @@ export const resolveSiteOrigin = (
   if (environment.VERCEL_URL) {
     return vercelOrigin(environment.VERCEL_URL)
   }
-  return normalizeOrigin('http://127.0.0.1:3020', true)
+  return normalizeOrigin('https://asyra-framework.vercel.app')
 }
 
 export const isIndexingAuthorized = (

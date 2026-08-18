@@ -1,0 +1,10 @@
+artwork
+test-results
+dist
+tmp
+node_modules
+.next
+__tests__
+e2e
+playwright-report
+*.tsbuildinfo

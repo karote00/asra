@@ -1,26 +1,21 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
-import { FoundationBrowserSupport } from '@/components/foundation-browser-support'
-import { SiteFooter } from '@/components/site-footer'
-import { SiteHeader } from '@/components/site-header'
 import { isIndexingAuthorized, resolveSiteOrigin } from '@/lib/site-origin'
 import './globals.css'
 
+const description =
+  'Bring your domain knowledge. Build the tool your world needs on Asyra.'
+
 export const metadata: Metadata = {
   metadataBase: new URL(resolveSiteOrigin()),
-  title: {
-    default: 'Asyra Framework',
-    template: '%s · Asyra Framework'
-  },
-  description:
-    'Build domain-owned information products on deterministic, composable infrastructure.',
-  applicationName: 'Asyra Framework',
+  title: 'Asyra - Build the tool your world needs',
+  description,
+  applicationName: 'Asyra',
   alternates: { canonical: '/' },
   openGraph: {
-    description:
-      'Build domain-owned information products on deterministic, composable infrastructure.',
-    siteName: 'Asyra Framework',
-    title: 'Asyra Framework',
+    description,
+    siteName: 'Asyra',
+    title: 'Asyra - Build the tool your world needs',
     type: 'website',
     url: '/'
   },
@@ -29,15 +24,14 @@ export const metadata: Metadata = {
     : { follow: false, index: false },
   twitter: {
     card: 'summary',
-    description:
-      'Build domain-owned information products on deterministic, composable infrastructure.',
-    title: 'Asyra Framework'
+    description,
+    title: 'Asyra - Build the tool your world needs'
   }
 }
 
 export const viewport: Viewport = {
-  colorScheme: 'dark',
-  themeColor: '#020b15'
+  colorScheme: 'light',
+  themeColor: '#f3eee5'
 }
 
 export default function RootLayout({
@@ -45,15 +39,7 @@ export default function RootLayout({
 }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en">
-      <body>
-        <a className="skip-link" href="#main-content">
-          Skip to content
-        </a>
-        <FoundationBrowserSupport />
-        <SiteHeader />
-        <main id="main-content">{children}</main>
-        <SiteFooter />
-      </body>
+      <body>{children}</body>
     </html>
   )
 }
