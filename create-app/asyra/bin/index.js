@@ -11,7 +11,7 @@ const currentDirectory = path.dirname(fileURLToPath(import.meta.url))
 const parseArguments = (argv) => {
   const args = argv.slice(2)
   if (args.length > 1 || args.some((argument) => argument.startsWith('-'))) {
-    console.error('❌ Usage: yarn create-asyra-app [project-name]')
+    console.error('❌ Usage: npx create-asyra-app [project-name]')
     process.exit(1)
   }
   return args[0]

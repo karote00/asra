@@ -28,6 +28,18 @@ test('create-asyra-app exposes the one supported create command', () => {
     ),
     []
   )
+
+  const readme = fs.readFileSync(
+    path.join(repositoryRoot, 'create-app/asyra/README.md'),
+    'utf8'
+  )
+  const cli = fs.readFileSync(
+    path.join(repositoryRoot, 'create-app/asyra/bin/index.js'),
+    'utf8'
+  )
+  assert.match(readme, /npx create-asyra-app my-product/u)
+  assert.doesNotMatch(readme, /yarn create-asyra-app/u)
+  assert.match(cli, /Usage: npx create-asyra-app \[project-name\]/u)
 })
 
 const cliCases = [

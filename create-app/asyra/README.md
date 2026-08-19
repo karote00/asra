@@ -9,7 +9,7 @@ Requirement: Node.js 24.x and Yarn.
 ## Create and start
 
 ```bash
-yarn create-asyra-app my-product
+npx create-asyra-app my-product
 cd my-product
 yarn start
 ```
