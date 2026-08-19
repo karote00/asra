@@ -20,7 +20,9 @@ test('renders the Framework identity and starting point', async ({
   const introLines = await intro.evaluate((element) => {
     const styles = window.getComputedStyle(element)
 
-    return element.getBoundingClientRect().height / parseFloat(styles.lineHeight)
+    return (
+      element.getBoundingClientRect().height / parseFloat(styles.lineHeight)
+    )
   })
 
   expect(introLines).toBeLessThanOrEqual(2.1)
