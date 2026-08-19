@@ -52,29 +52,6 @@ yarn react:build
 yarn test
 ```
 
-## Release verification
-
-Before publishing a manually selected CLI version, create the real npm
-tarball and prove it through clean Yarn, npm, and pnpm consumers:
-
-```bash
-yarn release:create-asyra-app
-```
-
-The gate checks the packed identity and file allowlist, installs the tarball,
-generates a fresh project with each package manager, and runs that project's
-test, typecheck, and production build. It reports the project-local tarball
-path and SHA-256 checksum for release review.
-
-After publication, verify the exact manifest version from the public registry:
-
-```bash
-yarn release:create-asyra-app:registry
-```
-
-The CLI version is selected manually and is independent from the private
-starter/template version. Publishing still requires explicit authorization.
-
 ## Generated project contract
 
 - `apps/asyra-starter` is the canonical source.
