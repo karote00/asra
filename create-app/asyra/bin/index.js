@@ -7,30 +7,14 @@ import { fileURLToPath } from 'node:url'
 import inquirer from 'inquirer'
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url))
-const supportedPackageManagers = ['yarn', 'npm', 'pnpm']
 
 const parseArguments = (argv) => {
   const args = argv.slice(2)
-  let packageManager
-  let targetName
-
-  for (let index = 0; index < args.length; index += 1) {
-    const argument = args[index]
-    if (argument === '--package-manager') {
-      packageManager = args[index + 1]
-      index += 1
-      continue
-    }
-    if (argument?.startsWith('--package-manager=')) {
-      packageManager = argument.slice('--package-manager='.length)
-      continue
-    }
-    if (!argument?.startsWith('-') && targetName === undefined) {
-      targetName = argument
-    }
+  if (args.length > 1 || args.some((argument) => argument.startsWith('-'))) {
+    console.error('❌ Usage: yarn create-asyra-app [project-name]')
+    process.exit(1)
   }
-
-  return { packageManager, targetName }
+  return args[0]
 }
 
 const isSafeTargetName = (value) =>
@@ -60,7 +44,7 @@ const copyDirectory = async (source, destination) => {
 }
 
 const main = async () => {
-  let { packageManager, targetName } = parseArguments(process.argv)
+  let targetName = parseArguments(process.argv)
 
   if (!targetName) {
     const answer = await inquirer.prompt([
@@ -81,16 +65,6 @@ const main = async () => {
     console.error('❌ Project name must be one directory name.')
     process.exit(1)
   }
-  if (
-    packageManager !== undefined &&
-    !supportedPackageManagers.includes(packageManager)
-  ) {
-    console.error(
-      `❌ Unsupported package manager "${packageManager}". Choose yarn, npm, or pnpm.`
-    )
-    process.exit(1)
-  }
-
   const targetDirectory = path.resolve(process.cwd(), targetName)
   const templateDirectory = path.resolve(currentDirectory, '../template')
 
@@ -103,30 +77,17 @@ const main = async () => {
     process.exit(1)
   }
 
-  if (!packageManager) {
-    const answer = await inquirer.prompt([
-      {
-        type: 'list',
-        name: 'packageManager',
-        message: 'Choose a package manager',
-        choices: supportedPackageManagers,
-        default: 'yarn'
-      }
-    ])
-    packageManager = answer.packageManager
-  }
-
   console.log(`\n🚀 Creating project "${targetName}"...\n`)
   await copyDirectory(templateDirectory, targetDirectory)
 
-  const packageManagerVersion = execFileSync(packageManager, ['--version'], {
+  const packageManagerVersion = execFileSync('yarn', ['--version'], {
     encoding: 'utf8'
   }).trim()
   const projectManifestPath = path.join(targetDirectory, 'package.json')
   const projectManifest = JSON.parse(
     fs.readFileSync(projectManifestPath, 'utf8')
   )
-  projectManifest.packageManager = `${packageManager}@${packageManagerVersion}`
+  projectManifest.packageManager = `yarn@${packageManagerVersion}`
   fs.writeFileSync(
     projectManifestPath,
     `${JSON.stringify(projectManifest, null, 2)}\n`
@@ -168,31 +129,15 @@ yarn-error.log*
     path.join(targetDirectory, '.prettierrc'),
     JSON.stringify(prettierConfig, null, 2)
   )
-  if (packageManager === 'yarn') {
-    fs.writeFileSync(
-      path.join(targetDirectory, '.yarnrc.yml'),
-      'nodeLinker: node-modules\n'
-    )
-  }
-
-  if (packageManager === 'yarn') {
-    fs.writeFileSync(path.join(targetDirectory, 'yarn.lock'), '')
-  }
-
-  const installArguments = {
-    yarn: ['install', '--no-immutable'],
-    npm: ['install'],
-    pnpm: ['install', '--no-frozen-lockfile']
-  }
-  const installCommand = {
-    yarn: 'yarn install',
-    npm: 'npm install',
-    pnpm: 'pnpm install'
-  }[packageManager]
+  fs.writeFileSync(
+    path.join(targetDirectory, '.yarnrc.yml'),
+    'nodeLinker: node-modules\n'
+  )
+  fs.writeFileSync(path.join(targetDirectory, 'yarn.lock'), '')
 
   try {
     console.log('📦 Installing dependencies...')
-    execFileSync(packageManager, installArguments[packageManager], {
+    execFileSync('yarn', ['install', '--no-immutable'], {
       cwd: targetDirectory,
       stdio: 'inherit'
     })
@@ -200,19 +145,14 @@ yarn-error.log*
     console.error('\n❌ Failed to install dependencies.')
     console.error('You can try manually:')
     console.error(`  cd ${targetName}`)
-    console.error(`  ${installCommand}`)
+    console.error('  yarn install')
     process.exit(1)
   }
 
-  const startCommand = {
-    yarn: 'yarn start',
-    npm: 'npm run start',
-    pnpm: 'pnpm start'
-  }[packageManager]
   console.log('\n🎉 Asyra Framework project is ready!\n')
   console.log('Next steps:')
   console.log(`  cd ${targetName}`)
-  console.log(`  ${startCommand}`)
+  console.log('  yarn start')
   console.log('  Open http://localhost:3000')
 }
 

@@ -8,7 +8,7 @@
     "node": "24.x"
   },
   "bin": {
-    "create-asyra": "./bin/index.js"
+    "create-asyra-app": "./bin/index.js"
   },
   "files": [
     "bin",

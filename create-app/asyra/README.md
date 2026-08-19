@@ -4,31 +4,20 @@ Create a minimal React shell for an Asyra Framework product. Use this entry
 when you want a blank product surface instead of the complete Asyra Design
 reference application.
 
-Requirements:
-
-- Node.js 24.x
-- Yarn, npm, or pnpm
+Requirement: Node.js 24.x and Yarn.
 
 ## Create and start
 
 ```bash
-npx create-asyra-app my-product
+yarn create-asyra-app my-product
 cd my-product
 yarn start
 ```
 
-Select a package manager non-interactively when needed:
-
-```bash
-npx create-asyra-app my-product --package-manager=yarn
-npx create-asyra-app my-product --package-manager=npm
-npx create-asyra-app my-product --package-manager=pnpm
-```
-
 The CLI accepts one new directory name, copies the verified template, writes
-the selected package-manager identity/configuration, and installs dependencies
-to create its lockfile. Existing targets,
-absolute paths, nested paths, and `.`/`..` are rejected.
+the Yarn identity/configuration, and installs dependencies to create its
+lockfile. Existing targets, absolute paths, nested paths, and `.`/`..` are
+rejected.
 
 Open `http://localhost:3000`. The initial page contains only the original
 Asyra Framework logo, a short starting point, and the Framework guide link.

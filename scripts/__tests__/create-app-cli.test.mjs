@@ -10,14 +10,42 @@ const repositoryRoot = path.resolve(
   '../..'
 )
 
+test('create-asyra-app exposes the one supported create command', () => {
+  const rootManifest = JSON.parse(
+    fs.readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
+  )
+  const manifest = JSON.parse(
+    fs.readFileSync(
+      path.join(repositoryRoot, 'create-app/asyra/package.json'),
+      'utf8'
+    )
+  )
+
+  assert.deepEqual(manifest.bin, {
+    'create-asyra-app': './bin/index.js'
+  })
+  assert.equal(
+    rootManifest.scripts['create-asyra-app'],
+    'node create-app/asyra/bin/index.js'
+  )
+  assert.deepEqual(
+    Object.keys(rootManifest.scripts).filter((name) =>
+      name.includes('create-asyra-app')
+    ),
+    ['create-asyra-app']
+  )
+})
+
 const cliCases = [
   {
+    args: ['--package-manager=yarn'],
     cliPath: 'create-app/asyra-design/bin/index.js',
     expectedUrl: 'http://localhost:3000/?fileId=my-design',
     requiredFiles: ['AGENTS.md', 'docs/README.md', 'docs/framework.md'],
     title: 'Asyra Design'
   },
   {
+    args: [],
     cliPath: 'create-app/asyra/bin/index.js',
     expectedUrl: 'http://localhost:3000',
     requiredFiles: [
@@ -53,7 +81,7 @@ for (const cliCase of cliCases) {
         [
           path.join(repositoryRoot, cliCase.cliPath),
           projectName,
-          '--package-manager=yarn'
+          ...cliCase.args
         ],
         {
           cwd: testDirectory,
