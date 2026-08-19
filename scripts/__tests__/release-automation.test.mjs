@@ -186,6 +186,44 @@ test('packed create-app inventory excludes repository-only generated state', () 
   }
 })
 
+test('packed minimal create-app includes its documented starter contract', () => {
+  const result = spawnSync(
+    'npm',
+    ['pack', './create-app/asyra', '--dry-run', '--json'],
+    {
+      cwd: repositoryRoot,
+      encoding: 'utf8'
+    }
+  )
+  assert.equal(result.status, 0, result.stderr || result.stdout)
+  const [pack] = JSON.parse(result.stdout)
+  const packedPaths = pack.files.map(({ path: packedPath }) => packedPath)
+
+  for (const requiredPath of [
+    'README.md',
+    'LICENSE',
+    'bin/index.js',
+    'template/AGENTS.md',
+    'template/docs/framework.md',
+    'template/src/framework-logo.svg'
+  ]) {
+    assert.ok(packedPaths.includes(requiredPath), requiredPath)
+  }
+  for (const segment of [
+    '.turbo/',
+    'coverage/',
+    'dist/',
+    'playwright-report/',
+    'test-results/'
+  ]) {
+    assert.equal(
+      packedPaths.some((packedPath) => packedPath.includes(segment)),
+      false,
+      segment
+    )
+  }
+})
+
 test('create-app package metadata matches the supported public CLI contract', () => {
   const manifest = JSON.parse(
     readFileSync(

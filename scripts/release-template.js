@@ -212,11 +212,23 @@ if (!fs.existsSync(pkgPath)) {
   }
   pkg.packageManager = 'yarn@4.3.1'
 
-  if (pkg.scripts) {
+  if (
+    pkg.scripts &&
+    fs.existsSync(path.join(DEST_DIR, 'tsconfig.collaboration-server.json')) &&
+    fs.existsSync(path.join(DEST_DIR, 'vite.collaboration-server.config.ts'))
+  ) {
     pkg.scripts['build:collaboration-server'] =
       'tsc -p tsconfig.collaboration-server.json && vite build --config vite.collaboration-server.config.ts'
+  }
+  if (
+    pkg.scripts &&
+    fs.existsSync(path.join(DEST_DIR, 'tsconfig.document-backend.json')) &&
+    fs.existsSync(path.join(DEST_DIR, 'vite.document-backend.config.ts'))
+  ) {
     pkg.scripts['build:document-backend'] =
       'tsc -p tsconfig.document-backend.json && vite build --config vite.document-backend.config.ts'
+  }
+  if (pkg.scripts) {
     delete pkg.scripts['generate:crdt-7076-document']
   }
 
@@ -267,7 +279,7 @@ if (fs.existsSync(viteConfigPath)) {
 
   // Change outDir from '../../dist' to 'dist'
   viteConfigContent = viteConfigContent.replace(
-    /outDir:\s*'.*\/dist'/g,
+    /outDir:\s*['"][^'"]*\/dist(?:\/[^'"]*)?['"]/g,
     "outDir: 'dist'"
   )
 

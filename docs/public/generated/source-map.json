@@ -2,7 +2,7 @@
   "pages": [
     {
       "id": "overview",
-      "pageSha256": "bbc6650bfd5b7072004dfec7e0dfa9507c626e63280002c7eae147dbc0d43e3c",
+      "pageSha256": "6ef71d14eb46a4d212577219b61ea0be295365018df306705a29e9205dc28b4e",
       "sources": [
         {
           "path": "docs/ai/framework/FRAMEWORK_ESSENTIALS.md",
@@ -24,7 +24,7 @@
         },
         {
           "path": "create-app/asyra-design/template/README.md",
-          "sha256": "6b8b0331a42d991693284f7e6e0d0f35dab4d9e5a4468291c79e0f2ae8184d6f"
+          "sha256": "0d98f136cf80d0ab957924eb82689d68c8114377c620c2996c0a246969beb7f0"
         }
       ]
     },

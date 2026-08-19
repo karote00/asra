@@ -1,0 +1,21 @@
+{
+  "name": "create-asyra-app",
+  "version": "0.1.0",
+  "description": "Create a minimal React app for Asyra Framework",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "bin": {
+    "create-asyra": "./bin/index.js"
+  },
+  "files": [
+    "bin",
+    "template"
+  ],
+  "dependencies": {
+    "inquirer": "^8.2.5"
+  },
+  "packageManager": "yarn@4.3.1"
+}

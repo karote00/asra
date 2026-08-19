@@ -12,28 +12,36 @@ Framework-first rules:
   mutations are reversed through the Factory transaction journal when they are
   rollbackable.
 
+## New here?
+
+Start with [`GETTING_STARTED.md`](GETTING_STARTED.md). It maps product-building,
+Framework learning, API lookup, package ownership, implementation workflow, and
+verification to the smallest authoritative document. Humans and AI agents can
+use the same entry point.
+
 ## Read Order
 
-1. `FRAMEWORK_ESSENTIALS.md`
-2. `CODING_STANDARDS.md`
-3. `ARCHITECTURE.md`
-4. `API_SURFACES.md`
-5. `design-principles/*`
-6. `WORKFLOW.md`
-7. `FLOW_INSPECTOR.md`
-8. `REQUEST_ROUTING.md`
-9. `RUNTIME_MATRICES.md`
-10. `SECURITY.md`
-11. `RELEASE_SUPPORT.md`
-12. `CONSTRAINTS.md`
-13. `rules/*`
-14. `packages/*`
-15. `golden-paths/*`
-16. `BEST_PRACTICES.md`
-17. `PLANS.md`
-18. `plans/completed/*` (historical completed-plan archive)
-19. `decisions/releases/*` (framework decision history; global rules in `../decisions/README.md`)
-20. `audits/*` (historical point-in-time diagnostics; never current authority)
+1. `GETTING_STARTED.md` (orientation; not an additional contract layer)
+2. `FRAMEWORK_ESSENTIALS.md`
+3. `CODING_STANDARDS.md`
+4. `ARCHITECTURE.md`
+5. `API_SURFACES.md`
+6. `design-principles/*`
+7. `WORKFLOW.md`
+8. `FLOW_INSPECTOR.md`
+9. `REQUEST_ROUTING.md`
+10. `RUNTIME_MATRICES.md`
+11. `SECURITY.md`
+12. `RELEASE_SUPPORT.md`
+13. `CONSTRAINTS.md`
+14. `rules/*`
+15. `packages/*`
+16. `golden-paths/*`
+17. `BEST_PRACTICES.md`
+18. `PLANS.md`
+19. `plans/completed/*` (historical completed-plan archive)
+20. `decisions/releases/*` (framework decision history; global rules in `../decisions/README.md`)
+21. `audits/*` (historical point-in-time diagnostics; never current authority)
 
 ## Interpretation Priority
 

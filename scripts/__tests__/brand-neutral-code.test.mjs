@@ -116,7 +116,9 @@ const lowercaseIdentityOwnerPaths = new Set([
   'package.json',
   'scripts/__tests__/changeset-all-patch.test.mjs',
   'scripts/__tests__/release-records.test.mjs',
-  'scripts/release-records.js'
+  'scripts/__tests__/create-app-cli.test.mjs',
+  'scripts/release-records.js',
+  'release-configs/asyra-starter.json'
 ])
 const capitalizedBrandIdentifierPattern = new RegExp(
   String.raw`(?:\b(?:class|const|enum|export|function|import|interface|let|namespace|type|var)\s+|[({,.]\s*)${repositoryDisplayName}(?=\s*(?:[:=,;)\]}]|$))`,
@@ -144,6 +146,9 @@ const isAllowedPublicIdentity = (token, line, filePath) => {
     const relativePath = path.relative(repositoryRoot, filePath)
     return (
       line.includes(`@${repositoryBrand}`) ||
+      line.includes(`https://github.com/karote00/${repositoryBrand}`) ||
+      (lowercaseIdentityOwnerPaths.has(relativePath) &&
+        line.includes(`/${repositoryBrand}/`)) ||
       (lowercaseIdentityOwnerPaths.has(relativePath) &&
         new RegExp(`(['"])${escapedRepositoryBrand}\\1`, 'u').test(line))
     )

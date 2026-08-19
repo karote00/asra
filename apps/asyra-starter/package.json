@@ -1,0 +1,32 @@
+{
+  "name": "@asyra/asyra-starter",
+  "version": "0.2.5",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "start": "vite dev",
+    "typecheck": "tsc --noEmit",
+    "build:asyra-starter": "vite build",
+    "react:build": "vite build",
+    "test": "node --test __tests__/starter-contract.test.mjs",
+    "test:local": "node --test __tests__/starter-contract.test.mjs",
+    "test:ci": "node --test __tests__/starter-contract.test.mjs",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/node": "^16.18.121",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.2.3"
+  }
+}

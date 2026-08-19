@@ -11,6 +11,11 @@ Requirements:
 - Node.js 24.x
 - Yarn 4.3.1
 
+For product architecture, owner paths, development workflows, and AI-agent
+instructions that also ship in the generated template, start at
+[`docs/README.md`](docs/README.md). Framework contracts remain upstream and are
+linked from [`docs/framework.md`](docs/framework.md).
+
 ## Start in this repository
 
 Install and build the monorepo once from the repository root:

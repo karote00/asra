@@ -10,6 +10,11 @@ Requirements:
 - Node.js 24.x
 - the package manager selected when the project was created
 
+Before changing the product, read [`AGENTS.md`](AGENTS.md) and
+[`docs/README.md`](docs/README.md). They map the App owners, runtime flow,
+common development tasks, formal checks, and stable upstream Framework
+contracts for both humans and AI coding agents.
+
 ## Install and start
 
 If dependencies are not installed yet:

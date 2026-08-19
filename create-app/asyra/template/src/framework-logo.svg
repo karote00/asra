@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 176 176" role="img" aria-labelledby="title description">
+  <title id="title">Asyra Framework</title>
+  <desc id="description">Three connected paths forming a precise, open triangular system.</desc>
+  <defs>
+    <linearGradient id="framework-gradient" x1="22" y1="150" x2="150" y2="20" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#58E6C2"/>
+      <stop offset="0.52" stop-color="#85A7FF"/>
+      <stop offset="1" stop-color="#CE8BFF"/>
+    </linearGradient>
+  </defs>
+  <path d="M88 17 156 139H20L88 17Z" fill="none" stroke="url(#framework-gradient)" stroke-width="11" stroke-linejoin="round"/>
+  <path d="m88 17 1 71 67 51M89 88 20 139" fill="none" stroke="url(#framework-gradient)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="88" cy="17" r="9" fill="#CE8BFF"/>
+  <circle cx="156" cy="139" r="9" fill="#85A7FF"/>
+  <circle cx="20" cy="139" r="9" fill="#58E6C2"/>
+  <circle cx="89" cy="88" r="12" fill="#0B1020" stroke="#F5F8FF" stroke-width="6"/>
+</svg>

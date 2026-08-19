@@ -122,6 +122,22 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@asyra/asyra-starter@workspace:apps/asyra-starter":
+  version: 0.0.0-use.local
+  resolution: "@asyra/asyra-starter@workspace:apps/asyra-starter"
+  dependencies:
+    "@playwright/test": "npm:^1.57.0"
+    "@types/node": "npm:^16.18.121"
+    "@types/react": "npm:^19.0.0"
+    "@types/react-dom": "npm:^19.0.0"
+    "@vitejs/plugin-react": "npm:^4.3.4"
+    react: "npm:^19.0.0"
+    react-dom: "npm:^19.0.0"
+    typescript: "npm:^5.7.2"
+    vite: "npm:^6.2.3"
+  languageName: unknown
+  linkType: soft
+
 "@asyra/collaboration@workspace:*, @asyra/collaboration@workspace:packages/collaboration":
   version: 0.0.0-use.local
   resolution: "@asyra/collaboration@workspace:packages/collaboration"
@@ -8920,6 +8936,16 @@ __metadata:
   checksum: 10c0/0382a9ed13208f8bfc22ca2f62b364855207dffdb73dc26e150ade78c3093f1cf56172df2dd460c8caf2afa91c0ed4ec8a88c62f8f9cd1cf423d26506aa8797a
   languageName: node
   linkType: hard
+
+"create-asyra-app@workspace:create-app/asyra":
+  version: 0.0.0-use.local
+  resolution: "create-asyra-app@workspace:create-app/asyra"
+  dependencies:
+    inquirer: "npm:^8.2.5"
+  bin:
+    create-asyra: ./bin/index.js
+  languageName: unknown
+  linkType: soft
 
 "create-asyra-design-app@workspace:create-app/asyra-design":
   version: 0.0.0-use.local

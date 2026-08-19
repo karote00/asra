@@ -21,6 +21,21 @@ rules, engines, services, and interfaces.
 
 ## Choose your starting point
 
+### Start from a blank product shell
+
+Use [`create-asyra-app`](create-app/asyra/README.md) when you want a minimal
+React project with no predefined product behavior:
+
+```bash
+npx create-asyra-app my-product
+cd my-product
+yarn start
+```
+
+The generated project includes the Asyra Framework logo, a local AI-agent
+guide, and stable links to the Framework contracts. Add only the Framework
+packages and App-owned behavior your product needs.
+
 ### Start from a working product
 
 Use [`create-asyra-design-app`](create-app/asyra-design/README.md) when you want

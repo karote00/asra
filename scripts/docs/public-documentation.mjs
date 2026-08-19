@@ -181,7 +181,7 @@ const serializeLlms = ({ contentIndex }) => {
     'Current: browser/Core composition, official 2D Preset, and engine-neutral CUSTOM composition.',
     'Future: Headless Core and Core Kernel for non-visible and machine-facing products; no current public API or delivery date.',
     '',
-    'Use create-asyra-design-app for the complete beginner product path. Use Start and Build for Framework composition.',
+    'Use create-asyra-app for a blank React shell, create-asyra-design-app for the complete beginner product path, and Start or Build for Framework composition.',
     'Treat app domain schemas, permissions, migration, retrieval, services, and product rules as app-owned.',
     '',
     '## Public pages',
