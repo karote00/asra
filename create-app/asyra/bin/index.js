@@ -119,6 +119,19 @@ const main = async () => {
   console.log(`\n🚀 Creating project "${targetName}"...\n`)
   await copyDirectory(templateDirectory, targetDirectory)
 
+  const packageManagerVersion = execFileSync(packageManager, ['--version'], {
+    encoding: 'utf8'
+  }).trim()
+  const projectManifestPath = path.join(targetDirectory, 'package.json')
+  const projectManifest = JSON.parse(
+    fs.readFileSync(projectManifestPath, 'utf8')
+  )
+  projectManifest.packageManager = `${packageManager}@${packageManagerVersion}`
+  fs.writeFileSync(
+    projectManifestPath,
+    `${JSON.stringify(projectManifest, null, 2)}\n`
+  )
+
   const gitignoreContent = `# dependencies
 /node_modules
 /.pnp
@@ -162,15 +175,9 @@ yarn-error.log*
     )
   }
 
-  const lockfileNames = {
-    yarn: 'yarn.lock',
-    npm: 'package-lock.json',
-    pnpm: 'pnpm-lock.yaml'
+  if (packageManager === 'yarn') {
+    fs.writeFileSync(path.join(targetDirectory, 'yarn.lock'), '')
   }
-  fs.writeFileSync(
-    path.join(targetDirectory, lockfileNames[packageManager]),
-    ''
-  )
 
   const installArguments = {
     yarn: ['install', '--no-immutable'],

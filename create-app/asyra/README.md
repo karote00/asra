@@ -25,8 +25,9 @@ npx create-asyra-app my-product --package-manager=npm
 npx create-asyra-app my-product --package-manager=pnpm
 ```
 
-The CLI accepts one new directory name, copies the verified template, creates
-the selected lock/config files, and installs dependencies. Existing targets,
+The CLI accepts one new directory name, copies the verified template, writes
+the selected package-manager identity/configuration, and installs dependencies
+to create its lockfile. Existing targets,
 absolute paths, nested paths, and `.`/`..` are rejected.
 
 Open `http://localhost:3000`. The initial page contains only the original
@@ -50,6 +51,29 @@ yarn typecheck
 yarn react:build
 yarn test
 ```
+
+## Release verification
+
+Before publishing a manually selected CLI version, create the real npm
+tarball and prove it through clean Yarn, npm, and pnpm consumers:
+
+```bash
+yarn release:create-asyra-app
+```
+
+The gate checks the packed identity and file allowlist, installs the tarball,
+generates a fresh project with each package manager, and runs that project's
+test, typecheck, and production build. It reports the project-local tarball
+path and SHA-256 checksum for release review.
+
+After publication, verify the exact manifest version from the public registry:
+
+```bash
+yarn release:create-asyra-app:registry
+```
+
+The CLI version is selected manually and is independent from the private
+starter/template version. Publishing still requires explicit authorization.
 
 ## Generated project contract
 

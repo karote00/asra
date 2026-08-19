@@ -126,6 +126,31 @@ generated-artifact rule. `release:validate` owns the synchronization check and
 reuses its immediately preceding clean framework build for the same template
 compilation.
 
+## Create Asyra App CLI
+
+`create-asyra-app` is intentionally smaller than the Asyra Design starter. Its
+generated project contains one React homepage, the Framework mark, agent/human
+entry documentation, and only the configuration and tests required to run and
+verify that page. It must not inherit Asyra Design product features, servers,
+collaboration, AI, canvas, persistence, or database code.
+
+Before publishing its manually selected version, validate the real package
+artifact through all supported package managers:
+
+```bash
+yarn release:create-asyra-app
+```
+
+This creates a project-local tarball, checks its identity and file allowlist,
+installs it into isolated Yarn, npm, and pnpm consumers, generates one app per
+consumer, and runs `test`, `typecheck`, and `react:build`. The command reports
+the artifact SHA-256 checksum. After publication, the registry form installs
+the exact manifest version and repeats the clean-consumer gates:
+
+```bash
+yarn release:create-asyra-app:registry
+```
+
 ## Release Validation and Publication Boundary
 
 ```bash

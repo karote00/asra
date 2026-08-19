@@ -42,7 +42,10 @@ for (const cliCase of cliCases) {
 
     try {
       fs.mkdirSync(fakeBinDirectory)
-      fs.writeFileSync(fakeYarnPath, '#!/usr/bin/env node\nprocess.exit(0)\n')
+      fs.writeFileSync(
+        fakeYarnPath,
+        '#!/usr/bin/env node\nif (process.argv[2] === "--version") console.log("4.3.1")\n'
+      )
       fs.chmodSync(fakeYarnPath, 0o755)
 
       const result = spawnSync(
@@ -75,6 +78,13 @@ for (const cliCase of cliCases) {
           `${cliCase.title} output is missing ${requiredFile}`
         )
       }
+      const generatedManifest = JSON.parse(
+        fs.readFileSync(
+          path.join(testDirectory, projectName, 'package.json'),
+          'utf8'
+        )
+      )
+      assert.equal(generatedManifest.packageManager, 'yarn@4.3.1')
     } finally {
       fs.rmSync(testDirectory, { recursive: true, force: true })
     }
