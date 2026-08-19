@@ -68,7 +68,7 @@ h1 {
 }
 
 .brand__intro {
-  max-width: 520px;
+  max-width: 620px;
   margin: 24px 0 30px;
   color: #aeb9d2;
   font-size: clamp(1rem, 2vw, 1.16rem);
