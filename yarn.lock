@@ -8952,7 +8952,7 @@ __metadata:
   dependencies:
     inquirer: "npm:^8.2.5"
   bin:
-    create-asyra: ./bin/index.js
+    create-asyra-app: ./bin/index.js
   languageName: unknown
   linkType: soft
 

@@ -21,9 +21,7 @@ test('create-asyra-app exposes the one supported create command', () => {
     )
   )
 
-  assert.deepEqual(manifest.bin, {
-    'create-asyra-app': './bin/index.js'
-  })
+  assert.equal(manifest.bin, './bin/index.js')
   assert.equal(
     rootManifest.scripts['create-asyra-app'],
     'node create-app/asyra/bin/index.js'
