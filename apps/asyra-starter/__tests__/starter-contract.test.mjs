@@ -29,6 +29,16 @@ test('homepage exposes the original Framework mark and upstream guide', () => {
 
   assert.match(app, /Asyra Framework logo/u)
   assert.match(app, /docs\/ai\/framework\/GETTING_STARTED\.md/u)
+  assert.match(app, /Build what matters/u)
+  assert.match(
+    app,
+    /A clean foundation for your next product[\s\S]*compose only the capabilities you need\./u
+  )
   assert.match(logo, /id="framework-gradient"/u)
+  assert.equal(
+    [...logo.matchAll(/<circle[^>]+fill="url\(#framework-gradient\)"/gu)]
+      .length,
+    3
+  )
   assert.match(logo, /<title id="title">Asyra Framework<\/title>/u)
 })

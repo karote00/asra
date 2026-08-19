@@ -13,11 +13,11 @@ const App = () => (
         width="176"
         height="176"
       />
-      <p className="brand__eyebrow">Deterministic infrastructure</p>
+      <p className="brand__eyebrow">Build what matters</p>
       <h1 id="framework-title">Asyra Framework</h1>
       <p className="brand__intro">
-        Your React shell is running. Begin with one information model, one
-        registered intent, and one canonical state path.
+        A clean foundation for your next product. Define the model, shape the
+        behavior, and compose only the capabilities you need.
       </p>
       <a className="brand__link" href={gettingStartedGuide}>
         Read the Framework guide
