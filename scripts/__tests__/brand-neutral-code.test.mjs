@@ -117,6 +117,8 @@ const lowercaseIdentityOwnerPaths = new Set([
   'scripts/__tests__/changeset-all-patch.test.mjs',
   'scripts/__tests__/release-records.test.mjs',
   'scripts/__tests__/create-app-cli.test.mjs',
+  'scripts/__tests__/release-automation.test.mjs',
+  'scripts/__tests__/test-file-placement.test.mjs',
   'scripts/release-records.js',
   'release-configs/asyra-starter.json'
 ])
@@ -148,7 +150,7 @@ const isAllowedPublicIdentity = (token, line, filePath) => {
       line.includes(`@${repositoryBrand}`) ||
       line.includes(`https://github.com/karote00/${repositoryBrand}`) ||
       (lowercaseIdentityOwnerPaths.has(relativePath) &&
-        line.includes(`/${repositoryBrand}/`)) ||
+        new RegExp(`/${escapedRepositoryBrand}(?:/|['"])`, 'u').test(line)) ||
       (lowercaseIdentityOwnerPaths.has(relativePath) &&
         new RegExp(`(['"])${escapedRepositoryBrand}\\1`, 'u').test(line))
     )

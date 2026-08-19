@@ -22,7 +22,9 @@ const ignoredDirectoryNames = new Set([
 
 const dedicatedE2ERoots = [
   'apps/asyra-design/e2e/',
-  'create-app/asyra-design/template/e2e/'
+  'apps/asyra-starter/e2e/',
+  'create-app/asyra-design/template/e2e/',
+  'create-app/asyra/template/e2e/'
 ]
 
 const testFilePattern = /\.(?:test|spec)\.(?:[cm]?js|[cm]?ts|jsx|tsx)$/
