@@ -9,6 +9,9 @@ import { checkPublicDocumentation } from './public-documentation.mjs'
 import { readApprovedReadmeInputs } from './public-readme-inputs.mjs'
 
 const REPOSITORY_URL = 'https://github.com/karote00/asyra'
+const VERIFIED_PUBLIC_LINKS = new Set([
+  'https://asyra-karote00s-projects.vercel.app/?fileId=demo'
+])
 const REQUIRED_POLICY =
   'This repository does not accept external issues or contributions'
 
@@ -97,6 +100,7 @@ const ensureRepositoryTarget = ({
   sourcePath
 }) => {
   const url = new URL(destination)
+  if (VERIFIED_PUBLIC_LINKS.has(destination)) return
   if (`${url.origin}${url.pathname}` === REPOSITORY_URL) return
   const prefix = `${REPOSITORY_URL}/blob/main/`
   const treePrefix = `${REPOSITORY_URL}/tree/main/`

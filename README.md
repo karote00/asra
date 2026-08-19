@@ -19,12 +19,25 @@ visual product paths. Asyra is not a canvas widget and is not limited to design
 tools: it provides infrastructure that an App can compose around its own data,
 rules, engines, services, and interfaces.
 
+## Try the demo
+
+[Open the Asyra Design demo](https://asyra-karote00s-projects.vercel.app/?fileId=demo)
+to explore a working product built with Asyra. Asyra Design is the reference
+design-tool App: it demonstrates how the Framework, official Preset, App-owned
+features, editable information, rendering, undo/redo, and persistence fit
+together in a real product.
+
+The `fileId=demo` query selects the demo document. Keep it in the URL when
+opening or sharing the demo.
+
 ## Choose your starting point
 
 ### Start from a blank product shell
 
 Use [`create-asyra-app`](create-app/asyra/README.md) when you want a minimal
-React project with no predefined product behavior:
+React project with no predefined product behavior. It is the better starting
+point for experienced builders, non-design products, or ideas that should be
+composed from the ground up with Asyra Framework:
 
 ```bash
 npx create-asyra-app my-product
@@ -32,16 +45,18 @@ cd my-product
 yarn start
 ```
 
-The generated project includes the Asyra Framework logo, a local AI-agent
-guide, and stable links to the Framework contracts. Add only the Framework
-packages and App-owned behavior your product needs.
+The generated project contains one React homepage, the Asyra Framework logo, a
+local AI-agent guide, and stable links to the Framework contracts. Add only the
+Framework packages and App-owned behavior your product needs.
 
 ### Start from a working product
 
 Use [`create-asyra-design-app`](create-app/asyra-design/README.md) when you want
-an immediately editable reference product. This is the recommended beginner
-path for engineers, product builders, and non-engineers working with an AI
-coding agent:
+to build a design tool from an immediately editable reference product. Start
+with Asyra Design, then add, remove, or replace its features, product behavior,
+services, and UI to match your own design product. This is the recommended
+path for builders who want a working design-tool foundation instead of an empty
+App:
 
 ```bash
 npx create-asyra-design-app my-product
@@ -49,8 +64,9 @@ cd my-product
 yarn start
 ```
 
-The generated project is ordinary source code. Continue by following its
-bounded extension guide and the public Framework documentation.
+The generated project is ordinary source code and includes documentation for
+both humans and AI coding agents. Continue by following its bounded extension
+guide and the public Framework documentation.
 
 ### Learn the Framework
 

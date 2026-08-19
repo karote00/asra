@@ -63,6 +63,14 @@ test('README learning surfaces reject retired example runners and source links',
 })
 
 test('README link validation rejects missing and unverified destinations', () => {
+  assert.doesNotThrow(() =>
+    validateReadmeLinks({
+      filePath: path.join(repositoryRoot, 'README.md'),
+      repositoryRoot,
+      source:
+        '[demo](https://asyra-karote00s-projects.vercel.app/?fileId=demo)'
+    })
+  )
   assert.throws(
     () =>
       validateReadmeLinks({
