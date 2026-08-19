@@ -19,7 +19,6 @@
     "reference-implementation"
   ],
   "scripts": {
-    "create-asyra-app": "node create-app/asyra/bin/index.js",
     "dev:all": "node scripts/dev-all.js",
     "watch:design-system": "turbo run watch:design-system",
     "rebuild:design-system": "yarn workspace @asyra/design-system rebuild:design-system",
