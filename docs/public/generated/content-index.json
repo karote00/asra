@@ -1,7 +1,7 @@
 {
   "pages": [
     {
-      "contentSha256": "c937abf9c48a505d12336e9b7b29174c38622c48428e26f45531049ba2cb00de",
+      "contentSha256": "c5f83acbd94743788a86bf089132cd9496b7f8fd9d7b33511702438cd311aece",
       "description": "Build domain-owned information products whose visual, collaborative, persistent, and AI-facing capabilities remain composable.",
       "headings": [
         {
@@ -38,7 +38,7 @@
       "path": "index.md",
       "section": "Overview",
       "title": "Asyra Framework",
-      "wordCount": 528
+      "wordCount": 526
     },
     {
       "contentSha256": "6403e873a16f3e7a1e0c09a5e3f7a026cdab0b6c50f96cc8f4846970966e505f",
@@ -225,7 +225,7 @@
       "wordCount": 476
     },
     {
-      "contentSha256": "5799d58d89b31bf0d1c9eaf54f82dca2fa573d8cd27fce5e86451061b141047a",
+      "contentSha256": "924e7ccbb6dc571a8834d1c01d02b0a9407e8d35f0fd7bd9431a5d114f3ae237",
       "description": "Start from Core and choose information, interaction, rendering, persistence, collaboration, and AI capabilities independently.",
       "headings": [
         {
@@ -277,7 +277,7 @@
       "path": "start/custom-composition.md",
       "section": "Start",
       "title": "Compose only the infrastructure you need",
-      "wordCount": 549
+      "wordCount": 548
     },
     {
       "contentSha256": "9569bf993ca3bba0a634d47dbdb90dad5ec0f3dbd5acfca01695039000a4e821",
@@ -778,7 +778,7 @@
       "wordCount": 494
     },
     {
-      "contentSha256": "faaa4dac8dafcf3629af9209e55589362c4e47da5b859203d4a28676cf18ba62",
+      "contentSha256": "8610eaa7d7e318f47327e2514ab0f9db021f539fe4ba220b5c5fa0baa394cf28",
       "description": "Provide an engine through the public provider contract without teaching Core a renderer-specific implementation.",
       "headings": [
         {
@@ -841,7 +841,7 @@
       "path": "build/render-boundary.md",
       "section": "Build",
       "title": "Build a custom render boundary",
-      "wordCount": 565
+      "wordCount": 562
     },
     {
       "contentSha256": "2c3f6f7a220230e4a2e2595966cb60ab276bf3543864702d0cd41ff39d01d10d",

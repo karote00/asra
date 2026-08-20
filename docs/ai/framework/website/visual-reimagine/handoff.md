@@ -72,7 +72,7 @@ as engineers. The information order is fixed:
 4. **Framework mechanics:** packages, APIs, transactions, owners, providers,
    projections, and evidence appear only when the reader asks for depth.
 
-Whiteboards, design tools, BIM, VR, industrial simulation, AI-facing information
+Whiteboards, design tools, BIM, industrial simulation, AI-facing information
 models, and other domains are App-owned possibilities. They are not bundled
 Framework promises. Asyra Design is one complete product implementation, and
 `create-asyra-design-app` is the ready-to-use design-tool entrance. The sample

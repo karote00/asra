@@ -5,7 +5,7 @@ does not want the complete official design-tool baseline. Start from Core,
 define your app-owned information, and compose only the capabilities your
 runtime actually uses.
 
-This is the general Asyra path for whiteboards, BIM, VR, simulations, and other
+This is the general Asyra path for whiteboards, BIM, simulations, and other
 domain products. The Framework supplies owner boundaries and coordination; it
 does not know the domain rules that make your product correct.
 

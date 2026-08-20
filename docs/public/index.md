@@ -2,7 +2,7 @@
 
 Asyra is infrastructure for building products around app-owned information and
 rules. A product may project that information as a design tool, whiteboard,
-BIM environment, VR workspace, simulation system, or another visual tool. The
+BIM environment, simulation system, or another visual tool. The
 Framework does not own the meaning of a building, manufacturing rule, chemical
 constraint, design object, or AI task; that remains your product's domain.
 

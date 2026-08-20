@@ -348,6 +348,25 @@ test('Active entry docs position Asyra Design as one product use, not the Framew
   assert.doesNotMatch(rootManifest.description, /^An open-source design tool/u)
 })
 
+test('Active product positioning does not claim generic VR support', () => {
+  const positioningPaths = [
+    'README.md',
+    'docs/ai/framework/website/visual-reimagine/concept-manifest.json',
+    'docs/ai/framework/website/visual-reimagine/handoff.md',
+    'docs/public/build/render-boundary.md',
+    'docs/public/index.md',
+    'docs/public/start/custom-composition.md'
+  ]
+
+  for (const relativePath of positioningPaths) {
+    const source = fs.readFileSync(
+      path.join(repositoryRoot, relativePath),
+      'utf8'
+    )
+    assert.doesNotMatch(source, /\bVR\b/u, relativePath)
+  }
+})
+
 test('Programmatic code and configuration use brand-neutral identifiers', () => {
   const violations = sourceFiles.flatMap((filePath) => {
     const source = fs.readFileSync(filePath, 'utf8')

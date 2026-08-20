@@ -120,12 +120,12 @@ apply owners; they do not invent a second product-decision runtime.
 
 ## Where Asyra can go
 
-The same infrastructure can support a design tool, whiteboard, BIM system, VR
-experience, industrial digital twin, 4D simulation, or a domain Asyra's authors
-never anticipated. An industrial App could add its own physical and chemical
-rules; a BIM App could add its own building model and safety policies; a
-simulation App could bind a specialized engine. These are App-owned
-possibilities, not turnkey capabilities bundled with Asyra.
+The same infrastructure can support a design tool, whiteboard, BIM system,
+industrial digital twin, 4D simulation, or a domain Asyra's authors never
+anticipated. An industrial App could add its own physical and chemical rules;
+a BIM App could add its own building model and safety policies; a simulation
+App could bind a specialized engine. These are App-owned possibilities, not
+turnkey capabilities bundled with Asyra.
 
 The longer-term direction also includes non-visible information-model products
 designed for AI retrieval and registered action execution. That direction is

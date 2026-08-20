@@ -53,7 +53,7 @@
       "prompt": {
         "primaryRequest": "Create an original shippable visual concept called Material Blueprint that lets a worldwide non-engineer understand Asyra before progressively revealing the technical Framework.",
         "composition": "A global editorial Landing sheet with warm mineral paper, architectural registration marks, one continuous world-building fold, and mobile, documentation, and Runtime Atlas insets.",
-        "narrative": "BUILD THE TOOL YOUR WORLD NEEDS. You define the knowledge. Asyra keeps every action clear, safe, and reversible. Whiteboard, BIM, VR, and simulation remain App-owned examples.",
+        "narrative": "BUILD THE TOOL YOUR WORLD NEEDS. You define the knowledge. Asyra keeps every action clear, safe, and reversible. Whiteboard, BIM, and simulation remain App-owned examples.",
         "semantics": "DESCRIBE to ACT to VERIFY, then Feature to API to transaction-bounded owners to projection; indigo canonical route, violet optional route, vermilion transaction, green accepted state, cross-hatched verified roadmap boundary.",
         "constraints": "Plain international English first, localized-text resilience, 44px touch intent, long-form reading, shapes plus color, no external assets, no SaaS card grid, no invented roadmap items."
       },
@@ -187,7 +187,7 @@
         "result": "pass",
         "findings": [
           "Asyra Design is clearly a reference product rather than the Framework boundary.",
-          "Whiteboard, BIM, VR, and simulation remain App-owned possibilities.",
+          "Whiteboard, BIM, and simulation remain App-owned possibilities.",
           "Current, possible, accepted, and roadmap meanings do not collapse into one status."
         ]
       }

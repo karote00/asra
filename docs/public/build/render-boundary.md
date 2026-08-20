@@ -154,7 +154,7 @@ for the composition call site.
 ## Expected result
 
 Render sends the same semantic draw command regardless of whether the adapter
-targets Canvas, SVG, WebGL, a BIM engine, a VR runtime, or another SDK. The
+targets Canvas, SVG, WebGL, a BIM engine, or another SDK. The
 adapter creates real output, returns normalized query/interaction results, and
 remains the only module that sees concrete engine objects.
 
