@@ -63,6 +63,7 @@ test('discovers every workspace family declared by the root manifest', async () 
   )
 
   assert.equal(result.setupError, undefined)
+  assert.ok(discoveredWorkspaceNames.has('@asyra/asyra'))
   assert.ok(discoveredWorkspaceNames.has('@asyra/asyra-design'))
   assert.ok(discoveredWorkspaceNames.has('@asyra/render-engine'))
   assert.ok(discoveredWorkspaceNames.has('create-asyra-design-app'))

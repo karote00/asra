@@ -1,7 +1,7 @@
 {
-  "src": "create-app/asyra/source",
+  "src": "apps/asyra",
   "dest": "create-app/asyra/template",
-  "readme": "create-app/asyra/source/TEMPLATE.md",
+  "readme": "apps/asyra/TEMPLATE.md",
   "license": "create-app/asyra/LICENSE",
   "environment": {
     "APP_URL": "http://127.0.0.1:3000"

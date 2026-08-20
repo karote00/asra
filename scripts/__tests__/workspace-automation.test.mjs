@@ -22,10 +22,10 @@ const readText = (relativePath) =>
   fs.readFileSync(path.join(repositoryRoot, relativePath), 'utf8')
 
 const getBuildTask = (manifest) => {
-  const task =
-    manifest.name === '@asyra/asyra-design'
-      ? 'react:build'
-      : `build:${manifest.name.split('/').pop()}`
+  const packageBuildTask = `build:${manifest.name.split('/').pop()}`
+  const task = manifest.scripts?.[packageBuildTask]
+    ? packageBuildTask
+    : 'react:build'
   assert.ok(
     manifest.scripts?.[task],
     `${manifest.name} must declare its canonical ${task} task`

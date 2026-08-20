@@ -15,14 +15,13 @@ app templates.
   Changeset release entry.
 - `apps/asyra-design` and `create-app/asyra-design` share the published Asyra
   Design release version; their manifest versions must remain identical.
+- `apps/asyra` and `create-app/asyra` share the published Asyra Framework
+  starter release version; their manifest versions must remain identical.
 - Root `asyra` is the main release identity. Its stable version is always
   `a.b.0` and is changed manually only after the required release sequence.
 - A canonical private app owns its own identity version. A generated template
   inherits that app version through the official generator; the template is
   never edited, versioned, or selected in Changesets independently.
-- `create-asyra-app` has no canonical private App. Its CLI-owned scaffold source
-  and generated template use the manually selected `create-asyra-app` version;
-  neither is a Changeset release identity.
 
 An empty Changeset may record a non-documentation PR that changes no Framework
 package. Empty records satisfy closeout without assigning a release version to

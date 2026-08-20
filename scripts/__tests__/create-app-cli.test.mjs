@@ -42,32 +42,26 @@ test('create-asyra-app exposes the one supported create command', () => {
   assert.match(cli, /Usage: npx create-asyra-app \[project-name\]/u)
 })
 
-test('create-asyra-app owns its 0.1.0 scaffold without a canonical app source', () => {
+test('create-asyra-app uses its corresponding 0.1.0 empty app as source', () => {
   const cliManifest = JSON.parse(
     fs.readFileSync(
       path.join(repositoryRoot, 'create-app/asyra/package.json'),
       'utf8'
     )
   )
-  const repositoryManifest = JSON.parse(
-    fs.readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
-  )
-  const retiredAppName = `${repositoryManifest.name}-starter`
+  const appRoot = path.join(repositoryRoot, 'apps/asyra')
   const releaseConfigPath = path.join(
     repositoryRoot,
     'release-configs/create-asyra-app.json'
   )
 
-  assert.equal(
-    fs.existsSync(path.join(repositoryRoot, 'apps', retiredAppName)),
-    false
-  )
+  assert.equal(fs.existsSync(appRoot), true)
   assert.equal(fs.existsSync(releaseConfigPath), true)
 
   const releaseConfig = JSON.parse(fs.readFileSync(releaseConfigPath, 'utf8'))
-  assert.equal(releaseConfig.src, 'create-app/asyra/source')
+  assert.equal(releaseConfig.src, 'apps/asyra')
   assert.equal(releaseConfig.dest, 'create-app/asyra/template')
-  assert.equal(releaseConfig.readme, 'create-app/asyra/source/TEMPLATE.md')
+  assert.equal(releaseConfig.readme, 'apps/asyra/TEMPLATE.md')
 
   const sourceManifest = JSON.parse(
     fs.readFileSync(
@@ -83,10 +77,15 @@ test('create-asyra-app owns its 0.1.0 scaffold without a canonical app source', 
   )
 
   assert.equal(cliManifest.version, '0.1.0')
+  assert.equal(sourceManifest.name, '@asyra/asyra')
+  assert.equal(sourceManifest.private, true)
   assert.equal(sourceManifest.version, cliManifest.version)
+  assert.equal(templateManifest.name, sourceManifest.name)
   assert.equal(templateManifest.version, cliManifest.version)
-  assert.equal(JSON.stringify(sourceManifest).includes(retiredAppName), false)
-  assert.equal(JSON.stringify(templateManifest).includes(retiredAppName), false)
+  assert.deepEqual(sourceManifest.dependencies, {
+    react: '^19.0.0',
+    'react-dom': '^19.0.0'
+  })
 })
 
 const cliCases = [

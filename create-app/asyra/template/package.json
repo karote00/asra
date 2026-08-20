@@ -1,5 +1,5 @@
 {
-  "name": "asyra-app-template",
+  "name": "@asyra/asyra",
   "version": "0.1.0",
   "private": true,
   "type": "module",

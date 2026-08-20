@@ -155,6 +155,8 @@ keeps verified capability separate from future direction.
   implementation patterns, owner flows, expected results, and failure paths.
 - [Package reference](docs/public/reference/support-release.md) — support,
   migration, security, deprecation, and release boundaries.
+- [Asyra empty app](apps/asyra/README.md) — the directly runnable source for
+  `create-asyra-app` and its generated starter template.
 - [Asyra Design](apps/asyra-design/README.md) — the real reference product and
   repository development path.
 - [AI-readable discovery](docs/public/llms.txt) — stable public page inventory

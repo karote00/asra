@@ -42,9 +42,8 @@ yarn test
 
 ## Generated project contract
 
-- `create-app/asyra/source` is CLI-owned scaffold input, not a canonical App or
-  workspace product.
-- `create-app/asyra/source/TEMPLATE.md` is the generated README source.
+- `apps/asyra` is the corresponding empty App and generator source.
+- `apps/asyra/TEMPLATE.md` is the generated README source.
 - `create-app/asyra/template` is generated only through the official release
   generator with `yarn release:app --prod=create-asyra-app`; it receives no
   handwritten fixes.

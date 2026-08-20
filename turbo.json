@@ -40,6 +40,13 @@
       ],
       "dependsOn": []
     },
+    "@asyra/asyra#react:build": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": []
+    },
     "@asyra/asyra-design#react:build": {
       "cache": false,
       "outputs": [
