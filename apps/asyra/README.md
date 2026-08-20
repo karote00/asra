@@ -1,8 +1,8 @@
 # Asyra Framework starter
 
 This project is a minimal React starting point created by `create-asyra-app`.
-It contains the original Asyra Framework logo and no product-domain behavior,
-so you can introduce only the Framework capabilities your product needs.
+It contains a minimal introductory page and no product-domain behavior, so you
+can introduce only the Framework capabilities your product needs.
 
 ## Start
 

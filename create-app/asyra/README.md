@@ -19,8 +19,8 @@ the Yarn identity/configuration, and installs dependencies to create its
 lockfile. Existing targets, absolute paths, nested paths, and `.`/`..` are
 rejected.
 
-Open `http://localhost:3000`. The initial page contains only the original
-Asyra Framework logo, a short starting point, and the GitHub project link.
+Open `http://localhost:3000`. The initial page contains only a minimal starting
+point and the GitHub project link.
 
 ## Continue with Asyra
 
