@@ -30,7 +30,6 @@ packages.
 
 - [Framework getting started](https://github.com/karote00/asyra/blob/main/docs/ai/framework/GETTING_STARTED.md)
 - [Public documentation](https://github.com/karote00/asyra/blob/main/docs/public/index.md)
-- [Executable examples](https://github.com/karote00/asyra/tree/main/docs/examples)
 - [Complete Asyra Design starter](../asyra-design/README.md)
 
 ## Verify
