@@ -34,8 +34,7 @@ documentation into your App.
 ## Verify
 
 ```bash
-yarn typecheck
-yarn react:build
+yarn build
 ```
 
 The starter does not install or configure a testing framework. Each product can

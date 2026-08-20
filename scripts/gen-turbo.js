@@ -14,7 +14,13 @@ const ignorePackages = ['create-app/*']
 const getBuildTask = (pkg) => {
   const repoName = pkg.name.split('/').pop()
   const packageBuildTask = `build:${repoName}`
-  return pkg.scripts[packageBuildTask] ? packageBuildTask : 'react:build'
+  const task = [packageBuildTask, 'react:build', 'build'].find(
+    (candidate) => pkg.scripts[candidate]
+  )
+  if (!task) {
+    throw new Error(`${pkg.name} must declare a canonical build task`)
+  }
+  return task
 }
 
 // Scan all packages in the monorepo workspaces

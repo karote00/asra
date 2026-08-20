@@ -47,6 +47,10 @@ test('create-asyra-app exposes the one supported create command', () => {
   assert.doesNotMatch(readme, /Framework guide link/u)
   assert.doesNotMatch(sourceReadme, /npx create-asyra-app/u)
   assert.match(sourceReadme, /yarn start/u)
+  assert.match(sourceReadme, /yarn build/u)
+  assert.doesNotMatch(sourceReadme, /yarn typecheck|yarn react:build/u)
+  assert.match(readme, /yarn build/u)
+  assert.doesNotMatch(readme, /yarn typecheck|yarn react:build/u)
   assert.match(cli, /Usage: npx create-asyra-app \[project-name\]/u)
 })
 
@@ -103,8 +107,7 @@ test('create-asyra-app uses its corresponding 0.1.0 empty app as source', () => 
   assert.equal(templateManifest.version, cliManifest.version)
   assert.deepEqual(sourceManifest.scripts, {
     start: 'vite dev',
-    typecheck: 'tsc --noEmit',
-    'react:build': 'vite build'
+    build: 'vite build'
   })
   assert.deepEqual(sourceManifest.dependencies, {
     react: '^19.0.0',
@@ -154,9 +157,15 @@ test('create-asyra-app uses its corresponding 0.1.0 empty app as source', () => 
   assert.doesNotMatch(sourceReadme, /yarn test/u)
   assert.match(sourceReadme, /minimal React starting point/u)
   assert.match(sourceReadme, /yarn start/u)
+  assert.match(sourceReadme, /yarn build/u)
+  assert.doesNotMatch(sourceReadme, /yarn typecheck|yarn react:build/u)
   assert.ok(sourceReadme.includes(upstreamRepositoryUrl))
   assert.ok(agents.includes(upstreamRepositoryUrl))
-  assert.doesNotMatch(agents, /docs\/framework\.md|yarn test/u)
+  assert.match(agents, /yarn build/u)
+  assert.doesNotMatch(
+    agents,
+    /docs\/framework\.md|yarn test|yarn typecheck|yarn react:build/u
+  )
   assert.ok(appSource.includes(`'${upstreamRepositoryUrl}'`))
   assert.equal(appSource.includes(`${upstreamRepositoryUrl}/blob/`), false)
 })
@@ -256,8 +265,7 @@ for (const cliCase of cliCases) {
         )
         assert.deepEqual(generatedManifest.scripts, {
           start: 'vite dev',
-          typecheck: 'tsc --noEmit',
-          'react:build': 'vite build'
+          build: 'vite build'
         })
       }
     } finally {

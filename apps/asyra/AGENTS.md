@@ -22,6 +22,5 @@ framework; add one only when your product chooses its testing strategy.
 Run at least:
 
 ```bash
-yarn typecheck
-yarn react:build
+yarn build
 ```

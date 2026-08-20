@@ -8,8 +8,7 @@
   },
   "scripts": {
     "start": "vite dev",
-    "typecheck": "tsc --noEmit",
-    "react:build": "vite build"
+    "build": "vite build"
   },
   "dependencies": {
     "react": "^19.0.0",

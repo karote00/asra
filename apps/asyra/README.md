@@ -25,11 +25,10 @@ App. Add Framework packages only when the composition needs them.
 This starter does not select a testing framework. Add the testing tools and
 commands that fit your product when you need them.
 
-## Check the project
+## Build the project
 
 ```bash
-yarn typecheck
-yarn react:build
+yarn build
 ```
 
 ## Support and contribution policy

@@ -40,7 +40,7 @@
       ],
       "dependsOn": []
     },
-    "@asyra/asyra#react:build": {
+    "@asyra/asyra#build": {
       "cache": false,
       "outputs": [
         "dist/**"

@@ -23,13 +23,10 @@ const readText = (relativePath) =>
 
 const getBuildTask = (manifest) => {
   const packageBuildTask = `build:${manifest.name.split('/').pop()}`
-  const task = manifest.scripts?.[packageBuildTask]
-    ? packageBuildTask
-    : 'react:build'
-  assert.ok(
-    manifest.scripts?.[task],
-    `${manifest.name} must declare its canonical ${task} task`
+  const task = [packageBuildTask, 'react:build', 'build'].find(
+    (candidate) => manifest.scripts?.[candidate]
   )
+  assert.ok(task, `${manifest.name} must declare a canonical build task`)
   return task
 }
 
@@ -77,6 +74,7 @@ test('Turbo uses exact workspace task relationships generated from manifests', (
       return `${dependency}#${getBuildTask(dependencyManifest)}`
     })
 
+    assert.ok(turbo.tasks[taskName], `${taskName} must exist`)
     assert.deepEqual(
       turbo.tasks[taskName]?.dependsOn ?? [],
       expectedDependencies,
