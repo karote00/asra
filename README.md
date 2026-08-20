@@ -55,8 +55,9 @@ design-tool implementation: it demonstrates how the Framework, official
 Preset, App-owned features, editable information, rendering, undo/redo, and
 persistence fit together in a real product.
 
-The `fileId=demo` query selects the demo document. Keep it in the URL when
-opening or sharing the demo.
+`fileId` is Asyra Design's required product document and collaboration-room
+identity. The demo URL uses the same real document-session configuration as any
+deployed Asyra Design product.
 
 ## Choose your starting point
 
