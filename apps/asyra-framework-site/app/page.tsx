@@ -5,7 +5,7 @@ interface IllustrationProps {
   height: number
   name: string
   sizes: string
-  widths: [number, number, number]
+  widths: readonly [number, number, ...number[]]
   width: number
 }
 
@@ -19,7 +19,7 @@ function Illustration({
   widths,
   width
 }: IllustrationProps) {
-  const [small, medium, large] = widths
+  const large = widths.at(-1)
   return (
     <img
       alt={alt}
@@ -30,7 +30,12 @@ function Illustration({
       loading={eager ? 'eager' : 'lazy'}
       sizes={sizes}
       src={`/illustrations/${name}-${large}.webp`}
-      srcSet={`/illustrations/${name}-${small}.webp ${small}w, /illustrations/${name}-${medium}.webp ${medium}w, /illustrations/${name}-${large}.webp ${large}w`}
+      srcSet={widths
+        .map(
+          (candidate) =>
+            `/illustrations/${name}-${candidate}.webp ${candidate}w`
+        )
+        .join(', ')}
       width={width}
     />
   )
@@ -49,9 +54,6 @@ export default function HomePage() {
           <a href="#">Docs</a>
           <a href="#">About</a>
         </nav>
-        <a className="button button--red button--compact" href="#">
-          Start building
-        </a>
       </header>
 
       <main>
@@ -85,7 +87,7 @@ export default function HomePage() {
               eager
               height={1254}
               name="hero-core-v08-desktop-photoroom"
-              sizes="(max-width: 700px) calc(200vw - 80px), (max-width: 1100px) 96vw, 1240px"
+              sizes="(max-width: 800px) calc(200vw - 80px), (max-width: 1100px) 96vw, 1240px"
               widths={[720, 1080, 1400]}
               width={1400}
             />
@@ -106,14 +108,32 @@ export default function HomePage() {
             <span>Examples, not limits.</span>
           </div>
           <div className="domains__rail illustration-stage illustration-stage--dark illustration-stage--rail">
+            <picture className="domain-rail__picture">
+              <source
+                height={325}
+                media="(max-width: 680px)"
+                sizes="100vw"
+                srcSet="/illustrations/domain-rail-v08-desktop-photoroom-row-1-800.webp 800w, /illustrations/domain-rail-v08-desktop-photoroom-row-1-1200.webp 1200w"
+                width={1200}
+              />
+              <Illustration
+                alt="Examples: Design, Photography, Research, BIM, Education, Manufacturing, Media, Operations, Simulation, and Your field"
+                className="domain-rail"
+                height={325}
+                name="domain-rail-v08-desktop-photoroom"
+                sizes="110vw"
+                widths={[800, 1600, 2400]}
+                width={2400}
+              />
+            </picture>
             <Illustration
-              alt="Examples: Design, Photography, Research, BIM, Education, Manufacturing, Media, Operations, Simulation, and Your field"
-              className="domain-rail"
+              alt=""
+              className="domain-rail__second"
               height={325}
-              name="domain-rail-v08-desktop-photoroom"
-              sizes="(max-width: 700px) 1440px, (max-width: 1100px) 200vw, 100vw"
-              widths={[800, 1600, 2400]}
-              width={2400}
+              name="domain-rail-v08-desktop-photoroom-row-2"
+              sizes="100vw"
+              widths={[800, 1200]}
+              width={1200}
             />
           </div>
         </section>
@@ -137,7 +157,7 @@ export default function HomePage() {
                 className="proof-image proof-image--grow"
                 height={1036}
                 name="grow-photoroom"
-                sizes="(max-width: 700px) calc(200vw - 80px), (max-width: 1100px) 92vw, 1120px"
+                sizes="(max-width: 800px) calc(200vw - 80px), (max-width: 1100px) 92vw, 1120px"
                 widths={[720, 1200, 1518]}
                 width={1518}
               />
@@ -159,7 +179,7 @@ export default function HomePage() {
                 className="proof-image proof-image--same-path"
                 height={887}
                 name="same-path-photoroom"
-                sizes="(max-width: 700px) calc(200vw - 80px), (max-width: 1100px) 104vw, 1360px"
+                sizes="(max-width: 800px) calc(200vw - 80px), (max-width: 1100px) 104vw, 1360px"
                 widths={[720, 1280, 1774]}
                 width={1774}
               />
@@ -185,7 +205,7 @@ export default function HomePage() {
                 className="proof-image proof-image--one-source"
                 height={800}
                 name="one-source-v08-desktop-photoroom"
-                sizes="(max-width: 700px) calc(200vw - 80px), (max-width: 1100px) 92vw, 1120px"
+                sizes="(max-width: 800px) calc(200vw - 80px), (max-width: 1100px) 92vw, 1120px"
                 widths={[720, 1280, 1536]}
                 width={1536}
               />
@@ -208,7 +228,7 @@ export default function HomePage() {
             className="closing__core"
             height={1024}
             name="closing-core-v09-photoroom"
-            sizes="(max-width: 700px) 340px, (max-width: 1100px) 340px, 480px"
+            sizes="(max-width: 800px) 340px, (max-width: 1100px) 340px, 480px"
             widths={[960, 1280, 1536]}
             width={1536}
           />
@@ -229,7 +249,6 @@ export default function HomePage() {
         </nav>
         <p className="project-identity">
           <span>2026</span>
-          <span>Open source</span>
           <a href="#">MIT License</a>
         </p>
       </footer>

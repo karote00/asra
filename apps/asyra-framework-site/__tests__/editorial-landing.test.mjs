@@ -63,7 +63,8 @@ test('the result-first narrative matches the approved V04 landing page', async (
     assert.ok(pageText.includes(copy), `Missing approved copy: ${copy}`)
   }
 
-  assert.equal((page.match(/Start building/g) ?? []).length, 3)
+  assert.equal((page.match(/Start building/g) ?? []).length, 2)
+  assert.doesNotMatch(page, /site-header[\s\S]*button--compact/)
   assert.equal((page.match(/See examples/g) ?? []).length, 1)
   for (const line of [
     'Build the tool',
@@ -103,22 +104,23 @@ test('every navigation and CTA target is clickable, including placeholders', asy
   const anchors = page.match(/<a\b/g) ?? []
   const anchorsWithTargets = page.match(/<a\b[^>]*\bhref=/g) ?? []
 
-  assert.equal(anchors.length, 14)
+  assert.equal(anchors.length, 13)
   assert.equal(anchorsWithTargets.length, anchors.length)
   assert.doesNotMatch(page, /href=["']\s*["']/)
 })
 
-test('the footer identifies an open-source project without a company claim', async () => {
+test('the footer identifies its license without an open-source or company label', async () => {
   const source = [
     await readAppFile('page.tsx'),
     await readAppFile('layout.tsx'),
     await readAppFile('not-found.tsx')
   ].join('\n')
+  const css = await readAppFile('globals.css')
 
   assert.match(source, /2026/)
-  assert.match(source, /Open source/)
   assert.match(source, /MIT License/)
-  assert.doesNotMatch(source, /2025|Asyra Systems?|Inc\.|Company/i)
+  assert.doesNotMatch(source, /2025|Open source|Asyra Systems?|Inc\.|Company/i)
+  assert.doesNotMatch(css, /\.project-identity a::before/)
 })
 
 test('metadata falls back to the canonical HTTPS origin', async () => {
@@ -156,7 +158,7 @@ test('local artwork sources are Git-ignored and run only through the opt-in artw
   assert.doesNotMatch(packageJson.scripts['test:ci'], /LOCAL_ARTWORK/)
 })
 
-test('production includes only the eighteen selected Photoroom derivatives', async () => {
+test('production includes only the twenty-two selected Photoroom derivatives', async () => {
   const page = await readAppFile('page.tsx')
   const assets = await listFiles(path.join(siteRoot, 'public', 'illustrations'))
   const activeAssets = assets.filter((asset) => asset.includes('-photoroom-'))
@@ -168,6 +170,10 @@ test('production includes only the eighteen selected Photoroom derivatives', asy
     'domain-rail-v08-desktop-photoroom-1600.webp',
     'domain-rail-v08-desktop-photoroom-2400.webp',
     'domain-rail-v08-desktop-photoroom-800.webp',
+    'domain-rail-v08-desktop-photoroom-row-1-1200.webp',
+    'domain-rail-v08-desktop-photoroom-row-1-800.webp',
+    'domain-rail-v08-desktop-photoroom-row-2-1200.webp',
+    'domain-rail-v08-desktop-photoroom-row-2-800.webp',
     'grow-photoroom-1200.webp',
     'grow-photoroom-1518.webp',
     'grow-photoroom-720.webp',
@@ -191,6 +197,8 @@ test('production includes only the eighteen selected Photoroom derivatives', asy
   ]) {
     assert.match(page, new RegExp(`name=["']${name}["']`))
   }
+  assert.match(page, /domain-rail-v08-desktop-photoroom-row-1-800\.webp/)
+  assert.match(page, /name="domain-rail-v08-desktop-photoroom-row-2"/)
 })
 
 localArtworkTest(
@@ -367,6 +375,10 @@ localArtworkTest(
       'domain-rail-v08-desktop-photoroom-1600.webp',
       'domain-rail-v08-desktop-photoroom-2400.webp',
       'domain-rail-v08-desktop-photoroom-800.webp',
+      'domain-rail-v08-desktop-photoroom-row-1-1200.webp',
+      'domain-rail-v08-desktop-photoroom-row-1-800.webp',
+      'domain-rail-v08-desktop-photoroom-row-2-1200.webp',
+      'domain-rail-v08-desktop-photoroom-row-2-800.webp',
       'grow-photoroom-1200.webp',
       'grow-photoroom-1518.webp',
       'grow-photoroom-720.webp',
@@ -400,6 +412,9 @@ localArtworkTest(
     )
     assert.match(builder, /def premultiplied_resize/)
     assert.match(builder, /def assert_true_alpha/)
+    assert.match(builder, /domain-rail-structure-complete-v02\.png/)
+    assert.match(builder, /\(0,\s*0,\s*1200,\s*325\)/)
+    assert.match(builder, /\(1200,\s*0,\s*2400,\s*325\)/)
     assert.match(builder, /lossless=True/)
     assert.match(builder, /exact=True/)
   }
@@ -1050,19 +1065,29 @@ test('CTA interaction becomes brighter and the closing uses the transparent supp
   assert.doesNotMatch(page, /className="domain-names"/)
 })
 
-test('the responsive layout keeps generous proof spacing without section rules', async () => {
+test('the responsive layout keeps balanced proof spacing without section rules', async () => {
   const css = await readAppFile('globals.css')
   const proofRule = css.match(/\.proof\s*\{([^}]+)\}/s)?.[1] ?? ''
 
   assert.match(css, /--paper:\s*#[0-9a-f]{6}/i)
   assert.match(css, /--signal-red:\s*#[0-9a-f]{6}/i)
   assert.match(css, /@media\s*\(max-width:\s*1100px\)/)
-  assert.match(css, /@media\s*\(max-width:\s*760px\)/)
-  assert.match(css, /@media\s*\(max-width:\s*700px\)/)
+  assert.match(css, /@media\s*\(max-width:\s*800px\)/)
+  assert.match(css, /@media\s*\(max-width:\s*680px\)/)
+  assert.doesNotMatch(css, /@media\s*\(max-width:\s*(?:700|760)px\)/)
   assert.match(css, /@media\s*\(max-width:\s*390px\)/)
   assert.doesNotMatch(css, /@media\s*\(max-width:\s*820px\)/)
   assert.match(css, /prefers-reduced-motion/)
   assert.match(proofRule, /min-height:\s*clamp\(220px,\s*25vw,\s*390px\)/)
+  assert.match(
+    css,
+    /\.proof-stack\s*\{[^}]*padding-inline:\s*var\(--page-pad\)/s
+  )
+  assert.match(
+    css,
+    /\.proof,\s*\.proof--visual-first\s*\{[^}]*padding-block:\s*clamp\(32px,\s*6vw,\s*44px\)/s
+  )
+  assert.doesNotMatch(css, /\.domain-rail\s*\{[^}]*width:\s*clamp\(/s)
   assert.doesNotMatch(proofRule, /border/)
   assert.doesNotMatch(css, /mix-blend-mode:\s*(?:darken|multiply)/)
 })
@@ -1087,7 +1112,10 @@ test('every illustration uses the shared adaptive code grid and alpha-aware drop
   assert.match(css, /repeating-linear-gradient\(/)
   assert.match(css, /radial-gradient\(/)
   assert.match(css, /mask-image:/)
-  assert.match(css, /\.illustration-stage\s*>\s*img\s*\{[^}]*drop-shadow\(/s)
+  assert.match(
+    css,
+    /\.illustration-stage\s*>\s*img,\s*\.illustration-stage\s*>\s*picture\s*>\s*img\s*\{[^}]*drop-shadow\(/s
+  )
   const castVectors = shadowProfiles.map((profile) => {
     assert.match(page, new RegExp(`illustration-stage--${profile}`))
     const rule =

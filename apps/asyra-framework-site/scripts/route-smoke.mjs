@@ -23,7 +23,6 @@ for (const copy of [
   'One foundation. Any field.',
   'Bring your domain. Keep its logic.',
   '2026',
-  'Open source',
   'MIT License'
 ]) {
   assert.match(
@@ -31,7 +30,7 @@ for (const copy of [
     new RegExp(copy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   )
 }
-assert.doesNotMatch(home, /2025|Asyra Systems?|Inc\.|Company/i)
+assert.doesNotMatch(home, /2025|Open source|Asyra Systems?|Inc\.|Company/i)
 
 for (const removedRoute of [
   '/atlas',

@@ -11,7 +11,7 @@ const loadLanding = async (page: Page) => {
   })
   for (let index = 0; index < (await images.count()); index += 1) {
     const image = images.nth(index)
-    await image.scrollIntoViewIfNeeded()
+    if (await image.isVisible()) await image.scrollIntoViewIfNeeded()
     await image.evaluate((element: HTMLImageElement) => element.decode())
   }
   await expect
@@ -55,7 +55,7 @@ const assertLinksAndCtas = async (page: Page) => {
       }
     })
   )
-  expect(links).toHaveLength(14)
+  expect(links).toHaveLength(13)
   for (const link of links) {
     expect(link.href).not.toBeNull()
     expect(link.href).not.toBe('')
@@ -72,6 +72,8 @@ const assertLinksAndCtas = async (page: Page) => {
       }
     })
   )
+  expect(ctas).toHaveLength(2)
+  await expect(page.locator('.site-header .button')).toHaveCount(0)
   for (const cta of ctas) {
     expect(cta.whiteSpace).toBe('nowrap')
     expect(cta.scrollWidth).toBeLessThanOrEqual(cta.clientWidth + 1)
@@ -87,7 +89,7 @@ const currentImageSources = (page: Page) =>
 
 const assertTransparentPhotoroomAssets = async (page: Page) => {
   const sources = await currentImageSources(page)
-  expect(sources).toHaveLength(6)
+  expect(sources).toHaveLength(7)
   for (const name of [
     'hero-core-v08-desktop-photoroom-',
     'domain-rail-v08-desktop-photoroom-',
@@ -223,19 +225,23 @@ const assertSourceImageDensity = async (page: Page) => {
   const assets = await page
     .locator('main img')
     .evaluateAll((images: HTMLImageElement[]) =>
-      images.map((image) => {
+      images.flatMap((image) => {
         const renderedWidth = image.getBoundingClientRect().width
+        if (renderedWidth === 0) return []
         const filename =
           new URL(image.currentSrc).pathname.split('/').at(-1) ?? ''
         const sourceWidth = Number(filename.match(/-(\d+)\.webp$/)?.[1])
-        return {
-          alt: image.alt,
-          density: sourceWidth / renderedWidth,
-          filename
-        }
+        return [
+          {
+            alt: image.alt,
+            density: sourceWidth / renderedWidth,
+            filename
+          }
+        ]
       })
     )
-  expect(assets).toHaveLength(6)
+  expect(assets.length).toBeGreaterThanOrEqual(6)
+  expect(assets.length).toBeLessThanOrEqual(7)
   for (const asset of assets) {
     const minimumDensity = asset.filename.includes('domain-rail') ? 1.1 : 2
     expect(
@@ -344,8 +350,9 @@ const assertPerceptualImageSharpness = async (
   const assets = await page
     .locator('main img')
     .evaluateAll((images: HTMLImageElement[]) =>
-      images.map((image) => {
+      images.flatMap((image) => {
         const bounds = image.getBoundingClientRect()
+        if (bounds.width === 0 || bounds.height === 0) return []
         const width = Math.max(1, Math.round(bounds.width))
         const height = Math.max(1, Math.round(bounds.height))
         const canvas = document.createElement('canvas')
@@ -380,11 +387,13 @@ const assertPerceptualImageSharpness = async (
         }
         const filename =
           new URL(image.currentSrc).pathname.split('/').at(-1) ?? ''
-        return {
-          key: filename.replace(/-\d+\.webp$/, ''),
-          coverage: edgeSamples / samples,
-          score: edgeGradient / edgeSamples
-        }
+        return [
+          {
+            key: filename.replace(/-\d+\.webp$/, ''),
+            coverage: edgeSamples / samples,
+            score: edgeGradient / edgeSamples
+          }
+        ]
       })
     )
   for (const asset of assets) {
@@ -409,6 +418,8 @@ const desktopSharpness = {
 const mobileSharpness = {
   'hero-core-v08-desktop-photoroom': 27,
   'domain-rail-v08-desktop-photoroom': 30,
+  'domain-rail-v08-desktop-photoroom-row-1': 30,
+  'domain-rail-v08-desktop-photoroom-row-2': 30,
   'grow-photoroom': 30,
   'same-path-photoroom': 29,
   'one-source-v08-desktop-photoroom': 26,
@@ -463,16 +474,166 @@ const assertSingleColumnProofs = async (page: Page) => {
     proofs.map((proof) => {
       const style = getComputedStyle(proof)
       return {
-        columns: style.gridTemplateColumns.split(' ').length,
-        paddingBottom: Number.parseFloat(style.paddingBottom),
-        paddingTop: Number.parseFloat(style.paddingTop)
+        columns: style.gridTemplateColumns.split(' ').length
       }
     })
   )
   for (const section of sections) {
     expect(section.columns).toBe(1)
-    expect(section.paddingTop).toBeGreaterThanOrEqual(70)
-    expect(section.paddingBottom).toBeGreaterThanOrEqual(70)
+  }
+}
+
+interface ResponsiveFlowContract {
+  maxHeroImageWidthRatio: number
+  maxImageWidthRatio: number
+  maxInlineInset: number
+  maxSectionPadding: number
+  minCopyWidthRatio: number
+  minHeroImageWidthRatio: number
+  minImageWidthRatio: number
+}
+
+const assertResponsiveSingleColumnFlow = async (
+  page: Page,
+  contract: ResponsiveFlowContract
+) => {
+  const layout = await page.evaluate(() => {
+    const hero = document.querySelector<HTMLElement>('.hero')
+    const heroCopy = document.querySelector<HTMLElement>('.hero__copy')
+    const heroVisual = document.querySelector<HTMLElement>('.hero__visual')
+    if (!hero || !heroCopy || !heroVisual) {
+      throw new Error('Missing responsive Hero targets')
+    }
+    const heroCopyBounds = heroCopy.getBoundingClientRect()
+    const heroVisualBounds = heroVisual.getBoundingClientRect()
+    const heroImage = heroVisual.querySelector<HTMLImageElement>('img')
+    if (!heroImage) throw new Error('Missing responsive Hero image')
+    const heroImageBounds = heroImage.getBoundingClientRect()
+    return {
+      hero: {
+        columns: getComputedStyle(hero).gridTemplateColumns.split(' ').length,
+        imageWidthRatio: heroImageBounds.width / window.innerWidth,
+        verticalGap: heroVisualBounds.top - heroCopyBounds.bottom
+      },
+      proofs: Array.from(document.querySelectorAll<HTMLElement>('.proof')).map(
+        (proof) => {
+          const copy = proof.querySelector<HTMLElement>('.proof__copy')
+          const visual = proof.querySelector<HTMLElement>('.proof__visual')
+          const image = proof.querySelector<HTMLImageElement>('img')
+          if (!copy || !visual || !image) {
+            throw new Error('Missing responsive proof targets')
+          }
+          const copyBounds = copy.getBoundingClientRect()
+          const imageBounds = image.getBoundingClientRect()
+          const proofBounds = proof.getBoundingClientRect()
+          const style = getComputedStyle(proof)
+          const visualBounds = visual.getBoundingClientRect()
+          return {
+            columns: style.gridTemplateColumns.split(' ').length,
+            copyWidthRatio: copyBounds.width / window.innerWidth,
+            imageWidthRatio: imageBounds.width / window.innerWidth,
+            inlineInset: Math.max(
+              proofBounds.left,
+              window.innerWidth - proofBounds.right
+            ),
+            paddingBottom: Number.parseFloat(style.paddingBottom),
+            paddingTop: Number.parseFloat(style.paddingTop),
+            verticalGap: visualBounds.top - copyBounds.bottom
+          }
+        }
+      )
+    }
+  })
+
+  expect(layout.hero.columns).toBe(1)
+  expect(layout.hero.imageWidthRatio).toBeGreaterThanOrEqual(
+    contract.minHeroImageWidthRatio
+  )
+  expect(layout.hero.imageWidthRatio).toBeLessThanOrEqual(
+    contract.maxHeroImageWidthRatio
+  )
+  expect(layout.hero.verticalGap).toBeGreaterThanOrEqual(28)
+  for (const proof of layout.proofs) {
+    expect(proof.columns).toBe(1)
+    expect(proof.copyWidthRatio).toBeGreaterThanOrEqual(
+      contract.minCopyWidthRatio
+    )
+    expect(proof.inlineInset).toBeLessThanOrEqual(contract.maxInlineInset)
+    expect(proof.imageWidthRatio).toBeGreaterThanOrEqual(
+      contract.minImageWidthRatio
+    )
+    expect(proof.imageWidthRatio).toBeLessThanOrEqual(
+      contract.maxImageWidthRatio
+    )
+    expect(proof.paddingTop).toBeLessThanOrEqual(contract.maxSectionPadding)
+    expect(proof.paddingBottom).toBeLessThanOrEqual(contract.maxSectionPadding)
+    expect(proof.verticalGap).toBeGreaterThanOrEqual(24)
+  }
+}
+
+const assertCompactTwoColumnFlow = async (page: Page) => {
+  const layout = await page.evaluate(() => {
+    const hero = document.querySelector<HTMLElement>('.hero')
+    const heroCopy = document.querySelector<HTMLElement>('.hero__copy')
+    const heroVisual = document.querySelector<HTMLElement>('.hero__visual')
+    const heroImage = document.querySelector<HTMLImageElement>('.hero-core')
+    if (!hero || !heroCopy || !heroVisual || !heroImage) {
+      throw new Error('Missing compact Hero targets')
+    }
+    const horizontalGap = (first: DOMRect, second: DOMRect) => {
+      const [left, right] = [first, second].sort((a, b) => a.left - b.left)
+      return right.left - left.right
+    }
+    return {
+      hero: {
+        columns: getComputedStyle(hero).gridTemplateColumns.split(' ').length,
+        horizontalGap: horizontalGap(
+          heroCopy.getBoundingClientRect(),
+          heroVisual.getBoundingClientRect()
+        ),
+        imageWidthRatio:
+          heroImage.getBoundingClientRect().width / window.innerWidth
+      },
+      proofs: Array.from(document.querySelectorAll<HTMLElement>('.proof')).map(
+        (proof) => {
+          const copy = proof.querySelector<HTMLElement>('.proof__copy')
+          const visual = proof.querySelector<HTMLElement>('.proof__visual')
+          const image = proof.querySelector<HTMLImageElement>('img')
+          if (!copy || !visual || !image) {
+            throw new Error('Missing compact Proof targets')
+          }
+          const style = getComputedStyle(proof)
+          return {
+            columns: style.gridTemplateColumns.split(' ').length,
+            height: proof.getBoundingClientRect().height,
+            horizontalGap: horizontalGap(
+              copy.getBoundingClientRect(),
+              visual.getBoundingClientRect()
+            ),
+            imageWidthRatio:
+              image.getBoundingClientRect().width / window.innerWidth,
+            minHeight: Number.parseFloat(style.minHeight),
+            paddingBottom: Number.parseFloat(style.paddingBottom),
+            paddingTop: Number.parseFloat(style.paddingTop)
+          }
+        }
+      )
+    }
+  })
+
+  expect(layout.hero.columns).toBe(2)
+  expect(layout.hero.horizontalGap).toBeGreaterThanOrEqual(18)
+  expect(layout.hero.imageWidthRatio).toBeGreaterThanOrEqual(0.34)
+  expect(layout.hero.imageWidthRatio).toBeLessThanOrEqual(0.44)
+  for (const proof of layout.proofs) {
+    expect(proof.columns).toBe(2)
+    expect(proof.height).toBeLessThanOrEqual(315)
+    expect(proof.horizontalGap).toBeGreaterThanOrEqual(18)
+    expect(proof.imageWidthRatio).toBeGreaterThanOrEqual(0.38)
+    expect(proof.imageWidthRatio).toBeLessThanOrEqual(0.55)
+    expect(proof.minHeight).toBeLessThanOrEqual(1)
+    expect(proof.paddingTop).toBeLessThanOrEqual(28)
+    expect(proof.paddingBottom).toBeLessThanOrEqual(28)
   }
 }
 
@@ -538,7 +699,7 @@ test('1440px captures the complete landing page after every illustration renders
   await loadLanding(page)
 
   for (const image of await page.locator('main img').all()) {
-    await image.scrollIntoViewIfNeeded()
+    if (await image.isVisible()) await image.scrollIntoViewIfNeeded()
   }
   await page.evaluate(() => window.scrollTo(0, 0))
 
@@ -553,7 +714,7 @@ test('1440px captures the complete landing page after every illustration renders
       )
     )
     .toBe(0)
-  await expect(page.locator('img')).toHaveCount(6)
+  await expect(page.locator('img')).toHaveCount(7)
   await expect(page.locator('#change-title')).toHaveCount(0)
   await expect(page.locator('#impact-preview')).toHaveCount(0)
   const domainRailCurrentSource = await page
@@ -821,6 +982,534 @@ test('820px retains the reference two-column composition', async ({
   })
 })
 
+test('closing CTA keeps a compact button-to-label proportion', async ({
+  page
+}, testInfo) => {
+  for (const viewport of [
+    { height: 1000, width: 1440 },
+    { height: 1000, width: 864 },
+    { height: 1180, width: 820 },
+    { height: 1000, width: 800 },
+    { height: 900, width: 680 },
+    { height: 844, width: 390 },
+    { height: 720, width: 320 }
+  ]) {
+    await page.setViewportSize(viewport)
+    await loadLanding(page)
+
+    const metrics = await page
+      .locator('.closing__button')
+      .evaluate((button: HTMLElement) => {
+        const bounds = button.getBoundingClientRect()
+        const style = getComputedStyle(button)
+        const fontSize = Number.parseFloat(style.fontSize)
+        return {
+          fontSize,
+          fontToHeightRatio: fontSize / bounds.height,
+          height: bounds.height,
+          scrollWidth: button.scrollWidth,
+          width: bounds.width
+        }
+      })
+
+    expect(metrics.width).toBeGreaterThanOrEqual(170)
+    expect(metrics.width).toBeLessThanOrEqual(240)
+    expect(metrics.height).toBeGreaterThanOrEqual(44)
+    expect(metrics.height).toBeLessThanOrEqual(60)
+    expect(metrics.fontSize).toBeGreaterThanOrEqual(14)
+    expect(metrics.fontToHeightRatio).toBeGreaterThanOrEqual(0.24)
+    expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.width + 1)
+    await page.locator('.closing').screenshot({
+      animations: 'disabled',
+      path: testInfo.outputPath(`closing-cta-${viewport.width}.png`)
+    })
+  }
+})
+
+test('520px and below centers the closing composition without an empty right side', async ({
+  page
+}, testInfo) => {
+  for (const viewport of [
+    { height: 900, width: 520 },
+    { height: 844, width: 390 },
+    { height: 720, width: 320 }
+  ]) {
+    await page.setViewportSize(viewport)
+    await loadLanding(page)
+
+    const geometry = await page.evaluate(() => {
+      const bounds = (selector: string) => {
+        const element = document.querySelector<HTMLElement>(selector)
+        if (!element) {
+          throw new Error(`Missing compact Closing target: ${selector}`)
+        }
+        return element.getBoundingClientRect()
+      }
+      const closing = bounds('.closing')
+      const copy = bounds('.closing__copy')
+      const core = bounds('.closing__core')
+      const button = bounds('.closing__button')
+      const closingElement = document.querySelector<HTMLElement>('.closing')
+      const headingElement = document.querySelector<HTMLElement>('.closing h2')
+      const license = document.querySelector<HTMLElement>('.project-identity a')
+      if (!closingElement || !headingElement || !license) {
+        throw new Error('Missing compact Closing or footer target')
+      }
+      const closingStyle = getComputedStyle(closingElement)
+      const headingStyle = getComputedStyle(headingElement)
+      const centerOffset = (target: DOMRect) =>
+        Math.abs(
+          target.left + target.width / 2 - (closing.left + closing.width / 2)
+        )
+      return {
+        buttonCenterOffset: centerOffset(button),
+        buttonWidth: button.width,
+        columns: closingStyle.gridTemplateColumns.split(' ').length,
+        copyCenterOffset: centerOffset(copy),
+        coreCenterOffset: centerOffset(core),
+        coreWidth: core.width,
+        headingTextAlign: headingStyle.textAlign,
+        licenseBefore: getComputedStyle(license, '::before').content
+      }
+    })
+
+    expect(geometry.columns).toBe(1)
+    expect(geometry.copyCenterOffset).toBeLessThanOrEqual(2)
+    expect(geometry.coreCenterOffset).toBeLessThanOrEqual(2)
+    expect(geometry.buttonCenterOffset).toBeLessThanOrEqual(2)
+    expect(geometry.headingTextAlign).toBe('center')
+    expect(geometry.coreWidth).toBeGreaterThanOrEqual(130)
+    expect(geometry.coreWidth).toBeLessThanOrEqual(170)
+    expect(geometry.buttonWidth).toBeGreaterThanOrEqual(170)
+    expect(geometry.buttonWidth).toBeLessThanOrEqual(220)
+    expect(geometry.licenseBefore).toBe('none')
+
+    await page.locator('.closing').screenshot({
+      animations: 'disabled',
+      path: testInfo.outputPath(`closing-centered-${viewport.width}.png`)
+    })
+  }
+})
+
+test('680px closing keeps the core centered between copy and CTA', async ({
+  page
+}, testInfo) => {
+  await page.setViewportSize({ width: 680, height: 900 })
+  await loadLanding(page)
+
+  const geometry = await page.evaluate(() => {
+    const bounds = (selector: string) => {
+      const element = document.querySelector<HTMLElement>(selector)
+      if (!element) throw new Error(`Missing 680px Closing target: ${selector}`)
+      return element.getBoundingClientRect()
+    }
+    const closing = bounds('.closing')
+    const copy = bounds('.closing__copy')
+    const core = bounds('.closing__core')
+    const button = bounds('.closing__button')
+    const closingElement = document.querySelector<HTMLElement>('.closing')
+    const headingLines = Array.from(
+      document.querySelectorAll<HTMLElement>('.closing h2 .reference-line')
+    ).reduce((total, line) => {
+      const range = document.createRange()
+      range.selectNodeContents(line)
+      return total + range.getClientRects().length
+    }, 0)
+    if (!closingElement) throw new Error('Missing 680px Closing grid')
+    return {
+      buttonLeft: button.left,
+      closingHeight: closing.height,
+      columns:
+        getComputedStyle(closingElement).gridTemplateColumns.split(' ').length,
+      copyRight: copy.right,
+      coreCenterOffset: Math.abs(
+        core.left + core.width / 2 - window.innerWidth / 2
+      ),
+      coreLeft: core.left,
+      coreRight: core.right,
+      coreWidth: core.width,
+      footerText:
+        document.querySelector<HTMLElement>('.project-identity')?.innerText ??
+        '',
+      headingLines
+    }
+  })
+
+  expect(geometry.columns).toBe(3)
+  expect(geometry.copyRight).toBeLessThan(geometry.coreLeft)
+  expect(geometry.coreRight).toBeLessThan(geometry.buttonLeft)
+  expect(geometry.coreCenterOffset).toBeLessThanOrEqual(2)
+  expect(geometry.coreWidth).toBeGreaterThanOrEqual(140)
+  expect(geometry.closingHeight).toBeLessThanOrEqual(210)
+  expect(geometry.headingLines).toBe(2)
+  expect(geometry.footerText).not.toContain('OPEN SOURCE')
+
+  await page.locator('.closing').screenshot({
+    animations: 'disabled',
+    path: testInfo.outputPath('closing-balanced-680.png')
+  })
+})
+
+test('800px balances the complete compact two-column composition', async ({
+  page
+}, testInfo) => {
+  await page.setViewportSize({ width: 800, height: 1000 })
+  await loadLanding(page)
+
+  const metrics = await page.evaluate(() => {
+    const bounds = (selector: string) => {
+      const element = document.querySelector<HTMLElement>(selector)
+      if (!element) throw new Error(`Missing 800px target: ${selector}`)
+      return element.getBoundingClientRect()
+    }
+    const heroImage = bounds('.hero-core')
+    const domains = bounds('.domains')
+    const domainRail = bounds('.domain-rail')
+    const closing = bounds('.closing')
+    const closingElement = document.querySelector<HTMLElement>('.closing')
+    const closingHeading = document.querySelector<HTMLElement>('.closing h2')
+    const heroElement = document.querySelector<HTMLElement>('.hero')
+    if (!closingElement || !closingHeading || !heroElement) {
+      throw new Error('Missing 800px composition target')
+    }
+    return {
+      closing: {
+        columns:
+          getComputedStyle(closingElement).gridTemplateColumns.split(' ')
+            .length,
+        headingFontSize: Number.parseFloat(
+          getComputedStyle(closingHeading).fontSize
+        ),
+        height: closing.height
+      },
+      documentHeight: document.documentElement.scrollHeight,
+      domains: {
+        centerOffset: Math.abs(
+          domainRail.left + domainRail.width / 2 - window.innerWidth / 2
+        ),
+        height: domains.height,
+        railWidthRatio: domainRail.width / window.innerWidth
+      },
+      hero: {
+        columns:
+          getComputedStyle(heroElement).gridTemplateColumns.split(' ').length,
+        imageWidthRatio: heroImage.width / window.innerWidth
+      },
+      proofs: Array.from(document.querySelectorAll<HTMLElement>('.proof')).map(
+        (proof) => {
+          const image = proof.querySelector<HTMLImageElement>('img')
+          if (!image) throw new Error('Missing 800px Proof image')
+          return {
+            columns:
+              getComputedStyle(proof).gridTemplateColumns.split(' ').length,
+            height: proof.getBoundingClientRect().height,
+            imageWidthRatio:
+              image.getBoundingClientRect().width / window.innerWidth
+          }
+        }
+      )
+    }
+  })
+
+  expect(metrics.hero.columns).toBe(2)
+  expect(metrics.hero.imageWidthRatio).toBeGreaterThanOrEqual(0.34)
+  expect(metrics.hero.imageWidthRatio).toBeLessThanOrEqual(0.44)
+  expect(metrics.documentHeight).toBeLessThanOrEqual(2600)
+  expect(metrics.domains.centerOffset).toBeLessThanOrEqual(2)
+  expect(metrics.domains.height).toBeLessThanOrEqual(390)
+  expect(metrics.domains.railWidthRatio).toBeGreaterThanOrEqual(0.995)
+  expect(metrics.domains.railWidthRatio).toBeLessThanOrEqual(1.005)
+  for (const proof of metrics.proofs) {
+    expect(proof.columns).toBe(2)
+    expect(proof.height).toBeLessThanOrEqual(420)
+    expect(proof.imageWidthRatio).toBeGreaterThanOrEqual(0.38)
+    expect(proof.imageWidthRatio).toBeLessThanOrEqual(0.55)
+  }
+  expect(metrics.closing.columns).toBe(3)
+  expect(metrics.closing.headingFontSize).toBeGreaterThanOrEqual(30)
+  expect(metrics.closing.headingFontSize).toBeLessThanOrEqual(36)
+  expect(metrics.closing.height).toBeLessThanOrEqual(210)
+  await assertNoHorizontalOverflow(page)
+  await page.screenshot({
+    animations: 'disabled',
+    fullPage: true,
+    path: testInfo.outputPath('landing-balanced-800.png')
+  })
+})
+
+test('desktop and compact domain rail stays connected to both viewport edges', async ({
+  page
+}) => {
+  for (const width of [2048, 1440, 864, 820, 800, 797, 701, 700]) {
+    await page.setViewportSize({ width, height: 900 })
+    await loadLanding(page)
+
+    const geometry = await page.evaluate(() => {
+      const rail = document.querySelector<HTMLImageElement>('.domain-rail')
+      const viewport = document.querySelector<HTMLElement>('.domains__rail')
+      if (!rail || !viewport) throw new Error('Missing Domain rail target')
+      const bounds = rail.getBoundingClientRect()
+      return {
+        left: bounds.left,
+        right: bounds.right,
+        scrollWidth: viewport.scrollWidth,
+        viewportClientWidth: viewport.clientWidth,
+        viewportWidth: window.innerWidth,
+        width: bounds.width
+      }
+    })
+
+    expect(
+      Math.abs(geometry.left),
+      `${width}px Domain rail left edge`
+    ).toBeLessThanOrEqual(1)
+    expect(
+      Math.abs(geometry.right - geometry.viewportWidth),
+      `${width}px Domain rail right edge`
+    ).toBeLessThanOrEqual(1)
+    expect(geometry.width, `${width}px Domain rail width`).toBeCloseTo(
+      geometry.viewportWidth,
+      0
+    )
+    expect(
+      geometry.scrollWidth,
+      `${width}px Domain rail horizontal scroll`
+    ).toBeLessThanOrEqual(geometry.viewportClientWidth + 1)
+  }
+})
+
+test('680px and below splits the domain rail into two edge-connected rows', async ({
+  page
+}) => {
+  for (const width of [680, 640, 520, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 })
+    await loadLanding(page)
+
+    const geometry = await page.evaluate(() => {
+      const rail = document.querySelector<HTMLImageElement>('.domain-rail')
+      const second = document.querySelector<HTMLElement>('.domain-rail__second')
+      const viewport = document.querySelector<HTMLElement>('.domains__rail')
+      if (!rail || !second || !viewport) {
+        throw new Error('Missing split Domain rail target')
+      }
+      const railBounds = rail.getBoundingClientRect()
+      const secondBounds = second.getBoundingClientRect()
+      const viewportBounds = viewport.getBoundingClientRect()
+      return {
+        firstLeft: railBounds.left,
+        firstRowHeight: railBounds.height,
+        firstSource: rail.currentSrc,
+        firstWidth: railBounds.width,
+        secondDisplay: getComputedStyle(second).display,
+        secondLeft: secondBounds.left,
+        secondRowHeight: secondBounds.height,
+        secondSource:
+          second instanceof HTMLImageElement ? second.currentSrc : '',
+        secondWidth: secondBounds.width,
+        viewportHeight: viewportBounds.height,
+        viewportWidth: window.innerWidth
+      }
+    })
+
+    expect(geometry.secondDisplay).not.toBe('none')
+    expect(geometry.firstSource).toMatch(
+      /domain-rail-v08-desktop-photoroom-row-1-(?:800|1200)\.webp$/
+    )
+    expect(geometry.secondSource).toMatch(
+      /domain-rail-v08-desktop-photoroom-row-2-(?:800|1200)\.webp$/
+    )
+    expect(Math.abs(geometry.firstLeft)).toBeLessThanOrEqual(1)
+    expect(Math.abs(geometry.secondLeft)).toBeLessThanOrEqual(1)
+    expect(geometry.firstWidth).toBeCloseTo(width, 0)
+    expect(geometry.secondWidth).toBeCloseTo(width, 0)
+    expect(geometry.firstRowHeight).toBeGreaterThanOrEqual(width * 0.26)
+    expect(geometry.secondRowHeight).toBeCloseTo(geometry.firstRowHeight, 0)
+    expect(geometry.viewportHeight).toBeGreaterThanOrEqual(
+      geometry.firstRowHeight + geometry.secondRowHeight
+    )
+  }
+})
+
+test('700px through 800px keeps compact columns without collisions', async ({
+  page
+}, testInfo) => {
+  for (const width of [800, 797, 768, 720, 701, 700]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await loadLanding(page)
+
+    await expect(page.locator('.primary-nav')).toBeHidden()
+    await assertNoHorizontalOverflow(page)
+    await assertCompactTwoColumnFlow(page)
+    await assertSourceImageDensity(page)
+    await page.screenshot({
+      animations: 'disabled',
+      fullPage: true,
+      path: testInfo.outputPath(`landing-transition-${width}.png`)
+    })
+  }
+})
+
+test('680px through 320px preserves balanced mobile flow', async ({
+  page
+}, testInfo) => {
+  const profiles = [
+    {
+      contract: {
+        maxHeroImageWidthRatio: 0.54,
+        maxImageWidthRatio: 0.58,
+        maxInlineInset: 32,
+        maxSectionPadding: 44,
+        minCopyWidthRatio: 0.85,
+        minHeroImageWidthRatio: 0.46,
+        minImageWidthRatio: 0.46
+      },
+      width: 680
+    },
+    {
+      contract: {
+        maxHeroImageWidthRatio: 0.54,
+        maxImageWidthRatio: 0.58,
+        maxInlineInset: 32,
+        maxSectionPadding: 44,
+        minCopyWidthRatio: 0.85,
+        minHeroImageWidthRatio: 0.46,
+        minImageWidthRatio: 0.46
+      },
+      width: 640
+    },
+    {
+      contract: {
+        maxHeroImageWidthRatio: 0.54,
+        maxImageWidthRatio: 0.58,
+        maxInlineInset: 32,
+        maxSectionPadding: 44,
+        minCopyWidthRatio: 0.85,
+        minHeroImageWidthRatio: 0.46,
+        minImageWidthRatio: 0.46
+      },
+      width: 600
+    },
+    ...[540, 520, 480, 430, 390, 375, 360, 320].map((width) => ({
+      contract: {
+        maxHeroImageWidthRatio: 0.82,
+        maxImageWidthRatio: 0.82,
+        maxInlineInset: 32,
+        maxSectionPadding: 44,
+        minCopyWidthRatio: 0.85,
+        minHeroImageWidthRatio: 0.5,
+        minImageWidthRatio: 0.48
+      },
+      width
+    }))
+  ]
+
+  for (const profile of profiles) {
+    await page.setViewportSize({ width: profile.width, height: 900 })
+    await loadLanding(page)
+
+    await expect(page.locator('.primary-nav')).toBeHidden()
+    await assertNoHorizontalOverflow(page)
+    await assertResponsiveSingleColumnFlow(page, profile.contract)
+
+    const buttonDirection = await page
+      .locator('.button-row')
+      .evaluate((row) => getComputedStyle(row).flexDirection)
+    expect(buttonDirection, `${profile.width}px button direction`).toBe(
+      profile.width <= 520 ? 'column' : 'row'
+    )
+
+    if (profile.width === 680 || profile.width === 520) {
+      await page.screenshot({
+        animations: 'disabled',
+        fullPage: true,
+        path: testInfo.outputPath(`landing-mobile-flow-${profile.width}.png`)
+      })
+    }
+  }
+})
+
+test('content hierarchy stays balanced across desktop, tablet, and phone', async ({
+  page
+}) => {
+  for (const width of [
+    1440, 864, 820, 800, 797, 701, 700, 680, 640, 600, 540, 520, 480, 430, 390,
+    375, 360, 320
+  ]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await loadLanding(page)
+
+    const hierarchy = await page.evaluate(() => {
+      const domainHeading = document.querySelector<HTMLElement>('.domains h2')
+      const domainCopy = document.querySelector<HTMLElement>(
+        '.domains__heading > p'
+      )
+      if (!domainHeading || !domainCopy) {
+        throw new Error('Missing Domain hierarchy targets')
+      }
+      const fontSize = (element: HTMLElement) =>
+        Number.parseFloat(getComputedStyle(element).fontSize)
+      const domainCopyBounds = domainCopy.getBoundingClientRect()
+      return {
+        domain: {
+          copyFontSize: fontSize(domainCopy),
+          copyWidthRatio: domainCopyBounds.width / window.innerWidth,
+          headingToCopyRatio: fontSize(domainHeading) / fontSize(domainCopy)
+        },
+        proofs: Array.from(
+          document.querySelectorAll<HTMLElement>('.proof')
+        ).map((proof) => {
+          const eyebrow = proof.querySelector<HTMLElement>('.eyebrow')
+          const heading = proof.querySelector<HTMLElement>('h2')
+          if (!eyebrow || !heading) {
+            throw new Error('Missing proof hierarchy targets')
+          }
+          return {
+            eyebrowFontSize: fontSize(eyebrow),
+            headingToEyebrowRatio: fontSize(heading) / fontSize(eyebrow)
+          }
+        })
+      }
+    })
+
+    expect(
+      hierarchy.domain.copyFontSize,
+      `${width}px Domain copy`
+    ).toBeGreaterThanOrEqual(14)
+    expect(
+      hierarchy.domain.headingToCopyRatio,
+      `${width}px Domain heading ratio`
+    ).toBeGreaterThanOrEqual(2)
+    expect(
+      hierarchy.domain.headingToCopyRatio,
+      `${width}px Domain heading ratio`
+    ).toBeLessThanOrEqual(3.5)
+    if (width <= 800) {
+      expect(
+        hierarchy.domain.copyWidthRatio,
+        `${width}px Domain copy width`
+      ).toBeGreaterThanOrEqual(0.85)
+    }
+    for (const proof of hierarchy.proofs) {
+      expect(
+        proof.eyebrowFontSize,
+        `${width}px proof eyebrow`
+      ).toBeGreaterThanOrEqual(11.5)
+      expect(
+        proof.eyebrowFontSize,
+        `${width}px proof eyebrow`
+      ).toBeLessThanOrEqual(13.5)
+      expect(
+        proof.headingToEyebrowRatio,
+        `${width}px proof heading ratio`
+      ).toBeGreaterThanOrEqual(2.3)
+      expect(
+        proof.headingToEyebrowRatio,
+        `${width}px proof heading ratio`
+      ).toBeLessThanOrEqual(3.6)
+    }
+  }
+})
+
 test('390px uses mobile crops without document overflow', async ({
   page
 }, testInfo) => {
@@ -830,6 +1519,15 @@ test('390px uses mobile crops without document overflow', async ({
   await expect(page.locator('.primary-nav')).toBeHidden()
   await assertLinksAndCtas(page)
   await assertSingleColumnProofs(page)
+  await assertResponsiveSingleColumnFlow(page, {
+    maxHeroImageWidthRatio: 0.82,
+    maxImageWidthRatio: 0.82,
+    maxInlineInset: 24,
+    maxSectionPadding: 44,
+    minCopyWidthRatio: 0.85,
+    minHeroImageWidthRatio: 0.5,
+    minImageWidthRatio: 0.48
+  })
   await assertNoHorizontalOverflow(page)
   await assertTransparentPhotoroomAssets(page)
   await assertAdaptiveGridAndShadows(page)
@@ -841,7 +1539,7 @@ test('390px uses mobile crops without document overflow', async ({
     clientWidth: element.clientWidth,
     scrollWidth: element.scrollWidth
   }))
-  expect(rail.scrollWidth).toBeGreaterThan(rail.clientWidth)
+  expect(rail.scrollWidth).toBeLessThanOrEqual(rail.clientWidth + 1)
 
   await captureLandingSections(page, 'mobile-390', testInfo)
   await page.screenshot({
@@ -860,12 +1558,35 @@ test('320px keeps every section readable within the viewport', async ({
   await expect(page.locator('footer')).toBeVisible()
   await assertLinksAndCtas(page)
   await assertSingleColumnProofs(page)
+  await assertResponsiveSingleColumnFlow(page, {
+    maxHeroImageWidthRatio: 0.82,
+    maxImageWidthRatio: 0.82,
+    maxInlineInset: 24,
+    maxSectionPadding: 44,
+    minCopyWidthRatio: 0.85,
+    minHeroImageWidthRatio: 0.5,
+    minImageWidthRatio: 0.48
+  })
   await assertTransparentPhotoroomAssets(page)
   await assertAdaptiveGridAndShadows(page)
   await assertSourceImageDensity(page)
   await assertModernSansTypography(page)
   await assertAiryHeadingTypography(page)
   await assertNoHorizontalOverflow(page)
+  const proofHeadingLines = await page
+    .locator('.proof h2')
+    .evaluateAll((headings) =>
+      headings.map((heading) => {
+        const bounds = heading.getBoundingClientRect()
+        const lineHeight = Number.parseFloat(
+          getComputedStyle(heading).lineHeight
+        )
+        return Math.round(bounds.height / lineHeight)
+      })
+    )
+  for (const lineCount of proofHeadingLines) {
+    expect(lineCount).toBeLessThanOrEqual(5)
+  }
   await captureLandingSections(page, 'mobile-320', testInfo)
   await page.screenshot({
     animations: 'disabled',

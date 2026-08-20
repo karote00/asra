@@ -17,6 +17,7 @@ class AssetSpec:
     name: str
     source: str
     widths: tuple[int, ...]
+    crop: tuple[int, int, int, int] | None = None
 
 
 SPECS = (
@@ -27,8 +28,20 @@ SPECS = (
     ),
     AssetSpec(
         "domain-rail-v08-desktop-photoroom",
-        "domain-rail-v08-desktop-master-Photoroom.png",
+        "../photoroom-refined/domain-rail-structure-complete-v02.png",
         (800, 1600, 2400),
+    ),
+    AssetSpec(
+        "domain-rail-v08-desktop-photoroom-row-1",
+        "../photoroom-refined/domain-rail-structure-complete-v02.png",
+        (800, 1200),
+        (0, 0, 1200, 325),
+    ),
+    AssetSpec(
+        "domain-rail-v08-desktop-photoroom-row-2",
+        "../photoroom-refined/domain-rail-structure-complete-v02.png",
+        (800, 1200),
+        (1200, 0, 2400, 325),
     ),
     AssetSpec(
         "grow-photoroom",
@@ -87,9 +100,12 @@ def assert_true_alpha(image: Image.Image, label: str) -> None:
 
 
 def build_asset(spec: AssetSpec) -> None:
-    source_path = ARTWORK / spec.source
+    source_path = (ARTWORK / spec.source).resolve()
     source = Image.open(source_path).convert("RGBA")
     assert_true_alpha(source, spec.source)
+    if spec.crop is not None:
+        source = source.crop(spec.crop)
+        assert_true_alpha(source, f"{spec.source} crop {spec.crop}")
 
     for width in spec.widths:
         if width > source.width:
