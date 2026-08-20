@@ -1,10 +1,32 @@
 # Asyra
 
-Asyra is deterministic, modular infrastructure for building declarative
-information-modeling products. It gives an application explicit owners for
-intent, transactions, canonical state, validation, registration, persistence
-boundaries, and downstream projections without deciding what the application's
-domain means.
+## Build product features, not infrastructure
+
+Asyra provides the reusable infrastructure behind a product so developers can
+focus on domain knowledge and Features. Your App owns its schemas, rules,
+workflows, services, and UI. Asyra keeps intent routing, registration,
+transactions, rollback, Undo/Redo, canonical state, validation, persistence
+boundaries, and downstream projections consistent.
+
+- **Focus on product behavior.** Build what makes the product valuable instead
+  of rebuilding state, history, lifecycle, and integration plumbing for every
+  capability.
+- **Change one explicit owner.** Add, replace, or remove a registered Feature
+  without rewriting unrelated product paths.
+- **Reuse correctness infrastructure.** Features enter established transaction,
+  validation, rollback, projection, and persistence boundaries instead of
+  inventing parallel implementations.
+- **Keep every actor on the same path.** Human input, UI, automation, devices,
+  and AI-issued commands use the same Feature and API boundaries.
+- **Control technical debt.** Explicit ownership keeps the impact of a change
+  visible and prevents product behavior from leaking across handlers, global
+  stores, components, renderers, and backend adapters.
+
+In a conventional application, one behavior may require coordinated changes to
+input handlers, UI state, history, rendering, persistence, and automation. With
+Asyra, a small Feature can remain a few focused lines of registration and
+domain code; larger Features remain bounded to their explicit owners instead of
+spreading across dozens of unrelated files.
 
 ## What Asyra is
 
