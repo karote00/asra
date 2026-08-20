@@ -1,10 +1,10 @@
 # Asyra Design
 
-Asyra Design is the open-source reference product built with Asyra Framework.
-It is a real design tool and a maintained example of how an App composes
-Framework state, transactions, input, rendering, optional AI, collaboration,
-and backend services. Its design-tool behavior belongs to this App; it does not
-limit the kinds of products the Framework can support.
+Asyra Design is an open-source design-tool product built with Asyra Framework.
+It is one complete, maintained way to compose Framework state, transactions,
+input, rendering, optional AI, collaboration, and backend services. Its
+design-tool behavior belongs to this App; it is not a default product model or
+UI stack imposed by the Framework.
 
 Requirements:
 

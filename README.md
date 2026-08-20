@@ -22,10 +22,10 @@ rules, engines, services, and interfaces.
 ## Try the demo
 
 [Open the Asyra Design demo](https://asyra-karote00s-projects.vercel.app/?fileId=demo)
-to explore a working product built with Asyra. Asyra Design is the reference
-design-tool App: it demonstrates how the Framework, official Preset, App-owned
-features, editable information, rendering, undo/redo, and persistence fit
-together in a real product.
+to explore a working product built with Asyra. Asyra Design is one complete
+design-tool implementation: it demonstrates how the Framework, official
+Preset, App-owned features, editable information, rendering, undo/redo, and
+persistence fit together in a real product.
 
 The `fileId=demo` query selects the demo document. Keep it in the URL when
 opening or sharing the demo.
@@ -51,14 +51,14 @@ This is the better starting point for experienced builders, non-design
 products, or ideas that should be composed deliberately from Asyra Framework
 packages.
 
-### Start from a working product
+### Start from a ready-to-use design tool
 
 Use [`create-asyra-design-app`](create-app/asyra-design/README.md) when you want
-to build a design tool from an immediately editable reference product. Start
-with Asyra Design, then add, remove, or replace its features, product behavior,
-services, and UI to match your own design product. This is the recommended
-path for builders who want a working design-tool foundation instead of an empty
-App:
+to build from an immediately editable design-tool product. Start with Asyra
+Design, then add, remove, or replace its features, product behavior, services,
+and UI to match your own design product. This is the product-first option for
+builders who want a working design-tool foundation instead of composing every
+capability first:
 
 ```bash
 npx create-asyra-design-app my-product
@@ -159,8 +159,8 @@ keeps verified capability separate from future direction.
   migration, security, deprecation, and release boundaries.
 - [Custom Framework composition](docs/public/start/custom-composition.md) —
   package-first composition and supported public owner boundaries.
-- [Asyra Design](apps/asyra-design/README.md) — the real reference product and
-  repository development path.
+- [Asyra Design](apps/asyra-design/README.md) — a complete, ready-to-use
+  design-tool product and its repository development path.
 - [AI-readable discovery](docs/public/llms.txt) — stable public page inventory
   for retrieval and coding agents.
 - [Framework architecture contracts](docs/ai/framework/README.md) — internal

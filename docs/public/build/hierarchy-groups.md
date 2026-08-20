@@ -96,4 +96,4 @@ Undo/Redo, save/load, and collaboration replay.
 ## Next
 
 - [Read the Scene Tree guide](../reference/packages/scene-tree.md)
-- [See Asyra Design as a reference product](../cases/asyra-design.md)
+- [Study the complete Asyra Design product](../cases/asyra-design.md)

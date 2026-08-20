@@ -1,4 +1,4 @@
-# Asyra Design as a reference product
+# Asyra Design as a complete product implementation
 
 Asyra Design is a complete app built on Asyra Framework. It demonstrates one
 coherent design-tool product—not the only product shape Asyra supports and not

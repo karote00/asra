@@ -13,7 +13,7 @@
         "."
       ],
       "sourceDigests": {
-        "contract": "1f11462a7ffa142217ec15b05f8406307a9a62aaae8a7fb076c89f45e3912985",
+        "contract": "3719027fe52c277d9c7923d9f4b6a9edf577320c7ed583cf1fc59909ca58d9d9",
         "guide": "d89302dd045712e4c510fe1f85da2fec803c21f3332166bbb8f65051dac01254",
         "manifest": "e76583799b21d59f7a2540fd647acbd88c168a7da193d6295e51b5655797de8f"
       },
@@ -35,7 +35,7 @@
         "."
       ],
       "sourceDigests": {
-        "contract": "9387576ff09f4e6b28732a0409c9608c4f4c194f46db8bcdacfabfcc37ba4acd",
+        "contract": "ed2a892fd151ea3ff8be30477c15d8605264241e49b8dbc9b6ab24efcedd8c5c",
         "guide": "d89bff16e1372b77541c570df2d78a8ec84f4159d0e20f3919e77bc44b621cd5",
         "manifest": "dea2601e162cfbbe9edeee5c3da41301dde91816c3e28220bf00a16ca7bcae70"
       },
@@ -93,7 +93,7 @@
       ],
       "sourceDigests": {
         "contract": "94c0a88a9ba5d8b317784d22cdaae2201f26d7c7d70c6821adfcafa8d6e56d09",
-        "guide": "8d7196f4b3b671b5f75c6ebc010bc025af8a9a46ca2d7271f70c7fb71375fd74",
+        "guide": "c2bc81415b3770b776ecd0b282c3889325c76a75a26bdb2d50be5a85b84b042d",
         "manifest": "ba12870de776cdd127c3d543a5c28c124af40604eb6f3aace66235fb85fe03e8"
       },
       "version": "0.5.0"

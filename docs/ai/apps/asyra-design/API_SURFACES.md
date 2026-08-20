@@ -220,7 +220,7 @@ Completed plan:
 - the transaction adapter correlates a newly completed canonical action id with
   the active AI turn. The Message Bar may call ordinary history APIs only while
   that id remains the applicable current AI action; later actions invalidate it
-- the reference app does not read, store, or send a browser-held server API
+- the Asyra Design browser does not read, store, or send a server API
   key. Production providers should use an app/backend endpoint that owns
   vendor credentials and authorization
 - Actor B never executes Actor A's resident server response. It receives the

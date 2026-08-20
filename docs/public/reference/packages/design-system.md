@@ -48,7 +48,7 @@ dependency.
 
 ## Maintained use path
 
-Create a reference app with
+Create a ready-to-use design-tool product with
 [`create-asyra-design-app`](../../start/create-design-app.md) and inspect its
 component composition. The verified generated-app extension demonstrates that
 new app behavior can be registered without changing the Design System.

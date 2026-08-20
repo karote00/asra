@@ -135,4 +135,4 @@ canonical snapshot before and after retrieval to prove search is read-only.
 ## Next
 
 - [Read current and future runtime boundaries](../learn/runtime-boundaries-roadmap.md)
-- [See Asyra Design as a reference product](../cases/asyra-design.md)
+- [Study the complete Asyra Design product](../cases/asyra-design.md)

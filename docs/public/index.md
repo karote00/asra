@@ -18,9 +18,10 @@ without inheriting a UI framework or predefined domain behavior. Follow the
 browser/Core owners and optional capabilities deliberately.
 
 Use [create-asyra-design-app](start/create-design-app.md) when you want a
-working reference product that you or an AI coding agent can extend. It is the
-fastest beginner route to real product behavior: editing, hierarchy,
-transactions, persistence, optional collaboration, and optional AI actions.
+complete design-tool product that you or an AI coding agent can use and extend.
+It is a product-first route to real behavior: editing, hierarchy, transactions,
+persistence, optional collaboration, and optional AI actions. It is one use of
+the Framework, not its default product model or UI stack.
 
 Use the [official 2D Preset](start/preset-2d.md) when you are building a visual
 product from Framework packages and want Asyra's maintained design-tool

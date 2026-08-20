@@ -507,7 +507,7 @@
       "id": "cases/asyra-design",
       "path": "cases/asyra-design.md",
       "section": "Cases",
-      "title": "Asyra Design as a reference product",
+      "title": "Asyra Design as a complete product implementation",
       "description": "See how one real product composes Framework infrastructure, Preset defaults, app-domain behavior, collaboration, persistence, and AI.",
       "sources": [
         "docs/ai/apps/asyra-design/APP_ESSENTIALS.md",

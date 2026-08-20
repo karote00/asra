@@ -8,7 +8,7 @@ owner documents remain the implementation contracts.
 
 - Build a product from public Framework packages with the
   [custom composition guide](../../public/start/custom-composition.md).
-- Start from the complete Asyra Design reference product with
+- Start from the complete, ready-to-use Asyra Design product with
   [`create-asyra-design-app`](../../../create-app/asyra-design/README.md).
 - Learn one Framework capability at a time from the
   [executable examples](../../examples/README.md).

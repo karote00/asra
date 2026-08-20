@@ -281,7 +281,7 @@ test('Public-facing surfaces preserve the official project identities', () => {
   )
 })
 
-test('Active docs do not replace the reference app name with a generic label', () => {
+test('Active docs do not replace the Asyra Design name with a generic label', () => {
   const genericReferenceAppName = new RegExp(
     `(?<!${repositoryDisplayName} )Design App`,
     'u'
@@ -315,6 +315,37 @@ test('Active docs do not replace the reference app name with a generic label', (
     })
 
   assert.deepEqual(violations, [])
+})
+
+test('Active entry docs position Asyra Design as one product use, not the Framework default', () => {
+  const positioningPaths = [
+    'README.md',
+    'apps/asyra-design/README.md',
+    'apps/asyra-design/docs/README.md',
+    'create-app/asyra-design/README.md',
+    'docs/ai/apps/asyra-design/API_SURFACES.md',
+    'docs/ai/framework/CODING_STANDARDS.md',
+    'docs/ai/framework/GETTING_STARTED.md',
+    'docs/ai/framework/packages/ai-agent-runtime.md',
+    'docs/ai/framework/packages/collaboration.md',
+    'docs/ai/framework/website/visual-reimagine/handoff.md',
+    'docs/public/cases/asyra-design.md',
+    'docs/public/index.md',
+    'docs/public/start/create-design-app.md'
+  ]
+  const legacyPositioning =
+    /reference[- ](?:app|product)|recommended beginner entrance/iu
+
+  for (const relativePath of positioningPaths) {
+    const source = fs.readFileSync(
+      path.join(repositoryRoot, relativePath),
+      'utf8'
+    )
+    assert.doesNotMatch(source, legacyPositioning, relativePath)
+  }
+
+  assert.match(rootManifest.description, /Framework/u)
+  assert.doesNotMatch(rootManifest.description, /^An open-source design tool/u)
 })
 
 test('Programmatic code and configuration use brand-neutral identifiers', () => {

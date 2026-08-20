@@ -2,7 +2,7 @@
   "pages": [
     {
       "id": "overview",
-      "pageSha256": "83f13bdbbcd24f60e29c6af7717ba6095fc4996f38970802e0b8cb6c4859696f",
+      "pageSha256": "c937abf9c48a505d12336e9b7b29174c38622c48428e26f45531049ba2cb00de",
       "sources": [
         {
           "path": "docs/ai/framework/FRAMEWORK_ESSENTIALS.md",
@@ -16,7 +16,7 @@
     },
     {
       "id": "start/create-design-app",
-      "pageSha256": "3ddee02122b45472c57534ea1a189505b9e714ac1c7e1840093c1203d4733c89",
+      "pageSha256": "6403e873a16f3e7a1e0c09a5e3f7a026cdab0b6c50f96cc8f4846970966e505f",
       "sources": [
         {
           "path": "create-app/asyra-design/package.json",
@@ -232,7 +232,7 @@
     },
     {
       "id": "build/hierarchy-groups",
-      "pageSha256": "6f256d3cd000d3f6d400e0060e2c7f2aedaeeb7abb59164a45490ddd24066ae9",
+      "pageSha256": "2c3f6f7a220230e4a2e2595966cb60ab276bf3543864702d0cd41ff39d01d10d",
       "sources": [
         {
           "path": "docs/ai/framework/packages/scene-tree.md",
@@ -264,11 +264,11 @@
     },
     {
       "id": "build/collaboration",
-      "pageSha256": "b291f5627d7da3e871d7251f051b6302d492a140e2d8f03f5c716b7912d16833",
+      "pageSha256": "1186b98542d1e962add2968b9d471df34d14e67da641dadfa3731601ea13c887",
       "sources": [
         {
           "path": "docs/ai/framework/packages/collaboration.md",
-          "sha256": "9387576ff09f4e6b28732a0409c9608c4f4c194f46db8bcdacfabfcc37ba4acd"
+          "sha256": "ed2a892fd151ea3ff8be30477c15d8605264241e49b8dbc9b6ab24efcedd8c5c"
         },
         {
           "path": "docs/ai/apps/asyra-design/modules/collaboration-reference.md",
@@ -282,7 +282,7 @@
       "sources": [
         {
           "path": "docs/ai/framework/packages/ai-agent-runtime.md",
-          "sha256": "1f11462a7ffa142217ec15b05f8406307a9a62aaae8a7fb076c89f45e3912985"
+          "sha256": "3719027fe52c277d9c7923d9f4b6a9edf577320c7ed583cf1fc59909ca58d9d9"
         },
         {
           "path": "docs/ai/framework/golden-paths/compose-ai-agent-runtime.md",
@@ -292,11 +292,11 @@
     },
     {
       "id": "build/app-retrieval-action",
-      "pageSha256": "01b20d505114f8cbf51b53138054de4df25d3cbd20aac8273c4e9d5ca3ceef5b",
+      "pageSha256": "e7c4337bb78714d067c7016cefc759532f648f6922bacf3d88ac411a63dffaec",
       "sources": [
         {
           "path": "docs/ai/framework/packages/ai-agent-runtime.md",
-          "sha256": "1f11462a7ffa142217ec15b05f8406307a9a62aaae8a7fb076c89f45e3912985"
+          "sha256": "3719027fe52c277d9c7923d9f4b6a9edf577320c7ed583cf1fc59909ca58d9d9"
         },
         {
           "path": "docs/ai/framework/packages/feature-system.md",
@@ -310,7 +310,7 @@
       "sources": [
         {
           "path": "docs/ai/framework/packages/ai-agent-runtime.md",
-          "sha256": "1f11462a7ffa142217ec15b05f8406307a9a62aaae8a7fb076c89f45e3912985"
+          "sha256": "3719027fe52c277d9c7923d9f4b6a9edf577320c7ed583cf1fc59909ca58d9d9"
         },
         {
           "path": "packages/ai-agent-runtime/package.json",
@@ -324,7 +324,7 @@
       "sources": [
         {
           "path": "docs/ai/framework/packages/collaboration.md",
-          "sha256": "9387576ff09f4e6b28732a0409c9608c4f4c194f46db8bcdacfabfcc37ba4acd"
+          "sha256": "ed2a892fd151ea3ff8be30477c15d8605264241e49b8dbc9b6ab24efcedd8c5c"
         },
         {
           "path": "packages/collaboration/package.json",
@@ -348,7 +348,7 @@
     },
     {
       "id": "reference/packages/design-system",
-      "pageSha256": "8d7196f4b3b671b5f75c6ebc010bc025af8a9a46ca2d7271f70c7fb71375fd74",
+      "pageSha256": "c2bc81415b3770b776ecd0b282c3889325c76a75a26bdb2d50be5a85b84b042d",
       "sources": [
         {
           "path": "docs/ai/framework/packages/design-system.md",
@@ -588,13 +588,13 @@
         },
         {
           "path": "package.json",
-          "sha256": "c027647d750d17f18f7f1f2422628278192d35c354862981d6dd3f7e3c29293b"
+          "sha256": "4e81f2c2fc59bce679785ed9e120ad96c7b2c6651b00a6c2a6d7e0c3387c817b"
         }
       ]
     },
     {
       "id": "cases/asyra-design",
-      "pageSha256": "72787a20052774a2df21f3d75598430457dc57c9bef77f72eb70da3d8e364e3f",
+      "pageSha256": "20c72dfd9cf8688cdc2592e7e4bb3fa9e0df677fdc8ab58858add3b92ac7a615",
       "sources": [
         {
           "path": "docs/ai/apps/asyra-design/APP_ESSENTIALS.md",

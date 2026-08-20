@@ -1,22 +1,23 @@
 {
   "name": "asyra",
   "version": "0.2.5",
-  "description": "An open-source design tool demonstrating Communication-Driven Development and AI collaboration patterns.",
+  "description": "Asyra Framework for deterministic, modular declarative information-modeling products.",
   "author": "Asa Tsai",
   "license": "MIT",
   "packageManager": "yarn@4.3.1",
   "main": "index.js",
   "type": "module",
   "keywords": [
-    "design-tool",
+    "information-modeling",
+    "application-framework",
+    "deterministic-runtime",
     "communication-driven-development",
     "cdd",
     "event-driven-architecture",
     "ai-collaboration",
     "typescript",
-    "react",
     "monorepo",
-    "reference-implementation"
+    "asyra-design"
   ],
   "scripts": {
     "dev:all": "node scripts/dev-all.js",

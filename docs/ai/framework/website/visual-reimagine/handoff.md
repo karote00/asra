@@ -74,9 +74,10 @@ as engineers. The information order is fixed:
 
 Whiteboards, design tools, BIM, VR, industrial simulation, AI-facing information
 models, and other domains are App-owned possibilities. They are not bundled
-Framework promises. Asyra Design is the current reference product and
-`create-asyra-design-app` is the product-building beginner entrance. The sample
-and Framework documentation remain the Framework-learning entrance. Neither path
+Framework promises. Asyra Design is one complete product implementation, and
+`create-asyra-design-app` is the ready-to-use design-tool entrance. The sample
+and Framework documentation remain the Framework-learning entrance. Asyra
+Design is not presented as the Framework's default product model. Neither path
 is presented as lesser.
 
 Use plain international English, short active sentences, and literal action
@@ -313,12 +314,13 @@ content authority.
 ### Asyra Design Case Study And Release/Roadmap Boundary
 
 Use the Cosmic Atlas dark product frame as the active composition and
-`selected-case-roadmap.png` as earlier boundary evidence. Present Asyra Design as a real reference product
-built on the Framework. Separate what the Framework currently supplies, what the
-App supplies, and what users may build. Use the indigo current bar, outline App
-possibility, green accepted diamond, and sourced roadmap hatch exactly as defined
-in the semantic language. Do not invent dates, packages, community programs, or
-future runtime capabilities.
+`selected-case-roadmap.png` as earlier boundary evidence. Present Asyra Design
+as one complete design-tool product built on the Framework, not as the
+Framework's default product model. Separate what the Framework currently
+supplies, what the App supplies, and what users may build. Use the indigo
+current bar, outline App possibility, green accepted diamond, and sourced
+roadmap hatch exactly as defined in the semantic language. Do not invent dates,
+packages, community programs, or future runtime capabilities.
 
 ### Motion Storyboard
 

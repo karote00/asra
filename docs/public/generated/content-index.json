@@ -1,7 +1,7 @@
 {
   "pages": [
     {
-      "contentSha256": "83f13bdbbcd24f60e29c6af7717ba6095fc4996f38970802e0b8cb6c4859696f",
+      "contentSha256": "c937abf9c48a505d12336e9b7b29174c38622c48428e26f45531049ba2cb00de",
       "description": "Build domain-owned information products whose visual, collaborative, persistent, and AI-facing capabilities remain composable.",
       "headings": [
         {
@@ -38,10 +38,10 @@
       "path": "index.md",
       "section": "Overview",
       "title": "Asyra Framework",
-      "wordCount": 513
+      "wordCount": 528
     },
     {
-      "contentSha256": "3ddee02122b45472c57534ea1a189505b9e714ac1c7e1840093c1203d4733c89",
+      "contentSha256": "6403e873a16f3e7a1e0c09a5e3f7a026cdab0b6c50f96cc8f4846970966e505f",
       "description": "Begin with the maintained Asyra Design product template and extend it as an app owner.",
       "headings": [
         {
@@ -106,7 +106,7 @@
       "path": "start/create-design-app.md",
       "section": "Start",
       "title": "Create a complete design app",
-      "wordCount": 593
+      "wordCount": 595
     },
     {
       "contentSha256": "35b0da1b5dbd369f1ac3a5a1e513fda26e94fdeef3b7415024bab3390a664e71",
@@ -844,7 +844,7 @@
       "wordCount": 565
     },
     {
-      "contentSha256": "6f256d3cd000d3f6d400e0060e2c7f2aedaeeb7abb59164a45490ddd24066ae9",
+      "contentSha256": "2c3f6f7a220230e4a2e2595966cb60ab276bf3543864702d0cd41ff39d01d10d",
       "description": "Keep parent-child ordering canonical while group meaning and geometry policy remain app-owned.",
       "headings": [
         {
@@ -899,7 +899,7 @@
       "path": "build/hierarchy-groups.md",
       "section": "Build",
       "title": "Build hierarchy and Group behavior",
-      "wordCount": 491
+      "wordCount": 490
     },
     {
       "contentSha256": "86d200eff0f684716bce13b21c640bc87320af6798b5b4e2ef283b3b60591936",
@@ -967,7 +967,7 @@
       "wordCount": 445
     },
     {
-      "contentSha256": "b291f5627d7da3e871d7251f051b6302d492a140e2d8f03f5c716b7912d16833",
+      "contentSha256": "1186b98542d1e962add2968b9d471df34d14e67da641dadfa3731601ea13c887",
       "description": "Connect deterministic collaboration actors while the app owns transport, authorization, presence, and backend policy.",
       "headings": [
         {
@@ -1028,7 +1028,7 @@
       "path": "build/collaboration.md",
       "section": "Build",
       "title": "Build opt-in collaboration",
-      "wordCount": 526
+      "wordCount": 525
     },
     {
       "contentSha256": "9bd412f41b3920a5c98b4d26d5003c086f608a87961a73fc0ecc68ad447bed92",
@@ -1094,7 +1094,7 @@
       "wordCount": 505
     },
     {
-      "contentSha256": "01b20d505114f8cbf51b53138054de4df25d3cbd20aac8273c4e9d5ca3ceef5b",
+      "contentSha256": "e7c4337bb78714d067c7016cefc759532f648f6922bacf3d88ac411a63dffaec",
       "description": "Let the app retrieve domain context and register actions without presenting future Headless support as current behavior.",
       "headings": [
         {
@@ -1156,7 +1156,7 @@
       "path": "build/app-retrieval-action.md",
       "section": "Build",
       "title": "Build app-owned AI retrieval and action",
-      "wordCount": 514
+      "wordCount": 513
     },
     {
       "contentSha256": "d89302dd045712e4c510fe1f85da2fec803c21f3332166bbb8f65051dac01254",
@@ -1336,7 +1336,7 @@
       "wordCount": 434
     },
     {
-      "contentSha256": "8d7196f4b3b671b5f75c6ebc010bc025af8a9a46ca2d7271f70c7fb71375fd74",
+      "contentSha256": "c2bc81415b3770b776ecd0b282c3889325c76a75a26bdb2d50be5a85b84b042d",
       "description": "Optional reusable interface components; not a Core dependency or app-domain owner.",
       "headings": [
         {
@@ -1392,7 +1392,7 @@
       "path": "reference/packages/design-system.md",
       "section": "Reference",
       "title": "@asyra/design-system",
-      "wordCount": 407
+      "wordCount": 408
     },
     {
       "contentSha256": "7edf3e543bf4b3d7b2d2fb88dcc784a9deb28c6f20ce589c221eec241530d02b",
@@ -2329,12 +2329,12 @@
       "wordCount": 470
     },
     {
-      "contentSha256": "72787a20052774a2df21f3d75598430457dc57c9bef77f72eb70da3d8e364e3f",
+      "contentSha256": "20c72dfd9cf8688cdc2592e7e4bb3fa9e0df677fdc8ab58858add3b92ac7a615",
       "description": "See how one real product composes Framework infrastructure, Preset defaults, app-domain behavior, collaboration, persistence, and AI.",
       "headings": [
         {
           "depth": 1,
-          "title": "Asyra Design as a reference product"
+          "title": "Asyra Design as a complete product implementation"
         },
         {
           "depth": 2,
@@ -2396,8 +2396,8 @@
       ],
       "path": "cases/asyra-design.md",
       "section": "Cases",
-      "title": "Asyra Design as a reference product",
-      "wordCount": 1298
+      "title": "Asyra Design as a complete product implementation",
+      "wordCount": 1299
     }
   ],
   "release": {

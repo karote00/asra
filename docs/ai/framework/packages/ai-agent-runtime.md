@@ -153,10 +153,10 @@ executor summaries, audit, and stable failures.
 Raw provider bodies and third-party error messages are never terminal output.
 See `../SECURITY.md`.
 
-## Reference App
+## Asyra Design Integration
 
 Asyra Design composes one formal provider during App startup. Its bounded
-reference catalog contains only:
+action catalog contains only:
 
 - `request_drawing_detail_choice`
 - `insert_vector_composition`
@@ -172,7 +172,7 @@ progressive slice on the main thread. Executors use app common APIs with
 `undoable: true`; their declared transaction-end or progressive shared
 delivery remains inside one outer App transaction. Factory, canonical state
 owners, Render, and optional Collaboration therefore receive the same route as
-ordinary app actions. The reference permission map is explicit and
+ordinary app actions. The Asyra Design permission map is explicit and
 default-deny; confirmation defaults to cancellation.
 
 ## Validation

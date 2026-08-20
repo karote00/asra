@@ -127,4 +127,4 @@ canonical owner state, not merely sent messages or transport logs.
 ## Next
 
 - [Read the Collaboration guide](../reference/packages/collaboration.md)
-- [See Asyra Design as a reference product](../cases/asyra-design.md)
+- [Study the complete Asyra Design product](../cases/asyra-design.md)

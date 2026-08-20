@@ -1,8 +1,8 @@
 # Create a complete design app
 
-`create-asyra-design-app` is the beginner product entry. It gives you a
-standalone copy of Asyra Design—the maintained reference app—so you can begin
-with a working product instead of assembling every capability first.
+`create-asyra-design-app` is the product-first entry. It gives you a standalone
+copy of the complete Asyra Design product so you can use or extend a working
+design tool instead of assembling every capability first.
 
 ## Prerequisites
 
@@ -120,9 +120,9 @@ as constraints.
 
 ## Optional local services
 
-The generated environment points its collaboration endpoint at the local
-reference service. Run these commands in separate terminals for the complete
-reference document-session composition:
+The generated environment points its collaboration endpoint at the bundled
+local service. Run these commands in separate terminals for the complete Asyra
+Design document-session composition:
 
 ```shell
 yarn document:backend
@@ -155,4 +155,4 @@ the generated common APIs and transaction boundaries.
 ## Next
 
 - [Understand intent and Features](../learn/intent-and-features.md)
-- [See Asyra Design as a reference product](../cases/asyra-design.md)
+- [Study the complete Asyra Design product](../cases/asyra-design.md)
