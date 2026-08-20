@@ -120,7 +120,7 @@ const lowercaseIdentityOwnerPaths = new Set([
   'scripts/__tests__/release-automation.test.mjs',
   'scripts/__tests__/test-file-placement.test.mjs',
   'scripts/release-records.js',
-  'release-configs/asyra-starter.json'
+  'release-configs/create-asyra-app.json'
 ])
 const capitalizedBrandIdentifierPattern = new RegExp(
   String.raw`(?:\b(?:class|const|enum|export|function|import|interface|let|namespace|type|var)\s+|[({,.]\s*)${repositoryDisplayName}(?=\s*(?:[:=,;)\]}]|$))`,

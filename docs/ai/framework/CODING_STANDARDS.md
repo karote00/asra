@@ -122,5 +122,6 @@
 - Maintain CLI-owned files such as its manifest, executable, tests, and
   documentation directly in `create-app/<app>`.
 - Do not apply manual feature/refactor fixes directly in the generated template.
-- Make template changes in source locations (`packages/*`, `apps/*`, and
-  generation scripts), then regenerate.
+- Make template changes in source locations (`packages/*`, `apps/*`, an
+  explicitly CLI-owned `create-app/<app>/source`, and generation scripts), then
+  regenerate. A CLI-owned scaffold source is not a canonical App.

@@ -27,22 +27,12 @@ const EXPECTED_SPECIAL_SURFACES = Object.freeze([
     path: 'create-app/asyra-design/template/README.md'
   }),
   Object.freeze({
-    id: 'asyra-starter',
-    owner: 'Asyra starter',
-    path: 'apps/asyra-starter/README.md'
-  }),
-  Object.freeze({
-    id: 'asyra-starter-source',
-    owner: 'Asyra starter template source',
-    path: 'apps/asyra-starter/TEMPLATE.md'
-  }),
-  Object.freeze({
     id: 'create-asyra-app-cli',
     owner: 'create-asyra-app CLI',
     path: 'create-app/asyra/README.md'
   }),
   Object.freeze({
-    id: 'asyra-starter-output',
+    id: 'asyra-app-output',
     owner: 'official template generator',
     path: 'create-app/asyra/template/README.md'
   })
@@ -103,13 +93,13 @@ export const readApprovedReadmeInputs = async ({ repositoryRoot }) => {
   }
 
   const starterReleaseConfig = readJson(
-    path.join(root, 'release-configs/asyra-starter.json')
+    path.join(root, 'release-configs/create-asyra-app.json')
   )
-  if (starterReleaseConfig.readme !== 'apps/asyra-starter/TEMPLATE.md') {
-    throw new Error('Asyra starter generated README source contract changed')
+  if (starterReleaseConfig.readme !== 'create-app/asyra/source/TEMPLATE.md') {
+    throw new Error('create-asyra-app generated README source contract changed')
   }
   if (starterReleaseConfig.dest !== 'create-app/asyra/template') {
-    throw new Error('Asyra starter generated output contract changed')
+    throw new Error('create-asyra-app generated output contract changed')
   }
 
   const surfaces = [

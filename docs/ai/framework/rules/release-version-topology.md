@@ -20,6 +20,9 @@ app templates.
 - A canonical private app owns its own identity version. A generated template
   inherits that app version through the official generator; the template is
   never edited, versioned, or selected in Changesets independently.
+- `create-asyra-app` has no canonical private App. Its CLI-owned scaffold source
+  and generated template use the manually selected `create-asyra-app` version;
+  neither is a Changeset release identity.
 
 An empty Changeset may record a non-documentation PR that changes no Framework
 package. Empty records satisfy closeout without assigning a release version to

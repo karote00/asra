@@ -42,10 +42,12 @@ yarn test
 
 ## Generated project contract
 
-- `apps/asyra-starter` is the canonical source.
-- `apps/asyra-starter/TEMPLATE.md` is the generated README source.
+- `create-app/asyra/source` is CLI-owned scaffold input, not a canonical App or
+  workspace product.
+- `create-app/asyra/source/TEMPLATE.md` is the generated README source.
 - `create-app/asyra/template` is generated only through the official release
-  generator; it receives no handwritten fixes.
+  generator with `yarn release:app --prod=create-asyra-app`; it receives no
+  handwritten fixes.
 - The starter is deliberately domain-empty. Add only the public Asyra packages
   and App-owned behavior required by your product.
 

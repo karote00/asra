@@ -87,6 +87,7 @@ const main = async () => {
   const projectManifest = JSON.parse(
     fs.readFileSync(projectManifestPath, 'utf8')
   )
+  projectManifest.name = targetName
   projectManifest.packageManager = `yarn@${packageManagerVersion}`
   fs.writeFileSync(
     projectManifestPath,

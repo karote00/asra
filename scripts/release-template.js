@@ -141,7 +141,7 @@ if (TEMPLATE_README) {
     path.isAbsolute(relativeReadmeSource) ||
     !fs.existsSync(TEMPLATE_README)
   ) {
-    throw new Error('Template README must be an existing app source file')
+    throw new Error('Template README must be an existing template source file')
   }
   fse.copySync(TEMPLATE_README, path.join(DEST_DIR, 'README.md'))
   const copiedReadmeSource = path.join(DEST_DIR, relativeReadmeSource)
@@ -160,7 +160,7 @@ if (TEMPLATE_LICENSE) {
 }
 
 // ----------------------
-// Copy prod app index.html
+// Copy template source index.html
 // ----------------------
 const indexHtmlSrc = path.join(SRC_DIR, 'index.html')
 const indexHtmlDest = path.join(DEST_DIR, 'index.html')
@@ -436,7 +436,7 @@ if (fs.existsSync(srcPrettier)) {
 }
 
 // ----------------------
-// Copy prod app .gitignore
+// Copy template source .gitignore
 // ----------------------
 const gitignoreSrc = path.join(SRC_DIR, '.gitignore')
 const gitignoreDest = path.join(DEST_DIR, '.gitignore')

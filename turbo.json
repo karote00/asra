@@ -67,13 +67,6 @@
       ],
       "dependsOn": []
     },
-    "@asyra/asyra-starter#build:asyra-starter": {
-      "cache": false,
-      "outputs": [
-        "dist/**"
-      ],
-      "dependsOn": []
-    },
     "@asyra/collaboration#build:collaboration": {
       "cache": false,
       "outputs": [

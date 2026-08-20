@@ -14,11 +14,11 @@ const repositoryRoot = path.resolve(
 test('README inputs derive the exact release surfaces and owners', async () => {
   const inputs = await readApprovedReadmeInputs({ repositoryRoot })
   assert.equal(inputs.packages.length, 19)
-  assert.equal(inputs.specialSurfaces.length, 9)
-  assert.equal(inputs.surfaces.length, 28)
+  assert.equal(inputs.specialSurfaces.length, 7)
+  assert.equal(inputs.surfaces.length, 26)
   assert.equal(
     new Set(inputs.surfaces.map(({ path: value }) => value)).size,
-    28
+    26
   )
   assert.deepEqual(inputs.generatedReadme, {
     configPath: 'release-configs/asyra-design.json',

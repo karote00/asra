@@ -7,7 +7,7 @@ export default defineConfig({
     port: 3000
   },
   build: {
-    outDir: '../../dist/asyra-starter',
+    outDir: 'dist',
     emptyOutDir: true
   }
 })

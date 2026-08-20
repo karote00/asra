@@ -42,6 +42,53 @@ test('create-asyra-app exposes the one supported create command', () => {
   assert.match(cli, /Usage: npx create-asyra-app \[project-name\]/u)
 })
 
+test('create-asyra-app owns its 0.1.0 scaffold without a canonical app source', () => {
+  const cliManifest = JSON.parse(
+    fs.readFileSync(
+      path.join(repositoryRoot, 'create-app/asyra/package.json'),
+      'utf8'
+    )
+  )
+  const repositoryManifest = JSON.parse(
+    fs.readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
+  )
+  const retiredAppName = `${repositoryManifest.name}-starter`
+  const releaseConfigPath = path.join(
+    repositoryRoot,
+    'release-configs/create-asyra-app.json'
+  )
+
+  assert.equal(
+    fs.existsSync(path.join(repositoryRoot, 'apps', retiredAppName)),
+    false
+  )
+  assert.equal(fs.existsSync(releaseConfigPath), true)
+
+  const releaseConfig = JSON.parse(fs.readFileSync(releaseConfigPath, 'utf8'))
+  assert.equal(releaseConfig.src, 'create-app/asyra/source')
+  assert.equal(releaseConfig.dest, 'create-app/asyra/template')
+  assert.equal(releaseConfig.readme, 'create-app/asyra/source/TEMPLATE.md')
+
+  const sourceManifest = JSON.parse(
+    fs.readFileSync(
+      path.join(repositoryRoot, releaseConfig.src, 'package.json'),
+      'utf8'
+    )
+  )
+  const templateManifest = JSON.parse(
+    fs.readFileSync(
+      path.join(repositoryRoot, releaseConfig.dest, 'package.json'),
+      'utf8'
+    )
+  )
+
+  assert.equal(cliManifest.version, '0.1.0')
+  assert.equal(sourceManifest.version, cliManifest.version)
+  assert.equal(templateManifest.version, cliManifest.version)
+  assert.equal(JSON.stringify(sourceManifest).includes(retiredAppName), false)
+  assert.equal(JSON.stringify(templateManifest).includes(retiredAppName), false)
+})
+
 const cliCases = [
   {
     args: ['--package-manager=yarn'],
@@ -119,6 +166,10 @@ for (const cliCase of cliCases) {
         )
       )
       assert.equal(generatedManifest.packageManager, 'yarn@4.3.1')
+      if (cliCase.title === 'Asyra Framework') {
+        assert.equal(generatedManifest.name, projectName)
+        assert.equal(generatedManifest.version, '0.1.0')
+      }
     } finally {
       fs.rmSync(testDirectory, { recursive: true, force: true })
     }

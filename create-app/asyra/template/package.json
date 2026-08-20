@@ -1,6 +1,6 @@
 {
-  "name": "@asyra/asyra-starter",
-  "version": "0.2.5",
+  "name": "asyra-app-template",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -9,7 +9,6 @@
   "scripts": {
     "start": "vite dev",
     "typecheck": "tsc --noEmit",
-    "build:asyra-starter": "vite build",
     "react:build": "vite build",
     "test": "node --test __tests__/starter-contract.test.mjs",
     "test:local": "node --test __tests__/starter-contract.test.mjs",

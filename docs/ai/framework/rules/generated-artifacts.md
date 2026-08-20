@@ -9,7 +9,9 @@
 
 2. Source-of-truth first
 
-- Implement changes in source packages/apps (for example `packages/*`, `apps/*`, scripts/templates source).
+- Implement changes in source packages/apps or a CLI-owned scaffold source (for
+  example `packages/*`, `apps/*`, or `create-app/<app>/source`). A CLI-owned
+  scaffold source is not a canonical App or workspace product.
 - Regenerate `create-app/<app>/template` via the project generation/release
   scripts after source changes.
 
