@@ -12,10 +12,10 @@ supported Headless Core API in the current release.
 
 ## Choose your entry
 
-Use [`create-asyra-app`](../../create-app/asyra/README.md) when you want a
-blank React shell with the Framework guide and no predefined domain behavior.
-It is the smallest product starting point and is intended for teams that want
-to choose each Framework capability deliberately.
+Install `@asyra/core` when you want to compose from public Framework packages
+without inheriting a UI framework or predefined domain behavior. Follow the
+[custom composition guide](start/custom-composition.md) to select the current
+browser/Core owners and optional capabilities deliberately.
 
 Use [create-asyra-design-app](start/create-design-app.md) when you want a
 working reference product that you or an AI coding agent can extend. It is the
@@ -30,9 +30,9 @@ Use a [custom composition](start/custom-composition.md) when you want to select
 the information, interaction, rendering, persistence, collaboration, and AI
 boundaries yourself.
 
-These are complementary paths. The blank starter provides only a product
-shell, the generated design app teaches how a complete product uses Asyra, and
-the Framework paths teach how to compose Asyra itself.
+These are complementary paths. Package-first guides teach how to compose Asyra
+itself, while the generated design app provides a complete working product that
+can be used and extended immediately.
 
 ## The owner model
 

@@ -19,7 +19,7 @@ const repositoryRoot = path.resolve(
 
 test('complete public README corpus passes owner, link, API, policy, and generation gates', async () => {
   const summary = await validatePublicReadmes({ repositoryRoot })
-  assert.equal(summary.surfaceCount, 27)
+  assert.equal(summary.surfaceCount, 24)
   assert.equal(summary.packageCount, 19)
   assert.ok(summary.linkCount > 70)
   assert.equal(summary.generatedReadmeSynchronized, true)

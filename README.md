@@ -32,22 +32,24 @@ opening or sharing the demo.
 
 ## Choose your starting point
 
-### Start from a blank product shell
+### Start from Framework packages
 
-Use [`create-asyra-app`](create-app/asyra/README.md) when you want a minimal
-React project with no predefined product behavior. It is the better starting
-point for experienced builders, non-design products, or ideas that should be
-composed from the ground up with Asyra Framework:
+Install `@asyra/core` when you want to compose a product from the ground up
+without inheriting a UI framework or predefined product behavior:
 
 ```bash
-npx create-asyra-app my-product
-cd my-product
-yarn start
+npm install @asyra/core
 ```
 
-The generated project contains one React homepage, the Asyra Framework logo, a
-local AI-agent guide, and stable links to the Framework contracts. Add only the
-Framework packages and App-owned behavior your product needs.
+Core is the public composition facade for the current browser/Core runtime.
+Add only the Framework packages, providers, and App-owned behavior your product
+needs, then follow the
+[custom composition guide](docs/public/start/custom-composition.md) for the
+supported owner graph.
+
+This is the better starting point for experienced builders, non-design
+products, or ideas that should be composed deliberately from Asyra Framework
+packages.
 
 ### Start from a working product
 
@@ -155,8 +157,8 @@ keeps verified capability separate from future direction.
   implementation patterns, owner flows, expected results, and failure paths.
 - [Package reference](docs/public/reference/support-release.md) — support,
   migration, security, deprecation, and release boundaries.
-- [Asyra empty app](apps/asyra/README.md) — the directly runnable source for
-  `create-asyra-app` and its generated starter template.
+- [Custom Framework composition](docs/public/start/custom-composition.md) —
+  package-first composition and supported public owner boundaries.
 - [Asyra Design](apps/asyra-design/README.md) — the real reference product and
   repository development path.
 - [AI-readable discovery](docs/public/llms.txt) — stable public page inventory

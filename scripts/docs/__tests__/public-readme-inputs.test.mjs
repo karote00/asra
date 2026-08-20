@@ -14,18 +14,25 @@ const repositoryRoot = path.resolve(
 test('README inputs derive the exact release surfaces and owners', async () => {
   const inputs = await readApprovedReadmeInputs({ repositoryRoot })
   assert.equal(inputs.packages.length, 19)
-  assert.equal(inputs.specialSurfaces.length, 8)
-  assert.equal(inputs.surfaces.length, 27)
+  assert.equal(inputs.specialSurfaces.length, 5)
+  assert.equal(inputs.surfaces.length, 24)
   assert.equal(
     new Set(inputs.surfaces.map(({ path: value }) => value)).size,
-    27
+    24
   )
-  assert.equal(
-    inputs.specialSurfaces.some(
-      ({ path: surfacePath }) => surfacePath === 'apps/asyra/TEMPLATE.md'
-    ),
-    false
-  )
+  for (const retiredSurface of [
+    'apps/asyra/README.md',
+    'create-app/asyra/README.md',
+    'create-app/asyra/template/README.md'
+  ]) {
+    assert.equal(
+      inputs.specialSurfaces.some(
+        ({ path: surfacePath }) => surfacePath === retiredSurface
+      ),
+      false,
+      retiredSurface
+    )
+  }
   assert.deepEqual(inputs.generatedReadme, {
     configPath: 'release-configs/asyra-design.json',
     output: 'create-app/asyra-design/template/README.md',
@@ -33,16 +40,16 @@ test('README inputs derive the exact release surfaces and owners', async () => {
   })
 })
 
-test('root README exposes the demo and both product starting points', () => {
+test('root README exposes package-first composition and the working product starter', () => {
   const readme = fs.readFileSync(path.join(repositoryRoot, 'README.md'), 'utf8')
 
   assert.match(
     readme,
     /https:\/\/asyra-karote00s-projects\.vercel\.app\/\?fileId=demo/u
   )
-  assert.match(readme, /npx create-asyra-app my-product/u)
+  assert.match(readme, /npm install @asyra\/core/u)
   assert.match(readme, /npx create-asyra-design-app my-product/u)
-  assert.match(readme, /one React homepage/u)
+  assert.doesNotMatch(readme, /create-asyra-app|one React homepage/u)
   assert.match(readme, /working design-tool foundation/u)
 })
 

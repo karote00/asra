@@ -6,8 +6,8 @@ owner documents remain the implementation contracts.
 
 ## Choose an entry point
 
-- Build a small product from a blank React shell with
-  [`create-asyra-app`](../../../create-app/asyra/README.md).
+- Build a product from public Framework packages with the
+  [custom composition guide](../../public/start/custom-composition.md).
 - Start from the complete Asyra Design reference product with
   [`create-asyra-design-app`](../../../create-app/asyra-design/README.md).
 - Learn one Framework capability at a time from the

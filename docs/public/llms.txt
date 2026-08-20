@@ -6,7 +6,7 @@ This index contains 41 public Markdown pages.
 Current: browser/Core composition, official 2D Preset, and engine-neutral CUSTOM composition.
 Future: Headless Core and Core Kernel for non-visible and machine-facing products; no current public API or delivery date.
 
-Use create-asyra-app for a blank React shell, create-asyra-design-app for the complete beginner product path, and Start or Build for Framework composition.
+Install @asyra/core for package-first composition, use create-asyra-design-app for the ready-to-use reference product, and use Start or Build guides for Framework composition.
 Treat app domain schemas, permissions, migration, retrieval, services, and product rules as app-owned.
 
 ## Public pages

@@ -1,7 +1,7 @@
 {
   "pages": [
     {
-      "contentSha256": "6ef71d14eb46a4d212577219b61ea0be295365018df306705a29e9205dc28b4e",
+      "contentSha256": "83f13bdbbcd24f60e29c6af7717ba6095fc4996f38970802e0b8cb6c4859696f",
       "description": "Build domain-owned information products whose visual, collaborative, persistent, and AI-facing capabilities remain composable.",
       "headings": [
         {
@@ -38,7 +38,7 @@
       "path": "index.md",
       "section": "Overview",
       "title": "Asyra Framework",
-      "wordCount": 520
+      "wordCount": 513
     },
     {
       "contentSha256": "3ddee02122b45472c57534ea1a189505b9e714ac1c7e1840093c1203d4733c89",
