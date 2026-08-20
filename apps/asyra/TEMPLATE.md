@@ -16,26 +16,20 @@ Open `http://localhost:3000`.
 
 ## Build your product
 
-Read [`AGENTS.md`](AGENTS.md) and [`docs/framework.md`](docs/framework.md)
-before editing. The Framework guide explains ownership, registered Features,
-transaction boundaries, canonical state, Preset defaults, and supported public
-entrypoints.
+Read [`AGENTS.md`](AGENTS.md) and the
+[Asyra GitHub project](https://github.com/karote00/asyra) before editing.
 
 Keep domain meaning, schemas, workflows, permissions, services, and UI in your
 App. Add Framework packages only when the composition needs them.
 
-## Verify
+This starter does not select a testing framework. Add the testing tools and
+commands that fit your product when you need them.
+
+## Check the project
 
 ```bash
 yarn typecheck
 yarn react:build
-yarn test
-```
-
-For the homepage browser contract and screenshot:
-
-```bash
-yarn test:e2e
 ```
 
 ## Support and contribution policy

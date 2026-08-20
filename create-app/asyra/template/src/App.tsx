@@ -1,7 +1,6 @@
 import logoUrl from './framework-logo.svg'
 
-const gettingStartedGuide =
-  'https://github.com/karote00/asyra/blob/main/docs/ai/framework/GETTING_STARTED.md'
+const upstreamRepositoryUrl = 'https://github.com/karote00/asyra'
 
 const App = () => (
   <main className="home">
@@ -19,8 +18,8 @@ const App = () => (
         A clean foundation for your next product. Define the model, shape the
         behavior, and compose only the capabilities you need.
       </p>
-      <a className="brand__link" href={gettingStartedGuide}>
-        Read the Framework guide
+      <a className="brand__link" href={upstreamRepositoryUrl}>
+        View Asyra on GitHub
         <span aria-hidden="true">↗</span>
       </a>
     </div>

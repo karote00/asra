@@ -16,9 +16,6 @@
     ".DS_Store",
     ".env*",
     ".turbo",
-    "coverage",
-    "dist",
-    "playwright-report",
-    "test-results"
+    "dist"
   ]
 }

@@ -33,12 +33,19 @@ test('create-asyra-app exposes the one supported create command', () => {
     path.join(repositoryRoot, 'create-app/asyra/README.md'),
     'utf8'
   )
+  const sourceReadme = fs.readFileSync(
+    path.join(repositoryRoot, 'apps/asyra/README.md'),
+    'utf8'
+  )
   const cli = fs.readFileSync(
     path.join(repositoryRoot, 'create-app/asyra/bin/index.js'),
     'utf8'
   )
   assert.match(readme, /npx create-asyra-app my-product/u)
   assert.doesNotMatch(readme, /yarn create-asyra-app/u)
+  assert.match(readme, /GitHub project link/u)
+  assert.doesNotMatch(readme, /Framework guide link/u)
+  assert.match(sourceReadme, /npx create-asyra-app my-product/u)
   assert.match(cli, /Usage: npx create-asyra-app \[project-name\]/u)
 })
 
@@ -62,6 +69,17 @@ test('create-asyra-app uses its corresponding 0.1.0 empty app as source', () => 
   assert.equal(releaseConfig.src, 'apps/asyra')
   assert.equal(releaseConfig.dest, 'create-app/asyra/template')
   assert.equal(releaseConfig.readme, 'apps/asyra/TEMPLATE.md')
+  for (const retiredCleanPath of [
+    'coverage',
+    'playwright-report',
+    'test-results'
+  ]) {
+    assert.equal(
+      releaseConfig.cleanFiles.includes(retiredCleanPath),
+      false,
+      retiredCleanPath
+    )
+  }
 
   const sourceManifest = JSON.parse(
     fs.readFileSync(
@@ -82,10 +100,60 @@ test('create-asyra-app uses its corresponding 0.1.0 empty app as source', () => 
   assert.equal(sourceManifest.version, cliManifest.version)
   assert.equal(templateManifest.name, sourceManifest.name)
   assert.equal(templateManifest.version, cliManifest.version)
+  assert.deepEqual(sourceManifest.scripts, {
+    start: 'vite dev',
+    typecheck: 'tsc --noEmit',
+    'react:build': 'vite build'
+  })
   assert.deepEqual(sourceManifest.dependencies, {
     react: '^19.0.0',
     'react-dom': '^19.0.0'
   })
+  assert.equal(sourceManifest.devDependencies['@playwright/test'], undefined)
+
+  for (const retiredPath of [
+    '__tests__',
+    'docs/framework.md',
+    'e2e',
+    'playwright.config.ts'
+  ]) {
+    assert.equal(
+      fs.existsSync(path.join(appRoot, retiredPath)),
+      false,
+      retiredPath
+    )
+    assert.equal(
+      fs.existsSync(path.join(repositoryRoot, releaseConfig.dest, retiredPath)),
+      false,
+      `generated ${retiredPath}`
+    )
+  }
+
+  const sourceFiles = fs.readdirSync(path.join(appRoot, 'src')).sort()
+  assert.deepEqual(sourceFiles, [
+    'App.tsx',
+    'framework-logo.svg',
+    'main.tsx',
+    'styles.css',
+    'vite-env.d.ts'
+  ])
+
+  const sourceReadme = fs.readFileSync(path.join(appRoot, 'README.md'), 'utf8')
+  const templateReadme = fs.readFileSync(
+    path.join(appRoot, 'TEMPLATE.md'),
+    'utf8'
+  )
+  const agents = fs.readFileSync(path.join(appRoot, 'AGENTS.md'), 'utf8')
+  const appSource = fs.readFileSync(path.join(appRoot, 'src/App.tsx'), 'utf8')
+  const upstreamRepositoryUrl = 'https://github.com/karote00/asyra'
+
+  assert.match(sourceReadme, /npx create-asyra-app my-product/u)
+  assert.doesNotMatch(templateReadme, /npx create-asyra-app/u)
+  assert.doesNotMatch(templateReadme, /yarn test/u)
+  assert.ok(agents.includes(upstreamRepositoryUrl))
+  assert.doesNotMatch(agents, /docs\/framework\.md|yarn test/u)
+  assert.ok(appSource.includes(`'${upstreamRepositoryUrl}'`))
+  assert.equal(appSource.includes(`${upstreamRepositoryUrl}/blob/`), false)
 })
 
 const cliCases = [
@@ -93,6 +161,7 @@ const cliCases = [
     args: ['--package-manager=yarn'],
     cliPath: 'create-app/asyra-design/bin/index.js',
     expectedUrl: 'http://localhost:3000/?fileId=my-design',
+    forbiddenFiles: [],
     requiredFiles: ['AGENTS.md', 'docs/README.md', 'docs/framework.md'],
     title: 'Asyra Design'
   },
@@ -100,12 +169,13 @@ const cliCases = [
     args: [],
     cliPath: 'create-app/asyra/bin/index.js',
     expectedUrl: 'http://localhost:3000',
-    requiredFiles: [
-      '.gitignore',
-      'AGENTS.md',
+    forbiddenFiles: [
+      '__tests__',
       'docs/framework.md',
-      'src/framework-logo.svg'
+      'e2e',
+      'playwright.config.ts'
     ],
+    requiredFiles: ['.gitignore', 'AGENTS.md', 'src/framework-logo.svg'],
     title: 'Asyra Framework'
   }
 ]
@@ -158,6 +228,13 @@ for (const cliCase of cliCases) {
           `${cliCase.title} output is missing ${requiredFile}`
         )
       }
+      for (const forbiddenFile of cliCase.forbiddenFiles) {
+        assert.equal(
+          fs.existsSync(path.join(testDirectory, projectName, forbiddenFile)),
+          false,
+          `${cliCase.title} output includes ${forbiddenFile}`
+        )
+      }
       const generatedManifest = JSON.parse(
         fs.readFileSync(
           path.join(testDirectory, projectName, 'package.json'),
@@ -168,6 +245,15 @@ for (const cliCase of cliCases) {
       if (cliCase.title === 'Asyra Framework') {
         assert.equal(generatedManifest.name, projectName)
         assert.equal(generatedManifest.version, '0.1.0')
+        assert.equal(
+          generatedManifest.devDependencies?.['@playwright/test'],
+          undefined
+        )
+        assert.deepEqual(generatedManifest.scripts, {
+          start: 'vite dev',
+          typecheck: 'tsc --noEmit',
+          'react:build': 'vite build'
+        })
       }
     } finally {
       fs.rmSync(testDirectory, { recursive: true, force: true })

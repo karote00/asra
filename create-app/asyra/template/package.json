@@ -9,18 +9,13 @@
   "scripts": {
     "start": "vite dev",
     "typecheck": "tsc --noEmit",
-    "react:build": "vite build",
-    "test": "node --test __tests__/starter-contract.test.mjs",
-    "test:local": "node --test __tests__/starter-contract.test.mjs",
-    "test:ci": "node --test __tests__/starter-contract.test.mjs",
-    "test:e2e": "playwright test"
+    "react:build": "vite build"
   },
   "dependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.57.0",
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

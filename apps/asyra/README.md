@@ -1,19 +1,19 @@
-# Asyra empty app
+# Create an Asyra app
 
-This workspace App is the empty React project used as the source for
-`create-asyra-app`. It is intentionally limited to one Asyra Framework homepage
-and contains no product-domain behavior.
-
-From the repository root:
+Start a new product with the minimal Asyra Framework React shell:
 
 ```bash
-yarn release:app --prod=create-asyra-app
-yarn release:app:check --prod=create-asyra-app
+npx create-asyra-app my-product
+cd my-product
+yarn start
 ```
 
-Edit this App when the empty starter experience changes. The official generator
-copies it into `create-app/asyra/template`; do not hand-edit the generated
-template.
+The generated project contains one introductory homepage and no product-domain
+behavior or prescribed testing framework. Add only the Framework capabilities,
+product code, and development tools your product chooses.
+
+Visit the [Asyra GitHub project](https://github.com/karote00/asyra) for the
+Framework source and current public guidance.
 
 ## Support and contribution policy
 

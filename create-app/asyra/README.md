@@ -20,16 +20,15 @@ lockfile. Existing targets, absolute paths, nested paths, and `.`/`..` are
 rejected.
 
 Open `http://localhost:3000`. The initial page contains only the original
-Asyra Framework logo, a short starting point, and the Framework guide link.
+Asyra Framework logo, a short starting point, and the GitHub project link.
 
 ## Continue with Asyra
 
-The generated project includes `AGENTS.md` and `docs/framework.md`. Humans and
-AI coding agents should read them before adding domain behavior or Framework
-packages.
+The generated project includes an `AGENTS.md` that directs humans and coding
+agents to the official Asyra GitHub project without copying internal Framework
+documentation into your App.
 
-- [Framework getting started](https://github.com/karote00/asyra/blob/main/docs/ai/framework/GETTING_STARTED.md)
-- [Public documentation](https://github.com/karote00/asyra/blob/main/docs/public/index.md)
+- [Asyra GitHub project](https://github.com/karote00/asyra)
 - [Complete Asyra Design starter](../asyra-design/README.md)
 
 ## Verify
@@ -37,8 +36,10 @@ packages.
 ```bash
 yarn typecheck
 yarn react:build
-yarn test
 ```
+
+The starter does not install or configure a testing framework. Each product can
+choose its own testing tools.
 
 ## Generated project contract
 

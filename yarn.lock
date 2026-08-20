@@ -126,7 +126,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asyra/asyra@workspace:apps/asyra"
   dependencies:
-    "@playwright/test": "npm:^1.57.0"
     "@types/node": "npm:^24.0.0"
     "@types/react": "npm:^19.0.0"
     "@types/react-dom": "npm:^19.0.0"

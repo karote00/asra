@@ -3,11 +3,6 @@
 /.pnp
 .pnp.js
 
-# testing
-/coverage
-/test-results
-/playwright-report
-
 # production
 /dist
 

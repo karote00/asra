@@ -247,7 +247,6 @@ test('packed minimal create-app includes its documented starter contract', () =>
     'LICENSE',
     'bin/index.js',
     'template/AGENTS.md',
-    'template/docs/framework.md',
     'template/src/framework-logo.svg'
   ]) {
     assert.ok(packedPaths.includes(requiredPath), requiredPath)
@@ -263,6 +262,22 @@ test('packed minimal create-app includes its documented starter contract', () =>
       packedPaths.some((packedPath) => packedPath.includes(segment)),
       false,
       segment
+    )
+  }
+  for (const retiredPath of [
+    'template/__tests__/',
+    'template/docs/framework.md',
+    'template/e2e/',
+    'template/playwright.config.ts'
+  ]) {
+    assert.equal(
+      packedPaths.some(
+        (packedPath) =>
+          packedPath === retiredPath.replace(/\/$/u, '') ||
+          packedPath.startsWith(retiredPath)
+      ),
+      false,
+      retiredPath
     )
   }
 })
