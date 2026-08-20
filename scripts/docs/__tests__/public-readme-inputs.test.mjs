@@ -48,7 +48,10 @@ test('root README exposes package-first composition and the working product star
     /https:\/\/asyra-karote00s-projects\.vercel\.app\/\?fileId=demo/u
   )
   assert.match(readme, /npm install @asyra\/core/u)
-  assert.match(readme, /npx create-asyra-design-app my-product/u)
+  assert.match(
+    readme,
+    /npx create-asyra-design-app my-product --package-manager=npm[\s\S]*npm run start/u
+  )
   assert.doesNotMatch(readme, /create-asyra-app|one React homepage/u)
   assert.match(readme, /working design-tool foundation/u)
   assert.match(readme, /Build product features, not infrastructure/u)
@@ -58,7 +61,9 @@ test('root README exposes package-first composition and the working product star
   assert.match(readme, /Compose only what the product needs/u)
   assert.match(readme, /Runtime commit and durable persistence/u)
   assert.match(readme, /Yarn, npm, or pnpm/u)
-  assert.match(readme, /start command printed by the CLI/u)
+  assert.match(readme, /prints the exact start command/u)
+  assert.match(readme, /flowchart TD/u)
+  assert.doesNotMatch(readme, /flowchart LR/u)
   assert.doesNotMatch(
     readme,
     /Runtime Atlas|release candidates|does not independently authorize a release|Yarn 4\.3\.1/u

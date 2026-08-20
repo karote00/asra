@@ -2,14 +2,14 @@
 
 ## Build product features, not infrastructure
 
-Asyra provides the reusable infrastructure behind a product so developers can
-focus on domain knowledge and Features. Your App owns its schemas, rules,
+Asyra provides reusable infrastructure behind a product. Developers can focus
+on domain knowledge and Features, while their App owns schemas, rules,
 workflows, services, and UI. Asyra keeps intent routing, registration,
 transactions, rollback, Undo/Redo, canonical state, validation, persistence
 boundaries, and downstream projections consistent.
 
-A Feature is an App-owned, registered unit of product behavior. Human input,
-UI, automation, devices, and AI-issued commands enter the same Feature and API
+A Feature is an App-owned, registered unit of product behavior. It gives human
+input, UI, automation, devices, and AI-issued commands the same Feature and API
 boundaries instead of creating parallel product paths.
 
 - **Focus on product behavior.** Build what makes the product valuable instead
@@ -28,11 +28,11 @@ boundaries instead of creating parallel product paths.
   separate observable states; supported local failures roll back instead of
   presenting partial state as success.
 
-In a conventional application, one behavior may require coordinated changes to
-input handlers, UI state, history, rendering, persistence, and automation. With
-Asyra, a small Feature can remain a few focused lines of registration and
-domain code; larger Features remain bounded to their explicit owners instead of
-spreading across dozens of unrelated files.
+In a conventional application, one behavior may require coordinated changes
+across input handlers, UI state, history, rendering, persistence, and
+automation. With Asyra, a small Feature can remain a few focused lines of
+registration and domain code. Larger Features remain bounded to their explicit
+owners instead of spreading across dozens of unrelated files.
 
 Asyra is a Framework for products whose information must remain editable,
 reversible, inspectable, persistable, and extensible as the product grows. It is
@@ -41,16 +41,17 @@ around its own data, rules, engines, services, and interfaces.
 
 ## Try the demo
 
-The [Asyra Design demo](https://asyra-karote00s-projects.vercel.app/?fileId=demo)
-is a complete design-tool product built with Asyra. It demonstrates how the
-Framework, official Preset, App-owned Features, editable information, rendering,
-Undo/Redo, and persistence fit together in a real product.
+[Asyra Design demo](https://asyra-karote00s-projects.vercel.app/?fileId=demo)
+
+Asyra Design is a complete design-tool product built with Asyra. It demonstrates
+how the Framework, official Preset, App-owned Features, editable information,
+rendering, Undo/Redo, and persistence fit together in a real product.
 
 ## Choose your starting point
 
 ### Start from Framework packages
 
-Install `@asyra/core` when you want to compose a product without inheriting a UI
+`@asyra/core` is the package-first starting point. It does not impose a UI
 framework or predefined product behavior:
 
 ```bash
@@ -59,9 +60,8 @@ npm install @asyra/core
 
 Core is the public composition facade for the current browser/Core runtime. Add
 only the Framework packages, providers, and App-owned behavior your product
-needs, then follow the
-[custom composition guide](docs/public/start/custom-composition.md) for the
-supported owner graph.
+needs. The supported owner graph is documented in the
+[custom composition guide](docs/public/start/custom-composition.md).
 
 Continue with the maintained guides that match the first behavior you want to
 build:
@@ -75,20 +75,20 @@ non-design products, or ideas that should be composed deliberately.
 
 ### Start from a ready-to-use design tool
 
-Use [`create-asyra-design-app`](create-app/asyra-design/README.md) when you want
-to begin with an immediately editable design-tool product. Start with Asyra
-Design, then add, remove, or replace its Features, product behavior, services,
-and UI. This product-first option gives builders a
-working design-tool foundation instead of requiring them to compose every
-capability first:
+Use [`create-asyra-design-app`](create-app/asyra-design/README.md) to begin with
+an immediately editable design-tool product. Start with Asyra Design, then add,
+remove, or replace its Features, product behavior, services, and UI. It gives
+builders a working design-tool foundation without requiring them to compose
+every capability first:
 
 ```bash
-npx create-asyra-design-app my-product
+npx create-asyra-design-app my-product --package-manager=npm
 cd my-product
+npm run start
 ```
 
-The CLI lets you choose Yarn, npm, or pnpm and installs the project
-dependencies. Continue with the start command printed by the CLI.
+The CLI supports Yarn, npm, or pnpm. It installs the project dependencies and
+prints the exact start command for the selected package manager.
 
 The generated project is ordinary source code and includes documentation for
 both humans and AI coding agents. Continue with its bounded extension guide and
@@ -97,7 +97,7 @@ the public Framework documentation.
 ## How Asyra works
 
 ```mermaid
-flowchart LR
+flowchart TD
   intent["Human / UI / automation / AI / device intent"]
   feature["Feature"]
   api["App or Framework API"]
@@ -130,14 +130,18 @@ apply owners; they do not invent a second product-decision runtime.
 ## Where Asyra can go
 
 The same infrastructure can support a design tool, whiteboard, BIM system,
-industrial digital twin, 4D simulation, or a domain Asyra's authors never
-anticipated. An industrial App could add its own physical and chemical rules;
-a BIM App could add its own building model and safety policies; a simulation
-App could bind a specialized engine. A semiconductor manufacturer such as TSMC
-could encode its own chip-fabrication rules and process constraints in an App
-to evaluate candidate process flows earlier and make validation more precise
-and consistent. These are App-owned possibilities, not turnkey capabilities
-bundled with Asyra.
+industrial digital twin, 4D simulation, or domains its authors never
+anticipated. For example:
+
+- **Industrial products** can add their own physical and chemical rules.
+- **BIM products** can add their own building models and safety policies.
+- **Simulation products** can bind specialized engines.
+- **Semiconductor manufacturers** such as TSMC can encode chip-fabrication rules
+  and process constraints to evaluate candidate process flows earlier and make
+  validation more precise and consistent.
+
+These possibilities belong to the App. Asyra does not bundle them as turnkey
+capabilities.
 
 The longer-term direction also includes non-visible information-model products
 designed for AI retrieval and registered action execution. That direction is
@@ -150,10 +154,10 @@ official `2D` Preset, and engine-neutral `CUSTOM` composition. Production `3D`,
 `HYBRID`, auto-layout, unit-aware aggregation, public Headless Core, and a
 multi-runtime Core Kernel are not current capabilities.
 
-See the [public support and release guide](docs/public/reference/support-release.md)
-for environments, entrypoints, migration, security, and deprecation boundaries.
-The [runtime-boundaries roadmap](docs/public/learn/runtime-boundaries-roadmap.md)
-keeps verified capabilities separate from future direction.
+- [Public support and release guide](docs/public/reference/support-release.md) —
+  environments, entrypoints, migration, security, and deprecation boundaries.
+- [Runtime-boundaries roadmap](docs/public/learn/runtime-boundaries-roadmap.md) —
+  verified capabilities and future direction.
 
 ## Documentation
 
@@ -167,10 +171,11 @@ keeps verified capabilities separate from future direction.
 ## Support and contribution policy
 
 Asyra is publicly available for use, learning, inspection, and forking.
-However, **This repository does not accept external issues or contributions**,
-including pull requests, at this time. The codebase is intentionally curated as
-one cohesive reference implementation for Communication-Driven Development and
-AI-assisted workflows.
+
+**This repository does not accept external issues or contributions, including pull requests.**
+
+The codebase is intentionally curated as one cohesive reference implementation
+for Communication-Driven Development and AI-assisted workflows.
 
 For security-sensitive reports, follow [SECURITY.md](SECURITY.md).
 
