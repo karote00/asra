@@ -18,6 +18,12 @@ boundaries, and downstream projections consistent.
   inventing parallel implementations.
 - **Keep every actor on the same path.** Human input, UI, automation, devices,
   and AI-issued commands use the same Feature and API boundaries.
+- **Compose only what the product needs.** Preset defaults, render providers,
+  persistence, collaboration, and AI remain selectable or replaceable instead
+  of becoming mandatory product architecture.
+- **Know what actually succeeded.** Runtime commit and durable persistence are
+  separate observable states; supported local failures roll back instead of
+  presenting partial state as success.
 - **Control technical debt.** Explicit ownership keeps the impact of a change
   visible and prevents product behavior from leaking across handlers, global
   stores, components, renderers, and backend adapters.

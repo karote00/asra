@@ -1,20 +1,12 @@
 {
   "pages": [
     {
-      "contentSha256": "6d275c1b80c1e0ced2a05d9fb0815111531e4fff6288a560a2281b4c3ca0c0a3",
-      "description": "Build app-owned Features without rebuilding transaction, validation, lifecycle, persistence, or projection infrastructure.",
+      "contentSha256": "c5f83acbd94743788a86bf089132cd9496b7f8fd9d7b33511702438cd311aece",
+      "description": "Build domain-owned information products whose visual, collaborative, persistent, and AI-facing capabilities remain composable.",
       "headings": [
         {
           "depth": 1,
           "title": "Asyra Framework"
-        },
-        {
-          "depth": 2,
-          "title": "Build features without rebuilding infrastructure"
-        },
-        {
-          "depth": 2,
-          "title": "Keep your domain yours"
         },
         {
           "depth": 2,
@@ -46,7 +38,7 @@
       "path": "index.md",
       "section": "Overview",
       "title": "Asyra Framework",
-      "wordCount": 768
+      "wordCount": 526
     },
     {
       "contentSha256": "6403e873a16f3e7a1e0c09a5e3f7a026cdab0b6c50f96cc8f4846970966e505f",

@@ -54,6 +54,8 @@ test('root README exposes package-first composition and the working product star
   assert.match(readme, /Build product features, not infrastructure/u)
   assert.match(readme, /Add, replace, or remove a registered Feature/u)
   assert.match(readme, /a few focused lines/u)
+  assert.match(readme, /Compose only what the product needs/u)
+  assert.match(readme, /Runtime commit and durable persistence/u)
 })
 
 test('every package input resolves its complete public guide without example commands', async () => {
