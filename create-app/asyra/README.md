@@ -44,7 +44,7 @@ choose its own testing tools.
 ## Generated project contract
 
 - `apps/asyra` is the corresponding empty App and generator source.
-- `apps/asyra/TEMPLATE.md` is the generated README source.
+- `apps/asyra/README.md` is the generated README source.
 - `create-app/asyra/template` is generated only through the official release
   generator with `yarn release:app --prod=create-asyra-app`; it receives no
   handwritten fixes.

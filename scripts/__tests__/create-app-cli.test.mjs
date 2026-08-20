@@ -45,7 +45,8 @@ test('create-asyra-app exposes the one supported create command', () => {
   assert.doesNotMatch(readme, /yarn create-asyra-app/u)
   assert.match(readme, /GitHub project link/u)
   assert.doesNotMatch(readme, /Framework guide link/u)
-  assert.match(sourceReadme, /npx create-asyra-app my-product/u)
+  assert.doesNotMatch(sourceReadme, /npx create-asyra-app/u)
+  assert.match(sourceReadme, /yarn start/u)
   assert.match(cli, /Usage: npx create-asyra-app \[project-name\]/u)
 })
 
@@ -68,7 +69,7 @@ test('create-asyra-app uses its corresponding 0.1.0 empty app as source', () => 
   const releaseConfig = JSON.parse(fs.readFileSync(releaseConfigPath, 'utf8'))
   assert.equal(releaseConfig.src, 'apps/asyra')
   assert.equal(releaseConfig.dest, 'create-app/asyra/template')
-  assert.equal(releaseConfig.readme, 'apps/asyra/TEMPLATE.md')
+  assert.equal(releaseConfig.readme, 'apps/asyra/README.md')
   for (const retiredCleanPath of [
     'coverage',
     'playwright-report',
@@ -115,7 +116,8 @@ test('create-asyra-app uses its corresponding 0.1.0 empty app as source', () => 
     '__tests__',
     'docs/framework.md',
     'e2e',
-    'playwright.config.ts'
+    'playwright.config.ts',
+    'TEMPLATE.md'
   ]) {
     assert.equal(
       fs.existsSync(path.join(appRoot, retiredPath)),
@@ -139,17 +141,20 @@ test('create-asyra-app uses its corresponding 0.1.0 empty app as source', () => 
   ])
 
   const sourceReadme = fs.readFileSync(path.join(appRoot, 'README.md'), 'utf8')
-  const templateReadme = fs.readFileSync(
-    path.join(appRoot, 'TEMPLATE.md'),
+  const generatedReadme = fs.readFileSync(
+    path.join(repositoryRoot, releaseConfig.dest, 'README.md'),
     'utf8'
   )
   const agents = fs.readFileSync(path.join(appRoot, 'AGENTS.md'), 'utf8')
   const appSource = fs.readFileSync(path.join(appRoot, 'src/App.tsx'), 'utf8')
   const upstreamRepositoryUrl = 'https://github.com/karote00/asyra'
 
-  assert.match(sourceReadme, /npx create-asyra-app my-product/u)
-  assert.doesNotMatch(templateReadme, /npx create-asyra-app/u)
-  assert.doesNotMatch(templateReadme, /yarn test/u)
+  assert.equal(generatedReadme, sourceReadme)
+  assert.doesNotMatch(sourceReadme, /npx create-asyra-app/u)
+  assert.doesNotMatch(sourceReadme, /yarn test/u)
+  assert.match(sourceReadme, /minimal React starting point/u)
+  assert.match(sourceReadme, /yarn start/u)
+  assert.ok(sourceReadme.includes(upstreamRepositoryUrl))
   assert.ok(agents.includes(upstreamRepositoryUrl))
   assert.doesNotMatch(agents, /docs\/framework\.md|yarn test/u)
   assert.ok(appSource.includes(`'${upstreamRepositoryUrl}'`))
