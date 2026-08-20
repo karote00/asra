@@ -224,6 +224,23 @@ test('packed minimal create-app includes its documented starter contract', () =>
   }
 })
 
+test('Asyra Design app and create-app package share one release version', () => {
+  const createAppManifest = JSON.parse(
+    readFileSync(
+      path.join(repositoryRoot, 'create-app/asyra-design/package.json'),
+      'utf8'
+    )
+  )
+  const appManifest = JSON.parse(
+    readFileSync(
+      path.join(repositoryRoot, 'apps/asyra-design/package.json'),
+      'utf8'
+    )
+  )
+
+  assert.equal(createAppManifest.version, appManifest.version)
+})
+
 test('create-app package metadata matches the supported public CLI contract', () => {
   const manifest = JSON.parse(
     readFileSync(

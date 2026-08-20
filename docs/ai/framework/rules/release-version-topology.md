@@ -13,6 +13,8 @@ app templates.
 - The `create-app/` directory has no version. Each CLI package under
   `create-app/<app>` owns its own manually selected version and must never be a
   Changeset release entry.
+- `apps/asyra-design` and `create-app/asyra-design` share the published Asyra
+  Design release version; their manifest versions must remain identical.
 - Root `asyra` is the main release identity. Its stable version is always
   `a.b.0` and is changed manually only after the required release sequence.
 - A canonical private app owns its own identity version. A generated template
