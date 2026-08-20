@@ -91,7 +91,7 @@ The program is split into nine independently reviewable child plans:
    AI-readable content, and semantic case-study content.
 4. [Executable Examples](../asyra-executable-examples-plan.md) owns maintained
    sample code and the formal gates that prove documented flows still work.
-5. [Visual Reimagine](../asyra-website-visual-reimagine-plan.md) owns generated
+5. [Visual Reimagine](asyra-website-visual-reimagine-plan.md) owns generated
    concepts, interaction and motion direction, responsive states, and the
    accepted visual specification before composed UI code.
 6. [Website Platform and Documentation Experience](../asyra-website-platform-and-docs-plan.md)

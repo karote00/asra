@@ -2,6 +2,9 @@
 
 ## Status
 
+Completed on 2026-08-20. The final Cosmic Atlas Revision 2 implementation was
+accepted, deployed from PR #126, and verified on the production website.
+
 The first implementation direction and its formal handoff are complete. After
 reviewing the implementation, the user explicitly corrected the active
 direction to **Cosmic Atlas Revision 2**, the dark whole-site composite with a
