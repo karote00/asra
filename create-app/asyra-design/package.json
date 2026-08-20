@@ -1,7 +1,7 @@
 {
   "name": "create-asyra-design-app",
   "version": "0.5.10",
-  "description": "Create a standalone Asyra Design app",
+  "description": "Create a ready-to-use Asyra Design canvas and visual editor app",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -17,5 +17,20 @@
   "dependencies": {
     "inquirer": "^8.2.5"
   },
-  "packageManager": "yarn@4.3.1"
+  "packageManager": "yarn@4.3.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karote00/asyra.git",
+    "directory": "create-app/asyra-design"
+  },
+  "homepage": "https://asyra-framework.vercel.app",
+  "keywords": [
+    "asyra",
+    "canvas-editor",
+    "visual-editor",
+    "design-tool",
+    "whiteboard",
+    "typescript",
+    "react"
+  ]
 }

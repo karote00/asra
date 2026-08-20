@@ -1,7 +1,7 @@
 {
   "name": "@asyra/core",
   "version": "0.5.3",
-  "description": "Core of Asyra.",
+  "description": "Public composition core for canvas-based, visual, and domain-driven Asyra products",
   "author": "Asa Tsai",
   "license": "MIT",
   "type": "module",
@@ -9,7 +9,23 @@
     "node": "24.x"
   },
   "packageManager": "yarn@4.3.1",
-  "keywords": [],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karote00/asyra.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://asyra-framework.vercel.app",
+  "keywords": [
+    "application-framework",
+    "canvas-framework",
+    "canvas-editor",
+    "visual-editor",
+    "whiteboard",
+    "bim",
+    "undo-redo",
+    "information-modeling",
+    "typescript"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [

@@ -44,6 +44,13 @@ const escapedOrigin = origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 assert.match(sitemap, new RegExp(`<loc>${escapedOrigin}/?</loc>`))
 assert.equal((sitemap.match(/<url>/g) ?? []).length, 1)
 
+const llmsResponse = await fetch(new URL('/llms.txt', origin))
+assert.equal(llmsResponse.status, 200)
+const llms = await llmsResponse.text()
+assert.match(llms, /^# Asyra Framework/m)
+assert.match(llms, /Public, source-mapped documentation/)
+assert.doesNotMatch(llms, /docs\/ai\//)
+
 const missingResponse = await fetch(new URL('/launch-missing-route', origin))
 assert.equal(missingResponse.status, 404)
 assert.match(await missingResponse.text(), /Nothing is built here\./)

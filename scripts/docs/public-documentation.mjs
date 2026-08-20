@@ -13,11 +13,15 @@ import {
   writePublicPackageReference
 } from './public-package-reference.mjs'
 
+export const WEBSITE_LLM_DISCOVERY_PATH =
+  'apps/asyra-framework-site/public/llms.txt'
+
 export const PUBLIC_DOCUMENTATION_PATHS = Object.freeze({
   apiIndex: 'docs/public/generated/api-index.json',
   contentIndex: 'docs/public/generated/content-index.json',
   llms: 'docs/public/llms.txt',
-  sourceMap: 'docs/public/generated/source-map.json'
+  sourceMap: 'docs/public/generated/source-map.json',
+  websiteLlms: WEBSITE_LLM_DISCOVERY_PATH
 })
 
 const SECTION_IDS = Object.freeze([
@@ -277,7 +281,8 @@ const serializedBundle = (bundle) => ({
   apiIndex: serializeJson(bundle.apiIndex),
   contentIndex: serializeJson(bundle.contentIndex),
   llms: bundle.llms,
-  sourceMap: serializeJson(bundle.sourceMap)
+  sourceMap: serializeJson(bundle.sourceMap),
+  websiteLlms: bundle.llms
 })
 
 export const writePublicDocumentation = async ({ repositoryRoot }) => {

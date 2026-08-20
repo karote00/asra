@@ -100,7 +100,8 @@ the project test commands.
 9. responsive true-alpha Photoroom raster assets;
 10. adaptive code-drawn grids and alpha-aware shadows at every review size;
 11. a 2026 open-source footer with no company identity; and
-12. complete no-client and reduced-motion reading.
+12. complete no-client and reduced-motion reading; and
+13. public machine-readable discovery without restoring removed content pages.
 
 ## Content Contract
 
@@ -124,11 +125,17 @@ The footer identifies the project only as `2026`, `OPEN SOURCE`, and
 `MIT LICENSE`. It must not claim an Asyra company, corporation, or incorporated
 owner.
 
+The Website publishes the generated public documentation inventory at
+`/llms.txt`. This machine-readable discovery surface mirrors
+`docs/public/llms.txt`; it does not restore `/docs` or another human-facing
+content route.
+
 ## Ownership Boundary
 
 The app owns semantic server-rendered HTML, the paper visual system, responsive
-layout, metadata, robots, sitemap, error state, not-found state, and
-project-local responsive WebP assets. The selected source-of-truth files are
+layout, metadata, robots, sitemap, the generated `/llms.txt` discovery surface,
+error state, not-found state, and project-local responsive WebP assets. The
+selected source-of-truth files are
 the six immutable product-owner-supplied PNG masters under
 `apps/asyra-framework-site/artwork/photoroom`; their hashes are enforced by the
 semantic regression test. `build-photoroom-assets.py` produces three
@@ -207,6 +214,8 @@ copy, or selected illustration.
 
 - one static `/` content route and only required Next.js shell files under
   `app`;
+- `/llms.txt` exactly matches the generated public documentation inventory while
+  removed human-facing content routes remain absent;
 - no import or copy from the removed website implementation;
 - all information and actions remain readable without JavaScript;
 - the retired Visible Change and Impact Preview sections are absent;

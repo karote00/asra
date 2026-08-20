@@ -1,13 +1,24 @@
 {
   "name": "asyra",
   "version": "0.2.5",
-  "description": "Asyra Framework for deterministic, modular declarative information-modeling products.",
+  "description": "Composable framework for canvas-based, visual, and domain-driven products.",
   "author": "Asa Tsai",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karote00/asyra.git"
+  },
+  "homepage": "https://asyra-framework.vercel.app",
   "packageManager": "yarn@4.3.1",
   "main": "index.js",
   "type": "module",
   "keywords": [
+    "canvas-framework",
+    "canvas-editor",
+    "visual-editor",
+    "whiteboard",
+    "bim",
+    "undo-redo",
     "information-modeling",
     "application-framework",
     "deterministic-runtime",

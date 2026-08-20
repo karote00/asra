@@ -6,7 +6,8 @@ import { fileURLToPath } from 'node:url'
 
 import {
   checkPublicDocumentation,
-  createPublicDocumentationBundle
+  createPublicDocumentationBundle,
+  WEBSITE_LLM_DISCOVERY_PATH
 } from '../public-documentation.mjs'
 
 const repositoryRoot = path.resolve(
@@ -96,4 +97,11 @@ test('checked public documentation artifacts are deterministic and current', asy
   const bundle = await checkPublicDocumentation({ repositoryRoot })
   assert.equal(bundle.contentIndex.pages.length, 41)
   assert.equal(bundle.apiIndex.packages.length, 19)
+  assert.equal(
+    fs.readFileSync(
+      path.join(repositoryRoot, WEBSITE_LLM_DISCOVERY_PATH),
+      'utf8'
+    ),
+    bundle.llms
+  )
 })

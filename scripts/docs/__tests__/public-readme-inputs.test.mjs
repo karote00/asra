@@ -57,6 +57,14 @@ test('root README exposes package-first composition and the working product star
   assert.match(readme, /Build product features, not infrastructure/u)
   assert.match(
     readme,
+    /build canvas-based editors, whiteboards, BIM workspaces, industrial tools, simulations, and other domain products/u
+  )
+  assert.match(
+    readme,
+    /without coupling domain rules to one renderer or UI framework/u
+  )
+  assert.match(
+    readme,
     /composable building blocks for turning domain-owned information and rules into products/u
   )
   assert.doesNotMatch(readme, /reusable infrastructure behind a product/u)

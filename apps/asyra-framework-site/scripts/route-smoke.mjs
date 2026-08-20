@@ -5,7 +5,7 @@ import process from 'node:process'
 
 const baseUrl = process.env.SITE_URL ?? 'http://127.0.0.1:3020'
 
-for (const route of ['/', '/robots.txt', '/sitemap.xml']) {
+for (const route of ['/', '/robots.txt', '/sitemap.xml', '/llms.txt']) {
   const response = await fetch(new URL(route, baseUrl))
   assert.equal(response.status, 200, route)
   const body = await response.text()
@@ -14,6 +14,12 @@ for (const route of ['/', '/robots.txt', '/sitemap.xml']) {
     assert.ok(body.length > 80, `${route} returned an incomplete surface`)
   }
 }
+
+const llmsResponse = await fetch(new URL('/llms.txt', baseUrl))
+const llms = await llmsResponse.text()
+assert.match(llms, /^# Asyra Framework/m)
+assert.match(llms, /Public, source-mapped documentation/)
+assert.doesNotMatch(llms, /docs\/ai\//)
 
 const homeResponse = await fetch(new URL('/', baseUrl))
 const home = await homeResponse.text()
@@ -57,5 +63,5 @@ const sitemap = await sitemapResponse.text()
 assert.equal((sitemap.match(/<url>/g) ?? []).length, 1)
 
 process.stdout.write(
-  'Website route smoke passed: one landing route and two metadata surfaces\n'
+  'Website route smoke passed: one landing route and three discovery surfaces\n'
 )

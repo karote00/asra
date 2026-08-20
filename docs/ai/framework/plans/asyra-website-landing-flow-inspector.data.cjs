@@ -10,7 +10,8 @@ const caseIds = Object.freeze([
   'responsive-transparent-raster-assets',
   'perceptually-sharp-raster-rendering',
   'open-source-2026-footer',
-  'no-client-reduced-motion-reading'
+  'no-client-reduced-motion-reading',
+  'machine-readable-discovery'
 ])
 
 const step = (definition) =>
@@ -49,6 +50,7 @@ module.exports = Object.freeze({
         'Every public hyperlink remains clickable even when its destination is a placeholder.',
         'Every selected illustration uses the shared adaptive CSS engineering grid plus an asset-specific alpha-derived drop shadow with directional contact and cast vectors, without code-drawing internal diagram topology.',
         'Source artwork, historical design experiments, and unselected derivative history are Git-ignored local-only inputs excluded from default CI; the eighteen selected public derivatives are the committed public derivatives and production deployment assets.',
+        'The generated public documentation inventory is published at /llms.txt without restoring removed human-facing content routes.',
         'The footer identifies 2026 open source work and contains no company identity.'
       ],
       bypasses: [
@@ -135,6 +137,7 @@ module.exports = Object.freeze({
         'semantic React server components',
         'project-owned source-bounded lossless true-alpha responsive assets',
         'modern system sans typography',
+        'generated public documentation inventory',
         'CSS responsive layout',
         'shared adaptive CSS grid and asset-specific alpha-derived directional drop shadows'
       ],
@@ -177,6 +180,9 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/artwork/v12-transparent',
         'apps/asyra-framework-site/artwork/photoroom',
         'apps/asyra-framework-site/public/illustrations',
+        'apps/asyra-framework-site/public/llms.txt',
+        'docs/public/llms.txt',
+        'scripts/docs/public-documentation.mjs',
         'apps/asyra-framework-site/scripts/build-v06-assets.py',
         'apps/asyra-framework-site/scripts/build-closing-v07-superres.py',
         'apps/asyra-framework-site/scripts/build-closing-v08-geometric.py',
@@ -220,7 +226,8 @@ module.exports = Object.freeze({
         'Six distinct computed shadow vectors are asserted at 2048px, 1440px, 864px, 820px, 390px, and 320px; section crops confirm the contact, cast, and dark-stage ambient layers remain visible without clipping.',
         'The supplied Hero, Domain Rail, Grow, Same Path, One Source, and Closing derivatives are inspected at 1440px and 2048px with section crops before deployment.',
         'No-client and reduced-motion modes preserve the complete reading and actions.',
-        'The retired change-impact sections remain absent at every breakpoint and without JavaScript.'
+        'The retired change-impact sections remain absent at every breakpoint and without JavaScript.',
+        'The public /llms.txt response exactly matches the generated public documentation inventory and removed human-facing routes remain absent.'
       ],
       bypasses: [
         'Production deployment occurs only after every Landing gate passes.'
@@ -243,6 +250,8 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/__tests__/e2e/editorial-landing-visual.spec.ts',
         'apps/asyra-framework-site/scripts/route-smoke.mjs',
         'apps/asyra-framework-site/scripts/production-smoke.mjs',
+        'apps/asyra-framework-site/public/llms.txt',
+        'docs/public/llms.txt',
         'apps/asyra-framework-site/scripts/build-transparent-v12-assets.py',
         'apps/asyra-framework-site/scripts/verify-transparent-v12-assets.py',
         'apps/asyra-framework-site/scripts/build-photoroom-assets.py'

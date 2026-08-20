@@ -31,7 +31,7 @@ test('result-first Landing authority resolves only the current contract and work
   assert.equal('platformInspectorPath' in data.authority, false)
 })
 
-test('result-first Landing owns twelve exact and unique product cases', () => {
+test('result-first Landing owns thirteen exact and unique product cases', () => {
   assert.deepEqual(data.caseIds, [
     'desktop-editorial-composition',
     'mobile-single-column-reflow',
@@ -44,9 +44,10 @@ test('result-first Landing owns twelve exact and unique product cases', () => {
     'responsive-transparent-raster-assets',
     'perceptually-sharp-raster-rendering',
     'open-source-2026-footer',
-    'no-client-reduced-motion-reading'
+    'no-client-reduced-motion-reading',
+    'machine-readable-discovery'
   ])
-  assert.equal(new Set(data.caseIds).size, 12)
+  assert.equal(new Set(data.caseIds).size, 13)
 })
 
 test('contract replaces every previous website surface with the approved V04 page', () => {
@@ -64,6 +65,7 @@ test('contract replaces every previous website surface with the approved V04 pag
   assert.match(source, /Git-ignored.*default CI/i)
   assert.match(source, /committed public derivatives/i)
   assert.match(source, /eighteen selected public derivatives/i)
+  assert.match(source, /published at \/llms\.txt/i)
 })
 
 test('page owner selects the supplied true-alpha masters with one adaptive grid-and-shadow stage', () => {
@@ -117,6 +119,16 @@ test('page owner selects the supplied true-alpha masters with one adaptive grid-
   assert.ok(
     owner.implementationBoundary.includes(
       'apps/asyra-framework-site/public/illustrations'
+    )
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'apps/asyra-framework-site/public/llms.txt'
+    )
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'scripts/docs/public-documentation.mjs'
     )
   )
   assert.ok(
@@ -260,6 +272,7 @@ test('verification requires synchronized production visual evidence', () => {
   assert.match(source, /edge-contrast sharpness oracles/i)
   assert.match(source, /development-server-only evidence/i)
   assert.match(source, /claiming visual completion without inspecting output/i)
+  assert.match(source, /public \/llms\.txt response exactly matches/i)
   assert.ok(owner.implementationBoundary.includes('.gitignore'))
   assert.ok(
     owner.implementationBoundary.includes(

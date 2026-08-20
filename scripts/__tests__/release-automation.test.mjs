@@ -254,10 +254,59 @@ test('create-app package metadata matches the supported public CLI contract', ()
     )
   )
 
-  assert.equal(manifest.description, 'Create a standalone Asyra Design app')
+  assert.equal(
+    manifest.description,
+    'Create a ready-to-use Asyra Design canvas and visual editor app'
+  )
   assert.equal(manifest.license, 'MIT')
   assert.deepEqual(manifest.engines, { node: '24.x' })
   assert.equal(manifest.packageManager, 'yarn@4.3.1')
+  assert.deepEqual(manifest.repository, {
+    type: 'git',
+    url: 'git+https://github.com/karote00/asyra.git',
+    directory: 'create-app/asyra-design'
+  })
+  assert.equal(manifest.homepage, 'https://asyra-framework.vercel.app')
+  assert.ok(manifest.keywords.includes('canvas-editor'))
+  assert.ok(manifest.keywords.includes('visual-editor'))
+})
+
+test('root and Core metadata identify the searchable product category', () => {
+  const rootManifest = JSON.parse(
+    readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
+  )
+  const coreManifest = JSON.parse(
+    readFileSync(
+      path.join(repositoryRoot, 'packages/core/package.json'),
+      'utf8'
+    )
+  )
+
+  assert.equal(
+    rootManifest.description,
+    'Composable framework for canvas-based, visual, and domain-driven products.'
+  )
+  assert.equal(
+    coreManifest.description,
+    'Public composition core for canvas-based, visual, and domain-driven Asyra products'
+  )
+  for (const keyword of [
+    'canvas-framework',
+    'canvas-editor',
+    'visual-editor',
+    'whiteboard',
+    'bim',
+    'undo-redo'
+  ]) {
+    assert.ok(rootManifest.keywords.includes(keyword), keyword)
+    assert.ok(coreManifest.keywords.includes(keyword), keyword)
+  }
+  assert.deepEqual(coreManifest.repository, {
+    type: 'git',
+    url: 'git+https://github.com/karote00/asyra.git',
+    directory: 'packages/core'
+  })
+  assert.equal(coreManifest.homepage, 'https://asyra-framework.vercel.app')
 })
 
 test('generated template manifest is standalone on the supported release runtime', () => {

@@ -132,6 +132,34 @@ test('metadata falls back to the canonical HTTPS origin', async () => {
   assert.doesNotMatch(source, /http:\/\/127\.0\.0\.1:3020/)
 })
 
+test('metadata identifies the Framework for canvas-based and domain-driven tools', async () => {
+  const layout = await readAppFile('layout.tsx')
+
+  assert.match(
+    layout,
+    /Asyra - Framework for canvas-based and domain-driven tools/
+  )
+  assert.match(layout, /canvas-based editors/)
+  assert.match(layout, /visual tools/)
+  assert.match(layout, /BIM workspaces/)
+  assert.match(layout, /domain products/)
+})
+
+test('the public llms discovery surface mirrors the generated documentation inventory', async () => {
+  const websiteLlms = await readFile(
+    path.join(siteRoot, 'public', 'llms.txt'),
+    'utf8'
+  )
+  const generatedLlms = await readFile(
+    path.join(siteRoot, '..', '..', 'docs', 'public', 'llms.txt'),
+    'utf8'
+  )
+
+  assert.equal(websiteLlms, generatedLlms)
+  assert.match(websiteLlms, /^# Asyra Framework/m)
+  assert.doesNotMatch(websiteLlms, /docs\/ai\//)
+})
+
 test('local artwork sources are Git-ignored and run only through the opt-in artwork gate', async () => {
   const ignore = await readFile(
     path.join(siteRoot, '..', '..', '.gitignore'),

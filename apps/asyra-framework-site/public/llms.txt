@@ -1,0 +1,54 @@
+# Asyra Framework
+
+> Public, source-mapped documentation for people and AI coding agents.
+
+This index contains 41 public Markdown pages.
+Current: browser/Core composition, official 2D Preset, and engine-neutral CUSTOM composition.
+Future: Headless Core and Core Kernel for non-visible and machine-facing products; no current public API or delivery date.
+
+Install @asyra/core for package-first composition, use create-asyra-design-app for a ready-to-use design-tool product, and use Start or Build guides for Framework composition.
+Treat app domain schemas, permissions, migration, retrieval, services, and product rules as app-owned.
+
+## Public pages
+
+- [Asyra Framework](index.md): Build domain-owned information products whose visual, collaborative, persistent, and AI-facing capabilities remain composable.
+- [Create a complete design app](start/create-design-app.md): Begin with the maintained Asyra Design product template and extend it as an app owner.
+- [Extend Asyra with an AI coding agent](start/extend-with-ai.md): Give an AI agent bounded ownership, canonical APIs, and executable proof while you retain product decisions.
+- [Compose the official 2D baseline](start/preset-2d.md): Apply the optional official Preset before Core starts, then keep app-domain choices outside the Framework.
+- [Compose only the infrastructure you need](start/custom-composition.md): Start from Core and choose information, interaction, rendering, persistence, collaboration, and AI capabilities independently.
+- [Information models come before output](learn/information-models.md): Define app-owned information and rules without forcing it to be visible, rendered, collaborative, or AI-operated.
+- [Intent enters through Features](learn/intent-and-features.md): Translate user or agent intent into explicit Feature sessions rather than mutating owners from UI or transport code.
+- [Give every state one canonical owner](learn/canonical-state.md): Separate canonical model state, local derived state, projection state, and remote transport state.
+- [One user intent, one transaction](learn/transactions-and-durability.md): Commit, roll back, undo, redo, publish, and persist one intended action through one canonical boundary.
+- [Validate at every write and load boundary](learn/validation-load-migration.md): Keep schema validation in the Framework while version interpretation and migration remain app-domain responsibilities.
+- [Register projections; replace providers](learn/projection-registration-replacement.md): Keep canonical information independent from render layers and engine providers so output can be extended or replaced.
+- [Current runtime and future Core Kernel](learn/runtime-boundaries-roadmap.md): Distinguish today's browser/Core composition from the researched Headless and Core Kernel direction for machine-facing products.
+- [Build a custom component and schema](build/custom-schema.md): Register app-owned component meaning, property defaults, and validation through public Core APIs.
+- [Build a transaction-safe Feature session](build/feature-session.md): Map start, update, end, and cancellation to exactly one intended undo commit.
+- [Build a custom render boundary](build/render-boundary.md): Provide an engine through the public provider contract without teaching Core a renderer-specific implementation.
+- [Build hierarchy and Group behavior](build/hierarchy-groups.md): Keep parent-child ordering canonical while group meaning and geometry policy remain app-owned.
+- [Build persistence with app-owned migration](build/persistence-migration.md): Load validated canonical state while the app owns document versions, migration rules, and unsupported-version policy.
+- [Build opt-in collaboration](build/collaboration.md): Connect deterministic collaboration actors while the app owns transport, authorization, presence, and backend policy.
+- [Build registered AI actions](build/ai-actions.md): Expose bounded action schemas and permissions so AI intent uses the same canonical transaction paths as people.
+- [Build app-owned AI retrieval and action](build/app-retrieval-action.md): Let the app retrieve domain context and register actions without presenting future Headless support as current behavior.
+- [@asyra/ai-agent-runtime](reference/packages/ai-agent-runtime.md): Optional registry, schema, permission, and execution boundary for app-approved AI actions.
+- [@asyra/collaboration](reference/packages/collaboration.md): Optional deterministic replication adapters with app-owned network and service policy.
+- [@asyra/core](reference/packages/core.md): The strict composition facade for Framework capabilities and lifecycle.
+- [@asyra/design-system](reference/packages/design-system.md): Optional reusable interface components; not a Core dependency or app-domain owner.
+- [@asyra/factory](reference/packages/factory.md): Canonical transactions, rollback, history replay, and shared change publication.
+- [@asyra/feature-system](reference/packages/feature-system.md): Priority, exclusivity, conditions, and session lifecycle for intent handling.
+- [@asyra/input-system](reference/packages/input-system.md): Environment-neutral semantic input registration and dispatch infrastructure.
+- [@asyra/persistence](reference/packages/persistence.md): Storage adapter and validated load boundary with app-owned migration meaning.
+- [@asyra/preset](reference/packages/preset.md): Optional official design-tool baseline with selectable defaults and replaceable providers.
+- [@asyra/props-manager](reference/packages/props-manager.md): Property definitions, runtime values, schema validation, and registration lifecycle.
+- [@asyra/reactive-events](reference/packages/reactive-events.md): Typed cross-package communication, transaction ownership, and replay-safe event routes.
+- [@asyra/render](reference/packages/render.md): Projection, render-layer registration, interaction bridges, and renderer orchestration.
+- [@asyra/render-engine](reference/packages/render-engine.md): Public engine-provider contract that keeps renderer implementations replaceable.
+- [@asyra/render-engine-pixi](reference/packages/render-engine-pixi.md): Official optional Pixi provider for the current browser-based 2D baseline.
+- [@asyra/scene-tree](reference/packages/scene-tree.md): Canonical element hierarchy, ordering, component relations, and subtree operations.
+- [@asyra/selection](reference/packages/selection.md): Selection channels and state infrastructure without app-specific selection policy.
+- [@asyra/system-context](reference/packages/system-context.md): Managed system-level properties and snapshots shared through canonical registration.
+- [@asyra/ui-context](reference/packages/ui-context.md): UI-facing derived property registration and computation without canonical model ownership.
+- [@asyra/utils](reference/packages/utils.md): Small shared public utilities without Framework state or lifecycle ownership.
+- [Support, security, and release boundaries](reference/support-release.md): Current runtime support, candidate status, security reporting, license, migration, and publication boundaries.
+- [Asyra Design as a complete product implementation](cases/asyra-design.md): See how one real product composes Framework infrastructure, Preset defaults, app-domain behavior, collaboration, persistence, and AI.

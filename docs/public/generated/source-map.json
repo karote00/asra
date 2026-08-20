@@ -20,7 +20,7 @@
       "sources": [
         {
           "path": "create-app/asyra-design/package.json",
-          "sha256": "14c6fc864e309f2e5fa5f56c0c501f83465c6126eb62f0be5f6a03833d1d8dea"
+          "sha256": "d128f2ca87851dea73b3e65ef6b45391fc86287174e5310400a400728119b473"
         },
         {
           "path": "create-app/asyra-design/template/README.md",
@@ -342,7 +342,7 @@
         },
         {
           "path": "packages/core/package.json",
-          "sha256": "606ef9e8854c665483c5e48a0f6eb22d87a942aae2bc705f4a045b6c2952ed5a"
+          "sha256": "7c1ed7157a8a88d128becc25808b860980df89992acdac42215daac337a53a77"
         }
       ]
     },
@@ -588,7 +588,7 @@
         },
         {
           "path": "package.json",
-          "sha256": "4e81f2c2fc59bce679785ed9e120ad96c7b2c6651b00a6c2a6d7e0c3387c817b"
+          "sha256": "c41f9d7abb40bb52c5b0ea4576ee81a35d2055b816d57d7a097c7692d63a634a"
         }
       ]
     },

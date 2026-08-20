@@ -2,6 +2,8 @@
 
 ## Build product features, not infrastructure
 
+Use Asyra to build canvas-based editors, whiteboards, BIM workspaces, industrial tools, simulations, and other domain products without coupling domain rules to one renderer or UI framework.
+
 Asyra gives developers composable building blocks for turning domain-owned information and rules into products. Your App owns its schemas, rules, workflows, services, and UI. Asyra coordinates intent routing, registration, transactions, rollback, Undo/Redo, canonical state, validation, persistence boundaries, and downstream projections.
 
 A Feature is an App-owned, registered unit of product behavior. It gives human input, UI, automation, devices, and AI-issued commands the same Feature and API boundaries instead of creating parallel product paths.
@@ -20,7 +22,7 @@ Asyra is a Framework for products whose information must remain editable, revers
 
 [Asyra Design demo](https://asyra-karote00s-projects.vercel.app/?fileId=demo)
 
-Asyra Design is a complete design-tool product built with Asyra. It demonstrates how the Framework, official Preset, App-owned Features, editable information, rendering, Undo/Redo, and persistence fit together in a real product.
+Asyra Design is a complete canvas-based design-tool product built with Asyra. It demonstrates how the Framework, official Preset, App-owned Features, editable information, rendering, Undo/Redo, and persistence fit together in a real product.
 
 ## Choose your starting point
 
