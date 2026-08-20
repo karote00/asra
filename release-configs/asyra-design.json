@@ -37,7 +37,6 @@
     "research-09-*",
     "research-10-*",
     "playwright-report",
-    "test-results",
-    "visual-review-records"
+    "test-results"
   ]
 }

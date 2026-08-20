@@ -101,7 +101,6 @@ test('release template excludes local runtime data directories', () => {
     'pnpm-lock.yaml',
     'playwright-report',
     'test-results',
-    'visual-review-records',
     'yarn.lock'
   ]) {
     assert.ok(
@@ -123,6 +122,52 @@ test('release template excludes local runtime data directories', () => {
   assert.match(releaseTemplate, /\/\^\\\..\+-data\$\/u\.test\(name\)/)
 })
 
+test('Asyra Design release source retains only active drawing fixtures', () => {
+  const config = JSON.parse(
+    readFileSync(
+      path.join(repositoryRoot, 'release-configs/asyra-design.json'),
+      'utf8'
+    )
+  )
+  const retiredPaths = [
+    'visual-review-records',
+    'test-data/ai-drawing/detailed-tabby-cat-only-white-background.png',
+    'test-data/ai-drawing/detailed-tabby-polygon.svg'
+  ]
+
+  assert.equal(config.cleanFiles.includes('visual-review-records'), false)
+  for (const retiredPath of retiredPaths) {
+    assert.equal(
+      existsSync(path.join(repositoryRoot, 'apps/asyra-design', retiredPath)),
+      false,
+      retiredPath
+    )
+    assert.equal(
+      existsSync(
+        path.join(
+          repositoryRoot,
+          'create-app/asyra-design/template',
+          retiredPath
+        )
+      ),
+      false,
+      `generated ${retiredPath}`
+    )
+  }
+
+  for (const requiredPath of [
+    'test-data/ai-drawing/__tests__/action-batch-interceptor.test.ts',
+    'test-data/ai-drawing/detailed-tabby.ts',
+    'test-data/ai-drawing/maximum-tabby-polygon.svg'
+  ]) {
+    assert.equal(
+      existsSync(path.join(repositoryRoot, 'apps/asyra-design', requiredPath)),
+      true,
+      requiredPath
+    )
+  }
+})
+
 test('generated template contains required public files and no repository-only state', () => {
   const templateRoot = path.join(
     repositoryRoot,
@@ -142,8 +187,7 @@ test('generated template contains required public files and no repository-only s
     'coverage',
     'dist',
     'playwright-report',
-    'test-results',
-    'visual-review-records'
+    'test-results'
   ]) {
     assert.equal(
       existsSync(path.join(templateRoot, repositoryOnlyPath)),
@@ -175,8 +219,7 @@ test('packed create-app inventory excludes repository-only generated state', () 
     'coverage/',
     'dist/',
     'playwright-report/',
-    'test-results/',
-    'visual-review-records/'
+    'test-results/'
   ]) {
     assert.equal(
       packedPaths.some((packedPath) => packedPath.includes(segment)),
