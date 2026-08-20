@@ -11,7 +11,7 @@ Treat app domain schemas, permissions, migration, retrieval, services, and produ
 
 ## Public pages
 
-- [Asyra Framework](index.md): Build domain-owned information products whose visual, collaborative, persistent, and AI-facing capabilities remain composable.
+- [Asyra Framework](index.md): Build app-owned Features without rebuilding transaction, validation, lifecycle, persistence, or projection infrastructure.
 - [Create a complete design app](start/create-design-app.md): Begin with the maintained Asyra Design product template and extend it as an app owner.
 - [Extend Asyra with an AI coding agent](start/extend-with-ai.md): Give an AI agent bounded ownership, canonical APIs, and executable proof while you retain product decisions.
 - [Compose the official 2D baseline](start/preset-2d.md): Apply the optional official Preset before Core starts, then keep app-domain choices outside the Framework.

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
@@ -13,6 +14,18 @@ const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../..'
 )
+
+test('public overview leads with developer outcomes', () => {
+  const overview = fs.readFileSync(
+    path.join(repositoryRoot, 'docs/public/index.md'),
+    'utf8'
+  )
+
+  assert.match(overview, /Build features without rebuilding infrastructure/u)
+  assert.match(overview, /Add, replace, or remove product behavior/u)
+  assert.match(overview, /a few focused lines of domain code/u)
+  assert.match(overview, /Runtime commit and durable persistence/u)
+})
 
 test('complete public documentation passes structural, link, and API gates', async () => {
   const summary = await validatePublicDocumentation({ repositoryRoot })

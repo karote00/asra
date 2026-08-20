@@ -1,5 +1,41 @@
 # Asyra Framework
 
+## Build features without rebuilding infrastructure
+
+Asyra is for teams that want product work to stay focused on domain knowledge
+and Features instead of repeatedly rebuilding state, history, lifecycle, and
+integration plumbing.
+
+- **Focus on domain behavior.** Your App owns schemas, rules, workflows,
+  services, permissions, and UI. Asyra supplies reusable infrastructure around
+  those decisions.
+- **Keep changes local.** Add, replace, or remove product behavior through a
+  registered [Feature](learn/intent-and-features.md) and its explicit owner
+  instead of coordinating unrelated handlers, stores, components, renderers,
+  and backend adapters.
+- **Reuse safe mutation boundaries.** Transactions, rollback, Undo/Redo,
+  validation, and canonical state follow maintained routes rather than being
+  reimplemented for every capability. Learn how
+  [transactions and durability](learn/transactions-and-durability.md) stay
+  distinct.
+- **Give every actor one path.** Human input, UI, automation, devices, and
+  AI-issued commands enter the same Feature and API boundaries, so machine
+  actions do not create a second product runtime.
+- **Compose only what the product needs.** Preset defaults, render providers,
+  persistence, collaboration, and AI remain selectable or replaceable. Start
+  with [custom composition](start/custom-composition.md).
+- **Know what actually succeeded.** Runtime commit and durable persistence are
+  separate observable states; failures roll back supported local work instead
+  of presenting partial state as success.
+
+A small capability can remain a few focused lines of domain code and
+registration. A larger Feature still stays inside explicit ownership boundaries
+instead of spreading across dozens of unrelated files. Follow the
+[transaction-safe Feature guide](build/feature-session.md) for the maintained
+implementation path.
+
+## Keep your domain yours
+
 Asyra is infrastructure for building products around app-owned information and
 rules. A product may project that information as a design tool, whiteboard,
 BIM environment, simulation system, or another visual tool. The

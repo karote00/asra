@@ -6,7 +6,7 @@
       "path": "index.md",
       "section": "Overview",
       "title": "Asyra Framework",
-      "description": "Build domain-owned information products whose visual, collaborative, persistent, and AI-facing capabilities remain composable.",
+      "description": "Build app-owned Features without rebuilding transaction, validation, lifecycle, persistence, or projection infrastructure.",
       "sources": [
         "docs/ai/framework/FRAMEWORK_ESSENTIALS.md",
         "docs/ai/framework/ARCHITECTURE.md"
