@@ -47,7 +47,6 @@ test('root README exposes package-first composition and the working product star
     readme,
     /https:\/\/asyra-karote00s-projects\.vercel\.app\/\?fileId=demo/u
   )
-  assert.match(readme, /https:\/\/asyra-framework\.vercel\.app/u)
   assert.match(readme, /npm install @asyra\/core/u)
   assert.match(readme, /npx create-asyra-design-app my-product/u)
   assert.doesNotMatch(readme, /create-asyra-app|one React homepage/u)

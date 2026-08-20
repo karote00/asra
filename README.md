@@ -1,9 +1,5 @@
 # Asyra
 
-[Website](https://asyra-framework.vercel.app) ·
-[Documentation](docs/public/index.md) ·
-[Asyra Design demo](https://asyra-karote00s-projects.vercel.app/?fileId=demo)
-
 ## Build product features, not infrastructure
 
 Asyra provides the reusable infrastructure behind a product so developers can
