@@ -15,29 +15,26 @@ module.exports = Object.freeze({
     specPath: 'docs/ai/framework/plans/asyra-runtime-atlas-plan.md',
     inspectorPath:
       'docs/ai/framework/plans/asyra-runtime-atlas-flow-inspector.data.cjs',
-    exampleInventoryPath: 'docs/examples/inventory.json',
     contentIndexPath: 'docs/public/generated/content-index.json',
     visualHandoffPath:
       'docs/ai/framework/website/visual-reimagine/handoff.md',
-    selectedVisualPath:
-      'docs/ai/framework/website/visual-reimagine/selected-atlas-states.png',
     landingInspectorPath:
       'docs/ai/framework/plans/asyra-website-landing-flow-inspector.data.cjs',
     workspacePath: 'apps/asyra-framework-site'
   }),
   caseIds,
-  exampleMappings: Object.freeze({
-    'continuous-pointer-undo': Object.freeze(['feature-session-undo']),
+  guideMappings: Object.freeze({
+    'continuous-pointer-undo': Object.freeze(['build/feature-session']),
     'canonical-projection-fanout': Object.freeze([
-      'core-information-model',
-      'custom-component-schema'
+      'learn/information-models',
+      'build/custom-schema'
     ]),
-    'invalid-input-rollback': Object.freeze(['feature-session-undo']),
-    'collaboration-two-actors': Object.freeze([
-      'collaboration-two-memory-actors'
-    ]),
-    'ai-registered-action': Object.freeze(['ai-registered-action']),
-    'machine-retrieval-action': Object.freeze(['app-retrieval-action'])
+    'invalid-input-rollback': Object.freeze(['build/feature-session']),
+    'collaboration-two-actors': Object.freeze(['build/collaboration']),
+    'ai-registered-action': Object.freeze(['build/ai-actions']),
+    'machine-retrieval-action': Object.freeze([
+      'build/app-retrieval-action'
+    ])
   }),
   steps: Object.freeze([
     step({
@@ -48,21 +45,21 @@ module.exports = Object.freeze({
         'Freeze the worldwide plain-language experience, six exact cases, public runtime boundary, observation schema, owner disclosures, and Atlas gates before runtime or UI implementation.',
       inputs: [
         'artifact:verified-landing',
-        'accepted public content and executable-example inventories',
+        'accepted public content index',
         'accepted Runtime Atlas visual handoff',
         'current public Framework owner contracts'
       ],
       outputs: ['artifact:atlas-contract'],
       conditions: [
         'A non-engineer can understand intent, owner, and verified outcome before package details.',
-        'The six case ids and maintained example mappings are exact.',
+        'The six case ids and advanced-guide mappings are exact.',
         'The runtime is an isolated browser composition and never a Headless Core/Core Kernel claim.',
         'Every displayed value is either declared contract metadata or detached executing-runtime evidence.'
       ],
       bypasses: ['No runtime or Atlas UI code may bypass contract readiness.'],
       allowedContributors: [
         'Atlas plan and Inspector',
-        'accepted inventories and visual handoff',
+        'accepted public content index and visual handoff',
         'current public package contracts'
       ],
       forbiddenContributors: [
@@ -239,7 +236,7 @@ module.exports = Object.freeze({
       ],
       allowedContributors: [
         'Atlas worker evidence',
-        'accepted site foundations and Material Blueprint visual tokens',
+        'accepted site foundations and Cosmic Atlas Revision 2 visual tokens',
         'semantic HTML, CSS, Canvas, and accessible controls'
       ],
       forbiddenContributors: [
@@ -251,6 +248,7 @@ module.exports = Object.freeze({
       implementationBoundary: [
         'apps/asyra-framework-site/app/atlas/page.tsx',
         'apps/asyra-framework-site/app/globals.css',
+        'apps/asyra-framework-site/app/styles/atlas.css',
         'apps/asyra-framework-site/components/runtime-atlas.tsx',
         'apps/asyra-framework-site/components/runtime-atlas-projection.tsx',
         'apps/asyra-framework-site/__tests__/runtime-atlas-presentation.test.mjs',

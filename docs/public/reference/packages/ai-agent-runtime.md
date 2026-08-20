@@ -50,9 +50,8 @@ observe ordinary canonical commits; the AI runtime creates no parallel path.
 
 ## Maintained use path
 
-Run `yarn examples:run ai-registered-action`, then follow
-[Build registered AI actions](../../build/ai-actions.md). The related
-[app retrieval example](../../build/app-retrieval-action.md) keeps search
+Follow [Build registered AI actions](../../build/ai-actions.md). The related
+[app retrieval guide](../../build/app-retrieval-action.md) keeps search
 read-only and mutation behind a Feature API.
 
 ## Replacement and disabled behavior
@@ -74,7 +73,7 @@ permission defaults, and one-transaction behavior.
 
 - [Package contract](../../../ai/framework/packages/ai-agent-runtime.md)
 - [Package manifest](../../../../packages/ai-agent-runtime/package.json)
-- [Executable source](../../../examples/ai-agent-runtime.mjs)
+- [Registered AI action guide](../../build/ai-actions.md)
 
 Version and exported-entry facts are generated from this package manifest into
 `docs/public/generated/package-reference.json`. The documentation gate reviews

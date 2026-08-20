@@ -354,7 +354,7 @@ test('app owns one connected registry and conditional version dispatch', () => {
   assert.doesNotMatch(coreFailureRoute.predicate, /transform/i)
   assert.ok(
     ownerStep.implementationBoundary.includes(
-      'docs/examples/app-owned-versioned-load-migration.type-test.ts'
+      'packages/core/src/__tests__/load-validation.test.ts'
     )
   )
 

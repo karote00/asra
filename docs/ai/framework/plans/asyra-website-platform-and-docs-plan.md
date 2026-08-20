@@ -4,10 +4,10 @@
 
 Completed, preview-ready child plan of the
 [Asyra Framework Website Program](completed/asyra-framework-website-plan.md). Public
-content, executable examples, and the Material Blueprint visual handoff are
-accepted on the integration branch. The common platform now production-builds
-on its dedicated child branch against that exact release candidate; production
-deployment remains owned by Launch and Operations.
+content and the Cosmic Atlas Revision 2 visual handoff
+are accepted on the integration branch. Maintainer review on August 11, 2026, removed the separate
+Executable Examples product surface: advanced documentation now owns those
+learning flows, while Asyra Design is the only directly operable product entry.
 
 Completion evidence includes 51 prerendered Next.js routes, a 49-endpoint
 production route smoke, the exact 41-page/19-package/11-example content checks,
@@ -31,7 +31,6 @@ The proposed workspace owner is `apps/asyra-framework-site`. This plan owns:
 - content loading, source metadata, and presentation adapters;
 - documentation layout, navigation, table of contents, local search, and copy
   as Markdown;
-- examples index presentation;
 - Asyra Design case-study route presentation;
 - releases, support, migration, roadmap, security, and package inventory
   presentation;
@@ -69,7 +68,6 @@ external asset, or toolchain upgrade requires explicit approval.
 ## Required Routes
 
 - `/docs/[[...slug]]` for Start, Learn, Build, Reference, and API content;
-- `/examples` for the deterministic executable-example inventory;
 - `/asyra-design` for the approved reference-product case study;
 - `/releases` for manifest-derived inventory, support, migration, deprecation,
   security, and release notes;
@@ -87,21 +85,24 @@ The first release uses local static search by default. Search results must map
 to stable headings and content IDs. Copy-as-Markdown must expose the approved
 page content and canonical source links without internal-only metadata.
 
-The site consumes the accepted `docs/public/*` content bundle, deterministic
-example inventory, and stable README entry links. Presentation adapters may add
+The site consumes the accepted `docs/public/*` content bundle and stable README
+entry links. Presentation adapters may add
 navigation and visual annotation but cannot silently rewrite content semantics
 or duplicate package versions as constants. Candidate release facts remain
 generated and visibly provisional until public reconciliation.
 
 ## Shared Platform Contract
 
-- Design tokens and shared primitives implement the accepted visual handoff.
+- Design tokens and shared primitives implement the accepted Cosmic Atlas
+  Revision 2 visual handoff across every public route: a deep navy shell,
+  coral identity, semantic luminous topology, rounded frames, and warm light
+  documentation surfaces.
 - Landing and Atlas receive stable layout, navigation, metadata, focus, error,
   responsive, and reduced-motion primitives.
 - Content source mapping and release inventory are build inputs with drift
   checks, not ad hoc fetches.
-- The site remains usable when interactive examples or Atlas runtime is
-  unavailable; failure states never fabricate product output.
+- The site remains usable when Atlas runtime is unavailable; failure states
+  never fabricate product output.
 - Current synchronous static routes deliver their accepted content in the
   initial readable document. The App root has no global `loading.tsx` streaming
   boundary; a future asynchronous route must own any loading boundary locally.
@@ -117,7 +118,7 @@ generated and visibly provisional until public reconciliation.
 3. Implement deterministic public-content loading and source/drift metadata.
 4. Implement docs navigation, table of contents, stable anchors, local search,
    and copy-as-Markdown.
-5. Implement Examples, Asyra Design, Releases, and Roadmap presentation routes.
+5. Implement Asyra Design, Releases, and Roadmap presentation routes.
 6. Expose stable shared foundations to Landing and Atlas owner tasks.
 7. Run build, route, content, accessibility, responsive, performance, and
    synchronized visual gates.
@@ -140,7 +141,7 @@ generated and visibly provisional until public reconciliation.
 
 ## Stop Conditions
 
-- Public content, examples, or visual handoff is incomplete or inconsistent.
+- Public content or visual handoff is incomplete or inconsistent.
 - Exact approved toolchain versions or workspace ownership are unresolved.
 - A route would need to invent or locally rewrite a canonical product fact.
 - The implementation requires an unapproved dependency or hosted service.
@@ -152,9 +153,27 @@ generated and visibly provisional until public reconciliation.
 
 - The common site workspace production-builds with the approved exact
   toolchain.
-- Documentation, Examples, Asyra Design, Releases, and Roadmap routes present
+- Documentation, Asyra Design, Releases, and Roadmap routes present
   the accepted content and generated facts correctly.
 - Search, navigation, stable anchors, source links, and Markdown-copy work
   across supported responsive states.
 - Landing and Atlas can build on stable accepted foundations.
 - Preview-ready platform gates pass without claiming production deployment.
+
+## Completion Evidence
+
+- Cosmic Atlas Revision 2 is implemented with project-owned HTML, split CSS
+  layers, SVG, and the existing Atlas Canvas projection; no generated raster
+  or new dependency ships in the website. The former first-version stylesheet
+  is not retained or overridden.
+- The Framework site passes 69 contract and unit tests, strict typecheck, site
+  lint, the 50-page production build, and smoke checks for 48 public routes.
+- The 19 synchronized browser cases pass with one worker. Inspected evidence
+  covers desktop and mobile documentation, advanced guides, search,
+  reduced-motion navigation, Asyra Design, Releases, Roadmap, Landing, and all
+  required Runtime Atlas states.
+- Repository integration passes `yarn lint:ci` with zero errors,
+  `yarn react:build` with 20 successful workspace tasks, and `yarn test:ci`
+  with 72 script tests plus 21 successful workspace tasks.
+- Production promotion remains outside this redesign review. The current
+  branch stays on Draft Preview until user acceptance.

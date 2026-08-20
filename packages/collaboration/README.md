@@ -43,7 +43,6 @@ Construction is inert. `start()` connects and subscribes; connected publications
 ## Learn more
 
 - [Complete package guide](https://github.com/karote00/asyra/blob/main/docs/public/reference/packages/collaboration.md)
-- [Compose two non-durable in-memory actors](https://github.com/karote00/asyra/blob/main/docs/examples/network-collaboration-transport.mjs) — `yarn examples:run collaboration-two-memory-actors`
 - [Framework release support](https://github.com/karote00/asyra/blob/main/docs/ai/framework/RELEASE_SUPPORT.md)
 
 ## Support and policy

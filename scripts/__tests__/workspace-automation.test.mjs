@@ -100,6 +100,20 @@ test('root commands validate the committed Turbo graph without rewriting it', ()
   )
   assert.match(rootManifest.scripts['test:local'], /test:scripts/)
   assert.match(rootManifest.scripts['test:ci'], /test:scripts/)
+  for (const scriptName of [
+    'examples:run',
+    'examples:inventory',
+    'examples:inventory:check',
+    'examples:verify',
+    'examples:verify:prebuilt',
+    'examples:verify:registry'
+  ]) {
+    assert.equal(rootManifest.scripts[scriptName], undefined)
+  }
+  assert.doesNotMatch(
+    rootManifest.scripts['test:scripts'],
+    /example-inventory|example-package-inputs|examples-readiness/
+  )
 })
 
 test('Asyra Design keeps frontend startup, live transport, and local persistence separate', () => {

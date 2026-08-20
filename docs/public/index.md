@@ -44,7 +44,7 @@ Asyra stays extensible by assigning each concern one owner:
 
 Start with [information models](learn/information-models.md), then follow one of
 the maintained [Build guides](build/custom-schema.md). Every guide links to
-executable examples and canonical source contracts; the website is a
+advanced implementation guides and canonical source contracts; the website is a
 presentation of these Markdown sources, not a second documentation owner.
 
 ## Current support
@@ -56,21 +56,20 @@ Core Kernel are not current capabilities. See
 [Support and release boundaries](reference/support-release.md) and
 [Current runtime and future Core Kernel](learn/runtime-boundaries-roadmap.md).
 
-## Verify the examples
+## Learn from implementation guides
 
-From the Asyra repository, run a specific maintained example with:
+The task guides turn Framework verification knowledge into implementation
+material: copyable public-API code, the module where it runs, the owner call
+sequence, the observable result, and the failure or disabled path.
 
-```shell
-yarn examples:run core-information-model
-```
-
-Run the release-backed example suite with `yarn examples:verify`. The example
-inventory is generated from exact package manifests and tested source regions,
-so the documentation does not maintain independent package versions or code
-copies.
+Begin with [information models](learn/information-models.md), then choose a
+focused build guide for schemas, Feature sessions, persistence migration,
+render-engine replacement, collaboration, or registered AI actions. Runtime
+Atlas lets you operate six of those owner flows in the browser while the guides
+explain how to implement them in a product.
 
 ## Canonical sources
 
 - [Framework Essentials](../ai/framework/FRAMEWORK_ESSENTIALS.md)
 - [Framework Architecture](../ai/framework/ARCHITECTURE.md)
-- [Executable examples](../examples/README.md)
+- [Build guides](build/custom-schema.md)

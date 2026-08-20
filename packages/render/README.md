@@ -38,8 +38,6 @@ Initialization validates and activates the selected provider. Dirty work request
 ## Learn more
 
 - [Complete package guide](https://github.com/karote00/asyra/blob/main/docs/public/reference/packages/render.md)
-- [Model information before choosing an output](https://github.com/karote00/asyra/blob/main/docs/examples/core-information-model.mjs) — `yarn examples:run core-information-model`
-- [Prove an app-owned render-engine adapter](https://github.com/karote00/asyra/blob/main/docs/examples/custom-render-boundary.mjs) — `yarn examples:run custom-render-boundary`
 - [Framework release support](https://github.com/karote00/asyra/blob/main/docs/ai/framework/RELEASE_SUPPORT.md)
 
 ## Support and policy

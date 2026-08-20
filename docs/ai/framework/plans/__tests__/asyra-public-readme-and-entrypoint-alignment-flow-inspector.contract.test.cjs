@@ -43,7 +43,7 @@ test('input and content contract exclude handwritten facts and content forks', (
   const source = JSON.stringify([input, contract])
   assert.match(source, /manifests and declarations/i)
   assert.match(source, /accepted 41-page public documentation bundle/i)
-  assert.match(source, /verified 11-example inventory/i)
+  assert.doesNotMatch(source, /example inventory|docs\/examples/i)
   assert.match(source, /Exactly 24 README surfaces/i)
   assert.match(source, /manual generated-template edits/i)
   assert.match(source, /complete guide duplication/i)

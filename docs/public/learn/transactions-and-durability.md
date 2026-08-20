@@ -9,7 +9,73 @@ Factory owns transaction execution, rollback, history, and replay. Reactive
 Events carries typed coordination and transaction-owner routes; it does not
 authorize UI or transport code to open unrelated nested commits.
 
-## The intended timeline
+## Where this runs
+
+The app opens and closes the transaction inside the Feature or common API that
+owns one product decision. Pointer listeners, React effects, collaboration
+providers, persistence adapters, and AI providers call that owner route; they
+do not create competing transactions.
+
+## Implementation
+
+Record the reversible evidence in the same transaction that applies the value:
+
+```ts
+import factory from '@asyra/factory'
+
+const state = { value: 0 }
+const EVENT = 'app:set-value'
+
+type ValuePayload = Readonly<{ before: number; after: number }>
+const readValuePayload = (payload: unknown): ValuePayload => {
+  if (
+    !payload ||
+    typeof payload !== 'object' ||
+    typeof (payload as ValuePayload).before !== 'number' ||
+    typeof (payload as ValuePayload).after !== 'number'
+  ) {
+    throw new Error('Invalid app:set-value payload')
+  }
+  return payload as ValuePayload
+}
+
+factory.registerTransactionInverter(EVENT, (event) => {
+  const payload = readValuePayload(event.payload)
+  return {
+    type: event.type,
+    payload: { before: payload.after, after: payload.before }
+  }
+})
+factory.registerTransactionReplayHandler(EVENT, (event) => {
+  state.value = readValuePayload(event.payload).after
+  return true
+})
+
+export const setValue = (after: number) => {
+  factory.startTransaction()
+  try {
+    factory.updateTransaction({
+      type: 'updateTransaction',
+      eventName: EVENT,
+      payload: { before: state.value, after },
+      options: { rollbackable: true, undoable: true }
+    })
+    state.value = after
+    factory.endTransaction()
+  } catch (error) {
+    factory.endTransaction({
+      outcome: 'rollback',
+      failure: { kind: 'handler-error', cause: error }
+    })
+    throw error
+  }
+}
+```
+
+The replay handler is registered beside the inverter so Undo, Redo, and
+rollback apply validated evidence back to the same state owner.
+
+## Flow
 
 ```text
 Feature/session starts
@@ -24,17 +90,12 @@ a history item. Undo and Redo replay the committed action through the declared
 owner route. One drag, one group command, or one approved AI action should not
 be split into several accidental undo steps.
 
-## Executable proof
+## Expected result
 
-Run:
-
-```shell
-yarn examples:run feature-session-undo
-```
-
-The verified example covers successful commit, Undo, Redo, handler failure,
-rollback, and unchanged history depth. Use it as the minimal transaction/session
-evidence rather than writing a documentation-only transaction variant.
+One successful `setValue(...)` call produces one committed history unit. If a
+write throws, rollback restores the previous value and adds no history item.
+Undo and Redo replay through the registered owner handler, so visual output and
+remote publication remain downstream consequences of the same decision.
 
 ## Durability is broader than storage
 
@@ -69,7 +130,7 @@ partial failure by rendering the desired final output.
 
 - [Factory contract](../../ai/framework/packages/factory.md)
 - [Reactive Events contract](../../ai/framework/packages/reactive-events.md)
-- [Verified transaction and Feature example](../../examples/feature-session-undo.mjs)
+- [Transaction-safe Feature guide](../build/feature-session.md)
 
 ## Next
 

@@ -32,6 +32,52 @@ remote apply.
 - `updateAwareness(...)` and Awareness observation
 - Factory `subscribeToSharedPublication(...)` and `runRemoteTransaction(...)`
 
+## Where this runs
+
+Create Collaboration in the app's document-session lifecycle after document,
+room, actor, Provider, and canonical apply policy are known. The Provider may
+live in a separate package; inbound validation and remote mutation remain in
+the app module that understands the document schema.
+
+## Implementation
+
+```ts
+import { createCollaboration } from '@asyra/collaboration'
+
+const collaboration = createCollaboration({
+  documentId,
+  roomId,
+  actorId,
+  provider,
+  publicationSource: {
+    subscribe: (subscriber) =>
+      factory.subscribeToSharedPublication(subscriber)
+  },
+  processRemotePublication: (publication) => {
+    const deliveries = publication.slices.flatMap((slice) =>
+      slice.batches.flatMap((batch) =>
+        batch.deliveries.map((delivery) => ({
+          channel: batch.channel,
+          delivery
+        }))
+      )
+    )
+
+    validatePublication(deliveries)
+    factory.runRemoteTransaction(() => {
+      deliveries.forEach(({ delivery }) => applyRemoteDelivery(delivery))
+    })
+  },
+  resourceOwnership: { provider: 'owned' }
+})
+
+await collaboration.start()
+```
+
+`validatePublication(...)` and `applyRemoteDelivery(...)` are app-owned. They
+must accept only supported event names and payload schemas, then route each
+accepted delivery through the same canonical owner APIs used locally.
+
 ## Flow
 
 1. Create the app/provider identity and publication source.
@@ -44,17 +90,12 @@ remote apply.
 8. Keep presence in Awareness, outside document state.
 9. Dispose observers and only the resources the composition owns.
 
-Run the two-actor proof:
-
-```shell
-yarn examples:run collaboration-two-memory-actors
-```
-
 ## Expected result
 
-Actor B converges to Actor A's counter value `7`. Actor A's selected tool
-appears through separate Awareness projection. Construction creates no room or
-network work before `start()`.
+After Actor A commits a supported change, Actor B receives one publication,
+validates it, and applies it in one remote transaction. Actor A's selected tool
+may appear through separate Awareness projection. Construction creates no room
+or network work before `start()`.
 
 If a peer is disconnected, generic Collaboration reports a skipped outcome and
 retains no replay copy. Reconnect receives future live publications only. A
@@ -63,15 +104,10 @@ that needs offline recovery must own a durable outbox.
 
 ## Validate
 
-```shell
-yarn examples:run collaboration-two-memory-actors
-yarn workspace @asyra/collaboration test:local
-yarn workspace @asyra/factory test:local
-```
-
 Test FIFO order, duplicate publication identity policy, disconnected behavior,
 provider capacity, inbound rejection, remote history/echo policy, Awareness
-removal, and resource ownership.
+removal, and resource ownership. Include two app instances and assert their
+canonical owner state, not merely sent messages or transport logs.
 
 ## Forbidden shortcuts
 
@@ -86,7 +122,7 @@ removal, and resource ownership.
 
 - [Collaboration contract](../../ai/framework/packages/collaboration.md)
 - [Asyra Design reference composition](../../ai/apps/asyra-design/modules/collaboration-reference.md)
-- [Executable two-actor example](../../examples/network-collaboration-transport.mjs)
+- [Collaboration package guide](../reference/packages/collaboration.md)
 
 ## Next
 

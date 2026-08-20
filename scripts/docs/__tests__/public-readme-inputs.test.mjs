@@ -26,7 +26,7 @@ test('README inputs derive the exact release surfaces and owners', async () => {
   })
 })
 
-test('every package input resolves a public guide and maintained example', async () => {
+test('every package input resolves its complete public guide without example commands', async () => {
   const inputs = await readApprovedReadmeInputs({ repositoryRoot })
   inputs.packages.forEach((packageRecord) => {
     assert.equal(packageRecord.guide.title, packageRecord.name)
@@ -35,14 +35,7 @@ test('every package input resolves a public guide and maintained example', async
       `reference/packages/${packageRecord.directory}`
     )
     assert.ok(packageRecord.publicEntries.length > 0, packageRecord.name)
-    assert.ok(packageRecord.examples.length > 0, packageRecord.name)
-    packageRecord.examples.forEach((example) => {
-      assert.match(
-        example.source,
-        /^(?:docs\/examples|apps\/asyra-design\/examples)\//
-      )
-      assert.match(example.runCommand, /^yarn examples:run /)
-    })
+    assert.equal('examples' in packageRecord, false)
   })
 })
 
@@ -51,5 +44,5 @@ test('README inputs are deeply immutable', async () => {
   assert.ok(Object.isFrozen(inputs))
   assert.ok(Object.isFrozen(inputs.packages))
   assert.ok(Object.isFrozen(inputs.packages[0]))
-  assert.ok(Object.isFrozen(inputs.packages[0].examples))
+  assert.ok(Object.isFrozen(inputs.packages[0].guide))
 })

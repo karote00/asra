@@ -32,18 +32,17 @@ test('content manifest owns the exact stable documentation inventory', async () 
   }
 })
 
-test('every page mapping resolves approved sources, packages, and examples', async () => {
+test('every page mapping resolves approved sources and packages without example metadata', async () => {
   const contract = await readPublicContentContract({ repositoryRoot })
   const inputs = await readApprovedDocumentationInputs({ repositoryRoot })
   const packageNames = new Set(inputs.packages.map(({ name }) => name))
-  const exampleIds = new Set(inputs.examples.map(({ id }) => id))
 
   for (const page of contract.pages) {
     assert.ok(page.title)
     assert.ok(page.description)
     assert.ok(page.sources.length > 0)
     page.packages.forEach((name) => assert.ok(packageNames.has(name)))
-    page.examples.forEach((id) => assert.ok(exampleIds.has(id)))
+    assert.equal('examples' in page, false)
   }
 
   for (const packageGuideId of inspector.packageGuideIds) {
@@ -92,7 +91,7 @@ test('content validation fails closed on duplicate, private, or unknown inputs',
     validate((candidate) => {
       candidate.pages[0].examples = ['handwritten-example']
     }),
-    /unknown example/
+    /exact public page metadata keys/
   )
   assert.throws(
     validate((candidate) => {

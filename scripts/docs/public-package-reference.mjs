@@ -50,7 +50,6 @@ export const createPublicPackageReference = async ({ repositoryRoot }) => {
     return {
       contractPath: packageRecord.contractPath,
       directory: packageRecord.directory,
-      examples: page.examples,
       frameworkDependencies: packageRecord.frameworkDependencies,
       guideId,
       guidePath,

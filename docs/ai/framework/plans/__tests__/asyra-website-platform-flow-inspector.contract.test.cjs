@@ -20,7 +20,6 @@ test('platform authority and accepted handoffs resolve', () => {
     data.authority.contentIndexPath,
     data.authority.sourceMapPath,
     data.authority.packageReferencePath,
-    data.authority.exampleInventoryPath,
     data.authority.visualHandoffPath
   ].forEach((filePath) => {
     assert.ok(fs.existsSync(path.join(repoRoot, filePath)), filePath)
@@ -47,7 +46,6 @@ test('toolchain is exact and preserves the repository runtime', () => {
 test('required route and failure cases are exact and unique', () => {
   assert.deepEqual(data.routeIds, [
     'docs',
-    'examples',
     'asyra-design',
     'releases',
     'roadmap',
@@ -77,6 +75,7 @@ test('content adapter fails closed on drift and semantic rewrite', () => {
   assert.match(source, /visibly provisional/i)
   assert.match(source, /never fabricates fallback product copy/i)
   assert.match(source, /semantic rewrite by the presentation adapter/i)
+  assert.doesNotMatch(source, /example inventory/i)
 })
 
 test('documentation owns server reading and bounded browser enhancements', () => {
@@ -102,9 +101,11 @@ test('documentation owns server reading and bounded browser enhancements', () =>
 test('supporting routes preserve App, release, and roadmap boundaries', () => {
   const source = JSON.stringify(step('present-supporting-routes'))
   assert.match(source, /reference product rather than the Framework owner/i)
+  assert.match(source, /non-empty fileId/i)
   assert.match(source, /manifest-derived and visibly provisional/i)
   assert.match(source, /Future non-visible runtime remains Roadmap/i)
   assert.match(source, /unverified app URL/i)
+  assert.doesNotMatch(source, /Examples resolve|example inventories/i)
 })
 
 test('shared foundations stay independent from Landing and Atlas owners', () => {

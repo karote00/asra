@@ -45,9 +45,9 @@ contract. Core owns provider activation and runtime cleanup.
 
 ## Maintained use path
 
-Run `yarn examples:run preset-2d-minimal` and follow
-[Compose the official 2D baseline](../../start/preset-2d.md). Custom engines use
-the separate conformance example.
+Follow [Compose the official 2D baseline](../../start/preset-2d.md) for the
+official Pixi selection path. Custom engines follow the separate
+[render-boundary guide](../../build/render-boundary.md).
 
 ## Replacement and disabled behavior
 
@@ -66,7 +66,7 @@ abstract capability conformance, and preserve explicit dirty/flush behavior.
 
 - [Package contract](../../../ai/framework/packages/render-engine-pixi.md)
 - [Package manifest](../../../../packages/render-engine-pixi/package.json)
-- [Preset 2D example](../../../examples/preset-2d-minimal.mjs)
+- [Preset 2D composition guide](../../start/preset-2d.md)
 
 The root entrypoint, version, and dependency on Render Engine are
 manifest-generated and release-checked.

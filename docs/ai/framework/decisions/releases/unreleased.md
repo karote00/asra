@@ -2414,3 +2414,30 @@ unregister -> app migration -> core.start()` as the public app route.
   - `docs/ai/framework/plans/completed/asyra-framework-website-plan.md`
 - Production Record:
   - `docs/ai/framework/plans/asyra-website-launch-and-operations-plan.md`
+
+## 2026-08-20 - Complete the Cosmic Atlas Revision 2 website redesign
+
+- Context:
+  - PR #126 replaced the earlier public-site presentation with the user-selected
+    Cosmic Atlas Revision 2 direction and completed the final responsive visual
+    refinements across desktop and mobile domain rails.
+  - The exact accepted commit was deployed to the canonical production domain
+    under the user's explicit one-PR deployment exception.
+- Decision:
+  - Accept the visual reimagine plan as complete and move its retained record to
+    the completed-plan directory.
+  - Accept production deployment `dpl_DXx6YmVzvFHwB4W5ZRb9XeittUW6` from source
+    commit `8300e6f854a1c3bfd5cde23de94fbd1046eddb35`.
+  - Keep this closeout non-releasing: it creates no Changeset, package version,
+    registry publication, or tag.
+- Consequences:
+  - `https://asyra-framework.vercel.app` is the verified public presentation of
+    the accepted Cosmic Atlas Revision 2 website.
+  - Future website changes return to the normal merge-before-production flow;
+    the explicit exception is limited to PR #126.
+- Completed Plan:
+  - `docs/ai/framework/plans/completed/asyra-website-visual-reimagine-plan.md`
+- Related Pull Request:
+  - [#126](https://github.com/karote00/asyra/pull/126)
+- Production Verification:
+  - Production smoke passed; synchronized production E2E passed 20 of 20 cases.

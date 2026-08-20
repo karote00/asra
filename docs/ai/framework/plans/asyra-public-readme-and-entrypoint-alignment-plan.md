@@ -24,7 +24,7 @@ route.
 Make every public repository, package, App, CLI, and generated-app README a
 concise, correct entry surface into the same Asyra release. README files explain
 what the owned artifact is, how to start, where complete documentation and
-examples live, and what support or contribution boundaries apply. They do not
+advanced guides live, and what support or contribution boundaries apply. They do not
 duplicate complete manuals.
 
 ## Owned Surfaces
@@ -71,7 +71,7 @@ any other generated documentation artifact.
 - the inventory equals the current manifest-derived 19-package release set and
   all 24 paths exist exactly once;
 - every package README resolves its package manifest, public guide, approved
-  public entrypoints, and at least one maintained executable example;
+  public entrypoints, and its complete maintained guide;
 - root, App, canonical template source, CLI, and generated output each satisfy
   their owner-specific required sections without duplicating full guides;
 - current browser/Core support, possible app domains, app-owned domain
@@ -79,13 +79,13 @@ any other generated documentation artifact.
   distinct;
 - root and downstream surfaces consistently state that external issues and
   contributions are not accepted;
-- repository, documentation, example, security, license, support, and policy
+- repository, documentation, advanced-guide, security, license, support, and policy
   links resolve from their rendered owner context;
 - generated output is byte-identical to the canonical source selected by
   `release-configs/asyra-design.json`; and
 - the public-documentation source map deterministically acknowledges the
   reviewed README source revisions; and
-- stale versions, unknown packages or examples, private imports, unsupported
+- stale versions, unknown packages or guides, private imports, unsupported
   public API names, broken links, or hand-edited generated output fail closed.
 
 ## Required Shared Contract
@@ -98,7 +98,7 @@ Every applicable README must use the same verified:
 - package and public-entrypoint inventory;
 - `create-asyra-design-app` beginner positioning;
 - supported runtime, version, installation, and public command facts;
-- public documentation, executable-example, release, security, license, and
+- public documentation, advanced-guide, release, security, license, and
   support links; and
 - contribution and issue policy.
 
@@ -112,7 +112,7 @@ and CLI wording must not create conflicting contribution routes.
 
 - broad Framework positioning, including the non-visible and AI-facing future
   direction without claiming it as current runtime support;
-- package, generated-app, public docs, examples, Asyra Design, Atlas, release,
+- package, generated-app, public docs, advanced guides, Asyra Design, Atlas, release,
   security, license, and roadmap navigation;
 - verified quick-start choices; and
 - the required no-issues/no-external-contributions policy.
@@ -122,7 +122,7 @@ and CLI wording must not create conflicting contribution routes.
 - package owner and explicit non-owner;
 - install/import entry and one minimal supported composition path;
 - lifecycle, optionality, and relationship summary where applicable;
-- link to the complete package guide and maintained executable example; and
+- link to the complete package guide and Framework release support; and
 - exact support, license, security, and contribution-policy navigation.
 
 ### Asyra Design
@@ -144,11 +144,12 @@ and CLI wording must not create conflicting contribution routes.
 
 ## Coordination Contract
 
-- README drafting starts after the shared terminology, route IDs, and example
-  IDs are frozen, not after the entire website is complete.
+- README drafting starts after the shared terminology and route IDs are frozen,
+  not after the entire website is complete.
 - Public documentation supplies full-guide destinations; README supplies the
   concise entrance and must not fork guide semantics.
-- Executable Examples supplies tested quick-start code and expected results.
+- Advanced public guides supply copyable code, call location, owner flow,
+  expected results, and failure behavior.
 - Candidate versions and links may remain generated/provisional until the
   public registry and deployment owners are verified.
 - The final README freeze occurs inside the integrated Release Candidate, not
@@ -174,9 +175,8 @@ CLI publication is applicable.
 
 1. Freeze the README inventory, owner mapping, shared terminology, route IDs,
    and content cases.
-2. Draft root, package, App, and CLI surfaces in parallel with public docs and
-   examples.
-3. Verify every quick start against maintained examples and public entrypoints.
+2. Draft root, package, App, and CLI surfaces in parallel with public docs.
+3. Verify every quick start against maintained guides and public entrypoints.
 4. Review all cross-links, support facts, and contribution-policy consistency.
 5. Finalize the canonical generated-app README source and regenerate the
    template through the official route.
@@ -190,9 +190,9 @@ CLI publication is applicable.
 - the root, 19-package candidate inventory, Asyra Design, CLI, and generated
   README surfaces are complete;
 - each README's owner/non-owner language agrees with canonical contracts;
-- every quick start maps to a maintained executable example or formal public
-  API proof;
-- all documentation, example, release, security, license, support, and policy
+- every quick start maps to a maintained advanced guide or formal public API
+  proof;
+- all documentation, advanced-guide, release, security, license, support, and policy
   links resolve;
 - versions, commands, environments, and support facts match the exact release
   inventory;
@@ -205,7 +205,7 @@ CLI publication is applicable.
 
 ## Stop Conditions
 
-- A README owner, generated source, public API, route ID, example ID, or support
+- A README owner, generated source, public API, route ID, guide ID, or support
   fact is ambiguous.
 - A quick start requires package-private or unverified behavior.
 - Root, package, App, CLI, and generated-app wording conflicts.
@@ -219,7 +219,7 @@ CLI publication is applicable.
   same release candidate.
 - The root contribution and issue policy remains present and consistent across
   downstream surfaces.
-- Package users can reach full guides and executable examples without README
+- Package users can reach full guides and implementation learning without README
   duplication.
 - `create-asyra-design-app` provides the intended beginner and AI-assisted
   entrance into a real Asyra product.

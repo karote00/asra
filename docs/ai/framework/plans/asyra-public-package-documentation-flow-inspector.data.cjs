@@ -71,24 +71,22 @@ module.exports = Object.freeze({
       order: 1,
       ownerPackage: 'public documentation input adapter',
       purpose:
-        'Resolve packages, public entrypoints, examples, runtime support, and approved canonical authorities without handwritten release facts.',
+        'Resolve packages, public entrypoints, runtime support, and approved canonical documentation authorities without handwritten release facts.',
       inputs: [
         'manifest-derived 19-package release inventory',
-        'verified 11-example inventory',
         'active Framework and Asyra Design contracts',
         'create-asyra-design-app manifest and template contract'
       ],
       outputs: ['artifact:approved-documentation-inputs'],
       conditions: [
         'Package versions and public entrypoints derive from manifests and declarations.',
-        'Only active canonical authorities and verified examples enter public mapping.'
+        'Only active canonical authorities and source-mapped public guides enter public mapping.'
       ],
       bypasses: [
         'Final registry URLs remain provisional until the publication owner verifies them.'
       ],
       allowedContributors: [
         'scripts/release release inventory',
-        'docs/examples/inventory.json',
         'active docs/ai/framework and docs/ai/apps contracts',
         'create-app/asyra-design manifest and template'
       ],
@@ -119,11 +117,11 @@ module.exports = Object.freeze({
       outputs: ['artifact:public-content-contract'],
       conditions: [
         'Exactly 41 stable page ids are declared once.',
-        'Each page owns a Markdown path, section, title, sources, packages, and verified example ids.',
+        'Each page owns a Markdown path, section, title, sources, and relationships to packages.',
         'Public indexes exclude internal operations, secrets, obsolete contracts, and historical audits.'
       ],
       bypasses: [
-        'A page may declare no package or example only when its semantic sources remain explicit.'
+        'A page may declare no package only when its semantic sources remain explicit.'
       ],
       allowedContributors: [
         'thin product contract',
@@ -164,11 +162,11 @@ module.exports = Object.freeze({
         'Current browser/Core support and future Headless/Core Kernel direction are explicit.'
       ],
       bypasses: [
-        'Examples are linked or extracted from verified inventory, never copied into variants.'
+        'A conceptual page links to an advanced guide instead of duplicating its complete implementation flow.'
       ],
       allowedContributors: [
         'active semantic authorities',
-        'verified example metadata'
+        'approved public package entrypoints'
       ],
       forbiddenContributors: [
         'future runtime presented as current',
@@ -197,20 +195,20 @@ module.exports = Object.freeze({
       ],
       outputs: ['artifact:build-content'],
       conditions: [
-        'Every guide states prerequisites, owners, public APIs, expected result, validation, and forbidden shortcuts.',
+        'Every guide states prerequisites, owners, public APIs, copyable code, call location, execution flow, observable result, validation, and forbidden shortcuts.',
         'Failure and disabled-system behavior remain explicit.'
       ],
       bypasses: [
-        'One verified example may support several package relationships.'
+        'One advanced guide may explain several package relationships when the ownership flow is shared.'
       ],
       allowedContributors: [
-        'verified examples',
         'public package entrypoints',
-        'active contracts'
+        'active contracts',
+        'formal package behavior tests'
       ],
       forbiddenContributors: [
         'private imports',
-        'untested code copies',
+        'unverified or speculative code copies',
         'manual-only expected output'
       ],
       implementationBoundary: ['docs/public/build/**'],
@@ -232,10 +230,10 @@ module.exports = Object.freeze({
       ],
       outputs: ['artifact:package-reference-content'],
       conditions: [
-        'All 19 release packages have one guide with owner, non-owner, lifecycle, relationships, optionality, failure, and example links.',
+        'All 19 release packages have one guide with owner, non-owner, lifecycle, relationships, optionality, failure, and related advanced-guide links.',
         'Generated API facts resolve only approved public entrypoints and declarations.'
       ],
-      bypasses: ['Package guides may share verified composition examples.'],
+      bypasses: ['Package guides may share advanced composition guides.'],
       allowedContributors: [
         'package manifests',
         'public declarations',
@@ -274,7 +272,7 @@ module.exports = Object.freeze({
       ],
       allowedContributors: [
         'active Asyra Design source and contracts',
-        'verified public examples'
+        'approved public package entrypoints'
       ],
       forbiddenContributors: [
         'App behavior claimed as Framework default',
@@ -470,7 +468,7 @@ module.exports = Object.freeze({
     Object.freeze({
       id: 'no-content-forks',
       statement:
-        'Examples, release facts, and website content retain one tested owner.'
+        'Code guidance, release facts, and website content retain one source-mapped owner.'
     })
   ])
 })

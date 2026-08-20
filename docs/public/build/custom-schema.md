@@ -20,7 +20,7 @@ coordination facade. Preset is not required.
 
 ## Public APIs
 
-The maintained example uses these Core facade methods:
+The implementation uses these Core facade methods:
 
 - `core.definePropertyComponent(...)`
 - `core.registerPropertySchema(...)`
@@ -33,6 +33,51 @@ The maintained example uses these Core facade methods:
 Use the public `@asyra/core` entrypoint. Do not import registries or component
 classes from package `src` paths.
 
+## Where this runs
+
+Register the schema from an app composition module before `core.start(...)`.
+Product Features and common APIs may construct or update values after startup,
+but the type and relation registration lifecycle remains owned by the
+composition that created it.
+
+## Implementation
+
+```ts
+const REVIEW = 'app:review-state'
+const WORK_ITEM = 'app:work-item'
+
+const ReviewState = core.definePropertyComponent({
+  type: REVIEW,
+  defaults: { score: 0, status: 'draft' }
+})
+
+core.registerPropertySchema({
+  type: REVIEW,
+  fields: [
+    { key: 'status', kind: 'string', defaultValue: 'draft' },
+    { key: 'score', kind: 'number', defaultValue: 0 }
+  ]
+})
+
+core.defineComponent({
+  type: WORK_ITEM,
+  idPrefix: 'work-item',
+  namePrefix: 'Work item',
+  properties: [{ name: 'review', type: REVIEW }]
+})
+
+export const approvedReview = new ReviewState({
+  id: 'review-1',
+  type: REVIEW,
+  score: 92,
+  status: 'approved'
+})
+```
+
+Use product-specific ids and add the exact field validation your domain needs.
+The returned property component is the supported construction boundary; do not
+write into a registry or internal value map.
+
 ## Flow
 
 1. Choose stable app-owned component and property type ids.
@@ -43,13 +88,9 @@ classes from package `src` paths.
 6. Query the registered relation and schema as acceptance evidence.
 7. Unregister test or temporary definitions while composition remains open.
 
-Follow the exact tested region in
-[`custom-component-schema`](../../examples/custom-component-schema.mjs). Do not
-copy it into a second documentation-only implementation.
-
 ## Expected result
 
-The verified example resolves exactly one review relation and retains a valid
+The implementation resolves exactly one review relation and retains a valid
 `score` of `92` and `status` of `approved`. Defaults remain part of the
 definition; the app retains the meaning of those fields.
 
@@ -60,14 +101,9 @@ in-use failure.
 
 ## Validate
 
-```shell
-yarn examples:run custom-component-schema
-yarn workspace @asyra/props-manager test:local
-yarn workspace @asyra/scene-tree test:local
-```
-
-Also test at least one invalid write and one invalid load for each app-owned
-schema. Assert canonical owner state, not only UI text.
+Test one valid construction, one invalid explicit write, one invalid load,
+duplicate registration, relation cleanup, and an in-use registration change.
+Assert the canonical owner snapshot and relation graph, not only UI text.
 
 ## Forbidden shortcuts
 
@@ -83,7 +119,7 @@ schema. Assert canonical owner state, not only UI text.
 - [Core contract](../../ai/framework/packages/core.md)
 - [Props Manager contract](../../ai/framework/packages/props-manager.md)
 - [Scene Tree contract](../../ai/framework/packages/scene-tree.md)
-- [Executable example](../../examples/custom-component-schema.mjs)
+- [Props Manager package guide](../reference/packages/props-manager.md)
 
 ## Next
 

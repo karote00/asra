@@ -40,7 +40,7 @@ test('package guide inventory matches the release owner exactly', async () => {
   )
 })
 
-test('input resolution forbids private, historical, secret, and handwritten facts', () => {
+test('input resolution uses public package and canonical documentation authorities', () => {
   const input = step('resolve-documentation-inputs')
   const contract = [
     ...input.conditions,
@@ -49,7 +49,8 @@ test('input resolution forbids private, historical, secret, and handwritten fact
     ...input.forbiddenContributors
   ].join(' ')
   assert.match(contract, /manifests and declarations/i)
-  assert.match(contract, /verified examples/i)
+  assert.match(contract, /active canonical authorities/i)
+  assert.doesNotMatch(contract, /example inventory|docs\/examples/i)
   assert.match(contract, /handwritten package versions/i)
   assert.match(contract, /package-private source imports/i)
   assert.match(contract, /historical plans/i)
@@ -65,7 +66,8 @@ test('content contract owns schema, stable ids, mappings, and exclusions', () =>
     ...content.forbiddenContributors
   ].join(' ')
   assert.match(contract, /Exactly 41 stable page ids/i)
-  assert.match(contract, /Markdown path.*sources.*packages.*example ids/is)
+  assert.match(contract, /Markdown path.*sources.*packages/is)
+  assert.doesNotMatch(contract, /example ids/i)
   assert.match(contract, /secrets.*obsolete contracts.*historical audits/is)
   assert.match(contract, /website-owned page ids/i)
   assert.match(contract, /README content/i)
@@ -85,6 +87,9 @@ test('authoring steps preserve current support, future roadmap, and domain owner
   assert.match(contract, /private imports/i)
   assert.match(contract, /App behavior claimed as Framework default/i)
   assert.match(contract, /All 19 release packages/i)
+  assert.match(contract, /copyable code/i)
+  assert.match(contract, /call location/i)
+  assert.match(contract, /observable result/i)
 })
 
 test('generated handoff is deterministic, public-only, and site-neutral', () => {

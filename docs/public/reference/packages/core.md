@@ -54,8 +54,8 @@ not Core's internal dependency container.
 
 ## Maintained use path
 
-Run `yarn examples:run core-information-model`. Then choose
-[official 2D Preset](../../start/preset-2d.md) or
+Start with [information models](../../learn/information-models.md). Then choose
+the [official 2D Preset](../../start/preset-2d.md) or a
 [custom composition](../../start/custom-composition.md).
 
 ## Replacement and disabled behavior

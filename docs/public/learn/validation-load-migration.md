@@ -19,22 +19,71 @@ Defaults belong to property definitions. A missing optional value may receive
 its declared default; an explicitly invalid value is not equivalent to a
 missing value.
 
-## Load behavior
+## Where this runs
+
+The migration dispatcher belongs to the app's document-loading composition. It
+registers a synchronous load hook before Core starts. Persistence supplies the
+untrusted envelope; the app migrates domain versions; Core and package owners
+validate the resulting candidate before activation.
+
+## Implementation
+
+Register a connected, deterministic version path. This compact form shows the
+ownership boundary; production code should also reject cycles, duplicate
+transitions, missing versions, and asynchronous results:
+
+```ts
+type Document = { version: string; [key: string]: unknown }
+
+const migrations = new Map<string, (document: Document) => Document>([
+  ['v1', (document) => ({ ...document, version: 'v2' })],
+  ['v2', (document) => ({ ...document, version: 'v3' })]
+])
+
+core.registerLoadHook((rawDocument) => {
+  if (!rawDocument || typeof rawDocument !== 'object') {
+    throw new Error('Document envelope is invalid')
+  }
+  if (typeof (rawDocument as { version?: unknown }).version !== 'string') {
+    throw new Error('Document version is required')
+  }
+  let document = rawDocument as Document
+  const visited = new Set<string>()
+  while (migrations.has(document.version)) {
+    if (visited.has(document.version)) {
+      throw new Error(`Migration cycle at ${document.version}`)
+    }
+    visited.add(document.version)
+    document = migrations.get(document.version)!(document)
+  }
+  if (document.version !== 'v3') {
+    throw new Error(`Unsupported document version: ${document.version}`)
+  }
+  return document
+})
+```
+
+## Flow
 
 The app reads the document envelope and decides whether its version is current,
 migratable, or unsupported. It produces a candidate canonical representation,
 then Core and the canonical owners validate that representation before the
 document becomes active.
 
-Run the maintained proof:
+The migration hook does not give Persistence package knowledge of the app's
+schema history.
 
-```shell
-yarn examples:run app-versioned-load-migration
-```
+## Expected result
 
-The example demonstrates app-owned version migration followed by Framework
-validation. It does not give Persistence package knowledge of the app's schema
-history.
+A `v1` document reaches `v3` through `v2`, then enters the ordinary package
+validation and canonical apply flow. Missing, disconnected, cyclic,
+asynchronous, or unsupported migrations fail before the previous active
+document changes.
+
+## Load behavior
+
+After migration, each canonical owner validates its part of the candidate.
+Only a completely accepted document becomes active.
 
 ## Failure behavior
 
@@ -59,7 +108,7 @@ transport origin does not bypass validation.
 
 - [Props Manager contract](../../ai/framework/packages/props-manager.md)
 - [Persistence contract](../../ai/framework/packages/persistence.md)
-- [Verified versioned-load example](../../examples/app-owned-versioned-load-migration.mjs)
+- [Persistence migration guide](../build/persistence-migration.md)
 
 ## Next
 

@@ -170,4 +170,4 @@ Render, Collaboration, or borrowed providers.
   state, secret, or chain-of-thought and stops after abort/disposal.
 
 Executable reference:
-`docs/examples/ai-agent-runtime.mjs`.
+`docs/public/build/ai-actions.md`.

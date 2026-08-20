@@ -39,10 +39,11 @@ bounded extension guide and the public Framework documentation.
 
 ### Learn the Framework
 
-Use the [executable examples](docs/examples/README.md) to study a small
-composition without the complete Asyra Design service stack. The examples
-cover information models, Preset `2D`, `CUSTOM` rendering, transactions,
-collaboration, app-owned migration, and registered AI actions.
+Use the [public documentation](docs/public/index.md) and Runtime Atlas to study
+small owner flows without the complete Asyra Design service stack. The advanced
+guides show copyable code, call locations, owner sequences, expected results,
+and failure behavior for information models, Preset `2D`, `CUSTOM` rendering,
+transactions, collaboration, app-owned migration, and registered AI actions.
 
 ### Build a custom product
 
@@ -119,8 +120,8 @@ keeps verified capability separate from future direction.
 
 - [Public documentation](docs/public/index.md) — Start, Learn, Build, Reference,
   and the Asyra Design case study.
-- [Executable examples](docs/examples/README.md) — maintained examples that run
-  against the release package inventory.
+- [Advanced build guides](docs/public/build/custom-schema.md) — public-API
+  implementation patterns, owner flows, expected results, and failure paths.
 - [Package reference](docs/public/reference/support-release.md) — support,
   migration, security, deprecation, and release boundaries.
 - [Asyra Design](apps/asyra-design/README.md) — the real reference product and

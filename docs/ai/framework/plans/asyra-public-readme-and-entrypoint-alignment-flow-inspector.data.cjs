@@ -56,17 +56,16 @@ module.exports = Object.freeze({
       order: 1,
       ownerPackage: 'public README input adapter',
       purpose:
-        'Resolve the release packages, public guides, maintained examples, public entrypoints, support facts, and generated-app owner without handwritten release metadata.',
+        'Resolve the release packages, public guides, public entrypoints, support facts, and generated-app owner without handwritten release metadata.',
       inputs: [
         'manifest-derived 19-package release inventory',
         'accepted 41-page public documentation bundle',
-        'verified 11-example inventory',
         'root, Asyra Design, create-app, support, security, and license authorities'
       ],
       outputs: ['artifact:approved-readme-inputs'],
       conditions: [
         'Package versions and entrypoints derive from manifests and declarations.',
-        'Documentation and example destinations resolve accepted stable ids.'
+        'Documentation destinations resolve accepted stable ids.'
       ],
       bypasses: [
         'Website and deployment URLs remain absent until their public owners verify them.'
@@ -74,7 +73,6 @@ module.exports = Object.freeze({
       allowedContributors: [
         'Framework release inventory',
         'docs/public content and generated indexes',
-        'docs/examples verified inventory',
         'active Framework and Asyra Design contracts'
       ],
       forbiddenContributors: [
@@ -104,7 +102,7 @@ module.exports = Object.freeze({
         'External issues and contributions remain closed across every public surface.'
       ],
       bypasses: [
-        'A package may share a maintained cross-package example when that example proves its real composition role.'
+        'A concise package README delegates implementation detail to its complete public guide.'
       ],
       allowedContributors: [
         'thin README product contract',
@@ -141,7 +139,7 @@ module.exports = Object.freeze({
       ],
       allowedContributors: [
         'approved product definition',
-        'public documentation and example destinations',
+        'public documentation destinations',
         'release, security, and license authorities'
       ],
       forbiddenContributors: [
@@ -158,7 +156,7 @@ module.exports = Object.freeze({
       order: 4,
       ownerPackage: 'Framework package README owners',
       purpose:
-        'Give every release package a concise owner/non-owner statement, install and import path, lifecycle summary, and links to its complete guide and verified example.',
+        'Give every release package a concise owner/non-owner statement, install and import path, lifecycle summary, and links to its complete guide and release support.',
       inputs: [
         'artifact:public-readme-contract',
         'artifact:approved-readme-inputs'
@@ -166,15 +164,14 @@ module.exports = Object.freeze({
       outputs: ['artifact:package-readmes'],
       conditions: [
         'All 19 package READMEs resolve their manifest-derived facts and public guide.',
-        'Each package points to at least one maintained example that proves a real composition role.'
+        'Each package points to its complete maintained guide and release support.'
       ],
       bypasses: [
-        'Packages meaningful only in composition may share one cross-package example.'
+        'Packages meaningful only in composition explain that role in their complete guide.'
       ],
       allowedContributors: [
         'package manifests and public declarations',
-        'accepted package guides',
-        'verified examples'
+        'accepted package guides'
       ],
       forbiddenContributors: [
         'private subpath imports',
@@ -372,7 +369,7 @@ module.exports = Object.freeze({
       stepIds: ['author-root-readme', 'author-design-readme-sources', 'author-cli-readme'],
       assertions: [
         'create-asyra-design-app is the beginner working-product entrance.',
-        'Public examples remain the independent Framework-learning entrance.'
+        'Public documentation and Runtime Atlas remain the independent Framework-learning entrance.'
       ]
     }),
     Object.freeze({

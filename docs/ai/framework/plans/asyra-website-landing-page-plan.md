@@ -1,208 +1,262 @@
-# Asyra Website Landing Page and Product Narrative Plan
+# Asyra Result-First Landing Page Plan
 
 ## Status
 
-Complete, Preview-ready child plan of the
-[Asyra Framework Website Program](completed/asyra-framework-website-plan.md). It begins
-from the accepted public content, executable examples, Material Blueprint
-handoff, and preview-ready common site platform on
-`codex/asyra-public-release-landing`.
-
-Implementation requires the exact
-[Landing Inspector](asyra-website-landing-flow-inspector.data.cjs), executable
-narrative cases, and the bounded Definition of Done below. Production
-deployment and Runtime Atlas execution remain downstream owners.
-
-The child implementation, formal gates, and synchronized visual review are
-complete. PR CI and production deployment remain integration and Launch
-responsibilities rather than Landing evidence.
+Current implementation contract. This contract replaces every previous public
+website composition, including committed and uncommitted Landing work.
 
 ## Goal
 
-Implement a distinctive Landing page that lets a visitor understand what Asyra
-is, choose an appropriate entry path, inspect its ownership model, and separate
-current Framework capabilities from app-owned possibilities and future work.
+Build one public Asyra page that reports the result first: people can bring
+knowledge from any field and build the tool their world needs on Asyra. The
+page then proves that the tool can grow, that people and AI use the same action
+path, and that every view shares one source of truth. The product owner retired
+the Visible Change proof and the later Impact Preview because change-impact
+analysis is not a public product capability.
 
-The first layer is for everyone worldwide, including visitors who do not
-identify as engineers. It must explain the outcome, creator ownership, and
-predictable action path before exposing package names, APIs, or runtime jargon.
+## Visual Authority
+
+The checked-in user-approved result-first V04 image at
+`docs/ai/framework/website/asyra-landing-v04-approved.png` is the only visual
+authority. Its SHA-256 is
+`e43980029f7bee21f5580d0f58b6869e4dec42fb5e7c84fb98c5b2b7bf7abd3b`.
+Its
+essential composition is:
+
+- warm paper, near-black ink, restrained red, blue, green, and amber signals;
+- a compact ASYRA header and short calls to action;
+- a result-first two-column hero with the exact V04 modular core and its
+  measurement grid;
+- an unlimited-domain rail immediately after the hero;
+- three spacious alternating proof sections without separator rules;
+- six immutable product-owner-supplied Photoroom true-alpha masters, with
+  source-bounded responsive lossless WebP derivatives that preserve their
+  object count, topology, in-image labels, signal colors, and connectors;
+- one reusable CSS illustration-stage treatment that draws a responsive
+  engineering grid behind every transparent image and derives stronger depth
+  from each image's alpha silhouette with asset-specific contact and cast
+  `drop-shadow()` layers; each of the six illustrations owns a lower-right
+  perspective vector matched to its apparent elevation, while dark stages add
+  a restrained blue ambient reflection;
+- prior V06, V08, V09, and experimental Grow assets remain preserved for
+  history but are not selected by the page;
+- domain labels embedded in one complete continuous generated domain rail with
+  both edge assemblies, and the product-owner-approved V09 closing concept: a
+  protected central domain core inside one continuous blue infrastructure loop
+  with four directional bridges, presented over the shared code-drawn
+  engineering grid;
+- an open-source closing statement and compact footer; and
+- modern system sans headlines and labels at regular-to-medium display weight,
+  open line spacing, generous section padding, and responsive single-column
+  reflow.
+
+No existing website UI, CSS, illustration, route, or test is an implementation
+input. Only the existing environment setup is retained: Next.js, React,
+TypeScript, Yarn, Vercel configuration, site-origin plumbing, Playwright, and
+the project test commands.
 
 ## Bounded Task Contract
 
-- **Objective:** replace the `/` platform placeholder with the complete,
-  preview-ready product narrative and its bounded interactions.
-- **Authorized mutation:** the Landing plan and Inspector, the `/` route,
-  Landing-owned components/data/tests, Landing styles in the shared stylesheet,
-  and the exact site test/E2E wiring required to prove this child.
-- **Fixed discovery:** accepted public content/source mapping, generated release
-  and example inventories, the Material Blueprint handoff, current website
-  platform contracts, repository policy files, and verified deployment facts.
-- **Required gates:** Landing Inspector, semantic/narrative tests, strict
-  typecheck/lint, production build, route smoke, keyboard/touch/responsive/
-  reduced-motion E2E, synchronized live visual review, root dependency and
-  repository gates, and PR CI.
-- **Excluded:** documentation semantics, examples, Framework packages, Runtime
-  Atlas execution, Asyra Design behavior, package publication, analytics, CMS,
-  production deployment, and the image-only second Reimage.
-- **Stop:** a claim cannot resolve to accepted evidence; the implementation
-  needs an unapproved dependency or duplicated Atlas behavior; the verified
-  App URL ceases to be public; or a required gate fails without an in-boundary
-  owner correction.
+- **Objective:** delete the current website implementation and rebuild one `/`
+  page from the approved V04 reference while retaining environment setup.
+- **Authorized mutation:** `apps/asyra-framework-site/app`,
+  `apps/asyra-framework-site/public`, `apps/asyra-framework-site/artwork/v06`,
+  `apps/asyra-framework-site/artwork/v07-desktop`,
+  `apps/asyra-framework-site/artwork/v08-desktop`,
+  `apps/asyra-framework-site/artwork/v09`,
+  `apps/asyra-framework-site/artwork/v09-desktop`,
+  `apps/asyra-framework-site/artwork/v10-desktop`,
+  `apps/asyra-framework-site/artwork/v11-desktop`,
+  `apps/asyra-framework-site/artwork/v12-desktop`,
+  `apps/asyra-framework-site/artwork/v13-desktop`,
+  `apps/asyra-framework-site/artwork/v14-desktop`, the V06 through V14 desktop
+  asset builders, the V09 closing asset builder, directly affected Landing
+  tests and smoke scripts, this plan, and the Landing Inspector.
+- **Fixed discovery:** the approved V04 image, the product-owner copy decisions
+  in this task, current Framework product truth, and existing environment
+  configuration.
+- **Required gates:** Inspector contract, semantic regression test, strict
+  typecheck, site lint, production build, route smoke, no-JavaScript reading,
+  reduced motion, and synchronized full-page plus section-level 1440px, 864px,
+  820px, 390px, and 320px visual review, including CTA default, hover, and
+  focus states.
+- **Excluded:** Framework package behavior, Asyra Design behavior, new packages,
+  tablet and mobile raster asset changes, analytics, and unrelated repository
+  changes. Production deployment is authorized only after all required gates
+  pass.
+- **Stop:** a new dependency becomes necessary, a required claim is not current
+  Framework truth, or the page cannot pass its focused gates.
 
-## Verified External Fact
+## Product Cases
 
-The current public Asyra Design entry is `https://asra.vercel.app`. On
-2026-08-10, GitHub deployment `5820501003` reported a successful Production
-deployment and the stable alias returned an anonymous document titled
-`Asyra Design`. Protected immutable Preview/Production URLs are not valid
-public CTAs. Launch and Operations must re-verify this alias before production
-website release.
+1. desktop editorial composition;
+2. mobile single-column reflow;
+3. result-first hero;
+4. unlimited-domain examples;
+5. growth without rebuilding the rest;
+6. one shared human and AI action path;
+7. one source across features and views;
+8. clickable placeholder actions;
+9. responsive true-alpha Photoroom raster assets;
+10. adaptive code-drawn grids and alpha-aware shadows at every review size;
+11. a 2026 open-source footer with no company identity; and
+12. complete no-client and reduced-motion reading.
 
-## Executable Product Cases
+## Content Contract
 
-The Landing Inspector owns these exact cases:
+The page must include these exact anchors:
 
-1. global desktop first layer;
-2. global mobile first layer;
-3. working-product entry;
-4. Framework-learning entry;
-5. custom-product entry;
-6. deterministic intent-to-outcome path;
-7. Framework/Preset/App ownership explorer;
-8. optional composition and replaceable edge;
-9. App-owned domain possibilities;
-10. future machine-facing roadmap boundary;
-11. Asyra Design reference-product entry;
-12. release, source, security, license, and contribution evidence;
-13. reduced-motion equivalence; and
-14. basic narrative without client JavaScript.
+- `Build the tool your world needs.`
+- `You bring the domain knowledge. AI builds with Asyra. Your tool stays easy to extend, automate, and undo.`
+- `One foundation. Any field.`
+- `Examples, not limits.`
+- `Add what your workflow needs without rebuilding the rest.`
+- `Build each feature once. People and AI use the same action path.`
+- `One source of truth across every feature and view.`
+- `Bring your domain. Keep its logic.`
+
+Calls to action use only `Start building` and `See examples`. Navigation and
+footer links may use placeholder destinations, but every link must have a
+clickable non-empty `href` attribute. Public copy contains no Unicode em dash
+or en dash.
+
+The footer identifies the project only as `2026`, `OPEN SOURCE`, and
+`MIT LICENSE`. It must not claim an Asyra company, corporation, or incorporated
+owner.
 
 ## Ownership Boundary
 
-This plan owns the `/` route, homepage composition, its interactions, and its
-approved motion. It consumes public documentation, generated release facts,
-the accepted visual specification, the common website platform, and the Atlas
-entry surface.
+The app owns semantic server-rendered HTML, the paper visual system, responsive
+layout, metadata, robots, sitemap, error state, not-found state, and
+project-local responsive WebP assets. The selected source-of-truth files are
+the six immutable product-owner-supplied PNG masters under
+`apps/asyra-framework-site/artwork/photoroom`; their hashes are enforced by the
+semantic regression test. `build-photoroom-assets.py` produces three
+source-bounded, premultiplied-alpha, lossless WebP widths for each illustration.
+Every selected derivative must contain both transparent and opaque pixels and
+must not exceed its master width. The domain rail's native 2400px master is not
+artificially enlarged; it may provide a minimum 1.1 source pixels per rendered
+CSS pixel at the widest review size, while the other illustrations remain at
+least 2x at their supported review sizes.
 
-It does not own package/documentation semantics, executable example code, the
-full Runtime Atlas, Asyra Design behavior, package versions, README content, or
-production deployment.
+The app owns one shared `.illustration-stage` decoration for all six images.
+Its pseudo-element draws minor lines, major lines, and intersection nodes with
+CSS gradients. Grid spacing uses `clamp()` and stage-owned custom properties so
+the same implementation adapts to Hero, Domain Rail, proof, Closing, desktop,
+tablet, and phone dimensions. The grid is background decoration only: it must
+not recreate, replace, or modify any diagram's internal mechanical topology.
+The old `closing-grid-v07-desktop` raster remains preserved but is never
+selected. Each image receives CSS `drop-shadow()` computed from its real alpha
+silhouette. Hero, Domain Rail, Grow, Same Path, One Source, and Closing each
+own distinct contact and cast offsets, blur, and opacity. Their lower-right
+vectors follow the supplied top-left lighting and apparent elevation instead
+of applying one generic vertical shadow. Dark stages may add a restrained blue
+ambient reflection so the silhouette remains legible without changing source
+pixels.
 
-## Required Narrative
+Prior V04 through V12 raster assets and the rejected V08 through V14 Grow
+experiments remain preserved but are not selected. The retired Visible Change
+assets also remain unselected. Background removal, responsive derivation, the
+shared grid, and CSS shadow must not redesign topology, simplify geometry,
+remove labels, drop construction details, or alter the approved subject color
+payload.
 
-The page must include:
+The complete `apps/asyra-framework-site/artwork` tree is local-only design
+input. Git and default CI exclude it; the committed responsive files under
+`public/illustrations` are limited to the eighteen selected Photoroom
+derivatives used by the page and are the production and deployment assets.
+Unselected historical derivatives remain local-only beside the artwork
+archive. Source-master hashes and historical design-build contracts run only through the explicit
+`ASYRA_LOCAL_ARTWORK_TESTS=1` authoring gate. That gate is required whenever a
+committed derivative is regenerated or replaced, but ordinary clean clones,
+CI, production builds, and deployments do not require the 1.4GB local artwork
+archive.
 
-1. a hero with the broad information-modeling proposition, primary
-   `create-asyra-design-app` CTA, Runtime Atlas CTA, documentation CTA, and a
-   manifest-verified support statement;
-2. an Atlas entry or bounded embedded overview that never forks Atlas logic;
-3. one-intent/one-deterministic-pipeline explanation;
-4. one canonical model serving visual projections and app-owned machine
-   consumers through current public contracts, with non-visible runtime work
-   marked as future;
-5. Framework/Preset/App ownership explorer;
-6. replaceable-edge and optional-capability demonstration;
-7. possible domains such as design, whiteboard, BIM, VR, industrial
-   simulation, and future non-visible AI systems, explicitly separated from
-   built-ins and current release support;
-8. Asyra Design reference-product case study and verified deployment link;
-9. current release, unsupported behavior, and roadmap boundary; and
-10. documentation, repository, security, license, release, and
-    contribution-policy links.
+The active visual review must match these approved details:
 
-## Interaction and Motion Contract
+- the hero's largest third tier has four raised corner fasteners with the same
+  blue center, scale, and depth language used by the other mechanical fasteners;
+- all ten domain-card icons match the V04 symbols, proportions, stroke weight,
+  and placement while retaining the accepted 36px labels;
+- Grow retains two parallel red pipes joining the active red module to the
+  separate white module, including its collars and spacing;
+- One Source places all four card labels at the V04 top inset and restores
+  clearly visible light-and-shadow depth to the central topographic relief;
+- the closing uses the exact V09 reviewed concept with a centered protected
+  domain core, one continuous blue loop, four symmetric directional bridges,
+  a complete gunmetal outer frame, with the shared adaptive grid visible
+  behind it.
 
-Interactions may reveal ownership, trace intent, open transaction brackets,
-fan out projections, compare current and roadmap compositions, or expose
-optional systems. They must use accepted visual semantics and provide keyboard,
-touch, focus, and reduced-motion equivalents.
+The implementation must not recreate complex diagram topology with SVG, CSS,
+canvas, WebGL, or icon libraries. CSS is allowed only for the shared background
+grid and alpha-derived drop shadow.
 
-The page must not require motion, canvas, WebGL, or the Atlas runtime to access
-the core proposition and navigation. Failure or deferred interactive states
-remain informative and never fabricate Framework output.
+The page uses a modern system sans stack for display and body text. Display
+headings stay at weight 500 or below with line height at least equal to their
+font size, and multiline proof and closing headings use at least 1.04. It must
+not use Baskerville, Iowan Old Style, Times New Roman, or another legacy display
+serif. This keeps the typography neutral, current, and legible without adding
+an external font dependency or network request.
 
-## Content Accuracy Contract
-
-- `create-asyra-design-app` is the working-product beginner entry.
-- Examples and Atlas are the Framework-learning entry.
-- Framework, Preset, App, Provider, Backend, and product UI ownership remains
-  explicit.
-- AI retrieval/action is app-owned and uses registered current APIs; a
-  non-visible Headless/Core Kernel runtime is future work, not a built-in domain
-  or autonomous permission bypass.
-- BIM, VR, physics, chemistry, 4D simulation, and other future domains remain
-  app-owned possibilities unless separately verified as current packages.
-- All versions, URLs, support statements, and release claims are generated or
-  verified facts.
-
-## Implementation Stages
-
-1. Freeze the narrative outline, evidence source, and Landing Inspector.
-2. Map each section to the accepted responsive visual and motion states.
-3. Implement the semantic static narrative and navigation first.
-4. Add bounded ownership, projection, and entry-path interactions.
-5. Integrate the Atlas entry without duplicating Atlas runtime ownership.
-6. Integrate verified Asyra Design, release, and policy links.
-7. Run narrative, interaction, accessibility, responsive, performance, and
-   synchronized visual gates.
+The app does not execute Framework packages in the browser and does not reuse
+the removed website implementation. The landing page remains server rendered;
+the retired change-impact sections contribute no public HTML, CSS, JavaScript,
+copy, or selected illustration.
 
 ## Quality Gates
 
-- every claim resolves to approved content or generated release facts;
-- first-time visitors can distinguish Framework, Preset, and App ownership;
-- current visual paths and the future non-visible direction are both legible
-  without presenting roadmap work as release support;
-- CTA destinations and verified external links resolve;
-- keyboard, touch, focus, reduced-motion, responsive, and contrast cases pass;
-- no interaction duplicates or fakes Runtime Atlas evidence;
-- performance budgets hold with interactive sections enabled; and
-- synchronized screenshots match the accepted desktop, mobile, and state
-  concepts.
-
-## Stop Conditions
-
-- A required claim, release fact, CLI command, or deployment URL is unverified.
-- Product language narrows Asyra to canvas/design tools or presents app domains
-  as built-in Framework modules.
-- The implementation diverges from the accepted visual direction.
-- A section requires private source, an unapproved dependency, or duplicated
-  Atlas logic.
-- A required accessibility, narrative, performance, or visual gate fails.
+- one static `/` content route and only required Next.js shell files under
+  `app`;
+- no import or copy from the removed website implementation;
+- all information and actions remain readable without JavaScript;
+- the retired Visible Change and Impact Preview sections are absent;
+- every anchor has a clickable `href` and placeholder destinations are allowed;
+- no horizontal overflow at 390px and 320px;
+- phone, tablet, and desktop receive the supplied Photoroom WebP derivatives
+  through `srcset` and `sizes`, with source-bounded density and no artificial
+  enlargement of the 2400px Domain Rail master;
+- default CI validates committed public illustration derivatives without the
+  Git-ignored local artwork tree; `ASYRA_LOCAL_ARTWORK_TESTS=1` validates local
+  source-master hashes and build contracts on an authoring workstation;
+- all six image containers expose the same adaptive CSS grid contract plus six
+  distinct alpha-aware contact and cast `drop-shadow()` vectors at 2048px,
+  1440px, 864px, 820px, 390px, and 320px; dark stages retain a restrained blue
+  ambient reflection;
+- desktop and mobile screenshots pass a source-independent edge-contrast
+  sharpness oracle in addition to the 2x density check;
+- all selected complex visual groups use the six immutable, hash-locked
+  Photoroom masters and their lossless responsive derivatives;
+- the domain rail is one complete continuous composition with exact labels,
+  reference card proportions, both edge assemblies, and reference bottom
+  clearance; the closing uses the supplied transparent reviewed concept and
+  its three responsive WebP sources;
+- reference line breaks and two-column geometry match the 864px V04 authority;
+- every heading and interface label resolves through the modern system sans
+  stack without a legacy display serif;
+- display headings use weight 500 or below and breathable computed line height;
+- CTA hover and focus become brighter than the default red instead of darker;
+- every feature section uses generous top and bottom padding and no separator
+  line;
+- CTA text remains on one line;
+- keyboard focus remains visible and reduced motion removes nonessential
+  transitions;
+- public text contains no em dash, en dash, false company identity, or 2025
+  footer year; and
+- Inspector, tests, typecheck, lint, production build, route smoke, and visual
+  review pass.
 
 ## Definition of Done
 
-- The Landing page communicates the product definition and ownership model
-  accurately within one coherent experience.
-- Visitors can choose the generated-app, Framework-learning, or custom-product
-  path without ambiguity.
-- Current capabilities, app-owned possibilities, and roadmap boundaries remain
-  visibly distinct.
-- Required interactions remain accessible, responsive, performant, and
-  visually accepted.
-- The route is Preview-ready without claiming production deployment.
-
-## Completion Evidence
-
-- The Landing and Platform Inspectors pass 21 contract tests; the site passes
-  42 semantic, content, route, and accessibility tests.
-- The production build statically generates 51 routes. Route smoke verifies 49
-  public routes plus the explicit not-found case.
-- Eleven production-browser E2E cases cover desktop first-layer actions,
-  390px, 320px, 200 percent reflow, touch targets, keyboard owner selection,
-  reduced motion, no horizontal overflow, no-client reading, same-origin
-  code-native assets, and the accepted documentation platform cases.
-- Synchronized Desktop, Mobile, and selected-owner visual states were inspected
-  from the same production server. A formal first-fold regression now keeps all
-  three starting actions inside the 1440 by 1000 Desktop viewport.
-- The global `loading.tsx` streaming boundary was removed after the no-client
-  gate proved it hid otherwise static accepted content. The shared Platform
-  plan, Inspector, and tests now require synchronous static routes to render in
-  the initial readable document; future asynchronous routes own local loading
-  boundaries.
-- Repository integration passes `yarn test:ci` (78 repository script tests and
-  21 workspace tasks), `yarn lint:ci` with zero errors, `yarn react:build` with
-  20 workspace tasks, dependency validation across 22 workspaces, public docs
-  validation for 41 pages, and README drift checks for 24 public surfaces and
-  19 packages.
-- Production deployment, public indexing, analytics, and Runtime Atlas
-  execution remain intentionally outside this child.
+The homepage is a fresh implementation of the approved V04 composition, uses
+the six immutable Photoroom true-alpha masters and their source-bounded
+responsive derivatives, applies one adaptive CSS engineering grid and six
+asset-specific alpha-derived directional shadow treatments to the illustration
+stages, passes perceptual
+sharpness oracles, preserves exact labels and topology, and preserves approved
+line breaks without accidental visual reinterpretation. Local source artwork
+is Git-ignored and excluded from default CI while committed public derivatives
+remain independently buildable and deployable. It has no active
+dependency on previous website code or assets, passes the formal gates, is
+inspected from a synchronized local production preview, and is then deployed
+to the linked official Website project for product-owner review. Every
+full-page and section crop is inspected before completion is claimed.

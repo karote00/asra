@@ -49,8 +49,8 @@ cross-owner work.
 The generated app keeps this boundary in
 [`src/common-apis/hierarchy.ts`](../../../create-app/asyra-design/template/src/common-apis/hierarchy.ts)
 and formal hierarchy tests beside that common API. The public
-[`custom-component-schema`](../../examples/custom-component-schema.mjs)
-example proves the component/relation prerequisite; the generated reference
+The [custom schema guide](custom-schema.md) explains the component/relation
+prerequisite; the generated reference
 product owns the full hierarchy behavior proof.
 
 ## Expected result

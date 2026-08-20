@@ -46,7 +46,7 @@ facades so consumers rarely need low-level events.
 
 ## Maintained use path
 
-The [Feature session example](../../../examples/feature-session-undo.mjs)
+The [Feature session guide](../../build/feature-session.md)
 demonstrates Factory replay through current public boundaries. Read
 [transactions and durability](../../learn/transactions-and-durability.md)
 before adding a new event route.

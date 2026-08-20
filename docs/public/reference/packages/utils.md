@@ -48,7 +48,7 @@ pure geometry helpers without moving product policy into Utils.
 ## Maintained use path
 
 The [hierarchy guide](../../build/hierarchy-groups.md) uses public
-`MoveHierarchyRequest` and result types. Other executable examples exercise
+`MoveHierarchyRequest` and result types. Other advanced guides exercise
 Utils transitively through public Framework package contracts; an artificial
 standalone runtime sample would not add owner evidence.
 

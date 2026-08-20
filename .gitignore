@@ -40,6 +40,9 @@ chrome-dev-perf-trace.json
 tmp/
 apps/*/test-results/
 apps/*/playwright-report/
+apps/asyra-framework-site/artwork/
+apps/asyra-framework-site/public/illustrations/*
+!apps/asyra-framework-site/public/illustrations/*-photoroom-*.webp
 apps/asyra-design/visual-review-records/**/*.png
 apps/asyra-design/visual-review-records/**/*.webm
 !apps/asyra-design/visual-review-records/research/research-02-original-tabby-source.png

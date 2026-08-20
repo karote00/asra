@@ -183,7 +183,7 @@ yarn workspace @asyra/ai-agent-runtime build:ai-agent-runtime
 yarn workspace @asyra/ai-agent-runtime example:ai-agent-runtime
 ```
 
-Executable example: `docs/examples/ai-agent-runtime.mjs`.
+Advanced implementation guide: `docs/public/build/ai-actions.md`.
 
 Golden Path: `../golden-paths/compose-ai-agent-runtime.md`.
 

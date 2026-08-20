@@ -37,7 +37,8 @@ const step = (definition) =>
 
 module.exports = Object.freeze({
   authority: Object.freeze({
-    specPath: 'docs/ai/framework/plans/asyra-website-visual-reimagine-plan.md',
+    specPath:
+      'docs/ai/framework/plans/completed/asyra-website-visual-reimagine-plan.md',
     inspectorPath:
       'docs/ai/framework/plans/asyra-website-visual-reimagine-flow-inspector.data.cjs',
     manifestPath:
@@ -80,7 +81,7 @@ module.exports = Object.freeze({
         'unapproved assets, fonts, services, or dependencies'
       ],
       implementationBoundary: [
-        'docs/ai/framework/plans/asyra-website-visual-reimagine-plan.md',
+        'docs/ai/framework/plans/completed/asyra-website-visual-reimagine-plan.md',
         'docs/ai/framework/plans/asyra-website-visual-reimagine-flow-inspector.data.cjs',
         'docs/ai/framework/plans/__tests__/asyra-website-visual-reimagine-flow-inspector.contract.test.cjs'
       ],
@@ -222,7 +223,7 @@ module.exports = Object.freeze({
         'manual acceptance as the sole evidence'
       ],
       implementationBoundary: [
-        'docs/ai/framework/plans/asyra-website-visual-reimagine-plan.md',
+        'docs/ai/framework/plans/completed/asyra-website-visual-reimagine-plan.md',
         'docs/ai/framework/plans/asyra-website-visual-reimagine-flow-inspector.data.cjs',
         'docs/ai/framework/plans/__tests__/asyra-website-visual-reimagine-flow-inspector.contract.test.cjs',
         'docs/ai/framework/website/visual-reimagine/**'
@@ -341,9 +342,9 @@ module.exports = Object.freeze({
         'No intermediate manual checkpoint pauses work; the user accepts the integrated experience after the full goal completes.'
     }),
     Object.freeze({
-      id: 'alternate-reimage-is-image-only',
+      id: 'revision-two-is-active',
       statement:
-        'After the implemented website is complete, a materially different second visual version is delivered as images only and never reopens production implementation.'
+        'Cosmic Atlas Revision 2 is the active dark direction for the whole public website, while its generated raster remains design evidence rather than a production asset.'
     })
   ])
 })

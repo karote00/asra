@@ -1,6 +1,5 @@
 const routeIds = Object.freeze([
   'docs',
-  'examples',
   'asyra-design',
   'releases',
   'roadmap',
@@ -24,7 +23,6 @@ module.exports = Object.freeze({
     contentIndexPath: 'docs/public/generated/content-index.json',
     sourceMapPath: 'docs/public/generated/source-map.json',
     packageReferencePath: 'docs/public/generated/package-reference.json',
-    exampleInventoryPath: 'docs/examples/inventory.json',
     visualHandoffPath:
       'docs/ai/framework/website/visual-reimagine/handoff.md',
     workspacePath: 'apps/asyra-framework-site'
@@ -50,8 +48,7 @@ module.exports = Object.freeze({
         'Freeze exact toolchain, workspace ownership, source authorities, route cases, shared boundaries, and deterministic gates before workspace implementation.',
       inputs: [
         'accepted public-content handoff',
-        'accepted executable-example handoff',
-        'accepted Material Blueprint visual handoff',
+        'accepted Cosmic Atlas Revision 2 visual handoff',
         'repository Node, Yarn, React, TypeScript, workspace, and CI contracts'
       ],
       outputs: ['artifact:platform-contract'],
@@ -90,7 +87,7 @@ module.exports = Object.freeze({
       order: 2,
       ownerPackage: '@asyra/asyra-framework-site foundation',
       purpose:
-        'Create the strict Next.js workspace, metadata, Material Blueprint tokens, semantic shell, and accessible navigation foundations.',
+        'Create the strict Next.js workspace, metadata, Cosmic Atlas Revision 2 tokens, semantic shell, and accessible navigation foundations.',
       inputs: ['artifact:platform-contract'],
       outputs: ['artifact:site-foundation'],
       conditions: [
@@ -118,6 +115,7 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/tsconfig.json',
         'apps/asyra-framework-site/app/layout.tsx',
         'apps/asyra-framework-site/app/globals.css',
+        'apps/asyra-framework-site/app/styles/foundation.css',
         'apps/asyra-framework-site/app/page.tsx',
         'apps/asyra-framework-site/app/atlas/page.tsx',
         'apps/asyra-framework-site/components/site-*.tsx',
@@ -141,12 +139,11 @@ module.exports = Object.freeze({
       order: 3,
       ownerPackage: 'Website public-content adapter',
       purpose:
-        'Load the accepted content, source map, package reference, and example inventory with deterministic identity, digest, route, and drift validation.',
+        'Load the accepted content, source map, and package reference with deterministic identity, digest, route, and drift validation.',
       inputs: [
         'artifact:platform-contract',
         'artifact:site-foundation',
-        'docs/public content bundle',
-        'docs/examples inventory'
+        'docs/public content bundle'
       ],
       outputs: ['artifact:verified-site-content'],
       conditions: [
@@ -159,7 +156,6 @@ module.exports = Object.freeze({
       ],
       allowedContributors: [
         'project-owned public content manifest and generated indexes',
-        'project-owned example inventory',
         'cryptographic source and page digests'
       ],
       forbiddenContributors: [
@@ -216,6 +212,7 @@ module.exports = Object.freeze({
       implementationBoundary: [
         'apps/asyra-framework-site/app/docs/**',
         'apps/asyra-framework-site/app/globals.css',
+        'apps/asyra-framework-site/app/styles/docs.css',
         'apps/asyra-framework-site/components/docs-*.tsx',
         'apps/asyra-framework-site/components/markdown-*.tsx',
         'apps/asyra-framework-site/components/search-*.tsx',
@@ -234,7 +231,7 @@ module.exports = Object.freeze({
       order: 5,
       ownerPackage: 'Website supporting public routes',
       purpose:
-        'Present Examples, Asyra Design, Releases, and Roadmap from accepted content and generated facts with exact current, App-owned, candidate, and roadmap boundaries.',
+        'Present Asyra Design, Releases, and Roadmap from accepted content and generated facts with exact current, App-owned, candidate, and roadmap boundaries.',
       inputs: [
         'artifact:site-foundation',
         'artifact:verified-site-content',
@@ -242,8 +239,8 @@ module.exports = Object.freeze({
       ],
       outputs: ['artifact:supporting-routes'],
       conditions: [
-        'Examples resolve the deterministic inventory and maintained commands.',
         'Asyra Design remains a reference product rather than the Framework owner.',
+        'Every external Asyra Design product entry uses the verified public alias with one non-empty fileId.',
         'Release inventory is manifest-derived and visibly provisional.',
         'Future non-visible runtime remains Roadmap and is not presented as a current Headless API.'
       ],
@@ -253,7 +250,7 @@ module.exports = Object.freeze({
       allowedContributors: [
         'artifact:verified-site-content',
         'accepted Asyra Design case study',
-        'generated package and example inventories'
+        'generated package inventory'
       ],
       forbiddenContributors: [
         'invented release notes, version, date, or support claim',
@@ -261,11 +258,11 @@ module.exports = Object.freeze({
         'future capability presented as current'
       ],
       implementationBoundary: [
-        'apps/asyra-framework-site/app/examples/**',
         'apps/asyra-framework-site/app/asyra-design/**',
         'apps/asyra-framework-site/app/releases/**',
         'apps/asyra-framework-site/app/roadmap/**',
         'apps/asyra-framework-site/app/globals.css',
+        'apps/asyra-framework-site/app/styles/support.css',
         'apps/asyra-framework-site/components/evidence-*.tsx',
         'apps/asyra-framework-site/components/status-*.tsx',
         'apps/asyra-framework-site/__tests__/routes.test.mjs'
@@ -312,6 +309,7 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/app/robots.ts',
         'apps/asyra-framework-site/app/sitemap.ts',
         'apps/asyra-framework-site/app/globals.css',
+        'apps/asyra-framework-site/app/styles/foundation.css',
         'apps/asyra-framework-site/components/foundation-*.tsx',
         'apps/asyra-framework-site/components/status-*.tsx',
         'apps/asyra-framework-site/__tests__/foundations.test.mjs'

@@ -97,12 +97,12 @@ Use this file to route a new framework request to the right docs first.
   - `rules/pre-release-legacy-removal.md`
   - `decisions/releases/README.md`
 
-- public Framework docs/examples/website/Runtime Atlas
+- public Framework docs/website/Runtime Atlas and advanced learning guides
   - `plans/completed/asyra-framework-website-plan.md`
   - `plans/asyra-public-readme-and-entrypoint-alignment-plan.md`
   - `plans/asyra-public-package-documentation-plan.md`
   - `plans/asyra-executable-examples-plan.md`
-  - `plans/asyra-website-visual-reimagine-plan.md`
+  - `plans/completed/asyra-website-visual-reimagine-plan.md`
   - `plans/asyra-website-platform-and-docs-plan.md`
   - `plans/asyra-website-landing-page-plan.md`
   - `plans/asyra-runtime-atlas-plan.md`

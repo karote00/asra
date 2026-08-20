@@ -111,9 +111,8 @@
       ],
       cacheDimensions: [],
       implementationBoundary: [
-        'docs/examples/app-owned-versioned-load-migration.mjs',
-        'docs/examples/__tests__/app-owned-versioned-load-migration.test.cjs',
-        'docs/examples/app-owned-versioned-load-migration.type-test.ts',
+        'docs/public/build/persistence-migration.md',
+        'packages/core/src/__tests__/load-validation.test.ts',
         'docs/ai/framework/golden-paths/load-save-migration.md',
         'docs/ai/framework/rules/load-validation-and-migration.md'
       ],

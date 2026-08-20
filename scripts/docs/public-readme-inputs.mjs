@@ -52,34 +52,12 @@ export const readApprovedReadmeInputs = async ({ repositoryRoot }) => {
       .filter((page) => page.id.startsWith('reference/packages/'))
       .map((page) => [page.packages[0], page])
   )
-  const examplesById = new Map(
-    documentation.examples.map((example) => [example.id, example])
-  )
 
   const packages = documentation.packages.map((packageRecord) => {
     const guide = packageGuides.get(packageRecord.name)
     if (!guide) {
       throw new Error(`Missing public README guide for ${packageRecord.name}`)
     }
-    if (guide.examples.length === 0) {
-      throw new Error(
-        `Public README guide for ${packageRecord.name} has no maintained example`
-      )
-    }
-    const examples = guide.examples.map((exampleId) => {
-      const example = examplesById.get(exampleId)
-      if (!example) {
-        throw new Error(
-          `Public README guide for ${packageRecord.name} names unknown example ${exampleId}`
-        )
-      }
-      return {
-        id: example.id,
-        runCommand: example.runCommand,
-        source: example.source,
-        title: example.title
-      }
-    })
     return {
       directory: packageRecord.directory,
       guide: {
@@ -91,8 +69,7 @@ export const readApprovedReadmeInputs = async ({ repositoryRoot }) => {
       name: packageRecord.name,
       publicEntries: packageRecord.publicEntries,
       readmePath: `packages/${packageRecord.directory}/README.md`,
-      version: packageRecord.version,
-      examples
+      version: packageRecord.version
     }
   })
 

@@ -25,18 +25,12 @@ does not decide which tool wins, what a drag means, whether a command is
 allowed, or which canonical element changes. Those are Feature and app-domain
 decisions.
 
-## Executable path
+## Maintained implementation path
 
-Run:
-
-```shell
-yarn examples:run feature-session-undo
-```
-
-The example proves a successful session produces one undoable value, Undo and
-Redo replay it, and a failing session restores the last commit without adding
-history. It uses the public Feature and Factory boundaries rather than directly
-calling another package's state owner.
+Follow [Build a transaction-safe Feature](../build/feature-session.md) for the
+copyable session registration, call site, owner flow, expected result, and
+failure behavior. The guide keeps public Feature and Factory boundaries
+separate from app-domain mutation meaning.
 
 Use the Feature package registration APIs documented by its public entrypoint.
 Do not invent an app-local session manager when Feature System already owns the
@@ -66,7 +60,7 @@ silently perform the action through a fallback route.
 
 - [Framework workflow](../../ai/framework/WORKFLOW.md)
 - [Feature System contract](../../ai/framework/packages/feature-system.md)
-- [Verified Feature session](../../examples/feature-session-undo.mjs)
+- [Transaction-safe Feature guide](../build/feature-session.md)
 
 ## Next
 

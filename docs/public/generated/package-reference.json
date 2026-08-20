@@ -3,10 +3,6 @@
     {
       "contractPath": "docs/ai/framework/packages/ai-agent-runtime.md",
       "directory": "ai-agent-runtime",
-      "examples": [
-        "ai-registered-action",
-        "app-retrieval-action"
-      ],
       "frameworkDependencies": [],
       "guideId": "reference/packages/ai-agent-runtime",
       "guidePath": "docs/public/reference/packages/ai-agent-runtime.md",
@@ -17,18 +13,15 @@
         "."
       ],
       "sourceDigests": {
-        "contract": "b908338e74a5097cb51b6fbc42a3400137a498ee7e1625edb605cea99bb16a0e",
-        "guide": "fb7de79b9836e8d58735e95a3f347dbf66b78e47b3054a28a304abd8263b32c9",
-        "manifest": "3e6a5ec1472ee54af9401eea6c4a59e8827a737e338a559d5ff320c3f185dea8"
+        "contract": "1f11462a7ffa142217ec15b05f8406307a9a62aaae8a7fb076c89f45e3912985",
+        "guide": "d89302dd045712e4c510fe1f85da2fec803c21f3332166bbb8f65051dac01254",
+        "manifest": "e76583799b21d59f7a2540fd647acbd88c168a7da193d6295e51b5655797de8f"
       },
       "version": "0.5.0"
     },
     {
       "contractPath": "docs/ai/framework/packages/collaboration.md",
       "directory": "collaboration",
-      "examples": [
-        "collaboration-two-memory-actors"
-      ],
       "frameworkDependencies": [
         "@asyra/factory",
         "@asyra/utils"
@@ -42,20 +35,15 @@
         "."
       ],
       "sourceDigests": {
-        "contract": "9560111c9eaa9a05cc1d04a56638639d0ee68b673e9f34bd491ef01661e40f5a",
-        "guide": "9640cdce67894ec522057132d45591aadfc9a4b4657b364ef3cd5485fe7354d8",
-        "manifest": "dda1a90d41faa74850d32a9352d59ac7d63316c35c668c5ab63c5089627576d6"
+        "contract": "9387576ff09f4e6b28732a0409c9608c4f4c194f46db8bcdacfabfcc37ba4acd",
+        "guide": "d89bff16e1372b77541c570df2d78a8ec84f4159d0e20f3919e77bc44b621cd5",
+        "manifest": "dea2601e162cfbbe9edeee5c3da41301dde91816c3e28220bf00a16ca7bcae70"
       },
       "version": "0.5.2"
     },
     {
       "contractPath": "docs/ai/framework/packages/core.md",
       "directory": "core",
-      "examples": [
-        "core-information-model",
-        "custom-component-schema",
-        "preset-2d-minimal"
-      ],
       "frameworkDependencies": [
         "@asyra/factory",
         "@asyra/feature-system",
@@ -83,7 +71,7 @@
       ],
       "sourceDigests": {
         "contract": "eb59d200716536560a4f42189c0250dfc3a7d84ff776f0dcea35d3f934a7c27b",
-        "guide": "5ecd6efe98db027df353cb1787e29e443a3b22be584f24685a241560265803be",
+        "guide": "4289ac1abb0ff2432245a88e2163bc943ed05a6cfb94902b046ae29a1a9c7df0",
         "manifest": "f010415b5a7d944a36a2008c03488a05277cad39bad7344c356bff28bc2bc93c"
       },
       "version": "0.5.2"
@@ -91,9 +79,6 @@
     {
       "contractPath": "docs/ai/framework/packages/design-system.md",
       "directory": "design-system",
-      "examples": [
-        "generated-design-app-extension"
-      ],
       "frameworkDependencies": [
         "@asyra/utils"
       ],
@@ -116,10 +101,6 @@
     {
       "contractPath": "docs/ai/framework/packages/factory.md",
       "directory": "factory",
-      "examples": [
-        "feature-session-undo",
-        "collaboration-two-memory-actors"
-      ],
       "frameworkDependencies": [
         "@asyra/reactive-events",
         "@asyra/utils"
@@ -134,7 +115,7 @@
       ],
       "sourceDigests": {
         "contract": "0a33117436c5547c188406d9a19b1a9b9d3dd4ce527e414402ecc032c8a1562f",
-        "guide": "52a2f7b72127551ee81440b84c8cd3a9773cdd80a8f75d69405d9c7f60f16b82",
+        "guide": "7edf3e543bf4b3d7b2d2fb88dcc784a9deb28c6f20ce589c221eec241530d02b",
         "manifest": "e20d4267046a4e83e7722ba1b470295a381c4315571f56bde828613b90479ec8"
       },
       "version": "0.5.1"
@@ -142,10 +123,6 @@
     {
       "contractPath": "docs/ai/framework/packages/feature-system.md",
       "directory": "feature-system",
-      "examples": [
-        "feature-session-undo",
-        "app-retrieval-action"
-      ],
       "frameworkDependencies": [
         "@asyra/reactive-events",
         "@asyra/utils"
@@ -160,7 +137,7 @@
       ],
       "sourceDigests": {
         "contract": "ccbae9eb0ba97e908aea445d6b9c47102d023a808f37447b72b5a01194aa7eec",
-        "guide": "e6866488f48a0da39d52dc52571cf768f4dcb0857c216bd75ac192e446ff5f19",
+        "guide": "b61024b261c5d2083e9ea2f38239b00fbc1361b2a6c29e816615497dae683002",
         "manifest": "de07a30757227af357f686a9bc07839d2205fe88d84465a785cffa7ddc37638d"
       },
       "version": "0.5.1"
@@ -168,9 +145,6 @@
     {
       "contractPath": "docs/ai/framework/packages/input-system.md",
       "directory": "input-system",
-      "examples": [
-        "core-information-model"
-      ],
       "frameworkDependencies": [
         "@asyra/reactive-events",
         "@asyra/utils"
@@ -185,7 +159,7 @@
       ],
       "sourceDigests": {
         "contract": "823c675e3f8663fb976d78fa7f812514ecba6406ceb9264dfe52084203dbed9a",
-        "guide": "0c0a71283bb252bd458a57bbb2e9da36730e789fa15b42e68370ccf45db6cb57",
+        "guide": "6a93322f1412e27132ae039576b5d3a51296fa5c9cc6dac322c1c1a97d4fe42b",
         "manifest": "923f72abf4b09159dbf21a363f2123da95320ff7b2d1aecee74f59ed4cd15dcf"
       },
       "version": "0.5.1"
@@ -193,9 +167,6 @@
     {
       "contractPath": "docs/ai/framework/packages/persistence.md",
       "directory": "persistence",
-      "examples": [
-        "app-versioned-load-migration"
-      ],
       "frameworkDependencies": [
         "@asyra/utils"
       ],
@@ -209,7 +180,7 @@
       ],
       "sourceDigests": {
         "contract": "6ba31c6a0f2f12679cec282ec2bc5054c2cc110cb4e2d54555581b8402bae4a4",
-        "guide": "72b0b20a095bc1810eb0e205d918c3244ec38b8553a5522cbe14d8bd10ca1157",
+        "guide": "64aca2a9895ec0659813e582c537e92affb8871dccc39885953a4eca2666daa1",
         "manifest": "e220c1fc59ee9d5b33f35a435819ece39217b976a06713db6d315a16a09c6725"
       },
       "version": "0.5.0"
@@ -217,10 +188,6 @@
     {
       "contractPath": "docs/ai/framework/packages/preset.md",
       "directory": "preset",
-      "examples": [
-        "preset-2d-minimal",
-        "preset-selective-defaults"
-      ],
       "frameworkDependencies": [
         "@asyra/core",
         "@asyra/reactive-events",
@@ -239,7 +206,7 @@
       ],
       "sourceDigests": {
         "contract": "6063335cf9a2a4e5e51c81bdef13b0390b5cc00b82892ef7cc664c5e46b94f9c",
-        "guide": "fb36eca23dbf9ab2e3eb98687227dc5c829f16c4b30795b03d46aa99bc3cd3a0",
+        "guide": "6decd16b73a5a41526c730fe457be980cd6769d08ee1e09224c69dc05fe4c510",
         "manifest": "41799cf37c25e4bd3a60d83055861f52d40ae0fe8fb315fe1253680bfc2d8075"
       },
       "version": "0.5.2"
@@ -247,10 +214,6 @@
     {
       "contractPath": "docs/ai/framework/packages/props-manager.md",
       "directory": "props-manager",
-      "examples": [
-        "custom-component-schema",
-        "core-information-model"
-      ],
       "frameworkDependencies": [
         "@asyra/reactive-events",
         "@asyra/utils"
@@ -265,7 +228,7 @@
       ],
       "sourceDigests": {
         "contract": "99e3c4a6b1015fabf036429ffcb63620f4a27600928b768d64584b26395637a9",
-        "guide": "e3cc7c8303ea664cb4bf379ee643be7f8c50945cf8b56d0969170b8daaa32aed",
+        "guide": "ef316ce4a8e632db5c9ba271b69a13528c1aad92e1226fe3b722643f974fc829",
         "manifest": "4bf251dfad60f61b6eb04c8b2b6b062e984b4d45dced00ccbd8c5b73141692ed"
       },
       "version": "0.5.1"
@@ -273,9 +236,6 @@
     {
       "contractPath": "docs/ai/framework/packages/reactive-events.md",
       "directory": "reactive-events",
-      "examples": [
-        "feature-session-undo"
-      ],
       "frameworkDependencies": [
         "@asyra/persistence",
         "@asyra/utils"
@@ -290,7 +250,7 @@
       ],
       "sourceDigests": {
         "contract": "84e51c0d6cdf49ed672257c433664b0ded00fc1aa3daf8c4edf13d794fff5c0c",
-        "guide": "192c8d9332c4edb26c057aa1066fe17c135d8795d3a90977754b6002954119ac",
+        "guide": "534d53e7eae5e7f38ddbf2977688a63af2857553e1246ef4f77d5b9eb40df275",
         "manifest": "5cc3c03824321d210ff0f0139c15b387229e8f9cc3c223ea5a51c8b9df9f291b"
       },
       "version": "0.5.1"
@@ -298,10 +258,6 @@
     {
       "contractPath": "docs/ai/framework/packages/render.md",
       "directory": "render",
-      "examples": [
-        "core-information-model",
-        "custom-render-boundary"
-      ],
       "frameworkDependencies": [
         "@asyra/factory",
         "@asyra/reactive-events",
@@ -321,7 +277,7 @@
       ],
       "sourceDigests": {
         "contract": "1e4ac2db7b96309ad33fb608e577b76dea46aa58ccb566adf5c5419524594e79",
-        "guide": "22a1a84fd95c97472f027596cb1d9843e5fd5e9d731e0131962d442fd713d281",
+        "guide": "bef4926e98157e95bac359858e2868d30939b419876f0d00e2fe9d9f1511c62a",
         "manifest": "ed4141bd276b0ca51d1d014156b72acd2bc927d4af3efd06382a06278ddbab4f"
       },
       "version": "0.5.2"
@@ -329,9 +285,6 @@
     {
       "contractPath": "docs/ai/framework/packages/render-engine.md",
       "directory": "render-engine",
-      "examples": [
-        "custom-render-boundary"
-      ],
       "frameworkDependencies": [],
       "guideId": "reference/packages/render-engine",
       "guidePath": "docs/public/reference/packages/render-engine.md",
@@ -344,7 +297,7 @@
       ],
       "sourceDigests": {
         "contract": "def2bd6c85a83657d99aa45512e934e27e51b30cdf0ff0a813a0a457ab402f11",
-        "guide": "7d4cb1943f65aa33a5f171f5dac60725f2ad7e3610d7df6607c61a60f3c70a61",
+        "guide": "212eb15123459dc4528adbc539861a4575ea7979da639ce6c339f7d18c854fcc",
         "manifest": "f2483fcdb1668d1f4fd7dfcf088fcd7e0739b022468d38e7ed6f403c3645592f"
       },
       "version": "0.5.0"
@@ -352,9 +305,6 @@
     {
       "contractPath": "docs/ai/framework/packages/render-engine-pixi.md",
       "directory": "render-engine-pixi",
-      "examples": [
-        "preset-2d-minimal"
-      ],
       "frameworkDependencies": [
         "@asyra/render-engine"
       ],
@@ -368,7 +318,7 @@
       ],
       "sourceDigests": {
         "contract": "b117cd086ad0a5e8f48ba0ce5899a490c3044f7ee623a3d84d68093eb5f53e7c",
-        "guide": "45b73b43af275a9b4d4fc4f493c883723f43d2ceff864deea1947101911938fa",
+        "guide": "5ced80e9d45c5efe14eb632d25c82ba5e2f729b4f95ec7059bba41881d29c95d",
         "manifest": "f5cbf728d359a1cfb0fc799d98b9c2ece7a13b0ae1149a250adeaeaeeffe26c8"
       },
       "version": "0.5.0"
@@ -376,10 +326,6 @@
     {
       "contractPath": "docs/ai/framework/packages/scene-tree.md",
       "directory": "scene-tree",
-      "examples": [
-        "custom-component-schema",
-        "core-information-model"
-      ],
       "frameworkDependencies": [
         "@asyra/props-manager",
         "@asyra/reactive-events",
@@ -395,7 +341,7 @@
       ],
       "sourceDigests": {
         "contract": "713cf4b1579a2c8ba1ca1b8b6c4db4c05b796dc8d33b70c3f64396555115fd5d",
-        "guide": "4c47de80fadc3f4d28c4224b48e5ba65abf0dd9423ad78ae795b908f05998345",
+        "guide": "fda648ca19632219725d4512f8d603e8b3a62bd39e6c7d756ddb52351f176e93",
         "manifest": "bf2a5f74de1f3a16c72c2271a2174e6bea04f951ff2ec5a97e32a35592811d65"
       },
       "version": "0.5.1"
@@ -403,9 +349,6 @@
     {
       "contractPath": "docs/ai/framework/packages/selection.md",
       "directory": "selection",
-      "examples": [
-        "core-information-model"
-      ],
       "frameworkDependencies": [
         "@asyra/utils"
       ],
@@ -427,9 +370,6 @@
     {
       "contractPath": "docs/ai/framework/packages/system-context.md",
       "directory": "system-context",
-      "examples": [
-        "core-information-model"
-      ],
       "frameworkDependencies": [
         "@asyra/utils"
       ],
@@ -443,7 +383,7 @@
       ],
       "sourceDigests": {
         "contract": "66f3107ca4921bad334d7954ff6335d3373c398b949fb58f4778b2bbe9480fa9",
-        "guide": "879a7bab436c4a33ff055ea04857546f8b6ada603eccd49d5b50fcfd3c441baa",
+        "guide": "41482ef59f07097c9a798c498b15296c3f1f5f60274bed86528ffecfbd0a954a",
         "manifest": "286605a3fbafb32cd98c59ab997b66dee80a2dcea5d937731767e3cb89a74b48"
       },
       "version": "0.5.0"
@@ -451,9 +391,6 @@
     {
       "contractPath": "docs/ai/framework/packages/ui-context.md",
       "directory": "ui-context",
-      "examples": [
-        "generated-design-app-extension"
-      ],
       "frameworkDependencies": [
         "@asyra/scene-tree",
         "@asyra/selection",
@@ -477,9 +414,6 @@
     {
       "contractPath": "docs/ai/framework/packages/utils.md",
       "directory": "utils",
-      "examples": [
-        "generated-design-app-extension"
-      ],
       "frameworkDependencies": [],
       "guideId": "reference/packages/utils",
       "guidePath": "docs/public/reference/packages/utils.md",
@@ -491,7 +425,7 @@
       ],
       "sourceDigests": {
         "contract": "a5135f15b3dc8338c0ad8f822a8ef29d293cd996dc517a71516f8cce629bf7d1",
-        "guide": "989de12242f09f6ab5b75d912a32d324b0091253c4359ad132298eba71ac949d",
+        "guide": "eed3e7a356c8b12b78c9e5ec515e43c51f59b244cc77d3ce7f993f1556231e3c",
         "manifest": "68b386bcfe219af070baeac8e730f808b6fb162b33aebb775008f823cc5c5a83"
       },
       "version": "0.5.0"

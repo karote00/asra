@@ -47,9 +47,9 @@ Core exposes public Feature registration and APIs.
 
 ## Maintained use path
 
-Run `yarn examples:run feature-session-undo` and follow
-[Build a transaction-safe Feature](../../build/feature-session.md). The
-app-retrieval example shows a registered Feature API as the only mutation path.
+Follow [Build a transaction-safe Feature](../../build/feature-session.md). The
+[app retrieval/action guide](../../build/app-retrieval-action.md) shows a
+registered Feature API as the only mutation path.
 
 ## Replacement and disabled behavior
 
@@ -69,7 +69,7 @@ non-mutating. Deep package internals are not supported APIs.
 
 - [Package contract](../../../ai/framework/packages/feature-system.md)
 - [Package manifest](../../../../packages/feature-system/package.json)
-- [Executable session example](../../../examples/feature-session-undo.mjs)
+- [Transaction-safe Feature guide](../../build/feature-session.md)
 
 The root entrypoint, version, and dependencies are generated from the manifest
 and checked against the release inventory.

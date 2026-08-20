@@ -12,13 +12,14 @@ const step = (id) => {
   return value
 }
 
-test('Runtime Atlas authority resolves accepted examples, visual handoff, Landing, and workspace', () => {
+test('Runtime Atlas authority resolves documentation, visual handoff, Landing, and workspace', () => {
   Object.values(data.authority).forEach((filePath) => {
     assert.ok(fs.existsSync(path.join(repoRoot, filePath)), filePath)
   })
+  assert.equal('exampleInventoryPath' in data.authority, false)
 })
 
-test('Runtime Atlas owns six exact, unique cases mapped to maintained examples', () => {
+test('Runtime Atlas owns six exact, unique cases mapped to advanced guides', () => {
   assert.deepEqual(data.caseIds, [
     'continuous-pointer-undo',
     'canonical-projection-fanout',
@@ -29,24 +30,24 @@ test('Runtime Atlas owns six exact, unique cases mapped to maintained examples',
   ])
   assert.equal(new Set(data.caseIds).size, 6)
 
-  const inventory = JSON.parse(
+  const contentIndex = JSON.parse(
     fs.readFileSync(
-      path.join(repoRoot, data.authority.exampleInventoryPath),
+      path.join(repoRoot, data.authority.contentIndexPath),
       'utf8'
     )
   )
-  const exampleIds = new Set(inventory.examples.map(({ id }) => id))
+  const guideIds = new Set(contentIndex.pages.map(({ id }) => id))
   data.caseIds.forEach((caseId) => {
-    const mappings = data.exampleMappings[caseId]
+    const mappings = data.guideMappings[caseId]
     assert.ok(mappings.length > 0, caseId)
-    mappings.forEach((exampleId) => assert.ok(exampleIds.has(exampleId)))
+    mappings.forEach((guideId) => assert.ok(guideIds.has(guideId)))
   })
 })
 
 test('contract freezes global comprehension, current browser support, and evidence origin', () => {
   const source = JSON.stringify(step('freeze-atlas-contract'))
   assert.match(source, /non-engineer can understand intent, owner/i)
-  assert.match(source, /six case ids/i)
+  assert.match(source, /six case ids and advanced-guide mappings/i)
   assert.match(source, /isolated browser composition/i)
   assert.match(source, /detached executing-runtime evidence/i)
   assert.match(source, /package-private source/i)

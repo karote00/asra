@@ -94,7 +94,7 @@ vulnerability details in a public issue.
 
 Saved documents enter through `core.setLoadSource(...)` and the app-owned
 connected migration chain described by
-[`app-owned-versioned-load-migration.mjs`](../../../docs/examples/app-owned-versioned-load-migration.mjs).
+[Build persistence with app-owned migration](../../public/build/persistence-migration.md).
 Package owners validate their fields before any canonical prefix applies.
 
 These compatibility surfaces remain available in the current candidate family

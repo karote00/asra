@@ -188,17 +188,25 @@ test('handoff resolves global, semantic, interaction, motion, and asset rules', 
   assert.match(handoff, /authoritative production copy is\n+`WHY IT MATTERS`/i)
   assert.match(
     handoff,
-    /deferred second Reimage is images only after launch/i
+    /Cosmic Atlas Revision 2 is the active\s+implementation direction/i
+  )
+  assert.match(handoff, /deep cosmic navy/i)
+  assert.match(handoff, /coral brand and primary action/i)
+  assert.match(handoff, /cyan,\s+violet, and amber/i)
+  assert.match(handoff, /warm light documentation surface/i)
+  assert.doesNotMatch(
+    handoff,
+    /Instrument Sheet Revision 2 is the active\s+implementation direction/i
   )
 })
 
-test('global comprehension and alternate image-only reimage stay explicit', () => {
+test('global comprehension and the selected revision-two implementation stay explicit', () => {
   const source = JSON.stringify([data.acceptanceContracts, data.invariants])
   assert.match(source, /non-engineer can understand what Asyra enables/i)
   assert.match(source, /localization-resilient layout/i)
-  assert.match(source, /materially different second visual version/i)
-  assert.match(source, /images only/i)
-  assert.match(source, /never reopens production implementation/i)
+  assert.match(source, /Cosmic Atlas Revision 2/i)
+  assert.match(source, /whole public website/i)
+  assert.match(source, /generated raster remains design evidence/i)
 })
 
 test('routes, artifacts, failure owners, and cache boundaries resolve', () => {

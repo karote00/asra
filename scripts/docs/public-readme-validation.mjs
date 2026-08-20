@@ -235,6 +235,14 @@ export const validateReadmePolicy = ({ source, sourcePath }) => {
   }
 }
 
+export const validateReadmeLearningSurface = ({ source, sourcePath }) => {
+  if (/examples:run|docs\/examples|apps\/asyra-design\/examples/.test(source)) {
+    throw new Error(
+      `${sourcePath} still points readers to the removed executable-example surface`
+    )
+  }
+}
+
 const validatePackageReadme = ({ packageRecord, source, sourcePath }) => {
   if (!source.startsWith(`# \`${packageRecord.name}\`\n`)) {
     throw new Error(`${sourcePath} title must be ${packageRecord.name}`)
@@ -246,14 +254,6 @@ const validatePackageReadme = ({ packageRecord, source, sourcePath }) => {
   if (!source.includes(guideUrl)) {
     throw new Error(`${sourcePath} is missing its complete package guide`)
   }
-  packageRecord.examples.forEach((example) => {
-    const exampleUrl = `${REPOSITORY_URL}/blob/main/${example.source}`
-    if (!source.includes(exampleUrl)) {
-      throw new Error(
-        `${sourcePath} is missing maintained example ${example.id}`
-      )
-    }
-  })
 }
 
 export const validatePublicReadmes = async ({ repositoryRoot }) => {
@@ -267,6 +267,10 @@ export const validatePublicReadmes = async ({ repositoryRoot }) => {
     const source = fs.readFileSync(filePath, 'utf8')
     validateHeadings({ id: surface.id, source, sourcePath: surface.path })
     validateReadmePolicy({ source, sourcePath: surface.path })
+    validateReadmeLearningSurface({
+      source,
+      sourcePath: surface.path
+    })
     const publicMentionSource =
       surface.id === 'asyra-design'
         ? source.replaceAll(

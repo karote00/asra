@@ -207,7 +207,6 @@ export const createPublicDocumentationBundle = async ({ repositoryRoot }) => {
     return {
       contentSha256: sha256(markdown),
       description: page.description,
-      examples: page.examples,
       headings: markdownHeadings(markdown),
       id: page.id,
       markdownPath,

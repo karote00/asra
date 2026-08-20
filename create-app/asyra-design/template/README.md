@@ -87,9 +87,10 @@ responsibility.
 
 ## Make your first extension
 
-Use the maintained
-[review queue example](https://github.com/karote00/asyra/blob/main/apps/asyra-design/examples/review-queue-extension.mjs)
-as a bounded pattern:
+Use the
+[generated-product extension guide](https://github.com/karote00/asyra/blob/main/docs/public/start/create-design-app.md)
+as a bounded pattern. It includes the Feature code, where to register it, the
+owner call flow, expected result, and rejected-input behavior:
 
 1. define an App-owned record and validation rule;
 2. expose it through one registered Feature API;
@@ -97,7 +98,7 @@ as a bounded pattern:
 4. call that API from UI, automation, or another approved App boundary; and
 5. add owner-focused tests before changing shared product flows.
 
-The example deliberately does not change Preset, Core internals, rendering, or
+The pattern deliberately does not change Preset, Core internals, rendering, or
 the generated bootstrap. Your domain belongs in the App even when the product
 is a BIM tool, simulation, whiteboard, AI information system, or something the
 Framework did not anticipate.
@@ -111,7 +112,7 @@ Continue with:
 
 ## Build with an AI coding agent
 
-Give the agent the smallest relevant public guide, example, and owner boundary.
+Give the agent the smallest relevant public guide and owner boundary.
 A useful first prompt is:
 
 > Add an App-owned review queue based on the maintained Asyra example. Use only

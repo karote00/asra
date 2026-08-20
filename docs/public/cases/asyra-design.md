@@ -198,14 +198,14 @@ To begin from the product, use
 Framework composition, use the [official 2D baseline](../start/preset-2d.md) or
 [custom composition](../start/custom-composition.md).
 
-## Executable evidence
+## Advanced implementation and verification
 
-- `yarn examples:run generated-design-app-extension`
-- `yarn examples:run ai-registered-action`
-- `yarn examples:run collaboration-two-memory-actors`
-- `yarn examples:run app-versioned-load-migration`
-- `yarn test` in the generated app
-- `yarn test:e2e` in the generated app
+- [Extend the generated product](../start/create-design-app.md)
+- [Build registered AI actions](../build/ai-actions.md)
+- [Build opt-in collaboration](../build/collaboration.md)
+- [Build persistence with app-owned migration](../build/persistence-migration.md)
+- Inspect the generated app's owner-focused tests and synchronized product E2E
+  tests for the exact feature being changed.
 
 Use the smallest owner-focused test first, then the synchronized visual,
 collaboration, high-detail, or release gate appropriate to the changed product
@@ -217,4 +217,4 @@ flow.
 - [Asyra Design architecture](../../ai/apps/asyra-design/ARCHITECTURE.md)
 - [Initialization and startup](../../ai/apps/asyra-design/modules/init-and-startup.md)
 - [Common APIs](../../ai/apps/asyra-design/modules/common-apis.md)
-- [Verified generated-app extension](../../../apps/asyra-design/examples/review-queue-extension.mjs)
+- [Generated Feature registry](../../../create-app/asyra-design/template/src/features/index.ts)

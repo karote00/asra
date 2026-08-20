@@ -45,9 +45,9 @@ owns field meaning and migration.
 
 ## Maintained use path
 
-Run `yarn examples:run custom-component-schema` and follow
-[Build a custom component and schema](../../build/custom-schema.md). The
-versioned-load example proves app migration remains outside Props Manager.
+Follow [Build a custom component and schema](../../build/custom-schema.md).
+The [versioned-load guide](../../build/persistence-migration.md) keeps app
+migration outside Props Manager.
 
 ## Replacement and disabled behavior
 
@@ -67,7 +67,7 @@ child relations, and active-registration safety.
 
 - [Package contract](../../../ai/framework/packages/props-manager.md)
 - [Package manifest](../../../../packages/props-manager/package.json)
-- [Executable schema source](../../../examples/custom-component-schema.mjs)
+- [Custom schema guide](../../build/custom-schema.md)
 
 The root entrypoint, version, and dependencies are generated from the package
 manifest and verified against the release inventory.

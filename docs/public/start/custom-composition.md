@@ -20,18 +20,65 @@ For non-visible and machine-facing products, read the
 [runtime roadmap](../learn/runtime-boundaries-roadmap.md) before choosing an
 architecture. Do not invent `createHeadlessCore()` or a Core Kernel package.
 
-## Begin with information
+## Where this runs
 
-Run the maintained model-only proof:
+Custom composition belongs to the browser application's bootstrap module. It
+constructs one isolated owner graph, registers app capabilities while
+composition is open, and hands the resulting Core instance to the app startup.
 
-```shell
-yarn examples:run core-information-model
+## Implementation
+
+This is the minimal current public composition shape without Preset. Add only
+the optional provider boundaries your product uses:
+
+```ts
+import { Core } from '@asyra/core'
+import { Factory } from '@asyra/factory'
+import { InputSystem } from '@asyra/input-system'
+import { PropsManager } from '@asyra/props-manager'
+import { Render } from '@asyra/render'
+import { SceneTree } from '@asyra/scene-tree'
+import { SelectionManager } from '@asyra/selection'
+import systemContext from '@asyra/system-context'
+
+const factory = new Factory()
+const props = new PropsManager()
+const render = new Render()
+const sceneTree = new SceneTree(props)
+const selection = new SelectionManager()
+const inputSystem = new InputSystem()
+
+export const core = new Core({
+  factory,
+  inputSystem,
+  props,
+  render,
+  sceneTree,
+  selection,
+  systemContext
+})
 ```
 
-The example registers an app-owned status model and updates it through the
-current Core facade while Collaboration and AI remain uncomposed and no engine
-provider is selected. It proves optional capability absence in a supported
-artifact test; it does not claim a separately supported server runtime.
+Keep shared owners shared: `SceneTree` receives the same Props Manager instance
+that Core receives. Collaboration and AI do not appear unless the app
+explicitly composes their adapters.
+
+## Flow
+
+1. Construct one instance for each current Framework owner.
+2. Pass those owners to Core through public package entrypoints.
+3. Register app schemas, Features, projections, and optional providers.
+4. Attach the browser host required by the chosen input and visual path.
+5. Call `core.start(...)` once, then wait for readiness before product work.
+6. Dispose the composition from the app lifecycle that created it.
+
+## Expected result
+
+The app receives one Core facade coordinating its selected owners. Uncomposed
+Collaboration and AI systems perform no work. A render-engine provider exists
+only when the app selected one. Duplicate registration, invalid composition,
+startup failure, and post-start mutation remain explicit errors rather than
+silent fallback behavior.
 
 ## Choose capabilities explicitly
 
@@ -67,7 +114,7 @@ Prove the exact composition you claim:
 
 - [Framework architecture](../../ai/framework/ARCHITECTURE.md)
 - [Core package contract](../../ai/framework/packages/core.md)
-- [Maintained composition helper](../../examples/create-core-composition.mjs)
+- [Core package guide](../reference/packages/core.md)
 
 ## Next
 

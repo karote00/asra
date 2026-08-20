@@ -34,6 +34,7 @@ test('package reference derives all release facts and guide relationships', asyn
     assert.ok(packageRecord.publicEntries.length > 0)
     assert.ok(packageRecord.guideId.endsWith(packageRecord.directory))
     assert.ok(fs.existsSync(path.join(repositoryRoot, packageRecord.guidePath)))
+    assert.equal('examples' in packageRecord, false)
     assert.match(packageRecord.sourceDigests.manifest, /^[a-f0-9]{64}$/)
     assert.match(packageRecord.sourceDigests.contract, /^[a-f0-9]{64}$/)
     assert.match(packageRecord.sourceDigests.guide, /^[a-f0-9]{64}$/)
