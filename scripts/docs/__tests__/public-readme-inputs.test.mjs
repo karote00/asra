@@ -55,6 +55,11 @@ test('root README exposes package-first composition and the working product star
   assert.doesNotMatch(readme, /create-asyra-app|one React homepage/u)
   assert.match(readme, /working design-tool foundation/u)
   assert.match(readme, /Build product features, not infrastructure/u)
+  assert.match(
+    readme,
+    /composable building blocks for turning domain-owned information and rules into products/u
+  )
+  assert.doesNotMatch(readme, /reusable infrastructure behind a product/u)
   assert.match(readme, /A Feature is an App-owned, registered unit/u)
   assert.match(readme, /Add, replace, or remove a registered Feature/u)
   assert.match(readme, /a few focused lines/u)

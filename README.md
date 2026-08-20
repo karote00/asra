@@ -2,7 +2,7 @@
 
 ## Build product features, not infrastructure
 
-Asyra provides reusable infrastructure behind a product. Developers can focus on domain knowledge and Features, while their App owns schemas, rules, workflows, services, and UI. Asyra keeps intent routing, registration, transactions, rollback, Undo/Redo, canonical state, validation, persistence boundaries, and downstream projections consistent.
+Asyra gives developers composable building blocks for turning domain-owned information and rules into products. Your App owns its schemas, rules, workflows, services, and UI. Asyra coordinates intent routing, registration, transactions, rollback, Undo/Redo, canonical state, validation, persistence boundaries, and downstream projections.
 
 A Feature is an App-owned, registered unit of product behavior. It gives human input, UI, automation, devices, and AI-issued commands the same Feature and API boundaries instead of creating parallel product paths.
 
