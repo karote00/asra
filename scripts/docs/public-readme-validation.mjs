@@ -10,6 +10,7 @@ import { readApprovedReadmeInputs } from './public-readme-inputs.mjs'
 
 const REPOSITORY_URL = 'https://github.com/karote00/asyra'
 const VERIFIED_PUBLIC_LINKS = new Set([
+  'https://asyra-framework.vercel.app',
   'https://asyra-karote00s-projects.vercel.app/?fileId=demo'
 ])
 const REQUIRED_POLICY =
@@ -17,12 +18,13 @@ const REQUIRED_POLICY =
 
 const REQUIRED_HEADINGS = Object.freeze({
   root: Object.freeze([
-    '## What Asyra is',
+    '## Build product features, not infrastructure',
+    '## Try the demo',
     '## Choose your starting point',
-    '## Runtime model',
-    '## Ownership boundary',
+    '## How Asyra works',
+    '### Ownership boundaries',
     '## Where Asyra can go',
-    '## Current release and roadmap',
+    '## Current support',
     '## Documentation',
     '## Support and contribution policy',
     '## License'

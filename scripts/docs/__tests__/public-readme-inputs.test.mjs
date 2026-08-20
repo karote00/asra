@@ -47,15 +47,23 @@ test('root README exposes package-first composition and the working product star
     readme,
     /https:\/\/asyra-karote00s-projects\.vercel\.app\/\?fileId=demo/u
   )
+  assert.match(readme, /https:\/\/asyra-framework\.vercel\.app/u)
   assert.match(readme, /npm install @asyra\/core/u)
   assert.match(readme, /npx create-asyra-design-app my-product/u)
   assert.doesNotMatch(readme, /create-asyra-app|one React homepage/u)
   assert.match(readme, /working design-tool foundation/u)
   assert.match(readme, /Build product features, not infrastructure/u)
+  assert.match(readme, /A Feature is an App-owned, registered unit/u)
   assert.match(readme, /Add, replace, or remove a registered Feature/u)
   assert.match(readme, /a few focused lines/u)
   assert.match(readme, /Compose only what the product needs/u)
   assert.match(readme, /Runtime commit and durable persistence/u)
+  assert.match(readme, /Yarn, npm, or pnpm/u)
+  assert.match(readme, /start command printed by the CLI/u)
+  assert.doesNotMatch(
+    readme,
+    /Runtime Atlas|release candidates|does not independently authorize a release|Yarn 4\.3\.1/u
+  )
 })
 
 test('every package input resolves its complete public guide without example commands', async () => {
