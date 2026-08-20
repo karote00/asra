@@ -49,7 +49,7 @@ rules, engines, services, and interfaces.
 
 ## Try the demo
 
-[Open the Asyra Design demo](https://asyra-karote00s-projects.vercel.app/?fileId=demo)
+[Asyra Design demo](https://asyra-karote00s-projects.vercel.app/?fileId=demo)
 to explore a working product built with Asyra. Asyra Design is one complete
 design-tool implementation: it demonstrates how the Framework, official
 Preset, App-owned features, editable information, rendering, undo/redo, and
