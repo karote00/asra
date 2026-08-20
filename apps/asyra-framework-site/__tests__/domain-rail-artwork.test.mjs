@@ -7,8 +7,7 @@ import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
 const siteRoot = path.resolve(import.meta.dirname, '..')
-const localArtworkTest =
-  env.ASYRA_LOCAL_ARTWORK_TESTS === '1' ? test : test.skip
+const localArtworkTest = env.LOCAL_ARTWORK_TESTS === '1' ? test : test.skip
 
 const readStat = (stdout, key) => {
   const match = stdout.match(new RegExp(`^${key}=(\\d+)$`, 'm'))

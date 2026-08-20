@@ -18,7 +18,7 @@
     "test:e2e": "playwright test --config playwright.config.ts",
     "test:production": "node scripts/production-smoke.mjs && playwright test --config playwright.config.ts editorial-landing-visual.spec.ts",
     "test:local": "yarn test:contracts && node --test __tests__/*.test.mjs",
-    "test:artwork:local": "ASYRA_LOCAL_ARTWORK_TESTS=1 yarn test:local",
+    "test:artwork:local": "LOCAL_ARTWORK_TESTS=1 yarn test:local",
     "test:ci": "yarn test:local",
     "lint": "yarn --cwd ../.. eslint apps/asyra-framework-site"
   },

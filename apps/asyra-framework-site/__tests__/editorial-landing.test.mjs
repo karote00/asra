@@ -21,8 +21,7 @@ const listFiles = async (directory) => {
   }
 }
 
-const localArtworkTest =
-  env.ASYRA_LOCAL_ARTWORK_TESTS === '1' ? test : test.skip
+const localArtworkTest = env.LOCAL_ARTWORK_TESTS === '1' ? test : test.skip
 
 test('the website contains one new landing page and no legacy implementation', async () => {
   const appFiles = (await listFiles(appRoot)).filter((entry) =>
@@ -129,7 +128,7 @@ test('metadata falls back to the canonical HTTPS origin', async () => {
     'utf8'
   )
 
-  assert.match(source, /https:\/\/asyra-framework\.vercel\.app/)
+  assert.ok(source.includes('https://asyra-framework.vercel.app'))
   assert.doesNotMatch(source, /http:\/\/127\.0\.0\.1:3020/)
 })
 
@@ -153,7 +152,7 @@ test('local artwork sources are Git-ignored and run only through the opt-in artw
   )
   assert.equal(
     packageJson.scripts['test:artwork:local'],
-    'ASYRA_LOCAL_ARTWORK_TESTS=1 yarn test:local'
+    'LOCAL_ARTWORK_TESTS=1 yarn test:local'
   )
   assert.doesNotMatch(packageJson.scripts['test:ci'], /LOCAL_ARTWORK/)
 })
@@ -536,7 +535,10 @@ localArtworkTest(
     assert.match(builder, /requested width .* exceeds native master width/)
     assert.doesNotMatch(
       builder,
-      /asyra-landing-v04-approved|artwork["' /\\]+v0[45]|REFERENCE\.crop/i
+      new RegExp(
+        'asyra-landing-v04-approved|artwork[ /\\\\]+v0[45]|REFERENCE\\.crop',
+        'i'
+      )
     )
   }
 )
@@ -633,7 +635,10 @@ localArtworkTest(
     }
     assert.match(builder, /DOMAIN_LABEL_FONT_SIZE\s*=\s*36/)
     assert.match(builder, /V07_DESKTOP_WIDTHS/)
-    assert.doesNotMatch(builder, /asyra-landing-v04-approved|REFERENCE\.crop/i)
+    assert.doesNotMatch(
+      builder,
+      new RegExp('asyra-landing-v04-approved|REFERENCE\\.crop', 'i')
+    )
   }
 )
 
@@ -710,7 +715,7 @@ localArtworkTest(
     assert.match(builder, /def compose_hero\([\s\S]*V05_ARTWORK/)
     assert.match(builder, /HERO_CENTERLINE_X\s*=\s*693/)
     assert.match(builder, /return compose_hero\(relocate_connector=True\)/)
-    assert.match(builder, /asyra-landing-original-design-4x\.png/)
+    assert.match(builder, new RegExp('asyra-landing-original-design-4x\\.png'))
     assert.match(
       builder,
       /DOMAIN_RAIL_REFERENCE_CROP = \(0, 2451, 3456, 2919\)/

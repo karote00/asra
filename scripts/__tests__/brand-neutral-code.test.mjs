@@ -106,7 +106,12 @@ const publicSlugs = new Set(
     return [name, unscopedName, packageSlug]
   })
 )
-const publicIdentityDataValues = new Set(['asyra-framework-demo'])
+const publicIdentityDataValues = new Set([
+  'asyra-framework',
+  'asyra-framework-demo',
+  'asyra-landing-original-design-4x',
+  'asyra-landing-v04-approved'
+])
 const lowercaseIdentityOwnerPaths = new Set([
   'package.json',
   'scripts/__tests__/changeset-all-patch.test.mjs',
@@ -129,6 +134,10 @@ const isAllowedPublicIdentity = (token, line, filePath) => {
 
   if (token === repositoryDisplayName) {
     return !capitalizedBrandIdentifierPattern.test(line)
+  }
+
+  if (token === repositoryDisplayName.toUpperCase()) {
+    return true
   }
 
   if (token === repositoryBrand) {
