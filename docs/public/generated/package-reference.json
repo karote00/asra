@@ -72,9 +72,9 @@
       "sourceDigests": {
         "contract": "eb59d200716536560a4f42189c0250dfc3a7d84ff776f0dcea35d3f934a7c27b",
         "guide": "4289ac1abb0ff2432245a88e2163bc943ed05a6cfb94902b046ae29a1a9c7df0",
-        "manifest": "f010415b5a7d944a36a2008c03488a05277cad39bad7344c356bff28bc2bc93c"
+        "manifest": "606ef9e8854c665483c5e48a0f6eb22d87a942aae2bc705f4a045b6c2952ed5a"
       },
-      "version": "0.5.2"
+      "version": "0.5.3"
     },
     {
       "contractPath": "docs/ai/framework/packages/design-system.md",
@@ -160,9 +160,9 @@
       "sourceDigests": {
         "contract": "823c675e3f8663fb976d78fa7f812514ecba6406ceb9264dfe52084203dbed9a",
         "guide": "6a93322f1412e27132ae039576b5d3a51296fa5c9cc6dac322c1c1a97d4fe42b",
-        "manifest": "923f72abf4b09159dbf21a363f2123da95320ff7b2d1aecee74f59ed4cd15dcf"
+        "manifest": "5aa33e87f2600b1df5b24a98931d46de47d92c56205d290aa21a1af4c2d34a4c"
       },
-      "version": "0.5.1"
+      "version": "0.5.2"
     },
     {
       "contractPath": "docs/ai/framework/packages/persistence.md",
@@ -207,9 +207,9 @@
       "sourceDigests": {
         "contract": "6063335cf9a2a4e5e51c81bdef13b0390b5cc00b82892ef7cc664c5e46b94f9c",
         "guide": "6decd16b73a5a41526c730fe457be980cd6769d08ee1e09224c69dc05fe4c510",
-        "manifest": "41799cf37c25e4bd3a60d83055861f52d40ae0fe8fb315fe1253680bfc2d8075"
+        "manifest": "e39a90b6b11277a58cc0ba25cb3b1d979f1dda3a28bd5accb6d7312a0118701a"
       },
-      "version": "0.5.2"
+      "version": "0.5.3"
     },
     {
       "contractPath": "docs/ai/framework/packages/props-manager.md",

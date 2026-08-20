@@ -1,5 +1,12 @@
 # @asyra/input-system
 
+## 0.5.2
+
+### Patch Changes
+
+- c714696: Make InputSystem import and construction DOM-neutral, add explicit browser host
+  and pointer-target lifecycle APIs, and provide symmetric listener cleanup.
+
 ## 0.5.1
 
 ### Patch Changes

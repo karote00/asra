@@ -1632,7 +1632,7 @@
         "./canvas-pipeline-debugger",
         "./contracts"
       ],
-      "version": "0.5.2"
+      "version": "0.5.3"
     },
     {
       "entries": [
@@ -2617,7 +2617,7 @@
       "publicEntries": [
         "."
       ],
-      "version": "0.5.1"
+      "version": "0.5.2"
     },
     {
       "entries": [
@@ -3008,7 +3008,7 @@
       "publicEntries": [
         "."
       ],
-      "version": "0.5.2"
+      "version": "0.5.3"
     },
     {
       "entries": [
