@@ -24,7 +24,7 @@
       title: 'Decide release versions',
       ownerPackage: 'Create-app release version decision owner',
       purpose:
-        'Record the registry-verified Framework dependency versions, keep root asyra unchanged for its later release stage, and record the private Asyra Design identity plus the manually owned create-asyra-design-app target without coupling those owners.',
+        'Record the registry-verified Framework dependency versions, keep root asyra unchanged for its later release stage, and explicitly select the canonical app and create-asyra-design-app CLI at the same release version.',
       inputs: [
         'user version instructions',
         'public manifest-derived Framework registry records',
@@ -36,13 +36,13 @@
       ],
       conditions: [
         'Framework dependencies required by the canonical app are the exact registry-verified versions selected per package.',
-        'Root asyra remains unchanged throughout this CLI plan; the private app remains unchanged unless the user explicitly selects a replacement.',
-        'The CLI target is explicitly selected by the user, but its manifest remains unchanged until materialize-cli-version receives artifact:verified-template.',
+        'Root asyra remains unchanged throughout this CLI plan; apps/asyra-design and the CLI are explicitly selected at the same release version.',
+        'The shared App and CLI target is explicitly selected by the user, but the CLI manifest remains unchanged until materialize-cli-version receives artifact:verified-template.',
         'CLI publication remains blocked until the user explicitly confirms every release identity version required by the release plan.',
         'Cleanup owner: decide-release-versions owns only the release version decision record and manifest edits explicitly selected by the user.'
       ],
       bypasses: [
-        'An unchanged private app identity does not block dependency and template candidate validation.',
+        'The selected App version may be materialized before generation so the generated template inherits it; the CLI manifest remains deferred until template verification.',
         'An unspecified release identity version always blocks publish-cli and produces artifact:version-decision-finding.'
       ],
       allowedContributors: [
@@ -51,7 +51,7 @@
         'root, app, CLI, and Framework manifests'
       ],
       forbiddenContributors: [
-        'inferred root or private app version bumps',
+        'inferred root or Framework package version bumps',
         'CLI version materialization before generated-template verification',
         'Framework package version mutation',
         'Changeset generation without explicit scope',
@@ -64,7 +64,8 @@
         'create-app/asyra-design/package.json',
         'packages/*/package.json',
         'docs/ai/framework/plans/completed/create-asyra-design-app-release-plan.md',
-        'docs/ai/framework/plans/create-asyra-design-app-release-flow-inspector.data.cjs'
+        'docs/ai/framework/plans/create-asyra-design-app-release-flow-inspector.data.cjs',
+        'docs/ai/framework/plans/__tests__/create-asyra-design-app-release-flow-inspector.contract.test.cjs'
       ],
       specRefs: [
         '#status',
@@ -226,10 +227,11 @@
       title: 'Materialize the CLI version',
       ownerPackage: 'create-asyra-design-app manual version owner',
       purpose:
-        'Manually materialize only create-app/asyra-design at the explicitly selected CLI target after template verification, without using Changesets or mutating root, private app, or generated-template identity.',
+        'After template verification, manually materialize create-app/asyra-design at the explicitly selected target so apps/asyra-design and the CLI use the same release version while the generated template continues to inherit the App version.',
       inputs: [
         'artifact:release-version-scope',
         'artifact:verified-template',
+        'apps/asyra-design/package.json',
         'create-app/asyra-design/package.json'
       ],
       outputs: [
@@ -237,26 +239,28 @@
         'artifact:cli-version-finding'
       ],
       conditions: [
-        'The manually selected CLI target is exactly create-asyra-design-app at the selected target version.',
+        'The manually selected CLI target is exactly create-asyra-design-app at the same version declared by apps/asyra-design.',
         'The CLI manifest is changed only after artifact:verified-template exists and before the final CLI artifact is packed.',
         'No Changeset release entry owns the CLI version; the current Framework Changeset remains limited to packages/*.',
-        'Root asyra, private Asyra Design, and generated-template identity remain unchanged.',
+        'The generated template must inherit the App version through the official generator and is never versioned independently.',
+        'Root asyra and Framework package versions remain unchanged.',
         'Cleanup owner: materialize-cli-version owns only the explicitly selected create-app/asyra-design package version and its version record.'
       ],
       bypasses: [
         'A missing verified template or unresolved CLI target produces artifact:cli-version-finding.',
-        'A CLI, root, private app, or generated-template Changeset entry produces artifact:cli-version-finding.'
+        'An App/CLI version mismatch or any CLI, root, private app, or generated-template Changeset entry produces artifact:cli-version-finding.'
       ],
       allowedContributors: [
         'artifact:release-version-scope',
         'artifact:verified-template',
-        'explicit user CLI version selection',
+        'explicit user shared App and CLI version selection',
+        'apps/asyra-design/package.json',
         'create-app/asyra-design/package.json'
       ],
       forbiddenContributors: [
         'Changeset release entries',
-        'root or private app version edits',
-        'generated-template edits',
+        'root or Framework package version edits',
+        'independent generated-template version edits',
         'Framework package version mutation',
         'npm publication'
       ],
@@ -265,7 +269,8 @@
         'create-app/asyra-design/package.json',
         'docs/ai/framework/rules/release-version-topology.md',
         'docs/ai/framework/plans/completed/create-asyra-design-app-release-plan.md',
-        'docs/ai/framework/plans/create-asyra-design-app-release-flow-inspector.data.cjs'
+        'docs/ai/framework/plans/create-asyra-design-app-release-flow-inspector.data.cjs',
+        'docs/ai/framework/plans/__tests__/create-asyra-design-app-release-flow-inspector.contract.test.cjs'
       ],
       specRefs: [
         '#3-materialize-the-cli-version',
