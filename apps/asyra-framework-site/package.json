@@ -23,6 +23,11 @@
     "lint": "yarn --cwd ../.. eslint apps/asyra-framework-site"
   },
   "dependencies": {
+    "@asyra/ai-agent-runtime": "workspace:*",
+    "@asyra/collaboration": "workspace:*",
+    "@asyra/factory": "workspace:*",
+    "@asyra/feature-system": "workspace:*",
+    "@asyra/system-context": "workspace:*",
     "next": "16.3.0",
     "react": "19.1.0",
     "react-dom": "19.1.0"

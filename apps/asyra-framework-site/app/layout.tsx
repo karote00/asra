@@ -5,6 +5,7 @@ import './globals.css'
 import './styles/foundation.css'
 import './styles/docs.css'
 import './styles/support.css'
+import './styles/atlas.css'
 
 const title = 'Asyra - Framework for canvas-based and domain-driven tools'
 const description =

@@ -109,6 +109,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@asyra/asyra-framework-site@workspace:apps/asyra-framework-site"
   dependencies:
+    "@asyra/ai-agent-runtime": "workspace:*"
+    "@asyra/collaboration": "workspace:*"
+    "@asyra/factory": "workspace:*"
+    "@asyra/feature-system": "workspace:*"
+    "@asyra/system-context": "workspace:*"
     "@playwright/test": "npm:^1.57.0"
     "@tailwindcss/postcss": "npm:4.3.3"
     "@types/node": "npm:^16.18.121"
