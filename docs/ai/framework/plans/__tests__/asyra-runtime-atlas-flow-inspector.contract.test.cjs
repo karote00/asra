@@ -12,11 +12,13 @@ const step = (id) => {
   return value
 }
 
-test('Runtime Atlas authority resolves documentation, visual handoff, Landing, and workspace', () => {
+test('Runtime Atlas authority resolves documentation, current Landing contract, and workspace', () => {
   Object.values(data.authority).forEach((filePath) => {
     assert.ok(fs.existsSync(path.join(repoRoot, filePath)), filePath)
   })
   assert.equal('exampleInventoryPath' in data.authority, false)
+  assert.equal('visualHandoffPath' in data.authority, false)
+  assert.match(data.authority.landingContractPath, /landing-page-plan\.md$/)
 })
 
 test('Runtime Atlas owns six exact, unique cases mapped to advanced guides', () => {
@@ -118,6 +120,8 @@ test('presentation keeps plain language first and projections App-owned', () => 
   assert.match(source, /Canvas, hierarchy, properties, serialization, search, and presence are visibly App-owned/i)
   assert.match(source, /reduced-motion, mobile, and wide states/i)
   assert.match(source, /presentation-generated canonical result/i)
+  assert.match(source, /warm paper, near-black, signal red/i)
+  assert.doesNotMatch(source, /Cosmic Atlas/i)
 })
 
 test('verification requires six fresh browser cases and synchronized product evidence', () => {

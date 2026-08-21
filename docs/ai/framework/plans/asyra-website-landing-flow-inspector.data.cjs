@@ -6,7 +6,7 @@ const caseIds = Object.freeze([
   'grow-without-rebuild',
   'shared-human-ai-action-path',
   'one-source-across-views',
-  'clickable-placeholder-actions',
+  'connected-site-actions',
   'responsive-transparent-raster-assets',
   'perceptually-sharp-raster-rendering',
   'open-source-2026-footer',
@@ -47,10 +47,10 @@ module.exports = Object.freeze({
         'The approved V04 image is the visual authority for the retained composition; the product-owner-approved V09 closing concept is the explicit closing exception.',
         'Visible Change and Impact Preview contribute no public UI, copy, JavaScript, or selected illustration.',
         'All existing committed and uncommitted website UI, CSS, tests, and assets are replaced while environment setup is retained.',
-        'Every public hyperlink remains clickable even when its destination is a placeholder.',
+        'Every public hyperlink resolves to its approved in-page or Website Platform supporting route destination.',
         'Every selected illustration uses the shared adaptive CSS engineering grid plus an asset-specific alpha-derived drop shadow with directional contact and cast vectors, without code-drawing internal diagram topology.',
         'Source artwork, historical design experiments, and unselected derivative history are Git-ignored local-only inputs excluded from default CI; the eighteen selected public derivatives are the committed public derivatives and production deployment assets.',
-        'The generated public documentation inventory is published at /llms.txt without restoring removed human-facing content routes.',
+        'The generated public documentation inventory is published at /llms.txt; supporting human-facing routes remain owned by the Website Platform and do not contribute to this Landing route.',
         'The footer identifies 2026 open source work and contains no company identity.'
       ],
       bypasses: [
@@ -227,7 +227,7 @@ module.exports = Object.freeze({
         'The supplied Hero, Domain Rail, Grow, Same Path, One Source, and Closing derivatives are inspected at 1440px and 2048px with section crops before deployment.',
         'No-client and reduced-motion modes preserve the complete reading and actions.',
         'The retired change-impact sections remain absent at every breakpoint and without JavaScript.',
-        'The public /llms.txt response exactly matches the generated public documentation inventory and removed human-facing routes remain absent.'
+        'The public /llms.txt response exactly matches the generated public documentation inventory while supporting human-facing routes remain independently owned by the Website Platform.'
       ],
       bypasses: [
         'Production deployment occurs only after every Landing gate passes.'
@@ -293,7 +293,7 @@ module.exports = Object.freeze({
     'A feature built once gives people and AI the same action path.',
     'Complex diagrams use the six immutable supplied Photoroom true-alpha masters with one shared CSS grid-and-shadow stage, while prior and rejected experiments remain preserved but unselected.',
     'The footer says 2026 open source and makes no company identity claim.',
-    'All links remain keyboard-focusable and clickable while placeholder destinations are allowed.',
+    'All links remain keyboard-focusable and resolve to in-page or Website Platform destinations.',
     'Visible Change and Impact Preview remain absent from the public narrative.',
     'Production deployment occurs only after every Landing gate passes.'
   ])

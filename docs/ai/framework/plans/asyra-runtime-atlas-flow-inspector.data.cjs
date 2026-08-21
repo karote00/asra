@@ -16,8 +16,8 @@ module.exports = Object.freeze({
     inspectorPath:
       'docs/ai/framework/plans/asyra-runtime-atlas-flow-inspector.data.cjs',
     contentIndexPath: 'docs/public/generated/content-index.json',
-    visualHandoffPath:
-      'docs/ai/framework/website/visual-reimagine/handoff.md',
+    landingContractPath:
+      'docs/ai/framework/plans/asyra-website-landing-page-plan.md',
     landingInspectorPath:
       'docs/ai/framework/plans/asyra-website-landing-flow-inspector.data.cjs',
     workspacePath: 'apps/asyra-framework-site'
@@ -46,7 +46,7 @@ module.exports = Object.freeze({
       inputs: [
         'artifact:verified-landing',
         'accepted public content index',
-        'accepted Runtime Atlas visual handoff',
+        'accepted Landing V04 visual contract',
         'current public Framework owner contracts'
       ],
       outputs: ['artifact:atlas-contract'],
@@ -59,7 +59,7 @@ module.exports = Object.freeze({
       bypasses: ['No runtime or Atlas UI code may bypass contract readiness.'],
       allowedContributors: [
         'Atlas plan and Inspector',
-        'accepted public content index and visual handoff',
+        'accepted public content index and Landing V04 contract',
         'current public package contracts'
       ],
       forbiddenContributors: [
@@ -236,7 +236,7 @@ module.exports = Object.freeze({
       ],
       allowedContributors: [
         'Atlas worker evidence',
-        'accepted site foundations and Cosmic Atlas Revision 2 visual tokens',
+        'accepted site foundations and warm paper, near-black, signal red material tokens',
         'semantic HTML, CSS, Canvas, and accessible controls'
       ],
       forbiddenContributors: [

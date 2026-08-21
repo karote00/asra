@@ -23,8 +23,8 @@ module.exports = Object.freeze({
     contentIndexPath: 'docs/public/generated/content-index.json',
     sourceMapPath: 'docs/public/generated/source-map.json',
     packageReferencePath: 'docs/public/generated/package-reference.json',
-    visualHandoffPath:
-      'docs/ai/framework/website/visual-reimagine/handoff.md',
+    landingContractPath:
+      'docs/ai/framework/plans/asyra-website-landing-page-plan.md',
     workspacePath: 'apps/asyra-framework-site'
   }),
   toolchain: Object.freeze({
@@ -33,7 +33,6 @@ module.exports = Object.freeze({
     reactDom: '19.1.0',
     tailwindcss: '4.3.3',
     tailwindPostcss: '4.3.3',
-    lucideReact: '1.31.0',
     typescript: '5.8.3',
     node: '24.x',
     yarn: '4.3.1'
@@ -48,7 +47,7 @@ module.exports = Object.freeze({
         'Freeze exact toolchain, workspace ownership, source authorities, route cases, shared boundaries, and deterministic gates before workspace implementation.',
       inputs: [
         'accepted public-content handoff',
-        'accepted Cosmic Atlas Revision 2 visual handoff',
+        'accepted Result-First Landing visual and responsive contract',
         'repository Node, Yarn, React, TypeScript, workspace, and CI contracts'
       ],
       outputs: ['artifact:platform-contract'],
@@ -87,24 +86,24 @@ module.exports = Object.freeze({
       order: 2,
       ownerPackage: '@asyra/asyra-framework-site foundation',
       purpose:
-        'Create the strict Next.js workspace, metadata, Cosmic Atlas Revision 2 tokens, semantic shell, and accessible navigation foundations.',
+        'Create the strict Next.js workspace, metadata, warm paper and engineering grid tokens, semantic shell, and accessible navigation foundations.',
       inputs: ['artifact:platform-contract'],
       outputs: ['artifact:site-foundation'],
       conditions: [
         'The workspace participates in root build, lint, dependency, Turbo, and test contracts.',
-        'The shell is server-first, keyboard ordered, localization resilient, reduced-motion safe, and usable without generated raster assets.',
-        'Landing and Atlas receive placeholders and stable shared anatomy only, not their product-owned implementation.'
+        'The shell is server-first, keyboard ordered, localization resilient, reduced-motion safe, and uses warm paper, near-black ink, restrained signal red, engineering grid detail, and dark mechanical stages.',
+        'The current Landing remains unchanged while Atlas receives stable shared anatomy without inheriting Landing product meaning.'
       ],
       bypasses: [
         'Client components are allowed only for browser interaction or browser APIs.'
       ],
       allowedContributors: [
         'artifact:platform-contract',
-        'accepted visual handoff',
+        'accepted Result-First Landing contract',
         'existing repository workspace conventions'
       ],
       forbiddenContributors: [
-        'generated raster production assets',
+        'Landing illustration assets reused as supporting-route decoration',
         'external font, UI kit, analytics, or CMS',
         'Framework package-private source'
       ],
@@ -293,7 +292,7 @@ module.exports = Object.freeze({
       ],
       allowedContributors: [
         'artifact:site-foundation',
-        'accepted visual handoff',
+        'accepted Result-First Landing contract',
         'shared semantic web contracts'
       ],
       forbiddenContributors: [
@@ -402,8 +401,8 @@ module.exports = Object.freeze({
     'A global non-engineer can read the site before opening technical depth.',
     'The platform never rewrites accepted content semantics or example behavior.',
     'Release facts come from manifests and remain candidate facts until public reconciliation.',
-    'Landing narrative and Runtime Atlas execution remain downstream owner work.',
-    'Generated visual boards are evidence and never production assets.',
+    'The current Landing remains the visual authority and keeps its accepted content, geometry, illustrations, and responsive behavior.',
+    'Landing illustration assets remain Landing-only while supporting routes use code-native semantic surfaces.',
     'No production deployment occurs in the Website Platform child.'
   ])
 })

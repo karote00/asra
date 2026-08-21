@@ -2,19 +2,15 @@
 
 ## Status
 
-Completed, preview-ready child plan of the
-[Asyra Framework Website Program](completed/asyra-framework-website-plan.md). Public
-content and the Cosmic Atlas Revision 2 visual handoff
-are accepted on the integration branch. Maintainer review on August 11, 2026, removed the separate
-Executable Examples product surface: advanced documentation now owns those
-learning flows, while Asyra Design is the only directly operable product entry.
+Current implementation contract for every public Website route outside the
+accepted Landing composition. This contract replaces the previous Cosmic Atlas
+whole-site direction and extends the current
+[Result-First Landing contract](asyra-website-landing-page-plan.md) without
+changing its content, geometry, illustrations, or responsive behavior.
 
-Completion evidence includes 51 prerendered Next.js routes, a 49-endpoint
-production route smoke, the exact 41-page/19-package/11-example content checks,
-26 website tests plus the 11-case Inspector contract, four Chromium
-desktop/mobile/reduced-motion/supporting-route cases, synchronized live visual
-review, strict typecheck/lint, dependency and generated-content checks, the
-full repository build, and all 21 repository `test:ci` workspace tasks.
+Maintainer review on August 11, 2026, removed the separate Executable Examples
+product surface: advanced documentation owns those learning flows, while Asyra
+Design is the only directly operable product entry.
 
 ## Goal
 
@@ -35,7 +31,7 @@ The proposed workspace owner is `apps/asyra-framework-site`. This plan owns:
 - releases, support, migration, roadmap, security, and package inventory
   presentation;
 - shared accessibility, metadata, SEO, error, and responsive foundations; and
-- common visual primitives derived from the accepted visual specification.
+- common visual primitives derived from the accepted Result-First Landing.
 
 It does not own documentation semantics, example code, Landing narrative,
 Runtime Atlas execution, README files, package code, package versions, or
@@ -52,7 +48,6 @@ production deployment.
   contract.
 - Tailwind CSS `4.3.3` with its official `@tailwindcss/postcss` `4.3.3`
   companion.
-- Lucide React `1.31.0`.
 - Static-first content and metadata; client runtime only where interaction,
   browser APIs, or real runtime composition requires it.
 - Semantic HTML, SVG, and CSS for navigation and explanations. Basic content
@@ -67,7 +62,9 @@ external asset, or toolchain upgrade requires explicit approval.
 
 ## Required Routes
 
-- `/docs/[[...slug]]` for Start, Learn, Build, Reference, and API content;
+- `/docs` and `/docs/[...slug]` for Start, Learn, Build, Reference, and API
+  content; the explicit root and detail entries must prerender every accepted
+  page instead of relying on an optional-catch-all fallback;
 - `/asyra-design` for the approved reference-product case study;
 - `/releases` for manifest-derived inventory, support, migration, deprecation,
   security, and release notes;
@@ -93,10 +90,18 @@ generated and visibly provisional until public reconciliation.
 
 ## Shared Platform Contract
 
-- Design tokens and shared primitives implement the accepted Cosmic Atlas
-  Revision 2 visual handoff across every public route: a deep navy shell,
-  coral identity, semantic luminous topology, rounded frames, and warm light
-  documentation surfaces.
+- Design tokens and shared primitives extend the accepted Result-First Landing
+  across every public route: warm paper, near-black ink, restrained signal red,
+  adaptive engineering grids, dark mechanical stages, and square or lightly
+  chamfered information surfaces.
+- Supporting routes use modern system sans typography, compact uppercase
+  evidence labels, generous whitespace, and code-native topology. They do not
+  restore the retired Cosmic Atlas shell or introduce an unrelated visual
+  identity.
+- The current Landing remains unchanged. Its six selected illustration families
+  and alpha-shadow treatments remain Landing-only; supporting routes use
+  semantic HTML, CSS, and small code-native SVG marks rather than reusing those
+  product illustrations as decoration.
 - Landing and Atlas receive stable layout, navigation, metadata, focus, error,
   responsive, and reduced-motion primitives.
 - Content source mapping and release inventory are build inputs with drift
@@ -111,8 +116,8 @@ generated and visibly provisional until public reconciliation.
 
 ## Implementation Stages
 
-1. Freeze exact toolchain, workspace owner, content adapter, routes, and
-   website-platform Inspector.
+1. Freeze exact toolchain, the accepted Landing visual authority, workspace
+   owner, content adapter, routes, and website-platform Inspector.
 2. Establish the site workspace, build/test foundation, metadata, tokens, and
    accessible navigation shell.
 3. Implement deterministic public-content loading and source/drift metadata.
@@ -136,12 +141,14 @@ generated and visibly provisional until public reconciliation.
   reduced-motion behavior pass;
 - website code does not import package-private or unpublished source;
 - no hand-written release version or unverified public URL exists; and
-- synchronized screenshots match the accepted visual handoff within the
-  defined review cases.
+- synchronized screenshots preserve the accepted Landing and extend its visual
+  language coherently across documentation, supporting routes, and Runtime
+  Atlas within the defined review cases.
 
 ## Stop Conditions
 
-- Public content or visual handoff is incomplete or inconsistent.
+- Public content or the accepted Landing contract is incomplete or
+  inconsistent.
 - Exact approved toolchain versions or workspace ownership are unresolved.
 - A route would need to invent or locally rewrite a canonical product fact.
 - The implementation requires an unapproved dependency or hosted service.
@@ -160,20 +167,13 @@ generated and visibly provisional until public reconciliation.
 - Landing and Atlas can build on stable accepted foundations.
 - Preview-ready platform gates pass without claiming production deployment.
 
-## Completion Evidence
+## Required Completion Evidence
 
-- Cosmic Atlas Revision 2 is implemented with project-owned HTML, split CSS
-  layers, SVG, and the existing Atlas Canvas projection; no generated raster
-  or new dependency ships in the website. The former first-version stylesheet
-  is not retained or overridden.
-- The Framework site passes 69 contract and unit tests, strict typecheck, site
-  lint, the 50-page production build, and smoke checks for 48 public routes.
-- The 19 synchronized browser cases pass with one worker. Inspected evidence
-  covers desktop and mobile documentation, advanced guides, search,
-  reduced-motion navigation, Asyra Design, Releases, Roadmap, Landing, and all
-  required Runtime Atlas states.
-- Repository integration passes `yarn lint:ci` with zero errors,
-  `yarn react:build` with 20 successful workspace tasks, and `yarn test:ci`
-  with 72 script tests plus 21 successful workspace tasks.
-- Production promotion remains outside this redesign review. The current
-  branch stays on Draft Preview until user acceptance.
+- Contract and unit tests cover the exact content inventory, navigation,
+  supporting routes, Runtime Atlas states, and current Landing preservation.
+- Strict typecheck, site lint, production build, and route smoke pass.
+- Synchronized browser evidence covers desktop, compact, 390px, and 320px
+  documentation, search, Asyra Design, Releases, Roadmap, Landing, Runtime
+  Atlas, reduced motion, not-found, and content-failure states.
+- Production promotion remains separately authorized and does not occur as a
+  consequence of this implementation task.

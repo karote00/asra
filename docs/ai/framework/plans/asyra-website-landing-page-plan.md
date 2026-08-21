@@ -96,12 +96,12 @@ the project test commands.
 5. growth without rebuilding the rest;
 6. one shared human and AI action path;
 7. one source across features and views;
-8. clickable placeholder actions;
+8. connected in-page and Website Platform actions;
 9. responsive true-alpha Photoroom raster assets;
 10. adaptive code-drawn grids and alpha-aware shadows at every review size;
 11. a 2026 open-source footer with no company identity; and
 12. complete no-client and reduced-motion reading; and
-13. public machine-readable discovery without restoring removed content pages.
+13. public machine-readable discovery independent from supporting content pages.
 
 ## Content Contract
 
@@ -117,9 +117,9 @@ The page must include these exact anchors:
 - `Bring your domain. Keep its logic.`
 
 Calls to action use only `Start building` and `See examples`. Navigation and
-footer links may use placeholder destinations, but every link must have a
-clickable non-empty `href` attribute. Public copy contains no Unicode em dash
-or en dash.
+footer links resolve to approved Website Platform or project source
+destinations, and every link has a clickable non-empty `href` attribute. Public
+copy contains no Unicode em dash or en dash.
 
 The footer identifies the project only as `2026`, `OPEN SOURCE`, and
 `MIT LICENSE`. It must not claim an Asyra company, corporation, or incorporated
@@ -127,8 +127,9 @@ owner.
 
 The Website publishes the generated public documentation inventory at
 `/llms.txt`. This machine-readable discovery surface mirrors
-`docs/public/llms.txt`; it does not restore `/docs` or another human-facing
-content route.
+`docs/public/llms.txt`. Supporting human-facing routes belong exclusively to
+the Website Platform contract; they may be restored without changing or
+contributing to this Landing route.
 
 ## Ownership Boundary
 
@@ -212,14 +213,14 @@ copy, or selected illustration.
 
 ## Quality Gates
 
-- one static `/` content route and only required Next.js shell files under
-  `app`;
-- `/llms.txt` exactly matches the generated public documentation inventory while
-  removed human-facing content routes remain absent;
+- one static `/` Landing route whose content, imagery, and responsive behavior
+  stay independent from Website Platform supporting routes;
+- `/llms.txt` exactly matches the generated public documentation inventory;
 - no import or copy from the removed website implementation;
 - all information and actions remain readable without JavaScript;
 - the retired Visible Change and Impact Preview sections are absent;
-- every anchor has a clickable `href` and placeholder destinations are allowed;
+- every anchor has a clickable `href` that resolves to an in-page, Website
+  Platform, or project source destination;
 - no horizontal overflow at 390px and 320px;
 - phone, tablet, and desktop receive the supplied Photoroom WebP derivatives
   through `srcset` and `sizes`, with source-bounded density and no artificial

@@ -20,7 +20,7 @@ test('platform authority and accepted handoffs resolve', () => {
     data.authority.contentIndexPath,
     data.authority.sourceMapPath,
     data.authority.packageReferencePath,
-    data.authority.visualHandoffPath
+    data.authority.landingContractPath
   ].forEach((filePath) => {
     assert.ok(fs.existsSync(path.join(repoRoot, filePath)), filePath)
   })
@@ -33,7 +33,6 @@ test('toolchain is exact and preserves the repository runtime', () => {
     reactDom: '19.1.0',
     tailwindcss: '4.3.3',
     tailwindPostcss: '4.3.3',
-    lucideReact: '1.31.0',
     typescript: '5.8.3',
     node: '24.x',
     yarn: '4.3.1'
@@ -62,10 +61,24 @@ test('site foundation owns web structure without downstream product meaning', ()
   const source = JSON.stringify(step('establish-site-foundation'))
   assert.match(source, /server-first, keyboard ordered/i)
   assert.match(source, /localization resilient/i)
-  assert.match(source, /Landing and Atlas receive placeholders/i)
-  assert.match(source, /generated raster production assets/i)
+  assert.match(source, /warm paper/i)
+  assert.match(source, /engineering grid/i)
+  assert.match(source, /Landing remains unchanged/i)
   assert.match(source, /external font, UI kit, analytics, or CMS/i)
   assert.match(source, /eslint\.config\.js/i)
+})
+
+test('the whole site extends the current Landing visual authority', () => {
+  const source = JSON.stringify(data)
+
+  assert.equal(
+    data.authority.landingContractPath,
+    'docs/ai/framework/plans/asyra-website-landing-page-plan.md'
+  )
+  assert.match(source, /warm paper/i)
+  assert.match(source, /industrial|engineering grid/i)
+  assert.match(source, /current Landing/i)
+  assert.doesNotMatch(source, /Cosmic Atlas|deep cosmic navy/i)
 })
 
 test('content adapter fails closed on drift and semantic rewrite', () => {
@@ -168,7 +181,7 @@ test('global audience, semantic authority, and deployment boundaries persist', (
   const source = JSON.stringify(data.invariants)
   assert.match(source, /global non-engineer/i)
   assert.match(source, /never rewrites accepted content semantics/i)
-  assert.match(source, /Landing narrative and Runtime Atlas execution remain downstream/i)
-  assert.match(source, /never production assets/i)
+  assert.match(source, /current Landing remains the visual authority/i)
+  assert.match(source, /Landing illustration assets remain Landing-only/i)
   assert.match(source, /No production deployment occurs/i)
 })

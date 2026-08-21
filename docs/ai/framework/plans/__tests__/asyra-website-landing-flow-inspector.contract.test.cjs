@@ -40,7 +40,7 @@ test('result-first Landing owns thirteen exact and unique product cases', () => 
     'grow-without-rebuild',
     'shared-human-ai-action-path',
     'one-source-across-views',
-    'clickable-placeholder-actions',
+    'connected-site-actions',
     'responsive-transparent-raster-assets',
     'perceptually-sharp-raster-rendering',
     'open-source-2026-footer',
@@ -56,7 +56,7 @@ test('contract replaces every previous website surface with the approved V04 pag
   assert.match(source, /V09 closing concept.*explicit closing exception/i)
   assert.match(source, /existing committed and uncommitted website UI/i)
   assert.match(source, /environment setup/i)
-  assert.match(source, /placeholder/i)
+  assert.match(source, /supporting route destination/i)
   assert.match(source, /2026.*open source/i)
   assert.match(source, /adaptive CSS engineering grid/i)
   assert.match(source, /alpha-derived drop shadow/i)
@@ -66,6 +66,8 @@ test('contract replaces every previous website surface with the approved V04 pag
   assert.match(source, /committed public derivatives/i)
   assert.match(source, /eighteen selected public derivatives/i)
   assert.match(source, /published at \/llms\.txt/i)
+  assert.match(source, /supporting human-facing routes.*Website Platform/i)
+  assert.doesNotMatch(source, /without restoring removed human-facing content routes/i)
 })
 
 test('page owner selects the supplied true-alpha masters with one adaptive grid-and-shadow stage', () => {
