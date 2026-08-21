@@ -83,6 +83,37 @@ test('root README exposes package-first composition and the working product star
   )
 })
 
+test('Asyra Design README presents the official product before repository internals', () => {
+  const readme = fs.readFileSync(
+    path.join(repositoryRoot, 'apps/asyra-design/README.md'),
+    'utf8'
+  )
+
+  assert.match(
+    readme,
+    /Asyra Design is the official canvas-based design tool app built on Asyra\s+Framework/u
+  )
+  assert.match(readme, /maintained product and reference implementation/u)
+  assert.match(readme, /working 2D editor/u)
+  assert.match(readme, /Vector paths/u)
+  assert.match(readme, /Undo\/Redo/u)
+  assert.match(readme, /document sessions/u)
+  assert.match(readme, /user-initiated AI actions/u)
+  assert.match(
+    readme,
+    /https:\/\/asyra-karote00s-projects\.vercel\.app\/\?fileId=demo/u
+  )
+  assert.match(
+    readme,
+    /npx create-asyra-design-app my-product --package-manager=npm[\s\S]*npm run start/u
+  )
+  assert.ok(
+    readme.indexOf('## Try and create Asyra Design') <
+      readme.indexOf('## Start in this repository')
+  )
+  assert.doesNotMatch(readme, /Framework demo|throwaway example/u)
+})
+
 test('every package input resolves its complete public guide without example commands', async () => {
   const inputs = await readApprovedReadmeInputs({ repositoryRoot })
   inputs.packages.forEach((packageRecord) => {

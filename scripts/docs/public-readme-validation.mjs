@@ -38,6 +38,7 @@ const REQUIRED_HEADINGS = Object.freeze({
     '## Support and policy'
   ]),
   'asyra-design': Object.freeze([
+    '## Try and create Asyra Design',
     '## Start in this repository',
     '## Editing paths',
     '## Complete local services',

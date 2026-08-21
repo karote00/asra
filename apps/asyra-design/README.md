@@ -1,10 +1,38 @@
 # Asyra Design
 
-Asyra Design is an open-source design-tool product built with Asyra Framework.
-It is one complete, maintained way to compose Framework state, transactions,
-input, rendering, optional AI, collaboration, and backend services. Its
-design-tool behavior belongs to this App; it is not a default product model or
-UI stack imposed by the Framework.
+Asyra Design is the official canvas-based design tool app built on Asyra
+Framework. It is a maintained product and reference implementation, not a
+demo-only shell or a set of product behaviors silently installed by the
+Framework.
+
+It gives developers a working 2D editor for shapes and Vector paths, selection,
+property editing, layers and Group hierarchy, Undo/Redo, document sessions,
+collaboration and persistence services, and user-initiated AI actions. These
+capabilities remain ordinary App-owned behavior, so a product can extend,
+replace, or remove them without turning design-tool policy into Framework
+internals.
+
+## Try and create Asyra Design
+
+[Open the Asyra Design live app](https://asyra-karote00s-projects.vercel.app/?fileId=demo).
+
+To create an independently editable Asyra Design product:
+
+```bash
+npx create-asyra-design-app my-product --package-manager=npm
+cd my-product
+npm run start
+```
+
+The generated project is ordinary source code. Start with the
+[complete design-app guide](../../docs/public/start/create-design-app.md) to
+understand its files, extension path, optional local services, and validation
+commands.
+
+Use the rest of this README when working on the maintained App source inside
+the Asyra monorepo.
+
+## Start in this repository
 
 Requirements:
 
@@ -15,8 +43,6 @@ For product architecture, owner paths, development workflows, and AI-agent
 instructions that also ship in the generated template, start at
 [`docs/README.md`](docs/README.md). Framework contracts remain upstream and are
 linked from [`docs/framework.md`](docs/framework.md).
-
-## Start in this repository
 
 Install and build the monorepo once from the repository root:
 
