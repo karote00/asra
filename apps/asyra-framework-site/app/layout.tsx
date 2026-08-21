@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import { isIndexingAuthorized, resolveSiteOrigin } from '@/lib/site-origin'
 import './globals.css'
+import './styles/foundation.css'
+import './styles/docs.css'
+import './styles/support.css'
 
 const title = 'Asyra - Framework for canvas-based and domain-driven tools'
 const description =

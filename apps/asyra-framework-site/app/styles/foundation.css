@@ -1,0 +1,298 @@
+:root {
+  --paper: #f1eae3;
+  --paper-bright: #f8f4ed;
+  --ink: #151614;
+  --muted: #62615d;
+  --dark: #101412;
+  --signal-red: #d51f17;
+  --signal-red-hover: #ff453a;
+  --signal-blue: #0877c8;
+  --frame-rule: rgb(21 22 20 / 18%);
+  --frame-content: 1320px;
+  --frame-gutter: clamp(24px, 4.2vw, 60px);
+  --frame-reading: 72ch;
+}
+
+.supporting-shell {
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+  overflow-x: clip;
+}
+
+.skip-link {
+  background: var(--ink);
+  color: var(--paper-bright);
+  left: 16px;
+  padding: 12px 16px;
+  position: fixed;
+  top: 12px;
+  transform: translateY(-160%);
+  transition: transform 160ms ease;
+  z-index: 100;
+}
+
+.skip-link:focus {
+  outline: 2px solid var(--signal-red-hover);
+  outline-offset: 3px;
+  transform: translateY(0);
+}
+
+.site-frame-header {
+  align-items: center;
+  border-bottom: 1px solid var(--frame-rule);
+  display: grid;
+  gap: 32px;
+  grid-template-columns: 1fr auto;
+  margin: 0 auto;
+  max-width: var(--frame-content);
+  min-height: 82px;
+  padding: 14px var(--frame-gutter);
+}
+
+.site-frame-wordmark {
+  font-size: clamp(1.3rem, 2.2vw, 1.9rem);
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  width: max-content;
+}
+
+.site-frame-navigation,
+.site-frame-footer nav {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(18px, 2.4vw, 34px);
+}
+
+.site-frame-navigation a,
+.site-frame-footer nav a {
+  align-items: center;
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 720;
+  letter-spacing: 0.055em;
+  min-height: 44px;
+  position: relative;
+  text-transform: uppercase;
+}
+
+.site-frame-navigation a::after,
+.site-frame-footer nav a::after {
+  background: var(--signal-red);
+  bottom: 8px;
+  content: '';
+  height: 1px;
+  left: 0;
+  position: absolute;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 160ms ease;
+  width: 100%;
+}
+
+.site-frame-navigation a:hover::after,
+.site-frame-navigation a[aria-current='page']::after,
+.site-frame-footer nav a:hover::after {
+  transform: scaleX(1);
+}
+
+.navigation-trigger,
+.navigation-dialog {
+  display: none;
+}
+
+.engineering-grid {
+  background-color: var(--paper-bright);
+  background-image:
+    radial-gradient(circle, rgb(8 119 200 / 18%) 0 1px, transparent 1.25px),
+    repeating-linear-gradient(
+      to right,
+      rgb(21 22 20 / 8%) 0 1px,
+      transparent 1px 96px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      rgb(21 22 20 / 8%) 0 1px,
+      transparent 1px 96px
+    ),
+    repeating-linear-gradient(
+      to right,
+      rgb(21 22 20 / 4%) 0 1px,
+      transparent 1px 24px
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      rgb(21 22 20 / 4%) 0 1px,
+      transparent 1px 24px
+    );
+  background-size: 96px 96px, auto, auto, auto, auto;
+}
+
+.site-frame-footer {
+  border-top: 1px solid var(--frame-rule);
+  display: grid;
+  gap: 48px;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  margin: 0 auto;
+  max-width: var(--frame-content);
+  padding: clamp(50px, 7vw, 84px) var(--frame-gutter);
+}
+
+.site-frame-footer > div p {
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  margin-top: 18px;
+  max-width: 38ch;
+}
+
+.site-frame-footer__identity {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 0.72rem;
+  font-weight: 720;
+  gap: 24px;
+  grid-column: 1 / -1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.site-frame-footer__identity a {
+  text-decoration: underline;
+  text-decoration-color: var(--signal-red);
+  text-underline-offset: 4px;
+}
+
+@media (max-width: 900px) {
+  .site-frame-navigation {
+    gap: 14px;
+  }
+}
+
+@media (max-width: 767px) {
+  .site-frame-header {
+    min-height: 72px;
+  }
+
+  .site-frame-navigation {
+    display: none;
+  }
+
+  .navigation-trigger {
+    align-items: center;
+    background: transparent;
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    display: inline-flex;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 720;
+    justify-self: end;
+    letter-spacing: 0.06em;
+    min-height: 44px;
+    padding: 0 16px;
+    text-transform: uppercase;
+  }
+
+  .navigation-dialog {
+    background: var(--paper-bright);
+    border: 0;
+    color: var(--ink);
+    display: none;
+    inset: 0;
+    margin: 0;
+    max-height: none;
+    max-width: none;
+    padding: 24px;
+    width: 100%;
+  }
+
+  .navigation-dialog[open] {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+  }
+
+  .navigation-dialog::backdrop {
+    background: rgb(16 20 18 / 72%);
+  }
+
+  .navigation-dialog__bar {
+    align-items: center;
+    border-bottom: 1px solid var(--frame-rule);
+    display: flex;
+    justify-content: space-between;
+    padding-bottom: 18px;
+  }
+
+  .navigation-dialog__bar p {
+    font-size: 0.76rem;
+    font-weight: 760;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .navigation-dialog button {
+    background: var(--ink);
+    border: 0;
+    color: var(--paper-bright);
+    font: inherit;
+    min-height: 44px;
+    padding: 0 16px;
+  }
+
+  .navigation-dialog nav {
+    align-content: center;
+    display: grid;
+    gap: 8px;
+    padding: 36px 0;
+  }
+
+  .navigation-dialog nav a {
+    border-bottom: 1px solid var(--frame-rule);
+    font-size: clamp(1.75rem, 9vw, 3rem);
+    font-weight: 430;
+    letter-spacing: -0.03em;
+    line-height: 1.08;
+    padding: 14px 0;
+  }
+
+  .navigation-dialog nav a[aria-current='page'] {
+    color: var(--signal-red);
+  }
+
+  .navigation-dialog__source {
+    font-size: 0.78rem;
+    font-weight: 700;
+    min-height: 44px;
+    padding-top: 14px;
+    text-decoration: underline;
+    text-decoration-color: var(--signal-red);
+    text-underline-offset: 5px;
+  }
+
+  .site-frame-footer {
+    grid-template-columns: 1fr;
+  }
+
+  .site-frame-footer nav {
+    align-items: flex-start;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .site-frame-footer__identity {
+    grid-column: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skip-link,
+  .site-frame-navigation a::after,
+  .site-frame-footer nav a::after {
+    scroll-behavior: auto;
+    transition: none;
+  }
+}
