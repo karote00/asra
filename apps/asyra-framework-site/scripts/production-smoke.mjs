@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict'
 import process from 'node:process'
+import { loadVerifiedPublicContent } from '../lib/content.mjs'
 
 const suppliedUrl = process.env.SITE_URL
 assert.ok(suppliedUrl, 'SITE_URL is required for production verification')
@@ -9,6 +10,7 @@ const baseUrl = new URL(suppliedUrl)
 assert.equal(baseUrl.protocol, 'https:', 'Production SITE_URL must use HTTPS')
 assert.equal(baseUrl.pathname, '/', 'Production SITE_URL must be an origin')
 const origin = baseUrl.origin
+const { pages } = await loadVerifiedPublicContent()
 
 const response = await fetch(new URL('/', origin), { redirect: 'follow' })
 assert.equal(response.status, 200)
@@ -42,7 +44,27 @@ assert.equal(sitemapResponse.status, 200)
 const sitemap = await sitemapResponse.text()
 const escapedOrigin = origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 assert.match(sitemap, new RegExp(`<loc>${escapedOrigin}/?</loc>`))
-assert.equal((sitemap.match(/<url>/g) ?? []).length, 1)
+assert.equal((sitemap.match(/<url>/g) ?? []).length, 46)
+
+for (const [route, copy] of [
+  ['/atlas', 'Don’t take the architecture on faith. Run it.'],
+  ['/docs', 'Asyra Framework'],
+  ['/asyra-design', 'A complete design tool. Built with Asyra.'],
+  ['/releases', 'Know exactly what your product composes.'],
+  ['/roadmap', 'Build from today’s contracts. See tomorrow clearly.'],
+  ...pages.map(({ href, title }) => [href, title])
+]) {
+  const routeResponse = await fetch(new URL(route, origin))
+  assert.equal(routeResponse.status, 200, route)
+  const routeText = (await routeResponse.text())
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+  assert.match(
+    routeText,
+    new RegExp(copy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    route
+  )
+}
 
 const llmsResponse = await fetch(new URL('/llms.txt', origin))
 assert.equal(llmsResponse.status, 200)
@@ -55,6 +77,4 @@ const missingResponse = await fetch(new URL('/launch-missing-route', origin))
 assert.equal(missingResponse.status, 404)
 assert.match(await missingResponse.text(), /Nothing is built here\./)
 
-process.stdout.write(
-  `Production smoke passed: Asyra landing page at ${origin}\n`
-)
+process.stdout.write(`Production smoke passed: 46 public pages at ${origin}\n`)

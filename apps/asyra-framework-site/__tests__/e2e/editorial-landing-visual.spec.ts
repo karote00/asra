@@ -59,6 +59,7 @@ const assertLinksAndCtas = async (page: Page) => {
   for (const link of links) {
     expect(link.href).not.toBeNull()
     expect(link.href).not.toBe('')
+    expect(link.href).not.toBe('#')
     expect(link.pointerEvents).not.toBe('none')
   }
 

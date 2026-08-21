@@ -51,8 +51,8 @@ export default function HomePage() {
         <nav className="primary-nav" aria-label="Primary navigation">
           <a href="#examples">Examples</a>
           <a href="#how-it-works">How it works</a>
-          <a href="#">Docs</a>
-          <a href="#">About</a>
+          <a href="/docs">Docs</a>
+          <a href="/atlas">Atlas</a>
         </nav>
       </header>
 
@@ -72,7 +72,10 @@ export default function HomePage() {
               </span>
             </p>
             <div className="button-row">
-              <a className="button button--red" href="#">
+              <a
+                className="button button--red"
+                href="/docs/start/custom-composition"
+              >
                 Start building
               </a>
               <a className="text-action" href="#examples">
@@ -232,7 +235,10 @@ export default function HomePage() {
             widths={[960, 1280, 1536]}
             width={1536}
           />
-          <a className="button button--red closing__button" href="#">
+          <a
+            className="button button--red closing__button"
+            href="/docs/start/custom-composition"
+          >
             Start building
           </a>
         </section>
@@ -243,13 +249,15 @@ export default function HomePage() {
           ASYRA
         </a>
         <nav aria-label="Footer navigation">
-          <a href="#">Docs</a>
-          <a href="#">GitHub</a>
-          <a href="#">About</a>
+          <a href="/docs">Docs</a>
+          <a href="https://github.com/karote00/asyra">GitHub</a>
+          <a href="/roadmap">Roadmap</a>
         </nav>
         <p className="project-identity">
           <span>2026</span>
-          <a href="#">MIT License</a>
+          <a href="https://github.com/karote00/asyra/blob/main/LICENSE">
+            MIT License
+          </a>
         </p>
       </footer>
     </div>

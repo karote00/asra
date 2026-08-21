@@ -23,12 +23,12 @@ const listFiles = async (directory) => {
 
 const localArtworkTest = env.LOCAL_ARTWORK_TESTS === '1' ? test : test.skip
 
-test('the website contains one new landing page and no legacy implementation', async () => {
+test('the website preserves the accepted landing owner beside the supporting platform', async () => {
   const appFiles = (await listFiles(appRoot)).filter((entry) =>
     /\.(?:css|tsx|ts)$/.test(entry)
   )
 
-  assert.deepEqual(appFiles, [
+  for (const ownerFile of [
     'error.tsx',
     'globals.css',
     'layout.tsx',
@@ -36,12 +36,17 @@ test('the website contains one new landing page and no legacy implementation', a
     'page.tsx',
     'robots.ts',
     'sitemap.ts'
-  ])
-  assert.deepEqual(await listFiles(path.join(siteRoot, 'components')), [])
-  assert.deepEqual(await listFiles(path.join(siteRoot, 'workers')), [])
-  assert.deepEqual(await listFiles(path.join(siteRoot, 'lib')), [
-    'site-origin.ts'
-  ])
+  ]) {
+    assert.ok(appFiles.includes(ownerFile), ownerFile)
+  }
+  assert.ok(appFiles.includes('atlas/page.tsx'))
+  assert.ok(appFiles.includes('docs/page.tsx'))
+  assert.ok(appFiles.includes('releases/page.tsx'))
+  assert.ok((await listFiles(path.join(siteRoot, 'components'))).length > 0)
+  assert.ok((await listFiles(path.join(siteRoot, 'workers'))).length > 0)
+  assert.ok(
+    (await listFiles(path.join(siteRoot, 'lib'))).includes('site-origin.ts')
+  )
 })
 
 test('the result-first narrative matches the approved V04 landing page', async () => {
@@ -98,7 +103,7 @@ test('the retired change-impact sections do not contribute to the landing narrat
   )
 })
 
-test('every navigation and CTA target is clickable, including placeholders', async () => {
+test('every navigation and CTA target is connected to the completed site', async () => {
   const page = await readAppFile('page.tsx')
   const anchors = page.match(/<a\b/g) ?? []
   const anchorsWithTargets = page.match(/<a\b[^>]*\bhref=/g) ?? []
@@ -106,6 +111,11 @@ test('every navigation and CTA target is clickable, including placeholders', asy
   assert.equal(anchors.length, 13)
   assert.equal(anchorsWithTargets.length, anchors.length)
   assert.doesNotMatch(page, /href=["']\s*["']/)
+  assert.doesNotMatch(page, /href=["']#["']/)
+  assert.match(page, /href="\/docs"/)
+  assert.match(page, /href="\/atlas"/)
+  assert.match(page, /href="\/docs\/start\/custom-composition"/)
+  assert.match(page, /https:\/\/github\.com\/karote00\/asyra/)
 })
 
 test('the footer identifies its license without an open-source or company label', async () => {

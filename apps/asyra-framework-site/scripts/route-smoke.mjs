@@ -2,10 +2,24 @@
 
 import assert from 'node:assert/strict'
 import process from 'node:process'
+import { loadVerifiedPublicContent } from '../lib/content.mjs'
 
 const baseUrl = process.env.SITE_URL ?? 'http://127.0.0.1:3020'
 
-for (const route of ['/', '/robots.txt', '/sitemap.xml', '/llms.txt']) {
+const { pages } = await loadVerifiedPublicContent()
+const publicRoutes = [
+  '/',
+  '/atlas',
+  '/asyra-design',
+  '/releases',
+  '/roadmap',
+  ...pages.map(({ href }) => href),
+  '/robots.txt',
+  '/sitemap.xml',
+  '/llms.txt'
+]
+
+for (const route of [...new Set(publicRoutes)]) {
   const response = await fetch(new URL(route, baseUrl))
   assert.equal(response.status, 200, route)
   const body = await response.text()
@@ -38,15 +52,18 @@ for (const copy of [
 }
 assert.doesNotMatch(home, /2025|Open source|Asyra Systems?|Inc\.|Company/i)
 
-for (const removedRoute of [
-  '/atlas',
-  '/docs',
-  '/roadmap',
-  '/releases',
-  '/asyra-design'
+for (const [route, copy] of [
+  ['/atlas', 'Don’t take the architecture on faith. Run it.'],
+  ['/docs', 'Asyra Framework'],
+  ['/asyra-design', 'A complete design tool. Built with Asyra.'],
+  ['/releases', 'Know exactly what your product composes.'],
+  ['/roadmap', 'Build from today’s contracts. See tomorrow clearly.']
 ]) {
-  const response = await fetch(new URL(removedRoute, baseUrl))
-  assert.equal(response.status, 404, `${removedRoute} must remain removed`)
+  const response = await fetch(new URL(route, baseUrl))
+  const text = (await response.text())
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+  assert.match(text, new RegExp(copy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 }
 
 const missingResponse = await fetch(
@@ -60,8 +77,8 @@ assert.match(await robotsResponse.text(), /(?:Allow|Disallow): \/$/m)
 
 const sitemapResponse = await fetch(new URL('/sitemap.xml', baseUrl))
 const sitemap = await sitemapResponse.text()
-assert.equal((sitemap.match(/<url>/g) ?? []).length, 1)
+assert.equal((sitemap.match(/<url>/g) ?? []).length, 46)
 
 process.stdout.write(
-  'Website route smoke passed: one landing route and three discovery surfaces\n'
+  'Website route smoke passed: 46 public pages and three discovery surfaces\n'
 )
