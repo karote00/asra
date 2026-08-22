@@ -91,6 +91,12 @@
   line-height: 1.35;
 }
 
+.atlas-studio-frame {
+  min-width: 0;
+  overflow: clip;
+  transition: height 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .atlas-studio {
   min-width: 0;
   padding: clamp(32px, 4vw, 56px);
@@ -548,7 +554,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .atlas-case-picker button,
-  .atlas-route-map li::before {
+  .atlas-route-map li::before,
+  .atlas-studio-frame {
     transition: none;
   }
 }

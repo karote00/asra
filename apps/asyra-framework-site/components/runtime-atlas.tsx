@@ -55,6 +55,8 @@ export function RuntimeAtlas() {
   const [snapshot, setSnapshot] = useState<AtlasRunSnapshot>()
   const [runtimeError, setRuntimeError] = useState('')
   const [completedRuns, setCompletedRuns] = useState<AtlasRunSnapshot[]>([])
+  const studioFrameRef = useRef<HTMLDivElement | null>(null)
+  const studioRef = useRef<HTMLDivElement | null>(null)
   const workerRef = useRef<Worker | undefined>(undefined)
   const autoRunRef = useRef(false)
   const reducedMotionRef = useRef(false)
@@ -149,6 +151,55 @@ export function RuntimeAtlas() {
     return terminateWorker
   }, [selectedId, startWorker, terminateWorker])
 
+  useEffect(() => {
+    const frame = studioFrameRef.current
+    const studio = studioRef.current
+    if (!frame || !studio || typeof ResizeObserver === 'undefined') return
+
+    const motionPreference = window.matchMedia(
+      '(prefers-reduced-motion: reduce)'
+    )
+    let animationFrame: number | undefined
+
+    const updateFrameHeight = () => {
+      if (animationFrame !== undefined) {
+        window.cancelAnimationFrame(animationFrame)
+      }
+
+      const nextHeight = studio.getBoundingClientRect().height
+      if (motionPreference.matches) {
+        frame.style.height = 'auto'
+        return
+      }
+
+      if (!frame.style.height) {
+        frame.style.height = `${nextHeight}px`
+        return
+      }
+
+      const currentHeight = frame.getBoundingClientRect().height
+      if (Math.abs(currentHeight - nextHeight) < 0.5) return
+
+      frame.style.height = `${currentHeight}px`
+      animationFrame = window.requestAnimationFrame(() => {
+        frame.style.height = `${nextHeight}px`
+      })
+    }
+
+    const observer = new ResizeObserver(updateFrameHeight)
+    observer.observe(studio)
+    motionPreference.addEventListener('change', updateFrameHeight)
+    updateFrameHeight()
+
+    return () => {
+      if (animationFrame !== undefined) {
+        window.cancelAnimationFrame(animationFrame)
+      }
+      motionPreference.removeEventListener('change', updateFrameHeight)
+      observer.disconnect()
+    }
+  }, [])
+
   const selectCase = (caseDefinition: AtlasCaseDefinition) => {
     setSelectedId(caseDefinition.id)
   }
@@ -193,137 +244,146 @@ export function RuntimeAtlas() {
         </div>
       </aside>
 
-      <div className="atlas-studio">
-        <header className="atlas-case-intro">
-          <div>
-            <p>{selectedCase?.eyebrow}</p>
-            <h2>{selectedCase?.title}</h2>
-          </div>
-          <div>
-            <p>{selectedCase?.purpose}</p>
-            <p className="atlas-expected">
-              <strong>Expected</strong> {selectedCase?.expectedResult}
+      <div className="atlas-studio-frame" ref={studioFrameRef}>
+        <div className="atlas-studio" ref={studioRef}>
+          <header className="atlas-case-intro">
+            <div>
+              <p>{selectedCase?.eyebrow}</p>
+              <h2>{selectedCase?.title}</h2>
+            </div>
+            <div>
+              <p>{selectedCase?.purpose}</p>
+              <p className="atlas-expected">
+                <strong>Expected</strong> {selectedCase?.expectedResult}
+              </p>
+            </div>
+          </header>
+
+          <div className="atlas-controls" aria-label="Runtime controls">
+            <button disabled={!canAdvance} onClick={runRemaining} type="button">
+              Run remaining
+            </button>
+            <button disabled={!canAdvance} onClick={pause} type="button">
+              Pause
+            </button>
+            <button disabled={!canAdvance} onClick={step} type="button">
+              Step
+            </button>
+            <button onClick={() => startWorker(selectedId, true)} type="button">
+              Replay
+            </button>
+            <button onClick={() => startWorker(selectedId)} type="button">
+              Reset
+            </button>
+            <p aria-live="polite">
+              {runtimeError
+                ? `Runtime unavailable: ${runtimeError}`
+                : `Status: ${snapshot?.status ?? 'starting'} · ${snapshot?.actionIndex ?? 0}/${snapshot?.actionCount ?? selectedCase?.actions.length ?? 0}`}
             </p>
           </div>
-        </header>
 
-        <div className="atlas-controls" aria-label="Runtime controls">
-          <button disabled={!canAdvance} onClick={runRemaining} type="button">
-            Run remaining
-          </button>
-          <button disabled={!canAdvance} onClick={pause} type="button">
-            Pause
-          </button>
-          <button disabled={!canAdvance} onClick={step} type="button">
-            Step
-          </button>
-          <button onClick={() => startWorker(selectedId, true)} type="button">
-            Replay
-          </button>
-          <button onClick={() => startWorker(selectedId)} type="button">
-            Reset
-          </button>
-          <p aria-live="polite">
-            {runtimeError
-              ? `Runtime unavailable: ${runtimeError}`
-              : `Status: ${snapshot?.status ?? 'starting'} · ${snapshot?.actionIndex ?? 0}/${snapshot?.actionCount ?? selectedCase?.actions.length ?? 0}`}
-          </p>
-        </div>
+          <ol className="atlas-route-map" aria-label="Canonical action route">
+            {routeStages.map(([label, description], index) => (
+              <li
+                className={index <= stage ? 'is-reached' : undefined}
+                key={label}
+              >
+                <span>{String(index + 1).padStart(2, '0')}</span>
+                <strong>{label}</strong>
+                <p>{description}</p>
+              </li>
+            ))}
+          </ol>
 
-        <ol className="atlas-route-map" aria-label="Canonical action route">
-          {routeStages.map(([label, description], index) => (
-            <li
-              className={index <= stage ? 'is-reached' : undefined}
-              key={label}
+          <div className="atlas-observation-grid">
+            <section
+              aria-labelledby="evidence-title"
+              className="atlas-evidence"
             >
-              <span>{String(index + 1).padStart(2, '0')}</span>
-              <strong>{label}</strong>
-              <p>{description}</p>
-            </li>
-          ))}
-        </ol>
+              <header>
+                <p>Worker evidence ledger</p>
+                <h3 id="evidence-title">What actually ran</h3>
+              </header>
+              {snapshot?.evidence.length ? (
+                <ol>
+                  {snapshot.evidence.map((entry) => (
+                    <li key={`${entry.runId}-${entry.sequence}`}>
+                      <div>
+                        <span>{String(entry.sequence).padStart(2, '0')}</span>
+                        <strong>{entry.label}</strong>
+                        <em data-status={entry.lifecycleStatus}>
+                          {entry.lifecycleStatus}
+                        </em>
+                      </div>
+                      <p>{entry.description}</p>
+                      <dl>
+                        <div>
+                          <dt>Owner</dt>
+                          <dd>{entry.owner}</dd>
+                        </div>
+                        <div>
+                          <dt>Output</dt>
+                          <dd>
+                            <code>{JSON.stringify(entry.output)}</code>
+                          </dd>
+                        </div>
+                      </dl>
+                      {entry.failure ? (
+                        <p role="alert">{entry.failure}</p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="atlas-evidence__empty">
+                  The worker is ready. Step once or run the remaining actions.
+                </p>
+              )}
+            </section>
+            <RuntimeAtlasProjection snapshot={snapshot} />
+          </div>
 
-        <div className="atlas-observation-grid">
-          <section aria-labelledby="evidence-title" className="atlas-evidence">
-            <header>
-              <p>Worker evidence ledger</p>
-              <h3 id="evidence-title">What actually ran</h3>
-            </header>
-            {snapshot?.evidence.length ? (
-              <ol>
-                {snapshot.evidence.map((entry) => (
-                  <li key={`${entry.runId}-${entry.sequence}`}>
-                    <div>
-                      <span>{String(entry.sequence).padStart(2, '0')}</span>
-                      <strong>{entry.label}</strong>
-                      <em data-status={entry.lifecycleStatus}>
-                        {entry.lifecycleStatus}
-                      </em>
-                    </div>
-                    <p>{entry.description}</p>
-                    <dl>
-                      <div>
-                        <dt>Owner</dt>
-                        <dd>{entry.owner}</dd>
-                      </div>
-                      <div>
-                        <dt>Output</dt>
-                        <dd>
-                          <code>{JSON.stringify(entry.output)}</code>
-                        </dd>
-                      </div>
-                    </dl>
-                    {entry.failure ? <p role="alert">{entry.failure}</p> : null}
+          {completedRuns.length === 2 ? (
+            <section className="atlas-comparison">
+              <header>
+                <p>Two completed real runs</p>
+                <h3>Compare outcomes</h3>
+              </header>
+              <div>
+                {completedRuns.map((run) => (
+                  <article key={run.runId}>
+                    <p>{run.caseId.replaceAll('-', ' ')}</p>
+                    <strong>{run.status}</strong>
+                    <span>{run.sequence} evidence steps</span>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          <footer className="atlas-case-footer">
+            <div>
+              <p>Public packages in this path</p>
+              <ul>
+                {selectedCase?.packages.map((packageName) => (
+                  <li key={packageName}>{packageName}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p>Build the same flow</p>
+              <ul>
+                {selectedCase?.guideIds.map((guideId) => (
+                  <li key={guideId}>
+                    <a href={`/docs/${guideId}`}>
+                      {getAtlasGuideTitle(guideId)}
+                    </a>
                   </li>
                 ))}
-              </ol>
-            ) : (
-              <p className="atlas-evidence__empty">
-                The worker is ready. Step once or run the remaining actions.
-              </p>
-            )}
-          </section>
-          <RuntimeAtlasProjection snapshot={snapshot} />
-        </div>
-
-        {completedRuns.length === 2 ? (
-          <section className="atlas-comparison">
-            <header>
-              <p>Two completed real runs</p>
-              <h3>Compare outcomes</h3>
-            </header>
-            <div>
-              {completedRuns.map((run) => (
-                <article key={run.runId}>
-                  <p>{run.caseId.replaceAll('-', ' ')}</p>
-                  <strong>{run.status}</strong>
-                  <span>{run.sequence} evidence steps</span>
-                </article>
-              ))}
+              </ul>
             </div>
-          </section>
-        ) : null}
-
-        <footer className="atlas-case-footer">
-          <div>
-            <p>Public packages in this path</p>
-            <ul>
-              {selectedCase?.packages.map((packageName) => (
-                <li key={packageName}>{packageName}</li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <p>Build the same flow</p>
-            <ul>
-              {selectedCase?.guideIds.map((guideId) => (
-                <li key={guideId}>
-                  <a href={`/docs/${guideId}`}>{getAtlasGuideTitle(guideId)}</a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </footer>
+          </footer>
+        </div>
       </div>
     </section>
   )

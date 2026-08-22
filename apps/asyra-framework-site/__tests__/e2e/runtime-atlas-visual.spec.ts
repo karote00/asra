@@ -107,6 +107,71 @@ test('Runtime Atlas executes, resets, pauses, rejects, and compares real runs', 
   })
 })
 
+test('Runtime Atlas case changes ease the studio to its new height', async ({
+  page
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/atlas')
+  await waitForReady(page)
+  await page.waitForTimeout(500)
+
+  const shell = page.locator('.atlas-shell')
+  const studioFrame = page.locator('.atlas-studio-frame')
+  const initialHeight = (await shell.boundingBox())?.height ?? 0
+  expect(initialHeight).toBeGreaterThan(0)
+  const transitionContract = await studioFrame.evaluate((frame) => {
+    const style = getComputedStyle(frame)
+    document.body.dataset.atlasHeightTransition = ''
+    const record = (phase: string) => (event: Event) => {
+      if (event instanceof TransitionEvent && event.propertyName === 'height') {
+        document.body.dataset.atlasHeightTransition += `${phase} `
+      }
+    }
+    frame.addEventListener('transitionrun', record('run'), { once: true })
+    frame.addEventListener('transitionend', record('end'), { once: true })
+    return {
+      duration: Number.parseFloat(style.transitionDuration),
+      property: style.transitionProperty
+    }
+  })
+  expect(transitionContract.property).toContain('height')
+  expect(transitionContract.duration).toBeGreaterThanOrEqual(0.3)
+
+  const target = page.getByRole('button', {
+    name: /Failure is evidence too\./
+  })
+  await target.evaluate((button: HTMLButtonElement) => button.click())
+  await expect(target).toHaveAttribute('aria-pressed', 'true')
+  await waitForReady(page)
+  await expect
+    .poll(() =>
+      page.locator('body').getAttribute('data-atlas-height-transition')
+    )
+    .toContain('run')
+  await expect
+    .poll(() =>
+      page.locator('body').getAttribute('data-atlas-height-transition')
+    )
+    .toContain('end')
+
+  const finalHeight = (await shell.boundingBox())?.height ?? 0
+  expect(Math.abs(initialHeight - finalHeight)).toBeGreaterThan(120)
+  await shell.screenshot({
+    animations: 'disabled',
+    path: testInfo.outputPath('runtime-atlas-case-transition.png')
+  })
+
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.reload()
+  await waitForReady(page)
+  const reducedDuration = await page
+    .locator('.atlas-studio-frame')
+    .evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).transitionDuration)
+    )
+  expect(reducedDuration).toBeLessThanOrEqual(0.001)
+})
+
 test('all six Runtime Atlas cases complete through fresh isolated workers', async ({
   page
 }) => {
