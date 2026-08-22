@@ -72,7 +72,8 @@ test('the result-first narrative matches the approved V04 landing page', async (
 
   assert.equal((page.match(/Start building/g) ?? []).length, 2)
   assert.doesNotMatch(page, /site-header[\s\S]*button--compact/)
-  assert.equal((page.match(/See examples/g) ?? []).length, 1)
+  assert.equal((page.match(/Try the demo/g) ?? []).length, 1)
+  assert.equal((page.match(/\bDemo\s*<\/a>/g) ?? []).length, 1)
   for (const line of [
     'Build the tool',
     'your world needs.',
@@ -234,6 +235,24 @@ test('every navigation and CTA target is connected to the completed site', async
   assert.match(page, /href="\/docs"/)
   assert.match(page, /href="\/atlas"/)
   assert.match(page, /href="\/docs\/start\/custom-composition"/)
+  assert.equal(
+    (
+      page.match(
+        /href="https:\/\/asyra-design\.vercel\.app\/\?fileId=demo"/g
+      ) ?? []
+    ).length,
+    2
+  )
+  assert.equal(
+    (
+      page.match(
+        /<a\b(?=[^>]*href="https:\/\/asyra-design\.vercel\.app\/\?fileId=demo")(?=[^>]*target="_blank")(?=[^>]*rel="noopener noreferrer")[^>]*>/g
+      ) ?? []
+    ).length,
+    2
+  )
+  assert.doesNotMatch(page, /href="#examples"|id="examples"/)
+  assert.match(page, /id="domains"/)
   assert.match(page, /https:\/\/github\.com\/karote00\/asyra/)
 })
 

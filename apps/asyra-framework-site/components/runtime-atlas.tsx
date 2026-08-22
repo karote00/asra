@@ -23,6 +23,23 @@ const routeStages = [
   ['Projection', 'App surfaces render returned evidence']
 ] as const
 
+const atlasGuideTitles: Readonly<Record<string, string>> = Object.freeze({
+  'learn/information-models': 'Information models come before output',
+  'build/custom-schema': 'Build a custom component and schema',
+  'build/feature-session': 'Build a transaction-safe Feature session',
+  'build/collaboration': 'Build opt-in collaboration',
+  'build/ai-actions': 'Build registered AI actions',
+  'build/app-retrieval-action': 'Build app-owned AI retrieval and action'
+})
+
+const getAtlasGuideTitle = (guideId: string) => {
+  const title = atlasGuideTitles[guideId]
+  if (!title) {
+    throw new Error(`Runtime Atlas guide title is missing for "${guideId}".`)
+  }
+  return title
+}
+
 const progressStage = (snapshot: AtlasRunSnapshot | undefined) => {
   if (!snapshot || snapshot.actionCount === 0) return 0
   return Math.min(
@@ -301,7 +318,7 @@ export function RuntimeAtlas() {
             <ul>
               {selectedCase?.guideIds.map((guideId) => (
                 <li key={guideId}>
-                  <a href={`/docs/${guideId}`}>{guideId}</a>
+                  <a href={`/docs/${guideId}`}>{getAtlasGuideTitle(guideId)}</a>
                 </li>
               ))}
             </ul>

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { EvidenceStrip } from '@/components/evidence-strip'
+import { FoundationPageHero } from '@/components/foundation-page-hero'
 import { MarkdownContent } from '@/components/markdown-content'
 import { SiteFrame } from '@/components/site-frame'
 import { StatusSurface } from '@/components/status-surface'
@@ -23,55 +24,64 @@ export default async function AsyraDesignPage() {
 
   return (
     <SiteFrame>
-      <header className="support-hero support-hero--dark">
-        <div className="support-hero__copy">
-          <p className="support-label">
-            Official product / Reference implementation
-          </p>
-          <h1>A complete design tool. Built with Asyra.</h1>
-          <p>
-            Asyra Design is the official design tool app built on Asyra
-            Framework. It is a maintained reference implementation, not the
-            Framework owner and not the only product shape Asyra supports.
-          </p>
-          <div className="support-actions">
-            <a
-              className="button button--red"
-              href="https://asyra-karote00s-projects.vercel.app/?fileId=demo"
-            >
-              Open Asyra Design
-            </a>
-            <a
-              className="support-text-action"
-              href="/docs/start/create-design-app"
-            >
-              Create your own
-            </a>
+      <FoundationPageHero
+        aside={
+          <div
+            className="ownership-map"
+            aria-label="Asyra Design ownership map"
+          >
+            <div>
+              <span>01</span>
+              <strong>Framework</strong>
+              <p>Transactions, owners, validation, render contracts</p>
+            </div>
+            <div>
+              <span>02</span>
+              <strong>Preset</strong>
+              <p>Selectable 2D defaults and provider policy</p>
+            </div>
+            <div>
+              <span>03</span>
+              <strong>App</strong>
+              <p>Tools, Features, schemas, UI, AI meaning</p>
+            </div>
+            <div>
+              <span>04</span>
+              <strong>Services</strong>
+              <p>Documents, sockets, persistence, authorization</p>
+            </div>
           </div>
+        }
+        density="feature"
+        layout="split"
+        surface="dark"
+      >
+        <p className="support-label">
+          Official product / Reference implementation
+        </p>
+        <h1>A complete design tool. Built with Asyra.</h1>
+        <p>
+          Asyra Design is the official design tool app built on Asyra Framework.
+          It is a maintained reference implementation, not the Framework owner
+          and not the only product shape Asyra supports.
+        </p>
+        <div className="support-actions">
+          <a
+            className="button button--red"
+            href="https://asyra-design.vercel.app/?fileId=demo"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Open Asyra Design
+          </a>
+          <a
+            className="support-text-action"
+            href="/docs/start/create-design-app"
+          >
+            Create your own
+          </a>
         </div>
-        <div className="ownership-map" aria-label="Asyra Design ownership map">
-          <div>
-            <span>01</span>
-            <strong>Framework</strong>
-            <p>Transactions, owners, validation, render contracts</p>
-          </div>
-          <div>
-            <span>02</span>
-            <strong>Preset</strong>
-            <p>Selectable 2D defaults and provider policy</p>
-          </div>
-          <div>
-            <span>03</span>
-            <strong>App</strong>
-            <p>Tools, Features, schemas, UI, AI meaning</p>
-          </div>
-          <div>
-            <span>04</span>
-            <strong>Services</strong>
-            <p>Documents, sockets, persistence, authorization</p>
-          </div>
-        </div>
-      </header>
+      </FoundationPageHero>
 
       <EvidenceStrip
         items={[

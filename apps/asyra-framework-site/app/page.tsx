@@ -121,7 +121,13 @@ export default function HomePage() {
           ASYRA
         </a>
         <nav className="primary-nav" aria-label="Primary navigation">
-          <a href="#examples">Examples</a>
+          <a
+            href="https://asyra-design.vercel.app/?fileId=demo"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            Demo
+          </a>
           <a href="#how-it-works">How it works</a>
           <a href="/docs">Docs</a>
           <a href="/atlas">Atlas</a>
@@ -150,8 +156,13 @@ export default function HomePage() {
               >
                 Start building
               </a>
-              <a className="text-action" href="#examples">
-                See examples
+              <a
+                className="text-action"
+                href="https://asyra-design.vercel.app/?fileId=demo"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Try the demo
               </a>
             </div>
           </div>
@@ -171,7 +182,7 @@ export default function HomePage() {
 
         <section
           className="domains"
-          id="examples"
+          id="domains"
           aria-labelledby="domains-title"
         >
           <div className="domains__heading">
@@ -428,12 +439,22 @@ export default function HomePage() {
         </a>
         <nav aria-label="Footer navigation">
           <a href="/docs">Docs</a>
-          <a href="https://github.com/karote00/asyra">GitHub</a>
+          <a
+            href="https://github.com/karote00/asyra"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            GitHub
+          </a>
           <a href="/roadmap">Roadmap</a>
         </nav>
         <p className="project-identity">
           <span>2026</span>
-          <a href="https://github.com/karote00/asyra/blob/main/LICENSE">
+          <a
+            href="https://github.com/karote00/asyra/blob/main/LICENSE"
+            rel="noopener noreferrer"
+            target="_blank"
+          >
             MIT License
           </a>
         </p>

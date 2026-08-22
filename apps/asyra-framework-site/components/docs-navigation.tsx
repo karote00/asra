@@ -1,6 +1,9 @@
 'use client'
 
-import { useRef } from 'react'
+import Link from 'next/link'
+import { useLayoutEffect, useRef } from 'react'
+
+const navigationScrollKey = 'asyra-docs-navigation-scroll-top'
 
 interface NavigationPage {
   href: string
@@ -28,13 +31,14 @@ function NavigationLinks({
       <ul>
         {section.pages.map((page) => (
           <li key={page.id}>
-            <a
+            <Link
               aria-current={page.id === currentId ? 'page' : undefined}
               href={page.href}
               onClick={onNavigate}
+              scroll={false}
             >
               {page.title}
-            </a>
+            </Link>
           </li>
         ))}
       </ul>
@@ -50,12 +54,40 @@ export function DocsNavigation({
   sections: readonly NavigationSection[]
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
+  const navigationRef = useRef<HTMLElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+
+  useLayoutEffect(() => {
+    const savedPosition = window.sessionStorage.getItem(navigationScrollKey)
+    if (!savedPosition || !navigationRef.current) return
+
+    const scrollTop = Number.parseFloat(savedPosition)
+    if (Number.isFinite(scrollTop)) {
+      navigationRef.current.scrollTop = scrollTop
+    }
+    window.sessionStorage.removeItem(navigationScrollKey)
+  }, [currentId])
+
+  const preserveNavigationPosition = () => {
+    if (!navigationRef.current) return
+    window.sessionStorage.setItem(
+      navigationScrollKey,
+      navigationRef.current.scrollTop.toString()
+    )
+  }
 
   return (
     <>
-      <aside className="docs-navigation" aria-label="Documentation sections">
-        <NavigationLinks currentId={currentId} sections={sections} />
+      <aside
+        aria-label="Documentation sections"
+        className="docs-navigation"
+        ref={navigationRef}
+      >
+        <NavigationLinks
+          currentId={currentId}
+          onNavigate={preserveNavigationPosition}
+          sections={sections}
+        />
       </aside>
       <button
         className="docs-navigation-trigger"

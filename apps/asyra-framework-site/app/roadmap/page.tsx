@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { FoundationPageHero } from '@/components/foundation-page-hero'
 import { MarkdownContent } from '@/components/markdown-content'
 import { SiteFrame } from '@/components/site-frame'
 import { StatusSurface } from '@/components/status-surface'
@@ -24,17 +25,15 @@ export default async function RoadmapPage() {
 
   return (
     <SiteFrame>
-      <header className="support-hero support-hero--roadmap engineering-grid">
-        <div className="support-hero__copy">
-          <p className="support-label">Current support / Future research</p>
-          <h1>Build from today’s contracts. See tomorrow clearly.</h1>
-          <p>
-            Non-visible and machine-facing information products are an important
-            direction. A public Headless Core or independent Core Kernel is not
-            a current API, package, or delivery promise.
-          </p>
-        </div>
-      </header>
+      <FoundationPageHero>
+        <p className="support-label">Current support / Future research</p>
+        <h1>Build from today’s contracts. See tomorrow clearly.</h1>
+        <p>
+          Non-visible and machine-facing information products are an important
+          direction. A public Headless Core or independent Core Kernel is not a
+          current API, package, or delivery promise.
+        </p>
+      </FoundationPageHero>
 
       <div className="status-grid support-section">
         <StatusSurface

@@ -4,6 +4,7 @@ import type { MarkdownBlock } from '@/lib/markdown'
 import { parseMarkdownBlocks } from '@/lib/markdown.mjs'
 
 const githubSourceRoot = 'https://github.com/karote00/asyra/blob/main/'
+const isExternalWebsite = (href: string) => /^https?:\/\//.test(href)
 
 const resolveMarkdownHref = (
   href: string,
@@ -43,8 +44,15 @@ function InlineMarkdown({
     const key = `${index}-${part.slice(0, 12)}`
     const link = part.match(/^\[([^\]]+)]\(([^)]+)\)$/)
     if (link) {
+      const href = resolveMarkdownHref(link[2], currentPath, pages)
+      const externalWebsite = isExternalWebsite(href)
       return (
-        <a href={resolveMarkdownHref(link[2], currentPath, pages)} key={key}>
+        <a
+          href={href}
+          key={key}
+          rel={externalWebsite ? 'noopener noreferrer' : undefined}
+          target={externalWebsite ? '_blank' : undefined}
+        >
           {link[1]}
         </a>
       )

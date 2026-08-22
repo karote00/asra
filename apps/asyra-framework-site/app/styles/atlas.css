@@ -1,30 +1,4 @@
-.atlas-hero {
-  align-items: end;
-  display: grid;
-  gap: clamp(42px, 8vw, 120px);
-  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
-  margin: 0 auto;
-  max-width: var(--frame-content);
-  min-height: clamp(520px, 64vw, 790px);
-  padding: clamp(86px, 12vw, 164px) var(--frame-gutter);
-}
-
-.atlas-hero h1 {
-  font-size: clamp(3.4rem, 7.6vw, 7.1rem);
-  font-weight: 410;
-  letter-spacing: -0.057em;
-  line-height: 0.94;
-  margin-top: 22px;
-  text-wrap: balance;
-}
-
-.atlas-hero > div:last-child {
-  color: var(--muted);
-  font-size: clamp(1rem, 1.45vw, 1.18rem);
-  line-height: 1.72;
-}
-
-.atlas-hero > div:last-child p + p {
+.atlas-hero .page-hero__aside p + p {
   border-top: 1px solid var(--frame-rule);
   margin-top: 30px;
   padding-top: 24px;
@@ -41,15 +15,15 @@
   background: var(--dark);
   color: var(--paper-bright);
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: 292px minmax(0, 1fr);
   margin: 0 auto;
   max-width: var(--frame-content);
-  min-height: 900px;
+  min-height: 780px;
 }
 
 .atlas-case-picker {
   border-right: 1px solid rgb(248 244 237 / 17%);
-  padding: 38px 26px;
+  padding: 34px 24px;
 }
 
 .atlas-case-picker > div:first-child > p,
@@ -75,7 +49,7 @@
 .atlas-case-picker__list {
   display: grid;
   gap: 8px;
-  margin-top: 34px;
+  margin-top: 28px;
 }
 
 .atlas-case-picker button {
@@ -86,8 +60,8 @@
   display: grid;
   font: inherit;
   gap: 13px;
-  min-height: 112px;
-  padding: 17px;
+  min-height: 98px;
+  padding: 15px;
   text-align: left;
   transition:
     background 160ms ease,
@@ -119,7 +93,7 @@
 
 .atlas-studio {
   min-width: 0;
-  padding: clamp(34px, 5vw, 70px);
+  padding: clamp(32px, 4vw, 56px);
 }
 
 .atlas-case-intro {
@@ -129,7 +103,7 @@
 }
 
 .atlas-case-intro h2 {
-  font-size: clamp(2.4rem, 5vw, 5rem);
+  font-size: clamp(2.35rem, 4.4vw, 4.25rem);
   font-weight: 420;
   letter-spacing: -0.05em;
   line-height: 0.98;
@@ -165,7 +139,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 48px;
+  margin-top: 38px;
   padding: 16px 0;
 }
 
@@ -203,13 +177,15 @@
 .atlas-route-map {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  margin-top: 44px;
+  list-style: none;
+  margin-top: 34px;
+  padding: 0;
 }
 
 .atlas-route-map li {
   border: 1px solid rgb(248 244 237 / 16%);
-  min-height: 164px;
-  padding: 18px;
+  min-height: 142px;
+  padding: 16px;
   position: relative;
 }
 
@@ -235,7 +211,7 @@
 .atlas-route-map strong {
   display: block;
   font-size: 0.82rem;
-  margin-top: 26px;
+  margin-top: 22px;
 }
 
 .atlas-route-map p {
@@ -414,7 +390,9 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  list-style: none;
   margin-top: 14px;
+  padding: 0;
 }
 
 .atlas-case-footer li {
@@ -430,11 +408,11 @@
   grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
   margin: 0 auto;
   max-width: var(--frame-content);
-  padding: clamp(88px, 11vw, 154px) var(--frame-gutter);
+  padding: clamp(72px, 8vw, 112px) var(--frame-gutter);
 }
 
 .atlas-boundary h2 {
-  font-size: clamp(2.6rem, 5.6vw, 5.5rem);
+  font-size: clamp(2.5rem, 4.8vw, 4.7rem);
   font-weight: 420;
   letter-spacing: -0.052em;
   line-height: 0.98;
@@ -451,7 +429,7 @@
 
 @media (max-width: 1100px) {
   .atlas-shell {
-    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-columns: 244px minmax(0, 1fr);
   }
 
   .atlas-route-map {
@@ -464,7 +442,6 @@
 }
 
 @media (max-width: 900px) {
-  .atlas-hero,
   .atlas-case-intro,
   .atlas-boundary {
     grid-template-columns: 1fr;
@@ -484,7 +461,7 @@
   }
 
   .atlas-case-picker button {
-    min-height: 98px;
+    min-height: 90px;
   }
 
   .atlas-observation-grid {
@@ -493,18 +470,13 @@
 }
 
 @media (max-width: 600px) {
-  .atlas-hero {
-    min-height: 0;
-    padding-bottom: 80px;
-    padding-top: 80px;
-  }
-
-  .atlas-hero h1 {
-    font-size: clamp(3rem, 15vw, 4.8rem);
+  .atlas-hero .page-hero__aside p + p {
+    margin-top: 14px;
+    padding-top: 14px;
   }
 
   .atlas-case-picker {
-    padding: 28px 20px;
+    padding: 26px 20px;
   }
 
   .atlas-case-picker__list {
@@ -512,12 +484,12 @@
   }
 
   .atlas-case-picker button {
-    min-height: 104px;
+    min-height: 92px;
     padding: 14px;
   }
 
   .atlas-studio {
-    padding: 34px 20px 50px;
+    padding: 30px 20px 44px;
   }
 
   .atlas-case-intro {
@@ -525,7 +497,7 @@
   }
 
   .atlas-case-intro h2 {
-    font-size: clamp(2.6rem, 12vw, 4.1rem);
+    font-size: clamp(2.45rem, 10vw, 3.35rem);
   }
 
   .atlas-controls button {
@@ -543,7 +515,7 @@
   }
 
   .atlas-route-map li {
-    min-height: 112px;
+    min-height: 104px;
   }
 
   .atlas-route-map li + li {
@@ -556,6 +528,12 @@
 
   .atlas-evidence li > div:first-child {
     grid-template-columns: auto 1fr;
+  }
+
+  .atlas-evidence,
+  .atlas-projection,
+  .atlas-comparison {
+    padding: 20px;
   }
 
   .atlas-evidence li em {

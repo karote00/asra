@@ -70,6 +70,8 @@ export function SiteHeader() {
         <a
           className="navigation-dialog__source"
           href="https://github.com/karote00/asyra"
+          rel="noopener noreferrer"
+          target="_blank"
         >
           View source on GitHub
         </a>

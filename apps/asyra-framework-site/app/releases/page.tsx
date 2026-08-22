@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { EvidenceStrip } from '@/components/evidence-strip'
+import { FoundationPageHero } from '@/components/foundation-page-hero'
 import { MarkdownContent } from '@/components/markdown-content'
 import { SiteFrame } from '@/components/site-frame'
 import type { VerifiedPublicContent } from '@/lib/content'
@@ -24,17 +25,15 @@ export default async function ReleasesPage() {
 
   return (
     <SiteFrame>
-      <header className="support-hero engineering-grid">
-        <div className="support-hero__copy">
-          <p className="support-label">Manifest-derived inventory</p>
-          <h1>Know exactly what your product composes.</h1>
-          <p>
-            The current Framework inventory contains 19 public packages. Names,
-            versions, public entries, and dependencies below come directly from
-            verified manifests, not duplicated website constants.
-          </p>
-        </div>
-      </header>
+      <FoundationPageHero>
+        <p className="support-label">Manifest-derived inventory</p>
+        <h1>Know exactly what your product composes.</h1>
+        <p>
+          The current Framework inventory contains 19 public packages. Names,
+          versions, public entries, and dependencies below come directly from
+          verified manifests, not duplicated website constants.
+        </p>
+      </FoundationPageHero>
 
       <EvidenceStrip
         items={[

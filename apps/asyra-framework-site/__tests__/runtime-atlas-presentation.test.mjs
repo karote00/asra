@@ -33,6 +33,27 @@ test('presentation creates and terminates workers instead of synthesizing result
   assert.doesNotMatch(component, /canonicalValue:\s*5|actorB:\s*7/)
 })
 
+test('Atlas presents advanced guides with public titles instead of internal ids', async () => {
+  const component = await readSiteFile('components/runtime-atlas.tsx')
+  const guides = [
+    ['learn/information-models', 'Information models come before output'],
+    ['build/custom-schema', 'Build a custom component and schema'],
+    ['build/feature-session', 'Build a transaction-safe Feature session'],
+    ['build/collaboration', 'Build opt-in collaboration'],
+    ['build/ai-actions', 'Build registered AI actions'],
+    ['build/app-retrieval-action', 'Build app-owned AI retrieval and action']
+  ]
+
+  for (const [guideId, title] of guides) {
+    assert.match(component, new RegExp(`['"]${guideId}['"]`))
+    assert.match(component, new RegExp(`['"]${title}['"]`))
+  }
+
+  assert.match(component, /href=\{`\/docs\/\$\{guideId\}`\}/)
+  assert.doesNotMatch(component, />\s*\{guideId\}\s*</)
+  assert.doesNotMatch(component, /\?\?\s*guideId/)
+})
+
 test('Atlas styling preserves material hierarchy and responsive controls', async () => {
   const css = await readSiteFile('app/styles/atlas.css')
 

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { CopyMarkdownButton } from '@/components/copy-markdown-button'
 import { DocsNavigation } from '@/components/docs-navigation'
 import { DocsTableOfContents } from '@/components/docs-table-of-contents'
+import { FoundationPageHero } from '@/components/foundation-page-hero'
 import { MarkdownContent } from '@/components/markdown-content'
 import { SearchDialog, type SearchRecord } from '@/components/search-dialog'
 import { SiteFrame } from '@/components/site-frame'
@@ -70,17 +71,16 @@ export async function DocumentationPage({ pageId }: { pageId: string }) {
     )
     return [pageRecord, ...headingRecords]
   })
-
   return (
     <SiteFrame>
-      <header className="docs-hero engineering-grid">
-        <div>
-          <p className="support-label">Documentation / {page.section}</p>
-          <h1>{page.title}</h1>
-          <p>{page.description}</p>
-        </div>
-        <SearchDialog records={searchRecords} />
-      </header>
+      <FoundationPageHero
+        aside={<SearchDialog records={searchRecords} />}
+        className="docs-hero"
+      >
+        <p className="support-label">Documentation / {page.section}</p>
+        <h1>{page.title}</h1>
+        <p>{page.description}</p>
+      </FoundationPageHero>
       <div className="docs-layout">
         <DocsNavigation currentId={page.id} sections={sections} />
         <article className="docs-article">
@@ -102,6 +102,8 @@ export async function DocumentationPage({ pageId }: { pageId: string }) {
                 <li key={source}>
                   <a
                     href={`https://github.com/karote00/asyra/blob/main/${source}`}
+                    rel="noopener noreferrer"
+                    target="_blank"
                   >
                     {source}
                   </a>

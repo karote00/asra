@@ -14,11 +14,21 @@ export function SiteFooter() {
         <Link href="/asyra-design">Asyra Design</Link>
         <Link href="/releases">Releases</Link>
         <Link href="/roadmap">Roadmap</Link>
-        <a href="https://github.com/karote00/asyra">GitHub</a>
+        <a
+          href="https://github.com/karote00/asyra"
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          GitHub
+        </a>
       </nav>
       <p className="site-frame-footer__identity">
         <span>2026</span>
-        <a href="https://github.com/karote00/asyra/blob/main/LICENSE">
+        <a
+          href="https://github.com/karote00/asyra/blob/main/LICENSE"
+          rel="noopener noreferrer"
+          target="_blank"
+        >
           MIT License
         </a>
       </p>

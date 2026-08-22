@@ -23,6 +23,19 @@ const assertNoHorizontalOverflow = async (page: Page) => {
   expect(widths.scroll).toBeLessThanOrEqual(widths.client + 1)
 }
 
+const assertAtlasHeroKeepsTheRuntimeInView = async (
+  page: Page,
+  maximum: number
+) => {
+  const box = await page.locator('.atlas-hero').boundingBox()
+  expect
+    .soft(box, 'Runtime Atlas hero must have a measurable box')
+    .not.toBeNull()
+  expect
+    .soft(box?.height ?? Number.POSITIVE_INFINITY)
+    .toBeLessThanOrEqual(maximum)
+}
+
 test('Runtime Atlas executes, resets, pauses, rejects, and compares real runs', async ({
   page
 }, testInfo) => {
@@ -34,6 +47,18 @@ test('Runtime Atlas executes, resets, pauses, rejects, and compares real runs', 
       name: 'Don’t take the architecture on faith. Run it.'
     })
   ).toBeVisible()
+  const skipLink = page.locator('.skip-link')
+  await expect(skipLink).toHaveCSS('clip-path', 'inset(50%)')
+  await page.keyboard.press('Tab')
+  await expect(skipLink).toBeFocused()
+  await expect(skipLink).toHaveCSS('clip-path', 'none')
+  await page.keyboard.press('Tab')
+  await expect(skipLink).toHaveCSS('clip-path', 'inset(50%)')
+  await assertAtlasHeroKeepsTheRuntimeInView(page, 460)
+  await expect(page.locator('.atlas-route-map')).toHaveCSS(
+    'list-style-type',
+    'none'
+  )
   await waitForReady(page)
 
   await page.getByRole('button', { name: 'Run remaining' }).click()
@@ -73,6 +98,7 @@ test('Runtime Atlas executes, resets, pauses, rejects, and compares real runs', 
   await expect(page.locator('.atlas-projection')).toContainText('5')
   await expect(page.locator('.atlas-evidence li')).toHaveCount(4)
   await assertNoHorizontalOverflow(page)
+  await expect(skipLink).toHaveCSS('clip-path', 'inset(50%)')
 
   await page.screenshot({
     animations: 'disabled',
@@ -105,6 +131,26 @@ test('all six Runtime Atlas cases complete through fresh isolated workers', asyn
   }
 })
 
+test('Runtime Atlas guide links use public titles and resolve to their guide', async ({
+  page
+}) => {
+  await page.goto('/atlas')
+
+  const guide = page.getByRole('link', {
+    name: 'Build a transaction-safe Feature session'
+  })
+  await expect(guide).toHaveAttribute('href', '/docs/build/feature-session')
+  await guide.click()
+
+  await expect(page).toHaveURL(/\/docs\/build\/feature-session$/)
+  await expect(
+    page.getByRole('heading', {
+      level: 1,
+      name: 'Build a transaction-safe Feature session'
+    })
+  ).toBeVisible()
+})
+
 test('Runtime Atlas remains readable and operable at compact mobile widths', async ({
   page
 }, testInfo) => {
@@ -113,6 +159,7 @@ test('Runtime Atlas remains readable and operable at compact mobile widths', asy
     await page.goto('/atlas')
     await waitForReady(page)
     await assertNoHorizontalOverflow(page)
+    await assertAtlasHeroKeepsTheRuntimeInView(page, 520)
 
     await page.getByRole('button', { name: 'Run remaining' }).click()
     await page.getByRole('button', { name: 'Pause' }).click()
