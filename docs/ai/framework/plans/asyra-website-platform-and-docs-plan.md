@@ -25,8 +25,8 @@ The proposed workspace owner is `apps/asyra-framework-site`. This plan owns:
 
 - Next.js application foundation and shared web configuration;
 - content loading, source metadata, and presentation adapters;
-- documentation layout, navigation, table of contents, local search, and copy
-  as Markdown;
+- documentation layout, navigation, table of contents, local search, and
+  reader-facing source links;
 - Asyra Design case-study route presentation;
 - releases, support, migration, roadmap, security, and package inventory
   presentation;
@@ -79,8 +79,10 @@ table of contents. Responsive behavior provides a mobile navigation drawer,
 single-column reading, and accessible on-page navigation.
 
 The first release uses local static search by default. Search results must map
-to stable headings and content IDs. Copy-as-Markdown must expose the approved
-page content and canonical source links without internal-only metadata.
+to stable headings and content IDs. Source attribution stays in the approved
+page content as reader-facing canonical source links. The public reading UI
+does not expose authoring telemetry, Markdown-copy controls, or duplicate
+source-path evidence.
 
 The site consumes the accepted `docs/public/*` content bundle and stable README
 entry links. Presentation adapters may add
@@ -122,7 +124,7 @@ generated and visibly provisional until public reconciliation.
    accessible navigation shell.
 3. Implement deterministic public-content loading and source/drift metadata.
 4. Implement docs navigation, table of contents, stable anchors, local search,
-   and copy-as-Markdown.
+   and reader-facing source links.
 5. Implement Asyra Design, Releases, and Roadmap presentation routes.
 6. Expose stable shared foundations to Landing and Atlas owner tasks.
 7. Run build, route, content, accessibility, responsive, performance, and
@@ -131,8 +133,8 @@ generated and visibly provisional until public reconciliation.
 ## Quality Gates
 
 - strict TypeScript, lint, tests, and production build pass;
-- all required routes, anchors, navigation, search records, and Markdown-copy
-  outputs resolve;
+- all required routes, anchors, navigation, search records, and source links
+  resolve;
 - source mapping, content drift, manifest-derived inventory, and broken-link
   checks pass;
 - public content remains readable without client JavaScript where interaction
@@ -162,8 +164,8 @@ generated and visibly provisional until public reconciliation.
   toolchain.
 - Documentation, Asyra Design, Releases, and Roadmap routes present
   the accepted content and generated facts correctly.
-- Search, navigation, stable anchors, source links, and Markdown-copy work
-  across supported responsive states.
+- Search, navigation, stable anchors, and source links work across supported
+  responsive states.
 - Landing and Atlas can build on stable accepted foundations.
 - Preview-ready platform gates pass without claiming production deployment.
 

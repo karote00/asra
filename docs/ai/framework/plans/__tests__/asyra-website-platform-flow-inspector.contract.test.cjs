@@ -97,7 +97,10 @@ test('documentation owns server reading and bounded browser enhancements', () =>
   assert.match(source, /renders without client JavaScript/i)
   assert.match(source, /stable page and heading ids/i)
   assert.match(source, /focus-contained, Escape-closeable/i)
-  assert.match(source, /accepted page bytes and canonical source links/i)
+  assert.match(source, /reader-facing canonical source links/i)
+  assert.match(source, /authoring telemetry/i)
+  assert.match(source, /duplicate source-path evidence/i)
+  assert.doesNotMatch(source, /copy-as-Markdown|copy controls/i)
   assert.match(source, /hosted search/i)
   assert.ok(
     documentationStep.implementationBoundary.includes(
@@ -107,6 +110,11 @@ test('documentation owns server reading and bounded browser enhancements', () =>
   assert.ok(
     documentationStep.implementationBoundary.includes(
       'apps/asyra-framework-site/__tests__/docs.test.mjs'
+    )
+  )
+  assert.ok(
+    !documentationStep.implementationBoundary.includes(
+      'apps/asyra-framework-site/components/copy-markdown-button.tsx'
     )
   )
 })

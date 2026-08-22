@@ -1,6 +1,5 @@
 .docs-search-trigger,
-.docs-navigation-trigger,
-.docs-tool {
+.docs-navigation-trigger {
   align-items: center;
   background: var(--ink);
   border: 1px solid var(--ink);
@@ -16,8 +15,7 @@
   padding: 0 18px;
 }
 
-.docs-search-trigger:hover,
-.docs-tool:hover {
+.docs-search-trigger:hover {
   background: var(--signal-red);
   border-color: var(--signal-red);
 }
@@ -76,7 +74,7 @@
   color: var(--paper-bright);
 }
 
-.docs-navigation a:hover,
+.docs-navigation a:hover:not([aria-current='page']),
 .docs-toc a:hover {
   color: var(--signal-red);
 }
@@ -97,33 +95,6 @@
   box-shadow: 5px 7px 0 rgb(21 22 20 / 5%);
   min-width: 0;
   padding: clamp(28px, 3.4vw, 50px);
-}
-
-.docs-article__tools {
-  align-items: center;
-  border-bottom: 1px solid var(--frame-rule);
-  display: flex;
-  gap: 20px;
-  justify-content: space-between;
-  margin-bottom: 34px;
-  padding-bottom: 18px;
-}
-
-.docs-article__tools p {
-  color: var(--muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.7rem;
-  line-height: 1.45;
-}
-
-.docs-tool {
-  background: transparent;
-  color: var(--ink);
-  flex: none;
-}
-
-.docs-tool:hover {
-  color: white;
 }
 
 .markdown-content {
@@ -182,8 +153,7 @@
   margin-top: 8px;
 }
 
-.markdown-content a,
-.docs-source-evidence a {
+.markdown-content a {
   text-decoration: underline;
   text-decoration-color: var(--signal-red);
   text-decoration-thickness: 1px;
@@ -246,28 +216,6 @@
 
 .markdown-content th {
   background: rgb(21 22 20 / 6%);
-}
-
-.docs-source-evidence {
-  border-top: 1px solid var(--frame-rule);
-  margin-top: 58px;
-  padding-top: 28px;
-}
-
-.docs-source-evidence ul {
-  list-style: none;
-  margin: 18px 0 0;
-  padding: 0;
-}
-
-.docs-source-evidence li {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.68rem;
-  overflow-wrap: anywhere;
-}
-
-.docs-source-evidence li + li {
-  margin-top: 10px;
 }
 
 .search-dialog,
@@ -439,19 +387,10 @@
     padding: 0;
   }
 
-  .docs-article__tools {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .docs-tool {
-    width: 100%;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .docs-search-trigger,
-  .docs-tool,
   .search-results strong {
     transition: none;
   }

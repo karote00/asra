@@ -31,12 +31,24 @@ const assertReadingWidth = async (page: Page, selector: string) => {
 
 test('documentation supports search, section navigation, and mobile dialogs', async ({
   page
-}) => {
+}, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/docs')
   await expect(
     page.getByRole('heading', { level: 1, name: 'Asyra Framework' })
   ).toBeVisible()
+  await expect(page.locator('.docs-article__tools')).toHaveCount(0)
+  await expect(page.locator('.docs-source-evidence')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Copy Markdown' })).toHaveCount(
+    0
+  )
+  await expect(
+    page.getByRole('heading', { name: 'Canonical sources' })
+  ).toBeVisible()
+  await page.locator('.docs-layout').screenshot({
+    animations: 'disabled',
+    path: testInfo.outputPath('docs-reading-without-authoring-tools.png')
+  })
   await page.getByRole('button', { name: 'Search 41 guides' }).click()
   const search = page.getByRole('searchbox', { name: 'Search' })
   await search.fill('transaction')
@@ -134,6 +146,68 @@ test('documentation navigation preserves the reader and sidebar positions betwee
     animations: 'disabled',
     path: testInfo.outputPath('docs-preserved-navigation-position.png')
   })
+})
+
+test('current navigation and selected controls keep their visual state on hover', async ({
+  page
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  const selectedTargets = [
+    ['/docs', '.docs-navigation a[aria-current="page"]'],
+    ['/docs', '.site-frame-navigation a[aria-current="page"]'],
+    ['/docs/build/feature-session', '.docs-navigation a[aria-current="page"]'],
+    ['/atlas', '.site-frame-navigation a[aria-current="page"]'],
+    ['/atlas', '.atlas-case-picker button[aria-pressed="true"]'],
+    ['/asyra-design', '.site-frame-navigation a[aria-current="page"]'],
+    ['/releases', '.site-frame-navigation a[aria-current="page"]'],
+    ['/roadmap', '.site-frame-navigation a[aria-current="page"]']
+  ] as const
+
+  for (const [route, selector] of selectedTargets) {
+    await page.goto(route)
+    const selected = page.locator(selector).first()
+    await expect(selected, `${route} ${selector}`).toBeVisible()
+    const beforeHover = await selected.evaluate((element) => {
+      const style = getComputedStyle(element)
+      const after = getComputedStyle(element, '::after')
+      return {
+        afterBackgroundColor: after.backgroundColor,
+        afterTransform: after.transform,
+        backgroundColor: style.backgroundColor,
+        borderColor: style.borderColor,
+        boxShadow: style.boxShadow,
+        color: style.color
+      }
+    })
+
+    await selected.hover()
+    const afterHover = await selected.evaluate((element) => {
+      const style = getComputedStyle(element)
+      const after = getComputedStyle(element, '::after')
+      return {
+        afterBackgroundColor: after.backgroundColor,
+        afterTransform: after.transform,
+        backgroundColor: style.backgroundColor,
+        borderColor: style.borderColor,
+        boxShadow: style.boxShadow,
+        color: style.color
+      }
+    })
+    expect(afterHover, `${route} ${selector}`).toEqual(beforeHover)
+  }
+
+  await page.goto('/docs')
+  await page.locator('.docs-navigation a[aria-current="page"]').screenshot({
+    animations: 'disabled',
+    path: testInfo.outputPath('docs-current-guide-hover.png')
+  })
+  await page.goto('/atlas')
+  await page
+    .locator('.atlas-case-picker button[aria-pressed="true"]')
+    .screenshot({
+      animations: 'disabled',
+      path: testInfo.outputPath('atlas-selected-case-hover.png')
+    })
 })
 
 test('documentation pages use one compact, high-contrast header before the guide', async ({

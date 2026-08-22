@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { CopyMarkdownButton } from '@/components/copy-markdown-button'
 import { DocsNavigation } from '@/components/docs-navigation'
 import { DocsTableOfContents } from '@/components/docs-table-of-contents'
 import { FoundationPageHero } from '@/components/foundation-page-hero'
@@ -84,33 +83,11 @@ export async function DocumentationPage({ pageId }: { pageId: string }) {
       <div className="docs-layout">
         <DocsNavigation currentId={page.id} sections={sections} />
         <article className="docs-article">
-          <div className="docs-article__tools">
-            <p>
-              {page.wordCount} words / {page.sources.length} canonical sources
-            </p>
-            <CopyMarkdownButton markdown={page.markdown} />
-          </div>
           <MarkdownContent
             currentPath={page.path}
             markdown={page.markdown}
             pages={content.pages}
           />
-          <footer className="docs-source-evidence">
-            <p className="support-label">Canonical source evidence</p>
-            <ul>
-              {page.sources.map((source) => (
-                <li key={source}>
-                  <a
-                    href={`https://github.com/karote00/asyra/blob/main/${source}`}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    {source}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </footer>
         </article>
         <DocsTableOfContents items={tableOfContents} />
       </div>

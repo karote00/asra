@@ -148,7 +148,7 @@ module.exports = Object.freeze({
       conditions: [
         'All forty-one public pages resolve exactly once with stable ids, routes, headings, and digests.',
         'Release and package facts derive from generated project-owned inputs and remain visibly provisional.',
-        'Links to internal canonical sources are presented as source evidence rather than rewritten as public website routes.'
+        'Links to internal canonical sources remain in approved page content or verification metadata rather than being rewritten as public website routes.'
       ],
       bypasses: [
         'Content failure renders an explicit unavailable state and never fabricates fallback product copy.'
@@ -182,7 +182,7 @@ module.exports = Object.freeze({
       order: 4,
       ownerPackage: 'Website documentation experience',
       purpose:
-        'Present all accepted documentation with stable anchors, three-region desktop reading, mobile navigation, local search, source evidence, and copy-as-Markdown.',
+        'Present all accepted documentation with stable anchors, three-region desktop reading, mobile navigation, local search, and reader-facing canonical source links.',
       inputs: [
         'artifact:site-foundation',
         'artifact:verified-site-content'
@@ -192,15 +192,15 @@ module.exports = Object.freeze({
         'The docs route renders without client JavaScript for basic reading.',
         'Search records map to stable page and heading ids.',
         'Mobile navigation is modal, focus-contained, Escape-closeable, and returns focus.',
-        'Copy-as-Markdown uses the accepted page bytes and canonical source links.'
+        'Approved page content retains reader-facing canonical source links without exposing authoring telemetry or duplicate source-path evidence.'
       ],
       bypasses: [
-        'Interactive search and copy controls may enhance a complete server-rendered document.'
+        'Interactive search may enhance a complete server-rendered document.'
       ],
       allowedContributors: [
         'artifact:site-foundation',
         'artifact:verified-site-content',
-        'local browser APIs for search and copy interaction'
+        'local browser APIs for search interaction'
       ],
       forbiddenContributors: [
         'hosted search',
@@ -215,7 +215,6 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/components/docs-*.tsx',
         'apps/asyra-framework-site/components/markdown-*.tsx',
         'apps/asyra-framework-site/components/search-*.tsx',
-        'apps/asyra-framework-site/components/copy-markdown-button.tsx',
         'apps/asyra-framework-site/__tests__/docs.test.mjs'
       ],
       specRefs: [
@@ -337,7 +336,7 @@ module.exports = Object.freeze({
       conditions: [
         'Strict typecheck, lint, focused tests, root dependency validation, production build, and route smoke gates pass.',
         'Keyboard, focus, touch, responsive, reduced-motion, and synchronized visual cases pass.',
-        'All forty-one content pages, generated facts, source links, headings, search records, and Markdown-copy bytes resolve exactly.'
+        'All forty-one content pages, generated facts, source links, headings, and search records resolve exactly.'
       ],
       bypasses: [
         'Production deployment remains owned by Launch and Operations.'

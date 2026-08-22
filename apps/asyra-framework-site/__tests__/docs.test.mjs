@@ -25,16 +25,19 @@ test('all accepted pages map to explicit static documentation route entries', as
   assert.match(documentationPage, /DocsTableOfContents/)
   assert.match(documentationPage, /MarkdownContent/)
   assert.doesNotMatch(
+    documentationPage,
+    /CopyMarkdownButton|docs-article__tools|docs-source-evidence/
+  )
+  assert.doesNotMatch(
     `${rootPage}\n${detailPage}\n${documentationPage}`,
     /['"]use client['"]/
   )
 })
 
 test('documentation remains readable server-side with bounded enhancements', async () => {
-  const [markdown, search, copy] = await Promise.all([
+  const [markdown, search] = await Promise.all([
     readSiteFile('components/markdown-content.tsx'),
-    readSiteFile('components/search-dialog.tsx'),
-    readSiteFile('components/copy-markdown-button.tsx')
+    readSiteFile('components/search-dialog.tsx')
   ])
 
   assert.doesNotMatch(markdown, /['"]use client['"]|dangerouslySetInnerHTML/)
@@ -44,8 +47,6 @@ test('documentation remains readable server-side with bounded enhancements', asy
   assert.match(search, /showModal\(\)/)
   assert.match(search, /aria-live="polite"/)
   assert.match(search, /\.focus\(\)/)
-  assert.match(copy, /^['"]use client['"]/)
-  assert.match(copy, /navigator\.clipboard\.writeText\(markdown\)/)
 })
 
 test('docs CSS owns three-region reading and removes auxiliary rails first', async () => {
