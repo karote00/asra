@@ -9,12 +9,28 @@ Asyra gives developers composable building blocks for turning domain-owned infor
 A Feature is an App-owned, registered unit of product behavior. It gives human input, UI, automation, devices, and AI-issued commands the same Feature and API boundaries instead of creating parallel product paths.
 
 - **Focus on product behavior.** Build what makes the product valuable instead of rebuilding state, history, lifecycle, and integration plumbing for every capability.
+- **Let the PoC become the product.** With AI-assisted development, domain experts, designers, and product teams can validate ideas directly against the product's real schemas, Features, and runtime boundaries. The result is reviewable source code on the actual product path, not a disposable prototype that engineers must rebuild later.
 - **Change one explicit owner.** Add, replace, or remove a registered Feature without rewriting unrelated product paths, keeping the impact visible and technical debt local.
 - **Reuse correctness infrastructure.** Features enter established transaction, validation, rollback, projection, and persistence boundaries instead of inventing parallel implementations.
 - **Compose only what the product needs.** Preset defaults, render providers, persistence, collaboration, and AI remain selectable or replaceable instead of becoming mandatory product architecture.
 - **Know what actually succeeded.** Runtime commit and durable persistence are separate observable states; supported local failures roll back instead of presenting partial state as success.
 
 In a conventional application, one behavior may require coordinated changes across input handlers, UI state, history, rendering, persistence, and automation. With Asyra, a small Feature can remain a few focused lines of registration and domain code. Larger Features remain bounded to their explicit owners instead of spreading across dozens of unrelated files.
+
+This changes the handoff inside a company. Non-engineers can prove domain workflows in the real product, while engineers review, harden, test, and extend the same implementation instead of translating a disconnected PoC into production code. A successful PoC already lives on the product path.
+
+```mermaid
+flowchart TB
+  subgraph traditional["Traditional product development"]
+    direction LR
+    oldIdea["Domain idea"] --> oldPoc["Disposable PoC"] --> handoff["Handoff"] --> rewrite["Rewrite"] --> oldProduct["Product"]
+  end
+
+  subgraph asyra["With Asyra"]
+    direction LR
+    newIdea["Domain expert + AI"] --> feature["Bounded Feature"] -->|"same implementation"| review["Engineering review and hardening"] -->|"same implementation"| newProduct["Product"]
+  end
+```
 
 Asyra is a Framework for products whose information must remain editable, reversible, inspectable, persistable, and extensible as the product grows. It is not a canvas widget or a design-tool-only framework: an App composes Asyra around its own data, rules, engines, services, and interfaces.
 
