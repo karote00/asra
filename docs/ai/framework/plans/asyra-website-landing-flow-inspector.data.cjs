@@ -6,6 +6,7 @@ const caseIds = Object.freeze([
   'grow-without-rebuild',
   'shared-human-ai-action-path',
   'one-source-across-views',
+  'poc-to-product-continuity',
   'connected-site-actions',
   'responsive-transparent-raster-assets',
   'perceptually-sharp-raster-rendering',
@@ -39,6 +40,10 @@ module.exports = Object.freeze({
         'product-owner copy and identity corrections',
         'product-owner adaptive grid, alpha-shadow, and asset-specific directional shadow decision',
         'product-owner local-only artwork decision',
+        'product-owner PoC-to-product continuity decision',
+        'product-owner four-panel recurring-character storyboard decision',
+        'product-owner-approved person storyboard preview',
+        'product-owner shared horizontal page geometry decision',
         'current Framework product truth',
         'existing Website environment setup'
       ],
@@ -51,6 +56,9 @@ module.exports = Object.freeze({
         'Every selected illustration uses the shared adaptive CSS engineering grid plus an asset-specific alpha-derived drop shadow with directional contact and cast vectors, without code-drawing internal diagram topology.',
         'Source artwork, historical design experiments, and unselected derivative history are Git-ignored local-only inputs excluded from default CI; the eighteen selected public derivatives are the committed public derivatives and production deployment assets.',
         'The generated public documentation inventory is published at /llms.txt; supporting human-facing routes remain owned by the Website Platform and do not contribute to this Landing route.',
+        'The PoC keeps the same implementation on the product path through explicit engineering review instead of becoming a disposable prototype that must be rebuilt.',
+        'The PoC comparison uses eight border-free direct raster crops from the product-owner-approved person storyboard preview, preserving the same recurring domain expert and engineer instead of redrawing the scenes.',
+        'Header, Hero, domain copy, PoC, proofs, Closing, and Footer share one minimum page width, one 2520px maximum content width, and one responsive inline padding, while every visible Domain Rail row remains full bleed below 2520px and adopts the shared inline padding at and above 2520px.',
         'The footer identifies 2026 open source work and contains no company identity.'
       ],
       bypasses: [
@@ -62,6 +70,10 @@ module.exports = Object.freeze({
         'product-owner-approved V09 closing concept',
         'product-owner adaptive grid, alpha-shadow, and asset-specific directional shadow decision',
         'product-owner local-only artwork decision',
+        'product-owner PoC-to-product continuity decision',
+        'product-owner four-panel recurring-character storyboard decision',
+        'product-owner-approved person storyboard preview',
+        'product-owner shared horizontal page geometry decision',
         'product-owner corrections including the retired change-impact sections',
         'current Framework product truth'
       ],
@@ -69,7 +81,7 @@ module.exports = Object.freeze({
         'removed Website implementation',
         'unverified product capability',
         'new dependency',
-        'external production asset'
+        'unapproved external production asset'
       ],
       implementationBoundary: [
         'docs/ai/framework/plans/asyra-website-landing-page-plan.md',
@@ -96,6 +108,12 @@ module.exports = Object.freeze({
         'The hero reports the product outcome before implementation detail.',
         'Any field is shown as an open-ended possibility, not a catalog of built-in apps.',
         'People and AI use the same action path for a feature built once.',
+        'A semantic PoC-to-product storyboard pairs eight border-free direct raster crops from the product-owner-approved person storyboard preview with accessible HTML labels.',
+        'Four paired story panels place Traditional and Asyra inside every panel, with the same recurring domain expert and engineer carrying the sequence; the implementation must not redraw the approved people or scenes.',
+        'Every storyboard crop contains no authored edge border and is presented inside one uniform 2px CSS frame.',
+        'The same bounded Feature continues from domain validation through engineer review, hardening, and product delivery.',
+        'The storyboard states that a PoC is not production-ready without engineering review, tests, security, and performance hardening.',
+        'Header, Hero, domain copy, PoC, proofs, Closing, and Footer resolve through one shared horizontal page geometry contract, while the continuous Domain Rail and both split mobile rows touch the viewport edges below 2520px and align with the shared padded content edges at and above 2520px.',
         'Every section preserves the approved title, reference line breaks, exact proof image, and V04 vertical rhythm.',
         'Each active complex visual uses a hash-locked product-owner-supplied Photoroom true-alpha master and three source-bounded lossless responsive WebP derivatives.',
         'Every selected derivative contains both transparent and opaque pixels, never exceeds its native master width, and preserves the supplied subject pixels through premultiplied-alpha resizing.',
@@ -123,7 +141,8 @@ module.exports = Object.freeze({
         'The same complete narrative remains in DOM order at desktop, mobile, and without JavaScript.'
       ],
       bypasses: [
-        'If an image does not load, semantic headings and descriptive alt text preserve the complete reading.'
+        'If an image does not load, semantic headings and descriptive alt text preserve the complete reading.',
+        'If visual connectors are unavailable, the storyboard ordered lists preserve the complete PoC-to-product sequence.'
       ],
       allowedContributors: [
         'artifact:result-first-contract',
@@ -138,6 +157,8 @@ module.exports = Object.freeze({
         'project-owned source-bounded lossless true-alpha responsive assets',
         'modern system sans typography',
         'generated public documentation inventory',
+        'semantic HTML and CSS PoC-to-product storyboard',
+        'eight border-free direct raster crops from the product-owner-approved person storyboard preview',
         'CSS responsive layout',
         'shared adaptive CSS grid and asset-specific alpha-derived directional drop shadows'
       ],
@@ -155,6 +176,8 @@ module.exports = Object.freeze({
         'raster section-background grid plates',
         'canvas or WebGL',
         'icon-library diagram substitutes',
+        'redrawn storyboard people or scenes',
+        'claim that a PoC is production-ready without engineering review',
         'Framework runtime package import'
       ],
       implementationBoundary: [
@@ -197,7 +220,8 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/scripts/build-v14-grow-connector-preview.py',
         'apps/asyra-framework-site/scripts/build-transparent-v12-assets.py',
         'apps/asyra-framework-site/scripts/verify-transparent-v12-assets.py',
-        'apps/asyra-framework-site/scripts/build-photoroom-assets.py'
+        'apps/asyra-framework-site/scripts/build-photoroom-assets.py',
+        'apps/asyra-framework-site/scripts/build-poc-storyboard-crops.py'
       ],
       specRefs: [
         '#visual-authority',
@@ -225,6 +249,9 @@ module.exports = Object.freeze({
         'The adaptive CSS grid and alpha-derived drop shadow are asserted from computed styles and inspected at 2048px, 1440px, 864px, 820px, 390px, and 320px.',
         'Six distinct computed shadow vectors are asserted at 2048px, 1440px, 864px, 820px, 390px, and 320px; section crops confirm the contact, cast, and dark-stage ambient layers remain visible without clipping.',
         'The supplied Hero, Domain Rail, Grow, Same Path, One Source, and Closing derivatives are inspected at 1440px and 2048px with section crops before deployment.',
+        'The PoC-to-product storyboard is inspected at 1440px, 820px, 390px, and 320px for path continuity, readable role labels, balanced density, and natural DOM order.',
+        'Computed geometry proves one 2520px maximum content width and the same constrained content edges for Header, Hero, domain copy, PoC, proofs, Closing, and Footer at 3840px, 2560px, 2520px, 2519px, 2048px, 1440px, 864px, 820px, 800px, 680px, 520px, 390px, and 320px, while every visible Domain Rail row remains full bleed below 2520px and aligns with the shared padded content edges at and above 2520px.',
+        'All eight border-free storyboard crops are inspected inside one uniform 2px CSS frame contract without doubled authored edges.',
         'No-client and reduced-motion modes preserve the complete reading and actions.',
         'The retired change-impact sections remain absent at every breakpoint and without JavaScript.',
         'The public /llms.txt response exactly matches the generated public documentation inventory while supporting human-facing routes remain independently owned by the Website Platform.'
@@ -254,7 +281,8 @@ module.exports = Object.freeze({
         'docs/public/llms.txt',
         'apps/asyra-framework-site/scripts/build-transparent-v12-assets.py',
         'apps/asyra-framework-site/scripts/verify-transparent-v12-assets.py',
-        'apps/asyra-framework-site/scripts/build-photoroom-assets.py'
+        'apps/asyra-framework-site/scripts/build-photoroom-assets.py',
+        'apps/asyra-framework-site/scripts/build-poc-storyboard-crops.py'
       ],
       specRefs: ['#quality-gates', '#definition-of-done'],
       failureOwnerStepId: 'verify-result-first-page'
@@ -291,6 +319,8 @@ module.exports = Object.freeze({
   invariants: Object.freeze([
     'Any field may define the product while Asyra never decides its domain.',
     'A feature built once gives people and AI the same action path.',
+    'A PoC keeps the same implementation on the product path through engineering review and hardening.',
+    'Every constrained Landing section shares one horizontal page geometry contract while the Domain Rail remains full bleed below 2520px and adopts the shared inline padding at and above 2520px.',
     'Complex diagrams use the six immutable supplied Photoroom true-alpha masters with one shared CSS grid-and-shadow stage, while prior and rejected experiments remain preserved but unselected.',
     'The footer says 2026 open source and makes no company identity claim.',
     'All links remain keyboard-focusable and resolve to in-page or Website Platform destinations.',

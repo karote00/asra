@@ -60,6 +60,9 @@ test('the result-first narrative matches the approved V04 landing page', async (
     'Add what your workflow needs without rebuilding the rest.',
     'Build each feature once. People and AI use the same action path.',
     'One source of truth across every feature and view.',
+    'Prove it once. Keep what works.',
+    'Keep validated work moving.',
+    'What proves the idea becomes the starting point for the product.',
     'Bring your domain. Keep its logic.'
   ]
 
@@ -91,6 +94,126 @@ test('the result-first narrative matches the approved V04 landing page', async (
   }
   assert.doesNotMatch(page, /proof__detail|Asyra shows what changed/)
   assert.doesNotMatch(page, /[—–]/)
+})
+
+test('the PoC storyboard keeps validated work on one governed product path', async () => {
+  const page = await readAppFile('page.tsx')
+  const css = await readAppFile('globals.css')
+  const illustrationFiles = await listFiles(
+    path.join(siteRoot, 'public', 'illustrations')
+  )
+  const governanceStart = page.indexOf('<p className="poc-story__governance">')
+  const panelsStart = page.indexOf('<ol className="story-panels">')
+  const firstPanelHeaderStart = page.indexOf(
+    '<header className="story-panel__header">'
+  )
+  const firstPanelHeaderEnd = page.indexOf('</header>', firstPanelHeaderStart)
+  const firstTraditionalTitleStart = page.indexOf(
+    '{panel.traditional.title}',
+    firstPanelHeaderStart
+  )
+  const firstArtworkStart = page.indexOf(
+    'className="story-panel__artwork"',
+    firstPanelHeaderStart
+  )
+  const firstAsyraTitleStart = page.indexOf(
+    '{panel.asyra.title}',
+    firstArtworkStart
+  )
+  const secondArtworkStart = page.indexOf(
+    'className="story-panel__artwork"',
+    firstAsyraTitleStart
+  )
+
+  assert.match(page, /className="poc-story"/)
+  assert.match(page, /id="how-it-works"/)
+  assert.doesNotMatch(page, />\s*Workflow\s*<\/p>/)
+  assert.doesNotMatch(page, /Workflow comparison/)
+  assert.doesNotMatch(page, /Same PoC\. Two paths\./)
+  assert.match(page, /const pocStoryPanels = \[/)
+  assert.equal((page.match(/className="poc-story__legend"/g) ?? []).length, 1)
+  assert.match(page, />Traditional</)
+  assert.match(page, />With Asyra</)
+  assert.match(page, /<ol[\s\S]*?className="story-panels"/)
+  assert.match(page, /className="story-panel"/)
+  assert.match(page, /story-panel__scene--traditional/)
+  assert.match(page, /story-panel__scene--asyra/)
+  assert.doesNotMatch(page, /panel\.stage === '01'/)
+  assert.match(page, /story-panel__path--hidden/)
+  assert.match(page, /className="story-panel__artwork-frame"/)
+  assert.match(page, /className="story-panel__artwork"/)
+  assert.ok(firstPanelHeaderStart < firstPanelHeaderEnd)
+  assert.ok(firstPanelHeaderEnd < firstTraditionalTitleStart)
+  assert.ok(firstTraditionalTitleStart < firstArtworkStart)
+  assert.ok(firstArtworkStart < firstAsyraTitleStart)
+  assert.ok(firstAsyraTitleStart < secondArtworkStart)
+  assert.match(page, /poc-storyboard-stage-01-traditional\.png/)
+  assert.match(page, /poc-storyboard-stage-01-asyra\.png/)
+  assert.doesNotMatch(page, /poc-storyboard-stage-01\.png/)
+  assert.doesNotMatch(page, /StoryCharacter|StoryAction|StoryVignette/)
+  assert.doesNotMatch(page, /className="story-vignette"/)
+  assert.deepEqual(
+    illustrationFiles.filter((file) =>
+      /poc-storyboard-stage-\d{2}-(?:traditional|asyra)\.png$/.test(file)
+    ),
+    [
+      'poc-storyboard-stage-01-asyra.png',
+      'poc-storyboard-stage-01-traditional.png',
+      'poc-storyboard-stage-02-asyra.png',
+      'poc-storyboard-stage-02-traditional.png',
+      'poc-storyboard-stage-03-asyra.png',
+      'poc-storyboard-stage-03-traditional.png',
+      'poc-storyboard-stage-04-asyra.png',
+      'poc-storyboard-stage-04-traditional.png'
+    ]
+  )
+  assert.equal((page.match(/traditional: \{/g) ?? []).length, 4)
+  assert.equal((page.match(/asyra: \{/g) ?? []).length, 4)
+  assert.doesNotMatch(page, /className="workflow-lane|className="workflow-step/)
+  assert.match(page, /Domain \+ AI/)
+  assert.match(page, /Real Feature/)
+  assert.match(page, /Engineer review/)
+  assert.doesNotMatch(page, /Same implementation/)
+  assert.match(page, /Engineering still owns production readiness/)
+  assert.match(page, /review, tests, security, and performance/)
+  assert.ok(governanceStart > panelsStart)
+  assert.doesNotMatch(page, /production-ready/i)
+
+  assert.match(
+    css,
+    /\.story-panels\s*\{[\s\S]*grid-template-columns: repeat\(4,/
+  )
+  assert.match(
+    css,
+    /@media \(max-width: 960px\)[\s\S]*\.story-panels\s*\{[\s\S]*grid-template-columns: repeat\(2,/
+  )
+  assert.match(
+    css,
+    /\.story-panel__paths\s*\{[\s\S]*grid-template-columns: 1fr/
+  )
+  assert.match(
+    css,
+    /@media \(max-width: 680px\)[\s\S]*\.story-panels\s*\{[\s\S]*grid-template-columns: 1fr/
+  )
+  assert.match(
+    css,
+    /\.story-panel__artwork-frame\s*\{[\s\S]*border: 2px solid[\s\S]*overflow: hidden/
+  )
+  assert.match(css, /\.story-panel__artwork\s*\{[\s\S]*inset: 0/)
+  assert.match(css, /\.story-panel__path--hidden\s*\{[\s\S]*position: absolute/)
+  assert.match(
+    css,
+    /\.poc-story__legend-swatch--traditional\s*\{[\s\S]*rgb\(220 36 27/
+  )
+  assert.match(
+    css,
+    /\.poc-story__legend-swatch--asyra\s*\{[\s\S]*rgb\(8 119 200/
+  )
+  assert.doesNotMatch(
+    css,
+    /\.story-panel__stage\s*\{[^}]*color: var\(--signal-red\)/
+  )
+  assert.doesNotMatch(css, /\.workflow-lane|\.workflow-step/)
 })
 
 test('the retired change-impact sections do not contribute to the landing narrative', async () => {
@@ -187,6 +310,10 @@ test('local artwork sources are Git-ignored and run only through the opt-in artw
   assert.match(
     ignore,
     /^!apps\/asyra-framework-site\/public\/illustrations\/\*-photoroom-\*\.webp$/m
+  )
+  assert.match(
+    ignore,
+    /^!apps\/asyra-framework-site\/public\/illustrations\/poc-storyboard-stage-\*\.png$/m
   )
   assert.equal(
     packageJson.scripts['test:artwork:local'],
@@ -1111,9 +1238,33 @@ test('CTA interaction becomes brighter and the closing uses the transparent supp
 test('the responsive layout keeps balanced proof spacing without section rules', async () => {
   const css = await readAppFile('globals.css')
   const proofRule = css.match(/\.proof\s*\{([^}]+)\}/s)?.[1] ?? ''
+  const baseRule = (selector) => {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return css.match(new RegExp(`${escaped}\\s*\\{([^}]+)\\}`, 's'))?.[1] ?? ''
+  }
 
   assert.match(css, /--paper:\s*#[0-9a-f]{6}/i)
   assert.match(css, /--signal-red:\s*#[0-9a-f]{6}/i)
+  assert.match(css, /--page-min-width:\s*320px/)
+  assert.match(css, /--page-max-width:\s*2520px/)
+  assert.match(css, /--page-padding-x:\s*clamp\(38px,\s*6\.25vw,\s*64px\)/)
+  assert.match(css, /body\s*\{[^}]*min-width:\s*var\(--page-min-width\)/s)
+  for (const selector of [
+    '.site-header',
+    '.hero',
+    '.domains__heading',
+    '.poc-story__inner',
+    '.proof-stack',
+    '.site-footer'
+  ]) {
+    const rule = baseRule(selector)
+    assert.match(rule, /max-width:\s*var\(--page-max-width\)/, selector)
+    assert.match(rule, /var\(--page-padding-x\)/, selector)
+  }
+  assert.match(
+    baseRule('.closing'),
+    /padding:\s*14px\s+var\(--page-content-inset-x\)/
+  )
   assert.match(css, /@media\s*\(max-width:\s*1100px\)/)
   assert.match(css, /@media\s*\(max-width:\s*800px\)/)
   assert.match(css, /@media\s*\(max-width:\s*680px\)/)
@@ -1123,8 +1274,8 @@ test('the responsive layout keeps balanced proof spacing without section rules',
   assert.match(css, /prefers-reduced-motion/)
   assert.match(proofRule, /min-height:\s*clamp\(220px,\s*25vw,\s*390px\)/)
   assert.match(
-    css,
-    /\.proof-stack\s*\{[^}]*padding-inline:\s*var\(--page-pad\)/s
+    baseRule('.proof-stack'),
+    /padding-inline:\s*var\(--page-padding-x\)/
   )
   assert.match(
     css,

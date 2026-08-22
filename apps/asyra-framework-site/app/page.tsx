@@ -41,6 +41,65 @@ function Illustration({
   )
 }
 
+const pocStoryPanels = [
+  {
+    asyra: {
+      alt: 'The domain expert builds the idea directly with AI in the product.',
+      image: '/illustrations/poc-storyboard-stage-01-asyra.png',
+      title: 'Domain + AI'
+    },
+    stage: '01',
+    traditional: {
+      alt: 'A domain expert sketches a domain idea on a whiteboard.',
+      image: '/illustrations/poc-storyboard-stage-01-traditional.png',
+      title: 'Domain idea'
+    },
+    width: 374
+  },
+  {
+    asyra: {
+      alt: 'The validated proof of concept continues as a real feature.',
+      image: '/illustrations/poc-storyboard-stage-02-asyra.png',
+      title: 'Real Feature'
+    },
+    stage: '02',
+    traditional: {
+      alt: 'A disposable proof of concept is thrown away.',
+      image: '/illustrations/poc-storyboard-stage-02-traditional.png',
+      title: 'Disposable PoC'
+    },
+    width: 376
+  },
+  {
+    asyra: {
+      alt: 'The domain expert and engineer review the same implementation together.',
+      image: '/illustrations/poc-storyboard-stage-03-asyra.png',
+      title: 'Engineer review'
+    },
+    stage: '03',
+    traditional: {
+      alt: 'A proof of concept stops at a handoff wall between domain expert and engineer.',
+      image: '/illustrations/poc-storyboard-stage-03-traditional.png',
+      title: 'Handoff'
+    },
+    width: 374
+  },
+  {
+    asyra: {
+      alt: 'The reviewed feature continues into the product.',
+      image: '/illustrations/poc-storyboard-stage-04-asyra.png',
+      title: 'Product'
+    },
+    stage: '04',
+    traditional: {
+      alt: 'A product is rebuilt around the proof of concept.',
+      image: '/illustrations/poc-storyboard-stage-04-traditional.png',
+      title: 'Rebuild'
+    },
+    width: 374
+  }
+] as const
+
 export default function HomePage() {
   return (
     <div className="site-shell" id="top">
@@ -141,7 +200,117 @@ export default function HomePage() {
           </div>
         </section>
 
-        <div className="proof-stack" id="how-it-works">
+        <section
+          className="poc-story"
+          id="how-it-works"
+          aria-labelledby="poc-story-title"
+        >
+          <div className="poc-story__inner">
+            <div className="poc-story__heading">
+              <div>
+                <p className="eyebrow">PoC to product</p>
+                <h2 id="poc-story-title">Prove it once. Keep what works.</h2>
+              </div>
+              <div className="poc-story__intro">
+                <p className="poc-story__summary">
+                  <strong>Keep validated work moving.</strong>
+                  What proves the idea becomes the starting point for the
+                  product.
+                </p>
+                <ul aria-label="Storyboard paths" className="poc-story__legend">
+                  <li className="poc-story__legend-item poc-story__legend-item--traditional">
+                    <span
+                      aria-hidden="true"
+                      className="poc-story__legend-swatch poc-story__legend-swatch--traditional"
+                    />
+                    <span>Traditional</span>
+                  </li>
+                  <li className="poc-story__legend-item poc-story__legend-item--asyra">
+                    <span
+                      aria-hidden="true"
+                      className="poc-story__legend-swatch poc-story__legend-swatch--asyra"
+                    />
+                    <span>With Asyra</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <ol
+              aria-label="Traditional and Asyra product paths by stage"
+              className="story-panels"
+            >
+              {pocStoryPanels.map((panel) => (
+                <li className="story-panel" key={panel.stage}>
+                  <header className="story-panel__header">
+                    <span className="story-panel__stage">{panel.stage}</span>
+                  </header>
+                  <div className="story-panel__paths">
+                    <figure className="story-panel__scene story-panel__scene--traditional">
+                      <figcaption className="story-panel__scene-header">
+                        <span className="story-panel__path story-panel__path--hidden">
+                          Traditional
+                        </span>
+                        <h3 className="story-panel__title">
+                          {panel.traditional.title}
+                        </h3>
+                      </figcaption>
+                      <div
+                        className="story-panel__artwork-frame"
+                        style={{
+                          aspectRatio: `${panel.width} / 225`
+                        }}
+                      >
+                        <img
+                          alt={panel.traditional.alt}
+                          className="story-panel__artwork"
+                          decoding="async"
+                          height={225}
+                          loading="lazy"
+                          src={panel.traditional.image}
+                          width={panel.width}
+                        />
+                      </div>
+                    </figure>
+                    <figure className="story-panel__scene story-panel__scene--asyra">
+                      <figcaption className="story-panel__scene-header">
+                        <span className="story-panel__path story-panel__path--hidden">
+                          Asyra
+                        </span>
+                        <h3 className="story-panel__title">
+                          {panel.asyra.title}
+                        </h3>
+                      </figcaption>
+                      <div
+                        className="story-panel__artwork-frame"
+                        style={{
+                          aspectRatio: `${panel.width} / 217`
+                        }}
+                      >
+                        <img
+                          alt={panel.asyra.alt}
+                          className="story-panel__artwork"
+                          decoding="async"
+                          height={217}
+                          loading="lazy"
+                          src={panel.asyra.image}
+                          width={panel.width}
+                        />
+                      </div>
+                    </figure>
+                  </div>
+                </li>
+              ))}
+            </ol>
+
+            <p className="poc-story__governance">
+              <strong>Engineering still owns production readiness:</strong>{' '}
+              review, tests, security, and performance.
+            </p>
+          </div>
+        </section>
+
+        <div className="proof-stack">
           <section
             className="proof proof--visual-first"
             aria-labelledby="grow-title"
