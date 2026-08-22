@@ -10,7 +10,7 @@ import { readApprovedReadmeInputs } from './public-readme-inputs.mjs'
 
 const REPOSITORY_URL = 'https://github.com/karote00/asyra'
 const VERIFIED_PUBLIC_LINKS = new Set([
-  'https://asyra-karote00s-projects.vercel.app/?fileId=demo'
+  'https://asyra-design.vercel.app/?fileId=demo'
 ])
 const REQUIRED_POLICY =
   'This repository does not accept external issues or contributions'

@@ -45,7 +45,7 @@ test('root README exposes package-first composition and the working product star
 
   assert.match(
     readme,
-    /https:\/\/asyra-karote00s-projects\.vercel\.app\/\?fileId=demo/u
+    /https:\/\/asyra-design\.vercel\.app\/\?fileId=demo/u
   )
   assert.match(readme, /npm install @asyra\/core/u)
   assert.match(
@@ -101,7 +101,7 @@ test('Asyra Design README presents the official product before repository intern
   assert.match(readme, /user-initiated AI actions/u)
   assert.match(
     readme,
-    /https:\/\/asyra-karote00s-projects\.vercel\.app\/\?fileId=demo/u
+    /https:\/\/asyra-design\.vercel\.app\/\?fileId=demo/u
   )
   assert.match(
     readme,

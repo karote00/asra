@@ -36,7 +36,7 @@ Asyra is a Framework for products whose information must remain editable, revers
 
 ## Try the demo
 
-[Asyra Design demo](https://asyra-karote00s-projects.vercel.app/?fileId=demo)
+[Asyra Design demo](https://asyra-design.vercel.app/?fileId=demo)
 
 Asyra Design is a complete canvas-based design-tool product built with Asyra. It demonstrates how the Framework, official Preset, App-owned Features, editable information, rendering, Undo/Redo, and persistence fit together in a real product.
 
@@ -104,7 +104,8 @@ The same infrastructure can support a design tool, whiteboard, BIM system, indus
 - **Industrial products** can add their own physical and chemical rules.
 - **BIM products** can add their own building models and safety policies.
 - **Simulation products** can bind specialized engines.
-- **Semiconductor manufacturers** such as TSMC can encode chip-fabrication rules and process constraints to evaluate candidate process flows earlier and make validation more precise and consistent.
+- **Semiconductor fabrication plants** can encode manufacturing rules and process constraints to evaluate candidate process flows earlier and make validation more precise and consistent.
+- **Your field** — bring the information, rules, and workflows you know best.
 
 These possibilities belong to the App. Asyra does not bundle them as turnkey capabilities.
 
