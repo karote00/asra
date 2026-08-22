@@ -103,26 +103,13 @@ test('the PoC storyboard keeps validated work on one governed product path', asy
     path.join(siteRoot, 'public', 'illustrations')
   )
   const governanceStart = page.indexOf('<p className="poc-story__governance">')
-  const panelsStart = page.indexOf('<ol className="story-panels">')
-  const firstPanelHeaderStart = page.indexOf(
-    '<header className="story-panel__header">'
-  )
-  const firstPanelHeaderEnd = page.indexOf('</header>', firstPanelHeaderStart)
-  const firstTraditionalTitleStart = page.indexOf(
-    '{panel.traditional.title}',
-    firstPanelHeaderStart
-  )
-  const firstArtworkStart = page.indexOf(
-    'className="story-panel__artwork"',
-    firstPanelHeaderStart
-  )
-  const firstAsyraTitleStart = page.indexOf(
-    '{panel.asyra.title}',
-    firstArtworkStart
-  )
-  const secondArtworkStart = page.indexOf(
-    'className="story-panel__artwork"',
-    firstAsyraTitleStart
+  const panelsStart = page.indexOf('<div className="story-panels">')
+  const traditionalPathStart = page.indexOf("key: 'traditional'")
+  const asyraPathStart = page.indexOf("key: 'asyra'")
+  const flowMapStart = page.indexOf('{pocStoryPaths.map((path) =>')
+  const panelMapStart = page.indexOf(
+    '{pocStoryPanels.map((panel) =>',
+    flowMapStart
   )
 
   assert.match(page, /className="poc-story"/)
@@ -131,22 +118,21 @@ test('the PoC storyboard keeps validated work on one governed product path', asy
   assert.doesNotMatch(page, /Workflow comparison/)
   assert.doesNotMatch(page, /Same PoC\. Two paths\./)
   assert.match(page, /const pocStoryPanels = \[/)
+  assert.match(page, /const pocStoryPaths = \[/)
   assert.equal((page.match(/className="poc-story__legend"/g) ?? []).length, 1)
   assert.match(page, />Traditional</)
   assert.match(page, />With Asyra</)
-  assert.match(page, /<ol[\s\S]*?className="story-panels"/)
+  assert.match(page, /className="story-panels"/)
+  assert.match(page, /className="story-flow__steps"/)
+  assert.match(page, /className="story-flow__label"/)
   assert.match(page, /className="story-panel"/)
-  assert.match(page, /story-panel__scene--traditional/)
-  assert.match(page, /story-panel__scene--asyra/)
+  assert.match(page, /story-flow--\$\{path\.key\}/)
+  assert.match(page, /story-panel__scene--\$\{path\.key\}/)
   assert.doesNotMatch(page, /panel\.stage === '01'/)
-  assert.match(page, /story-panel__path--hidden/)
   assert.match(page, /className="story-panel__artwork-frame"/)
   assert.match(page, /className="story-panel__artwork"/)
-  assert.ok(firstPanelHeaderStart < firstPanelHeaderEnd)
-  assert.ok(firstPanelHeaderEnd < firstTraditionalTitleStart)
-  assert.ok(firstTraditionalTitleStart < firstArtworkStart)
-  assert.ok(firstArtworkStart < firstAsyraTitleStart)
-  assert.ok(firstAsyraTitleStart < secondArtworkStart)
+  assert.ok(traditionalPathStart < asyraPathStart)
+  assert.ok(flowMapStart < panelMapStart)
   assert.match(page, /poc-storyboard-stage-01-traditional\.png/)
   assert.match(page, /poc-storyboard-stage-01-asyra\.png/)
   assert.doesNotMatch(page, /poc-storyboard-stage-01\.png/)
@@ -169,7 +155,10 @@ test('the PoC storyboard keeps validated work on one governed product path', asy
   )
   assert.equal((page.match(/traditional: \{/g) ?? []).length, 4)
   assert.equal((page.match(/asyra: \{/g) ?? []).length, 4)
-  assert.doesNotMatch(page, /className="workflow-lane|className="workflow-step/)
+  assert.doesNotMatch(
+    page,
+    /className="workflow-lane|className="workflow-step|story-panel__paths/
+  )
   assert.match(page, /Domain \+ AI/)
   assert.match(page, /Real Feature/)
   assert.match(page, /Engineer review/)
@@ -181,26 +170,30 @@ test('the PoC storyboard keeps validated work on one governed product path', asy
 
   assert.match(
     css,
-    /\.story-panels\s*\{[\s\S]*grid-template-columns: repeat\(4,/
+    /\.story-flow__steps\s*\{[\s\S]*grid-template-columns: repeat\(4,/
   )
   assert.match(
     css,
-    /@media \(max-width: 960px\)[\s\S]*\.story-panels\s*\{[\s\S]*grid-template-columns: repeat\(2,/
+    /@media \(max-width: 960px\)[\s\S]*\.story-flow__steps\s*\{[\s\S]*grid-template-columns: repeat\(2,/
   )
   assert.match(
     css,
-    /\.story-panel__paths\s*\{[\s\S]*grid-template-columns: 1fr/
+    /@media \(max-width: 680px\)[\s\S]*\.story-flow__steps\s*\{[\s\S]*grid-template-columns: 1fr/
   )
   assert.match(
     css,
-    /@media \(max-width: 680px\)[\s\S]*\.story-panels\s*\{[\s\S]*grid-template-columns: 1fr/
+    /\.story-flow--asyra \.story-panel__header\s*\{[\s\S]*display: none/
   )
   assert.match(
     css,
     /\.story-panel__artwork-frame\s*\{[\s\S]*border: 2px solid[\s\S]*overflow: hidden/
   )
   assert.match(css, /\.story-panel__artwork\s*\{[\s\S]*inset: 0/)
-  assert.match(css, /\.story-panel__path--hidden\s*\{[\s\S]*position: absolute/)
+  assert.match(css, /\.story-flow__label\s*\{[\s\S]*position: absolute/)
+  assert.match(
+    css,
+    /@media \(max-width: 960px\)[\s\S]*\.poc-story__legend\s*\{[\s\S]*display: none[\s\S]*\.story-flow__label\s*\{[\s\S]*position: static/
+  )
   assert.match(
     css,
     /\.poc-story__legend-swatch--traditional\s*\{[\s\S]*rgb\(220 36 27/
@@ -213,7 +206,10 @@ test('the PoC storyboard keeps validated work on one governed product path', asy
     css,
     /\.story-panel__stage\s*\{[^}]*color: var\(--signal-red\)/
   )
-  assert.doesNotMatch(css, /\.workflow-lane|\.workflow-step/)
+  assert.doesNotMatch(
+    css,
+    /\.workflow-lane|\.workflow-step|\.story-panel__paths/
+  )
 })
 
 test('the retired change-impact sections do not contribute to the landing narrative', async () => {

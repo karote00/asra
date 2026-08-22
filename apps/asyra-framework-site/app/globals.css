@@ -662,10 +662,30 @@ p {
 
 .story-panels {
   display: grid;
+  gap: clamp(14px, 1.2vw, 18px);
+  margin: clamp(28px, 3.2vw, 46px) 0 0;
+}
+
+.story-flow {
+  min-width: 0;
+}
+
+.story-flow__label {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.story-flow__steps {
+  display: grid;
   gap: clamp(10px, 1.25vw, 18px);
   grid-template-columns: repeat(4, minmax(0, 1fr));
   list-style: none;
-  margin: clamp(28px, 3.2vw, 46px) 0 0;
+  margin: 0;
   padding: 0;
 }
 
@@ -709,10 +729,8 @@ p {
   width: 100%;
 }
 
-.story-panel__paths {
-  display: grid;
-  gap: clamp(14px, 1.2vw, 18px);
-  grid-template-columns: minmax(0, 1fr);
+.story-flow--asyra .story-panel__header {
+  display: none;
 }
 
 .story-panel__scene {
@@ -743,28 +761,6 @@ p {
   gap: 8px;
   grid-template-columns: 1fr;
   padding: 0 4px 8px;
-}
-
-.story-panel__path {
-  color: var(--signal-red);
-  font-size: 0.75rem;
-  font-weight: 750;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
-.story-panel__scene--asyra .story-panel__path {
-  color: var(--signal-blue);
-}
-
-.story-panel__path--hidden {
-  clip: rect(0 0 0 0);
-  clip-path: inset(50%);
-  height: 1px;
-  overflow: hidden;
-  position: absolute;
-  white-space: nowrap;
-  width: 1px;
 }
 
 .story-panel__title {
@@ -799,8 +795,49 @@ p {
     padding-top: 0;
   }
 
+  .poc-story__legend {
+    display: none;
+  }
+
   .story-panels {
+    gap: clamp(32px, 5vw, 48px);
+  }
+
+  .story-flow__label {
+    align-items: center;
+    clip: auto;
+    clip-path: none;
+    display: flex;
+    font-size: 0.78rem;
+    font-weight: 750;
+    gap: 10px;
+    height: auto;
+    letter-spacing: 0.07em;
+    margin: 0 0 16px;
+    overflow: visible;
+    position: static;
+    text-transform: uppercase;
+    white-space: normal;
+    width: auto;
+  }
+
+  .story-flow__label::before {
+    background: rgb(220 36 27 / 72%);
+    content: '';
+    height: 2px;
+    width: 36px;
+  }
+
+  .story-flow--asyra .story-flow__label::before {
+    background: rgb(8 119 200 / 72%);
+  }
+
+  .story-flow__steps {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .story-flow--asyra .story-panel__header {
+    display: flex;
   }
 }
 
@@ -1123,9 +1160,17 @@ button:focus-visible {
   }
 
   .story-panels {
-    gap: 16px;
-    grid-template-columns: 1fr;
+    gap: 32px;
     margin-top: 40px;
+  }
+
+  .story-flow__steps {
+    grid-template-columns: 1fr;
+  }
+
+  .story-panel {
+    justify-self: center;
+    width: min(88%, clamp(280px, 54vw, 374px));
   }
 
   .hero {

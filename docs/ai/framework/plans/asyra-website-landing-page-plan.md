@@ -32,10 +32,10 @@ essential composition is:
   PoC, proofs, Closing, and Footer, with one minimum page width, one maximum
   content width, and one responsive inline padding;
 - an unlimited-domain rail immediately after the hero;
-- one code-native PoC-to-product storyboard with four paired story panels,
-  recurring human roles, and direct Traditional-versus-Asyra comparisons that
-  contrast repeated handoffs and rebuilding with one bounded Feature continuing
-  through engineering review;
+- one code-native PoC-to-product storyboard with two ordered Traditional and
+  Asyra flows, four stages per flow, recurring human roles, and direct
+  comparisons that contrast repeated handoffs and rebuilding with one bounded
+  Feature continuing through engineering review;
 - three spacious alternating proof sections without separator rules;
 - six immutable product-owner-supplied Photoroom true-alpha masters, with
   source-bounded responsive lossless WebP derivatives that preserve their
@@ -185,15 +185,19 @@ pixels.
 
 The app also owns one semantic PoC-to-product storyboard built from eight
 border-free direct raster crops of the product-owner-approved person storyboard
-preview. The approved people and scenes must not be redrawn. Four paired story panels place
-Traditional and Asyra inside every panel so the viewer compares the same
-product stage instead of reading two unrelated paths. The same recurring
-domain expert and engineer carry the narrative through idea, validation,
-review, and delivery. Traditional shows a disposable prototype crossing
-handoff and rewrite steps; Asyra keeps one visibly continuous bounded Feature
-through domain validation, engineering review, hardening, and product delivery.
-Semantic HTML labels expose the same meaning without relying on color or
-illustration geometry. The storyboard must not claim that a PoC is
+preview. The approved people and scenes must not be redrawn. Two ordered
+Traditional and Asyra flows keep each path contiguous. Desktop aligns the flows
+as two four-stage rows for direct comparison. Below 960px, the complete
+Traditional sequence precedes the complete Asyra sequence instead of nesting
+both paths inside each stage. At 680px and below, each storyboard panel stays
+within 0.9 to 1.1 times the median rendered width of the three proof
+illustrations so the comic does not overpower the surrounding product story.
+The same recurring domain expert and engineer carry the narrative through idea,
+validation, review, and delivery. Traditional shows a disposable prototype
+crossing handoff and rewrite steps; Asyra keeps one visibly continuous bounded
+Feature through domain validation, engineering review, hardening, and product
+delivery. Semantic HTML labels expose the same meaning without relying on color
+or illustration geometry. The storyboard must not claim that a PoC is
 production-ready without engineering review, tests, security, or performance
 hardening.
 
@@ -260,7 +264,10 @@ copy, or selected illustration.
 - the PoC-to-product storyboard preserves eight border-free direct raster crops
   from the approved person preview inside one uniform 2px CSS frame contract,
   the same recurring human roles, one continuous implementation path, legible
-  role labels, and natural DOM order at 1440px, 820px, 390px, and 320px;
+  role labels, and natural DOM order at 1440px, 820px, 390px, and 320px; below
+  960px, all four Traditional stages precede all four Asyra stages; at 680px,
+  520px, 390px, and 320px, each storyboard panel remains within 0.9 to 1.1
+  times the median proof illustration width;
 - phone, tablet, and desktop receive the supplied Photoroom WebP derivatives
   through `srcset` and `sizes`, with source-bounded density and no artificial
   enlargement of the 2400px Domain Rail master;

@@ -120,9 +120,16 @@ test('page owner selects the supplied true-alpha masters with one adaptive grid-
   assert.match(source, /PoC-to-product storyboard/i)
   assert.match(source, /same bounded Feature.*engineer review/i)
   assert.match(source, /not production-ready without engineering review/i)
-  assert.match(source, /four paired story panels/i)
+  assert.match(source, /two ordered Traditional and Asyra flows/i)
   assert.match(source, /same recurring domain expert and engineer/i)
-  assert.match(source, /Traditional and Asyra.*inside every panel/i)
+  assert.match(
+    source,
+    /below 960px.*complete Traditional sequence.*complete Asyra sequence/i
+  )
+  assert.match(
+    source,
+    /680px and below.*storyboard panel.*proof illustration.*0\.9.*1\.1/i
+  )
   assert.match(source, /product-owner-approved person storyboard preview/i)
   assert.match(source, /eight border-free direct raster crops/i)
   assert.match(source, /uniform 2px CSS frame/i)
@@ -309,6 +316,10 @@ test('verification requires synchronized production visual evidence', () => {
   assert.match(
     source,
     /PoC-to-product storyboard.*1440px.*820px.*390px.*320px/i
+  )
+  assert.match(
+    source,
+    /680px.*520px.*390px.*320px.*storyboard panel.*proof illustration.*0\.9.*1\.1/i
   )
   assert.match(
     source,

@@ -764,35 +764,51 @@ test('the PoC storyboard preserves one implementation path across review widths'
 }, testInfo) => {
   const profiles = [
     {
+      flowLabelsVisible: false,
+      flowStepColumns: 4,
       headingColumns: 2,
       maximumHeadlineLines: 2,
       minimumPanelWidth: 250,
-      panelColumns: 4,
-      sceneColumns: 1,
       width: 1440
     },
     {
+      flowLabelsVisible: true,
+      flowStepColumns: 2,
       headingColumns: 1,
       maximumHeadlineLines: 2,
       minimumPanelWidth: 330,
-      panelColumns: 2,
-      sceneColumns: 1,
       width: 820
     },
     {
+      flowLabelsVisible: true,
+      flowStepColumns: 1,
       headingColumns: 1,
       maximumHeadlineLines: 2,
-      minimumPanelWidth: 340,
-      panelColumns: 1,
-      sceneColumns: 1,
-      width: 390
+      minimumPanelWidth: 350,
+      width: 680
     },
     {
+      flowLabelsVisible: true,
+      flowStepColumns: 1,
       headingColumns: 1,
       maximumHeadlineLines: 2,
       minimumPanelWidth: 270,
-      panelColumns: 1,
-      sceneColumns: 1,
+      width: 520
+    },
+    {
+      flowLabelsVisible: true,
+      flowStepColumns: 1,
+      headingColumns: 1,
+      maximumHeadlineLines: 2,
+      minimumPanelWidth: 270,
+      width: 390
+    },
+    {
+      flowLabelsVisible: true,
+      flowStepColumns: 1,
+      headingColumns: 1,
+      maximumHeadlineLines: 2,
+      minimumPanelWidth: 230,
       width: 320
     }
   ]
@@ -812,7 +828,6 @@ test('the PoC storyboard preserves one implementation path across review widths'
       )
     ).toBeVisible()
     await expect(story.locator('.poc-story__legend')).toHaveCount(1)
-    await expect(story.locator('.poc-story__legend')).toBeVisible()
     await expect(
       story.locator('.poc-story__legend-item--traditional')
     ).toHaveText('Traditional')
@@ -827,14 +842,14 @@ test('the PoC storyboard preserves one implementation path across review widths'
     await expect(
       story.getByText('Same implementation', { exact: true })
     ).toHaveCount(0)
-    await expect(story.locator('.story-panel')).toHaveCount(4)
+    await expect(story.locator('.story-flow')).toHaveCount(2)
+    await expect(story.locator('.story-flow__steps')).toHaveCount(2)
+    await expect(story.locator('.story-flow__label')).toHaveCount(2)
+    await expect(story.locator('.story-panel')).toHaveCount(8)
     await expect(story.locator('.story-panel__scene')).toHaveCount(8)
     await expect(story.locator('.story-panel__artwork-frame')).toHaveCount(8)
     await expect(story.locator('.story-panel__artwork')).toHaveCount(8)
-    await expect(story.locator('.story-panel__path')).toHaveCount(8)
-    await expect(
-      story.locator('.story-panel__path:not(.story-panel__path--hidden)')
-    ).toHaveCount(0)
+    await expect(story.locator('.story-panel__path')).toHaveCount(0)
     await expect(story.locator('.story-vignette')).toHaveCount(0)
 
     const layout = await story.evaluate((section) => {
@@ -846,68 +861,85 @@ test('the PoC storyboard preserves one implementation path across review widths'
       const labels = Array.from(
         section.querySelectorAll<HTMLElement>('.story-panel__title')
       ).map((element) => element.textContent?.trim())
+      const flows = Array.from(
+        section.querySelectorAll<HTMLElement>('.story-flow')
+      )
+      const flowData = flows.map((flow) => {
+        const label = flow.querySelector<HTMLElement>('.story-flow__label')
+        const steps = flow.querySelector<HTMLElement>('.story-flow__steps')
+        if (!label || !steps) throw new Error('Missing storyboard flow targets')
+        const labelBounds = label.getBoundingClientRect()
+        const labelStyle = getComputedStyle(label)
+        return {
+          columns:
+            getComputedStyle(steps).gridTemplateColumns.split(' ').length,
+          label: label.textContent?.trim(),
+          labelVisible:
+            labelBounds.width > 1 &&
+            labelBounds.height > 1 &&
+            labelStyle.visibility !== 'hidden',
+          stepCount: flow.querySelectorAll('.story-panel').length,
+          titles: Array.from(
+            flow.querySelectorAll<HTMLElement>('.story-panel__title')
+          ).map((element) => element.textContent?.trim())
+        }
+      })
       const smallestPanelWidth = Math.min(
         ...Array.from(
           section.querySelectorAll<HTMLElement>('.story-panel')
         ).map((element) => element.getBoundingClientRect().width)
       )
-      const everyPanelPairsPaths = Array.from(
-        section.querySelectorAll<HTMLElement>('.story-panel')
-      ).every(
-        (panel) =>
-          panel.querySelectorAll('.story-panel__scene--traditional').length ===
-            1 &&
-          panel.querySelectorAll('.story-panel__scene--asyra').length === 1
+      const proofImageWidths = Array.from(
+        document.querySelectorAll<HTMLElement>('.proof-image')
+      )
+        .map((element) => element.getBoundingClientRect().width)
+        .sort((first, second) => first - second)
+      const medianProofImageWidth =
+        proofImageWidths[Math.floor(proofImageWidths.length / 2)]
+      if (!medianProofImageWidth) {
+        throw new Error('Missing proof image scale reference')
+      }
+      const everyFlowOwnsFourSteps = flowData.every(
+        (flow) => flow.stepCount === 4
       )
       const everyPathTitleIsAboveOwnArtwork = Array.from(
         section.querySelectorAll<HTMLElement>('.story-panel')
       ).every((panel) => {
-        const traditionalTitle = panel.querySelector<HTMLElement>(
-          '.story-panel__scene--traditional .story-panel__title'
-        )
-        const traditionalScene = traditionalTitle?.closest<HTMLElement>(
-          '.story-panel__scene--traditional'
-        )
+        const title = panel.querySelector<HTMLElement>('.story-panel__title')
+        const scene = panel.querySelector<HTMLElement>('.story-panel__scene')
         const stage = panel.querySelector<HTMLElement>('.story-panel__stage')
-        const scenes = Array.from(
-          panel.querySelectorAll<HTMLElement>('.story-panel__scene')
+        const image = scene?.querySelector<HTMLElement>('.story-panel__artwork')
+        const stageHeader = stage?.closest<HTMLElement>('.story-panel__header')
+        const stageIsVisible = Boolean(
+          stageHeader && getComputedStyle(stageHeader).display !== 'none'
         )
         return Boolean(
-          traditionalTitle &&
-            traditionalScene &&
+          title &&
+            scene &&
             stage &&
-            traditionalScene.closest('.story-panel__paths') &&
-            stage.getBoundingClientRect().bottom <=
-              traditionalTitle.getBoundingClientRect().top &&
-            scenes.length === 2 &&
-            scenes.every((scene) => {
-              const title = scene.querySelector<HTMLElement>(
-                '.story-panel__title'
-              )
-              const image = scene.querySelector<HTMLElement>(
-                '.story-panel__artwork'
-              )
-              return Boolean(
-                title &&
-                  image &&
-                  scene.tagName === 'FIGURE' &&
-                  title.closest('figcaption') &&
-                  title.getBoundingClientRect().bottom <=
-                    image.getBoundingClientRect().top
-              )
-            })
+            image &&
+            scene.tagName === 'FIGURE' &&
+            title.closest('figcaption') &&
+            (!stageIsVisible ||
+              stage.getBoundingClientRect().bottom <=
+                title.getBoundingClientRect().top) &&
+            title.getBoundingClientRect().bottom <=
+              image.getBoundingClientRect().top
         )
       })
       const everyStageNumberIsLeftAligned = Array.from(
         section.querySelectorAll<HTMLElement>('.story-panel')
       ).every((panel) => {
         const stage = panel.querySelector<HTMLElement>('.story-panel__stage')
+        const header = stage?.closest<HTMLElement>('.story-panel__header')
         return Boolean(
           stage &&
-            Math.abs(
-              stage.getBoundingClientRect().left -
-                panel.getBoundingClientRect().left
-            ) <= 5
+            header &&
+            (getComputedStyle(header).display === 'none' ||
+              Math.abs(
+                stage.getBoundingClientRect().left -
+                  panel.getBoundingClientRect().left
+              ) <= 5)
         )
       })
       const artwork = Array.from(
@@ -998,10 +1030,11 @@ test('the PoC storyboard preserves one implementation path across review widths'
         '.story-panel__scene'
       )
       if (!panels || !governance || !firstScene) {
-        throw new Error('Missing paired storyboard composition targets')
+        throw new Error('Missing ordered storyboard composition targets')
       }
       const panelsBounds = panels.getBoundingClientRect()
       const governanceBounds = governance.getBoundingClientRect()
+      const flowBounds = flows.map((flow) => flow.getBoundingClientRect())
       const legend = section.querySelector<HTMLElement>('.poc-story__legend')
       const traditionalLegend = section.querySelector<HTMLElement>(
         '.poc-story__legend-item--traditional'
@@ -1016,8 +1049,10 @@ test('the PoC storyboard preserves one implementation path across review widths'
         throw new Error('Missing PoC path legend targets')
       }
       const legendBounds = legend.getBoundingClientRect()
-      const traditionalLegendBounds = traditionalLegend.getBoundingClientRect()
-      const asyraLegendBounds = asyraLegend.getBoundingClientRect()
+      const legendVisible =
+        legendBounds.width > 0 &&
+        legendBounds.height > 0 &&
+        getComputedStyle(legend).display !== 'none'
       const traditionalSignalColor =
         getComputedStyle(traditionalSwatch).backgroundColor
       const stageNumbersUseNeutralColor = Array.from(
@@ -1034,14 +1069,21 @@ test('the PoC storyboard preserves one implementation path across review widths'
         ),
         headlineLines,
         labels,
-        panelColumns: columns('.story-panels'),
-        sceneColumns: columns('.story-panel__paths'),
+        flowColumns: flowData.map((flow) => flow.columns),
+        flowLabels: flowData.map((flow) => flow.label),
+        flowLabelsVisible: flowData.every((flow) => flow.labelVisible),
+        flowOrderIsTraditionalThenAsyra:
+          flowData[0]?.label === 'Traditional' &&
+          flowData[1]?.label === 'With Asyra',
+        flowTitles: flowData.map((flow) => flow.titles),
+        flowsAreVerticallyOrdered:
+          flowBounds.length === 2 && flowBounds[0].bottom <= flowBounds[1].top,
         sectionWidth: sectionBounds.width,
         everyArtworkLoaded,
         everyArtworkFitsCssFrame,
         everyArtworkUsesApprovedCrops,
         everyArtworkUsesUniformCssBorder,
-        everyPanelPairsPaths,
+        everyFlowOwnsFourSteps,
         everyPathTitleIsAboveOwnArtwork,
         everyStageNumberIsLeftAligned,
         governanceLeftDifference: Math.abs(
@@ -1050,8 +1092,12 @@ test('the PoC storyboard preserves one implementation path across review widths'
         governanceTopGap: governanceBounds.top - panelsBounds.bottom,
         governanceInsidePanels: panels.contains(governance),
         legendBeforePanels: legendBounds.bottom <= panelsBounds.top,
-        legendOrderIsTraditionalThenAsyra:
-          traditionalLegendBounds.top < asyraLegendBounds.top,
+        legendOrderIsTraditionalThenAsyra: Boolean(
+          traditionalLegend.compareDocumentPosition(asyraLegend) &
+            Node.DOCUMENT_POSITION_FOLLOWING
+        ),
+        legendVisible,
+        panelToProofImageWidthRatio: smallestPanelWidth / medianProofImageWidth,
         smallestPanelWidth,
         sceneBackground: getComputedStyle(firstScene).backgroundColor,
         stageNumbersUseNeutralColor,
@@ -1066,10 +1112,12 @@ test('the PoC storyboard preserves one implementation path across review widths'
     expect(layout.headlineLines).toBeLessThanOrEqual(
       profile.maximumHeadlineLines
     )
-    expect(layout.panelColumns).toBe(profile.panelColumns)
-    expect(layout.sceneColumns).toBe(profile.sceneColumns)
+    expect(layout.flowColumns).toEqual([
+      profile.flowStepColumns,
+      profile.flowStepColumns
+    ])
     expect(layout.sectionWidth).toBeLessThanOrEqual(profile.width + 1)
-    expect(layout.everyPanelPairsPaths).toBe(true)
+    expect(layout.everyFlowOwnsFourSteps).toBe(true)
     expect(layout.everyArtworkLoaded).toBe(true)
     expect(layout.everyArtworkFitsCssFrame).toBe(true)
     expect(layout.everyArtworkUsesApprovedCrops).toBe(true)
@@ -1081,20 +1129,33 @@ test('the PoC storyboard preserves one implementation path across review widths'
     expect(layout.governanceInsidePanels).toBe(false)
     expect(layout.legendBeforePanels).toBe(true)
     expect(layout.legendOrderIsTraditionalThenAsyra).toBe(true)
+    expect(layout.legendVisible).toBe(!profile.flowLabelsVisible)
+    expect(layout.flowLabels).toEqual(['Traditional', 'With Asyra'])
+    expect(layout.flowLabelsVisible).toBe(profile.flowLabelsVisible)
+    expect(layout.flowOrderIsTraditionalThenAsyra).toBe(true)
+    expect(layout.flowsAreVerticallyOrdered).toBe(true)
+    expect(layout.flowTitles).toEqual([
+      ['Domain idea', 'Disposable PoC', 'Handoff', 'Rebuild'],
+      ['Domain + AI', 'Real Feature', 'Engineer review', 'Product']
+    ])
     expect(layout.stageNumbersUseNeutralColor).toBe(true)
     expect(layout.sceneBackground).not.toBe('rgb(0, 0, 0)')
     expect(layout.wordCount).toBeLessThanOrEqual(80)
     expect(layout.smallestPanelWidth).toBeGreaterThanOrEqual(
       profile.minimumPanelWidth
     )
+    if (profile.width <= 680) {
+      expect(layout.panelToProofImageWidthRatio).toBeGreaterThanOrEqual(0.9)
+      expect(layout.panelToProofImageWidthRatio).toBeLessThanOrEqual(1.1)
+    }
     expect(layout.labels).toEqual([
       'Domain idea',
-      'Domain + AI',
       'Disposable PoC',
-      'Real Feature',
       'Handoff',
-      'Engineer review',
       'Rebuild',
+      'Domain + AI',
+      'Real Feature',
+      'Engineer review',
       'Product'
     ])
     await assertNoHorizontalOverflow(page)

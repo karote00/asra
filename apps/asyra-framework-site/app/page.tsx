@@ -100,6 +100,19 @@ const pocStoryPanels = [
   }
 ] as const
 
+const pocStoryPaths = [
+  {
+    artworkHeight: 225,
+    key: 'traditional',
+    label: 'Traditional'
+  },
+  {
+    artworkHeight: 217,
+    key: 'asyra',
+    label: 'With Asyra'
+  }
+] as const
+
 export default function HomePage() {
   return (
     <div className="site-shell" id="top">
@@ -236,72 +249,68 @@ export default function HomePage() {
               </div>
             </div>
 
-            <ol
-              aria-label="Traditional and Asyra product paths by stage"
-              className="story-panels"
-            >
-              {pocStoryPanels.map((panel) => (
-                <li className="story-panel" key={panel.stage}>
-                  <header className="story-panel__header">
-                    <span className="story-panel__stage">{panel.stage}</span>
-                  </header>
-                  <div className="story-panel__paths">
-                    <figure className="story-panel__scene story-panel__scene--traditional">
-                      <figcaption className="story-panel__scene-header">
-                        <span className="story-panel__path story-panel__path--hidden">
-                          Traditional
-                        </span>
-                        <h3 className="story-panel__title">
-                          {panel.traditional.title}
-                        </h3>
-                      </figcaption>
-                      <div
-                        className="story-panel__artwork-frame"
-                        style={{
-                          aspectRatio: `${panel.width} / 225`
-                        }}
-                      >
-                        <img
-                          alt={panel.traditional.alt}
-                          className="story-panel__artwork"
-                          decoding="async"
-                          height={225}
-                          loading="lazy"
-                          src={panel.traditional.image}
-                          width={panel.width}
-                        />
-                      </div>
-                    </figure>
-                    <figure className="story-panel__scene story-panel__scene--asyra">
-                      <figcaption className="story-panel__scene-header">
-                        <span className="story-panel__path story-panel__path--hidden">
-                          Asyra
-                        </span>
-                        <h3 className="story-panel__title">
-                          {panel.asyra.title}
-                        </h3>
-                      </figcaption>
-                      <div
-                        className="story-panel__artwork-frame"
-                        style={{
-                          aspectRatio: `${panel.width} / 217`
-                        }}
-                      >
-                        <img
-                          alt={panel.asyra.alt}
-                          className="story-panel__artwork"
-                          decoding="async"
-                          height={217}
-                          loading="lazy"
-                          src={panel.asyra.image}
-                          width={panel.width}
-                        />
-                      </div>
-                    </figure>
-                  </div>
-                </li>
+            <div className="story-panels">
+              {pocStoryPaths.map((path) => (
+                <section
+                  aria-labelledby={`story-flow-${path.key}`}
+                  className={`story-flow story-flow--${path.key}`}
+                  key={path.key}
+                >
+                  <h3
+                    className="story-flow__label"
+                    id={`story-flow-${path.key}`}
+                  >
+                    {path.label}
+                  </h3>
+                  <ol
+                    aria-label={`${path.label} product path`}
+                    className="story-flow__steps"
+                  >
+                    {pocStoryPanels.map((panel) => {
+                      const scene = panel[path.key]
+
+                      return (
+                        <li
+                          className="story-panel"
+                          key={`${path.key}-${panel.stage}`}
+                        >
+                          <header className="story-panel__header">
+                            <span className="story-panel__stage">
+                              {panel.stage}
+                            </span>
+                          </header>
+                          <figure
+                            className={`story-panel__scene story-panel__scene--${path.key}`}
+                          >
+                            <figcaption className="story-panel__scene-header">
+                              <h4 className="story-panel__title">
+                                {scene.title}
+                              </h4>
+                            </figcaption>
+                            <div
+                              className="story-panel__artwork-frame"
+                              style={{
+                                aspectRatio: `${panel.width} / ${path.artworkHeight}`
+                              }}
+                            >
+                              <img
+                                alt={scene.alt}
+                                className="story-panel__artwork"
+                                decoding="async"
+                                height={path.artworkHeight}
+                                loading="lazy"
+                                src={scene.image}
+                                width={panel.width}
+                              />
+                            </div>
+                          </figure>
+                        </li>
+                      )
+                    })}
+                  </ol>
+                </section>
               ))}
-            </ol>
+            </div>
 
             <p className="poc-story__governance">
               <strong>Engineering still owns production readiness:</strong>{' '}
