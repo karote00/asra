@@ -76,12 +76,19 @@
 .site-frame-footer nav a {
   align-items: center;
   display: inline-flex;
-  font-size: 0.72rem;
   font-weight: 720;
   letter-spacing: 0.055em;
   min-height: 44px;
   position: relative;
   text-transform: uppercase;
+}
+
+.site-frame-navigation a {
+  font-size: var(--header-navigation-font-size);
+}
+
+.site-frame-footer nav a {
+  font-size: 0.72rem;
 }
 
 .site-frame-navigation a::after,

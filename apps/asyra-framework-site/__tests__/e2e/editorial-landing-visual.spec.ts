@@ -1520,6 +1520,31 @@ test('2048px uses the supplied 2400px domain rail without losing detail', async 
   }, priorStyle)
 })
 
+test('wide screens grow the proof copy area with its display typography', async ({
+  page
+}, testInfo) => {
+  const copyWidths: number[] = []
+
+  for (const width of [1440, 2520]) {
+    await page.setViewportSize({ width, height: 1200 })
+    await loadLanding(page)
+    copyWidths.push(
+      await page
+        .locator('.proof__copy')
+        .first()
+        .evaluate((element) => element.getBoundingClientRect().width)
+    )
+  }
+
+  expect(copyWidths[1]).toBeGreaterThan(copyWidths[0] + 150)
+  await assertUnbrokenReferenceLines(page)
+  await assertNoHorizontalOverflow(page)
+  await page.locator('.proof-stack').screenshot({
+    animations: 'disabled',
+    path: testInfo.outputPath('proof-copy-wide-2520.png')
+  })
+})
+
 test('820px retains the reference two-column composition', async ({
   page
 }, testInfo) => {

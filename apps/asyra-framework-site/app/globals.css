@@ -8,6 +8,11 @@
   --signal-red-hover: #ff453a;
   --signal-red-focus: #ff6d64;
   --signal-blue: #0877c8;
+  --header-navigation-font-size: clamp(
+    0.72rem,
+    calc(0.68rem + 0.1vw),
+    0.78rem
+  );
   --page-content-inset-x: max(
     var(--page-padding-x),
     calc((100vw - var(--page-max-width)) / 2 + var(--page-padding-x))
@@ -123,10 +128,18 @@ p {
 .primary-nav a,
 .site-footer nav a,
 .project-identity {
-  font-size: clamp(0.62rem, 0.8vw, 0.76rem);
   font-weight: 700;
   letter-spacing: 0.045em;
   text-transform: uppercase;
+}
+
+.primary-nav a {
+  font-size: var(--header-navigation-font-size);
+}
+
+.site-footer nav a,
+.project-identity {
+  font-size: clamp(0.62rem, 0.8vw, 0.76rem);
 }
 
 .primary-nav a,
@@ -864,8 +877,9 @@ p {
 }
 
 .proof__copy {
-  max-width: 520px;
+  max-width: clamp(520px, 34vw, 860px);
   position: relative;
+  width: 100%;
   z-index: 2;
 }
 
