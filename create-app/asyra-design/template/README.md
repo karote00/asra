@@ -74,7 +74,14 @@ yarn collaboration:server
 yarn start
 ```
 
-The generated `.env` uses:
+The generated project includes `.env.example` with the complete local service
+configuration. Copy it to the ignored `.env` before starting those services:
+
+```bash
+cp .env.example .env
+```
+
+The example includes:
 
 ```dotenv
 VITE_COLLABORATION_WS_URL=ws://127.0.0.1:4101/collaboration
@@ -83,8 +90,10 @@ DOCUMENT_PERSISTENCE_BACKEND_URL=http://127.0.0.1:4201
 
 Opening the same `fileId` in two windows joins the same document. Socket
 acceptance, peer apply, and backend durability remain separate observable
-states. Clearing the explicit WebSocket URL selects the same-origin
-`/collaboration` deployment route; it does not select a second document mode.
+states. Without `.env`, the frontend uses its built-in local origin and derives
+the socket from same-origin `/collaboration`. If that route is unavailable, the
+App remains locally editable through its provisional offline state; it does
+not select a second document mode.
 
 The included reference services do not supply production authentication,
 authorization, backup, or retention policy. Those remain your App/backend

@@ -63,7 +63,7 @@ const CHECK_DIRECTORY = path.resolve(
 )
 const DEST_DIR = CHECK ? CHECK_DIRECTORY : CONFIGURED_DEST_DIR
 const CLEAN_FILES = config.cleanFiles || []
-const GENERATED_ENVIRONMENT = config.environment || {}
+const GENERATED_EXAMPLE_ENVIRONMENT = config.exampleEnvironment || {}
 const TEMPLATE_README = config.readme ? path.resolve(config.readme) : undefined
 const TEMPLATE_LICENSE = config.license
   ? path.resolve(config.license)
@@ -125,14 +125,14 @@ for (const pattern of CLEAN_FILES) {
   }
 }
 
-const generatedEnvironmentPath = path.join(DEST_DIR, '.env')
+const generatedEnvironmentPath = path.join(DEST_DIR, '.env.example')
 fs.writeFileSync(
   generatedEnvironmentPath,
-  `${Object.entries(GENERATED_ENVIRONMENT)
+  `${Object.entries(GENERATED_EXAMPLE_ENVIRONMENT)
     .map(([key, value]) => `${key}=${value}`)
     .join('\n')}\n`
 )
-if (VERBOSE) console.log('Created standalone public environment defaults')
+if (VERBOSE) console.log('Created standalone environment example')
 
 if (TEMPLATE_README) {
   const relativeReadmeSource = path.relative(SRC_DIR, TEMPLATE_README)

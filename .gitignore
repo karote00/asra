@@ -32,6 +32,12 @@ dist
 *storybook.log
 .vercel
 
+# Private environment files
+.env
+.env.*
+!.env.example
+!.env.*.example
+
 # Test Repo or File
 count.bash
 chrome-dev-perf-trace.json

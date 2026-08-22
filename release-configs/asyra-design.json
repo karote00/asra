@@ -3,7 +3,7 @@
   "dest": "create-app/asyra-design/template",
   "readme": "apps/asyra-design/TEMPLATE.md",
   "license": "create-app/asyra-design/LICENSE",
-  "environment": {
+  "exampleEnvironment": {
     "APP_URL": "http://localhost:3000",
     "COLLABORATION_WS_HOST": "127.0.0.1",
     "COLLABORATION_WS_PORT": "4101",

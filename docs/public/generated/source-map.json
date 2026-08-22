@@ -24,7 +24,7 @@
         },
         {
           "path": "create-app/asyra-design/template/README.md",
-          "sha256": "0d98f136cf80d0ab957924eb82689d68c8114377c620c2996c0a246969beb7f0"
+          "sha256": "3baf1ba4d931dd51c24ab4614a66fa6694859d3a4e4a5c7468e93cbef803e3c8"
         }
       ]
     },
@@ -606,7 +606,7 @@
         },
         {
           "path": "docs/ai/apps/asyra-design/modules/init-and-startup.md",
-          "sha256": "9b0c693554569e2b7c176f72bae1fb71a2bd5e2de0cd8257e941450ea240ed3c"
+          "sha256": "cdfdcfc16fe55199edc6898feb5514376e5cdffa94f9938ebdd1d07900bdc835"
         }
       ]
     }

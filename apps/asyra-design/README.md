@@ -14,7 +14,7 @@ internals.
 
 ## Try and create Asyra Design
 
-[Open the Asyra Design live app](https://asyra-karote00s-projects.vercel.app/?fileId=demo).
+[Open the Asyra Design live app](https://asyra-design.vercel.app/?fileId=demo).
 
 To create an independently editable Asyra Design product:
 
@@ -80,7 +80,13 @@ That behavior is useful for frontend development, but it is not complete
 collaboration or durable backend persistence. To exercise those guarantees,
 run the services in the next section.
 
-The checked-in `apps/asyra-design/.env` owns the local origins:
+The checked-in `apps/asyra-design/.env.example` documents the complete local
+service configuration. Copy it to the ignored `.env` only when you want to run
+all three local services:
+
+```bash
+cp apps/asyra-design/.env.example apps/asyra-design/.env
+```
 
 ```dotenv
 APP_URL=http://localhost:3000
@@ -91,7 +97,10 @@ VITE_COLLABORATION_WS_URL=ws://127.0.0.1:4101/collaboration
 ```
 
 `APP_URL` is the frontend origin. `VITE_COLLABORATION_WS_URL` is the browser's
-socket endpoint.
+socket endpoint. Without `.env`, the frontend starts on
+`http://localhost:3000` and derives `/collaboration` from its current origin.
+If that socket route is unavailable, the App enters its declared provisional
+offline state and remains locally editable.
 
 The socket server reads and
 writes checkpoints only through `DOCUMENT_PERSISTENCE_BACKEND_URL`. The browser

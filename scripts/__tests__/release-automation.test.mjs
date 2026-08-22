@@ -182,6 +182,16 @@ test('generated template contains required public files and no repository-only s
     readFileSync(path.join(templateRoot, 'LICENSE'), 'utf8'),
     expectedLicense
   )
+  assert.equal(existsSync(path.join(templateRoot, '.env')), false)
+  assert.equal(existsSync(path.join(templateRoot, '.env.example')), true)
+  assert.equal(
+    existsSync(path.join(repositoryRoot, 'apps/asyra-design', '.env')),
+    false
+  )
+  assert.equal(
+    existsSync(path.join(repositoryRoot, 'apps/asyra-design', '.env.example')),
+    true
+  )
   for (const repositoryOnlyPath of [
     '.turbo',
     'coverage',
@@ -193,6 +203,50 @@ test('generated template contains required public files and no repository-only s
       existsSync(path.join(templateRoot, repositoryOnlyPath)),
       false,
       repositoryOnlyPath
+    )
+  }
+})
+
+test('repository ignores private environment files without hiding examples', () => {
+  for (const privateEnvironmentPath of [
+    '.env',
+    '.env.local',
+    'packages/core/.env',
+    'apps/asyra-framework-site/.env.production'
+  ]) {
+    const result = spawnSync(
+      'git',
+      ['check-ignore', '--no-index', '--quiet', privateEnvironmentPath],
+      {
+        cwd: repositoryRoot,
+        encoding: 'utf8'
+      }
+    )
+
+    assert.equal(
+      result.status,
+      0,
+      `${privateEnvironmentPath} must be ignored by the repository root`
+    )
+  }
+
+  for (const exampleEnvironmentPath of [
+    '.env.example',
+    'packages/core/.env.example'
+  ]) {
+    const result = spawnSync(
+      'git',
+      ['check-ignore', '--no-index', '--quiet', exampleEnvironmentPath],
+      {
+        cwd: repositoryRoot,
+        encoding: 'utf8'
+      }
+    )
+
+    assert.equal(
+      result.status,
+      1,
+      `${exampleEnvironmentPath} must remain available as documentation`
     )
   }
 })
@@ -346,18 +400,18 @@ test('generated template manifest is standalone on the supported release runtime
     assert.equal(version, sourceManifest.version)
   }
 
-  const environment = readFileSync(
-    path.join(repositoryRoot, 'create-app/asyra-design/template/.env'),
+  const exampleEnvironment = readFileSync(
+    path.join(repositoryRoot, 'create-app/asyra-design/template/.env.example'),
     'utf8'
   )
-  assert.match(environment, /^APP_URL=http:\/\/localhost:3000$/m)
-  assert.match(environment, /^COLLABORATION_WS_HOST=127\.0\.0\.1$/m)
-  assert.match(environment, /^COLLABORATION_WS_PORT=4101$/m)
+  assert.match(exampleEnvironment, /^APP_URL=http:\/\/localhost:3000$/m)
+  assert.match(exampleEnvironment, /^COLLABORATION_WS_HOST=127\.0\.0\.1$/m)
+  assert.match(exampleEnvironment, /^COLLABORATION_WS_PORT=4101$/m)
   assert.match(
-    environment,
+    exampleEnvironment,
     /^VITE_COLLABORATION_WS_URL=ws:\/\/127\.0\.0\.1:4101\/collaboration$/m
   )
-  assert.doesNotMatch(environment, /(?:SECRET|TOKEN|PASSWORD|API_KEY)=/i)
+  assert.doesNotMatch(exampleEnvironment, /(?:SECRET|TOKEN|PASSWORD|API_KEY)=/i)
 })
 
 test('canonical Asyra Design source uses workspace Framework dependencies during development', () => {
