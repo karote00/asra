@@ -38,18 +38,18 @@ const REQUIRED_HEADINGS = Object.freeze({
     '## Support and policy'
   ]),
   'asyra-design': Object.freeze([
-    '## Try and create Asyra Design',
-    '## Start in this repository',
-    '## Editing paths',
-    '## Complete local services',
-    '## Extend the product',
-    '## Framework and App ownership',
+    '## Install and start',
+    '## Start editing',
+    '## Run the complete local services',
+    '## Make your first extension',
+    '## Build with an AI coding agent',
+    '## Framework flows',
     '## Verify',
-    '## Deployment boundary',
+    '## Current release boundary',
     '## Support and contribution policy',
     '## License'
   ]),
-  'generated-app-source': Object.freeze([
+  'generated-app-output': Object.freeze([
     '## Install and start',
     '## Start editing',
     '## Run the complete local services',
@@ -294,12 +294,8 @@ export const validatePublicReadmes = async ({ repositoryRoot }) => {
       source,
       sourcePath: surface.path
     })
-    const renderedFilePath =
-      surface.id === 'generated-app-source'
-        ? path.join(root, inputs.generatedReadme.output)
-        : filePath
     linkCount += validateReadmeLinks({
-      filePath: renderedFilePath,
+      filePath,
       repositoryRoot: root,
       source
     })
@@ -335,9 +331,10 @@ export const validatePublicReadmes = async ({ repositoryRoot }) => {
 }
 
 export const validateGeneratedReadmePair = ({ output, source }) => {
-  const matches = Buffer.isBuffer(source)
-    ? source.equals(output)
-    : source === output
+  const sourceText = Buffer.isBuffer(source) ? source.toString('utf8') : source
+  const outputText = Buffer.isBuffer(output) ? output.toString('utf8') : output
+  const matches =
+    sourceText.replaceAll('../../LICENSE', 'LICENSE') === outputText
   if (!matches) {
     throw new Error('Generated Asyra Design README is stale')
   }

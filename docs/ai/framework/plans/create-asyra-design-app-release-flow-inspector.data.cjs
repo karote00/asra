@@ -24,7 +24,7 @@
       title: 'Decide release versions',
       ownerPackage: 'Create-app release version decision owner',
       purpose:
-        'Record the registry-verified Framework dependency versions, keep root asyra unchanged for its later release stage, and explicitly select the canonical app and create-asyra-design-app CLI at the same release version.',
+        'Record the registry-verified Framework dependency versions, keep the private root workspace unchanged and unpublished, and explicitly select the canonical app and create-asyra-design-app CLI at the same release version.',
       inputs: [
         'user version instructions',
         'public manifest-derived Framework registry records',
@@ -36,7 +36,7 @@
       ],
       conditions: [
         'Framework dependencies required by the canonical app are the exact registry-verified versions selected per package.',
-        'Root asyra remains unchanged throughout this CLI plan; apps/asyra-design and the CLI are explicitly selected at the same release version.',
+        'The private root workspace asyra remains unchanged and unpublished throughout this CLI plan; apps/asyra-design and the CLI are explicitly selected at the same release version.',
         'The shared App and CLI target is explicitly selected by the user, but the CLI manifest remains unchanged until materialize-cli-version receives artifact:verified-template.',
         'CLI publication remains blocked until the user explicitly confirms every release identity version required by the release plan.',
         'Cleanup owner: decide-release-versions owns only the release version decision record and manifest edits explicitly selected by the user.'
@@ -111,7 +111,8 @@
       cacheDimensions: [],
       implementationBoundary: [
         'apps/asyra-design/package.json',
-        'apps/asyra-design/TEMPLATE.md',
+        'apps/asyra-design/README.md',
+        'apps/asyra-design/.env.example',
         'apps/asyra-design/src',
         'apps/asyra-design/tests',
         'apps/asyra-design/e2e',
@@ -139,7 +140,8 @@
       ],
       conditions: [
         'The generator rewrites @asyra workspace dependencies to the current registry-verified public manifest versions and sets the approved Node.js and Yarn contracts.',
-        'The generator adds required generated-project files such as README, license, ignore rules, and environment defaults.',
+        'The generator copies the canonical apps/asyra-design README and environment example, applying only the deterministic standalone link rewrite required by the generated project location.',
+        'The generator adds required generated-project files such as license and ignore rules.',
         'Repository-only runtime artifacts, reports, caches, coverage, local state, and secrets are deterministically excluded.',
         'The generated template is never hand-edited; every correction returns to the canonical app, generator, or release configuration owner.',
         'Cleanup owner: transform-generated-template owns complete replacement of create-app/asyra-design/template and generator-owned temporary directories.'

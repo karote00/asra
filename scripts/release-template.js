@@ -11,6 +11,7 @@
  *   - Read config for each app
  *   - Copy source files to release template folder
  *   - Clean unnecessary files (lock files, node_modules, .env, etc.)
+ *   - Copy the canonical README and environment example
  *   - Copy index.html
  *   - Update @asyra/* dependencies to fixed versions from packages/
  *   - Add standard devDependencies (ESLint, Prettier, etc.)
@@ -63,8 +64,8 @@ const CHECK_DIRECTORY = path.resolve(
 )
 const DEST_DIR = CHECK ? CHECK_DIRECTORY : CONFIGURED_DEST_DIR
 const CLEAN_FILES = config.cleanFiles || []
-const GENERATED_EXAMPLE_ENVIRONMENT = config.exampleEnvironment || {}
-const TEMPLATE_README = config.readme ? path.resolve(config.readme) : undefined
+const SOURCE_README = path.join(SRC_DIR, 'README.md')
+const SOURCE_EXAMPLE_ENVIRONMENT = path.join(SRC_DIR, '.env.example')
 const TEMPLATE_LICENSE = config.license
   ? path.resolve(config.license)
   : undefined
@@ -125,31 +126,20 @@ for (const pattern of CLEAN_FILES) {
   }
 }
 
-const generatedEnvironmentPath = path.join(DEST_DIR, '.env.example')
-fs.writeFileSync(
-  generatedEnvironmentPath,
-  `${Object.entries(GENERATED_EXAMPLE_ENVIRONMENT)
-    .map(([key, value]) => `${key}=${value}`)
-    .join('\n')}\n`
-)
-if (VERBOSE) console.log('Created standalone environment example')
-
-if (TEMPLATE_README) {
-  const relativeReadmeSource = path.relative(SRC_DIR, TEMPLATE_README)
-  if (
-    relativeReadmeSource.startsWith('..') ||
-    path.isAbsolute(relativeReadmeSource) ||
-    !fs.existsSync(TEMPLATE_README)
-  ) {
-    throw new Error('Template README must be an existing template source file')
-  }
-  fse.copySync(TEMPLATE_README, path.join(DEST_DIR, 'README.md'))
-  const copiedReadmeSource = path.join(DEST_DIR, relativeReadmeSource)
-  if (copiedReadmeSource !== path.join(DEST_DIR, 'README.md')) {
-    fse.removeSync(copiedReadmeSource)
-  }
-  if (VERBOSE) console.log('Created standalone template README')
+if (!fs.existsSync(SOURCE_EXAMPLE_ENVIRONMENT)) {
+  throw new Error('Canonical app source must include .env.example')
 }
+fse.copySync(SOURCE_EXAMPLE_ENVIRONMENT, path.join(DEST_DIR, '.env.example'))
+if (VERBOSE) console.log('Copied canonical environment example')
+
+if (!fs.existsSync(SOURCE_README)) {
+  throw new Error('Canonical app source must include README.md')
+}
+const standaloneReadme = fs
+  .readFileSync(SOURCE_README, 'utf8')
+  .replaceAll('../../LICENSE', 'LICENSE')
+fs.writeFileSync(path.join(DEST_DIR, 'README.md'), standaloneReadme)
+if (VERBOSE) console.log('Created standalone README from canonical source')
 
 if (TEMPLATE_LICENSE) {
   if (!fs.existsSync(TEMPLATE_LICENSE)) {

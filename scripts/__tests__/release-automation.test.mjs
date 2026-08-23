@@ -168,6 +168,61 @@ test('Asyra Design release source retains only active drawing fixtures', () => {
   }
 })
 
+test('Asyra Design canonical source excludes retired CRA and duplicate template artifacts', () => {
+  const manifest = JSON.parse(
+    readFileSync(
+      path.join(repositoryRoot, 'apps/asyra-design/package.json'),
+      'utf8'
+    )
+  )
+  const config = JSON.parse(
+    readFileSync(
+      path.join(repositoryRoot, 'release-configs/asyra-design.json'),
+      'utf8'
+    )
+  )
+
+  assert.equal(manifest.dependencies?.['web-vitals'], undefined)
+  assert.equal(manifest.dependencies?.['react-scripts'], undefined)
+  assert.equal(config.readme, undefined)
+  assert.equal(config.exampleEnvironment, undefined)
+
+  for (const retiredPath of [
+    'TEMPLATE.md',
+    'e2e/.gitkeep',
+    'public/logo512.png',
+    'public/manifest.json',
+    'src/logo.svg',
+    'src/react-app-env.d.ts',
+    'src/reportWebVitals.ts'
+  ]) {
+    assert.equal(
+      existsSync(path.join(repositoryRoot, 'apps/asyra-design', retiredPath)),
+      false,
+      retiredPath
+    )
+    assert.equal(
+      existsSync(
+        path.join(
+          repositoryRoot,
+          'create-app/asyra-design/template',
+          retiredPath
+        )
+      ),
+      false,
+      `generated ${retiredPath}`
+    )
+  }
+
+  assert.equal(
+    existsSync(
+      path.join(repositoryRoot, 'apps/asyra-design/src/animation/index.tsx')
+    ),
+    true,
+    'the reserved animation source must remain available'
+  )
+})
+
 test('generated template contains required public files and no repository-only state', () => {
   const templateRoot = path.join(
     repositoryRoot,
@@ -191,6 +246,19 @@ test('generated template contains required public files and no repository-only s
   assert.equal(
     existsSync(path.join(repositoryRoot, 'apps/asyra-design', '.env.example')),
     true
+  )
+  assert.equal(
+    readFileSync(
+      path.join(
+        repositoryRoot,
+        'create-app/asyra-design/template/.env.example'
+      ),
+      'utf8'
+    ),
+    readFileSync(
+      path.join(repositoryRoot, 'apps/asyra-design/.env.example'),
+      'utf8'
+    )
   )
   for (const repositoryOnlyPath of [
     '.turbo',
@@ -444,7 +512,7 @@ test('canonical Asyra Design source uses workspace Framework dependencies during
 
 test('generated template documents its verified standalone commands and opt-ins', () => {
   const source = readFileSync(
-    path.join(repositoryRoot, 'apps/asyra-design/TEMPLATE.md'),
+    path.join(repositoryRoot, 'apps/asyra-design/README.md'),
     'utf8'
   )
   const generated = readFileSync(
@@ -452,7 +520,7 @@ test('generated template documents its verified standalone commands and opt-ins'
     'utf8'
   )
 
-  assert.equal(generated, source)
+  assert.equal(generated, source.replaceAll('../../LICENSE', 'LICENSE'))
   assert.match(generated, /Node\.js 24\.x/)
   for (const command of [
     'yarn install',

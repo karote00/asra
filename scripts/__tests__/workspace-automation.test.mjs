@@ -116,43 +116,28 @@ test('root commands validate the committed Turbo graph without rewriting it', ()
 
 test('Asyra Design keeps frontend startup, live transport, and local persistence separate', () => {
   const rootManifest = readJSON('package.json')
-  const appReadme = readText('apps/asyra-design/README.md')
+  const developmentGuide = readText('apps/asyra-design/docs/development.md')
+  const collaborationReference = readText(
+    'docs/ai/apps/asyra-design/modules/collaboration-reference.md'
+  )
   const devAllRunner = readText('scripts/dev-all.js')
 
   assert.equal(rootManifest.scripts['dev:all'], 'node scripts/dev-all.js')
   assert.doesNotMatch(rootManifest.scripts['dev:all'], /gen:turbo/)
   assert.doesNotMatch(devAllRunner, /initialBuilds/)
-  assert.match(appReadme, /yarn dev:all/)
+  assert.match(developmentGuide, /yarn dev:all/)
+  assert.match(developmentGuide, /In a generated project:[\s\S]*yarn start/)
+  assert.match(developmentGuide, /fileId.*must be non-empty/i)
+  assert.match(developmentGuide, /yarn document:backend/)
+  assert.match(developmentGuide, /yarn collaboration:server/)
+  assert.match(collaborationReference, /durable unaccepted-publication outbox/i)
   assert.match(
-    appReadme,
-    /`dev:all` starts.*workspace package watchers.*App\s+dev server only/is
-  )
-  assert.doesNotMatch(appReadme, /`dev:all` builds/i)
-  assert.doesNotMatch(
-    appReadme,
-    /workspace packages,\s+the memory-only WebSocket reference server,\s+and the App dev server/i
-  )
-  assert.match(
-    appReadme,
-    /yarn workspace @asyra\/asyra-design collaboration:server/
+    collaborationReference,
+    /three-second persistence window, and backend materialization/i
   )
   assert.match(
-    appReadme,
+    collaborationReference,
     /yarn workspace @asyra\/asyra-design collaboration:server:start/
-  )
-  assert.match(appReadme, /http:\/\/localhost:3000\/\?fileId=/)
-  assert.match(appReadme, /required non-empty `fileId`/i)
-  assert.match(appReadme, /always starts Collaboration/i)
-  assert.doesNotMatch(appReadme, /browser-local IndexedDB document/i)
-  assert.match(appReadme, /IndexedDB recovery outbox/i)
-  assert.match(appReadme, /browser never writes a materialized document/i)
-  assert.match(
-    appReadme,
-    /Factory publication, socket sequence,\s+three-second persistence window, and backend materialization path/i
-  )
-  assert.match(
-    appReadme,
-    /socket server reads and\s+writes checkpoints only through `DOCUMENT_PERSISTENCE_BACKEND_URL`/i
   )
 })
 

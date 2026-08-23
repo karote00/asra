@@ -101,12 +101,15 @@ test('the official generator writes the Node.js 24 contract', () => {
 
 test('the generated template contract requires Node.js 24 and Yarn 4.3.1', () => {
   const manifest = readJson('create-app/asyra-design/template/package.json')
-  const sourceReadme = readText('apps/asyra-design/TEMPLATE.md')
+  const sourceReadme = readText('apps/asyra-design/README.md')
   const generatedReadme = readText('create-app/asyra-design/template/README.md')
 
   assert.deepEqual(manifest.engines, { node: supportedNodeRange })
   assert.equal(manifest.packageManager, 'yarn@4.3.1')
-  assert.equal(generatedReadme, sourceReadme)
+  assert.equal(
+    generatedReadme,
+    sourceReadme.replaceAll('../../LICENSE', 'LICENSE')
+  )
   assert.match(generatedReadme, /Node\.js 24\.x/)
   assert.doesNotMatch(generatedReadme, /Node\.js 20\.x/)
 })
@@ -150,7 +153,6 @@ test('current public support records require Node.js 24 without a legacy-major f
       (name) => `packages/${name.slice('@asyra/'.length)}/README.md`
     ),
     'apps/asyra-design/README.md',
-    'apps/asyra-design/TEMPLATE.md',
     'create-app/asyra-design/template/README.md',
     'docs/ai/framework/RELEASE_SUPPORT.md',
     'docs/ai/workflows/package-release-validation.md',

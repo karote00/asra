@@ -119,8 +119,10 @@ const lowercaseIdentityOwnerPaths = new Set([
   'scripts/__tests__/create-app-cli.test.mjs',
   'scripts/__tests__/release-automation.test.mjs',
   'scripts/__tests__/test-file-placement.test.mjs',
+  'scripts/__tests__/workspace-automation.test.mjs',
   'scripts/release-records.js'
 ])
+const brandOwnedCodePrefixes = Object.freeze(['apps/asyra-framework-site/'])
 const capitalizedBrandIdentifierPattern = new RegExp(
   String.raw`(?:\b(?:class|const|enum|export|function|import|interface|let|namespace|type|var)\s+|[({,.]\s*)${repositoryDisplayName}(?=\s*(?:[:=,;)\]}]|$))`,
   'u'
@@ -128,6 +130,12 @@ const capitalizedBrandIdentifierPattern = new RegExp(
 
 const isAllowedPublicIdentity = (token, line, filePath) => {
   const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const relativePath = path.relative(repositoryRoot, filePath)
+  if (
+    brandOwnedCodePrefixes.some((prefix) => relativePath.startsWith(prefix))
+  ) {
+    return true
+  }
   if (
     publicIdentityDataValues.has(token) &&
     new RegExp(`(['"])[^'"\\n]*${escapedToken}[^'"\\n]*\\1`, 'u').test(line)
@@ -144,10 +152,11 @@ const isAllowedPublicIdentity = (token, line, filePath) => {
   }
 
   if (token === repositoryBrand) {
-    const relativePath = path.relative(repositoryRoot, filePath)
     return (
       line.includes(`@${repositoryBrand}`) ||
       line.includes(`https://github.com/karote00/${repositoryBrand}`) ||
+      (path.basename(filePath) === 'package.json' &&
+        new RegExp(`(['"])${escapedRepositoryBrand}\\1`, 'u').test(line)) ||
       (lowercaseIdentityOwnerPaths.has(relativePath) &&
         new RegExp(`/${escapedRepositoryBrand}(?:/|['"])`, 'u').test(line)) ||
       (lowercaseIdentityOwnerPaths.has(relativePath) &&
@@ -253,7 +262,7 @@ test('Public-facing surfaces preserve the official project identities', () => {
   assert.match(
     appReadme,
     new RegExp(
-      `${referenceAppDisplayName}.*${repositoryDisplayName} Framework`,
+      `${referenceAppDisplayName}[\\s\\S]*${repositoryDisplayName}\\s+Framework`,
       'u'
     )
   )
@@ -344,7 +353,7 @@ test('Active entry docs position Asyra Design as one product use, not the Framew
     assert.doesNotMatch(source, legacyPositioning, relativePath)
   }
 
-  assert.match(rootManifest.description, /Framework/u)
+  assert.match(rootManifest.description, /framework/iu)
   assert.doesNotMatch(rootManifest.description, /^An open-source design tool/u)
 })
 

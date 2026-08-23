@@ -231,6 +231,17 @@ test('template is generated-only and registry proof rejects local substitutions'
   assert.match(install, /public npm registry/i)
 })
 
+test('canonical App README and environment example are the only generated source documents', () => {
+  const source = step('own-canonical-app-source')
+  const transform = step('transform-generated-template')
+  const combined = JSON.stringify([source, transform])
+
+  assert.ok(source.implementationBoundary.includes('apps/asyra-design/README.md'))
+  assert.doesNotMatch(combined, /apps\/asyra-design\/TEMPLATE\.md/)
+  assert.match(combined, /apps\/asyra-design\/\.env\.example/)
+  assert.match(combined, /link rewrite/i)
+})
+
 test('behavior proof covers tests, build, startup, interactions, and disabled side effects', () => {
   const behavior = contractText(step('prove-generated-app-behavior'))
 

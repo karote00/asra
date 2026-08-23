@@ -14,11 +14,11 @@ const repositoryRoot = path.resolve(
 test('README inputs derive the exact release surfaces and owners', async () => {
   const inputs = await readApprovedReadmeInputs({ repositoryRoot })
   assert.equal(inputs.packages.length, 19)
-  assert.equal(inputs.specialSurfaces.length, 5)
-  assert.equal(inputs.surfaces.length, 24)
+  assert.equal(inputs.specialSurfaces.length, 4)
+  assert.equal(inputs.surfaces.length, 23)
   assert.equal(
     new Set(inputs.surfaces.map(({ path: value }) => value)).size,
-    24
+    23
   )
   for (const retiredSurface of [
     'apps/asyra/README.md',
@@ -36,17 +36,14 @@ test('README inputs derive the exact release surfaces and owners', async () => {
   assert.deepEqual(inputs.generatedReadme, {
     configPath: 'release-configs/asyra-design.json',
     output: 'create-app/asyra-design/template/README.md',
-    source: 'apps/asyra-design/TEMPLATE.md'
+    source: 'apps/asyra-design/README.md'
   })
 })
 
 test('root README exposes package-first composition and the working product starter', () => {
   const readme = fs.readFileSync(path.join(repositoryRoot, 'README.md'), 'utf8')
 
-  assert.match(
-    readme,
-    /https:\/\/asyra-design\.vercel\.app\/\?fileId=demo/u
-  )
+  assert.match(readme, /https:\/\/asyra-design\.vercel\.app\/\?fileId=demo/u)
   assert.match(readme, /npm install @asyra\/core/u)
   assert.match(
     readme,
@@ -83,35 +80,22 @@ test('root README exposes package-first composition and the working product star
   )
 })
 
-test('Asyra Design README presents the official product before repository internals', () => {
+test('Asyra Design README is the standalone generated-product guide', () => {
   const readme = fs.readFileSync(
     path.join(repositoryRoot, 'apps/asyra-design/README.md'),
     'utf8'
   )
 
-  assert.match(
-    readme,
-    /Asyra Design is the official canvas-based design tool app built on Asyra\s+Framework/u
-  )
-  assert.match(readme, /maintained product and reference implementation/u)
-  assert.match(readme, /working 2D editor/u)
-  assert.match(readme, /Vector paths/u)
-  assert.match(readme, /Undo\/Redo/u)
-  assert.match(readme, /document sessions/u)
-  assert.match(readme, /user-initiated AI actions/u)
-  assert.match(
-    readme,
-    /https:\/\/asyra-design\.vercel\.app\/\?fileId=demo/u
-  )
-  assert.match(
-    readme,
-    /npx create-asyra-design-app my-product --package-manager=npm[\s\S]*npm run start/u
-  )
-  assert.ok(
-    readme.indexOf('## Try and create Asyra Design') <
-      readme.indexOf('## Start in this repository')
-  )
-  assert.doesNotMatch(readme, /Framework demo|throwaway example/u)
+  assert.match(readme, /standalone, editable Asyra Design product/u)
+  assert.match(readme, /## Install and start/u)
+  assert.match(readme, /## Start editing/u)
+  assert.match(readme, /## Run the complete local services/u)
+  assert.match(readme, /## Make your first extension/u)
+  assert.match(readme, /## Build with an AI coding agent/u)
+  assert.match(readme, /## Framework flows/u)
+  assert.match(readme, /yarn start/u)
+  assert.match(readme, /provisional offline state/u)
+  assert.doesNotMatch(readme, /yarn dev:all|Start in this repository/u)
 })
 
 test('every package input resolves its complete public guide without example commands', async () => {

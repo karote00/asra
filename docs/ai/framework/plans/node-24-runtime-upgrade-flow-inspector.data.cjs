@@ -222,7 +222,7 @@
         'scripts/release-template-readiness.js',
         'scripts/__tests__/release-automation.test.mjs',
         'scripts/__tests__/release-template-readiness.test.mjs',
-        'apps/asyra-design/TEMPLATE.md',
+        'apps/asyra-design/README.md',
         'create-app/asyra-design/template/package.json',
         'create-app/asyra-design/template/README.md',
         'scripts/__tests__/node-runtime-contract.test.mjs'
@@ -437,7 +437,7 @@
       ],
       conditions: [
         'Current public support records, root/app/template/package READMEs, release validation workflow, changelog, and release notes consistently name Node.js 24.x and Yarn 4.3.1.',
-        'Generated README changes originate in apps/asyra-design/TEMPLATE.md and the official generator.',
+        'Generated README changes originate in apps/asyra-design/README.md and the official generator.',
         'Historical completed-plan evidence remains a point-in-time Node.js 20 record unless it asserts current support.',
         'Cleanup owner: synchronize-runtime-support owns documentation changes only and creates no runtime process, artifact, deployment, or publication.'
       ],
@@ -463,7 +463,6 @@
         'RELEASE_NOTES.md',
         'packages/*/README.md',
         'apps/asyra-design/README.md',
-        'apps/asyra-design/TEMPLATE.md',
         'create-app/asyra-design/template/README.md',
         'docs/ai/framework/RELEASE_SUPPORT.md',
         'docs/ai/workflows/package-release-validation.md',

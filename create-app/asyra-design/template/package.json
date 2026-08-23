@@ -27,9 +27,7 @@
     "lodash": "^4.17.21",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-scripts": "5.0.1",
     "typescript": "^5.7.2",
-    "web-vitals": "^2.1.4",
     "ws": "^8.18.2"
   },
   "devDependencies": {

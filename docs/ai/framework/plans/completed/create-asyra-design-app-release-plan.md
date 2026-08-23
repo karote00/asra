@@ -11,7 +11,8 @@ source, published from the validated feature-branch source, installed through
 its exact public `npx` command, and accepted after the complete generated-app
 behavior matrix plus manual product testing passed.
 
-Root `asyra` remains unchanged throughout this plan. The private
+The private root workspace `asyra` remains unchanged and unpublished
+throughout this plan. The private
 `@asyra/asyra-design` App and `create-asyra-design-app` CLI share one explicitly
 selected release version.
 
@@ -56,7 +57,7 @@ publish only the manually versioned `create-asyra-design-app` CLI.
 - Work uses a clean exact source commit on `main` or a non-main feature branch.
 
 The CLI target cannot be materialized before the generated-template contract
-passes. Root remains deferred until after the CLI release.
+passes. The private root workspace remains excluded from publication.
 
 ## Required Inspector
 
@@ -82,7 +83,7 @@ The executable authority is
 
 ### 1. Record user-specified versions
 
-- Keep root unchanged for its later release stage.
+- Keep the private root workspace unchanged and unpublished.
 - Set canonical Asyra Design to the explicitly selected shared App and CLI
   target before generation.
 - Record that shared target without changing the CLI manifest yet.
@@ -166,8 +167,9 @@ The executable authority is
 
 ## Definition of Done
 
-- Root remains unchanged while private Asyra Design, the generated template,
-  and the CLI use the same explicitly selected release version.
+- The private root workspace remains unchanged and unpublished while private
+  Asyra Design, the generated template, and the CLI use the same explicitly
+  selected release version.
 - The CLI is manually materialized at that shared target without a Changeset
   entry.
 - Generated identity equals the canonical app identity.
