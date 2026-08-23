@@ -361,8 +361,16 @@ test('factual support routes lead with their evidence instead of oversized prese
 
   await page.goto('/roadmap')
   await assertHeightAtMost(page, '.page-hero', 440)
-  const desktopStatus = await page.locator('.status-grid').boundingBox()
-  expect(desktopStatus?.y ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(540)
+  const desktopRoadmapHero = await page.locator('.page-hero').boundingBox()
+  const desktopStatus = await page
+    .locator('.status-grid .status-surface')
+    .first()
+    .boundingBox()
+  expect(desktopStatus?.y ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(596)
+  expect(
+    (desktopStatus?.y ?? 0) -
+      ((desktopRoadmapHero?.y ?? 0) + (desktopRoadmapHero?.height ?? 0))
+  ).toBeGreaterThanOrEqual(40)
 
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/releases')
@@ -372,8 +380,16 @@ test('factual support routes lead with their evidence instead of oversized prese
 
   await page.goto('/roadmap')
   await assertHeightAtMost(page, '.page-hero', 370)
-  const mobileStatus = await page.locator('.status-grid').boundingBox()
-  expect(mobileStatus?.y ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(460)
+  const mobileRoadmapHero = await page.locator('.page-hero').boundingBox()
+  const mobileStatus = await page
+    .locator('.status-grid .status-surface')
+    .first()
+    .boundingBox()
+  expect(mobileStatus?.y ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(492)
+  expect(
+    (mobileStatus?.y ?? 0) -
+      ((mobileRoadmapHero?.y ?? 0) + (mobileRoadmapHero?.height ?? 0))
+  ).toBeGreaterThanOrEqual(24)
   await assertNoHorizontalOverflow(page)
 })
 

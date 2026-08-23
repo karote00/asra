@@ -35,7 +35,7 @@ export default async function RoadmapPage() {
         </p>
       </FoundationPageHero>
 
-      <div className="status-grid support-section">
+      <div className="status-grid roadmap-status-grid support-section">
         <StatusSurface
           label="What is current"
           title="Browser and Core composition"

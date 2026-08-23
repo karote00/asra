@@ -145,6 +145,10 @@
   padding-top: 0;
 }
 
+.status-grid.roadmap-status-grid {
+  padding-top: clamp(32px, 4vw, 56px);
+}
+
 .status-surface {
   border: 1px solid var(--frame-rule);
   min-height: 238px;
