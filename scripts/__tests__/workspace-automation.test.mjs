@@ -30,6 +30,16 @@ const getBuildTask = (manifest) => {
   return task
 }
 
+test('repository root is a private workspace and not a publishable package', () => {
+  const rootManifest = readJSON('package.json')
+
+  assert.equal(rootManifest.private, true)
+  assert.equal(rootManifest.main, undefined)
+  assert.equal(fs.existsSync(path.join(repositoryRoot, 'index.js')), false)
+  assert.equal(rootManifest.license, 'MIT')
+  assert.match(rootManifest.repository.url, /github\.com\/karote00\/asyra/)
+})
+
 const getWorkspaceManifests = () => {
   const rootManifest = readJSON('package.json')
   const manifests = new Map()

@@ -8,7 +8,7 @@ merge, tagging, registry, or deployment authorization.
 The Framework candidate contains exactly 19 public ESM packages. The set,
 versions, exports, dependencies, and artifact names are read from package
 manifests by the release/documentation gates; this page does not duplicate
-version constants. Root `asyra`, private Asyra Design, and
+version constants. The private root workspace `asyra`, private Asyra Design, and
 `create-asyra-design-app` have independently owned versions and release flows.
 
 Consumers may import only package roots and explicitly exported subpaths.

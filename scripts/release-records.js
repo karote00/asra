@@ -16,11 +16,7 @@ const EXCLUDED_RELEASE_OWNERS = Object.freeze({
 })
 
 const REQUIRED_DOCUMENT_TOKENS = Object.freeze({
-  'README.md': [
-    'Release support',
-    'current Framework package manifests',
-    'release-readiness evidence'
-  ],
+  'README.md': ['Current support', 'docs/public/reference/support-release.md'],
   'CHANGELOG.md': ['## [Unreleased]'],
   'RELEASE_NOTES.md': [
     'Framework pre-publication candidate',
@@ -56,7 +52,10 @@ const REQUIRED_DOCUMENT_TOKENS = Object.freeze({
     'release:template',
     'release:records'
   ],
-  'apps/asyra-design/README.md': ['Node.js 24.x', 'Yarn 4.3.1']
+  'apps/asyra-design/README.md': [
+    'Node.js 24.x',
+    'the package manager selected when the project was created'
+  ]
 })
 
 const COMPLETED_READINESS_PLAN =
