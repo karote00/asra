@@ -1,3 +1,11 @@
+.atlas-hero {
+  align-items: start;
+}
+
+.atlas-hero .page-hero__aside {
+  align-self: start;
+}
+
 .atlas-hero .page-hero__aside p + p {
   border-top: 1px solid var(--frame-rule);
   margin-top: 30px;
@@ -402,10 +410,44 @@
 }
 
 .atlas-case-footer li {
-  border: 1px solid rgb(248 244 237 / 16%);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.62rem;
+}
+
+.atlas-case-footer__packages li {
+  background: rgb(248 244 237 / 8%);
+  border: 1px solid rgb(248 244 237 / 10%);
+  color: rgb(248 244 237 / 68%);
   padding: 8px 10px;
+}
+
+.atlas-case-footer__guides li {
+  padding: 0;
+}
+
+.atlas-case-footer__guides a {
+  align-items: center;
+  border: 1px solid rgb(255 69 58 / 58%);
+  cursor: pointer;
+  display: inline-flex;
+  gap: 12px;
+  min-height: 36px;
+  padding: 8px 10px;
+  text-decoration: none;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.atlas-case-footer__guides a::after {
+  color: var(--signal-red-hover);
+  content: '→';
+}
+
+.atlas-case-footer__guides a:hover,
+.atlas-case-footer__guides a:focus-visible {
+  background: rgb(213 31 23 / 16%);
+  border-color: var(--signal-red-hover);
 }
 
 .atlas-boundary {

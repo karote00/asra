@@ -172,6 +172,70 @@ test('Runtime Atlas case changes ease the studio to its new height', async ({
   expect(reducedDuration).toBeLessThanOrEqual(0.001)
 })
 
+test('Runtime Atlas hero starts both columns together', async ({
+  page
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/atlas')
+
+  const copy = await page.locator('.atlas-hero .page-hero__copy').boundingBox()
+  const aside = await page
+    .locator('.atlas-hero .page-hero__aside')
+    .boundingBox()
+  expect(copy).not.toBeNull()
+  expect(aside).not.toBeNull()
+  expect(Math.abs((copy?.y ?? 0) - (aside?.y ?? 0))).toBeLessThanOrEqual(4)
+
+  await page.locator('.atlas-hero').screenshot({
+    animations: 'disabled',
+    path: testInfo.outputPath('runtime-atlas-aligned-hero.png')
+  })
+})
+
+test('Runtime Atlas distinguishes package facts from guide actions', async ({
+  page
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/atlas')
+  await waitForReady(page)
+
+  const packages = page.locator('.atlas-case-footer__packages')
+  const guides = page.locator('.atlas-case-footer__guides')
+  await expect(packages.getByRole('link')).toHaveCount(0)
+  await expect(guides.getByRole('link')).not.toHaveCount(0)
+
+  const packageItem = await packages
+    .locator('li')
+    .first()
+    .evaluate((element) => {
+      const style = getComputedStyle(element)
+      return {
+        background: style.backgroundColor,
+        border: style.borderColor,
+        cursor: style.cursor
+      }
+    })
+  const guideLink = await guides
+    .getByRole('link')
+    .first()
+    .evaluate((element) => {
+      const style = getComputedStyle(element)
+      return {
+        background: style.backgroundColor,
+        border: style.borderColor,
+        cursor: style.cursor
+      }
+    })
+  expect(packageItem).not.toEqual(guideLink)
+  expect(packageItem.cursor).not.toBe('pointer')
+  expect(guideLink.cursor).toBe('pointer')
+
+  await page.locator('.atlas-case-footer').screenshot({
+    animations: 'disabled',
+    path: testInfo.outputPath('runtime-atlas-distinct-footer-actions.png')
+  })
+})
+
 test('all six Runtime Atlas cases complete through fresh isolated workers', async ({
   page
 }) => {

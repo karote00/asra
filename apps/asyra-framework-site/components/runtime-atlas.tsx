@@ -362,7 +362,7 @@ export function RuntimeAtlas() {
           ) : null}
 
           <footer className="atlas-case-footer">
-            <div>
+            <div className="atlas-case-footer__packages">
               <p>Public packages in this path</p>
               <ul>
                 {selectedCase?.packages.map((packageName) => (
@@ -370,7 +370,7 @@ export function RuntimeAtlas() {
                 ))}
               </ul>
             </div>
-            <div>
+            <div className="atlas-case-footer__guides">
               <p>Build the same flow</p>
               <ul>
                 {selectedCase?.guideIds.map((guideId) => (
