@@ -24,7 +24,7 @@
         },
         {
           "path": "create-app/asyra-design/template/README.md",
-          "sha256": "afe37588cbaf678c7b7fe846f5be850414faff1a753c748b6912d846e8ecfab4"
+          "sha256": "71cac71df17825f1973dd279003ded9bdf2e1d3c2c1a65f950738a8ed7195017"
         }
       ]
     },
@@ -232,7 +232,7 @@
     },
     {
       "id": "build/hierarchy-groups",
-      "pageSha256": "2c3f6f7a220230e4a2e2595966cb60ab276bf3543864702d0cd41ff39d01d10d",
+      "pageSha256": "20e06e66ff1b9425be2453b819f7591c8e2ba80ed6b2f377dd265922a9224b95",
       "sources": [
         {
           "path": "docs/ai/framework/packages/scene-tree.md",
@@ -572,11 +572,11 @@
     },
     {
       "id": "reference/support-release",
-      "pageSha256": "87d1c0892401984ff30a44d9686e5ca0992463008f03b658bd376db9187051d2",
+      "pageSha256": "6e74107b51013ea9db0e133b5828eb7f353d91d758af730d804786a6f85e8c51",
       "sources": [
         {
           "path": "docs/ai/framework/RELEASE_SUPPORT.md",
-          "sha256": "bac30bbb06fe774047ce3317cf492cb992fc974922e96ebc7178388fdc59e5c2"
+          "sha256": "6286224514932ab08594d5bd6a9122867365391d1c4ae19dcb751deeb2d28a23"
         },
         {
           "path": "SECURITY.md",
@@ -588,7 +588,7 @@
         },
         {
           "path": "package.json",
-          "sha256": "c41f9d7abb40bb52c5b0ea4576ee81a35d2055b816d57d7a097c7692d63a634a"
+          "sha256": "44956dcfb2bd6ed399bfcee0f8ce280e5181609ea866dbce757357d67b4e32f8"
         }
       ]
     },

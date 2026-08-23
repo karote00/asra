@@ -844,7 +844,7 @@
       "wordCount": 562
     },
     {
-      "contentSha256": "2c3f6f7a220230e4a2e2595966cb60ab276bf3543864702d0cd41ff39d01d10d",
+      "contentSha256": "20e06e66ff1b9425be2453b819f7591c8e2ba80ed6b2f377dd265922a9224b95",
       "description": "Keep parent-child ordering canonical while group meaning and geometry policy remain app-owned.",
       "headings": [
         {
@@ -899,7 +899,7 @@
       "path": "build/hierarchy-groups.md",
       "section": "Build",
       "title": "Build hierarchy and Group behavior",
-      "wordCount": 490
+      "wordCount": 488
     },
     {
       "contentSha256": "86d200eff0f684716bce13b21c640bc87320af6798b5b4e2ef283b3b60591936",
@@ -2280,7 +2280,7 @@
       "wordCount": 400
     },
     {
-      "contentSha256": "87d1c0892401984ff30a44d9686e5ca0992463008f03b658bd376db9187051d2",
+      "contentSha256": "6e74107b51013ea9db0e133b5828eb7f353d91d758af730d804786a6f85e8c51",
       "description": "Current runtime support, candidate status, security reporting, license, migration, and publication boundaries.",
       "headings": [
         {
@@ -2326,7 +2326,7 @@
       "path": "reference/support-release.md",
       "section": "Reference",
       "title": "Support, security, and release boundaries",
-      "wordCount": 470
+      "wordCount": 473
     },
     {
       "contentSha256": "9a52bc8a2c84dd9a17882bfaa01d67889ab3ec56555184f8e2056e13b94703cb",
