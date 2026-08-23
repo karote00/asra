@@ -37,17 +37,6 @@
   border-top: 0;
 }
 
-.ownership-map > div:not(:last-child)::after {
-  background: var(--signal-red);
-  bottom: -12px;
-  content: '';
-  height: 24px;
-  left: 34px;
-  position: absolute;
-  width: 2px;
-  z-index: 1;
-}
-
 .ownership-map span {
   color: var(--signal-red-hover);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -316,6 +305,16 @@
   .support-document {
     padding-bottom: 58px;
     padding-top: 58px;
+  }
+
+  .support-section h2 {
+    font-size: clamp(1.75rem, 7.2vw, 2rem);
+    line-height: 1.02;
+  }
+
+  .support-document > header h2 {
+    font-size: clamp(1.75rem, 7.2vw, 1.9rem);
+    line-height: 1.02;
   }
 
   .support-section + .support-section,

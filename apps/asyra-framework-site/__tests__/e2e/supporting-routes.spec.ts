@@ -312,42 +312,87 @@ test('public subpages use one shared hero layout contract', async ({
   }
 })
 
-test('the supporting footer keeps navigation and identity in one desktop information rail', async ({
+test('Asyra Design ownership rows do not add a disconnected timeline stroke', async ({
   page
-}) => {
-  await page.setViewportSize({ width: 1229, height: 900 })
-  await page.goto('/atlas')
+}, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/asyra-design')
 
-  const layout = await page.locator('.site-frame-footer').evaluate((footer) => {
-    const bounds = (selector: string) => {
-      const target = footer.querySelector(selector)
-      if (!(target instanceof HTMLElement)) return null
-      const rect = target.getBoundingClientRect()
-      return {
-        bottom: rect.bottom,
-        left: rect.left,
-        right: rect.right,
-        top: rect.top
-      }
-    }
-
-    return {
-      brand: bounds(':scope > div'),
-      identity: bounds('.site-frame-footer__identity a:last-child'),
-      navigation: bounds(':scope > nav a:last-child')
-    }
-  })
-
-  expect(layout.brand).not.toBeNull()
-  expect(layout.identity).not.toBeNull()
-  expect(layout.navigation).not.toBeNull()
-  expect(
-    Math.abs((layout.navigation?.right ?? 0) - (layout.identity?.right ?? 0))
-  ).toBeLessThanOrEqual(1)
-  expect(layout.identity?.top ?? 0).toBeGreaterThan(
-    layout.navigation?.bottom ?? Number.POSITIVE_INFINITY
+  const rows = page.locator('.ownership-map > div')
+  await expect(rows).toHaveCount(4)
+  const connectorContent = await rows.evaluateAll((elements) =>
+    elements
+      .slice(0, -1)
+      .map((element) => getComputedStyle(element, '::after').content)
   )
-  expect(layout.navigation?.left ?? 0).toBeGreaterThan(layout.brand?.right ?? 0)
+  expect(connectorContent).toEqual(['none', 'none', 'none'])
+
+  await page.locator('.ownership-map').screenshot({
+    animations: 'disabled',
+    path: testInfo.outputPath('asyra-design-ownership-map.png')
+  })
+})
+
+test('landing and supporting routes share the landing footer at every responsive mode', async ({
+  page
+}, testInfo) => {
+  const readFooter = async () =>
+    page.locator('.site-footer').evaluate((footer) => {
+      const style = getComputedStyle(footer)
+      const footerRect = footer.getBoundingClientRect()
+      const relativeBounds = (selector: string) => {
+        const target = footer.querySelector(selector)
+        if (!(target instanceof HTMLElement)) return null
+        const rect = target.getBoundingClientRect()
+        return {
+          height: rect.height,
+          left: rect.left - footerRect.left,
+          top: rect.top - footerRect.top,
+          width: rect.width
+        }
+      }
+
+      return {
+        alignItems: style.alignItems,
+        className: footer.className,
+        gap: style.gap,
+        gridTemplateColumns: style.gridTemplateColumns,
+        hasHorizontalOverflow: footer.scrollWidth > footer.clientWidth + 1,
+        identity: relativeBounds('.project-identity'),
+        links: Array.from(footer.querySelectorAll('nav a')).map((link) => ({
+          href: link.getAttribute('href'),
+          text: link.textContent?.trim()
+        })),
+        navigation: relativeBounds('nav'),
+        padding: style.padding,
+        text: footer.textContent?.replace(/\s+/g, ' ').trim(),
+        wordmark: relativeBounds('.wordmark')
+      }
+    })
+
+  for (const viewport of [
+    { width: 2520, height: 1000 },
+    { width: 1229, height: 900 },
+    { width: 800, height: 900 },
+    { width: 390, height: 844 }
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/')
+    const landingFooter = await readFooter()
+
+    await page.goto('/roadmap')
+    const supportingFooter = await readFooter()
+
+    expect(supportingFooter).toEqual(landingFooter)
+    expect(supportingFooter.hasHorizontalOverflow).toBe(false)
+    expect(supportingFooter.text).not.toContain(
+      'Composable infrastructure for tools built around your domain.'
+    )
+    await page.locator('.site-footer').screenshot({
+      animations: 'disabled',
+      path: testInfo.outputPath(`shared-footer-${viewport.width}.png`)
+    })
+  }
 })
 
 test('factual support routes lead with their evidence instead of oversized presentation', async ({
@@ -438,11 +483,165 @@ test('complete public product routes remain balanced across wide and mobile widt
         await assertReadingWidth(page, '.support-document .markdown-content')
       }
 
-      if (viewport.width === 1440 || viewport.width === 390) {
+      if (viewport.width === 1440 || viewport.width <= 390) {
         await page.screenshot({
           animations: 'disabled',
           fullPage: true,
           path: testInfo.outputPath(`${name}-${viewport.width}.png`)
+        })
+      }
+    }
+  }
+})
+
+test('every public mobile hero keeps a compact reading hierarchy', async ({
+  page
+}, testInfo) => {
+  const routes = [
+    ['landing', '/', '.hero', '.hero__lead'],
+    ['docs', '/docs', '.page-hero', '.page-hero__copy > p:last-of-type'],
+    [
+      'docs-detail',
+      '/docs/build/feature-session',
+      '.page-hero',
+      '.page-hero__copy > p:last-of-type'
+    ],
+    [
+      'asyra-design',
+      '/asyra-design',
+      '.page-hero',
+      '.page-hero__copy > p:last-of-type'
+    ],
+    ['atlas', '/atlas', '.page-hero', '.page-hero__aside'],
+    [
+      'releases',
+      '/releases',
+      '.page-hero',
+      '.page-hero__copy > p:last-of-type'
+    ],
+    ['roadmap', '/roadmap', '.page-hero', '.page-hero__copy > p:last-of-type']
+  ] as const
+
+  for (const width of [520, 390, 320]) {
+    await page.setViewportSize({ width, height: 844 })
+
+    for (const [name, route, heroSelector, bodySelector] of routes) {
+      await page.goto(route)
+      const hero = page.locator(heroSelector)
+      const body = hero.locator(bodySelector)
+      const metrics = await hero.evaluate((element) => {
+        const title = element.querySelector('h1')
+        if (!(title instanceof HTMLElement)) {
+          throw new Error('Mobile hero is missing its title')
+        }
+        const titleStyle = getComputedStyle(title)
+        return {
+          height: element.getBoundingClientRect().height,
+          titleFontSize: Number.parseFloat(titleStyle.fontSize),
+          titleLineHeight: Number.parseFloat(titleStyle.lineHeight)
+        }
+      })
+      const bodyFontSize = await body
+        .first()
+        .evaluate((element) =>
+          Number.parseFloat(getComputedStyle(element).fontSize)
+        )
+
+      expect(metrics.titleFontSize).toBeLessThanOrEqual(
+        name === 'landing' ? 34 : 32
+      )
+      expect(
+        metrics.titleLineHeight / metrics.titleFontSize
+      ).toBeGreaterThanOrEqual(0.98)
+      expect(metrics.titleFontSize / bodyFontSize).toBeLessThanOrEqual(2.15)
+      let maximumHeroHeight = 430
+      if (name === 'landing') maximumHeroHeight = 760
+      if (name === 'asyra-design') maximumHeroHeight = 1100
+      if (name === 'atlas') maximumHeroHeight = 480
+      expect(metrics.height).toBeLessThanOrEqual(maximumHeroHeight)
+
+      const sectionTitleSizes = await page
+        .locator('.support-section h2, .support-document > header h2')
+        .evaluateAll((headings) =>
+          headings.map((heading) =>
+            Number.parseFloat(getComputedStyle(heading).fontSize)
+          )
+        )
+      for (const fontSize of sectionTitleSizes) {
+        expect(fontSize).toBeLessThanOrEqual(32)
+      }
+      await assertNoHorizontalOverflow(page)
+
+      if (width === 390) {
+        await hero.screenshot({
+          animations: 'disabled',
+          path: testInfo.outputPath(`${name}-mobile-hero-390.png`)
+        })
+      }
+    }
+  }
+})
+
+test('public mobile pages use quiet reading surfaces and one text hierarchy', async ({
+  page
+}, testInfo) => {
+  const routes = [
+    ['docs', '/docs'],
+    ['docs-detail', '/docs/build/feature-session'],
+    ['asyra-design', '/asyra-design'],
+    ['atlas', '/atlas'],
+    ['releases', '/releases'],
+    ['roadmap', '/roadmap']
+  ] as const
+
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 })
+
+    for (const [name, route] of routes) {
+      await page.goto(route)
+      const hero = page.locator('.page-hero')
+      const surface = await hero.evaluate((element) => {
+        const style = getComputedStyle(element)
+        const label = element.querySelector<HTMLElement>('.support-label')
+        const title = element.querySelector<HTMLElement>('h1')
+        const body = element.querySelector<HTMLElement>(
+          '.page-hero__copy > h1 + p, .page-hero__aside p'
+        )
+        if (!label || !title || !body) {
+          throw new Error('Mobile Hero is missing its reading hierarchy')
+        }
+
+        return {
+          backgroundImage: style.backgroundImage,
+          bodyColor: getComputedStyle(body).color,
+          borderBottomWidth: style.borderBottomWidth,
+          labelColor: getComputedStyle(label).color,
+          titleColor: getComputedStyle(title).color
+        }
+      })
+
+      expect(surface.backgroundImage).toBe('none')
+      expect(surface.borderBottomWidth).toBe('0px')
+      expect(surface.labelColor).toBe('rgb(213, 31, 23)')
+      if (name === 'asyra-design') {
+        expect(surface.bodyColor).toBe('rgb(248, 244, 237)')
+        expect(surface.titleColor).toBe('rgb(248, 244, 237)')
+      } else {
+        expect(surface.bodyColor).toBe('rgb(98, 97, 93)')
+        expect(surface.titleColor).toBe('rgb(21, 22, 20)')
+      }
+
+      if (name === 'atlas') {
+        await expect(hero.locator('.page-hero__aside p + p')).toHaveCSS(
+          'border-top-width',
+          '0px'
+        )
+      }
+
+      if (width === 390) {
+        await hero.screenshot({
+          animations: 'disabled',
+          path: testInfo.outputPath(`${name}-quiet-mobile-hero.png`)
         })
       }
     }

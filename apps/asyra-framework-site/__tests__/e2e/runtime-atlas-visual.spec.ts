@@ -288,7 +288,72 @@ test('Runtime Atlas remains readable and operable at compact mobile widths', asy
     await page.goto('/atlas')
     await waitForReady(page)
     await assertNoHorizontalOverflow(page)
-    await assertAtlasHeroKeepsTheRuntimeInView(page, 520)
+    await assertAtlasHeroKeepsTheRuntimeInView(page, width === 390 ? 440 : 480)
+
+    const mobileRhythm = await page.evaluate(() => {
+      const metrics = (selector: string) => {
+        const element = document.querySelector<HTMLElement>(selector)
+        if (!element) {
+          throw new Error(`Missing mobile rhythm target: ${selector}`)
+        }
+        const style = getComputedStyle(element)
+        return {
+          fontSize: Number.parseFloat(style.fontSize),
+          height: element.getBoundingClientRect().height,
+          lineHeight: Number.parseFloat(style.lineHeight)
+        }
+      }
+
+      return {
+        boundary: metrics('.atlas-boundary'),
+        boundaryBody: metrics('.atlas-boundary > p'),
+        boundaryTitle: metrics('.atlas-boundary h2'),
+        caseTitle: metrics('.atlas-case-intro h2'),
+        heroAside: metrics('.atlas-hero .page-hero__aside'),
+        heroTitle: metrics('.atlas-hero h1'),
+        menuTrigger: metrics('.navigation-trigger'),
+        picker: metrics('.atlas-case-picker'),
+        route: metrics('.atlas-route-map'),
+        routeItem: metrics('.atlas-route-map li')
+      }
+    })
+    const majorTitleSizes = [
+      mobileRhythm.heroTitle.fontSize,
+      mobileRhythm.caseTitle.fontSize,
+      mobileRhythm.boundaryTitle.fontSize
+    ]
+
+    expect(Math.max(...majorTitleSizes)).toBeLessThanOrEqual(32)
+    expect(
+      Math.max(...majorTitleSizes) - Math.min(...majorTitleSizes)
+    ).toBeLessThanOrEqual(2)
+    expect(mobileRhythm.menuTrigger.fontSize).toBeGreaterThanOrEqual(12.5)
+    expect(
+      mobileRhythm.heroTitle.fontSize / mobileRhythm.heroAside.fontSize
+    ).toBeLessThanOrEqual(2.3)
+    expect(
+      mobileRhythm.boundaryTitle.fontSize / mobileRhythm.boundaryBody.fontSize
+    ).toBeLessThanOrEqual(2.3)
+    expect(
+      mobileRhythm.boundaryBody.lineHeight / mobileRhythm.boundaryBody.fontSize
+    ).toBeLessThanOrEqual(1.65)
+
+    if (width === 390) {
+      expect(mobileRhythm.picker.height).toBeLessThanOrEqual(420)
+      expect(mobileRhythm.route.height).toBeLessThanOrEqual(430)
+      expect(mobileRhythm.routeItem.height).toBeLessThanOrEqual(90)
+      expect(mobileRhythm.boundary.height).toBeLessThanOrEqual(420)
+    }
+
+    await page.getByRole('button', { name: 'Open navigation' }).click()
+    const mobileNavigationFontSize = await page
+      .getByRole('navigation', { name: 'Mobile navigation' })
+      .getByRole('link')
+      .first()
+      .evaluate((link) => Number.parseFloat(getComputedStyle(link).fontSize))
+    expect(mobileNavigationFontSize).toBeGreaterThanOrEqual(17)
+    expect(mobileNavigationFontSize).toBeLessThanOrEqual(21)
+    await page.getByRole('button', { name: 'Close navigation' }).click()
 
     await page.getByRole('button', { name: 'Run remaining' }).click()
     await page.getByRole('button', { name: 'Pause' }).click()

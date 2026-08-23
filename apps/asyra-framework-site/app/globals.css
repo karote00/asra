@@ -1241,7 +1241,8 @@ button:focus-visible {
   }
 
   .hero h1 {
-    font-size: clamp(2.6rem, 7vw, 3rem);
+    font-size: clamp(1.85rem, 7.6vw, 1.98rem);
+    line-height: 1.02;
   }
 
   .hero__lead {
