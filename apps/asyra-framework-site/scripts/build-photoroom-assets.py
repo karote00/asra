@@ -4,12 +4,22 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
 SITE_ROOT = Path(__file__).resolve().parents[1]
 ARTWORK = SITE_ROOT / "artwork" / "photoroom"
 PUBLIC = SITE_ROOT / "public" / "illustrations"
+ONE_SOURCE_FONT_PATH = Path(
+    "/System/Library/Fonts/Supplemental/Arial Narrow Bold.ttf"
+)
+ONE_SOURCE_LABEL_SIZE = 28
+ONE_SOURCE_LABEL_COLOR = (255, 255, 255, 255)
+ONE_SOURCE_LABEL_EDITS = (
+    ("3D VIEW", "3D", (273, 84)),
+    ("LIST VIEW", "LIST", (273, 469)),
+    ("DETAIL VIEW", "DETAIL", (1260, 469)),
+)
 
 
 @dataclass(frozen=True)
@@ -28,18 +38,18 @@ SPECS = (
     ),
     AssetSpec(
         "domain-rail-v08-desktop-photoroom",
-        "../photoroom-refined/domain-rail-structure-complete-v02.png",
+        "domain-rail-v08-desktop-master-Photoroom.png",
         (800, 1600, 2400),
     ),
     AssetSpec(
         "domain-rail-v08-desktop-photoroom-row-1",
-        "../photoroom-refined/domain-rail-structure-complete-v02.png",
+        "domain-rail-v08-desktop-master-Photoroom.png",
         (800, 1200),
         (0, 0, 1200, 325),
     ),
     AssetSpec(
         "domain-rail-v08-desktop-photoroom-row-2",
-        "../photoroom-refined/domain-rail-structure-complete-v02.png",
+        "domain-rail-v08-desktop-master-Photoroom.png",
         (800, 1200),
         (1200, 0, 2400, 325),
     ),
@@ -99,10 +109,80 @@ def assert_true_alpha(image: Image.Image, label: str) -> None:
         raise RuntimeError(f"{label} does not contain enough transparent background")
 
 
+def assert_changes_within_regions(
+    before: Image.Image,
+    after: Image.Image,
+    regions: tuple[tuple[int, int, int, int], ...],
+) -> None:
+    before_rgba = np.asarray(before.convert("RGBA"), dtype=np.uint8)
+    after_rgba = np.asarray(after.convert("RGBA"), dtype=np.uint8)
+    changed = np.any(before_rgba != after_rgba, axis=2)
+    allowed = np.zeros(changed.shape, dtype=bool)
+    for left, top, right, bottom in regions:
+        allowed[top:bottom, left:right] = True
+
+    if np.any(changed & ~allowed):
+        raise RuntimeError("One Source label edit changed pixels outside label regions")
+    if not np.any(changed):
+        raise RuntimeError("One Source label edit did not change any pixels")
+    if not np.array_equal(before_rgba[:, :, 3], after_rgba[:, :, 3]):
+        raise RuntimeError("One Source label edit changed the alpha channel")
+
+
+def replace_one_source_labels(source: Image.Image) -> Image.Image:
+    result = source.convert("RGBA").copy()
+    if not ONE_SOURCE_FONT_PATH.exists():
+        raise RuntimeError(f"Missing One Source label font: {ONE_SOURCE_FONT_PATH}")
+    label_font = ImageFont.truetype(
+        ONE_SOURCE_FONT_PATH,
+        size=ONE_SOURCE_LABEL_SIZE,
+    )
+    regions: list[tuple[int, int, int, int]] = []
+
+    for current_label, next_label, center in ONE_SOURCE_LABEL_EDITS:
+        measure = ImageDraw.Draw(result)
+        left, top, right, bottom = measure.textbbox(
+            center,
+            current_label,
+            font=label_font,
+            anchor="mm",
+        )
+        label_region = (left - 5, top - 5, right + 5, bottom + 5)
+        regions.append(label_region)
+
+        source_region = result.crop(label_region)
+        source_pixels = np.asarray(source_region.convert("RGBA"), dtype=np.uint8)
+        bright_text = np.min(source_pixels[:, :, :3], axis=2) >= 145
+        label_mask = Image.fromarray(bright_text.astype(np.uint8) * 255).filter(
+            ImageFilter.MaxFilter(5)
+        )
+        clean_background = source_region.filter(ImageFilter.MedianFilter(31))
+        result.paste(
+            clean_background,
+            label_region[:2],
+            label_mask.filter(ImageFilter.GaussianBlur(0.7)),
+        )
+
+    draw = ImageDraw.Draw(result)
+    for _, next_label, center in ONE_SOURCE_LABEL_EDITS:
+        draw.text(
+            center,
+            next_label,
+            fill=ONE_SOURCE_LABEL_COLOR,
+            font=label_font,
+            anchor="mm",
+        )
+
+    assert_changes_within_regions(source, result, tuple(regions))
+    return result
+
+
 def build_asset(spec: AssetSpec) -> None:
     source_path = (ARTWORK / spec.source).resolve()
     source = Image.open(source_path).convert("RGBA")
     assert_true_alpha(source, spec.source)
+    if spec.name == "one-source-v08-desktop-photoroom":
+        source = replace_one_source_labels(source)
     if spec.crop is not None:
         source = source.crop(spec.crop)
         assert_true_alpha(source, f"{spec.source} crop {spec.crop}")

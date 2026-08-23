@@ -380,6 +380,72 @@ test('production includes only the twenty-two selected Photoroom derivatives', a
   assert.match(page, /name="domain-rail-v08-desktop-photoroom-row-2"/)
 })
 
+test('One Source shortens and centers its three view labels before responsive export', async () => {
+  const builder = await readFile(
+    path.join(siteRoot, 'scripts', 'build-photoroom-assets.py'),
+    'utf8'
+  )
+
+  for (const [currentLabel, nextLabel, centerX, centerY] of [
+    ['3D VIEW', '3D', 273, 84],
+    ['LIST VIEW', 'LIST', 273, 469],
+    ['DETAIL VIEW', 'DETAIL', 1260, 469]
+  ]) {
+    assert.match(
+      builder,
+      new RegExp(
+        `\\("${currentLabel}",\\s*"${nextLabel}",\\s*\\(${centerX},\\s*${centerY}\\)\\)`
+      )
+    )
+  }
+  assert.match(builder, /def replace_one_source_labels\(/)
+  assert.match(builder, /assert_changes_within_regions\(/)
+  assert.match(
+    builder,
+    /if spec\.name == "one-source-v08-desktop-photoroom":\s*source = replace_one_source_labels\(source\)/s
+  )
+})
+
+test('Domain Rail keeps every card from the immutable supplied master', async () => {
+  const builder = await readFile(
+    path.join(siteRoot, 'scripts', 'build-photoroom-assets.py'),
+    'utf8'
+  )
+  const expectedDerivativeHashes = {
+    'domain-rail-v08-desktop-photoroom-800.webp':
+      '534fec545e85dfb3df6ce471e2b3c0dfa6b43ca099eeb24f566941e618c0a44d',
+    'domain-rail-v08-desktop-photoroom-1600.webp':
+      '57fe0039c9bc25016b8433457dfd3b1c6e0d0d3341e2c2ef627968b0a49f3936',
+    'domain-rail-v08-desktop-photoroom-2400.webp':
+      'f280f3866fbcc6031da8f879077221d5356a5e7af549907ab81422f26f192841'
+  }
+
+  assert.doesNotMatch(
+    builder,
+    /photoroom-refined|domain-rail-structure-complete/
+  )
+  assert.equal(
+    (builder.match(/"domain-rail-v08-desktop-master-Photoroom\.png"/g) ?? [])
+      .length,
+    3
+  )
+  assert.match(builder, /\(0,\s*0,\s*1200,\s*325\)/)
+  assert.match(builder, /\(1200,\s*0,\s*2400,\s*325\)/)
+
+  for (const [filename, expectedHash] of Object.entries(
+    expectedDerivativeHashes
+  )) {
+    const asset = await readFile(
+      path.join(siteRoot, 'public', 'illustrations', filename)
+    )
+    assert.equal(
+      createHash('sha256').update(asset).digest('hex'),
+      expectedHash,
+      `${filename} must remain the complete pre-refinement derivative`
+    )
+  }
+})
+
 localArtworkTest(
   'local design history preserves prior derivatives without selecting them',
   async () => {
@@ -591,7 +657,7 @@ localArtworkTest(
     )
     assert.match(builder, /def premultiplied_resize/)
     assert.match(builder, /def assert_true_alpha/)
-    assert.match(builder, /domain-rail-structure-complete-v02\.png/)
+    assert.match(builder, /domain-rail-v08-desktop-master-Photoroom\.png/)
     assert.match(builder, /\(0,\s*0,\s*1200,\s*325\)/)
     assert.match(builder, /\(1200,\s*0,\s*2400,\s*325\)/)
     assert.match(builder, /lossless=True/)
