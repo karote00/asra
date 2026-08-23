@@ -51,9 +51,9 @@
   gap: 32px;
   grid-template-columns: 1fr auto;
   margin: 0 auto;
-  max-width: var(--frame-content);
-  min-height: 82px;
-  padding: 14px var(--frame-gutter);
+  max-width: var(--site-header-max-width);
+  min-height: var(--site-header-min-height);
+  padding: 14px var(--site-header-padding-x);
 }
 
 .site-frame-wordmark {
@@ -328,7 +328,7 @@
   }
 
   .site-frame-header {
-    min-height: 72px;
+    min-height: var(--site-header-min-height);
   }
 
   .site-frame-navigation {

@@ -1263,9 +1263,10 @@ test('the responsive layout keeps balanced proof spacing without section rules',
   assert.match(css, /--page-min-width:\s*320px/)
   assert.match(css, /--page-max-width:\s*2520px/)
   assert.match(css, /--page-padding-x:\s*clamp\(38px,\s*6\.25vw,\s*64px\)/)
+  assert.match(css, /--site-header-max-width:\s*var\(--page-max-width\)/)
+  assert.match(css, /--site-header-padding-x:\s*var\(--page-padding-x\)/)
   assert.match(css, /body\s*\{[^}]*min-width:\s*var\(--page-min-width\)/s)
   for (const selector of [
-    '.site-header',
     '.hero',
     '.domains__heading',
     '.poc-story__inner',
@@ -1276,6 +1277,11 @@ test('the responsive layout keeps balanced proof spacing without section rules',
     assert.match(rule, /max-width:\s*var\(--page-max-width\)/, selector)
     assert.match(rule, /var\(--page-padding-x\)/, selector)
   }
+  assert.match(
+    baseRule('.site-header'),
+    /max-width:\s*var\(--site-header-max-width\)/
+  )
+  assert.match(baseRule('.site-header'), /var\(--site-header-padding-x\)/)
   assert.match(
     baseRule('.closing'),
     /padding:\s*14px\s+var\(--page-content-inset-x\)/
