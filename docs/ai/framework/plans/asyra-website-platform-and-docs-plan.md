@@ -50,6 +50,9 @@ production deployment.
   companion.
 - Static-first content and metadata; client runtime only where interaction,
   browser APIs, or real runtime composition requires it.
+- Content Security Policy permits React's evaluation-based diagnostics only in
+  the local development runtime. Production responses must omit
+  `script-src 'unsafe-eval'`.
 - Semantic HTML, SVG, and CSS for navigation and explanations. Basic content
   must not require canvas or WebGL.
 - Website runtime code imports only public package roots or explicitly exported

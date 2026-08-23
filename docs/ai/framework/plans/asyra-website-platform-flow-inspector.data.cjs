@@ -91,6 +91,7 @@ module.exports = Object.freeze({
       outputs: ['artifact:site-foundation'],
       conditions: [
         'The workspace participates in root build, lint, dependency, Turbo, and test contracts.',
+        "Development Content Security Policy permits React diagnostics, while production omits script-src 'unsafe-eval'.",
         'The shell is server-first, keyboard ordered, localization resilient, reduced-motion safe, and uses warm paper, near-black ink, restrained signal red, engineering grid detail, and dark mechanical stages.',
         'The current Landing remains unchanged while Atlas receives stable shared anatomy without inheriting Landing product meaning.'
       ],

@@ -3,6 +3,10 @@ import { fileURLToPath } from 'node:url'
 import type { NextConfig } from 'next'
 
 const appRoot = path.dirname(fileURLToPath(import.meta.url))
+const isDevelopment = process.env.NODE_ENV === 'development'
+
+const scriptSources = ["'self'", "'unsafe-inline'"]
+if (isDevelopment) scriptSources.push("'unsafe-eval'")
 
 const contentSecurityPolicy = [
   "default-src 'self'",
@@ -13,7 +17,7 @@ const contentSecurityPolicy = [
   "frame-ancestors 'none'",
   "img-src 'self' data:",
   "object-src 'none'",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src ${scriptSources.join(' ')}`,
   "style-src 'self' 'unsafe-inline'",
   "worker-src 'self' blob:"
 ].join('; ')
