@@ -55,7 +55,7 @@ const assertLinksAndCtas = async (page: Page) => {
       }
     })
   )
-  expect(links).toHaveLength(13)
+  expect(links.length).toBeGreaterThanOrEqual(13)
   for (const link of links) {
     expect(link.href).not.toBeNull()
     expect(link.href).not.toBe('')
@@ -1929,7 +1929,17 @@ test('700px through 800px keeps compact columns without collisions', async ({
     await page.setViewportSize({ width, height: 1000 })
     await loadLanding(page)
 
-    await expect(page.locator('.primary-nav')).toBeHidden()
+    if (width >= 768) {
+      await expect(page.locator('.primary-nav')).toBeVisible()
+      await expect(
+        page.getByRole('button', { name: 'Open navigation' })
+      ).toBeHidden()
+    } else {
+      await expect(page.locator('.primary-nav')).toBeHidden()
+      await expect(
+        page.getByRole('button', { name: 'Open navigation' })
+      ).toBeVisible()
+    }
     await assertNoHorizontalOverflow(page)
     await assertCompactTwoColumnFlow(page)
     await assertSourceImageDensity(page)

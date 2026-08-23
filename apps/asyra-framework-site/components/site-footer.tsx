@@ -1,28 +1,43 @@
 import Link from 'next/link'
 
+const navigation = [
+  { href: '/docs', label: 'Docs' },
+  { href: '/atlas', label: 'Runtime Atlas' },
+  { href: '/asyra-design', label: 'Asyra Design' },
+  { href: '/releases', label: 'Releases' },
+  { href: '/roadmap', label: 'Roadmap' },
+  {
+    href: 'https://github.com/karote00/asyra',
+    label: 'GitHub',
+    newTab: true
+  }
+] as const
+
 export function SiteFooter() {
   return (
-    <footer className="site-frame-footer">
-      <div>
-        <Link className="site-frame-wordmark" href="/">
-          ASYRA
-        </Link>
-        <p>Composable infrastructure for tools built around your domain.</p>
-      </div>
+    <footer className="site-footer">
+      <Link className="wordmark" href="/">
+        ASYRA
+      </Link>
       <nav aria-label="Footer navigation">
-        <Link href="/docs">Docs</Link>
-        <Link href="/asyra-design">Asyra Design</Link>
-        <Link href="/releases">Releases</Link>
-        <Link href="/roadmap">Roadmap</Link>
-        <a
-          href="https://github.com/karote00/asyra"
-          rel="noopener noreferrer"
-          target="_blank"
-        >
-          GitHub
-        </a>
+        {navigation.map((item) =>
+          'newTab' in item && item.newTab ? (
+            <a
+              href={item.href}
+              key={item.href}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              {item.label}
+            </a>
+          ) : (
+            <Link href={item.href} key={item.href}>
+              {item.label}
+            </Link>
+          )
+        )}
       </nav>
-      <p className="site-frame-footer__identity">
+      <p className="project-identity">
         <span>2026</span>
         <a
           href="https://github.com/karote00/asyra/blob/main/LICENSE"

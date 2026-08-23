@@ -4,7 +4,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useRef } from 'react'
 
-const navigation = [
+type SiteHeaderProps = Readonly<{
+  variant?: 'landing' | 'supporting'
+}>
+
+const supportingNavigation = [
   { href: '/docs', label: 'Docs' },
   { href: '/atlas', label: 'Runtime Atlas' },
   { href: '/asyra-design', label: 'Asyra Design' },
@@ -12,15 +16,16 @@ const navigation = [
   { href: '/roadmap', label: 'Roadmap' }
 ] as const
 
-export function SiteHeader() {
+export function SiteHeader({ variant = 'supporting' }: SiteHeaderProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const pathname = usePathname()
+  const landing = variant === 'landing'
 
   const closeNavigation = () => dialogRef.current?.close()
   const openNavigation = () => dialogRef.current?.showModal()
 
-  const navigationLinks = navigation.map(({ href, label }) => (
+  const navigationLinks = supportingNavigation.map(({ href, label }) => (
     <Link
       aria-current={
         pathname === href || pathname.startsWith(`${href}/`)
@@ -36,11 +41,18 @@ export function SiteHeader() {
   ))
 
   return (
-    <header className="site-frame-header">
-      <Link aria-label="Asyra home" className="site-frame-wordmark" href="/">
+    <header className={landing ? 'site-header' : 'site-frame-header'}>
+      <Link
+        aria-label="Asyra home"
+        className={landing ? 'wordmark' : 'site-frame-wordmark'}
+        href={landing ? '#top' : '/'}
+      >
         ASYRA
       </Link>
-      <nav aria-label="Primary navigation" className="site-frame-navigation">
+      <nav
+        aria-label="Primary navigation"
+        className={landing ? 'primary-nav' : 'site-frame-navigation'}
+      >
         {navigationLinks}
       </nav>
       <button

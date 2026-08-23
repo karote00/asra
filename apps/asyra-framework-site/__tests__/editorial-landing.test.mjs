@@ -50,7 +50,10 @@ test('the website preserves the accepted landing owner beside the supporting pla
 })
 
 test('the result-first narrative matches the approved V04 landing page', async () => {
-  const page = await readAppFile('page.tsx')
+  const [page, header] = await Promise.all([
+    readAppFile('page.tsx'),
+    readFile(path.join(siteRoot, 'components', 'site-header.tsx'), 'utf8')
+  ])
   const pageText = page.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
   const requiredCopy = [
     'Build the tool your world needs.',
@@ -73,7 +76,7 @@ test('the result-first narrative matches the approved V04 landing page', async (
   assert.equal((page.match(/Start building/g) ?? []).length, 2)
   assert.doesNotMatch(page, /site-header[\s\S]*button--compact/)
   assert.equal((page.match(/Try the demo/g) ?? []).length, 1)
-  assert.equal((page.match(/\bDemo\s*<\/a>/g) ?? []).length, 1)
+  assert.equal((header.match(/label:\s*'Asyra Design'/g) ?? []).length, 1)
   for (const line of [
     'Build the tool',
     'your world needs.',
@@ -224,24 +227,27 @@ test('the retired change-impact sections do not contribute to the landing narrat
 })
 
 test('every navigation and CTA target is connected to the completed site', async () => {
-  const page = await readAppFile('page.tsx')
-  const anchors = page.match(/<a\b/g) ?? []
-  const anchorsWithTargets = page.match(/<a\b[^>]*\bhref=/g) ?? []
+  const [page, header, footer] = await Promise.all([
+    readAppFile('page.tsx'),
+    readFile(path.join(siteRoot, 'components', 'site-header.tsx'), 'utf8'),
+    readFile(path.join(siteRoot, 'components', 'site-footer.tsx'), 'utf8')
+  ])
+  const source = `${page}\n${header}\n${footer}`
 
-  assert.equal(anchors.length, 13)
-  assert.equal(anchorsWithTargets.length, anchors.length)
-  assert.doesNotMatch(page, /href=["']\s*["']/)
-  assert.doesNotMatch(page, /href=["']#["']/)
-  assert.match(page, /href="\/docs"/)
-  assert.match(page, /href="\/atlas"/)
+  assert.match(page, /<SiteHeader variant="landing"\s*\/>/)
+  assert.match(page, /<SiteFooter\s*\/>/)
+  assert.doesNotMatch(source, /href=["']\s*["']/)
+  assert.doesNotMatch(source, /href=["']#["']/)
+  assert.match(header, /href:\s*['"]\/docs['"]/)
+  assert.match(header, /href:\s*['"]\/atlas['"]/)
+  assert.match(header, /href:\s*['"]\/asyra-design['"]/)
+  assert.match(header, /href:\s*['"]\/releases['"]/)
+  assert.match(header, /href:\s*['"]\/roadmap['"]/)
   assert.match(page, /href="\/docs\/start\/custom-composition"/)
   assert.equal(
-    (
-      page.match(
-        /href="https:\/\/asyra-design\.vercel\.app\/\?fileId=demo"/g
-      ) ?? []
-    ).length,
-    2
+    (source.match(/https:\/\/asyra-design\.vercel\.app\/\?fileId=demo/g) ?? [])
+      .length,
+    1
   )
   assert.equal(
     (
@@ -249,18 +255,19 @@ test('every navigation and CTA target is connected to the completed site', async
         /<a\b(?=[^>]*href="https:\/\/asyra-design\.vercel\.app\/\?fileId=demo")(?=[^>]*target="_blank")(?=[^>]*rel="noopener noreferrer")[^>]*>/g
       ) ?? []
     ).length,
-    2
+    1
   )
   assert.doesNotMatch(page, /href="#examples"|id="examples"/)
   assert.match(page, /id="domains"/)
-  assert.match(page, /https:\/\/github\.com\/karote00\/asyra/)
+  assert.match(footer, /https:\/\/github\.com\/karote00\/asyra/)
 })
 
 test('the footer identifies its license without an open-source or company label', async () => {
   const source = [
     await readAppFile('page.tsx'),
     await readAppFile('layout.tsx'),
-    await readAppFile('not-found.tsx')
+    await readAppFile('not-found.tsx'),
+    await readFile(path.join(siteRoot, 'components', 'site-footer.tsx'), 'utf8')
   ].join('\n')
   const css = await readAppFile('globals.css')
 
@@ -1319,6 +1326,8 @@ test('CTA interaction becomes brighter and the closing uses the transparent supp
 test('the responsive layout keeps balanced proof spacing without section rules', async () => {
   const css = await readAppFile('globals.css')
   const proofRule = css.match(/\.proof\s*\{([^}]+)\}/s)?.[1] ?? ''
+  const sharedHeaderRule =
+    css.match(/\.site-header,\s*\.site-frame-header\s*\{([^}]+)\}/s)?.[1] ?? ''
   const baseRule = (selector) => {
     const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     return css.match(new RegExp(`${escaped}\\s*\\{([^}]+)\\}`, 's'))?.[1] ?? ''
@@ -1343,11 +1352,8 @@ test('the responsive layout keeps balanced proof spacing without section rules',
     assert.match(rule, /max-width:\s*var\(--page-max-width\)/, selector)
     assert.match(rule, /var\(--page-padding-x\)/, selector)
   }
-  assert.match(
-    baseRule('.site-header'),
-    /max-width:\s*var\(--site-header-max-width\)/
-  )
-  assert.match(baseRule('.site-header'), /var\(--site-header-padding-x\)/)
+  assert.match(sharedHeaderRule, /max-width:\s*var\(--site-header-max-width\)/)
+  assert.match(sharedHeaderRule, /var\(--site-header-padding-x\)/)
   assert.match(
     baseRule('.closing'),
     /padding:\s*14px\s+var\(--page-content-inset-x\)/

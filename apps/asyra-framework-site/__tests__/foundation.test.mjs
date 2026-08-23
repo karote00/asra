@@ -6,6 +6,44 @@ import test from 'node:test'
 const siteRoot = path.resolve(import.meta.dirname, '..')
 const readSiteFile = (file) => readFile(path.join(siteRoot, file), 'utf8')
 
+test('landing and supporting routes render the shared site shell components', async () => {
+  const [landing, frame] = await Promise.all([
+    readSiteFile('app/page.tsx'),
+    readSiteFile('components/site-frame.tsx')
+  ])
+
+  assert.match(landing, /<SiteHeader variant="landing"\s*\/>/)
+  assert.match(landing, /<SiteFooter\s*\/>/)
+  assert.doesNotMatch(landing, /<header className="site-header"/)
+  assert.doesNotMatch(landing, /<footer className="site-footer"/)
+  assert.match(frame, /<SiteHeader\s*\/>/)
+  assert.match(frame, /<SiteFooter\s*\/>/)
+})
+
+test('landing and supporting routes render one footer structure and narrative', async () => {
+  const footer = await readSiteFile('components/site-footer.tsx')
+
+  assert.match(footer, /<footer className="site-footer">/)
+  assert.doesNotMatch(footer, /variant|site-frame-footer|supportingNavigation/)
+  assert.doesNotMatch(
+    footer,
+    /Composable infrastructure for tools built around your domain\./
+  )
+  for (const destination of [
+    '/docs',
+    '/atlas',
+    '/asyra-design',
+    '/releases',
+    '/roadmap',
+    'https://github.com/karote00/asyra'
+  ]) {
+    assert.match(
+      footer,
+      new RegExp(`['"]${destination.replaceAll('/', '\\/')}['"]`)
+    )
+  }
+})
+
 test('supporting routes share an accessible product navigation shell', async () => {
   const [frame, header, footer] = await Promise.all([
     readSiteFile('components/site-frame.tsx'),

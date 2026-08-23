@@ -1,3 +1,6 @@
+import { SiteFooter } from '@/components/site-footer'
+import { SiteHeader } from '@/components/site-header'
+
 interface IllustrationProps {
   alt: string
   className?: string
@@ -116,23 +119,7 @@ const pocStoryPaths = [
 export default function HomePage() {
   return (
     <div className="site-shell" id="top">
-      <header className="site-header">
-        <a className="wordmark" href="#top" aria-label="Asyra home">
-          ASYRA
-        </a>
-        <nav className="primary-nav" aria-label="Primary navigation">
-          <a
-            href="https://asyra-design.vercel.app/?fileId=demo"
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            Demo
-          </a>
-          <a href="#how-it-works">How it works</a>
-          <a href="/docs">Docs</a>
-          <a href="/atlas">Atlas</a>
-        </nav>
-      </header>
+      <SiteHeader variant="landing" />
 
       <main>
         <section className="hero" aria-labelledby="hero-title">
@@ -433,32 +420,7 @@ export default function HomePage() {
         </section>
       </main>
 
-      <footer className="site-footer">
-        <a className="wordmark" href="#top">
-          ASYRA
-        </a>
-        <nav aria-label="Footer navigation">
-          <a href="/docs">Docs</a>
-          <a
-            href="https://github.com/karote00/asyra"
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            GitHub
-          </a>
-          <a href="/roadmap">Roadmap</a>
-        </nav>
-        <p className="project-identity">
-          <span>2026</span>
-          <a
-            href="https://github.com/karote00/asyra/blob/main/LICENSE"
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            MIT License
-          </a>
-        </p>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }
