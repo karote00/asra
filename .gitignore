@@ -50,10 +50,6 @@ apps/asyra-framework-site/artwork/
 apps/asyra-framework-site/public/illustrations/*
 !apps/asyra-framework-site/public/illustrations/*-photoroom-*.webp
 !apps/asyra-framework-site/public/illustrations/poc-storyboard-stage-*.png
-apps/asyra-design/visual-review-records/**/*.png
-apps/asyra-design/visual-review-records/**/*.webm
-!apps/asyra-design/visual-review-records/research/research-02-original-tabby-source.png
-apps/asyra-design/visual-review-records/crdt-ai-agent/thumbnails-10s/
 packages/*/tmp/
 docs/ai/apps/*/plans/*/artifacts/
 docs/ai/apps/*/plans/*/artifacts/transient/

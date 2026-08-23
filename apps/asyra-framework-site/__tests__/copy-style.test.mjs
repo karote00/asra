@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import test from 'node:test'
@@ -23,9 +24,13 @@ const isWebsiteCopy = (file) =>
   (/^apps\/asyra-framework-site\/(?:app|components)\//.test(file) &&
     /\.(?:ts|tsx|md)$/.test(file))
 
+const existsInWorkingTree = (file) =>
+  existsSync(path.join(repositoryRoot, file))
+
 test('website copy and tracked READMEs use spaced ASCII hyphens', async () => {
   const candidateFiles = trackedFiles.filter(
-    (file) => isReadme(file) || isWebsiteCopy(file)
+    (file) =>
+      existsInWorkingTree(file) && (isReadme(file) || isWebsiteCopy(file))
   )
   const violations = []
 
