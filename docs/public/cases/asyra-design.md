@@ -1,7 +1,7 @@
 # Asyra Design as a complete product implementation
 
 Asyra Design is a complete app built on Asyra Framework. It demonstrates one
-coherent design-tool product—not the only product shape Asyra supports and not
+coherent design-tool product - not the only product shape Asyra supports and not
 a set of behaviors that Core silently installs.
 
 Use it to study how a real app composes public packages, Preset defaults,
@@ -150,7 +150,7 @@ for confirmation, and enters one app transaction. Executors call the same
 `src/common-apis/*` used by human interactions.
 
 For a large drawing, the accepted action creates ordinary independently
-editable elements—optionally inside one Group—through canonical plural
+editable elements - optionally inside one Group - through canonical plural
 preflight/apply. It does not become one opaque image, one giant Vector, a
 render-only overlay, or a special AI document.
 

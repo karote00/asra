@@ -44,7 +44,7 @@ export default function RuntimeAtlasPage() {
           People, automation, collaboration, and AI all enter through bounded
           app-owned policy. Framework owners validate and settle state; canvas,
           hierarchy, properties, serialization, search, and presence remain
-          projections or integrations—not competing sources of truth.
+          projections or integrations - not competing sources of truth.
         </p>
       </section>
     </SiteFrame>

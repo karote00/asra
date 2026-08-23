@@ -109,7 +109,7 @@
       "wordCount": 595
     },
     {
-      "contentSha256": "35b0da1b5dbd369f1ac3a5a1e513fda26e94fdeef3b7415024bab3390a664e71",
+      "contentSha256": "fe0dc685c5f70631bfabd32ae2594b9fb5da59959821ad2df46d1361de0394c4",
       "description": "Give an AI agent bounded ownership, canonical APIs, and executable proof while you retain product decisions.",
       "headings": [
         {
@@ -380,7 +380,7 @@
       "wordCount": 336
     },
     {
-      "contentSha256": "6a04dea8ab91a39eada643ebc41630163af4f818d3d34d45d60fb03b6da944e2",
+      "contentSha256": "c85a25e7c15df4a75f64794d0468e6d92050ef3b77f2f52083d3021121298012",
       "description": "Separate canonical model state, local derived state, projection state, and remote transport state.",
       "headings": [
         {
@@ -1277,7 +1277,7 @@
       "wordCount": 399
     },
     {
-      "contentSha256": "4289ac1abb0ff2432245a88e2163bc943ed05a6cfb94902b046ae29a1a9c7df0",
+      "contentSha256": "4150d383c83c25e7af0d91299ade90f585fe66fbab1c159d8a873d64efa1a57a",
       "description": "The strict composition facade for Framework capabilities and lifecycle.",
       "headings": [
         {
@@ -2329,7 +2329,7 @@
       "wordCount": 470
     },
     {
-      "contentSha256": "20c72dfd9cf8688cdc2592e7e4bb3fa9e0df677fdc8ab58858add3b92ac7a615",
+      "contentSha256": "9a52bc8a2c84dd9a17882bfaa01d67889ab3ec56555184f8e2056e13b94703cb",
       "description": "See how one real product composes Framework infrastructure, Preset defaults, app-domain behavior, collaboration, persistence, and AI.",
       "headings": [
         {
@@ -2397,7 +2397,7 @@
       "path": "cases/asyra-design.md",
       "section": "Cases",
       "title": "Asyra Design as a complete product implementation",
-      "wordCount": 1299
+      "wordCount": 1305
     }
   ],
   "release": {

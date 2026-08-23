@@ -2,12 +2,12 @@
 
 Correct Asyra products distinguish four kinds of state:
 
-1. **Canonical state** — durable product information owned by its Framework
+1. **Canonical state** - durable product information owned by its Framework
    package and app schema.
-2. **Local derived state** — UI or computation results that can be rebuilt.
-3. **Projection state** — engine handles, render resources, and interaction
+2. **Local derived state** - UI or computation results that can be rebuilt.
+3. **Projection state** - engine handles, render resources, and interaction
    indexes derived from canonical information.
-4. **Transport state** — presence, receipts, connection status, and encoded
+4. **Transport state** - presence, receipts, connection status, and encoded
    messages used to move canonical changes.
 
 Only canonical state participates as product truth. The other forms may be

@@ -24,13 +24,13 @@
         },
         {
           "path": "create-app/asyra-design/template/README.md",
-          "sha256": "3baf1ba4d931dd51c24ab4614a66fa6694859d3a4e4a5c7468e93cbef803e3c8"
+          "sha256": "afe37588cbaf678c7b7fe846f5be850414faff1a753c748b6912d846e8ecfab4"
         }
       ]
     },
     {
       "id": "start/extend-with-ai",
-      "pageSha256": "35b0da1b5dbd369f1ac3a5a1e513fda26e94fdeef3b7415024bab3390a664e71",
+      "pageSha256": "fe0dc685c5f70631bfabd32ae2594b9fb5da59959821ad2df46d1361de0394c4",
       "sources": [
         {
           "path": "docs/ai/framework/WORKFLOW.md",
@@ -100,7 +100,7 @@
     },
     {
       "id": "learn/canonical-state",
-      "pageSha256": "6a04dea8ab91a39eada643ebc41630163af4f818d3d34d45d60fb03b6da944e2",
+      "pageSha256": "c85a25e7c15df4a75f64794d0468e6d92050ef3b77f2f52083d3021121298012",
       "sources": [
         {
           "path": "docs/ai/framework/ARCHITECTURE.md",
@@ -334,7 +334,7 @@
     },
     {
       "id": "reference/packages/core",
-      "pageSha256": "4289ac1abb0ff2432245a88e2163bc943ed05a6cfb94902b046ae29a1a9c7df0",
+      "pageSha256": "4150d383c83c25e7af0d91299ade90f585fe66fbab1c159d8a873d64efa1a57a",
       "sources": [
         {
           "path": "docs/ai/framework/packages/core.md",
@@ -594,7 +594,7 @@
     },
     {
       "id": "cases/asyra-design",
-      "pageSha256": "20c72dfd9cf8688cdc2592e7e4bb3fa9e0df677fdc8ab58858add3b92ac7a615",
+      "pageSha256": "9a52bc8a2c84dd9a17882bfaa01d67889ab3ec56555184f8e2056e13b94703cb",
       "sources": [
         {
           "path": "docs/ai/apps/asyra-design/APP_ESSENTIALS.md",

@@ -105,7 +105,7 @@ The same infrastructure can support a design tool, whiteboard, BIM system, indus
 - **BIM products** can add their own building models and safety policies.
 - **Simulation products** can bind specialized engines.
 - **Semiconductor fabrication plants** can encode manufacturing rules and process constraints to evaluate candidate process flows earlier and make validation more precise and consistent.
-- **Your field** — bring the information, rules, and workflows you know best.
+- **Your field** - bring the information, rules, and workflows you know best.
 
 These possibilities belong to the App. Asyra does not bundle them as turnkey capabilities.
 
@@ -115,14 +115,14 @@ The longer-term direction also includes non-visible information-model products d
 
 Current public support covers Node.js 24.x, the browser/Core composition, the official `2D` Preset, and engine-neutral `CUSTOM` composition. Production `3D`, `HYBRID`, auto-layout, unit-aware aggregation, public Headless Core, and a multi-runtime Core Kernel are not current capabilities.
 
-- [Public support and release guide](docs/public/reference/support-release.md) — environments, entrypoints, migration, security, and deprecation boundaries.
-- [Runtime-boundaries roadmap](docs/public/learn/runtime-boundaries-roadmap.md) — verified capabilities and future direction.
+- [Public support and release guide](docs/public/reference/support-release.md) - environments, entrypoints, migration, security, and deprecation boundaries.
+- [Runtime-boundaries roadmap](docs/public/learn/runtime-boundaries-roadmap.md) - verified capabilities and future direction.
 
 ## Documentation
 
-- [Public documentation](docs/public/index.md) — Start, Learn, Build, Reference, and the Asyra Design case study.
-- [Asyra Design case study](docs/public/cases/asyra-design.md) — how one complete product composes Framework infrastructure and App-owned behavior.
-- [AI-readable discovery](docs/public/llms.txt) — the stable public page inventory for retrieval and coding agents.
+- [Public documentation](docs/public/index.md) - Start, Learn, Build, Reference, and the Asyra Design case study.
+- [Asyra Design case study](docs/public/cases/asyra-design.md) - how one complete product composes Framework infrastructure and App-owned behavior.
+- [AI-readable discovery](docs/public/llms.txt) - the stable public page inventory for retrieval and coding agents.
 
 ## Support and contribution policy
 

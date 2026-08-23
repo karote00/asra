@@ -51,12 +51,12 @@ those behaviors.
 
 Begin by locating the product owners:
 
-- `src/features` — bounded interaction and command behavior
-- `src/common-apis` — reusable App mutation and query routes
-- `src/controllers` — UI-triggered orchestration
-- `src/init` — registration and startup composition
-- `src/render-layers` — App-owned overlays and previews
-- `src/contexts/core.ts` — the App's public Framework composition
+- `src/features` - bounded interaction and command behavior
+- `src/common-apis` - reusable App mutation and query routes
+- `src/controllers` - UI-triggered orchestration
+- `src/init` - registration and startup composition
+- `src/render-layers` - App-owned overlays and previews
+- `src/contexts/core.ts` - the App's public Framework composition
 
 ## Run the complete local services
 

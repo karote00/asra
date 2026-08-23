@@ -183,7 +183,7 @@ Input or UI intent
 
 AI-created elements use this same route. They remain ordinary editable Props
 and Scene information, one reversible transaction, one collaboration
-publication path, and one persistable document sequence—not an opaque AI-only
+publication path, and one persistable document sequence - not an opaque AI-only
 object or render patch.
 
 Provider configuration is server-only:
