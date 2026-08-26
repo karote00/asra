@@ -31,7 +31,7 @@ test('result-first Landing authority resolves only the current contract and work
   assert.equal('platformInspectorPath' in data.authority, false)
 })
 
-test('result-first Landing owns fourteen exact and unique product cases', () => {
+test('result-first Landing owns fifteen exact and unique product cases', () => {
   assert.deepEqual(data.caseIds, [
     'desktop-editorial-composition',
     'mobile-single-column-reflow',
@@ -41,14 +41,15 @@ test('result-first Landing owns fourteen exact and unique product cases', () => 
     'shared-human-ai-action-path',
     'one-source-across-views',
     'poc-to-product-continuity',
+    'canonical-runtime-flow-explainer',
     'connected-site-actions',
     'responsive-transparent-raster-assets',
     'perceptually-sharp-raster-rendering',
-    'open-source-2026-footer',
+    'navigation-only-project-footer',
     'no-client-reduced-motion-reading',
     'machine-readable-discovery'
   ])
-  assert.equal(new Set(data.caseIds).size, 14)
+  assert.equal(new Set(data.caseIds).size, 15)
 })
 
 test('contract replaces every previous website surface with the approved V04 page', () => {
@@ -58,7 +59,8 @@ test('contract replaces every previous website surface with the approved V04 pag
   assert.match(source, /existing committed and uncommitted website UI/i)
   assert.match(source, /environment setup/i)
   assert.match(source, /supporting route destination/i)
-  assert.match(source, /2026.*open source/i)
+  assert.match(source, /footer contains project navigation only/i)
+  assert.match(source, /does not repeat year, license, open-source/i)
   assert.match(source, /adaptive CSS engineering grid/i)
   assert.match(source, /alpha-derived drop shadow/i)
   assert.match(source, /asset-specific directional shadow decision/i)
@@ -70,6 +72,11 @@ test('contract replaces every previous website surface with the approved V04 pag
   assert.match(source, /supporting human-facing routes.*Website Platform/i)
   assert.match(source, /PoC.*same implementation.*product path/i)
   assert.match(source, /shared horizontal page geometry decision/i)
+  assert.match(source, /Framework value comparison/i)
+  assert.match(
+    source,
+    /semantic HTML and CSS Framework value comparison.*repeated product behavior.*one Feature/i
+  )
   assert.match(
     source,
     /Header, Hero, domain copy, PoC, proofs, Closing, and Footer/i
@@ -119,6 +126,18 @@ test('page owner selects the supplied true-alpha masters with one adaptive grid-
   assert.match(source, /without JavaScript/i)
   assert.match(source, /PoC-to-product storyboard/i)
   assert.match(source, /same bounded Feature.*engineer review/i)
+  assert.match(
+    source,
+    /Landing Framework value comparison.*one product request.*separate maintenance edits.*product screen.*AI action.*saved work.*undo\/redo.*synchronized users.*owning Feature.*bounded change/i
+  )
+  assert.match(
+    source,
+    /comparison leads with the bounded change-cost result.*does not require readers.*API.*transaction.*state-application.*canonical-owner.*projection.*integration/i
+  )
+  assert.match(
+    source,
+    /comparison remains readable without connector geometry or color.*1440px.*820px.*390px.*320px/i
+  )
   assert.match(source, /not production-ready without engineering review/i)
   assert.match(source, /two ordered Traditional and Asyra flows/i)
   assert.match(source, /same recurring domain expert and engineer/i)
@@ -137,7 +156,10 @@ test('page owner selects the supplied true-alpha masters with one adaptive grid-
   assert.match(source, /Domain Rail.*mobile rows.*viewport edges below 2520px/i)
   assert.match(source, /must not redraw.*people or scenes/i)
   assert.match(source, /code-drawn SVG/i)
-  assert.match(source, /CSS-drawn internal diagram topology/i)
+  assert.match(
+    source,
+    /CSS-drawn internal topology for the six supplied mechanical illustrations/i
+  )
   assert.match(source, /closing-grid-v07-desktop raster.*never selected/i)
   assert.match(source, /Rejected V07 desktop.*never selected/i)
   assert.match(source, /rejected V08 Grow.*never selected/i)
@@ -282,6 +304,11 @@ test('page owner selects the supplied true-alpha masters with one adaptive grid-
       'apps/asyra-framework-site/scripts/build-poc-storyboard-crops.py'
     )
   )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'apps/asyra-framework-site/components/framework-value-story.tsx'
+    )
+  )
 })
 
 test('verification requires synchronized production visual evidence', () => {
@@ -316,6 +343,10 @@ test('verification requires synchronized production visual evidence', () => {
   assert.match(
     source,
     /PoC-to-product storyboard.*1440px.*820px.*390px.*320px/i
+  )
+  assert.match(
+    source,
+    /Landing Framework value comparison.*1440px.*820px.*390px.*320px.*define-once comprehension/i
   )
   assert.match(
     source,
@@ -365,16 +396,16 @@ test('steps, routes, artifacts, failure owners, and cache declarations resolve',
   })
 })
 
-test('Landing invariants preserve broad domains and open-source identity', () => {
+test('Landing invariants preserve broad domains and a navigation-only footer', () => {
   const source = JSON.stringify(data.invariants)
   assert.match(source, /any field/i)
   assert.match(source, /never decides its domain/i)
-  assert.match(source, /same action path/i)
+  assert.match(source, /Human and AI intent.*same governed action path/i)
   assert.match(source, /PoC.*same implementation.*product path/i)
   assert.match(source, /constrained Landing section.*horizontal page geometry/i)
   assert.match(source, /Domain Rail remains full bleed below 2520px/i)
-  assert.match(source, /2026.*open source/i)
-  assert.match(source, /no company identity/i)
+  assert.match(source, /footer contains project navigation only/i)
+  assert.match(source, /no year, license, open-source, or company identity/i)
   assert.match(
     source,
     /Production deployment occurs only after every Landing gate passes/i

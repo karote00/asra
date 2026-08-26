@@ -1,3 +1,4 @@
+import { FrameworkValueStory } from '@/components/framework-value-story'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 
@@ -178,7 +179,6 @@ export default function HomePage() {
               Design tools, research workspaces, BIM systems, studio pipelines,
               field apps, simulations, and whatever your world needs next.
             </p>
-            <span>Examples, not limits.</span>
           </div>
           <div className="domains__rail illustration-stage illustration-stage--dark illustration-stage--rail">
             <picture className="domain-rail__picture">
@@ -317,6 +317,8 @@ export default function HomePage() {
           </div>
         </section>
 
+        <FrameworkValueStory />
+
         <div className="proof-stack">
           <section
             className="proof proof--visual-first"
@@ -347,9 +349,10 @@ export default function HomePage() {
             <div className="proof__copy">
               <p className="eyebrow">Same path</p>
               <h2 id="path-title">
-                <span className="reference-line">Build each feature once.</span>
-                <span className="reference-line">People and AI use the</span>
-                <span className="reference-line">same action path.</span>
+                <span className="reference-line">People and AI follow the</span>
+                <span className="reference-line">
+                  same governed action path.
+                </span>
               </h2>
             </div>
             <figure className="proof__visual illustration-stage illustration-stage--light illustration-stage--proof illustration-stage--same-path">

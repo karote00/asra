@@ -11,7 +11,9 @@ Build one public Asyra page that reports the result first: people can bring
 knowledge from any field and build the tool their world needs on Asyra. The
 page then proves that the tool can grow, that people and AI use the same action
 path, that a PoC can continue into the product as the same bounded
-implementation, and that every view shares one source of truth. The product
+implementation, and that every view shares one source of truth. A reader-first
+Framework value comparison then shows why defining one Feature once replaces
+repeated screen, AI, saved-work, undo, and synchronization logic. The product
 owner retired the Visible Change proof and the later Impact Preview because
 change-impact analysis is not a public product capability.
 
@@ -36,6 +38,10 @@ essential composition is:
   Asyra flows, four stages per flow, recurring human roles, and direct
   comparisons that contrast repeated handoffs and rebuilding with one bounded
   Feature continuing through engineering review;
+- one semantic HTML and CSS Framework value comparison, placed after the PoC
+  story and before the three proof sections, that contrasts the maintenance
+  cost of separate product edits with one bounded change inside the Feature
+  that owns the requested behavior;
 - three spacious alternating proof sections without separator rules;
 - six immutable product-owner-supplied Photoroom true-alpha masters, with
   source-bounded responsive lossless WebP derivatives that preserve their
@@ -53,7 +59,7 @@ essential composition is:
   protected central domain core inside one continuous blue infrastructure loop
   with four directional bridges, presented over the shared code-drawn
   engineering grid;
-- an open-source closing statement and compact footer; and
+- a domain-owned closing statement and compact navigation-only footer; and
 - modern system sans headlines and labels at regular-to-medium display weight,
   open line spacing, generous section padding, and responsive single-column
   reflow.
@@ -105,12 +111,13 @@ the project test commands.
 6. one shared human and AI action path;
 7. one source across features and views;
 8. PoC-to-product continuity through the same bounded implementation;
-9. connected in-page and Website Platform actions;
-10. responsive true-alpha Photoroom raster assets;
-11. adaptive code-drawn grids and alpha-aware shadows at every review size;
-12. a 2026 open-source footer with no company identity; and
-13. complete no-client and reduced-motion reading; and
-14. public machine-readable discovery independent from supporting content pages.
+9. one canonical runtime flow explainer;
+10. connected in-page and Website Platform actions;
+11. responsive true-alpha Photoroom raster assets;
+12. adaptive code-drawn grids and alpha-aware shadows at every review size;
+13. a navigation-only footer without redundant year or license metadata; and
+14. complete no-client and reduced-motion reading; and
+15. public machine-readable discovery independent from supporting content pages.
 
 ## Content Contract
 
@@ -119,13 +126,13 @@ The page must include these exact anchors:
 - `Build the tool your world needs.`
 - `You bring the domain knowledge. AI builds with Asyra. Your tool stays easy to extend, automate, and undo.`
 - `One foundation. Any field.`
-- `Examples, not limits.`
 - `Add what your workflow needs without rebuilding the rest.`
-- `Build each feature once. People and AI use the same action path.`
+- `People and AI follow the same governed action path.`
 - `One source of truth across every feature and view.`
 - `Prove it once. Keep what works.`
 - `Keep validated work moving.`
 - `What proves the idea becomes the starting point for the product.`
+- `One feature request. One place to change.`
 - `Bring your domain. Keep its logic.`
 
 Calls to action use only `Start building` and `See examples`. Navigation and
@@ -133,9 +140,8 @@ footer links resolve to approved Website Platform or project source
 destinations, and every link has a clickable non-empty `href` attribute. Public
 copy contains no Unicode em dash or en dash.
 
-The footer identifies the project only as `2026`, `OPEN SOURCE`, and
-`MIT LICENSE`. It must not claim an Asyra company, corporation, or incorporated
-owner.
+The footer contains project navigation only. It does not repeat year, license,
+open-source, company, corporation, or incorporated-owner metadata.
 
 The Website publishes the generated public documentation inventory at
 `/llms.txt`. This machine-readable discovery surface mirrors
@@ -201,6 +207,22 @@ or illustration geometry. The storyboard must not claim that a PoC is
 production-ready without engineering review, tests, security, or performance
 hardening.
 
+The app owns one code-native Framework value comparison immediately after the
+PoC story. It explains change cost: one product request can become separate
+maintenance edits for the product screen, AI action, saved work, undo/redo,
+and synchronized users. With Asyra, the request stays inside the Feature that
+owns the behavior as one bounded change. This comparison does not duplicate
+the proof sections below it: Grow owns modular expansion, Same Path owns the
+governed human and AI action path, and One Source owns authoritative
+information across views.
+The Landing must not require readers to understand API, transaction,
+canonical-owner, state-application, projection, or integration terminology.
+The comparison stays readable without color or connector geometry. At 1440px
+and 820px, Without Asyra and With Asyra remain directly comparable columns. At
+390px and 320px, the complete Without Asyra story precedes the complete With
+Asyra story. The Documentation Overview owns its own compact technical
+presentation and does not reuse the Landing renderer.
+
 Prior V04 through V12 raster assets and the rejected V08 through V14 Grow
 experiments remain preserved but are not selected. The retired Visible Change
 assets also remain unselected. Background removal, responsive derivation, the
@@ -234,9 +256,11 @@ The active visual review must match these approved details:
   a complete gunmetal outer frame, with the shared adaptive grid visible
   behind it.
 
-The implementation must not recreate complex diagram topology with SVG, CSS,
-canvas, WebGL, or icon libraries. CSS is allowed for the shared background
-grid, alpha-derived drop shadow, and the storyboard's uniform 2px frame.
+The implementation must not recreate the six supplied mechanical
+illustrations' complex topology with SVG, CSS, canvas, WebGL, or icon
+libraries. CSS is allowed for the shared background grid, alpha-derived drop
+shadow, the storyboard's uniform 2px frame, and the semantic Framework flow
+map's code-native borders and connectors.
 
 The page uses a modern system sans stack for display and body text. Display
 headings stay at weight 500 or below with line height at least equal to their
@@ -261,6 +285,12 @@ copy, or selected illustration.
 - every anchor has a clickable `href` that resolves to an in-page, Website
   Platform, or project source destination;
 - no horizontal overflow at 390px and 320px;
+- the Landing Framework value comparison preserves the exact semantic order of
+  many traditional file changes, one Asyra Feature definition, and consistent
+  product results at 1440px, 820px, 390px, and 320px; 1440px and 820px use two
+  directly comparable columns, 390px and 320px read the complete traditional
+  story before the complete Asyra story, and no engineering terminology is
+  required to understand the outcome;
 - the PoC-to-product storyboard preserves eight border-free direct raster crops
   from the approved person preview inside one uniform 2px CSS frame contract,
   the same recurring human roles, one continuous implementation path, legible
@@ -320,7 +350,11 @@ dependency on previous website code or assets, passes the formal gates, is
 inspected from a synchronized local production preview, and is then deployed
 to the linked official Website project for product-owner review. Every
 full-page and section crop, including the PoC-to-product storyboard, is
-inspected before completion is claimed. The final page keeps a 320px minimum
+inspected before completion is claimed. The code-native Framework value
+comparison is also inspected as its own section crop at desktop, tablet, and
+phone widths and must make the define-once result understandable without
+requiring the Documentation architecture flow.
+The final page keeps a 320px minimum
 page width and uses one 2520px maximum content width plus one responsive inline
 padding for every constrained Landing section. The Domain Rail remains full
 bleed below 2520px and adopts the shared inline padding at and above that

@@ -59,9 +59,8 @@ test('the result-first narrative matches the approved V04 landing page', async (
     'Build the tool your world needs.',
     'You bring the domain knowledge. AI builds with Asyra. Your tool',
     'One foundation. Any field.',
-    'Examples, not limits.',
     'Add what your workflow needs without rebuilding the rest.',
-    'Build each feature once. People and AI use the same action path.',
+    'People and AI follow the same governed action path.',
     'One source of truth across every feature and view.',
     'Prove it once. Keep what works.',
     'Keep validated work moving.',
@@ -73,6 +72,8 @@ test('the result-first narrative matches the approved V04 landing page', async (
     assert.ok(pageText.includes(copy), `Missing approved copy: ${copy}`)
   }
 
+  assert.doesNotMatch(pageText, /Examples, not limits\./)
+
   assert.equal((page.match(/Start building/g) ?? []).length, 2)
   assert.doesNotMatch(page, /site-header[\s\S]*button--compact/)
   assert.equal((page.match(/Try the demo/g) ?? []).length, 1)
@@ -82,8 +83,8 @@ test('the result-first narrative matches the approved V04 landing page', async (
     'your world needs.',
     'Add what your workflow',
     'needs without rebuilding',
-    'Build each feature once.',
-    'People and AI use the',
+    'People and AI follow the',
+    'same governed action path.',
     'One source of truth across',
     'every feature and view.',
     'Bring your domain.',
@@ -216,6 +217,116 @@ test('the PoC storyboard keeps validated work on one governed product path', asy
   )
 })
 
+test('the Landing Framework value story isolates change cost from the proof sections below it', async () => {
+  const [page, component, css, tokens] = await Promise.all([
+    readAppFile('page.tsx'),
+    readFile(
+      path.join(siteRoot, 'components', 'framework-value-story.tsx'),
+      'utf8'
+    ),
+    readAppFile('globals.css'),
+    readAppFile('styles/tokens.css')
+  ])
+  const storyStart = page.indexOf('className="poc-story"')
+  const valueStart = page.indexOf('<FrameworkValueStory />')
+  const proofStart = page.indexOf('<div className="proof-stack">')
+
+  assert.match(page, /import \{ FrameworkValueStory \}/)
+  assert.ok(storyStart >= 0 && storyStart < valueStart)
+  assert.ok(valueStart < proofStart)
+  assert.match(component, /className="framework-value"/)
+  assert.match(component, />Change cost</)
+  assert.match(component, /One feature request\. One place to change\./)
+  assert.match(component, /Without Asyra/)
+  assert.match(component, /One request, many edits/)
+  assert.match(component, /With Asyra/)
+  assert.match(component, /One request, one bounded change/)
+  assert.match(component, /One Feature definition/)
+  assert.equal(
+    (component.match(/className="framework-value__accent /g) ?? []).length,
+    2
+  )
+  assert.match(component, /framework-value__accent--traditional/)
+  assert.match(component, /framework-value__accent--asyra/)
+  assert.match(component, /Product screen/)
+  assert.match(component, /AI action/)
+  assert.match(component, /Saved work/)
+  assert.match(component, /Undo \+ redo/)
+  assert.match(component, /Synced users/)
+  assert.match(component, /Clear owner/)
+  assert.match(component, /Focused review/)
+  assert.match(component, /Focused tests/)
+  assert.match(component, /Smaller change/)
+  assert.match(component, /Easier revisit/)
+  assert.equal((component.match(/framework-value__flow/g) ?? []).length, 2)
+  assert.doesNotMatch(component, /framework-value__outcome/)
+  assert.doesNotMatch(
+    component,
+    /One definition changes\. The whole product stays consistent\./
+  )
+  assert.doesNotMatch(
+    component,
+    /Change one definition\. Update the whole product\.|Every product surface uses the same Feature\.|Meaning, rules, and history stay together\./
+  )
+  assert.doesNotMatch(page, /Build each feature once\./)
+  assert.doesNotMatch(component, /Canonical|Transaction|State application/)
+  assert.doesNotMatch(component, /[—–]/)
+  assert.match(
+    css,
+    /\.framework-value__comparison\s*\{[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/
+  )
+  assert.match(css, /\.framework-value__heading\s*\{[\s\S]*align-items:\s*end/)
+  assert.match(
+    css,
+    /\.framework-value__heading\s*\{[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/
+  )
+  assert.match(
+    css,
+    /\.framework-value__comparison\s*\{[^}]*grid-template-rows:\s*repeat\(4, auto\);/s
+  )
+  assert.doesNotMatch(component, /framework-value__stripe/)
+  assert.match(
+    css,
+    /\.framework-value__accent\s*\{[^}]*bottom:\s*var\(--framework-value-accent-inset\);[^}]*position:\s*absolute;[^}]*top:\s*var\(--framework-value-accent-inset\);[^}]*width:\s*3px;/s
+  )
+  assert.match(
+    css,
+    /\.framework-value__accent--traditional\s*\{[^}]*background:\s*var\(--signal-red-hover\);[^}]*left:\s*var\(--framework-value-accent-inset\);/s
+  )
+  assert.match(
+    css,
+    /\.framework-value\s*\{[^}]*--framework-value-stripe-blue:\s*var\(--signal-blue-bright\);/s
+  )
+  assert.match(tokens, /--color-blue-bright:\s*#1491e4;/)
+  assert.match(
+    css,
+    /\.framework-value__accent--asyra\s*\{[^}]*background:\s*var\(--framework-value-stripe-blue\);[^}]*right:\s*var\(--framework-value-accent-inset\);/s
+  )
+  assert.doesNotMatch(css, /\.framework-value__stripe(?:-|\s*\{)/)
+  assert.doesNotMatch(
+    css,
+    /border-top:\s*3px solid var\(--framework-value-stripe-blue\)/
+  )
+  assert.doesNotMatch(css, /\.framework-value__comparison::before\s*\{/)
+  assert.doesNotMatch(css, /\.framework-value__path::before\s*\{/)
+  assert.match(
+    css,
+    /\.framework-value__path\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-row:\s*1\s*\/\s*span 4;[\s\S]*grid-template-rows:\s*subgrid/
+  )
+  assert.match(
+    css,
+    /\.framework-value__path\s*>\s*header\s*\{[\s\S]*display:\s*contents/
+  )
+  assert.match(
+    css,
+    /@media \(max-width: 680px\)[\s\S]*\.framework-value__comparison\s*\{[\s\S]*grid-template-columns:\s*1fr/
+  )
+  assert.match(
+    css,
+    /@media \(max-width: 680px\)[\s\S]*\.framework-value__accent--asyra\s*\{[^}]*left:\s*var\(--framework-value-accent-inset\);[^}]*right:\s*auto;/s
+  )
+})
+
 test('the retired change-impact sections do not contribute to the landing narrative', async () => {
   const page = await readAppFile('page.tsx')
 
@@ -262,7 +373,7 @@ test('every navigation and CTA target is connected to the completed site', async
   assert.match(footer, /https:\/\/github\.com\/karote00\/asyra/)
 })
 
-test('the footer identifies its license without an open-source or company label', async () => {
+test('the footer stays focused on navigation without redundant legal metadata', async () => {
   const source = [
     await readAppFile('page.tsx'),
     await readAppFile('layout.tsx'),
@@ -271,10 +382,11 @@ test('the footer identifies its license without an open-source or company label'
   ].join('\n')
   const css = await readAppFile('globals.css')
 
-  assert.match(source, /2026/)
-  assert.match(source, /MIT License/)
-  assert.doesNotMatch(source, /2025|Open source|Asyra Systems?|Inc\.|Company/i)
-  assert.doesNotMatch(css, /\.project-identity a::before/)
+  assert.doesNotMatch(
+    source,
+    /2025|2026|MIT License|Open source|Asyra Systems?|Inc\.|Company/i
+  )
+  assert.doesNotMatch(css, /\.project-identity/)
 })
 
 test('metadata falls back to the canonical HTTPS origin', async () => {
@@ -1313,10 +1425,14 @@ localArtworkTest(
 )
 
 test('CTA interaction becomes brighter and the closing uses the transparent supplied domain-preservation concept', async () => {
-  const page = await readAppFile('page.tsx')
-  const css = await readAppFile('globals.css')
+  const [page, css, tokens] = await Promise.all([
+    readAppFile('page.tsx'),
+    readAppFile('globals.css'),
+    readAppFile('styles/tokens.css')
+  ])
 
-  assert.match(css, /--signal-red-hover:\s*#f[0-9a-f]{5}/i)
+  assert.match(tokens, /--color-red-hover:\s*#f[0-9a-f]{5}/i)
+  assert.match(tokens, /--signal-red-hover:\s*var\(--color-red-hover\)/)
   assert.match(css, /\.button--red:hover\s*\{[^}]*var\(--signal-red-hover\)/s)
   assert.match(css, /\.button--red:focus-visible\s*\{/)
   assert.match(page, /name="closing-core-v09-photoroom"/)
@@ -1324,7 +1440,10 @@ test('CTA interaction becomes brighter and the closing uses the transparent supp
 })
 
 test('the responsive layout keeps balanced proof spacing without section rules', async () => {
-  const css = await readAppFile('globals.css')
+  const [css, tokens] = await Promise.all([
+    readAppFile('globals.css'),
+    readAppFile('styles/tokens.css')
+  ])
   const proofRule = css.match(/\.proof\s*\{([^}]+)\}/s)?.[1] ?? ''
   const sharedHeaderRule =
     css.match(/\.site-header,\s*\.site-frame-header\s*\{([^}]+)\}/s)?.[1] ?? ''
@@ -1333,17 +1452,16 @@ test('the responsive layout keeps balanced proof spacing without section rules',
     return css.match(new RegExp(`${escaped}\\s*\\{([^}]+)\\}`, 's'))?.[1] ?? ''
   }
 
-  assert.match(css, /--paper:\s*#[0-9a-f]{6}/i)
-  assert.match(css, /--signal-red:\s*#[0-9a-f]{6}/i)
-  assert.match(css, /--page-min-width:\s*320px/)
-  assert.match(css, /--page-max-width:\s*2520px/)
-  assert.match(css, /--page-padding-x:\s*clamp\(38px,\s*6\.25vw,\s*64px\)/)
-  assert.match(css, /--site-header-max-width:\s*var\(--page-max-width\)/)
-  assert.match(css, /--site-header-padding-x:\s*var\(--page-padding-x\)/)
+  assert.match(tokens, /--paper:\s*var\(--color-paper\)/)
+  assert.match(tokens, /--signal-red:\s*var\(--color-red\)/)
+  assert.match(tokens, /--page-min-width:\s*320px/)
+  assert.match(tokens, /--page-max-width:\s*2520px/)
+  assert.match(tokens, /--page-padding-x:\s*clamp\(38px,\s*6\.25vw,\s*64px\)/)
+  assert.match(tokens, /--site-header-max-width:\s*var\(--page-max-width\)/)
+  assert.match(tokens, /--site-header-padding-x:\s*var\(--page-padding-x\)/)
   assert.match(css, /body\s*\{[^}]*min-width:\s*var\(--page-min-width\)/s)
   for (const selector of [
     '.hero',
-    '.domains__heading',
     '.poc-story__inner',
     '.proof-stack',
     '.site-footer'
@@ -1352,6 +1470,17 @@ test('the responsive layout keeps balanced proof spacing without section rules',
     assert.match(rule, /max-width:\s*var\(--page-max-width\)/, selector)
     assert.match(rule, /var\(--page-padding-x\)/, selector)
   }
+  assert.match(baseRule('.domains__heading'), /margin:\s*0\s+auto/)
+  assert.match(baseRule('.domains__heading'), /width:\s*min\(100%,\s*720px\)/)
+  assert.match(
+    baseRule('.domains__heading'),
+    /padding-inline:\s*var\(--page-padding-x\)/
+  )
+  assert.match(baseRule('.domains'), /min-height:\s*0/)
+  assert.match(
+    baseRule('.domains__rail'),
+    /margin-top:\s*clamp\(8px,\s*1vw,\s*16px\)/
+  )
   assert.match(sharedHeaderRule, /max-width:\s*var\(--site-header-max-width\)/)
   assert.match(sharedHeaderRule, /var\(--site-header-padding-x\)/)
   assert.match(
@@ -1396,6 +1525,10 @@ test('every illustration uses the shared adaptive code grid and alpha-aware drop
   assert.match(css, /\.illustration-stage\s*\{/)
   assert.match(css, /\.illustration-stage::before\s*\{/)
   assert.match(css, /--grid-unit:\s*clamp\(/)
+  assert.match(
+    css,
+    /\.illustration-stage--rail\s*\{[^}]*--grid-unit:\s*clamp\(26px,\s*3vw,\s*48px\)/s
+  )
   assert.match(css, /repeating-linear-gradient\(/)
   assert.match(css, /radial-gradient\(/)
   assert.match(css, /mask-image:/)
@@ -1430,11 +1563,17 @@ test('every illustration uses the shared adaptive code grid and alpha-aware drop
 })
 
 test('the typography uses a modern system sans stack without legacy display serifs', async () => {
-  const css = await readAppFile('globals.css')
+  const [css, tokens] = await Promise.all([
+    readAppFile('globals.css'),
+    readAppFile('styles/tokens.css')
+  ])
 
-  assert.match(css, /--display:\s*system-ui,\s*-apple-system/i)
-  assert.match(css, /--sans:\s*system-ui,\s*-apple-system/i)
-  assert.doesNotMatch(css, /Baskerville|Iowan Old Style|Times New Roman/i)
+  assert.match(tokens, /--font-family-display:\s*system-ui,\s*-apple-system/i)
+  assert.match(tokens, /--font-family-sans:\s*system-ui,\s*-apple-system/i)
+  assert.doesNotMatch(
+    `${tokens}\n${css}`,
+    /Baskerville|Iowan Old Style|Times New Roman/i
+  )
   assert.doesNotMatch(css, /font-family:\s*var\(--serif\)/)
 
   const headingRules = [

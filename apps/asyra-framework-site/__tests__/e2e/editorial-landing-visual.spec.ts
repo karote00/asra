@@ -1022,6 +1022,7 @@ test('the PoC storyboard preserves one implementation path across review widths'
         (rect) => rect.width > 0 && rect.height > 0
       ).length
       const sectionBounds = section.getBoundingClientRect()
+      const inner = section.querySelector<HTMLElement>('.poc-story__inner')
       const panels = section.querySelector<HTMLElement>('.story-panels')
       const governance = section.querySelector<HTMLElement>(
         '.poc-story__governance'
@@ -1029,9 +1030,17 @@ test('the PoC storyboard preserves one implementation path across review widths'
       const firstScene = section.querySelector<HTMLElement>(
         '.story-panel__scene'
       )
-      if (!panels || !governance || !firstScene) {
+      if (!inner || !panels || !governance || !firstScene) {
         throw new Error('Missing ordered storyboard composition targets')
       }
+      const innerBounds = inner.getBoundingClientRect()
+      const innerContentLeft =
+        innerBounds.left +
+        Number.parseFloat(getComputedStyle(inner).paddingLeft)
+      const innerContentRight =
+        innerBounds.right -
+        Number.parseFloat(getComputedStyle(inner).paddingRight)
+      const innerContentCenter = (innerContentLeft + innerContentRight) / 2
       const panelsBounds = panels.getBoundingClientRect()
       const governanceBounds = governance.getBoundingClientRect()
       const flowBounds = flows.map((flow) => flow.getBoundingClientRect())
@@ -1072,6 +1081,9 @@ test('the PoC storyboard preserves one implementation path across review widths'
         flowColumns: flowData.map((flow) => flow.columns),
         flowLabels: flowData.map((flow) => flow.label),
         flowLabelsVisible: flowData.every((flow) => flow.labelVisible),
+        flowLeftDifference: Math.max(
+          ...flowBounds.map((flow) => Math.abs(flow.left - innerContentLeft))
+        ),
         flowOrderIsTraditionalThenAsyra:
           flowData[0]?.label === 'Traditional' &&
           flowData[1]?.label === 'With Asyra',
@@ -1098,6 +1110,25 @@ test('the PoC storyboard preserves one implementation path across review widths'
         ),
         legendVisible,
         panelToProofImageWidthRatio: smallestPanelWidth / medianProofImageWidth,
+        panelLeftDifference: Math.max(
+          ...flows.map((flow) => {
+            const firstPanel = flow.querySelector<HTMLElement>('.story-panel')
+            if (!firstPanel) throw new Error('Missing first storyboard panel')
+            return Math.abs(
+              firstPanel.getBoundingClientRect().left - innerContentLeft
+            )
+          })
+        ),
+        panelCenterDifference: Math.max(
+          ...flows.map((flow) => {
+            const firstPanel = flow.querySelector<HTMLElement>('.story-panel')
+            if (!firstPanel) throw new Error('Missing first storyboard panel')
+            const panelBounds = firstPanel.getBoundingClientRect()
+            return Math.abs(
+              panelBounds.left + panelBounds.width / 2 - innerContentCenter
+            )
+          })
+        ),
         smallestPanelWidth,
         sceneBackground: getComputedStyle(firstScene).backgroundColor,
         stageNumbersUseNeutralColor,
@@ -1134,6 +1165,12 @@ test('the PoC storyboard preserves one implementation path across review widths'
     expect(layout.flowLabelsVisible).toBe(profile.flowLabelsVisible)
     expect(layout.flowOrderIsTraditionalThenAsyra).toBe(true)
     expect(layout.flowsAreVerticallyOrdered).toBe(true)
+    expect(layout.flowLeftDifference).toBeLessThanOrEqual(1)
+    if (profile.width <= 680) {
+      expect(layout.panelCenterDifference).toBeLessThanOrEqual(1)
+    } else {
+      expect(layout.panelLeftDifference).toBeLessThanOrEqual(1)
+    }
     expect(layout.flowTitles).toEqual([
       ['Domain idea', 'Disposable PoC', 'Handoff', 'Rebuild'],
       ['Domain + AI', 'Real Feature', 'Engineer review', 'Product']
@@ -1166,7 +1203,233 @@ test('the PoC storyboard preserves one implementation path across review widths'
   }
 })
 
-test('constrained Landing sections share one content geometry while the Domain Rail only gains padding at max width', async ({
+test('the Landing Framework value story isolates change cost from the proof sections below it', async ({
+  page
+}, testInfo) => {
+  const profiles = [
+    { comparisonColumns: 2, headingColumns: 2, width: 2520 },
+    { comparisonColumns: 2, headingColumns: 2, width: 1920 },
+    { comparisonColumns: 2, headingColumns: 2, width: 1440 },
+    { comparisonColumns: 2, headingColumns: 2, width: 1024 },
+    { comparisonColumns: 2, headingColumns: 2, width: 901 },
+    { comparisonColumns: 2, headingColumns: 1, width: 900 },
+    { comparisonColumns: 2, headingColumns: 1, width: 820 },
+    { comparisonColumns: 2, headingColumns: 1, width: 681 },
+    { comparisonColumns: 1, headingColumns: 1, width: 680 },
+    { comparisonColumns: 1, headingColumns: 1, width: 520 },
+    { comparisonColumns: 1, headingColumns: 1, width: 390 },
+    { comparisonColumns: 1, headingColumns: 1, width: 320 }
+  ]
+
+  for (const profile of profiles) {
+    await page.setViewportSize({ width: profile.width, height: 1000 })
+    await loadLanding(page)
+
+    const section = page.locator('#framework-value')
+    await expect(section).toBeVisible()
+    await expect(
+      section.getByRole('heading', {
+        level: 2,
+        name: 'One feature request. One place to change.'
+      })
+    ).toBeVisible()
+    await expect(
+      section.getByRole('heading', {
+        level: 3,
+        name: 'One request, many edits'
+      })
+    ).toBeVisible()
+    await expect(
+      section.getByRole('heading', {
+        level: 3,
+        name: 'One request, one bounded change'
+      })
+    ).toBeVisible()
+    await expect(
+      section.locator('.framework-value__repeat-list li')
+    ).toHaveCount(5)
+    await expect(
+      section.locator('.framework-value__shared-list li')
+    ).toHaveCount(5)
+    await expect(section.locator('.framework-value__outcome')).toHaveCount(0)
+
+    const layout = await section.evaluate((element) => {
+      const comparison = element.querySelector<HTMLElement>(
+        '.framework-value__comparison'
+      )
+      const accents = Array.from(
+        element.querySelectorAll<HTMLElement>('.framework-value__accent')
+      )
+      const traditional = element.querySelector<HTMLElement>(
+        '.framework-value__path--traditional'
+      )
+      const asyra = element.querySelector<HTMLElement>(
+        '.framework-value__path--asyra'
+      )
+      const lead = element.querySelector<HTMLElement>(
+        '.framework-value__heading > p'
+      )
+      const heading = element.querySelector<HTMLElement>(
+        '.framework-value__heading'
+      )
+      const headingTitle = element.querySelector<HTMLElement>(
+        '.framework-value__heading h2'
+      )
+      const traditionalTitle = traditional?.querySelector<HTMLElement>('h3')
+      const asyraTitle = asyra?.querySelector<HTMLElement>('h3')
+      const traditionalDescription =
+        traditional?.querySelector<HTMLElement>('header > span')
+      const asyraDescription =
+        asyra?.querySelector<HTMLElement>('header > span')
+      const traditionalFlow = traditional?.querySelector<HTMLElement>(
+        '.framework-value__flow'
+      )
+      const asyraFlow = asyra?.querySelector<HTMLElement>(
+        '.framework-value__flow'
+      )
+      const firstItem = element.querySelector<HTMLElement>(
+        '.framework-value__repeat-list li'
+      )
+      if (
+        !comparison ||
+        accents.length !== 2 ||
+        !traditional ||
+        !asyra ||
+        !heading ||
+        !headingTitle ||
+        !lead ||
+        !traditionalTitle ||
+        !asyraTitle ||
+        !traditionalDescription ||
+        !asyraDescription ||
+        !traditionalFlow ||
+        !asyraFlow ||
+        !firstItem
+      ) {
+        throw new Error('Missing Framework value story targets')
+      }
+      const headingTitleRect = headingTitle.getBoundingClientRect()
+      const leadRect = lead.getBoundingClientRect()
+      const accentRects = accents.map((accent) => {
+        const accentRect = accent.getBoundingClientRect()
+        const pathRect = accent.parentElement?.getBoundingClientRect()
+        if (!pathRect) {
+          throw new Error('Missing Framework value story accent owner')
+        }
+        return {
+          bottomInset: pathRect.bottom - accentRect.bottom,
+          display: getComputedStyle(accent).display,
+          height: accentRect.height,
+          leftInset: accentRect.left - pathRect.left,
+          rightInset: pathRect.right - accentRect.right,
+          topInset: accentRect.top - pathRect.top,
+          width: accentRect.width
+        }
+      })
+      return {
+        accentRects,
+        asyraFollowsTraditional: Boolean(
+          traditional.compareDocumentPosition(asyra) &
+            Node.DOCUMENT_POSITION_FOLLOWING
+        ),
+        bodyFontSize: Number.parseFloat(getComputedStyle(lead).fontSize),
+        comparisonColumns:
+          getComputedStyle(comparison).gridTemplateColumns.split(' ').length,
+        descriptionTopDelta: Math.abs(
+          traditionalDescription.getBoundingClientRect().top -
+            asyraDescription.getBoundingClientRect().top
+        ),
+        flowTopDelta: Math.abs(
+          traditionalFlow.getBoundingClientRect().top -
+            asyraFlow.getBoundingClientRect().top
+        ),
+        headingColumns:
+          getComputedStyle(heading).gridTemplateColumns.split(' ').length,
+        headingLeadBottomDelta: Math.abs(
+          headingTitleRect.bottom - leadRect.bottom
+        ),
+        headingLeadLeftDelta: Math.abs(
+          asyra.getBoundingClientRect().left - leadRect.left
+        ),
+        headingLeadFollowsTitle: leadRect.top >= headingTitleRect.bottom,
+        itemFontSize: Number.parseFloat(getComputedStyle(firstItem).fontSize),
+        sectionWidth: element.getBoundingClientRect().width,
+        titleTopDelta: Math.abs(
+          traditionalTitle.getBoundingClientRect().top -
+            asyraTitle.getBoundingClientRect().top
+        ),
+        wordCount: (element.textContent ?? '').trim().split(/\s+/).length
+      }
+    })
+
+    expect(layout.comparisonColumns).toBe(profile.comparisonColumns)
+    expect(layout.headingColumns).toBe(profile.headingColumns)
+    expect(layout.asyraFollowsTraditional).toBe(true)
+    expect(layout.bodyFontSize).toBeGreaterThanOrEqual(15)
+    expect(layout.itemFontSize).toBeGreaterThanOrEqual(12)
+    expect(layout.sectionWidth).toBeLessThanOrEqual(profile.width + 1)
+    expect(layout.wordCount).toBeLessThanOrEqual(105)
+    expect(layout.accentRects).toHaveLength(2)
+    for (const accent of layout.accentRects) {
+      expect(accent.display).not.toBe('none')
+      expect(accent.width).toBe(3)
+      expect(accent.topInset).toBeGreaterThanOrEqual(10)
+      expect(accent.bottomInset).toBeGreaterThanOrEqual(10)
+      expect(
+        Math.abs(accent.topInset - accent.bottomInset)
+      ).toBeLessThanOrEqual(1)
+    }
+    expect(layout.accentRects[0]?.leftInset).toBeLessThanOrEqual(20)
+    expect(layout.accentRects[0]?.rightInset).toBeGreaterThan(
+      layout.accentRects[0]?.leftInset ?? 0
+    )
+    if (profile.headingColumns === 2) {
+      expect(layout.headingLeadBottomDelta).toBeLessThanOrEqual(2)
+      expect(layout.headingLeadLeftDelta).toBeLessThanOrEqual(2)
+    } else {
+      expect(layout.headingLeadFollowsTitle).toBe(true)
+    }
+    if (profile.comparisonColumns === 2) {
+      expect(layout.accentRects[1]?.rightInset).toBeLessThanOrEqual(20)
+      expect(layout.accentRects[1]?.leftInset).toBeGreaterThan(
+        layout.accentRects[1]?.rightInset ?? 0
+      )
+      expect(
+        Math.abs(
+          (layout.accentRects[0]?.leftInset ?? 0) -
+            (layout.accentRects[1]?.rightInset ?? 0)
+        )
+      ).toBeLessThanOrEqual(0.5)
+      expect(
+        Math.abs(
+          (layout.accentRects[0]?.height ?? 0) -
+            (layout.accentRects[1]?.height ?? 0)
+        )
+      ).toBeLessThanOrEqual(0.01)
+      expect(layout.titleTopDelta).toBeLessThanOrEqual(2)
+      expect(layout.descriptionTopDelta).toBeLessThanOrEqual(2)
+      expect(layout.flowTopDelta).toBeLessThanOrEqual(2)
+    } else {
+      expect(layout.accentRects[1]?.leftInset).toBeLessThanOrEqual(20)
+      expect(layout.accentRects[1]?.rightInset).toBeGreaterThan(
+        layout.accentRects[1]?.leftInset ?? 0
+      )
+      expect(
+        Math.abs(
+          (layout.accentRects[0]?.leftInset ?? 0) -
+            (layout.accentRects[1]?.leftInset ?? 0)
+        )
+      ).toBeLessThanOrEqual(0.5)
+    }
+    await assertNoHorizontalOverflow(page)
+    await section.screenshot({
+      animations: 'disabled',
+      path: testInfo.outputPath(`framework-value-${profile.width}.png`)
+    })
+  }
+})
+
+test('constrained Landing sections share one content geometry while the centered Domain copy and full-width rail keep their own composition', async ({
   page
 }) => {
   for (const width of [
@@ -1190,7 +1453,6 @@ test('constrained Landing sections share one content geometry while the Domain R
       const constrained = [
         '.site-header',
         '.hero',
-        '.domains__heading',
         '.poc-story__inner',
         '.proof-stack',
         '.closing',
@@ -1201,8 +1463,15 @@ test('constrained Landing sections share one content geometry while the Domain R
       )
       if (!reference) throw new Error('Missing shared geometry reference')
       const domainSection = document.querySelector<HTMLElement>('.domains')
-      if (!domainSection) throw new Error('Missing Domain section')
+      const domainHeading =
+        document.querySelector<HTMLElement>('.domains__heading')
+      const domainRail = document.querySelector<HTMLElement>('.domains__rail')
+      if (!domainSection || !domainHeading || !domainRail) {
+        throw new Error('Missing Domain composition target')
+      }
       const domainBounds = domainSection.getBoundingClientRect()
+      const domainHeadingBounds = domainHeading.getBoundingClientRect()
+      const domainRailBounds = domainRail.getBoundingClientRect()
       const railRows = Array.from(
         document.querySelectorAll<HTMLElement>(
           '.domain-rail, .domain-rail__second'
@@ -1239,6 +1508,13 @@ test('constrained Landing sections share one content geometry while the Domain R
           )
         ),
         domainWidth: domainBounds.width,
+        domainHeadingCenterDifference: Math.abs(
+          domainHeadingBounds.left +
+            domainHeadingBounds.width / 2 -
+            (domainBounds.left + domainBounds.width / 2)
+        ),
+        domainHeadingWidth: domainHeadingBounds.width,
+        domainRailGap: domainRailBounds.top - domainHeadingBounds.bottom,
         referenceContainerWidth: document
           .querySelector<HTMLElement>('.poc-story__inner')
           ?.getBoundingClientRect().width,
@@ -1252,6 +1528,22 @@ test('constrained Landing sections share one content geometry while the Domain R
       Math.min(width, geometry.pageMaxWidth),
       0
     )
+    expect(
+      geometry.domainHeadingCenterDifference,
+      `${width}px centered Domain copy`
+    ).toBeLessThanOrEqual(1)
+    expect(
+      geometry.domainHeadingWidth,
+      `${width}px Domain copy width`
+    ).toBeCloseTo(width <= 800 ? width : Math.min(width, 720), 0)
+    expect(
+      geometry.domainRailGap,
+      `${width}px Domain copy-to-rail gap`
+    ).toBeGreaterThanOrEqual(7)
+    expect(
+      geometry.domainRailGap,
+      `${width}px Domain copy-to-rail gap`
+    ).toBeLessThanOrEqual(17)
     expect(geometry.referenceContainerWidth).toBeLessThanOrEqual(2520)
     if (width >= 2520) {
       expect(geometry.referenceContainerWidth).toBe(2520)
@@ -1290,8 +1582,7 @@ test('864px preserves the approved domain rail proportions and original closing 
   const domainGeometry = await page.evaluate(() => {
     const section = document.querySelector<HTMLElement>('.domains')
     const rail = document.querySelector<HTMLImageElement>('.domain-rail')
-    const note = document.querySelector<HTMLElement>('.domains__heading span')
-    if (!section || !rail || !note) {
+    if (!section || !rail) {
       throw new Error('Missing approved domain composition target')
     }
     const sectionBounds = section.getBoundingClientRect()
@@ -1299,8 +1590,7 @@ test('864px preserves the approved domain rail proportions and original closing 
     return {
       bottomClearance: sectionBounds.bottom - railBounds.bottom,
       railHeight: railBounds.height,
-      railWidth: railBounds.width,
-      noteTransform: getComputedStyle(note).textTransform
+      railWidth: railBounds.width
     }
   })
 
@@ -1310,7 +1600,6 @@ test('864px preserves the approved domain rail proportions and original closing 
   expect.soft(domainGeometry.railHeight).toBeLessThanOrEqual(125)
   expect.soft(domainGeometry.bottomClearance).toBeGreaterThanOrEqual(26)
   expect.soft(domainGeometry.bottomClearance).toBeLessThanOrEqual(38)
-  expect.soft(domainGeometry.noteTransform).toBe('none')
   await assertDomainLabelPosition(page)
 
   const closingGeometry = await page
@@ -1367,6 +1656,7 @@ test('864px matches the V04 composition, assets, line breaks, and CTA states', a
       closing: bounds('.closing'),
       domains: bounds('.domains'),
       footer: bounds('.site-footer'),
+      frameworkValue: bounds('.framework-value'),
       hero: bounds('.hero'),
       pocStory: bounds('.poc-story'),
       proofs: Array.from(document.querySelectorAll<HTMLElement>('.proof')).map(
@@ -1377,14 +1667,17 @@ test('864px matches the V04 composition, assets, line breaks, and CTA states', a
   expect(geometry.hero.bottom).toBeGreaterThanOrEqual(455)
   expect(geometry.hero.bottom).toBeLessThanOrEqual(480)
   expect(geometry.domains.bottom - geometry.domains.top).toBeGreaterThanOrEqual(
-    295
+    275
   )
   for (const height of geometry.proofs) {
     expect(height).toBeGreaterThanOrEqual(215)
     expect(height).toBeLessThanOrEqual(250)
   }
   const pocStoryHeight = geometry.pocStory.bottom - geometry.pocStory.top
-  const originalCompositionBottom = geometry.footer.bottom - pocStoryHeight
+  const frameworkValueHeight =
+    geometry.frameworkValue.bottom - geometry.frameworkValue.top
+  const originalCompositionBottom =
+    geometry.footer.bottom - pocStoryHeight - frameworkValueHeight
   expect(pocStoryHeight).toBeGreaterThanOrEqual(1350)
   expect(pocStoryHeight).toBeLessThanOrEqual(1450)
   expect(originalCompositionBottom).toBeGreaterThanOrEqual(1640)
@@ -1462,16 +1755,23 @@ test('1440px scales the same V04 composition without changing its visual languag
 
   const heights = await page.evaluate(() => {
     const story = document.querySelector<HTMLElement>('.poc-story')
-    if (!story) throw new Error('Missing PoC story height target')
+    const frameworkValue =
+      document.querySelector<HTMLElement>('.framework-value')
+    if (!story || !frameworkValue) {
+      throw new Error('Missing landing height target')
+    }
     return {
       document: document.documentElement.scrollHeight,
+      frameworkValue: frameworkValue.getBoundingClientRect().height,
       pocStory: story.getBoundingClientRect().height
     }
   })
   expect(heights.pocStory).toBeGreaterThanOrEqual(800)
-  expect(heights.pocStory).toBeLessThanOrEqual(850)
-  expect(heights.document - heights.pocStory).toBeGreaterThanOrEqual(2560)
-  expect(heights.document - heights.pocStory).toBeLessThanOrEqual(2680)
+  expect(heights.pocStory).toBeLessThanOrEqual(860)
+  const originalCompositionHeight =
+    heights.document - heights.pocStory - heights.frameworkValue
+  expect(originalCompositionHeight).toBeGreaterThanOrEqual(2520)
+  expect(originalCompositionHeight).toBeLessThanOrEqual(2680)
   await captureLandingSections(page, 'desktop-1440', testInfo)
   await page.screenshot({
     animations: 'disabled',
@@ -1637,8 +1937,7 @@ test('520px and below centers the closing composition without an empty right sid
       const button = bounds('.closing__button')
       const closingElement = document.querySelector<HTMLElement>('.closing')
       const headingElement = document.querySelector<HTMLElement>('.closing h2')
-      const license = document.querySelector<HTMLElement>('.project-identity a')
-      if (!closingElement || !headingElement || !license) {
+      if (!closingElement || !headingElement) {
         throw new Error('Missing compact Closing or footer target')
       }
       const closingStyle = getComputedStyle(closingElement)
@@ -1654,8 +1953,7 @@ test('520px and below centers the closing composition without an empty right sid
         copyCenterOffset: centerOffset(copy),
         coreCenterOffset: centerOffset(core),
         coreWidth: core.width,
-        headingTextAlign: headingStyle.textAlign,
-        licenseBefore: getComputedStyle(license, '::before').content
+        headingTextAlign: headingStyle.textAlign
       }
     })
 
@@ -1668,7 +1966,6 @@ test('520px and below centers the closing composition without an empty right sid
     expect(geometry.coreWidth).toBeLessThanOrEqual(170)
     expect(geometry.buttonWidth).toBeGreaterThanOrEqual(170)
     expect(geometry.buttonWidth).toBeLessThanOrEqual(220)
-    expect(geometry.licenseBefore).toBe('none')
 
     await page.locator('.closing').screenshot({
       animations: 'disabled',
@@ -1714,9 +2011,6 @@ test('680px closing keeps the core centered between copy and CTA', async ({
       coreLeft: core.left,
       coreRight: core.right,
       coreWidth: core.width,
-      footerText:
-        document.querySelector<HTMLElement>('.project-identity')?.innerText ??
-        '',
       headingLines
     }
   })
@@ -1728,7 +2022,6 @@ test('680px closing keeps the core centered between copy and CTA', async ({
   expect(geometry.coreWidth).toBeGreaterThanOrEqual(140)
   expect(geometry.closingHeight).toBeLessThanOrEqual(210)
   expect(geometry.headingLines).toBe(2)
-  expect(geometry.footerText).not.toContain('OPEN SOURCE')
 
   await page.locator('.closing').screenshot({
     animations: 'disabled',
@@ -1752,6 +2045,7 @@ test('800px balances the complete compact two-column composition', async ({
     const domains = bounds('.domains')
     const domainRail = bounds('.domain-rail')
     const closing = bounds('.closing')
+    const frameworkValue = bounds('.framework-value')
     const pocStory = bounds('.poc-story')
     const closingElement = document.querySelector<HTMLElement>('.closing')
     const closingHeading = document.querySelector<HTMLElement>('.closing h2')
@@ -1770,6 +2064,7 @@ test('800px balances the complete compact two-column composition', async ({
         height: closing.height
       },
       documentHeight: document.documentElement.scrollHeight,
+      frameworkValueHeight: frameworkValue.height,
       domains: {
         centerOffset: Math.abs(
           domainRail.left + domainRail.width / 2 - window.innerWidth / 2
@@ -1804,9 +2099,11 @@ test('800px balances the complete compact two-column composition', async ({
   expect(metrics.hero.imageWidthRatio).toBeLessThanOrEqual(0.44)
   expect(metrics.pocStoryHeight).toBeGreaterThanOrEqual(1340)
   expect(metrics.pocStoryHeight).toBeLessThanOrEqual(1420)
-  expect(metrics.documentHeight - metrics.pocStoryHeight).toBeLessThanOrEqual(
-    2600
-  )
+  expect(
+    metrics.documentHeight -
+      metrics.pocStoryHeight -
+      metrics.frameworkValueHeight
+  ).toBeLessThanOrEqual(2600)
   expect(metrics.domains.centerOffset).toBeLessThanOrEqual(2)
   expect(metrics.domains.height).toBeLessThanOrEqual(390)
   expect(metrics.domains.railWidthRatio).toBeGreaterThanOrEqual(0.995)
