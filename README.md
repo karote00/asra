@@ -50,7 +50,9 @@ Asyra Design is a complete canvas-based design-tool product built with Asyra. It
 npm install @asyra/core
 ```
 
-Core is the public composition facade for the current browser/Core runtime. Add only the Framework packages, providers, and App-owned behavior your product needs. The supported owner graph is documented in the [custom composition guide](docs/public/start/custom-composition.md).
+Asyra is published as 19 public `@asyra/*` ESM packages. Start with `@asyra/core`, then import and compose only the optional capabilities your product needs. Preset, Collaboration, AI, Design System, and concrete rendering providers remain optional.
+
+Required package dependencies are installed automatically. Your App chooses the product capabilities, domain behavior, services, and interfaces that belong in the product. Core is the public composition facade for the current browser/Core runtime. The supported owner graph is documented in the [custom composition guide](docs/public/start/custom-composition.md).
 
 Continue with the maintained guides that match the first behavior you want to build:
 

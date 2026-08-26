@@ -46,7 +46,10 @@ same API after app permission succeeds.
 ```ts
 const RECORDS = 'app:records'
 type RecordStatus = 'open' | 'approved'
-type AppRecord = Readonly<{ label: string; status: RecordStatus }>
+type AppRecord = Readonly<{
+  label: string
+  status: RecordStatus
+}>
 type AppRecords = Readonly<Record<string, AppRecord>>
 
 core.defineSystemProperty(RECORDS, {

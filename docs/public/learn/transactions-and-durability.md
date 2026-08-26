@@ -26,7 +26,11 @@ import factory from '@asyra/factory'
 const state = { value: 0 }
 const EVENT = 'app:set-value'
 
-type ValuePayload = Readonly<{ before: number; after: number }>
+type ValuePayload = Readonly<{
+  before: number
+  after: number
+}>
+
 const readValuePayload = (payload: unknown): ValuePayload => {
   if (
     !payload ||

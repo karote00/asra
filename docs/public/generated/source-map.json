@@ -16,7 +16,7 @@
     },
     {
       "id": "start/create-design-app",
-      "pageSha256": "6403e873a16f3e7a1e0c09a5e3f7a026cdab0b6c50f96cc8f4846970966e505f",
+      "pageSha256": "f646e736122a5332a52f3e06e26083447f19b031d4ce119270a5d80a741e5ddd",
       "sources": [
         {
           "path": "create-app/asyra-design/package.json",
@@ -118,7 +118,7 @@
     },
     {
       "id": "learn/transactions-and-durability",
-      "pageSha256": "aa61eaa0d22cf7375f760fac150725a7891e9330e34c01dcc6a5f5aed70d9c18",
+      "pageSha256": "db3d5ac7f7cfd3acbe1712c1b148089ca40583f3b8079763d4b38016842abd33",
       "sources": [
         {
           "path": "docs/ai/framework/packages/factory.md",
@@ -132,7 +132,7 @@
     },
     {
       "id": "learn/validation-load-migration",
-      "pageSha256": "d7894fe4db33ef86f93aad47a764c870559ea3a02e6dda5cf4e856cb9d932668",
+      "pageSha256": "eb94c3fcd75a1b0461fa56103bc5ac1fb23ac5e7e88d5edd31c32c2cae91cec3",
       "sources": [
         {
           "path": "docs/ai/framework/packages/props-manager.md",
@@ -164,7 +164,7 @@
     },
     {
       "id": "learn/runtime-boundaries-roadmap",
-      "pageSha256": "6d78485192e22c4e2b192bb35d88bfc50ffb9e1d91deb0fd760e0eb0a396cc95",
+      "pageSha256": "026197c924a74417b984485dda6427376ba4b871f050ad970668b4a2f230aa37",
       "sources": [
         {
           "path": "docs/ai/framework/packages/core.md",
@@ -204,7 +204,7 @@
     },
     {
       "id": "build/feature-session",
-      "pageSha256": "bbef7ca06f5af1e5c1aa906676e3f561a844026aca22f6d50c0de12645205982",
+      "pageSha256": "263eb0024b7aee84649e33fd583e80c2628ba7ce3f7aa4e0670ff22dcd74f9ee",
       "sources": [
         {
           "path": "docs/ai/framework/packages/feature-system.md",
@@ -250,7 +250,7 @@
     },
     {
       "id": "build/persistence-migration",
-      "pageSha256": "86d200eff0f684716bce13b21c640bc87320af6798b5b4e2ef283b3b60591936",
+      "pageSha256": "5292c2d4732eb0023aa87cb73790656f39ffd5be6fe631b1262c831b08d8cbe4",
       "sources": [
         {
           "path": "docs/ai/framework/packages/persistence.md",
@@ -278,7 +278,7 @@
     },
     {
       "id": "build/ai-actions",
-      "pageSha256": "9bd412f41b3920a5c98b4d26d5003c086f608a87961a73fc0ecc68ad447bed92",
+      "pageSha256": "a8d4ddc1ee7a644cc804d5873a283c6791c4cb99053cabad53e8bffd946919a3",
       "sources": [
         {
           "path": "docs/ai/framework/packages/ai-agent-runtime.md",
@@ -292,7 +292,7 @@
     },
     {
       "id": "build/app-retrieval-action",
-      "pageSha256": "e7c4337bb78714d067c7016cefc759532f648f6922bacf3d88ac411a63dffaec",
+      "pageSha256": "45dbd214f148ec37a72b7352baaa4632267c78b6a0132902532639c160d4c5cd",
       "sources": [
         {
           "path": "docs/ai/framework/packages/ai-agent-runtime.md",
@@ -572,7 +572,7 @@
     },
     {
       "id": "reference/support-release",
-      "pageSha256": "6e74107b51013ea9db0e133b5828eb7f353d91d758af730d804786a6f85e8c51",
+      "pageSha256": "30df57ada4dcf3bed7bb314d15b6d0982242beb53efe262a4e915f1ded5bb01a",
       "sources": [
         {
           "path": "docs/ai/framework/RELEASE_SUPPORT.md",

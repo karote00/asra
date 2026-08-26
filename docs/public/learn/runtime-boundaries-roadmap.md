@@ -6,21 +6,6 @@ without requiring a visual interface. The current release provides important
 building blocks for that direction, but it does not yet provide a public
 Headless Core or independent Core Kernel runtime.
 
-## What is current
-
-- Input System import and construction do not require browser globals.
-- Browser keyboard and pointer activation is explicit through
-  `attachBrowserHost(...)`, with matching detach and disposal behavior.
-- Core can coordinate canonical information, Features, validation, transactions,
-  persistence hooks, optional Collaboration, and the current rendering graph.
-- The default Core-owned renderer can normalize the exact missing-provider
-  case to its existing no-canvas compatibility result.
-
-That last behavior still uses `core.start(container, renderOptions)`, the full
-Core facade, and the current package graph. It is not a supported server
-lifecycle, no-Render import guarantee, worker contract, or multi-runtime
-isolation promise.
-
 ## What is future
 
 The retained research explores a deterministic kernel with optional Render,

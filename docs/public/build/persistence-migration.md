@@ -41,7 +41,15 @@ credentials in app/server adapters rather than the browser document model.
 ## Implementation
 
 ```ts
-type AppDocument = { version: string; [key: string]: unknown }
+type AppDocument = {
+  version: string
+  [key: string]: unknown
+}
+
+type DocumentEnvelope = {
+  version?: unknown
+}
+
 type Migration = (document: AppDocument) => AppDocument
 
 const migrations = new Map<string, Migration>([
@@ -66,7 +74,7 @@ core.registerLoadHook((rawDocument) => {
   if (!rawDocument || typeof rawDocument !== 'object') {
     throw new Error('Invalid document envelope')
   }
-  if (typeof (rawDocument as { version?: unknown }).version !== 'string') {
+  if (typeof (rawDocument as DocumentEnvelope).version !== 'string') {
     throw new Error('Document version is required')
   }
   let document = rawDocument as AppDocument

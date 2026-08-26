@@ -59,17 +59,24 @@ for registration and disposal while keeping review meaning inside the app:
 ```ts
 import { defineFeature } from '@asyra/core'
 
-const records = new Map<string, Readonly<{
+type ReviewRecord = Readonly<{
   id: string
   title: string
   status: 'pending'
-}>>()
+}>
+
+type ReviewInput = Readonly<{
+  id: string
+  title: string
+}>
+
+const records = new Map<string, ReviewRecord>()
 
 export const reviewQueue = defineFeature('app.reviewQueue', undefined, {
   priority: 20,
   exclusive: true,
   api: {
-    add(input: { id: string; title: string }) {
+    add(input: ReviewInput) {
       if (!input.id.trim() || !input.title.trim()) {
         throw new Error('Review records require an id and title')
       }

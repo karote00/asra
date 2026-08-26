@@ -33,9 +33,18 @@ ownership boundary; production code should also reject cycles, duplicate
 transitions, missing versions, and asynchronous results:
 
 ```ts
-type Document = { version: string; [key: string]: unknown }
+type Document = {
+  version: string
+  [key: string]: unknown
+}
 
-const migrations = new Map<string, (document: Document) => Document>([
+type Migration = (document: Document) => Document
+
+type DocumentEnvelope = {
+  version?: unknown
+}
+
+const migrations = new Map<string, Migration>([
   ['v1', (document) => ({ ...document, version: 'v2' })],
   ['v2', (document) => ({ ...document, version: 'v3' })]
 ])
@@ -44,7 +53,7 @@ core.registerLoadHook((rawDocument) => {
   if (!rawDocument || typeof rawDocument !== 'object') {
     throw new Error('Document envelope is invalid')
   }
-  if (typeof (rawDocument as { version?: unknown }).version !== 'string') {
+  if (typeof (rawDocument as DocumentEnvelope).version !== 'string') {
     throw new Error('Document version is required')
   }
   let document = rawDocument as Document

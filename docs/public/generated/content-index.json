@@ -41,7 +41,7 @@
       "wordCount": 526
     },
     {
-      "contentSha256": "6403e873a16f3e7a1e0c09a5e3f7a026cdab0b6c50f96cc8f4846970966e505f",
+      "contentSha256": "f646e736122a5332a52f3e06e26083447f19b031d4ce119270a5d80a741e5ddd",
       "description": "Begin with the maintained Asyra Design product template and extend it as an app owner.",
       "headings": [
         {
@@ -424,7 +424,7 @@
       "wordCount": 416
     },
     {
-      "contentSha256": "aa61eaa0d22cf7375f760fac150725a7891e9330e34c01dcc6a5f5aed70d9c18",
+      "contentSha256": "db3d5ac7f7cfd3acbe1712c1b148089ca40583f3b8079763d4b38016842abd33",
       "description": "Commit, roll back, undo, redo, publish, and persist one intended action through one canonical boundary.",
       "headings": [
         {
@@ -480,7 +480,7 @@
       "wordCount": 467
     },
     {
-      "contentSha256": "d7894fe4db33ef86f93aad47a764c870559ea3a02e6dda5cf4e856cb9d932668",
+      "contentSha256": "eb94c3fcd75a1b0461fa56103bc5ac1fb23ac5e7e88d5edd31c32c2cae91cec3",
       "description": "Keep schema validation in the Framework while version interpretation and migration remain app-domain responsibilities.",
       "headings": [
         {
@@ -605,16 +605,12 @@
       "wordCount": 529
     },
     {
-      "contentSha256": "6d78485192e22c4e2b192bb35d88bfc50ffb9e1d91deb0fd760e0eb0a396cc95",
+      "contentSha256": "026197c924a74417b984485dda6427376ba4b871f050ad970668b4a2f230aa37",
       "description": "Distinguish today's browser/Core composition from the researched Headless and Core Kernel direction for machine-facing products.",
       "headings": [
         {
           "depth": 1,
           "title": "Current runtime and future Core Kernel"
-        },
-        {
-          "depth": 2,
-          "title": "What is current"
         },
         {
           "depth": 2,
@@ -646,7 +642,7 @@
       "path": "learn/runtime-boundaries-roadmap.md",
       "section": "Learn",
       "title": "Current runtime and future Core Kernel",
-      "wordCount": 475
+      "wordCount": 374
     },
     {
       "contentSha256": "3eca920e7bcd70b1599c366e517a0805b755477687639c403eeab03fe94ba5e1",
@@ -714,7 +710,7 @@
       "wordCount": 491
     },
     {
-      "contentSha256": "bbef7ca06f5af1e5c1aa906676e3f561a844026aca22f6d50c0de12645205982",
+      "contentSha256": "263eb0024b7aee84649e33fd583e80c2628ba7ce3f7aa4e0670ff22dcd74f9ee",
       "description": "Map start, update, end, and cancellation to exactly one intended undo commit.",
       "headings": [
         {
@@ -902,7 +898,7 @@
       "wordCount": 488
     },
     {
-      "contentSha256": "86d200eff0f684716bce13b21c640bc87320af6798b5b4e2ef283b3b60591936",
+      "contentSha256": "5292c2d4732eb0023aa87cb73790656f39ffd5be6fe631b1262c831b08d8cbe4",
       "description": "Load validated canonical state while the app owns document versions, migration rules, and unsupported-version policy.",
       "headings": [
         {
@@ -1031,7 +1027,7 @@
       "wordCount": 525
     },
     {
-      "contentSha256": "9bd412f41b3920a5c98b4d26d5003c086f608a87961a73fc0ecc68ad447bed92",
+      "contentSha256": "a8d4ddc1ee7a644cc804d5873a283c6791c4cb99053cabad53e8bffd946919a3",
       "description": "Expose bounded action schemas and permissions so AI intent uses the same canonical transaction paths as people.",
       "headings": [
         {
@@ -1094,7 +1090,7 @@
       "wordCount": 505
     },
     {
-      "contentSha256": "e7c4337bb78714d067c7016cefc759532f648f6922bacf3d88ac411a63dffaec",
+      "contentSha256": "45dbd214f148ec37a72b7352baaa4632267c78b6a0132902532639c160d4c5cd",
       "description": "Let the app retrieve domain context and register actions without presenting future Headless support as current behavior.",
       "headings": [
         {
@@ -2280,7 +2276,7 @@
       "wordCount": 400
     },
     {
-      "contentSha256": "6e74107b51013ea9db0e133b5828eb7f353d91d758af730d804786a6f85e8c51",
+      "contentSha256": "30df57ada4dcf3bed7bb314d15b6d0982242beb53efe262a4e915f1ded5bb01a",
       "description": "Current runtime support, candidate status, security reporting, license, migration, and publication boundaries.",
       "headings": [
         {
@@ -2309,7 +2305,7 @@
         },
         {
           "depth": 2,
-          "title": "Reproducible readiness"
+          "title": "Repository release verification"
         },
         {
           "depth": 2,
@@ -2326,7 +2322,7 @@
       "path": "reference/support-release.md",
       "section": "Reference",
       "title": "Support, security, and release boundaries",
-      "wordCount": 473
+      "wordCount": 468
     },
     {
       "contentSha256": "9a52bc8a2c84dd9a17882bfaa01d67889ab3ec56555184f8e2056e13b94703cb",

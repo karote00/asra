@@ -390,8 +390,8 @@ export const validatePublicDocumentation = async ({ repositoryRoot }) => {
     'utf8'
   )
   for (const heading of [
-    '## What is current',
     '## What is future',
+    '## What you can build now',
     '## Do not claim yet'
   ]) {
     if (!roadmap.includes(heading)) {
