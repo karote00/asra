@@ -93,9 +93,7 @@ export default async function RoadmapPage() {
       <section className="support-document">
         <header>
           <p className="support-label">Complete runtime boundary guide</p>
-          <h2>
-            What is current, what is future, and what must not be claimed.
-          </h2>
+          <h2>Current paths, future research, and unsupported claims.</h2>
         </header>
         <article className="docs-article">
           <MarkdownContent

@@ -193,7 +193,10 @@ module.exports = Object.freeze({
         'The docs route renders without client JavaScript for basic reading.',
         'Search records map to stable page and heading ids.',
         'Mobile navigation is modal, focus-contained, Escape-closeable, and returns focus.',
-        'Approved page content retains reader-facing canonical source links without exposing authoring telemetry or duplicate source-path evidence.'
+        'Approved page content retains reader-facing canonical source links without exposing authoring telemetry or duplicate source-path evidence.',
+        'Only the Documentation Overview presents one compact, light, docs-native technical flow after the owner-model explanation and before current support, without rewriting verified Markdown semantics.',
+        'The technical flow presents product intent and existing state as two distinct routes into the same canonical owners, followed by render, search, AI, save, and integration consumers.',
+        'The technical flow remains readable at 1440px, 820px, 390px, and 320px without a Landing dark stage, engineering grid, giant nested frames, or horizontal overflow.'
       ],
       bypasses: [
         'Interactive search may enhance a complete server-rendered document.'
@@ -214,6 +217,7 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/app/globals.css',
         'apps/asyra-framework-site/app/styles/docs.css',
         'apps/asyra-framework-site/components/docs-*.tsx',
+        'apps/asyra-framework-site/components/framework-technical-flow.tsx',
         'apps/asyra-framework-site/components/markdown-*.tsx',
         'apps/asyra-framework-site/components/search-*.tsx',
         'apps/asyra-framework-site/__tests__/docs.test.mjs'
@@ -241,6 +245,7 @@ module.exports = Object.freeze({
         'Asyra Design remains a reference product rather than the Framework owner.',
         'Every external Asyra Design product entry uses the verified public alias with one non-empty fileId.',
         'Release inventory is manifest-derived and visibly provisional.',
+        'Framework release history renders only accepted milestone records and does not expand into package-level or website-level update notes.',
         'Future non-visible runtime remains Roadmap and is not presented as a current Headless API.'
       ],
       bypasses: [
@@ -249,10 +254,11 @@ module.exports = Object.freeze({
       allowedContributors: [
         'artifact:verified-site-content',
         'accepted Asyra Design case study',
+        'accepted Framework milestone release records',
         'generated package inventory'
       ],
       forbiddenContributors: [
-        'invented release notes, version, date, or support claim',
+        'invented release notes, date, or support claim outside an accepted Framework milestone release record',
         'unverified app URL',
         'future capability presented as current'
       ],

@@ -93,6 +93,16 @@ navigation and visual annotation but cannot silently rewrite content semantics
 or duplicate package versions as constants. Candidate release facts remain
 generated and visibly provisional until public reconciliation.
 
+The Documentation Overview may place one compact, docs-native technical flow
+after the owner-model explanation. It presents product intent and existing
+state as two distinct routes into the same canonical owners, followed by the
+render, search, AI, save, and integration consumers. It uses the light reading
+surface and normal documentation type scale instead of reusing the Landing's
+dark presentation stage. The flow names intent, state-application, owner, and
+projection boundaries exactly; it supplements the verified Markdown without
+rewriting or duplicating its semantic authority. Other documentation pages do
+not render this overview-only visual.
+
 ## Shared Platform Contract
 
 - Design tokens and shared primitives extend the accepted Result-First Landing
@@ -111,6 +121,9 @@ generated and visibly provisional until public reconciliation.
   responsive, and reduced-motion primitives.
 - Content source mapping and release inventory are build inputs with drift
   checks, not ad hoc fetches.
+- The Releases route presents accepted Framework milestone records separately
+  from the manifest-derived current package inventory. It records important
+  releases rather than every package or website update.
 - The site remains usable when Atlas runtime is unavailable; failure states
   never fabricate product output.
 - Current synchronous static routes deliver their accepted content in the
@@ -145,7 +158,8 @@ generated and visibly provisional until public reconciliation.
 - keyboard order, landmarks, focus, contrast, touch, responsive, and
   reduced-motion behavior pass;
 - website code does not import package-private or unpublished source;
-- no hand-written release version or unverified public URL exists; and
+- no release version exists outside an accepted Framework milestone record or
+  the generated package inventory, and no unverified public URL exists; and
 - synchronized screenshots preserve the accepted Landing and extend its visual
   language coherently across documentation, supporting routes, and Runtime
   Atlas within the defined review cases.

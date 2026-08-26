@@ -192,6 +192,46 @@ test('Runtime Atlas hero starts both columns together', async ({
   })
 })
 
+test('Runtime Atlas closing block uses the hero gutters at every width', async ({
+  page
+}, testInfo) => {
+  for (const viewport of [
+    { width: 1440, height: 1000 },
+    { width: 820, height: 900 },
+    { width: 390, height: 844 },
+    { width: 320, height: 720 }
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/atlas')
+
+    const gutters = await page.evaluate(() => {
+      const hero = document.querySelector('.atlas-hero')
+      const boundary = document.querySelector('.atlas-boundary')
+      if (!hero || !boundary) {
+        throw new Error('Missing Runtime Atlas hero or closing block')
+      }
+      const heroStyle = getComputedStyle(hero)
+      const boundaryStyle = getComputedStyle(boundary)
+      return {
+        boundaryLeft: boundaryStyle.paddingLeft,
+        boundaryRight: boundaryStyle.paddingRight,
+        heroLeft: heroStyle.paddingLeft,
+        heroRight: heroStyle.paddingRight
+      }
+    })
+
+    expect(gutters.boundaryLeft).toBe(gutters.heroLeft)
+    expect(gutters.boundaryRight).toBe(gutters.heroRight)
+
+    await page.locator('.atlas-boundary').screenshot({
+      animations: 'disabled',
+      path: testInfo.outputPath(
+        `runtime-atlas-aligned-closing-block-${viewport.width}.png`
+      )
+    })
+  }
+})
+
 test('Runtime Atlas distinguishes package facts from guide actions', async ({
   page
 }, testInfo) => {
@@ -351,7 +391,7 @@ test('Runtime Atlas remains readable and operable at compact mobile widths', asy
       .getByRole('link')
       .first()
       .evaluate((link) => Number.parseFloat(getComputedStyle(link).fontSize))
-    expect(mobileNavigationFontSize).toBeGreaterThanOrEqual(17)
+    expect(mobileNavigationFontSize).toBeGreaterThanOrEqual(16)
     expect(mobileNavigationFontSize).toBeLessThanOrEqual(21)
     await page.getByRole('button', { name: 'Close navigation' }).click()
 

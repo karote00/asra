@@ -55,7 +55,6 @@
 
 .evidence-strip {
   border-bottom: 1px solid var(--frame-rule);
-  border-top: 1px solid var(--frame-rule);
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin: 0 auto;
@@ -96,6 +95,10 @@
 
 .support-section + .support-section {
   padding-top: 0;
+}
+
+.release-history + .package-inventory {
+  padding-top: clamp(64px, 7vw, 104px);
 }
 
 .support-section--split {
@@ -156,11 +159,11 @@
 }
 
 .status-surface--current {
-  --status-color: #2c8a51;
+  --status-color: var(--status-current);
 }
 
 .status-surface--future {
-  --status-color: var(--signal-blue);
+  --status-color: var(--status-future);
 }
 
 .status-surface--boundary {
@@ -168,7 +171,7 @@
 }
 
 .status-surface--app {
-  --status-color: #bd7312;
+  --status-color: var(--status-caution);
 }
 
 .status-surface > p {
@@ -198,7 +201,7 @@
   border-top: 1px solid var(--frame-rule);
   display: grid;
   gap: clamp(40px, 5vw, 72px);
-  grid-template-columns: minmax(220px, 0.48fr) minmax(0, 1.52fr);
+  grid-template-columns: minmax(280px, 0.62fr) minmax(0, 1.38fr);
 }
 
 .support-document > header {
@@ -208,7 +211,9 @@
 }
 
 .support-document > header h2 {
-  font-size: clamp(2rem, 3.3vw, 3.2rem);
+  font-size: clamp(1.85rem, 2.4vw, 2.5rem);
+  line-height: 1.08;
+  text-wrap: pretty;
 }
 
 .support-document .docs-article {
@@ -226,6 +231,88 @@
   line-height: 1.65;
   margin-top: 24px;
   max-width: 64ch;
+}
+
+.release-history {
+  border-bottom: 1px solid var(--frame-rule);
+}
+
+.release-history__list {
+  border-top: 1px solid var(--frame-rule);
+  margin-top: clamp(36px, 4vw, 56px);
+}
+
+.release-history__list article {
+  display: grid;
+  gap: clamp(32px, 5vw, 80px);
+  grid-template-columns: minmax(150px, 0.32fr) minmax(0, 1fr);
+  padding: clamp(28px, 4vw, 52px) 0;
+}
+
+.release-history__list article + article {
+  border-top: 1px solid var(--frame-rule);
+}
+
+.release-history__identity p {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: clamp(1.5rem, 2.5vw, 2.25rem);
+  font-weight: 680;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.release-history__identity span {
+  color: var(--signal-red);
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 760;
+  letter-spacing: 0.07em;
+  margin-top: 14px;
+  text-transform: uppercase;
+}
+
+.release-history__content {
+  max-width: 82ch;
+}
+
+.release-history__content h3 {
+  font-size: clamp(1.55rem, 2.8vw, 2.65rem);
+  font-weight: 480;
+  letter-spacing: -0.04em;
+  line-height: 1.06;
+}
+
+.release-history__content > p {
+  color: var(--muted);
+  font-size: clamp(0.98rem, 1.3vw, 1.12rem);
+  line-height: 1.65;
+  margin-top: 18px;
+  max-width: 68ch;
+}
+
+.release-history__content ul {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
+}
+
+.release-history__content li {
+  border-top: 1px solid var(--frame-rule);
+  font-size: var(--font-size-supporting-copy);
+  line-height: 1.55;
+  padding: 12px 0 0 22px;
+  position: relative;
+}
+
+.release-history__content li::before {
+  color: var(--signal-red);
+  content: '+';
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  left: 0;
+  position: absolute;
+  top: 12px;
 }
 
 .package-ledger {
@@ -257,7 +344,7 @@
 .package-ledger h3,
 .package-ledger p {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.72rem;
+  font-size: var(--font-size-supporting-copy);
   line-height: 1.5;
   margin: 0;
   overflow-wrap: anywhere;
@@ -322,12 +409,31 @@
     padding-top: 0;
   }
 
+  .release-history + .package-inventory {
+    padding-top: 58px;
+  }
+
   .status-grid {
     grid-template-columns: 1fr;
   }
 
   .status-surface {
     min-height: 0;
+  }
+
+  .release-history__list article {
+    gap: 28px;
+    grid-template-columns: 1fr;
+  }
+
+  .release-history__identity {
+    align-items: baseline;
+    display: flex;
+    gap: 16px;
+  }
+
+  .release-history__identity span {
+    margin-top: 0;
   }
 
   .package-ledger__header {
@@ -343,7 +449,7 @@
   .package-ledger article p::before {
     color: var(--muted);
     display: block;
-    font-size: 0.58rem;
+    font-size: 0.75rem;
     letter-spacing: 0.06em;
     margin-bottom: 2px;
     text-transform: uppercase;

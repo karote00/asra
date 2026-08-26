@@ -283,7 +283,7 @@
 }
 
 .atlas-evidence li em {
-  color: #81d09c;
+  color: var(--color-green-bright);
   font-size: 0.62rem;
   font-style: normal;
   letter-spacing: 0.055em;
@@ -336,7 +336,7 @@
 .atlas-evidence__empty,
 .atlas-projection__empty {
   color: rgb(248 244 237 / 48%);
-  font-size: 0.78rem;
+  font-size: var(--font-size-supporting-copy);
   line-height: 1.6;
   margin-top: 30px;
 }
@@ -456,7 +456,7 @@
   grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
   margin: 0 auto;
   max-width: var(--frame-content);
-  padding: clamp(72px, 8vw, 112px) var(--frame-gutter);
+  padding: clamp(72px, 8vw, 112px) var(--page-padding-x);
 }
 
 .atlas-boundary h2 {

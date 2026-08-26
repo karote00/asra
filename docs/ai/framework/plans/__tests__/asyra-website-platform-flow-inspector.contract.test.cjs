@@ -101,6 +101,15 @@ test('documentation owns server reading and bounded browser enhancements', () =>
   assert.match(source, /reader-facing canonical source links/i)
   assert.match(source, /authoring telemetry/i)
   assert.match(source, /duplicate source-path evidence/i)
+  assert.match(
+    source,
+    /only the Documentation Overview.*compact, light, docs-native technical flow/i
+  )
+  assert.match(source, /product intent and existing state.*canonical owners/i)
+  assert.match(
+    source,
+    /1440px.*820px.*390px.*320px.*without a Landing dark stage/i
+  )
   assert.doesNotMatch(source, /copy-as-Markdown|copy controls/i)
   assert.match(source, /hosted search/i)
   assert.ok(
@@ -111,6 +120,11 @@ test('documentation owns server reading and bounded browser enhancements', () =>
   assert.ok(
     documentationStep.implementationBoundary.includes(
       'apps/asyra-framework-site/__tests__/docs.test.mjs'
+    )
+  )
+  assert.ok(
+    documentationStep.implementationBoundary.includes(
+      'apps/asyra-framework-site/components/framework-technical-flow.tsx'
     )
   )
   assert.ok(
@@ -125,6 +139,11 @@ test('supporting routes preserve App, release, and roadmap boundaries', () => {
   assert.match(source, /reference product rather than the Framework owner/i)
   assert.match(source, /non-empty fileId/i)
   assert.match(source, /manifest-derived and visibly provisional/i)
+  assert.match(source, /accepted Framework milestone release records/i)
+  assert.match(
+    source,
+    /does not expand into package-level or website-level update notes/i
+  )
   assert.match(source, /Future non-visible runtime remains Roadmap/i)
   assert.match(source, /unverified app URL/i)
   assert.doesNotMatch(source, /Examples resolve|example inventories/i)

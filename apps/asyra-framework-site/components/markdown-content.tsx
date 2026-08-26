@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from 'react'
+import { codeToTokens, type BundledLanguage } from 'shiki'
 import type { PublicPage } from '@/lib/content'
 import type { MarkdownBlock } from '@/lib/markdown'
 import { parseMarkdownBlocks } from '@/lib/markdown.mjs'
@@ -29,6 +30,64 @@ const resolveMarkdownHref = (
 }
 
 const inlinePattern = /(\[[^\]]+]\([^)]+\)|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g
+
+const syntaxLanguageAliases: Readonly<Record<string, BundledLanguage>> = {
+  bash: 'bash',
+  css: 'css',
+  html: 'html',
+  javascript: 'javascript',
+  js: 'javascript',
+  json: 'json',
+  markdown: 'markdown',
+  md: 'markdown',
+  shell: 'shellscript',
+  sh: 'shellscript',
+  ts: 'typescript',
+  tsx: 'tsx',
+  typescript: 'typescript'
+}
+
+const resolveSyntaxLanguage = (language: string): BundledLanguage =>
+  syntaxLanguageAliases[language.toLowerCase()] ?? 'text'
+
+async function SyntaxHighlightedCode({
+  code,
+  language
+}: {
+  code: string
+  language: string
+}) {
+  const highlighted = await codeToTokens(code, {
+    lang: resolveSyntaxLanguage(language),
+    theme: 'github-dark-default'
+  })
+
+  return (
+    <pre className="shiki" style={{ color: highlighted.fg }} tabIndex={0}>
+      <code>
+        {highlighted.tokens.map((line, lineIndex) => (
+          <Fragment key={lineIndex}>
+            {line.map((token, tokenIndex) => (
+              <span
+                key={`${token.offset}-${tokenIndex}`}
+                style={{
+                  color: token.color,
+                  fontStyle: (token.fontStyle ?? 0) & 1 ? 'italic' : undefined,
+                  fontWeight: (token.fontStyle ?? 0) & 2 ? 700 : undefined,
+                  textDecoration:
+                    (token.fontStyle ?? 0) & 4 ? 'underline' : undefined
+                }}
+              >
+                {token.content}
+              </span>
+            ))}
+            {lineIndex < highlighted.tokens.length - 1 ? '\n' : null}
+          </Fragment>
+        ))}
+      </code>
+    </pre>
+  )
+}
 
 function InlineMarkdown({
   currentPath,
@@ -73,10 +132,12 @@ function InlineMarkdown({
 function MarkdownBlockView({
   block,
   currentPath,
+  highlightCodeBlocks,
   pages
 }: {
   block: MarkdownBlock
   currentPath: string
+  highlightCodeBlocks: boolean
   pages: readonly PublicPage[]
 }) {
   const inline = (text: string) => (
@@ -128,33 +189,56 @@ function MarkdownBlockView({
   return (
     <div className="markdown-code">
       {block.language ? <span>{block.language}</span> : null}
-      <pre tabIndex={0}>
-        <code>{block.code}</code>
-      </pre>
+      {highlightCodeBlocks ? (
+        <SyntaxHighlightedCode code={block.code} language={block.language} />
+      ) : (
+        <pre tabIndex={0}>
+          <code>{block.code}</code>
+        </pre>
+      )}
     </div>
   )
 }
 
 export function MarkdownContent({
+  beforeHeadingContent,
+  beforeHeadingId,
   currentPath,
+  highlightCodeBlocks = false,
   markdown,
   pages
 }: {
+  beforeHeadingContent?: ReactNode
+  beforeHeadingId?: string
   currentPath: string
+  highlightCodeBlocks?: boolean
   markdown: string
   pages: readonly PublicPage[]
 }) {
   const blocks = parseMarkdownBlocks(markdown) as readonly MarkdownBlock[]
   return (
     <div className="markdown-content">
-      {blocks.map((block, index) => (
-        <MarkdownBlockView
-          block={block}
-          currentPath={currentPath}
-          key={`${block.type}-${index}`}
-          pages={pages}
-        />
-      ))}
+      {blocks.map((block, index) => {
+        const insertBefore =
+          beforeHeadingContent &&
+          block.type === 'heading' &&
+          block.id === beforeHeadingId
+        return (
+          <Fragment key={`${block.type}-${index}`}>
+            {insertBefore ? (
+              <div className="markdown-content__insertion">
+                {beforeHeadingContent}
+              </div>
+            ) : null}
+            <MarkdownBlockView
+              block={block}
+              currentPath={currentPath}
+              highlightCodeBlocks={highlightCodeBlocks}
+              pages={pages}
+            />
+          </Fragment>
+        )
+      })}
     </div>
   )
 }

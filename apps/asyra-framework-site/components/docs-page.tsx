@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { DocsNavigation } from '@/components/docs-navigation'
 import { DocsTableOfContents } from '@/components/docs-table-of-contents'
 import { FoundationPageHero } from '@/components/foundation-page-hero'
+import { FrameworkTechnicalFlow } from '@/components/framework-technical-flow'
 import { MarkdownContent } from '@/components/markdown-content'
 import { SearchDialog, type SearchRecord } from '@/components/search-dialog'
 import { SiteFrame } from '@/components/site-frame'
@@ -84,7 +85,12 @@ export async function DocumentationPage({ pageId }: { pageId: string }) {
         <DocsNavigation currentId={page.id} sections={sections} />
         <article className="docs-article">
           <MarkdownContent
+            beforeHeadingContent={
+              page.id === 'overview' ? <FrameworkTechnicalFlow /> : undefined
+            }
+            beforeHeadingId="current-support"
             currentPath={page.path}
+            highlightCodeBlocks
             markdown={page.markdown}
             pages={content.pages}
           />
