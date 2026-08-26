@@ -67,23 +67,62 @@ test('every external website link opens in a new tab without opener access', asy
 
 test('release inventory is generated from package facts without duplicated versions', async () => {
   const page = await readSiteFile('app/releases/page.tsx')
+  const releaseHistory = await readSiteFile(
+    'app/releases/framework-release-history.ts'
+  )
+  const guide = await readFile(
+    path.resolve(siteRoot, '../../docs/public/reference/support-release.md'),
+    'utf8'
+  )
 
   assert.match(page, /loadVerifiedPublicContent/)
   assert.match(page, /content\.packages/)
+  assert.match(page, /frameworkReleaseHistory/)
+  assert.match(page, /currentFrameworkRelease/)
   assert.match(page, /19 public packages/)
-  assert.match(page, /Manifest-derived inventory/)
+  assert.match(page, /Releases \/ Framework milestones/)
+  assert.match(page, /Release history/)
+  assert.match(page, /Important Framework milestones/)
+  assert.match(page, /Supported composition/)
+  assert.match(page, /2D \+ CUSTOM/)
+  assert.match(page, /Choose only the package owners your product needs/)
+  assert.match(page, /Environment, security, migration, and compatibility/)
+  assert.doesNotMatch(page, /Manifest-derived inventory/)
+  assert.doesNotMatch(page, /Release truth|Verified project manifests/)
+  assert.doesNotMatch(page, /not duplicated website constants/i)
+  assert.doesNotMatch(page, /This page reports repository facts/i)
   assert.doesNotMatch(page, /['"]\d+\.\d+\.\d+['"]|version:\s*['"]/)
+  assert.match(releaseHistory, /version:\s*'0\.5\.0'/)
+  assert.match(releaseHistory, /status:\s*'Current'/)
+  assert.match(releaseHistory, /The public Framework foundation/)
+  assert.doesNotMatch(
+    releaseHistory,
+    /first two|first 2|third number|version relationship/i
+  )
   assert.match(page, /reference\/support-release/)
+  assert.match(guide, /^## Repository release verification$/m)
+  assert.doesNotMatch(guide, /^## Reproducible readiness$/m)
+  assert.match(guide, /^## Canonical sources$/m)
+  assert.doesNotMatch(guide, /private root workspace/i)
 })
 
-test('roadmap separates current support from researched future runtime', async () => {
+test('roadmap separates the current support card from the future boundary guide', async () => {
   const page = await readSiteFile('app/roadmap/page.tsx')
+  const guide = await readFile(
+    path.resolve(
+      siteRoot,
+      '../../docs/public/learn/runtime-boundaries-roadmap.md'
+    ),
+    'utf8'
+  )
 
-  assert.match(page, /What is current/)
+  assert.match(page, /label="What is current"/)
+  assert.match(page, /What you can build now/)
   assert.match(page, /What is future/)
   assert.match(page, /Do not claim yet/)
   assert.match(page, /not\s+a\s+current API/i)
   assert.match(page, /learn\/runtime-boundaries-roadmap/)
+  assert.doesNotMatch(guide, /^## What is current$/m)
 })
 
 test('supporting routes retain the material system across responsive widths', async () => {

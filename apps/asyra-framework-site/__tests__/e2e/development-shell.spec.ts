@@ -1,5 +1,10 @@
 import { expect, test } from '@playwright/test'
 
+test.skip(
+  Boolean(process.env.SITE_URL),
+  'The development shell contract applies only to the local dev server'
+)
+
 test('development shell does not surface a Next error overlay', async ({
   page
 }, testInfo) => {

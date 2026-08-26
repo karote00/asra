@@ -3,6 +3,9 @@
 import Link from 'next/link'
 import { useLayoutEffect, useRef } from 'react'
 
+import { DialogCloseButton } from '@/components/dialog-close-button'
+import { useModalDialog } from '@/components/use-modal-dialog'
+
 const navigationScrollKey = 'asyra-docs-navigation-scroll-top'
 
 interface NavigationPage {
@@ -35,7 +38,6 @@ function NavigationLinks({
               aria-current={page.id === currentId ? 'page' : undefined}
               href={page.href}
               onClick={onNavigate}
-              scroll={false}
             >
               {page.title}
             </Link>
@@ -53,9 +55,9 @@ export function DocsNavigation({
   currentId: string
   sections: readonly NavigationSection[]
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
   const navigationRef = useRef<HTMLElement>(null)
-  const triggerRef = useRef<HTMLButtonElement>(null)
+  const { closeDialog, dialogRef, handleDialogClose, openDialog, triggerRef } =
+    useModalDialog()
 
   useLayoutEffect(() => {
     const savedPosition = window.sessionStorage.getItem(navigationScrollKey)
@@ -91,7 +93,7 @@ export function DocsNavigation({
       </aside>
       <button
         className="docs-navigation-trigger"
-        onClick={() => dialogRef.current?.showModal()}
+        onClick={openDialog}
         ref={triggerRef}
         type="button"
       >
@@ -100,21 +102,22 @@ export function DocsNavigation({
       <dialog
         aria-labelledby="docs-navigation-title"
         className="docs-navigation-dialog"
-        onClose={() => triggerRef.current?.focus()}
+        onClose={handleDialogClose}
         ref={dialogRef}
       >
         <div className="docs-navigation-dialog__header">
           <p id="docs-navigation-title">Documentation</p>
           <form method="dialog">
-            <button aria-label="Close documentation navigation" type="submit">
-              Close
-            </button>
+            <DialogCloseButton
+              label="Close documentation navigation"
+              onClick={closeDialog}
+            />
           </form>
         </div>
         <nav aria-label="Documentation sections">
           <NavigationLinks
             currentId={currentId}
-            onNavigate={() => dialogRef.current?.close()}
+            onNavigate={closeDialog}
             sections={sections}
           />
         </nav>

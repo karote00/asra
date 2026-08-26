@@ -2,7 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useRef } from 'react'
+
+import { DialogCloseButton } from '@/components/dialog-close-button'
+import { useModalDialog } from '@/components/use-modal-dialog'
 
 type SiteHeaderProps = Readonly<{
   variant?: 'landing' | 'supporting'
@@ -17,13 +19,10 @@ const supportingNavigation = [
 ] as const
 
 export function SiteHeader({ variant = 'supporting' }: SiteHeaderProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
-  const menuButtonRef = useRef<HTMLButtonElement>(null)
+  const { closeDialog, dialogRef, handleDialogClose, openDialog, triggerRef } =
+    useModalDialog()
   const pathname = usePathname()
   const landing = variant === 'landing'
-
-  const closeNavigation = () => dialogRef.current?.close()
-  const openNavigation = () => dialogRef.current?.showModal()
 
   const navigationLinks = supportingNavigation.map(({ href, label }) => (
     <Link
@@ -34,7 +33,7 @@ export function SiteHeader({ variant = 'supporting' }: SiteHeaderProps) {
       }
       href={href}
       key={href}
-      onClick={closeNavigation}
+      onClick={closeDialog}
     >
       {label}
     </Link>
@@ -58,8 +57,8 @@ export function SiteHeader({ variant = 'supporting' }: SiteHeaderProps) {
       <button
         aria-label="Open navigation"
         className="navigation-trigger"
-        onClick={openNavigation}
-        ref={menuButtonRef}
+        onClick={openDialog}
+        ref={triggerRef}
         type="button"
       >
         <span aria-hidden="true">Menu</span>
@@ -67,26 +66,26 @@ export function SiteHeader({ variant = 'supporting' }: SiteHeaderProps) {
       <dialog
         aria-labelledby="navigation-title"
         className="navigation-dialog"
-        onClose={() => menuButtonRef.current?.focus()}
+        onClose={handleDialogClose}
         ref={dialogRef}
       >
         <div className="navigation-dialog__bar">
           <p id="navigation-title">Navigate Asyra</p>
           <form method="dialog">
-            <button aria-label="Close navigation" type="submit">
-              Close
-            </button>
+            <DialogCloseButton label="Close navigation" onClick={closeDialog} />
           </form>
         </div>
-        <nav aria-label="Mobile navigation">{navigationLinks}</nav>
-        <a
-          className="navigation-dialog__source"
-          href="https://github.com/karote00/asyra"
-          rel="noopener noreferrer"
-          target="_blank"
-        >
-          View source on GitHub
-        </a>
+        <nav aria-label="Mobile navigation">
+          {navigationLinks}
+          <a
+            href="https://github.com/karote00/asyra"
+            onClick={closeDialog}
+            rel="noopener noreferrer"
+            target="_blank"
+          >
+            GitHub
+          </a>
+        </nav>
       </dialog>
     </header>
   )

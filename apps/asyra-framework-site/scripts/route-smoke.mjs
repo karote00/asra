@@ -41,15 +41,14 @@ const homeText = home.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
 for (const copy of [
   'Build the tool your world needs.',
   'One foundation. Any field.',
-  'Bring your domain. Keep its logic.',
-  '2026',
-  'MIT License'
+  'Bring your domain. Keep its logic.'
 ]) {
   assert.match(
     homeText,
     new RegExp(copy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   )
 }
+assert.doesNotMatch(homeText, /2025|2026|MIT License|Open source/i)
 assert.doesNotMatch(home, /2025|Open source|Asyra Systems?|Inc\.|Company/i)
 
 for (const [route, copy] of [

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import { isIndexingAuthorized, resolveSiteOrigin } from '@/lib/site-origin'
+import './styles/tokens.css'
 import './globals.css'
 import './styles/foundation.css'
 import './styles/docs.css'

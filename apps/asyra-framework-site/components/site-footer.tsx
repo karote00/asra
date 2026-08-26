@@ -37,16 +37,6 @@ export function SiteFooter() {
           )
         )}
       </nav>
-      <p className="project-identity">
-        <span>2026</span>
-        <a
-          href="https://github.com/karote00/asyra/blob/main/LICENSE"
-          rel="noopener noreferrer"
-          target="_blank"
-        >
-          MIT License
-        </a>
-      </p>
     </footer>
   )
 }

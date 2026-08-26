@@ -1,6 +1,9 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
+
+import { DialogCloseButton } from '@/components/dialog-close-button'
+import { useModalDialog } from '@/components/use-modal-dialog'
 
 export interface SearchRecord {
   description: string
@@ -15,8 +18,8 @@ export function SearchDialog({
   records: readonly SearchRecord[]
 }) {
   const [query, setQuery] = useState('')
-  const dialogRef = useRef<HTMLDialogElement>(null)
-  const triggerRef = useRef<HTMLButtonElement>(null)
+  const { closeDialog, dialogRef, handleDialogClose, openDialog, triggerRef } =
+    useModalDialog()
   const normalizedQuery = query.trim().toLocaleLowerCase()
   const results = useMemo(() => {
     if (!normalizedQuery) return records.slice(0, 8)
@@ -33,7 +36,7 @@ export function SearchDialog({
     <>
       <button
         className="docs-search-trigger"
-        onClick={() => dialogRef.current?.showModal()}
+        onClick={openDialog}
         ref={triggerRef}
         type="button"
       >
@@ -43,7 +46,7 @@ export function SearchDialog({
       <dialog
         aria-labelledby="search-title"
         className="search-dialog"
-        onClose={() => triggerRef.current?.focus()}
+        onClose={handleDialogClose}
         ref={dialogRef}
       >
         <div className="search-dialog__header">
@@ -52,9 +55,7 @@ export function SearchDialog({
             <h2 id="search-title">Find a guide or concept</h2>
           </div>
           <form method="dialog">
-            <button aria-label="Close search" type="submit">
-              Close
-            </button>
+            <DialogCloseButton label="Close search" onClick={closeDialog} />
           </form>
         </div>
         <label className="search-field">

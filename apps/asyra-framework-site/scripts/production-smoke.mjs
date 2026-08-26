@@ -20,9 +20,10 @@ const bodyText = body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
 assert.match(bodyText, /Build the tool your world needs\./)
 assert.match(bodyText, /One foundation\. Any field\./)
 assert.match(bodyText, /Bring your domain\. Keep its logic\./)
-assert.match(bodyText, /2026/)
-assert.match(bodyText, /MIT License/)
-assert.doesNotMatch(bodyText, /2025|Open source|Asyra Systems?|Inc\.|Company/i)
+assert.doesNotMatch(
+  bodyText,
+  /2025|2026|MIT License|Open source|Asyra Systems?|Inc\.|Company/i
+)
 
 for (const header of [
   'content-security-policy',
