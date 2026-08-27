@@ -7,3 +7,14 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Visual review artifact paths
+
+- Treat this directory as the app root for every site visual test and review.
+- Playwright screenshots must use `testInfo.outputPath(...)`; do not construct a
+  second artifact root in individual specs.
+- Keep Playwright `outputDir` anchored to this configuration file's app root,
+  never through the caller's current working directory.
+- Never append `apps/asyra-framework-site` to an output path when the command is
+  already running from this app. The recursive path
+  `apps/asyra-framework-site/apps/asyra-framework-site` is invalid.
