@@ -5,6 +5,8 @@ import {
 import type { VerifiedPublicContent } from '@/lib/content'
 import { loadVerifiedPublicContent } from '@/lib/content.mjs'
 
+// Every slug maps through the public content manifest to Markdown under the
+// repository-root `docs/public` directory; page bodies do not live here.
 export const dynamicParams = false
 
 const loadContent = async (): Promise<VerifiedPublicContent> =>
