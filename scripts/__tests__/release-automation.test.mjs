@@ -385,6 +385,20 @@ test('each app and its create-app package share one release version', () => {
   assert.equal(createAppManifest.version, appManifest.version)
 })
 
+test('Framework site and root share one release version', () => {
+  const rootManifest = JSON.parse(
+    readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
+  )
+  const siteManifest = JSON.parse(
+    readFileSync(
+      path.join(repositoryRoot, 'apps/asyra-framework-site/package.json'),
+      'utf8'
+    )
+  )
+
+  assert.equal(siteManifest.version, rootManifest.version)
+})
+
 test('create-app package metadata matches the supported public CLI contract', () => {
   const manifest = JSON.parse(
     readFileSync(
