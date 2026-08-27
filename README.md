@@ -122,7 +122,7 @@ Current public support covers Node.js 24.x, the browser/Core composition, the of
 
 ## Documentation
 
-- [Public documentation](docs/public/index.md) - Start, Learn, Build, Reference, and the Asyra Design case study.
+- [Public documentation](docs/public/index.md) - Start, Concepts, Extend, Customize, Reference, and the Asyra Design case study.
 - [Asyra Design case study](docs/public/cases/asyra-design.md) - how one complete product composes Framework infrastructure and App-owned behavior.
 - [AI-readable discovery](docs/public/llms.txt) - the stable public page inventory for retrieval and coding agents.
 

@@ -72,6 +72,11 @@ test('root README exposes package-first composition and the working product star
   assert.match(readme, /Runtime commit and durable persistence/u)
   assert.match(readme, /Yarn, npm, or pnpm/u)
   assert.match(readme, /prints the exact start command/u)
+  assert.match(
+    readme,
+    /Start, Concepts, Extend, Customize, Reference, and the Asyra Design case study/u
+  )
+  assert.doesNotMatch(readme, /Start, Learn, Build, Reference/u)
   assert.match(readme, /flowchart TD/u)
   assert.doesNotMatch(readme, /flowchart LR/u)
   assert.doesNotMatch(
