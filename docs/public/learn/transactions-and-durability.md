@@ -16,68 +16,17 @@ owns one product decision. Pointer listeners, React effects, collaboration
 providers, persistence adapters, and AI providers call that owner route; they
 do not create competing transactions.
 
-## Implementation
+## Maintained implementation path
 
-Record the reversible evidence in the same transaction that applies the value:
+Product code should enter this boundary through the Feature or common API that
+already owns the action. Follow
+[Build a transaction-safe Feature session](../build/feature-session.md) for the
+complete start, update, commit, cancellation, rollback, and replay path.
 
-```ts
-import factory from '@asyra/factory'
-
-const state = { value: 0 }
-const EVENT = 'app:set-value'
-
-type ValuePayload = Readonly<{
-  before: number
-  after: number
-}>
-
-const readValuePayload = (payload: unknown): ValuePayload => {
-  if (
-    !payload ||
-    typeof payload !== 'object' ||
-    typeof (payload as ValuePayload).before !== 'number' ||
-    typeof (payload as ValuePayload).after !== 'number'
-  ) {
-    throw new Error('Invalid app:set-value payload')
-  }
-  return payload as ValuePayload
-}
-
-factory.registerTransactionInverter(EVENT, (event) => {
-  const payload = readValuePayload(event.payload)
-  return {
-    type: event.type,
-    payload: { before: payload.after, after: payload.before }
-  }
-})
-factory.registerTransactionReplayHandler(EVENT, (event) => {
-  state.value = readValuePayload(event.payload).after
-  return true
-})
-
-export const setValue = (after: number) => {
-  factory.startTransaction()
-  try {
-    factory.updateTransaction({
-      type: 'updateTransaction',
-      eventName: EVENT,
-      payload: { before: state.value, after },
-      options: { rollbackable: true, undoable: true }
-    })
-    state.value = after
-    factory.endTransaction()
-  } catch (error) {
-    factory.endTransaction({
-      outcome: 'rollback',
-      failure: { kind: 'handler-error', cause: error }
-    })
-    throw error
-  }
-}
-```
-
-The replay handler is registered beside the inverter so Undo, Redo, and
-rollback apply validated evidence back to the same state owner.
+The [Factory package guide](../reference/packages/factory.md) documents the
+transaction owner API for Framework composition. It is not a second product
+recipe to duplicate beside every Feature. Keep event inversion and replay
+registered with the canonical owner that applies the corresponding state.
 
 ## Flow
 
@@ -96,10 +45,10 @@ be split into several accidental undo steps.
 
 ## Expected result
 
-One successful `setValue(...)` call produces one committed history unit. If a
-write throws, rollback restores the previous value and adds no history item.
-Undo and Redo replay through the registered owner handler, so visual output and
-remote publication remain downstream consequences of the same decision.
+One successful bounded action produces one committed history unit. If a write
+throws, rollback restores the previous value and adds no history item. Undo and
+Redo replay through the registered owner handler, so visual output and remote
+publication remain downstream consequences of the same decision.
 
 ## Durability is broader than storage
 

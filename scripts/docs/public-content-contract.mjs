@@ -24,6 +24,38 @@ const PAGE_KEYS = [
   'title'
 ]
 
+const START_PAGE_IDS = new Set([
+  'start/create-design-app',
+  'start/preset-2d',
+  'cases/asyra-design'
+])
+
+const CONCEPT_PAGE_IDS = new Set([
+  'learn/information-models',
+  'learn/intent-and-features',
+  'learn/canonical-state',
+  'learn/transactions-and-durability',
+  'learn/validation-load-migration',
+  'learn/projection-registration-replacement',
+  'learn/runtime-boundaries-roadmap'
+])
+
+const EXTEND_PAGE_IDS = new Set([
+  'start/extend-with-ai',
+  'build/custom-schema',
+  'build/feature-session',
+  'build/hierarchy-groups',
+  'build/persistence-migration',
+  'build/collaboration',
+  'build/ai-actions',
+  'build/app-retrieval-action'
+])
+
+const CUSTOMIZE_PAGE_IDS = new Set([
+  'start/custom-composition',
+  'build/render-boundary'
+])
+
 const freeze = (value) => {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) {
     return value
@@ -45,11 +77,11 @@ const assertUniqueStrings = ({ label, values }) => {
 
 const expectedSection = (id) => {
   if (id === 'overview') return 'Overview'
-  if (id.startsWith('start/')) return 'Start'
-  if (id.startsWith('learn/')) return 'Learn'
-  if (id.startsWith('build/')) return 'Build'
+  if (START_PAGE_IDS.has(id)) return 'Start'
+  if (CONCEPT_PAGE_IDS.has(id)) return 'Concepts'
+  if (EXTEND_PAGE_IDS.has(id)) return 'Extend'
+  if (CUSTOMIZE_PAGE_IDS.has(id)) return 'Customize'
   if (id.startsWith('reference/')) return 'Reference'
-  if (id.startsWith('cases/')) return 'Cases'
   throw new Error(`Unknown public documentation section for ${id}`)
 }
 

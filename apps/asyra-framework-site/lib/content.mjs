@@ -176,11 +176,30 @@ export async function loadVerifiedPublicContent() {
     })
   )
 
+  const pagesById = new Map(pages.map((page) => [page.id, page]))
   const sections = new Map()
-  for (const page of pages) {
-    const sectionPages = sections.get(page.section) ?? []
-    sectionPages.push(page)
-    sections.set(page.section, sectionPages)
+  for (const section of contentIndex.sections) {
+    const sectionPages = section.pageIds.map((pageId) => {
+      const page = pagesById.get(pageId)
+      if (!page) {
+        throw new Error(`Missing public page in section index: ${pageId}`)
+      }
+      return page
+    })
+    if (sectionPages.length === 0) continue
+
+    const sectionTitle = sectionPages[0].section
+    if (sectionPages.some((page) => page.section !== sectionTitle)) {
+      throw new Error(`Mixed public page sections in index: ${section.id}`)
+    }
+    sections.set(sectionTitle, sectionPages)
+  }
+  const indexedPageCount = [...sections.values()].reduce(
+    (count, sectionPages) => count + sectionPages.length,
+    0
+  )
+  if (indexedPageCount !== pages.length) {
+    throw new Error('The public section index does not include every page')
   }
 
   return Object.freeze({

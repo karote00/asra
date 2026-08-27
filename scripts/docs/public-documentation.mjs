@@ -27,10 +27,10 @@ export const PUBLIC_DOCUMENTATION_PATHS = Object.freeze({
 const SECTION_IDS = Object.freeze([
   'overview',
   'start',
-  'learn',
-  'build',
-  'reference',
-  'cases'
+  'concepts',
+  'extend',
+  'customize',
+  'reference'
 ])
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex')
@@ -185,7 +185,7 @@ const serializeLlms = ({ contentIndex }) => {
     'Current: browser/Core composition, official 2D Preset, and engine-neutral CUSTOM composition.',
     'Future: Headless Core and Core Kernel for non-visible and machine-facing products; no current public API or delivery date.',
     '',
-    'Install @asyra/core for package-first composition, use create-asyra-design-app for a ready-to-use design-tool product, and use Start or Build guides for Framework composition.',
+    'Install @asyra/core for package-first composition or use create-asyra-design-app for a ready-to-use design-tool product. Start with official paths, use Extend for app-owned product behavior, and use Customize only when replacing Framework composition or providers.',
     'Treat app domain schemas, permissions, migration, retrieval, services, and product rules as app-owned.',
     '',
     '## Public pages',

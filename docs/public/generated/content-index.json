@@ -1,7 +1,7 @@
 {
   "pages": [
     {
-      "contentSha256": "c5f83acbd94743788a86bf089132cd9496b7f8fd9d7b33511702438cd311aece",
+      "contentSha256": "c499393d584b87baa02883542281a5ab07cbe0b7effbd48095291cbf6b57ba3a",
       "description": "Build domain-owned information products whose visual, collaborative, persistent, and AI-facing capabilities remain composable.",
       "headings": [
         {
@@ -10,7 +10,27 @@
         },
         {
           "depth": 2,
-          "title": "Choose your entry"
+          "title": "Choose your path"
+        },
+        {
+          "depth": 3,
+          "title": "Start"
+        },
+        {
+          "depth": 3,
+          "title": "Concepts"
+        },
+        {
+          "depth": 3,
+          "title": "Extend"
+        },
+        {
+          "depth": 3,
+          "title": "Customize"
+        },
+        {
+          "depth": 3,
+          "title": "Reference"
         },
         {
           "depth": 2,
@@ -19,10 +39,6 @@
         {
           "depth": 2,
           "title": "Current support"
-        },
-        {
-          "depth": 2,
-          "title": "Learn from implementation guides"
         },
         {
           "depth": 2,
@@ -38,7 +54,7 @@
       "path": "index.md",
       "section": "Overview",
       "title": "Asyra Framework",
-      "wordCount": 526
+      "wordCount": 621
     },
     {
       "contentSha256": "f646e736122a5332a52f3e06e26083447f19b031d4ce119270a5d80a741e5ddd",
@@ -164,7 +180,7 @@
         "@asyra/feature-system"
       ],
       "path": "start/extend-with-ai.md",
-      "section": "Start",
+      "section": "Extend",
       "title": "Extend Asyra with an AI coding agent",
       "wordCount": 704
     },
@@ -225,7 +241,7 @@
       "wordCount": 476
     },
     {
-      "contentSha256": "924e7ccbb6dc571a8834d1c01d02b0a9407e8d35f0fd7bd9431a5d114f3ae237",
+      "contentSha256": "8b98e9390c823ea763bcb801537ca3d4f7262a511700602d95b2fdfb67346f79",
       "description": "Start from Core and choose information, interaction, rendering, persistence, collaboration, and AI capabilities independently.",
       "headings": [
         {
@@ -258,6 +274,10 @@
         },
         {
           "depth": 2,
+          "title": "Customize transaction replay and inversion"
+        },
+        {
+          "depth": 2,
           "title": "Validate the boundary"
         },
         {
@@ -275,12 +295,12 @@
         "@asyra/core"
       ],
       "path": "start/custom-composition.md",
-      "section": "Start",
+      "section": "Customize",
       "title": "Compose only the infrastructure you need",
-      "wordCount": 548
+      "wordCount": 689
     },
     {
-      "contentSha256": "9569bf993ca3bba0a634d47dbdb90dad5ec0f3dbd5acfca01695039000a4e821",
+      "contentSha256": "e636a8f65ffb1b0e0f5c1f40b5eca93e0e7833ad7224c61253ac570c20fa4621",
       "description": "Define app-owned information and rules without forcing it to be visible, rendered, collaborative, or AI-operated.",
       "headings": [
         {
@@ -297,7 +317,7 @@
         },
         {
           "depth": 2,
-          "title": "Implementation"
+          "title": "Maintained implementation paths"
         },
         {
           "depth": 2,
@@ -331,9 +351,9 @@
         "@asyra/system-context"
       ],
       "path": "learn/information-models.md",
-      "section": "Learn",
+      "section": "Concepts",
       "title": "Information models come before output",
-      "wordCount": 572
+      "wordCount": 593
     },
     {
       "contentSha256": "c0a40a212c6d163a2aa8b406d89731814ee36888f0e59da0706cee52287a5b83",
@@ -375,7 +395,7 @@
         "@asyra/factory"
       ],
       "path": "learn/intent-and-features.md",
-      "section": "Learn",
+      "section": "Concepts",
       "title": "Intent enters through Features",
       "wordCount": 336
     },
@@ -419,12 +439,12 @@
         "@asyra/props-manager"
       ],
       "path": "learn/canonical-state.md",
-      "section": "Learn",
+      "section": "Concepts",
       "title": "Give every state one canonical owner",
       "wordCount": 416
     },
     {
-      "contentSha256": "db3d5ac7f7cfd3acbe1712c1b148089ca40583f3b8079763d4b38016842abd33",
+      "contentSha256": "f3d74e4deab240a1737648e27d9fd47c62ec72859cf8de267e347ca005b4aa13",
       "description": "Commit, roll back, undo, redo, publish, and persist one intended action through one canonical boundary.",
       "headings": [
         {
@@ -437,7 +457,7 @@
         },
         {
           "depth": 2,
-          "title": "Implementation"
+          "title": "Maintained implementation path"
         },
         {
           "depth": 2,
@@ -475,12 +495,12 @@
         "@asyra/reactive-events"
       ],
       "path": "learn/transactions-and-durability.md",
-      "section": "Learn",
+      "section": "Concepts",
       "title": "One user intent, one transaction",
-      "wordCount": 467
+      "wordCount": 509
     },
     {
-      "contentSha256": "eb94c3fcd75a1b0461fa56103bc5ac1fb23ac5e7e88d5edd31c32c2cae91cec3",
+      "contentSha256": "531856a43182114d896262d4e3e6e5d55367a03830aa0039befb0f97ac73041a",
       "description": "Keep schema validation in the Framework while version interpretation and migration remain app-domain responsibilities.",
       "headings": [
         {
@@ -497,7 +517,7 @@
         },
         {
           "depth": 2,
-          "title": "Implementation"
+          "title": "Maintained implementation paths"
         },
         {
           "depth": 2,
@@ -536,17 +556,17 @@
         "@asyra/props-manager"
       ],
       "path": "learn/validation-load-migration.md",
-      "section": "Learn",
+      "section": "Concepts",
       "title": "Validate at every write and load boundary",
-      "wordCount": 457
+      "wordCount": 511
     },
     {
-      "contentSha256": "3e524e78dc85e45c6f41456a214d606a2795cc2f1e5c7d2d162f21d650c75175",
-      "description": "Keep canonical information independent from render layers and engine providers so output can be extended or replaced.",
+      "contentSha256": "1283cef149e402742780622fcb020d51509abf9499933597f90d8dbb60cee572",
+      "description": "Keep canonical information independent from render layers and engine providers, then choose the maintained customization path when a provider must change.",
       "headings": [
         {
           "depth": 1,
-          "title": "Register projections; replace providers"
+          "title": "Register projections without changing ownership"
         },
         {
           "depth": 2,
@@ -554,27 +574,11 @@
         },
         {
           "depth": 2,
-          "title": "Where this runs"
+          "title": "Projection ownership"
         },
         {
           "depth": 2,
-          "title": "Implementation"
-        },
-        {
-          "depth": 2,
-          "title": "Flow"
-        },
-        {
-          "depth": 2,
-          "title": "Expected result"
-        },
-        {
-          "depth": 2,
-          "title": "Provider replacement"
-        },
-        {
-          "depth": 2,
-          "title": "Layer ownership"
+          "title": "Provider boundary"
         },
         {
           "depth": 2,
@@ -582,7 +586,7 @@
         },
         {
           "depth": 2,
-          "title": "Validate replacement"
+          "title": "What to validate"
         },
         {
           "depth": 2,
@@ -600,9 +604,9 @@
         "@asyra/render-engine"
       ],
       "path": "learn/projection-registration-replacement.md",
-      "section": "Learn",
-      "title": "Register projections; replace providers",
-      "wordCount": 529
+      "section": "Concepts",
+      "title": "Register projections without changing ownership",
+      "wordCount": 487
     },
     {
       "contentSha256": "026197c924a74417b984485dda6427376ba4b871f050ad970668b4a2f230aa37",
@@ -640,7 +644,7 @@
         "@asyra/input-system"
       ],
       "path": "learn/runtime-boundaries-roadmap.md",
-      "section": "Learn",
+      "section": "Concepts",
       "title": "Current runtime and future Core Kernel",
       "wordCount": 374
     },
@@ -705,7 +709,7 @@
         "@asyra/scene-tree"
       ],
       "path": "build/custom-schema.md",
-      "section": "Build",
+      "section": "Extend",
       "title": "Build a custom component and schema",
       "wordCount": 491
     },
@@ -769,7 +773,7 @@
         "@asyra/feature-system"
       ],
       "path": "build/feature-session.md",
-      "section": "Build",
+      "section": "Extend",
       "title": "Build a transaction-safe Feature session",
       "wordCount": 494
     },
@@ -835,7 +839,7 @@
         "@asyra/render-engine"
       ],
       "path": "build/render-boundary.md",
-      "section": "Build",
+      "section": "Customize",
       "title": "Build a custom render boundary",
       "wordCount": 562
     },
@@ -893,7 +897,7 @@
         "@asyra/utils"
       ],
       "path": "build/hierarchy-groups.md",
-      "section": "Build",
+      "section": "Extend",
       "title": "Build hierarchy and Group behavior",
       "wordCount": 488
     },
@@ -958,7 +962,7 @@
         "@asyra/props-manager"
       ],
       "path": "build/persistence-migration.md",
-      "section": "Build",
+      "section": "Extend",
       "title": "Build persistence with app-owned migration",
       "wordCount": 445
     },
@@ -1022,7 +1026,7 @@
         "@asyra/factory"
       ],
       "path": "build/collaboration.md",
-      "section": "Build",
+      "section": "Extend",
       "title": "Build opt-in collaboration",
       "wordCount": 525
     },
@@ -1085,7 +1089,7 @@
         "@asyra/ai-agent-runtime"
       ],
       "path": "build/ai-actions.md",
-      "section": "Build",
+      "section": "Extend",
       "title": "Build registered AI actions",
       "wordCount": 505
     },
@@ -1150,7 +1154,7 @@
         "@asyra/feature-system"
       ],
       "path": "build/app-retrieval-action.md",
-      "section": "Build",
+      "section": "Extend",
       "title": "Build app-owned AI retrieval and action",
       "wordCount": 513
     },
@@ -2391,7 +2395,7 @@
         "@asyra/persistence"
       ],
       "path": "cases/asyra-design.md",
-      "section": "Cases",
+      "section": "Start",
       "title": "Asyra Design as a complete product implementation",
       "wordCount": 1305
     }
@@ -2414,13 +2418,12 @@
       "id": "start",
       "pageIds": [
         "start/create-design-app",
-        "start/extend-with-ai",
         "start/preset-2d",
-        "start/custom-composition"
+        "cases/asyra-design"
       ]
     },
     {
-      "id": "learn",
+      "id": "concepts",
       "pageIds": [
         "learn/information-models",
         "learn/intent-and-features",
@@ -2432,16 +2435,23 @@
       ]
     },
     {
-      "id": "build",
+      "id": "extend",
       "pageIds": [
+        "start/extend-with-ai",
         "build/custom-schema",
         "build/feature-session",
-        "build/render-boundary",
         "build/hierarchy-groups",
         "build/persistence-migration",
         "build/collaboration",
         "build/ai-actions",
         "build/app-retrieval-action"
+      ]
+    },
+    {
+      "id": "customize",
+      "pageIds": [
+        "start/custom-composition",
+        "build/render-boundary"
       ]
     },
     {
@@ -2467,12 +2477,6 @@
         "reference/packages/ui-context",
         "reference/packages/utils",
         "reference/support-release"
-      ]
-    },
-    {
-      "id": "cases",
-      "pageIds": [
-        "cases/asyra-design"
       ]
     }
   ]

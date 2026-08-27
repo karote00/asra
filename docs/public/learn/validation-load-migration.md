@@ -26,51 +26,19 @@ registers a synchronous load hook before Core starts. Persistence supplies the
 untrusted envelope; the app migrates domain versions; Core and package owners
 validate the resulting candidate before activation.
 
-## Implementation
+## Maintained implementation paths
 
-Register a connected, deterministic version path. This compact form shows the
-ownership boundary; production code should also reject cycles, duplicate
-transitions, missing versions, and asynchronous results:
+Use the guide that matches the boundary you are implementing:
 
-```ts
-type Document = {
-  version: string
-  [key: string]: unknown
-}
+- [Build a custom component and schema](../build/custom-schema.md) shows
+  runtime property registration, defaults, and owner validation.
+- [Build persistence with app-owned migration](../build/persistence-migration.md)
+  shows the complete document envelope, deterministic version path, load hook,
+  candidate validation, and failure behavior.
 
-type Migration = (document: Document) => Document
-
-type DocumentEnvelope = {
-  version?: unknown
-}
-
-const migrations = new Map<string, Migration>([
-  ['v1', (document) => ({ ...document, version: 'v2' })],
-  ['v2', (document) => ({ ...document, version: 'v3' })]
-])
-
-core.registerLoadHook((rawDocument) => {
-  if (!rawDocument || typeof rawDocument !== 'object') {
-    throw new Error('Document envelope is invalid')
-  }
-  if (typeof (rawDocument as DocumentEnvelope).version !== 'string') {
-    throw new Error('Document version is required')
-  }
-  let document = rawDocument as Document
-  const visited = new Set<string>()
-  while (migrations.has(document.version)) {
-    if (visited.has(document.version)) {
-      throw new Error(`Migration cycle at ${document.version}`)
-    }
-    visited.add(document.version)
-    document = migrations.get(document.version)!(document)
-  }
-  if (document.version !== 'v3') {
-    throw new Error(`Unsupported document version: ${document.version}`)
-  }
-  return document
-})
-```
+Do not copy a second migration dispatcher into a concept page or UI module.
+Migration stays app-owned, while the Framework owners validate the migrated
+candidate before it becomes active.
 
 ## Flow
 
@@ -84,10 +52,10 @@ schema history.
 
 ## Expected result
 
-A `v1` document reaches `v3` through `v2`, then enters the ordinary package
-validation and canonical apply flow. Missing, disconnected, cyclic,
-asynchronous, or unsupported migrations fail before the previous active
-document changes.
+A supported older document follows one declared version path, then enters the
+ordinary package validation and canonical apply flow. Missing, disconnected,
+cyclic, asynchronous, or unsupported migrations fail before the previous
+active document changes.
 
 ## Load behavior
 

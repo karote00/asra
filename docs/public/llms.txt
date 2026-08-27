@@ -6,7 +6,7 @@ This index contains 41 public Markdown pages.
 Current: browser/Core composition, official 2D Preset, and engine-neutral CUSTOM composition.
 Future: Headless Core and Core Kernel for non-visible and machine-facing products; no current public API or delivery date.
 
-Install @asyra/core for package-first composition, use create-asyra-design-app for a ready-to-use design-tool product, and use Start or Build guides for Framework composition.
+Install @asyra/core for package-first composition or use create-asyra-design-app for a ready-to-use design-tool product. Start with official paths, use Extend for app-owned product behavior, and use Customize only when replacing Framework composition or providers.
 Treat app domain schemas, permissions, migration, retrieval, services, and product rules as app-owned.
 
 ## Public pages
@@ -21,7 +21,7 @@ Treat app domain schemas, permissions, migration, retrieval, services, and produ
 - [Give every state one canonical owner](learn/canonical-state.md): Separate canonical model state, local derived state, projection state, and remote transport state.
 - [One user intent, one transaction](learn/transactions-and-durability.md): Commit, roll back, undo, redo, publish, and persist one intended action through one canonical boundary.
 - [Validate at every write and load boundary](learn/validation-load-migration.md): Keep schema validation in the Framework while version interpretation and migration remain app-domain responsibilities.
-- [Register projections; replace providers](learn/projection-registration-replacement.md): Keep canonical information independent from render layers and engine providers so output can be extended or replaced.
+- [Register projections without changing ownership](learn/projection-registration-replacement.md): Keep canonical information independent from render layers and engine providers, then choose the maintained customization path when a provider must change.
 - [Current runtime and future Core Kernel](learn/runtime-boundaries-roadmap.md): Distinguish today's browser/Core composition from the researched Headless and Core Kernel direction for machine-facing products.
 - [Build a custom component and schema](build/custom-schema.md): Register app-owned component meaning, property defaults, and validation through public Core APIs.
 - [Build a transaction-safe Feature session](build/feature-session.md): Map start, update, end, and cancellation to exactly one intended undo commit.

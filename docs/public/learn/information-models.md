@@ -31,42 +31,20 @@ Core composition is open. Product Features then read and update it through the
 same Core facade. Element-level information belongs in app-owned component and
 property registrations instead.
 
-## Implementation
+## Maintained implementation paths
 
-This record can exist without Render, Collaboration, Persistence, or an AI
-provider:
+Keep this page as the ownership model, then choose the guide that matches the
+information your product owns:
 
-```ts
-const STATUS = 'app:information-model-status'
+- For element-level information, follow
+  [Build a custom component and schema](../build/custom-schema.md).
+- For system-level information, use the public Core and System Context
+  registration boundaries documented in the
+  [System Context package guide](../reference/packages/system-context.md).
 
-core.defineSystemProperty(STATUS, {
-  revision: 0,
-  status: 'draft'
-})
-
-export const verifyModel = () => {
-  core.setSystemProperty(STATUS, {
-    revision: 1,
-    status: 'verified'
-  })
-  return core.getSystemContextSnapshot()[STATUS]
-}
-
-export const cancelInformationModelRegistration = () => {
-  if (!core.isCompositionOpen()) {
-    throw new Error('Registration can only be removed before Core starts')
-  }
-  return core.unregisterSystemProperty(STATUS)
-}
-```
-
-The app defines the field names and what `verified` means. System Context owns
-the registered value and Core exposes the supported coordination facade.
-
-For element-level information, continue with
-[Build a custom component and schema](../build/custom-schema.md), which shows
-the exact `definePropertyComponent`, `registerPropertySchema`, and
-`defineComponent` calls.
+Those guides contain the concrete calls and failure behavior. The app still
+defines the field names and domain meaning; the selected Framework owner stores
+and validates the canonical value.
 
 ## Flow
 
@@ -81,10 +59,10 @@ the exact `definePropertyComponent`, `registerPropertySchema`, and
 
 ## Expected result
 
-Calling `verifyModel()` returns revision `1` with status `verified`. No visual
-object, transport connection, provider credential, or second source of truth
-is required. If the key is missing, duplicated, invalid, or unregistered after
-composition closes, the owner boundary fails explicitly.
+The registered canonical value can be read from its owner without requiring a
+visual object, transport connection, provider credential, or second source of
+truth. Missing, duplicated, invalid, or post-start registration changes fail at
+the owner boundary.
 
 ## Information can have many projections
 

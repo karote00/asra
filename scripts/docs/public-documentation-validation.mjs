@@ -32,15 +32,11 @@ const PACKAGE_GUIDE_HEADINGS = Object.freeze([
   '## Canonical sources and release inventory'
 ])
 
-const ADVANCED_GUIDE_IDS = Object.freeze([
+const IMPLEMENTATION_GUIDE_IDS = Object.freeze([
   'start/create-design-app',
   'start/extend-with-ai',
   'start/preset-2d',
   'start/custom-composition',
-  'learn/information-models',
-  'learn/transactions-and-durability',
-  'learn/validation-load-migration',
-  'learn/projection-registration-replacement',
   'build/custom-schema',
   'build/feature-session',
   'build/persistence-migration',
@@ -279,8 +275,19 @@ const validatePageStructure = ({ page, source }) => {
   }
 }
 
-const validateAdvancedGuide = ({ page, source }) => {
-  if (!ADVANCED_GUIDE_IDS.includes(page.id)) return false
+const validateConceptPage = ({ page, source }) => {
+  if (page.section !== 'Concepts') return false
+  if (source.includes('## Implementation')) {
+    throw new Error(`${page.id} mixes implementation into a Concepts page`)
+  }
+  if (/```(?:ts|tsx)\n/.test(source)) {
+    throw new Error(`${page.id} mixes TypeScript code into a Concepts page`)
+  }
+  return true
+}
+
+const validateImplementationGuide = ({ page, source }) => {
+  if (!IMPLEMENTATION_GUIDE_IDS.includes(page.id)) return false
   for (const heading of [
     '## Where this runs',
     '## Implementation',
@@ -351,7 +358,8 @@ export const validatePublicDocumentation = async ({ repositoryRoot }) => {
 
   let localLinkCount = 0
   let apiReferenceCount = 0
-  let advancedGuideCount = 0
+  let conceptPageCount = 0
+  let implementationGuideCount = 0
   let typescriptSnippetCount = 0
   for (const page of content.pages) {
     const filePath = path.join(root, 'docs/public', page.path)
@@ -365,7 +373,10 @@ export const validatePublicDocumentation = async ({ repositoryRoot }) => {
       )
     }
     validatePageStructure({ page, source })
-    if (validateAdvancedGuide({ page, source })) advancedGuideCount += 1
+    if (validateConceptPage({ page, source })) conceptPageCount += 1
+    if (validateImplementationGuide({ page, source })) {
+      implementationGuideCount += 1
+    }
     typescriptSnippetCount += validateTypeScriptSnippets({ page, source })
     validatePublicImportMentions({
       apiIndex: bundle.apiIndex,
@@ -400,7 +411,8 @@ export const validatePublicDocumentation = async ({ repositoryRoot }) => {
   }
 
   return Object.freeze({
-    advancedGuideCount,
+    conceptPageCount,
+    implementationGuideCount,
     apiReferenceCount,
     localLinkCount,
     packageGuideCount: content.pages.filter((page) =>

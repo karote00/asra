@@ -13,7 +13,40 @@ test('the public content adapter verifies the complete generated inventory', asy
   assert.equal(content.packages.length, 19)
   assert.deepEqual(
     [...content.sections.keys()],
-    ['Overview', 'Start', 'Learn', 'Build', 'Reference', 'Cases']
+    ['Overview', 'Start', 'Concepts', 'Extend', 'Customize', 'Reference']
+  )
+  assert.deepEqual(
+    content.sections.get('Start').map(({ id }) => id),
+    ['start/create-design-app', 'start/preset-2d', 'cases/asyra-design']
+  )
+  assert.deepEqual(
+    content.sections.get('Concepts').map(({ id }) => id),
+    [
+      'learn/information-models',
+      'learn/intent-and-features',
+      'learn/canonical-state',
+      'learn/transactions-and-durability',
+      'learn/validation-load-migration',
+      'learn/projection-registration-replacement',
+      'learn/runtime-boundaries-roadmap'
+    ]
+  )
+  assert.deepEqual(
+    content.sections.get('Extend').map(({ id }) => id),
+    [
+      'start/extend-with-ai',
+      'build/custom-schema',
+      'build/feature-session',
+      'build/hierarchy-groups',
+      'build/persistence-migration',
+      'build/collaboration',
+      'build/ai-actions',
+      'build/app-retrieval-action'
+    ]
+  )
+  assert.deepEqual(
+    content.sections.get('Customize').map(({ id }) => id),
+    ['start/custom-composition', 'build/render-boundary']
   )
   assert.equal(new Set(content.pages.map(({ id }) => id)).size, 41)
   assert.equal(new Set(content.pages.map(({ href }) => href)).size, 41)

@@ -2,7 +2,7 @@
   "pages": [
     {
       "id": "overview",
-      "pageSha256": "c5f83acbd94743788a86bf089132cd9496b7f8fd9d7b33511702438cd311aece",
+      "pageSha256": "c499393d584b87baa02883542281a5ab07cbe0b7effbd48095291cbf6b57ba3a",
       "sources": [
         {
           "path": "docs/ai/framework/FRAMEWORK_ESSENTIALS.md",
@@ -58,7 +58,7 @@
     },
     {
       "id": "start/custom-composition",
-      "pageSha256": "924e7ccbb6dc571a8834d1c01d02b0a9407e8d35f0fd7bd9431a5d114f3ae237",
+      "pageSha256": "8b98e9390c823ea763bcb801537ca3d4f7262a511700602d95b2fdfb67346f79",
       "sources": [
         {
           "path": "docs/ai/framework/ARCHITECTURE.md",
@@ -72,7 +72,7 @@
     },
     {
       "id": "learn/information-models",
-      "pageSha256": "9569bf993ca3bba0a634d47dbdb90dad5ec0f3dbd5acfca01695039000a4e821",
+      "pageSha256": "e636a8f65ffb1b0e0f5c1f40b5eca93e0e7833ad7224c61253ac570c20fa4621",
       "sources": [
         {
           "path": "docs/ai/framework/FRAMEWORK_ESSENTIALS.md",
@@ -118,7 +118,7 @@
     },
     {
       "id": "learn/transactions-and-durability",
-      "pageSha256": "db3d5ac7f7cfd3acbe1712c1b148089ca40583f3b8079763d4b38016842abd33",
+      "pageSha256": "f3d74e4deab240a1737648e27d9fd47c62ec72859cf8de267e347ca005b4aa13",
       "sources": [
         {
           "path": "docs/ai/framework/packages/factory.md",
@@ -132,7 +132,7 @@
     },
     {
       "id": "learn/validation-load-migration",
-      "pageSha256": "eb94c3fcd75a1b0461fa56103bc5ac1fb23ac5e7e88d5edd31c32c2cae91cec3",
+      "pageSha256": "531856a43182114d896262d4e3e6e5d55367a03830aa0039befb0f97ac73041a",
       "sources": [
         {
           "path": "docs/ai/framework/packages/props-manager.md",
@@ -146,7 +146,7 @@
     },
     {
       "id": "learn/projection-registration-replacement",
-      "pageSha256": "3e524e78dc85e45c6f41456a214d606a2795cc2f1e5c7d2d162f21d650c75175",
+      "pageSha256": "1283cef149e402742780622fcb020d51509abf9499933597f90d8dbb60cee572",
       "sources": [
         {
           "path": "docs/ai/framework/packages/render.md",

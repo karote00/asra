@@ -28,7 +28,7 @@
     {
       "id": "start/extend-with-ai",
       "path": "start/extend-with-ai.md",
-      "section": "Start",
+      "section": "Extend",
       "title": "Extend Asyra with an AI coding agent",
       "description": "Give an AI agent bounded ownership, canonical APIs, and executable proof while you retain product decisions.",
       "sources": [
@@ -52,7 +52,7 @@
     {
       "id": "start/custom-composition",
       "path": "start/custom-composition.md",
-      "section": "Start",
+      "section": "Customize",
       "title": "Compose only the infrastructure you need",
       "description": "Start from Core and choose information, interaction, rendering, persistence, collaboration, and AI capabilities independently.",
       "sources": [
@@ -64,7 +64,7 @@
     {
       "id": "learn/information-models",
       "path": "learn/information-models.md",
-      "section": "Learn",
+      "section": "Concepts",
       "title": "Information models come before output",
       "description": "Define app-owned information and rules without forcing it to be visible, rendered, collaborative, or AI-operated.",
       "sources": [
@@ -76,7 +76,7 @@
     {
       "id": "learn/intent-and-features",
       "path": "learn/intent-and-features.md",
-      "section": "Learn",
+      "section": "Concepts",
       "title": "Intent enters through Features",
       "description": "Translate user or agent intent into explicit Feature sessions rather than mutating owners from UI or transport code.",
       "sources": [
@@ -88,7 +88,7 @@
     {
       "id": "learn/canonical-state",
       "path": "learn/canonical-state.md",
-      "section": "Learn",
+      "section": "Concepts",
       "title": "Give every state one canonical owner",
       "description": "Separate canonical model state, local derived state, projection state, and remote transport state.",
       "sources": [
@@ -101,7 +101,7 @@
     {
       "id": "learn/transactions-and-durability",
       "path": "learn/transactions-and-durability.md",
-      "section": "Learn",
+      "section": "Concepts",
       "title": "One user intent, one transaction",
       "description": "Commit, roll back, undo, redo, publish, and persist one intended action through one canonical boundary.",
       "sources": [
@@ -113,7 +113,7 @@
     {
       "id": "learn/validation-load-migration",
       "path": "learn/validation-load-migration.md",
-      "section": "Learn",
+      "section": "Concepts",
       "title": "Validate at every write and load boundary",
       "description": "Keep schema validation in the Framework while version interpretation and migration remain app-domain responsibilities.",
       "sources": [
@@ -125,9 +125,9 @@
     {
       "id": "learn/projection-registration-replacement",
       "path": "learn/projection-registration-replacement.md",
-      "section": "Learn",
-      "title": "Register projections; replace providers",
-      "description": "Keep canonical information independent from render layers and engine providers so output can be extended or replaced.",
+      "section": "Concepts",
+      "title": "Register projections without changing ownership",
+      "description": "Keep canonical information independent from render layers and engine providers, then choose the maintained customization path when a provider must change.",
       "sources": [
         "docs/ai/framework/packages/render.md",
         "docs/ai/framework/packages/render-engine.md",
@@ -138,7 +138,7 @@
     {
       "id": "learn/runtime-boundaries-roadmap",
       "path": "learn/runtime-boundaries-roadmap.md",
-      "section": "Learn",
+      "section": "Concepts",
       "title": "Current runtime and future Core Kernel",
       "description": "Distinguish today's browser/Core composition from the researched Headless and Core Kernel direction for machine-facing products.",
       "sources": [
@@ -152,7 +152,7 @@
     {
       "id": "build/custom-schema",
       "path": "build/custom-schema.md",
-      "section": "Build",
+      "section": "Extend",
       "title": "Build a custom component and schema",
       "description": "Register app-owned component meaning, property defaults, and validation through public Core APIs.",
       "sources": [
@@ -165,7 +165,7 @@
     {
       "id": "build/feature-session",
       "path": "build/feature-session.md",
-      "section": "Build",
+      "section": "Extend",
       "title": "Build a transaction-safe Feature session",
       "description": "Map start, update, end, and cancellation to exactly one intended undo commit.",
       "sources": [
@@ -177,7 +177,7 @@
     {
       "id": "build/render-boundary",
       "path": "build/render-boundary.md",
-      "section": "Build",
+      "section": "Customize",
       "title": "Build a custom render boundary",
       "description": "Provide an engine through the public provider contract without teaching Core a renderer-specific implementation.",
       "sources": [
@@ -194,7 +194,7 @@
     {
       "id": "build/hierarchy-groups",
       "path": "build/hierarchy-groups.md",
-      "section": "Build",
+      "section": "Extend",
       "title": "Build hierarchy and Group behavior",
       "description": "Keep parent-child ordering canonical while group meaning and geometry policy remain app-owned.",
       "sources": [
@@ -212,7 +212,7 @@
     {
       "id": "build/persistence-migration",
       "path": "build/persistence-migration.md",
-      "section": "Build",
+      "section": "Extend",
       "title": "Build persistence with app-owned migration",
       "description": "Load validated canonical state while the app owns document versions, migration rules, and unsupported-version policy.",
       "sources": [
@@ -224,7 +224,7 @@
     {
       "id": "build/collaboration",
       "path": "build/collaboration.md",
-      "section": "Build",
+      "section": "Extend",
       "title": "Build opt-in collaboration",
       "description": "Connect deterministic collaboration actors while the app owns transport, authorization, presence, and backend policy.",
       "sources": [
@@ -236,7 +236,7 @@
     {
       "id": "build/ai-actions",
       "path": "build/ai-actions.md",
-      "section": "Build",
+      "section": "Extend",
       "title": "Build registered AI actions",
       "description": "Expose bounded action schemas and permissions so AI intent uses the same canonical transaction paths as people.",
       "sources": [
@@ -248,7 +248,7 @@
     {
       "id": "build/app-retrieval-action",
       "path": "build/app-retrieval-action.md",
-      "section": "Build",
+      "section": "Extend",
       "title": "Build app-owned AI retrieval and action",
       "description": "Let the app retrieve domain context and register actions without presenting future Headless support as current behavior.",
       "sources": [
@@ -506,7 +506,7 @@
     {
       "id": "cases/asyra-design",
       "path": "cases/asyra-design.md",
-      "section": "Cases",
+      "section": "Start",
       "title": "Asyra Design as a complete product implementation",
       "description": "See how one real product composes Framework infrastructure, Preset defaults, app-domain behavior, collaboration, persistence, and AI.",
       "sources": [
