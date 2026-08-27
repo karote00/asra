@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync
@@ -46,6 +47,7 @@ test('release validation covers build, tests, dependencies, collaboration, and g
 
   assert.deepEqual(plan, [
     'yarn install --immutable',
+    'yarn security:audit',
     'yarn gen:turbo:check',
     'yarn clean',
     'yarn react:build',
@@ -56,6 +58,25 @@ test('release validation covers build, tests, dependencies, collaboration, and g
     'yarn release:app:check --prod=asyra-design',
     'yarn release:app:build --prod=asyra-design --prebuilt'
   ])
+})
+
+test('public release gates high-severity dependency advisories', () => {
+  const manifest = JSON.parse(
+    readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
+  )
+  const workflow = readFileSync(
+    path.join(repositoryRoot, '.github/workflows/main.yml'),
+    'utf8'
+  )
+
+  assert.equal(
+    manifest.scripts['security:audit'],
+    'yarn npm audit --all --recursive --severity high'
+  )
+  assert.match(
+    workflow,
+    /- name: Audit high-severity dependencies\s+run: yarn security:audit/u
+  )
 })
 
 test('generated template smoke build resolves tooling through its synchronized canonical app', () => {
@@ -460,6 +481,70 @@ test('root and Core metadata identify the searchable product category', () => {
     directory: 'packages/core'
   })
   assert.equal(coreManifest.homepage, 'https://asyra-framework.vercel.app')
+})
+
+test('every public Framework package identifies its repository location', () => {
+  const packagesRoot = path.join(repositoryRoot, 'packages')
+
+  for (const entry of readdirSync(packagesRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+
+    const manifestPath = path.join(packagesRoot, entry.name, 'package.json')
+    if (!existsSync(manifestPath)) continue
+
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+    if (manifest.private === true) continue
+
+    assert.deepEqual(
+      manifest.repository,
+      {
+        type: 'git',
+        url: 'git+https://github.com/karote00/asyra.git',
+        directory: `packages/${entry.name}`
+      },
+      manifest.name
+    )
+    assert.equal(
+      manifest.homepage,
+      'https://asyra-framework.vercel.app',
+      manifest.name
+    )
+  }
+})
+
+test('Asyra Design keeps build and test tooling out of production dependencies', () => {
+  const manifest = JSON.parse(
+    readFileSync(
+      path.join(repositoryRoot, 'apps/asyra-design/package.json'),
+      'utf8'
+    )
+  )
+  const developmentOnlyPackages = [
+    '@testing-library/dom',
+    '@testing-library/react',
+    '@testing-library/user-event',
+    '@types/node',
+    'typescript'
+  ]
+
+  for (const packageName of developmentOnlyPackages) {
+    assert.equal(manifest.dependencies?.[packageName], undefined, packageName)
+    assert.equal(
+      typeof manifest.devDependencies?.[packageName],
+      'string',
+      packageName
+    )
+  }
+
+  for (const retiredPackage of ['@testing-library/jest-dom', '@types/jest']) {
+    assert.equal(manifest.dependencies?.[retiredPackage], undefined)
+    assert.equal(manifest.devDependencies?.[retiredPackage], undefined)
+  }
+  const retiredSetupPath = path.join(
+    repositoryRoot,
+    'apps/asyra-design/src/setupTests.ts'
+  )
+  assert.equal(existsSync(retiredSetupPath), false)
 })
 
 test('generated template manifest is standalone on the supported release runtime', () => {

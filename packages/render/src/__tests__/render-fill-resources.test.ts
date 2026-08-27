@@ -79,7 +79,7 @@ describe('render fill resources', () => {
 
     second.clear()
     expect(engine.getOwnedResourceCount()).toBe(0)
-    expect(engine.getOperations().at(-1)?.type).toBe('destroy-resource')
+    expect(engine.getOperations().slice(-1)[0]?.type).toBe('destroy-resource')
   })
 
   it('describes even-odd raster output without constructing a concrete engine resource', () => {
@@ -134,7 +134,7 @@ describe('render fill resources', () => {
     expect(engine.getOwnedResourceCount()).toBe(1)
     result?.dispose()
     expect(engine.getOwnedResourceCount()).toBe(0)
-    expect(engine.getOperations().at(-1)?.type).toBe('destroy-resource')
+    expect(engine.getOperations().slice(-1)[0]?.type).toBe('destroy-resource')
   })
 
   it('prepares one even-odd geometry contract for raster and hit consumers', () => {

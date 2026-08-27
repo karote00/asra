@@ -44,6 +44,7 @@ if (!/^[a-z0-9][a-z0-9-]*$/.test(appName)) {
 
 const commands = [
   'yarn install --immutable',
+  'yarn security:audit',
   'yarn gen:turbo:check',
   'yarn clean',
   'yarn react:build',

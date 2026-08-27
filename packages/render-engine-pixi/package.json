@@ -4,6 +4,12 @@
   "description": "Pixi implementation of the Asyra render engine contract",
   "author": "Asa Tsai",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karote00/asyra.git",
+    "directory": "packages/render-engine-pixi"
+  },
+  "homepage": "https://asyra-framework.vercel.app",
   "type": "module",
   "engines": {
     "node": "24.x"
@@ -37,11 +43,11 @@
   },
   "dependencies": {
     "@asyra/render-engine": "workspace:*",
-    "pixi.js": "^8.6.3"
+    "pixi.js": "^8.20.1"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/coverage-v8": "^3.2.6",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^3.2.6"
   }
 }

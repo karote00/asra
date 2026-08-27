@@ -31,13 +31,16 @@
     "@asyra/system-context": "workspace:*",
     "@asyra/ui-context": "workspace:*",
     "@asyra/utils": "workspace:*",
-    "jsdom": "16.7.0",
+    "jsdom": "^27.4.0",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },
   "devDependencies": {
     "typescript": "5.8.3",
-    "vite": "6.3.5",
-    "vitest": "2.1.9"
+    "vite": "6.4.3",
+    "vitest": "3.2.6"
+  },
+  "resolutions": {
+    "vite": "6.4.3"
   }
 }

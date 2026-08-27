@@ -9213,7 +9213,7 @@ describe('PropsManager', () => {
     expect(propsManager.getRestoreComponentById('ordered-orphan-leaf')).toBe(
       leaf
     )
-    expect(result.evidence.at(-1)).toMatchObject({
+    expect(result.evidence.slice(-1)[0]).toMatchObject({
       action: PROPS_ACTIONS.REMOVE_PROPERTY,
       data: [
         expect.objectContaining({ id: 'ordered-orphan-owner' }),

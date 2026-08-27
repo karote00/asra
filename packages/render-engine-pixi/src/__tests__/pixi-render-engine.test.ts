@@ -453,7 +453,7 @@ import { PixiRenderEngine } from '../index.js'
 import { Texture } from 'pixi.js'
 
 const getLastApplication = (): MockApplicationRecord => {
-  const application = pixiState.applications.at(-1)
+  const application = pixiState.applications.slice(-1)[0]
   if (!application) {
     throw new Error('Expected a Pixi application test instance')
   }
@@ -508,7 +508,7 @@ describe('PixiRenderEngine', () => {
         getLastApplication().stage.emit(event.type, {
           ...event,
           global: event.position,
-          target: pixiState.graphics.at(-1)
+          target: pixiState.graphics.slice(-1)[0]
         })
       },
       getOperationTypes: () => [...pixiState.operationTypes]
@@ -654,7 +654,7 @@ describe('PixiRenderEngine', () => {
 
     const frame = vi.fn()
     engine.requestFrame(frame)
-    const frameTicker = pixiState.tickers.at(-1)
+    const frameTicker = pixiState.tickers.slice(-1)[0]
     expect(frameTicker).toBeDefined()
     expect(app.ticker.add).not.toHaveBeenCalled()
     expect(app.ticker.start).not.toHaveBeenCalled()
@@ -867,10 +867,10 @@ describe('PixiRenderEngine', () => {
       type: 'scale',
       args: [0.25, 0.125]
     })
-    expect(pixiState.graphics[0].drawOperations.at(-2)?.args[0]).toBe(
+    expect(pixiState.graphics[0].drawOperations.slice(-2)[0]?.args[0]).toBe(
       pixiState.gradients[0]
     )
-    expect(pixiState.graphics[0].drawOperations.at(-1)?.args[0]).toBe(
+    expect(pixiState.graphics[0].drawOperations.slice(-1)[0]?.args[0]).toBe(
       pixiState.patterns[0]
     )
 
@@ -878,7 +878,7 @@ describe('PixiRenderEngine', () => {
       type: 'destroy-resource',
       resource: raster.resource
     })
-    expect(pixiState.textures.at(-1)?.destroy).toHaveBeenCalledOnce()
+    expect(pixiState.textures.slice(-1)[0]?.destroy).toHaveBeenCalledOnce()
     await engine.execute({
       type: 'destroy-resource',
       resource: gradient.resource

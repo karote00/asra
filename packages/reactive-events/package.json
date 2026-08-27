@@ -4,6 +4,12 @@
   "description": "Event middleware",
   "author": "Asa Tsai",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karote00/asyra.git",
+    "directory": "packages/reactive-events"
+  },
+  "homepage": "https://asyra-framework.vercel.app",
   "type": "module",
   "engines": {
     "node": "24.x"
@@ -39,14 +45,14 @@
   "devDependencies": {
     "@types/inquirer": "^8.2.6",
     "@types/node": "^25.0.2",
-    "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/coverage-v8": "^3.2.6",
     "chalk": "^5.6.2",
     "commander": "^14.0.2",
     "inquirer": "^8.0.0",
     "ts-morph": "^27.0.2",
     "tsx": "^4.21.0",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^3.2.6"
   },
   "dependencies": {
     "@asyra/persistence": "workspace:*",

@@ -78,8 +78,8 @@ describe('Render engine adapter', () => {
     expect(first.getEngine()).not.toBe(second.getEngine())
 
     first.dispose()
-    expect(engines[0].getOperations().at(-1)?.type).toBe('destroy')
-    expect(engines[1].getOperations().at(-1)?.type).not.toBe('destroy')
+    expect(engines[0].getOperations().slice(-1)[0]?.type).toBe('destroy')
+    expect(engines[1].getOperations().slice(-1)[0]?.type).not.toBe('destroy')
     second.dispose()
   })
 

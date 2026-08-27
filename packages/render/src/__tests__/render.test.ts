@@ -450,7 +450,7 @@ describe('Render', () => {
         .map((operation) => operation.type)
         .filter((operation) => operation === 'destroy-object')
     ).toHaveLength(1)
-    expect(teardownEngine.getOperations().at(-1)?.type).toBe('destroy')
+    expect(teardownEngine.getOperations().slice(-1)[0]?.type).toBe('destroy')
   })
 
   it('preserves live children when a projected parent is removed and re-added', async () => {
