@@ -182,7 +182,13 @@ test('Playwright routes the formal backend through the same document-session flo
   if (ciScript !== null) {
     assert.match(
       ciScript,
-      /E2E_DOCUMENT_BACKEND_URL=.*[\s\\]*yarn workspace @asyra\/asyra-design start/
+      /E2E_DOCUMENT_BACKEND_URL="\$E2E_DOCUMENT_BACKEND_URL"/,
+      'CI E2E must point the App at the document backend it starts'
+    )
+    assert.match(
+      ciScript,
+      /VITE_COLLABORATION_WS_URL="\$E2E_COLLABORATION_WEBSOCKET_URL"[\s\\]*yarn workspace @asyra\/asyra-design start/,
+      'CI E2E must point the App at the collaboration server it starts'
     )
     assert.match(ciScript, /document:backend:start/)
     assert.match(ciScript, /DOCUMENT_PERSISTENCE_BACKEND_URL=/)
