@@ -2,7 +2,7 @@
 set -euo pipefail
 
 read -r E2E_HOST E2E_PORT E2E_APP_URL \
-  E2E_COLLABORATION_HEALTH_URL <<< "$(
+  E2E_COLLABORATION_HEALTH_URL E2E_COLLABORATION_WEBSOCKET_URL <<< "$(
   node --input-type=module -e "
     import {
       loadEnvironment,
@@ -11,12 +11,18 @@ read -r E2E_HOST E2E_PORT E2E_APP_URL \
     const config = resolveEnvironment(
       loadEnvironment()
     )
+    const collaborationWebSocketURL = new URL(
+      '/collaboration',
+      config.collaborationHealthURL
+    )
+    collaborationWebSocketURL.protocol = 'ws:'
     process.stdout.write(
       [
         config.viteHost,
         config.vitePort,
         config.appURL,
-        config.collaborationHealthURL
+        config.collaborationHealthURL,
+        collaborationWebSocketURL.href
       ].join(' ')
     )
   "
@@ -85,6 +91,7 @@ npx wait-on "http-get://${E2E_COLLABORATION_HEALTH_URL#http://}" --timeout 60000
 echo "Step 8: Starting E2E App server at $E2E_APP_URL..."
 E2E_OWN_SERVERS=1 \
   E2E_DOCUMENT_BACKEND_URL="$E2E_DOCUMENT_BACKEND_URL" \
+  VITE_COLLABORATION_WS_URL="$E2E_COLLABORATION_WEBSOCKET_URL" \
   yarn workspace @asyra/asyra-design start \
   --port "$E2E_PORT" \
   --host "$E2E_HOST" \
