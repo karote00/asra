@@ -89,25 +89,22 @@ test('release template excludes local runtime data directories', () => {
     )
   )
 
-  assert.ok(
-    config.cleanFiles.includes('.*-data'),
-    'local runtime data directories must never enter the generated template'
-  )
-  for (const repositoryOnlyPath of [
+  assert.deepEqual(config.cleanFiles, [
+    'node_modules',
+    'yarn.lock',
+    'package-lock.json',
+    'pnpm-lock.yaml',
+    '.pnp.cjs',
+    '.pnp.loader.mjs',
+    '.DS_Store',
+    '.env*',
+    '.*-data',
     '.turbo',
     'coverage',
     'dist',
-    'package-lock.json',
-    'pnpm-lock.yaml',
     'playwright-report',
-    'test-results',
-    'yarn.lock'
-  ]) {
-    assert.ok(
-      config.cleanFiles.includes(repositoryOnlyPath),
-      `${repositoryOnlyPath} must never enter the generated template`
-    )
-  }
+    'test-results'
+  ])
 
   const releaseTemplate = readFileSync(
     path.join(repositoryRoot, 'scripts/release-template.js'),
