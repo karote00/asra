@@ -20,14 +20,14 @@ Treat app domain schemas, permissions, migration, retrieval, services, and produ
 - [Intent enters through Features](learn/intent-and-features.md): Translate user or agent intent into explicit Feature sessions rather than mutating owners from UI or transport code.
 - [Give every state one canonical owner](learn/canonical-state.md): Separate canonical model state, local derived state, projection state, and remote transport state.
 - [One user intent, one transaction](learn/transactions-and-durability.md): Commit, roll back, undo, redo, publish, and persist one intended action through one canonical boundary.
-- [Validate at every write and load boundary](learn/validation-load-migration.md): Keep schema validation in the Framework while version interpretation and migration remain app-domain responsibilities.
+- [Understand versioned loading and migration](learn/validation-load-migration.md): Use the Framework migration lifecycle while your product supplies its version history and domain-specific transforms.
 - [Register projections without changing ownership](learn/projection-registration-replacement.md): Keep canonical information independent from render layers and engine providers, then choose the maintained customization path when a provider must change.
 - [Current runtime and future Core Kernel](learn/runtime-boundaries-roadmap.md): Distinguish today's browser/Core composition from the researched Headless and Core Kernel direction for machine-facing products.
 - [Build a custom component and schema](build/custom-schema.md): Register app-owned component meaning, property defaults, and validation through public Core APIs.
 - [Build a transaction-safe Feature session](build/feature-session.md): Map start, update, end, and cancellation to exactly one intended undo commit.
 - [Build a custom render boundary](build/render-boundary.md): Provide an engine through the public provider contract without teaching Core a renderer-specific implementation.
 - [Build hierarchy and Group behavior](build/hierarchy-groups.md): Keep parent-child ordering canonical while group meaning and geometry policy remain app-owned.
-- [Build persistence with app-owned migration](build/persistence-migration.md): Load validated canonical state while the app owns document versions, migration rules, and unsupported-version policy.
+- [Define migrations for your product](build/persistence-migration.md): Extend the Framework load lifecycle with your product's document versions, deterministic transforms, and unsupported-version policy.
 - [Build opt-in collaboration](build/collaboration.md): Connect deterministic collaboration actors while the app owns transport, authorization, presence, and backend policy.
 - [Build registered AI actions](build/ai-actions.md): Expose bounded action schemas and permissions so AI intent uses the same canonical transaction paths as people.
 - [Build app-owned AI retrieval and action](build/app-retrieval-action.md): Let the app retrieve domain context and register actions without presenting future Headless support as current behavior.

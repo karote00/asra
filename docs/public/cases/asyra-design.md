@@ -135,7 +135,7 @@ Disconnected editing uses the declared provisional document and app-owned
 recovery behavior; it does not select a second canonical document mode.
 
 See [Build opt-in collaboration](../build/collaboration.md) and
-[Build persistence with app-owned migration](../build/persistence-migration.md).
+[Define migrations for your product](../build/persistence-migration.md).
 
 ## Optional AI actions
 
@@ -203,7 +203,7 @@ Framework composition, use the [official 2D baseline](../start/preset-2d.md) or
 - [Extend the generated product](../start/create-design-app.md)
 - [Build registered AI actions](../build/ai-actions.md)
 - [Build opt-in collaboration](../build/collaboration.md)
-- [Build persistence with app-owned migration](../build/persistence-migration.md)
+- [Define migrations for your product](../build/persistence-migration.md)
 - Inspect the generated app's owner-focused tests and synchronized product E2E
   tests for the exact feature being changed.
 

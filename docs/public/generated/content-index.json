@@ -444,7 +444,7 @@
       "wordCount": 416
     },
     {
-      "contentSha256": "f3d74e4deab240a1737648e27d9fd47c62ec72859cf8de267e347ca005b4aa13",
+      "contentSha256": "d47c6347b43489b2b77ee20fe939364a4922390e52f55b5b3ca30f82563641da",
       "description": "Commit, roll back, undo, redo, publish, and persist one intended action through one canonical boundary.",
       "headings": [
         {
@@ -500,12 +500,12 @@
       "wordCount": 509
     },
     {
-      "contentSha256": "531856a43182114d896262d4e3e6e5d55367a03830aa0039befb0f97ac73041a",
-      "description": "Keep schema validation in the Framework while version interpretation and migration remain app-domain responsibilities.",
+      "contentSha256": "0260803844ed85dce2a9219ce025b10fde12c0fca2ad4753a31081871f97d67f",
+      "description": "Use the Framework migration lifecycle while your product supplies its version history and domain-specific transforms.",
       "headings": [
         {
           "depth": 1,
-          "title": "Validate at every write and load boundary"
+          "title": "Understand versioned loading and migration"
         },
         {
           "depth": 2,
@@ -517,7 +517,7 @@
         },
         {
           "depth": 2,
-          "title": "Maintained implementation paths"
+          "title": "Use the capability in your product"
         },
         {
           "depth": 2,
@@ -557,8 +557,8 @@
       ],
       "path": "learn/validation-load-migration.md",
       "section": "Concepts",
-      "title": "Validate at every write and load boundary",
-      "wordCount": 511
+      "title": "Understand versioned loading and migration",
+      "wordCount": 597
     },
     {
       "contentSha256": "1283cef149e402742780622fcb020d51509abf9499933597f90d8dbb60cee572",
@@ -902,12 +902,12 @@
       "wordCount": 488
     },
     {
-      "contentSha256": "5292c2d4732eb0023aa87cb73790656f39ffd5be6fe631b1262c831b08d8cbe4",
-      "description": "Load validated canonical state while the app owns document versions, migration rules, and unsupported-version policy.",
+      "contentSha256": "37200b166098232b1097511b0aa0ce704a75c2fc853d3fb5e78ca1eccec38c65",
+      "description": "Extend the Framework load lifecycle with your product's document versions, deterministic transforms, and unsupported-version policy.",
       "headings": [
         {
           "depth": 1,
-          "title": "Build persistence with app-owned migration"
+          "title": "Define migrations for your product"
         },
         {
           "depth": 2,
@@ -963,8 +963,8 @@
       ],
       "path": "build/persistence-migration.md",
       "section": "Extend",
-      "title": "Build persistence with app-owned migration",
-      "wordCount": 445
+      "title": "Define migrations for your product",
+      "wordCount": 471
     },
     {
       "contentSha256": "1186b98542d1e962add2968b9d471df34d14e67da641dadfa3731601ea13c887",
@@ -1572,7 +1572,7 @@
       "wordCount": 389
     },
     {
-      "contentSha256": "64aca2a9895ec0659813e582c537e92affb8871dccc39885953a4eca2666daa1",
+      "contentSha256": "e81642b5d077d418f273319bdb3251976516e77591f69058c54f661abf2b8315",
       "description": "Storage adapter and validated load boundary with app-owned migration meaning.",
       "headings": [
         {
@@ -2329,7 +2329,7 @@
       "wordCount": 468
     },
     {
-      "contentSha256": "9a52bc8a2c84dd9a17882bfaa01d67889ab3ec56555184f8e2056e13b94703cb",
+      "contentSha256": "9e1954d8a150bfbb3317ad101032170dc9f9fb01ed01b64a08cf783ab38da1d4",
       "description": "See how one real product composes Framework infrastructure, Preset defaults, app-domain behavior, collaboration, persistence, and AI.",
       "headings": [
         {

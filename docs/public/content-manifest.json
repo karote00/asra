@@ -114,8 +114,8 @@
       "id": "learn/validation-load-migration",
       "path": "learn/validation-load-migration.md",
       "section": "Concepts",
-      "title": "Validate at every write and load boundary",
-      "description": "Keep schema validation in the Framework while version interpretation and migration remain app-domain responsibilities.",
+      "title": "Understand versioned loading and migration",
+      "description": "Use the Framework migration lifecycle while your product supplies its version history and domain-specific transforms.",
       "sources": [
         "docs/ai/framework/packages/props-manager.md",
         "docs/ai/framework/packages/persistence.md"
@@ -213,8 +213,8 @@
       "id": "build/persistence-migration",
       "path": "build/persistence-migration.md",
       "section": "Extend",
-      "title": "Build persistence with app-owned migration",
-      "description": "Load validated canonical state while the app owns document versions, migration rules, and unsupported-version policy.",
+      "title": "Define migrations for your product",
+      "description": "Extend the Framework load lifecycle with your product's document versions, deterministic transforms, and unsupported-version policy.",
       "sources": [
         "docs/ai/framework/packages/persistence.md",
         "docs/ai/framework/packages/props-manager.md"

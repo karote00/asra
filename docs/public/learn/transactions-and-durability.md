@@ -88,4 +88,4 @@ partial failure by rendering the desired final output.
 ## Next
 
 - [Build a transaction-safe Feature](../build/feature-session.md)
-- [Build persistence with app-owned migration](../build/persistence-migration.md)
+- [Define migrations for your product](../build/persistence-migration.md)

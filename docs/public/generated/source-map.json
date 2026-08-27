@@ -118,7 +118,7 @@
     },
     {
       "id": "learn/transactions-and-durability",
-      "pageSha256": "f3d74e4deab240a1737648e27d9fd47c62ec72859cf8de267e347ca005b4aa13",
+      "pageSha256": "d47c6347b43489b2b77ee20fe939364a4922390e52f55b5b3ca30f82563641da",
       "sources": [
         {
           "path": "docs/ai/framework/packages/factory.md",
@@ -132,7 +132,7 @@
     },
     {
       "id": "learn/validation-load-migration",
-      "pageSha256": "531856a43182114d896262d4e3e6e5d55367a03830aa0039befb0f97ac73041a",
+      "pageSha256": "0260803844ed85dce2a9219ce025b10fde12c0fca2ad4753a31081871f97d67f",
       "sources": [
         {
           "path": "docs/ai/framework/packages/props-manager.md",
@@ -250,7 +250,7 @@
     },
     {
       "id": "build/persistence-migration",
-      "pageSha256": "5292c2d4732eb0023aa87cb73790656f39ffd5be6fe631b1262c831b08d8cbe4",
+      "pageSha256": "37200b166098232b1097511b0aa0ce704a75c2fc853d3fb5e78ca1eccec38c65",
       "sources": [
         {
           "path": "docs/ai/framework/packages/persistence.md",
@@ -404,7 +404,7 @@
     },
     {
       "id": "reference/packages/persistence",
-      "pageSha256": "64aca2a9895ec0659813e582c537e92affb8871dccc39885953a4eca2666daa1",
+      "pageSha256": "e81642b5d077d418f273319bdb3251976516e77591f69058c54f661abf2b8315",
       "sources": [
         {
           "path": "docs/ai/framework/packages/persistence.md",
@@ -594,7 +594,7 @@
     },
     {
       "id": "cases/asyra-design",
-      "pageSha256": "9a52bc8a2c84dd9a17882bfaa01d67889ab3ec56555184f8e2056e13b94703cb",
+      "pageSha256": "9e1954d8a150bfbb3317ad101032170dc9f9fb01ed01b64a08cf783ab38da1d4",
       "sources": [
         {
           "path": "docs/ai/apps/asyra-design/APP_ESSENTIALS.md",

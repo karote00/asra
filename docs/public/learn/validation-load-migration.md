@@ -1,12 +1,20 @@
-# Validate at every write and load boundary
+# Understand versioned loading and migration
 
-Schema validation protects canonical state regardless of where a value comes
-from. Local UI, an AI action, a collaboration message, a stored document, and a
-test fixture must all satisfy the same owner contract.
+Migration is part of the Framework load lifecycle, not a separate custom
+pipeline. Core provides the migration integration point, ordered load
+orchestration, result enforcement, package validation, and failure-safe
+activation. Your product supplies the version history and domain-specific
+transforms because only the product can interpret what its older documents
+mean.
+
+Schema validation then protects canonical state regardless of where a value
+comes from. Local UI, an AI action, a collaboration message, a stored document,
+and a test fixture must all satisfy the same owner contract.
 
 Props Manager owns property definitions and runtime/load validation. Persistence
-coordinates storage adapters. Your app owns document versions, domain
-interpretation, migration rules, and the decision to reject unsupported data.
+coordinates storage adapters. Core owns the load and migration lifecycle. Your
+app owns document versions, domain interpretation, migration rules, and the
+decision to reject unsupported data.
 
 ## Write behavior
 
@@ -26,19 +34,22 @@ registers a synchronous load hook before Core starts. Persistence supplies the
 untrusted envelope; the app migrates domain versions; Core and package owners
 validate the resulting candidate before activation.
 
-## Maintained implementation paths
+## Use the capability in your product
 
-Use the guide that matches the boundary you are implementing:
+These concepts describe the Framework contract. When you are ready to add the
+version-specific rules for your product, use the guide that matches the
+boundary you are implementing:
 
 - [Build a custom component and schema](../build/custom-schema.md) shows
   runtime property registration, defaults, and owner validation.
-- [Build persistence with app-owned migration](../build/persistence-migration.md)
-  shows the complete document envelope, deterministic version path, load hook,
+- [Define migrations for your product](../build/persistence-migration.md) shows
+  the complete document envelope, deterministic version path, load hook,
   candidate validation, and failure behavior.
 
 Do not copy a second migration dispatcher into a concept page or UI module.
-Migration stays app-owned, while the Framework owners validate the migrated
-candidate before it becomes active.
+Use the Framework load lifecycle once, supply one product-owned migration
+chain, and let the canonical owners validate the migrated candidate before it
+becomes active.
 
 ## Flow
 
@@ -89,5 +100,5 @@ transport origin does not bypass validation.
 
 ## Next
 
-- [Build persistence and migration](../build/persistence-migration.md)
+- [Define migrations for your product](../build/persistence-migration.md)
 - [Read the Persistence package guide](../reference/packages/persistence.md)
