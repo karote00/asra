@@ -260,18 +260,12 @@ if (!fs.existsSync(pkgPath)) {
 }
 
 // ----------------------
-// Fix vite.config.ts outDir and remove Vercel config
+// Remove monorepo-only Vercel config from the standalone template
 // ----------------------
 const viteConfigPath = path.join(DEST_DIR, 'vite.config.ts')
 if (fs.existsSync(viteConfigPath)) {
   let viteConfigContent = fs.readFileSync(viteConfigPath, 'utf-8')
   const originalConfig = viteConfigContent
-
-  // Change outDir from '../../dist' to 'dist'
-  viteConfigContent = viteConfigContent.replace(
-    /outDir:\s*['"][^'"]*\/dist(?:\/[^'"]*)?['"]/g,
-    "outDir: 'dist'"
-  )
 
   // Remove vercel import
   viteConfigContent = viteConfigContent.replace(

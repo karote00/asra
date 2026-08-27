@@ -62,7 +62,7 @@ export default defineConfig({
   },
   publicDir: 'public',
   build: {
-    outDir: '../../dist',
+    outDir: 'dist/frontend',
     assetsDir: 'assets',
     emptyOutDir: true
   }

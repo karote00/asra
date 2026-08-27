@@ -154,12 +154,16 @@ test('Asyra Design keeps frontend startup, live transport, and local persistence
 test('CI, E2E, and release validation own their bounded integration gates', () => {
   const collaboration = readJSON('packages/collaboration/package.json')
   const vercel = readJSON('vercel.json')
+  const designViteConfig = readText('apps/asyra-design/vite.config.ts')
   const ci = readText('.github/workflows/main.yml')
   const e2e = readText('.github/workflows/e2e.yml')
   const releaseValidation = readText('scripts/release-validate.js')
 
   assert.equal(collaboration.scripts.clean, 'rm -rf dist')
   assert.equal(vercel.buildCommand, 'turbo run react:build')
+  assert.equal(vercel.outputDirectory, 'apps/asyra-design/dist/frontend')
+  assert.match(designViteConfig, /outDir:\s*['"]dist\/frontend['"]/)
+  assert.doesNotMatch(designViteConfig, /outDir:\s*['"]\.\.\/\.\.\/dist['"]/)
   assert.match(ci, /yarn gen:turbo:check/)
   assert.match(ci, /yarn deps:validate/)
   assert.doesNotMatch(ci, /yarn release:app:check/)

@@ -198,7 +198,7 @@ export const getPreparedServerResponseVariant = (itemCount) => {
 export const resolvePreparedServerResponsePreviewPaths = ({
   previewRoot = path.join(defaultLayoutRoot, 'tmp', 'endpoint-preview'),
   processId = process.pid,
-  productionDistPath = path.join(defaultLayoutRoot, 'dist'),
+  productionDistPath = path.join(defaultAppRoot, 'dist', 'frontend'),
   sourceActionBatchPath = path.join(
     defaultAppRoot,
     'samples',

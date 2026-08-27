@@ -15,8 +15,6 @@ import {
   setTimeout
 } from 'node:timers'
 import { fileURLToPath, URL } from 'node:url'
-import { resolvePreparedServerResponseLayoutRoot } from './prepared-server-response-artifacts.mjs'
-
 export const DEFAULT_RESOURCE_GUARD_CONFIG = Object.freeze({
   maximumCpuPercent: 400,
   maximumFrontendCpuPercent: 250,
@@ -235,8 +233,9 @@ export const resolveEndpointBrowserExecutablePath = ({
   return executablePath
 }
 
-export const resolveEndpointBuildAssetsDirectory = (options = {}) =>
-  resolve(resolvePreparedServerResponseLayoutRoot(options), 'dist', 'assets')
+export const resolveEndpointBuildAssetsDirectory = ({
+  appRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
+} = {}) => resolve(appRoot, 'dist', 'frontend', 'assets')
 
 const createEmptyRoleCpuPercent = () => ({
   actorABrowser: 0,

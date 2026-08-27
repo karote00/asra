@@ -76,7 +76,7 @@ const createSmallRecord = async (fileId, itemCount) => ({
   schemaVersion: 1
 })
 
-test('resolves workspace and standalone production output from the package contract', () => {
+test('resolves workspace and standalone temporary layout from the package contract', () => {
   const workspaceAppRoot = path.join(workspaceRoot, 'apps', 'asyra-design')
   const standaloneAppRoot = path.join(
     workspaceRoot,
