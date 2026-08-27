@@ -38,8 +38,9 @@ if (!existsSync(releaseConfigPath)) {
 }
 
 const releaseConfig = JSON.parse(readFileSync(releaseConfigPath, 'utf8'))
+const sourceRoot = path.resolve(repositoryRoot, releaseConfig.src)
 const templateRoot = path.resolve(repositoryRoot, releaseConfig.dest)
-const templateConfigPath = path.join(templateRoot, 'vite.config.ts')
+const sourceConfigPath = path.join(sourceRoot, 'vite.config.ts')
 const outputDirectory = path.join(
   repositoryRoot,
   'tmp',
@@ -48,6 +49,10 @@ const outputDirectory = path.join(
 
 if (!existsSync(path.join(templateRoot, 'package.json'))) {
   console.error(`Generated template not found: ${templateRoot}`)
+  process.exit(1)
+}
+if (!existsSync(sourceConfigPath)) {
+  console.error(`Canonical app config not found: ${sourceConfigPath}`)
   process.exit(1)
 }
 
@@ -76,7 +81,7 @@ try {
       'build',
       templateRoot,
       '--config',
-      templateConfigPath,
+      sourceConfigPath,
       '--outDir',
       outputDirectory,
       '--emptyOutDir'

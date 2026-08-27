@@ -1,4 +1,5 @@
 import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 
 const validationDirectoryPrefix = 'release-validation-'
@@ -62,6 +63,36 @@ export const createReleaseValidationWorkspace = ({
           shouldCopyPath(resolvedSourceRoot, nestedSourcePath)
       })
     }
+
+    execFileSync(
+      'git',
+      ['init', '--quiet', '--initial-branch=release-validation'],
+      {
+        cwd: validationRoot,
+        stdio: 'ignore'
+      }
+    )
+    execFileSync('git', ['add', '--all'], {
+      cwd: validationRoot,
+      stdio: 'ignore'
+    })
+    execFileSync(
+      'git',
+      [
+        '-c',
+        'user.name=Asyra Release Validation',
+        '-c',
+        'user.email=release-validation@local.invalid',
+        'commit',
+        '--quiet',
+        '--no-gpg-sign',
+        '--message=Release validation snapshot'
+      ],
+      {
+        cwd: validationRoot,
+        stdio: 'ignore'
+      }
+    )
   } catch (error) {
     rmSync(validationRoot, { recursive: true, force: true })
     throw error

@@ -8,7 +8,10 @@ import {
   createReleaseValidationWorkspace,
   removeReleaseValidationWorkspace
 } from './release-validation-workspace.js'
-import { createReleaseValidationEnvironment } from './release-validation-environment.js'
+import {
+  createReleaseValidationBaseEnvironment,
+  createReleaseValidationEnvironment
+} from './release-validation-environment.js'
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -51,6 +54,8 @@ const commands = [
   `yarn release:app:check --prod=${appName}`,
   `yarn release:app:build --prod=${appName} --prebuilt`
 ]
+const collaborationValidationCommand =
+  'yarn workspace @asyra/asyra-design test:e2e:collaboration'
 
 if (printPlan) {
   process.stdout.write(`${JSON.stringify(commands, null, 2)}\n`)
@@ -107,13 +112,17 @@ try {
     appPort,
     collaborationPort
   })
+  const baseValidationEnvironment = createReleaseValidationBaseEnvironment()
 
   console.log(`Release validation workspace: ${validationRoot}`)
   for (const command of commands) {
     console.log(`\n> ${command}`)
     execSync(command, {
       cwd: validationRoot,
-      env: validationEnvironment,
+      env:
+        command === collaborationValidationCommand
+          ? validationEnvironment
+          : baseValidationEnvironment,
       stdio: 'inherit'
     })
   }

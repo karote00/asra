@@ -58,6 +58,26 @@ test('release validation covers build, tests, dependencies, collaboration, and g
   ])
 })
 
+test('generated template smoke build resolves tooling through its synchronized canonical app', () => {
+  const buildReleaseTemplate = readFileSync(
+    path.join(repositoryRoot, 'scripts/build-release-template.js'),
+    'utf8'
+  )
+
+  assert.match(
+    buildReleaseTemplate,
+    /const sourceRoot = path\.resolve\(repositoryRoot, releaseConfig\.src\)/
+  )
+  assert.match(
+    buildReleaseTemplate,
+    /const sourceConfigPath = path\.join\(sourceRoot, 'vite\.config\.ts'\)/
+  )
+  assert.match(
+    buildReleaseTemplate,
+    /'build',\s+templateRoot,\s+'--config',\s+sourceConfigPath/
+  )
+})
+
 test('release template exposes a non-mutating synchronization check', () => {
   const manifest = JSON.parse(
     readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
@@ -660,13 +680,29 @@ test('release validation copies only repository source into an isolated workspac
     assert.equal(existsSync(path.join(validationRoot, 'src', 'index.js')), true)
     assert.equal(existsSync(path.join(validationRoot, '.env')), true)
     assert.equal(existsSync(path.join(validationRoot, '.env.example')), true)
-    for (const excludedPath of [
-      '.git',
-      'dist',
-      'node_modules',
-      'tmp',
-      '.env.local'
-    ]) {
+    assert.equal(existsSync(path.join(validationRoot, '.git')), true)
+    assert.equal(
+      spawnSync('git', ['rev-parse', '--show-toplevel'], {
+        cwd: validationRoot,
+        encoding: 'utf8'
+      }).stdout.trim(),
+      validationRoot
+    )
+    assert.equal(
+      spawnSync('git', ['rev-parse', '--verify', 'HEAD'], {
+        cwd: validationRoot,
+        encoding: 'utf8'
+      }).status,
+      0
+    )
+    assert.equal(
+      spawnSync('git', ['status', '--porcelain'], {
+        cwd: validationRoot,
+        encoding: 'utf8'
+      }).stdout,
+      ''
+    )
+    for (const excludedPath of ['dist', 'node_modules', 'tmp', '.env.local']) {
       assert.equal(existsSync(path.join(validationRoot, excludedPath)), false)
     }
 
@@ -682,15 +718,30 @@ test('release validation copies only repository source into an isolated workspac
 })
 
 test('release validation supplies matching app and collaboration endpoints', async () => {
-  const { createReleaseValidationEnvironment } = await import(
-    '../release-validation-environment.js'
+  const {
+    createReleaseValidationBaseEnvironment,
+    createReleaseValidationEnvironment
+  } = await import('../release-validation-environment.js')
+
+  const ambientEnvironment = {
+    RELEASE_TOKEN: 'preserved',
+    APP_URL: 'http://127.0.0.1:9997',
+    COLLABORATION_WS_PORT: '9998',
+    VITE_COLLABORATION_WS_URL: 'ws://127.0.0.1:9998/collaboration'
+  }
+
+  assert.deepEqual(
+    createReleaseValidationBaseEnvironment({
+      environment: ambientEnvironment
+    }),
+    { RELEASE_TOKEN: 'preserved' }
   )
 
   assert.deepEqual(
     createReleaseValidationEnvironment({
       appPort: 4317,
       collaborationPort: 5109,
-      environment: { RELEASE_TOKEN: 'preserved' }
+      environment: ambientEnvironment
     }),
     {
       RELEASE_TOKEN: 'preserved',
