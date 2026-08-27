@@ -13,10 +13,10 @@ test('documentation TypeScript blocks use semantic syntax colors at every layout
     },
     {
       name: 'migration',
-      route: '/docs/learn/validation-load-migration',
+      route: '/docs/build/persistence-migration',
       needle: 'const migrations',
       expected: [
-        'type Migration = (document: Document) => Document',
+        'type Migration = (document: AppDocument) => AppDocument',
         'new Map<string, Migration>'
       ],
       unexpected: 'new Map<string, (document'
