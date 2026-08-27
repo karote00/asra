@@ -144,6 +144,15 @@ test('the Vercel project-root manifest selects Node.js 24 without a conflicting 
   assert.doesNotMatch(JSON.stringify(vercelConfig), /nodejs20|20\.x/i)
 })
 
+test('the Framework website Vercel build follows its Turbo dependency graph', () => {
+  const vercelConfig = readJson('apps/asyra-framework-site/vercel.json')
+
+  assert.equal(
+    vercelConfig.buildCommand,
+    'cd ../.. && corepack yarn turbo run build:asyra-framework-site --filter=@asyra/asyra-framework-site'
+  )
+})
+
 test('current public support records require Node.js 24 without a legacy-major fallback', () => {
   const supportPaths = [
     'README.md',
