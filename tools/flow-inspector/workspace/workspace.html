@@ -4,69 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Flow Inspector Workspace</title>
-    <style>
-      :root { color-scheme: dark; --bg:#0a0d12; --panel:#111720; --panel2:#171f2b; --line:#283548; --text:#edf4fb; --muted:#91a0b2; --accent:#68c5ff; --danger:#ff8e8e; }
-      * { box-sizing: border-box; }
-      body { margin:0; min-height:100vh; background:var(--bg); color:var(--text); font:14px/1.5 ui-sans-serif,system-ui,sans-serif; }
-      button,input { font:inherit; }
-      .workspace { display:grid; grid-template-columns:320px minmax(0,1fr); height:100vh; }
-      .sidebar { overflow:auto; border-right:1px solid var(--line); background:var(--panel); padding:20px 16px; }
-      .brand { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
-      .brand h1 { margin:0; font-size:18px; }
-      .overview-link,.inspector-link,.group-toggle { width:100%; border:0; color:inherit; background:transparent; text-align:left; cursor:pointer; }
-      .overview-link { border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:12px; }
-      .overview-link[aria-current="page"],.inspector-link[aria-current="page"] { border-color:var(--accent); background:#142638; }
-      .search { width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 12px; color:var(--text); background:#0d131b; }
-      .catalog { margin-top:18px; }
-      .group { margin-bottom:14px; }
-      .group-toggle { display:flex; justify-content:space-between; padding:7px 4px; color:var(--muted); font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
-      .group-items { display:grid; gap:5px; }
-      .inspector-link { display:block; border:1px solid transparent; border-radius:9px; padding:8px 10px; }
-      .inspector-link small { display:block; color:var(--muted); }
-      .main { min-width:0; min-height:0; overflow:hidden; }
-      .view { height:100%; }
-      .overview,.route-error { overflow:auto; padding:clamp(24px,5vw,72px); }
-      .eyebrow { color:var(--accent); text-transform:uppercase; letter-spacing:.12em; font-weight:700; }
-      .overview h2,.route-error h2 { max-width:780px; margin:10px 0; font-size:clamp(30px,5vw,58px); line-height:1.05; }
-      .lede { max-width:720px; color:var(--muted); font-size:17px; }
-      .metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; max-width:900px; margin-top:32px; }
-      .metric { border:1px solid var(--line); border-radius:14px; padding:18px; background:var(--panel2); }
-      .metric strong { display:block; font-size:28px; }
-      .target-frame { width:100%; height:100%; border:0; background:#101418; }
-      .route-error { color:var(--danger); }
-      [hidden] { display:none !important; }
-      @media (max-width:760px) { .workspace { grid-template-columns:1fr; grid-template-rows:minmax(210px,38vh) minmax(0,1fr); } .sidebar { border-right:0; border-bottom:1px solid var(--line); } }
-    </style>
+    <link
+      rel="stylesheet"
+      href="./generated/flow-inspector-workspace.css"
+    />
   </head>
   <body>
-    <div class="workspace">
-      <aside class="sidebar" aria-label="Inspector catalog">
-        <div class="brand"><h1>Flow Inspector</h1><span>Static</span></div>
-        <button class="overview-link" type="button" data-overview>Overview</button>
-        <label>
-          <span class="eyebrow">Search catalog</span>
-          <input class="search" type="search" data-search placeholder="Title, id, subgroup, label" />
-        </label>
-        <nav class="catalog" data-catalog aria-label="Available Inspectors"></nav>
-      </aside>
-      <main class="main">
-        <section class="view overview" data-view="overview">
-          <p class="eyebrow">Current project catalog</p>
-          <h2>One place to read every current Inspector.</h2>
-          <p class="lede">This is static documentation: it describes contracts and planned flow, but does not claim runtime status, execute commands, or decide CI acceptance.</p>
-          <div class="metrics" data-overview-metrics></div>
-        </section>
-        <section class="view" data-view="target" hidden>
-          <iframe class="target-frame" data-target-frame title="Selected Flow Inspector"></iframe>
-        </section>
-        <section class="view route-error" data-view="error" hidden>
-          <p class="eyebrow">Route error</p>
-          <h2 data-route-error>Inspector is not available.</h2>
-          <p>No fallback target was selected.</p>
-        </section>
-      </main>
-    </div>
+    <div id="flow-inspector-workspace-root"></div>
     <script src="./workspace-bundle.data.js"></script>
-    <script src="./workspace.js"></script>
+    <script src="./generated/flow-inspector-workspace.js"></script>
   </body>
 </html>

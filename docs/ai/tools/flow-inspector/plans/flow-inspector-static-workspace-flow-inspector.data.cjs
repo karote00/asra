@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 
 const freeze = (value) => {
-  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value
+  if (!value || typeof value !== 'object' || Object.isFrozen(value))
+    return value
   Object.values(value).forEach(freeze)
   return Object.freeze(value)
 }
@@ -127,12 +128,19 @@ const data = {
       conditions: ['Known ids select exactly one entry.'],
       bypasses: ['Missing hash selects Overview only.'],
       allowedContributors: ['catalog summaries', 'browser location'],
-      forbiddenContributors: ['target semantic reconstruction', 'runtime health'],
+      forbiddenContributors: [
+        'target semantic reconstruction',
+        'runtime health'
+      ],
       cacheDimensions: [],
       implementationBoundary: [
         'tools/flow-inspector/workspace/workspace.html',
-        'tools/flow-inspector/workspace/workspace.js',
-        'tools/flow-inspector/workspace/__tests__/workspace.test.cjs'
+        'tools/flow-inspector/src/App.tsx',
+        'tools/flow-inspector/src/main.tsx',
+        'tools/flow-inspector/src/routing.ts',
+        'tools/flow-inspector/src/types.ts',
+        'tools/flow-inspector/src/workspace.css',
+        'tools/flow-inspector/src/__tests__/workspace.test.tsx'
       ],
       specRefs: ['#routing-and-isolation', '#supported-behavior'],
       failureOwnerStepId: 'route-workspace-selection'
@@ -147,14 +155,23 @@ const data = {
         'Navigate a dedicated target iframe so every selection receives a fresh document and global scope.',
       inputs: ['artifact:selected-workspace-route'],
       outputs: ['artifact:isolated-target-document'],
-      conditions: ['Selected id resolves to one included bundle entry.'],
+      conditions: [
+        'Selected id resolves to one included bundle entry.',
+        'Target query and hash ids match before rendering.'
+      ],
       bypasses: ['Overview creates no target document.'],
       allowedContributors: ['selected catalog entry', 'target iframe'],
-      forbiddenContributors: ['parent DOM as target authority', 'previous target globals'],
+      forbiddenContributors: [
+        'parent DOM as target authority',
+        'previous target globals'
+      ],
       cacheDimensions: [],
       implementationBoundary: [
+        'tools/flow-inspector/src/App.tsx',
+        'tools/flow-inspector/src/routing.ts',
         'tools/flow-inspector/workspace/target.html',
         'tools/flow-inspector/workspace/target.js',
+        'tools/flow-inspector/src/__tests__/workspace.test.tsx',
         'tools/flow-inspector/workspace/__tests__/workspace.test.cjs'
       ],
       specRefs: ['#routing-and-isolation'],
@@ -168,10 +185,15 @@ const data = {
       ownerPackage: 'tools/flow-inspector',
       purpose:
         'Render v2 targets with the shared viewer and label legacy compatibility data without inventing semantics.',
-      inputs: ['artifact:isolated-target-document', 'artifact:workspace-browser-snapshot'],
+      inputs: [
+        'artifact:isolated-target-document',
+        'artifact:workspace-browser-snapshot'
+      ],
       outputs: ['artifact:rendered-static-inspector'],
       conditions: ['Renderer kind follows catalog classification.'],
-      bypasses: ['Invalid targets render an explicit error instead of fallback.'],
+      bypasses: [
+        'Invalid targets render an explicit error instead of fallback.'
+      ],
       allowedContributors: ['shared v2 renderer', 'legacy read-only renderer'],
       forbiddenContributors: ['schema coercion', 'execution state'],
       cacheDimensions: [],
@@ -195,7 +217,9 @@ const data = {
       inputs: ['artifact:rendered-static-inspector'],
       outputs: ['artifact:standalone-compatibility-proof'],
       conditions: ['Every retained standalone entry passes its existing gate.'],
-      bypasses: ['A source without an existing standalone entry creates no compatibility claim.'],
+      bypasses: [
+        'A source without an existing standalone entry creates no compatibility claim.'
+      ],
       allowedContributors: ['existing target HTML', 'shared snapshot embedder'],
       forbiddenContributors: ['workspace dependency in standalone entries'],
       cacheDimensions: [],
@@ -223,11 +247,24 @@ const data = {
       conditions: ['All product cases and Definition of Done gates pass.'],
       bypasses: ['No dynamic Control Plane gate is part of this preview.'],
       allowedContributors: ['formal tests', 'synchronized browser review'],
-      forbiddenContributors: ['manual-only completion claim', 'future feature claims'],
+      forbiddenContributors: [
+        'manual-only completion claim',
+        'future feature claims'
+      ],
       cacheDimensions: [],
       implementationBoundary: [
         'tools/flow-inspector/workspace/__tests__/catalog.contract.test.cjs',
         'tools/flow-inspector/workspace/__tests__/workspace.test.cjs',
+        'tools/flow-inspector/src/__tests__/workspace.test.tsx',
+        'tools/flow-inspector/tsconfig.json',
+        'tools/flow-inspector/package.json',
+        'tools/flow-inspector/vite.config.ts',
+        'tools/flow-inspector/vitest.config.ts',
+        'tools/flow-inspector/workspace/generated/flow-inspector-workspace.js',
+        'tools/flow-inspector/workspace/generated/flow-inspector-workspace.css',
+        'package.json',
+        'turbo.json',
+        'yarn.lock',
         'docs/ai/tools/flow-inspector/STATIC_WORKSPACE.md',
         'docs/ai/tools/flow-inspector/README.md'
       ],
@@ -343,7 +380,11 @@ const data = {
       id: 'artifact:workspace-browser-snapshot',
       ownerStepId: 'generate-browser-snapshot',
       channel: 'generated JavaScript',
-      consumerStepIds: ['route-workspace-selection', 'render-selected-contract', 'verify-static-preview'],
+      consumerStepIds: [
+        'route-workspace-selection',
+        'render-selected-contract',
+        'verify-static-preview'
+      ],
       terminal: false
     },
     {
@@ -385,22 +426,40 @@ const data = {
   invariants: [
     {
       id: 'catalog-does-not-own-target-semantics',
-      statement: 'Catalog metadata never duplicates target steps, routes, artifacts, invariants, or acceptance semantics.',
+      statement:
+        'Catalog metadata never duplicates target steps, routes, artifacts, invariants, or acceptance semantics.',
       stepIds: ['classify-workspace-catalog', 'generate-browser-snapshot'],
-      artifactIds: ['artifact:classified-workspace-catalog', 'artifact:workspace-browser-snapshot'],
+      artifactIds: [
+        'artifact:classified-workspace-catalog',
+        'artifact:workspace-browser-snapshot'
+      ],
       specRefs: ['#catalog-contract']
     },
     {
       id: 'selection-is-document-isolated',
-      statement: 'Every selected target renders in a fresh iframe document and cannot retain the previous target global or DOM.',
-      stepIds: ['route-workspace-selection', 'isolate-selected-target', 'render-selected-contract'],
-      artifactIds: ['artifact:selected-workspace-route', 'artifact:isolated-target-document', 'artifact:rendered-static-inspector'],
+      statement:
+        'Every selected target renders in a fresh iframe document and cannot retain the previous target global or DOM.',
+      stepIds: [
+        'route-workspace-selection',
+        'isolate-selected-target',
+        'render-selected-contract'
+      ],
+      artifactIds: [
+        'artifact:selected-workspace-route',
+        'artifact:isolated-target-document',
+        'artifact:rendered-static-inspector'
+      ],
       specRefs: ['#routing-and-isolation']
     },
     {
       id: 'workspace-remains-static',
-      statement: 'The preview exposes no execution status, CI decision, command, action, or mutation path.',
-      stepIds: ['route-workspace-selection', 'render-selected-contract', 'verify-static-preview'],
+      statement:
+        'The preview exposes no execution status, CI decision, command, action, or mutation path.',
+      stepIds: [
+        'route-workspace-selection',
+        'render-selected-contract',
+        'verify-static-preview'
+      ],
       artifactIds: ['artifact:verified-static-workspace-preview'],
       specRefs: ['#unsupported-behavior']
     }
@@ -408,19 +467,33 @@ const data = {
   acceptanceContracts: [
     {
       id: 'complete-current-catalog',
-      assertions: ['Every fixed-root Inspector candidate is included or excluded exactly once with a stable reason.'],
-      stepIds: ['discover-inspector-sources', 'classify-workspace-catalog', 'generate-browser-snapshot'],
+      assertions: [
+        'Every fixed-root Inspector candidate is included or excluded exactly once with a stable reason.'
+      ],
+      stepIds: [
+        'discover-inspector-sources',
+        'classify-workspace-catalog',
+        'generate-browser-snapshot'
+      ],
       specRefs: ['#discovery-input', '#definition-of-done']
     },
     {
       id: 'single-static-workspace',
-      assertions: ['Sidebar navigation, search, deep links, reload restoration, and selected target rendering work in one directly openable workspace.'],
-      stepIds: ['route-workspace-selection', 'isolate-selected-target', 'render-selected-contract'],
+      assertions: [
+        'Sidebar navigation, search, deep links, reload restoration, and selected target rendering work in one directly openable workspace.'
+      ],
+      stepIds: [
+        'route-workspace-selection',
+        'isolate-selected-target',
+        'render-selected-contract'
+      ],
       specRefs: ['#supported-behavior', '#product-cases']
     },
     {
       id: 'preview-release-ready',
-      assertions: ['All static integration, standalone compatibility, and synchronized browser gates pass without dynamic Control Plane claims.'],
+      assertions: [
+        'All static integration, standalone compatibility, and synchronized browser gates pass without dynamic Control Plane claims.'
+      ],
       stepIds: ['preserve-standalone-entries', 'verify-static-preview'],
       specRefs: ['#definition-of-done']
     }

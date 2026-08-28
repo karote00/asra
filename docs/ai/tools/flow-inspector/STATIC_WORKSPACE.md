@@ -17,8 +17,10 @@ health, execute commands, ingest test results, or decide CI acceptance.
 - `tools/flow-inspector/workspace/generate-workspace.cjs` owns deterministic
   discovery, source loading, catalog validation, and generated browser bundle
   output.
-- `tools/flow-inspector/workspace/workspace.js` owns sidebar, search, group
-  collapse, Overview, route parsing, selection, and target-frame navigation.
+- `tools/flow-inspector/src/` owns the React sidebar, search, group collapse,
+  Overview, hash-route parsing, selection, and keyed target-frame navigation.
+- `tools/flow-inspector/vite.config.ts` owns the classic-script static build
+  emitted under `tools/flow-inspector/workspace/generated/`.
 - `tools/flow-inspector/workspace/target.js` owns selected-target lookup and
   isolated target rendering.
 - `tools/flow-inspector/viewer.js` remains the only schema version 2 renderer.
@@ -82,9 +84,11 @@ JSON-safe serialization. Generator drift is a formal failure.
   route or target data.
 - Unknown, excluded, or malformed ids render an explicit error and never fall
   back to another Inspector.
-- The main target uses a dedicated iframe. Every selection navigates that frame
-  to `target.html#inspector=<catalog-id>`, giving each target a fresh document
-  and global scope.
+- The main target uses a React-keyed iframe. Every selection navigates a fresh
+  iframe to
+  `target.html?inspector=<catalog-id>#inspector=<catalog-id>`. The query makes
+  each id a cross-document navigation identity; the matching hash remains the
+  target route identity. A query/hash mismatch is an explicit error.
 - The target frame reads only the generated bundle entry selected by the hash.
   It clears no parent state and cannot mutate catalog membership.
 - Rapid switching must leave only the final selected target visible.
@@ -92,6 +96,8 @@ JSON-safe serialization. Generator drift is a formal failure.
 ## Supported Behavior
 
 - direct-open use from the repository through `file:` URLs;
+- a checked-in classic-script React build with no server or module-loader
+  requirement;
 - Overview with static counts by group and schema kind;
 - Framework, Apps, Release, and Tools groups;
 - sidebar search by title, id, subgroup, and labels;

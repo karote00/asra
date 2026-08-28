@@ -33,6 +33,13 @@
     "test": {},
     "test:local": {},
     "test:ci": {},
+    "@asyra-tool/flow-inspector#react:build": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": []
+    },
     "@asyra/ai-agent-runtime#build:ai-agent-runtime": {
       "cache": false,
       "outputs": [

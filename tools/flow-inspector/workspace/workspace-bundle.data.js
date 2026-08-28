@@ -6919,7 +6919,8 @@
             "channel": "backend checkpoint read",
             "consumerStepIds": [
               "open-document-session"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:bootstrap-checkpoint",
@@ -6927,7 +6928,8 @@
             "channel": "socket bootstrap",
             "consumerStepIds": [
               "hydrate-core-checkpoint"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:bootstrap-document-generation",
@@ -6935,7 +6937,8 @@
             "channel": "socket bootstrap",
             "consumerStepIds": [
               "recover-pending-publications"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:reset-document-generation",
@@ -6943,7 +6946,8 @@
             "channel": "backend Reset acknowledgement and next-bootstrap seed",
             "consumerStepIds": [
               "open-document-session"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:bootstrap-pending-tail",
@@ -6951,7 +6955,8 @@
             "channel": "socket bootstrap",
             "consumerStepIds": [
               "apply-bootstrap-tail"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:bootstrap-live-cutoff",
@@ -6959,7 +6964,8 @@
             "channel": "socket bootstrap",
             "consumerStepIds": [
               "apply-bootstrap-tail"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:hydrated-checkpoint-state",
@@ -6967,7 +6973,8 @@
             "channel": "Core canonical load completion",
             "consumerStepIds": [
               "apply-bootstrap-tail"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:socket-synchronized-session",
@@ -6975,7 +6982,8 @@
             "channel": "App socket synchronization boundary",
             "consumerStepIds": [
               "recover-pending-publications"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:active-local-document-session",
@@ -6983,7 +6991,8 @@
             "channel": "App local editing availability",
             "consumerStepIds": [
               "settle-local-publication"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:document-shared-publication",
@@ -6991,7 +7000,8 @@
             "channel": "Factory shared publication",
             "consumerStepIds": [
               "recover-pending-publications"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:recoverable-pending-publication",
@@ -6999,7 +7009,8 @@
             "channel": "App durable publication outbox",
             "consumerStepIds": [
               "sequence-live-publication"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:reconciled-document-session",
@@ -7007,13 +7018,15 @@
             "channel": "App recovery boundary",
             "consumerStepIds": [
               "apply-live-publication"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:connection-sync-state",
             "ownerStepId": "recover-pending-publications",
             "channel": "App quiet status and transition notification",
-            "consumerStepIds": []
+            "consumerStepIds": [],
+            "terminal": true
           },
           {
             "id": "artifact:sequenced-document-publication",
@@ -7022,7 +7035,8 @@
             "consumerStepIds": [
               "apply-live-publication",
               "flush-persistence-window"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:source-publication-sequence-proposal",
@@ -7030,7 +7044,8 @@
             "channel": "socket tentative source sequence proposal",
             "consumerStepIds": [
               "recover-pending-publications"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:source-publication-apply-settlement",
@@ -7038,7 +7053,8 @@
             "channel": "App ordered canonical recovery settlement",
             "consumerStepIds": [
               "sequence-live-publication"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:source-publication-acceptance",
@@ -7046,7 +7062,8 @@
             "channel": "socket source acceptance",
             "consumerStepIds": [
               "recover-pending-publications"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:document-persistence-flush-batch",
@@ -7054,7 +7071,8 @@
             "channel": "socket-to-backend opaque publication persistence request",
             "consumerStepIds": [
               "materialize-backend-document"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:durable-sequence-acknowledgement",
@@ -7062,13 +7080,15 @@
             "channel": "backend-to-socket durability response",
             "consumerStepIds": [
               "flush-persistence-window"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:converged-live-client-state",
             "ownerStepId": "apply-live-publication",
             "channel": "terminal canonical client state",
-            "consumerStepIds": []
+            "consumerStepIds": [],
+            "terminal": true
           },
           {
             "id": "artifact:document-session-open-failure",
@@ -7076,25 +7096,29 @@
             "channel": "connection or authorization failure",
             "consumerStepIds": [
               "recover-pending-publications"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:checkpoint-load-failure",
             "ownerStepId": "hydrate-core-checkpoint",
             "channel": "terminal failure",
-            "consumerStepIds": []
+            "consumerStepIds": [],
+            "terminal": true
           },
           {
             "id": "artifact:bootstrap-tail-apply-failure",
             "ownerStepId": "apply-bootstrap-tail",
             "channel": "terminal failure",
-            "consumerStepIds": []
+            "consumerStepIds": [],
+            "terminal": true
           },
           {
             "id": "artifact:local-publication-settlement-failure",
             "ownerStepId": "settle-local-publication",
             "channel": "terminal failure",
-            "consumerStepIds": []
+            "consumerStepIds": [],
+            "terminal": true
           },
           {
             "id": "artifact:publication-sequence-failure",
@@ -7102,25 +7126,29 @@
             "channel": "socket source wire, identity, digest, capacity, or source apply rejection",
             "consumerStepIds": [
               "recover-pending-publications"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:outbox-storage-failure",
             "ownerStepId": "recover-pending-publications",
             "channel": "terminal recovery-storage observation",
-            "consumerStepIds": []
+            "consumerStepIds": [],
+            "terminal": true
           },
           {
             "id": "artifact:live-publication-apply-failure",
             "ownerStepId": "apply-live-publication",
             "channel": "terminal failure",
-            "consumerStepIds": []
+            "consumerStepIds": [],
+            "terminal": true
           },
           {
             "id": "artifact:persistence-flush-failure",
             "ownerStepId": "flush-persistence-window",
             "channel": "retryable failure observation",
-            "consumerStepIds": []
+            "consumerStepIds": [],
+            "terminal": true
           },
           {
             "id": "artifact:reset-document-checkpoint",
@@ -7128,19 +7156,22 @@
             "channel": "socket Reset acknowledgement and next-bootstrap authority",
             "consumerStepIds": [
               "open-document-session"
-            ]
+            ],
+            "terminal": false
           },
           {
             "id": "artifact:document-reset-failure",
             "ownerStepId": "reset-document-session",
             "channel": "terminal Reset failure",
-            "consumerStepIds": []
+            "consumerStepIds": [],
+            "terminal": true
           },
           {
             "id": "artifact:backend-materialization-failure",
             "ownerStepId": "materialize-backend-document",
             "channel": "terminal failure",
-            "consumerStepIds": []
+            "consumerStepIds": [],
+            "terminal": true
           }
         ],
         "invariants": [
@@ -33123,8 +33154,12 @@
             "cacheDimensions": [],
             "implementationBoundary": [
               "tools/flow-inspector/workspace/workspace.html",
-              "tools/flow-inspector/workspace/workspace.js",
-              "tools/flow-inspector/workspace/__tests__/workspace.test.cjs"
+              "tools/flow-inspector/src/App.tsx",
+              "tools/flow-inspector/src/main.tsx",
+              "tools/flow-inspector/src/routing.ts",
+              "tools/flow-inspector/src/types.ts",
+              "tools/flow-inspector/src/workspace.css",
+              "tools/flow-inspector/src/__tests__/workspace.test.tsx"
             ],
             "specRefs": [
               "#routing-and-isolation",
@@ -33146,7 +33181,8 @@
               "artifact:isolated-target-document"
             ],
             "conditions": [
-              "Selected id resolves to one included bundle entry."
+              "Selected id resolves to one included bundle entry.",
+              "Target query and hash ids match before rendering."
             ],
             "bypasses": [
               "Overview creates no target document."
@@ -33161,8 +33197,11 @@
             ],
             "cacheDimensions": [],
             "implementationBoundary": [
+              "tools/flow-inspector/src/App.tsx",
+              "tools/flow-inspector/src/routing.ts",
               "tools/flow-inspector/workspace/target.html",
               "tools/flow-inspector/workspace/target.js",
+              "tools/flow-inspector/src/__tests__/workspace.test.tsx",
               "tools/flow-inspector/workspace/__tests__/workspace.test.cjs"
             ],
             "specRefs": [
@@ -33281,6 +33320,16 @@
             "implementationBoundary": [
               "tools/flow-inspector/workspace/__tests__/catalog.contract.test.cjs",
               "tools/flow-inspector/workspace/__tests__/workspace.test.cjs",
+              "tools/flow-inspector/src/__tests__/workspace.test.tsx",
+              "tools/flow-inspector/tsconfig.json",
+              "tools/flow-inspector/package.json",
+              "tools/flow-inspector/vite.config.ts",
+              "tools/flow-inspector/vitest.config.ts",
+              "tools/flow-inspector/workspace/generated/flow-inspector-workspace.js",
+              "tools/flow-inspector/workspace/generated/flow-inspector-workspace.css",
+              "package.json",
+              "turbo.json",
+              "yarn.lock",
               "docs/ai/tools/flow-inspector/STATIC_WORKSPACE.md",
               "docs/ai/tools/flow-inspector/README.md"
             ],
