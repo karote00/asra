@@ -28,7 +28,7 @@ use the same entry point.
 5. `API_SURFACES.md`
 6. `design-principles/*`
 7. `WORKFLOW.md`
-8. `FLOW_INSPECTOR.md`
+8. `../tools/flow-inspector/FLOW_INSPECTOR.md`
 9. `REQUEST_ROUTING.md`
 10. `RUNTIME_MATRICES.md`
 11. `SECURITY.md`

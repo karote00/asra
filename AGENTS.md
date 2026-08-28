@@ -110,7 +110,8 @@ Required context:
 2. **[docs/ai/framework/ARCHITECTURE.md](docs/ai/framework/ARCHITECTURE.md)** - Framework architecture contracts.
 3. **[docs/ai/framework/WORKFLOW.md](docs/ai/framework/WORKFLOW.md)** - Framework execution workflow.
 4. **[docs/ai/apps/README.md](docs/ai/apps/README.md)** and the relevant app docs when the task is app-specific.
-5. Relevant files under **[docs/ai/framework/rules/](docs/ai/framework/rules/)**, **[docs/ai/skills/](docs/ai/skills/)**, or **[docs/ai/workflows/](docs/ai/workflows/)**.
+5. **[docs/ai/tools/README.md](docs/ai/tools/README.md)** and the relevant tool docs when the task changes project-owned development tooling.
+6. Relevant files under **[docs/ai/framework/rules/](docs/ai/framework/rules/)**, **[docs/ai/skills/](docs/ai/skills/)**, or **[docs/ai/workflows/](docs/ai/workflows/)**.
 
 After the bounded-task applicability check, work that changes or proves an
 active plan or Inspector contract must re-read and follow the INSPECTOR FLOW
@@ -120,6 +121,7 @@ HIGHEST PRINCIPLE before starting and before advancing each work segment.
 
 - **Framework tasks**: follow `docs/ai/framework/*` as source-of-truth.
 - **App tasks**: follow `docs/ai/apps/<app>/*` as source-of-truth.
+- **Tool tasks**: follow `docs/ai/tools/<tool>/*` as source-of-truth.
 - **Legacy reference only**: `docs/ai/project/*` (use for historical context, not primary contracts).
 
 ## Quick Reference

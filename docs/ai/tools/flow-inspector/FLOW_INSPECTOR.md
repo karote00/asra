@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The Flow Inspector is a framework-level, product-runtime-independent viewer for
+The Flow Inspector is a project-owned, product-runtime-independent viewer for
 feature and system contracts. It renders target-owned semantic data without
 owning or modifying that data. Stroke Engine is the first target; neither the
 schema nor the renderer may contain Stroke-specific fields, rules, paths, or
