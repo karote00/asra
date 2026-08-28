@@ -2,7 +2,11 @@
 
 ## Status
 
-Approved first delivery target. Implementation has not started.
+Active implementation. Phase 0 completed on 2026-08-29 with one product
+contract, one exact workspace Inspector, three fixed discovery roots, 34
+classified candidates, 32 included entries, two explicit historical
+exclusions, and exact generated-snapshot validation. Phase 1 is the next owner
+step.
 
 This plan covers Phase 0 through Phase 2 and ends with a static
 `v0.1.0-preview` workspace that may accompany the current Asyra Framework

@@ -250,6 +250,15 @@ const targets = [
     ),
     dataScript: './node-24-runtime-upgrade-flow-inspector.data.cjs',
     filterLaneTitle: 'Runtime Contract'
+  },
+  {
+    id: 'flow-inspector-static-workspace',
+    entryPath: path.join(
+      projectRoot,
+      'docs/ai/tools/flow-inspector/plans/flow-inspector-static-workspace-flow-inspector.html'
+    ),
+    dataScript: './flow-inspector-static-workspace-flow-inspector.data.cjs',
+    filterLaneTitle: 'Workspace Navigation'
   }
 ]
 
