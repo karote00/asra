@@ -5,11 +5,24 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 const test = require('node:test')
+const vm = require('node:vm')
 const { JSDOM, VirtualConsole } = require('jsdom')
 
 const projectRoot = path.resolve(__dirname, '../../..')
 const rendererPath = path.join(__dirname, '../viewer.js')
 const rendererSource = fs.readFileSync(rendererPath, 'utf8').trimEnd()
+const workspaceBundlePath = path.join(
+  projectRoot,
+  'tools/flow-inspector/workspace/workspace-bundle.data.js'
+)
+
+const loadWorkspaceBundle = () => {
+  const sandbox = { globalThis: {} }
+  vm.runInNewContext(fs.readFileSync(workspaceBundlePath, 'utf8'), sandbox)
+  return JSON.parse(
+    JSON.stringify(sandbox.globalThis.FLOW_INSPECTOR_WORKSPACE_BUNDLE)
+  )
+}
 
 const expectedTopLevelKeys = [
   'schema',
@@ -261,6 +274,47 @@ const targets = [
     filterLaneTitle: 'Workspace Navigation'
   }
 ]
+
+test('catalog retains every standalone entry as a direct-open artifact', () => {
+  const standaloneEntries = loadWorkspaceBundle().entries.filter(
+    (entry) => entry.standalonePath
+  )
+  assert.ok(standaloneEntries.length > 0)
+
+  for (const entry of standaloneEntries) {
+    const entryPath = path.join(projectRoot, entry.standalonePath)
+    const html = fs.readFileSync(entryPath, 'utf8')
+    assert.ok(fs.existsSync(entryPath), entry.id)
+    assert.match(html, /<!doctype html>/i, entry.id)
+    assert.match(html, new RegExp(path.basename(entry.sourcePath).replaceAll('.', '\\.')), entry.id)
+    assert.doesNotMatch(
+      html,
+      /flow-inspector\/workspace\/(?:workspace|target|legacy-viewer)/,
+      `${entry.id} standalone entry must not depend on the workspace`
+    )
+  }
+})
+
+test('every catalog standalone using the shared renderer is synchronized', () => {
+  const standaloneEntries = loadWorkspaceBundle().entries.filter(
+    (entry) => entry.standalonePath
+  )
+  const sharedEntries = standaloneEntries.filter((entry) =>
+    fs
+      .readFileSync(path.join(projectRoot, entry.standalonePath), 'utf8')
+      .includes('<script data-flow-inspector-renderer>')
+  )
+  assert.ok(sharedEntries.length > 0)
+
+  for (const entry of sharedEntries) {
+    const html = fs.readFileSync(path.join(projectRoot, entry.standalonePath), 'utf8')
+    const embeddedRenderer = html.match(
+      /<script data-flow-inspector-renderer>\n([\s\S]*?)\n[ ]{4}<\/script>/
+    )
+    assert.ok(embeddedRenderer, entry.id)
+    assert.equal(embeddedRenderer[1], rendererSource, entry.id)
+  }
+})
 
 for (const target of targets) {
   const dataPath = path.resolve(
