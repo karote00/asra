@@ -936,188 +936,219 @@
       id: 'artifact:durable-document-checkpoint',
       ownerStepId: 'materialize-backend-document',
       channel: 'backend checkpoint read',
-      consumerStepIds: ['open-document-session']
+      consumerStepIds: ['open-document-session'],
+      terminal: false
     },
     {
       id: 'artifact:bootstrap-checkpoint',
       ownerStepId: 'open-document-session',
       channel: 'socket bootstrap',
-      consumerStepIds: ['hydrate-core-checkpoint']
+      consumerStepIds: ['hydrate-core-checkpoint'],
+      terminal: false
     },
     {
       id: 'artifact:bootstrap-document-generation',
       ownerStepId: 'open-document-session',
       channel: 'socket bootstrap',
-      consumerStepIds: ['recover-pending-publications']
+      consumerStepIds: ['recover-pending-publications'],
+      terminal: false
     },
     {
       id: 'artifact:reset-document-generation',
       ownerStepId: 'reset-document-session',
       channel: 'backend Reset acknowledgement and next-bootstrap seed',
-      consumerStepIds: ['open-document-session']
+      consumerStepIds: ['open-document-session'],
+      terminal: false
     },
     {
       id: 'artifact:bootstrap-pending-tail',
       ownerStepId: 'open-document-session',
       channel: 'socket bootstrap',
-      consumerStepIds: ['apply-bootstrap-tail']
+      consumerStepIds: ['apply-bootstrap-tail'],
+      terminal: false
     },
     {
       id: 'artifact:bootstrap-live-cutoff',
       ownerStepId: 'open-document-session',
       channel: 'socket bootstrap',
-      consumerStepIds: ['apply-bootstrap-tail']
+      consumerStepIds: ['apply-bootstrap-tail'],
+      terminal: false
     },
     {
       id: 'artifact:hydrated-checkpoint-state',
       ownerStepId: 'hydrate-core-checkpoint',
       channel: 'Core canonical load completion',
-      consumerStepIds: ['apply-bootstrap-tail']
+      consumerStepIds: ['apply-bootstrap-tail'],
+      terminal: false
     },
     {
       id: 'artifact:socket-synchronized-session',
       ownerStepId: 'apply-bootstrap-tail',
       channel: 'App socket synchronization boundary',
-      consumerStepIds: ['recover-pending-publications']
+      consumerStepIds: ['recover-pending-publications'],
+      terminal: false
     },
     {
       id: 'artifact:active-local-document-session',
       ownerStepId: 'recover-pending-publications',
       channel: 'App local editing availability',
-      consumerStepIds: ['settle-local-publication']
+      consumerStepIds: ['settle-local-publication'],
+      terminal: false
     },
     {
       id: 'artifact:document-shared-publication',
       ownerStepId: 'settle-local-publication',
       channel: 'Factory shared publication',
-      consumerStepIds: ['recover-pending-publications']
+      consumerStepIds: ['recover-pending-publications'],
+      terminal: false
     },
     {
       id: 'artifact:recoverable-pending-publication',
       ownerStepId: 'recover-pending-publications',
       channel: 'App durable publication outbox',
-      consumerStepIds: ['sequence-live-publication']
+      consumerStepIds: ['sequence-live-publication'],
+      terminal: false
     },
     {
       id: 'artifact:reconciled-document-session',
       ownerStepId: 'recover-pending-publications',
       channel: 'App recovery boundary',
-      consumerStepIds: ['apply-live-publication']
+      consumerStepIds: ['apply-live-publication'],
+      terminal: false
     },
     {
       id: 'artifact:connection-sync-state',
       ownerStepId: 'recover-pending-publications',
       channel: 'App quiet status and transition notification',
-      consumerStepIds: []
+      consumerStepIds: [],
+      terminal: true
     },
     {
       id: 'artifact:sequenced-document-publication',
       ownerStepId: 'sequence-live-publication',
       channel: 'socket opaque encoded document stream',
-      consumerStepIds: ['apply-live-publication', 'flush-persistence-window']
+      consumerStepIds: ['apply-live-publication', 'flush-persistence-window'],
+      terminal: false
     },
     {
       id: 'artifact:source-publication-sequence-proposal',
       ownerStepId: 'sequence-live-publication',
       channel: 'socket tentative source sequence proposal',
-      consumerStepIds: ['recover-pending-publications']
+      consumerStepIds: ['recover-pending-publications'],
+      terminal: false
     },
     {
       id: 'artifact:source-publication-apply-settlement',
       ownerStepId: 'recover-pending-publications',
       channel: 'App ordered canonical recovery settlement',
-      consumerStepIds: ['sequence-live-publication']
+      consumerStepIds: ['sequence-live-publication'],
+      terminal: false
     },
     {
       id: 'artifact:source-publication-acceptance',
       ownerStepId: 'sequence-live-publication',
       channel: 'socket source acceptance',
-      consumerStepIds: ['recover-pending-publications']
+      consumerStepIds: ['recover-pending-publications'],
+      terminal: false
     },
     {
       id: 'artifact:document-persistence-flush-batch',
       ownerStepId: 'flush-persistence-window',
       channel: 'socket-to-backend opaque publication persistence request',
-      consumerStepIds: ['materialize-backend-document']
+      consumerStepIds: ['materialize-backend-document'],
+      terminal: false
     },
     {
       id: 'artifact:durable-sequence-acknowledgement',
       ownerStepId: 'materialize-backend-document',
       channel: 'backend-to-socket durability response',
-      consumerStepIds: ['flush-persistence-window']
+      consumerStepIds: ['flush-persistence-window'],
+      terminal: false
     },
     {
       id: 'artifact:converged-live-client-state',
       ownerStepId: 'apply-live-publication',
       channel: 'terminal canonical client state',
-      consumerStepIds: []
+      consumerStepIds: [],
+      terminal: true
     },
     {
       id: 'artifact:document-session-open-failure',
       ownerStepId: 'open-document-session',
       channel: 'connection or authorization failure',
-      consumerStepIds: ['recover-pending-publications']
+      consumerStepIds: ['recover-pending-publications'],
+      terminal: false
     },
     {
       id: 'artifact:checkpoint-load-failure',
       ownerStepId: 'hydrate-core-checkpoint',
       channel: 'terminal failure',
-      consumerStepIds: []
+      consumerStepIds: [],
+      terminal: true
     },
     {
       id: 'artifact:bootstrap-tail-apply-failure',
       ownerStepId: 'apply-bootstrap-tail',
       channel: 'terminal failure',
-      consumerStepIds: []
+      consumerStepIds: [],
+      terminal: true
     },
     {
       id: 'artifact:local-publication-settlement-failure',
       ownerStepId: 'settle-local-publication',
       channel: 'terminal failure',
-      consumerStepIds: []
+      consumerStepIds: [],
+      terminal: true
     },
     {
       id: 'artifact:publication-sequence-failure',
       ownerStepId: 'sequence-live-publication',
       channel:
         'socket source wire, identity, digest, capacity, or source apply rejection',
-      consumerStepIds: ['recover-pending-publications']
+      consumerStepIds: ['recover-pending-publications'],
+      terminal: false
     },
     {
       id: 'artifact:outbox-storage-failure',
       ownerStepId: 'recover-pending-publications',
       channel: 'terminal recovery-storage observation',
-      consumerStepIds: []
+      consumerStepIds: [],
+      terminal: true
     },
     {
       id: 'artifact:live-publication-apply-failure',
       ownerStepId: 'apply-live-publication',
       channel: 'terminal failure',
-      consumerStepIds: []
+      consumerStepIds: [],
+      terminal: true
     },
     {
       id: 'artifact:persistence-flush-failure',
       ownerStepId: 'flush-persistence-window',
       channel: 'retryable failure observation',
-      consumerStepIds: []
+      consumerStepIds: [],
+      terminal: true
     },
     {
       id: 'artifact:reset-document-checkpoint',
       ownerStepId: 'reset-document-session',
       channel: 'socket Reset acknowledgement and next-bootstrap authority',
-      consumerStepIds: ['open-document-session']
+      consumerStepIds: ['open-document-session'],
+      terminal: false
     },
     {
       id: 'artifact:document-reset-failure',
       ownerStepId: 'reset-document-session',
       channel: 'terminal Reset failure',
-      consumerStepIds: []
+      consumerStepIds: [],
+      terminal: true
     },
     {
       id: 'artifact:backend-materialization-failure',
       ownerStepId: 'materialize-backend-document',
       channel: 'terminal failure',
-      consumerStepIds: []
+      consumerStepIds: [],
+      terminal: true
     }
   ]
 

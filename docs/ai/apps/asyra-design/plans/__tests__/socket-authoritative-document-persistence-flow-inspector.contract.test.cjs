@@ -107,6 +107,11 @@ test('every owner step, route, and artifact resolves exactly', () => {
 
   data.artifacts.forEach((artifact) => {
     assert.ok(step(artifact.ownerStepId).outputs.includes(artifact.id))
+    assert.equal(
+      artifact.terminal,
+      artifact.consumerStepIds.length === 0,
+      `${artifact.id} terminal classification`
+    )
     artifact.consumerStepIds.forEach((consumerId) =>
       assert.ok(step(consumerId).inputs.includes(artifact.id))
     )
