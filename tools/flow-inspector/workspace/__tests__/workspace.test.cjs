@@ -14,6 +14,11 @@ const bundleSource = fs.readFileSync(
 )
 const workspaceSourcePath = path.join(workspaceRoot, 'workspace.js')
 const targetSourcePath = path.join(workspaceRoot, 'target.js')
+const viewerSource = fs.readFileSync(
+  path.resolve(workspaceRoot, '../viewer.js'),
+  'utf8'
+)
+const legacyViewerPath = path.join(workspaceRoot, 'legacy-viewer.js')
 
 const loadBundle = () => {
   const sandbox = { globalThis: {} }
@@ -40,6 +45,42 @@ const createTarget = (hash = '') => {
     runScripts: 'outside-only',
     url: `file://${path.join(workspaceRoot, 'target.html')}${hash}`
   })
+  dom.window.FLOW_INSPECTOR_WORKSPACE_BUNDLE = loadBundle()
+  dom.window.eval(fs.readFileSync(targetSourcePath, 'utf8'))
+  return dom
+}
+
+const createRenderedTarget = (entry) => {
+  const html = fs.readFileSync(path.join(workspaceRoot, 'target.html'), 'utf8')
+  const dom = new JSDOM(html, {
+    pretendToBeVisual: true,
+    runScripts: 'outside-only',
+    url: `file://${path.join(workspaceRoot, 'target.html')}#inspector=${encodeURIComponent(entry.id)}`
+  })
+  dom.window.SVGSVGElement.prototype.createSVGPoint = function () {
+    return {
+      x: 0,
+      y: 0,
+      matrixTransform() {
+        return { x: this.x, y: this.y }
+      }
+    }
+  }
+  dom.window.SVGElement.prototype.getScreenCTM = function () {
+    return { inverse: () => ({}) }
+  }
+  const originalAppend = dom.window.document.head.append.bind(dom.window.document.head)
+  dom.window.document.head.append = (...nodes) => {
+    for (const node of nodes) {
+      if (node.tagName === 'SCRIPT') {
+        const source = node.dataset.rendererKind === 'flow-v2'
+          ? viewerSource
+          : fs.readFileSync(legacyViewerPath, 'utf8')
+        dom.window.eval(source)
+        node.dispatchEvent(new dom.window.Event('load'))
+      } else originalAppend(node)
+    }
+  }
   dom.window.FLOW_INSPECTOR_WORKSPACE_BUNDLE = loadBundle()
   dom.window.eval(fs.readFileSync(targetSourcePath, 'utf8'))
   return dom
@@ -182,5 +223,50 @@ test('separate target documents do not retain selected entry globals', () => {
   assert.notEqual(
     firstDom.window.FLOW_INSPECTOR_WORKSPACE_ENTRY,
     secondDom.window.FLOW_INSPECTOR_WORKSPACE_ENTRY
+  )
+})
+
+test('every catalog entry renders through its declared renderer kind', () => {
+  for (const entry of loadBundle().entries) {
+    const dom = createRenderedTarget(entry)
+    const { document } = dom.window
+    assert.equal(
+      document.documentElement.dataset.rendererKind,
+      entry.kind,
+      entry.id
+    )
+    assert.equal(document.documentElement.dataset.targetState, 'rendered', entry.id)
+    assert.match(document.body.textContent, new RegExp(entry.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
+    if (entry.kind === 'flow-v2') {
+      assert.deepEqual(
+        JSON.parse(JSON.stringify(dom.window.FLOW_INSPECTOR_DATA)),
+        entry.data,
+        entry.id
+      )
+      assert.ok(document.querySelector('[data-flow-v2-shell]'), entry.id)
+    } else {
+      assert.equal(dom.window.FLOW_INSPECTOR_DATA, undefined, entry.id)
+      assert.ok(document.querySelector('[data-compatibility-view]'), entry.id)
+      assert.match(document.body.textContent, /read-only compatibility/i, entry.id)
+    }
+  }
+})
+
+test('rendered target links to standalone entry only when one exists', () => {
+  const bundle = loadBundle()
+  const withStandalone = bundle.entries.find((entry) => entry.standalonePath)
+  const withoutStandalone = bundle.entries.find((entry) => !entry.standalonePath)
+
+  assert.match(
+    createRenderedTarget(withStandalone)
+      .window.document.querySelector('[data-standalone-link]')
+      .getAttribute('href'),
+    new RegExp(withStandalone.standalonePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  )
+  assert.equal(
+    createRenderedTarget(withoutStandalone).window.document.querySelector(
+      '[data-standalone-link]'
+    ),
+    null
   )
 })
