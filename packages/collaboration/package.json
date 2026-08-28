@@ -1,6 +1,6 @@
 {
   "name": "@asyra/collaboration",
-  "version": "0.5.2",
+  "version": "0.5.4",
   "description": "Optional provider-replaceable publication transport for Asyra",
   "author": "Asa Tsai",
   "license": "MIT",

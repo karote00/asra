@@ -1,6 +1,6 @@
 {
   "name": "@asyra/props-manager",
-  "version": "0.5.1",
+  "version": "0.5.3",
   "description": "A structured property management library that provides API-based control over prop components, separate from the scene tree.",
   "author": "Asa Tsai",
   "license": "MIT",

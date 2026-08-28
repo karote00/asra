@@ -15,9 +15,9 @@
       "sourceDigests": {
         "contract": "3719027fe52c277d9c7923d9f4b6a9edf577320c7ed583cf1fc59909ca58d9d9",
         "guide": "d89302dd045712e4c510fe1f85da2fec803c21f3332166bbb8f65051dac01254",
-        "manifest": "876c6ab94972f914d8942f7a2940e7a5a16f6cca0da76c6858e74d19bb728821"
+        "manifest": "f37c81e2ff86cc8ba78990080f397d8f903a11c512ba9fa6b0dc3a2f06978b9d"
       },
-      "version": "0.5.0"
+      "version": "0.5.1"
     },
     {
       "contractPath": "docs/ai/framework/packages/collaboration.md",
@@ -37,9 +37,9 @@
       "sourceDigests": {
         "contract": "ed2a892fd151ea3ff8be30477c15d8605264241e49b8dbc9b6ab24efcedd8c5c",
         "guide": "d89bff16e1372b77541c570df2d78a8ec84f4159d0e20f3919e77bc44b621cd5",
-        "manifest": "89004310b18dec6c36293d87b86b02b66311de423df908b3ee552db6999af88b"
+        "manifest": "eecaba35d7a06f004670d440b9d03e72654dd952f741a222c6ec193ab04d34d2"
       },
-      "version": "0.5.2"
+      "version": "0.5.4"
     },
     {
       "contractPath": "docs/ai/framework/packages/core.md",
@@ -72,9 +72,9 @@
       "sourceDigests": {
         "contract": "eb59d200716536560a4f42189c0250dfc3a7d84ff776f0dcea35d3f934a7c27b",
         "guide": "4150d383c83c25e7af0d91299ade90f585fe66fbab1c159d8a873d64efa1a57a",
-        "manifest": "c3b1a997fabd83a3a70d09fe8a4cc4e40e7b6af206dbd62010549b7fde0e3f56"
+        "manifest": "d2577e502f6bc7ca9c4e7a00aaedac0ef97d29243111c9d629dfbd8759d53620"
       },
-      "version": "0.5.3"
+      "version": "0.5.5"
     },
     {
       "contractPath": "docs/ai/framework/packages/design-system.md",
@@ -94,9 +94,9 @@
       "sourceDigests": {
         "contract": "94c0a88a9ba5d8b317784d22cdaae2201f26d7c7d70c6821adfcafa8d6e56d09",
         "guide": "c2bc81415b3770b776ecd0b282c3889325c76a75a26bdb2d50be5a85b84b042d",
-        "manifest": "6f0f30a01925d770f81f1fe083ca5037ea59682b0e5753fd358de92f23519ff3"
+        "manifest": "63ac8d1be86c037f8898d4f5d6db7bb6e59ff2410c096534c2b62cbe89f9346c"
       },
-      "version": "0.5.0"
+      "version": "0.5.2"
     },
     {
       "contractPath": "docs/ai/framework/packages/factory.md",
@@ -116,9 +116,9 @@
       "sourceDigests": {
         "contract": "0a33117436c5547c188406d9a19b1a9b9d3dd4ce527e414402ecc032c8a1562f",
         "guide": "7edf3e543bf4b3d7b2d2fb88dcc784a9deb28c6f20ce589c221eec241530d02b",
-        "manifest": "2a249513f12edddfb9b77088aa13e955f080cef6c98c8d947d910b249de4cfb7"
+        "manifest": "9dda198f63ac54e3120cc0222a349babc8801ab33a25e06f68c76f39cc5a3711"
       },
-      "version": "0.5.1"
+      "version": "0.5.3"
     },
     {
       "contractPath": "docs/ai/framework/packages/feature-system.md",
@@ -138,9 +138,9 @@
       "sourceDigests": {
         "contract": "ccbae9eb0ba97e908aea445d6b9c47102d023a808f37447b72b5a01194aa7eec",
         "guide": "b61024b261c5d2083e9ea2f38239b00fbc1361b2a6c29e816615497dae683002",
-        "manifest": "47739c49c3cb5b61387dad4ffd55d04eec9e6f4adb3cf0be1f2669fbff3e0448"
+        "manifest": "884d4daf37f74a2e2bc5624e905aa43c8541b76169ff6aaaf7b40a1f9bacaa9a"
       },
-      "version": "0.5.1"
+      "version": "0.5.3"
     },
     {
       "contractPath": "docs/ai/framework/packages/input-system.md",
@@ -160,9 +160,9 @@
       "sourceDigests": {
         "contract": "823c675e3f8663fb976d78fa7f812514ecba6406ceb9264dfe52084203dbed9a",
         "guide": "6a93322f1412e27132ae039576b5d3a51296fa5c9cc6dac322c1c1a97d4fe42b",
-        "manifest": "faacb1a902ce8b30781f274bedfca4f1de617bfc55c7ef77b5a3caf9390f057b"
+        "manifest": "308ad1bf811951cd316bce40dda2dd905ce1313a6b6f56ddf687a92ee2a06b33"
       },
-      "version": "0.5.2"
+      "version": "0.5.4"
     },
     {
       "contractPath": "docs/ai/framework/packages/persistence.md",
@@ -181,9 +181,9 @@
       "sourceDigests": {
         "contract": "6ba31c6a0f2f12679cec282ec2bc5054c2cc110cb4e2d54555581b8402bae4a4",
         "guide": "e81642b5d077d418f273319bdb3251976516e77591f69058c54f661abf2b8315",
-        "manifest": "590298f7385f4a452fb41a3e139a53f61150f1bcce52cf7485413c424f77cd3e"
+        "manifest": "d577c5faa22c542f8c862395b3f96ff3b8ed9fa79033e1843996fc462dbee472"
       },
-      "version": "0.5.0"
+      "version": "0.5.2"
     },
     {
       "contractPath": "docs/ai/framework/packages/preset.md",
@@ -207,9 +207,9 @@
       "sourceDigests": {
         "contract": "6063335cf9a2a4e5e51c81bdef13b0390b5cc00b82892ef7cc664c5e46b94f9c",
         "guide": "6decd16b73a5a41526c730fe457be980cd6769d08ee1e09224c69dc05fe4c510",
-        "manifest": "fc6bcfdfb4f527371b7bd1c2168b69a6a35af6ce0255500ad9aa6885f176d620"
+        "manifest": "3b0713849f9bb56d306f0eda2bd84fb9c5408f2a8d037217db0c755c83346528"
       },
-      "version": "0.5.3"
+      "version": "0.5.5"
     },
     {
       "contractPath": "docs/ai/framework/packages/props-manager.md",
@@ -229,9 +229,9 @@
       "sourceDigests": {
         "contract": "99e3c4a6b1015fabf036429ffcb63620f4a27600928b768d64584b26395637a9",
         "guide": "ef316ce4a8e632db5c9ba271b69a13528c1aad92e1226fe3b722643f974fc829",
-        "manifest": "9d30e9d43504c3720b311966197be803838eb0fc821d59f72e345d4e9c674b00"
+        "manifest": "a10af394976daf3e359dbd5afbdc706f9cf5d6dbb2c83643fc1adf84aa61fffe"
       },
-      "version": "0.5.1"
+      "version": "0.5.3"
     },
     {
       "contractPath": "docs/ai/framework/packages/reactive-events.md",
@@ -251,9 +251,9 @@
       "sourceDigests": {
         "contract": "84e51c0d6cdf49ed672257c433664b0ded00fc1aa3daf8c4edf13d794fff5c0c",
         "guide": "534d53e7eae5e7f38ddbf2977688a63af2857553e1246ef4f77d5b9eb40df275",
-        "manifest": "7804ad6e9827c384a56cc6f1e97a78c55d8aec4b17592fbaad74f043dca05d3e"
+        "manifest": "bf9378adc9f1c407149dc017c12f0b48df57405f917f6d9191cb39b134fc18ae"
       },
-      "version": "0.5.1"
+      "version": "0.5.3"
     },
     {
       "contractPath": "docs/ai/framework/packages/render.md",
@@ -278,9 +278,9 @@
       "sourceDigests": {
         "contract": "1e4ac2db7b96309ad33fb608e577b76dea46aa58ccb566adf5c5419524594e79",
         "guide": "bef4926e98157e95bac359858e2868d30939b419876f0d00e2fe9d9f1511c62a",
-        "manifest": "1c278b0a5d61e835b5abe578aa1128b1f7e4bc67292d82c86b09e8f92b2a8338"
+        "manifest": "4b8d268f096d120319c1896b1b18c0b4ad88f304234210c9c18d8c8557a8b5e4"
       },
-      "version": "0.5.2"
+      "version": "0.5.5"
     },
     {
       "contractPath": "docs/ai/framework/packages/render-engine.md",
@@ -298,9 +298,9 @@
       "sourceDigests": {
         "contract": "def2bd6c85a83657d99aa45512e934e27e51b30cdf0ff0a813a0a457ab402f11",
         "guide": "212eb15123459dc4528adbc539861a4575ea7979da639ce6c339f7d18c854fcc",
-        "manifest": "1b3f6bfcc3408f81ff128a3c701f97e83094f2b84d96eaba06ef18ddea644cf7"
+        "manifest": "73c6e8af46ab7300476fb58f2263964621d9e033ec2b676fe26aabd0757b9c3f"
       },
-      "version": "0.5.0"
+      "version": "0.5.1"
     },
     {
       "contractPath": "docs/ai/framework/packages/render-engine-pixi.md",
@@ -319,9 +319,9 @@
       "sourceDigests": {
         "contract": "b117cd086ad0a5e8f48ba0ce5899a490c3044f7ee623a3d84d68093eb5f53e7c",
         "guide": "5ced80e9d45c5efe14eb632d25c82ba5e2f729b4f95ec7059bba41881d29c95d",
-        "manifest": "392bcce2bf26bfc78d1a0e749644a615cbc1178b50c38694d780cb73ddda72bc"
+        "manifest": "b9a81ab4be57896994d6987e0ad3ce293689de46c2d1eb6cb06b19249d962134"
       },
-      "version": "0.5.0"
+      "version": "0.5.2"
     },
     {
       "contractPath": "docs/ai/framework/packages/scene-tree.md",
@@ -342,9 +342,9 @@
       "sourceDigests": {
         "contract": "713cf4b1579a2c8ba1ca1b8b6c4db4c05b796dc8d33b70c3f64396555115fd5d",
         "guide": "fda648ca19632219725d4512f8d603e8b3a62bd39e6c7d756ddb52351f176e93",
-        "manifest": "68a5fb34d5d6853fff199277538ee4b649092884411c9c5b57bd45f10e800cb7"
+        "manifest": "d80d4f0c5ad4be0023c9c3a8e82f9036d1fc4cd86302a8e9c75c4d5c1a5f4260"
       },
-      "version": "0.5.1"
+      "version": "0.5.3"
     },
     {
       "contractPath": "docs/ai/framework/packages/selection.md",
@@ -363,9 +363,9 @@
       "sourceDigests": {
         "contract": "60f3ba749e4aecad2e1e82fee554bf1425d6ea263e653332a8fed12bba439dbc",
         "guide": "a28fc0efcad3171edb523dcacc86c72c6e2a606b5bdf8862d536a3043af695be",
-        "manifest": "0f112f7366100a52c1d5a62c0ba139b4c4a831350021f225bd4fb7ea9046cf84"
+        "manifest": "632ea4faf92bf56cf606b5079fb7af09b87b95fabf91565a8deb0bcc5143e6e4"
       },
-      "version": "0.5.0"
+      "version": "0.5.2"
     },
     {
       "contractPath": "docs/ai/framework/packages/system-context.md",
@@ -384,9 +384,9 @@
       "sourceDigests": {
         "contract": "66f3107ca4921bad334d7954ff6335d3373c398b949fb58f4778b2bbe9480fa9",
         "guide": "41482ef59f07097c9a798c498b15296c3f1f5f60274bed86528ffecfbd0a954a",
-        "manifest": "85614e1f76bf570c9a2d7b29dc535c03930c24be222a9dc1cbc013078d13c602"
+        "manifest": "b6339f78a6065795654c64fa9a3714ac8209cf89bae5bbb9b2004659327c6570"
       },
-      "version": "0.5.0"
+      "version": "0.5.2"
     },
     {
       "contractPath": "docs/ai/framework/packages/ui-context.md",
@@ -407,9 +407,9 @@
       "sourceDigests": {
         "contract": "b57c0333892ee97a36d37793b371763b0371f9c6efb8d0ee8a99b9f3985d511d",
         "guide": "407820036abb56109f8b750dda623e1671a49d2207c2c08fee6b45a0778d9551",
-        "manifest": "39709613e8c1fd96ef9ae2312929395f595ae9b6a0245431f0f6fd044d8e990d"
+        "manifest": "2fb0bffe434da8d1d5fa6b0dad05084187b9579deb8165a681928a9f70539f4c"
       },
-      "version": "0.5.1"
+      "version": "0.5.3"
     },
     {
       "contractPath": "docs/ai/framework/packages/utils.md",
@@ -426,9 +426,9 @@
       "sourceDigests": {
         "contract": "a5135f15b3dc8338c0ad8f822a8ef29d293cd996dc517a71516f8cce629bf7d1",
         "guide": "eed3e7a356c8b12b78c9e5ec515e43c51f59b244cc77d3ce7f993f1556231e3c",
-        "manifest": "168eaad0310f292c719c3e7db9c36cd94dc4e15164936b088e3ae02e74de60ad"
+        "manifest": "52866a5c392919bed48ed4b40ba948e649e54ecd7658abbd6cb3e7b9299f4a88"
       },
-      "version": "0.5.0"
+      "version": "0.5.1"
     }
   ],
   "release": {

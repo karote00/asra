@@ -25,7 +25,10 @@ flowchart TB
     direction LR
     oldIdea["Domain idea"] --> oldPoc["Disposable PoC"] --> handoff["Handoff"] --> rewrite["Rewrite"] --> oldProduct["Product"]
   end
+```
 
+```mermaid
+flowchart TB
   subgraph asyra["With Asyra"]
     direction LR
     newIdea["Domain expert + AI"] --> feature["Bounded Feature"] -->|"same implementation"| review["Engineering review and hardening"] -->|"same implementation"| newProduct["Product"]
@@ -36,7 +39,7 @@ Asyra is a Framework for products whose information must remain editable, revers
 
 ## Try the demo
 
-[Asyra Design demo](https://asyra-design.vercel.app/?fileId=demo)
+<a href="https://asyra-design.vercel.app/?fileId=demo" target="_blank" rel="noopener noreferrer">Asyra Design demo</a>
 
 Asyra Design is a complete canvas-based design-tool product built with Asyra. It demonstrates how the Framework, official Preset, App-owned Features, editable information, rendering, Undo/Redo, and persistence fit together in a real product.
 

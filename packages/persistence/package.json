@@ -1,6 +1,6 @@
 {
   "name": "@asyra/persistence",
-  "version": "0.5.0",
+  "version": "0.5.2",
   "description": "Persistence providers and hooks for Asyra framework",
   "author": "Asa Tsai",
   "license": "MIT",
