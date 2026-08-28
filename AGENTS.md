@@ -20,9 +20,10 @@ These rules apply to every task without requiring additional document reads:
   `docs/ai/workflows/git-commit-push-policy.md`.
 - Do not overwrite unrelated user changes in a dirty worktree.
 - Follow main branch protection before making code or documentation changes.
-- Obtain explicit user approval before adding or installing any third-party
-  package, dependency, binary, or development tool. Normal use of an existing,
-  already-approved dependency does not require renewed approval.
+- Obtain explicit user approval before adding any third-party package,
+  dependency, binary, or development tool. Installing dependencies already
+  declared by the project manifests and lockfile does not require renewed
+  approval.
 - Obtain explicit user approval before upgrading Node.js, Yarn, a package
   manager, or any other environment/runtime tool.
 - Existing project-owned tests are permanently authorized across the entire
@@ -37,7 +38,7 @@ These rules apply to every task without requiring additional document reads:
   correction and its focused gates before rerunning it. Preserve every formal
   fail-fast, CPU, time, process-ownership, and cleanup guard. This standing test
   authorization does not authorize otherwise approval-gated mutations such as
-  installing dependencies, upgrading tools, publishing, tagging, merging, or
+  adding dependencies, upgrading tools, publishing, tagging, merging, or
   deploying.
 - Freeze a bounded task contract before editing. Reading may expand to resolve
   risk, but rules and discoveries must not independently expand mutation scope.
