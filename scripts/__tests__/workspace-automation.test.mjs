@@ -171,6 +171,22 @@ test('CI, E2E, and release validation own their bounded integration gates', () =
   assert.match(releaseValidation, /yarn release:app:check --prod=\$\{appName\}/)
 })
 
+test('Framework site Git deployments follow artifact inputs instead of release versions', () => {
+  const siteVercel = readJSON('apps/asyra-framework-site/vercel.json')
+  const ignoreBuild = readText(
+    'apps/asyra-framework-site/scripts/vercel-ignore-build.mjs'
+  )
+  const ci = readText('.github/workflows/main.yml')
+
+  assert.equal(siteVercel.git.deploymentEnabled, true)
+  assert.equal(siteVercel.ignoreCommand, 'node scripts/vercel-ignore-build.mjs')
+  assert.match(ignoreBuild, /apps\/asyra-framework-site/)
+  assert.match(ignoreBuild, /docs\/public/)
+  assert.match(ignoreBuild, /packages/)
+  assert.doesNotMatch(ignoreBuild, /version/i)
+  assert.doesNotMatch(ci, /^ {2}deploy:/m)
+})
+
 test('Vite builds rely on dedicated lint gates and native Vercel output configuration', () => {
   const designManifest = readJSON('apps/asyra-design/package.json')
   const designViteConfig = readText('apps/asyra-design/vite.config.ts')
