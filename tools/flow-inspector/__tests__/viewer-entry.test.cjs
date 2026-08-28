@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-/* global __dirname, require */
-
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -286,7 +284,11 @@ test('catalog retains every standalone entry as a direct-open artifact', () => {
     const html = fs.readFileSync(entryPath, 'utf8')
     assert.ok(fs.existsSync(entryPath), entry.id)
     assert.match(html, /<!doctype html>/i, entry.id)
-    assert.match(html, new RegExp(path.basename(entry.sourcePath).replaceAll('.', '\\.')), entry.id)
+    assert.match(
+      html,
+      new RegExp(path.basename(entry.sourcePath).replaceAll('.', '\\.')),
+      entry.id
+    )
     assert.doesNotMatch(
       html,
       /flow-inspector\/workspace\/(?:workspace|target|legacy-viewer)/,
@@ -307,7 +309,10 @@ test('every catalog standalone using the shared renderer is synchronized', () =>
   assert.ok(sharedEntries.length > 0)
 
   for (const entry of sharedEntries) {
-    const html = fs.readFileSync(path.join(projectRoot, entry.standalonePath), 'utf8')
+    const html = fs.readFileSync(
+      path.join(projectRoot, entry.standalonePath),
+      'utf8'
+    )
     const embeddedRenderer = html.match(
       /<script data-flow-inspector-renderer>\n([\s\S]*?)\n[ ]{4}<\/script>/
     )

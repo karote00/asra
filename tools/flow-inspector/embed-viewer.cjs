@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-/* global __dirname, require */
-
 const fs = require('node:fs')
 const path = require('node:path')
 const vm = require('node:vm')
@@ -18,14 +16,15 @@ vm.runInNewContext(
   ),
   bundleSandbox
 )
-const targetEntries = bundleSandbox.globalThis.FLOW_INSPECTOR_WORKSPACE_BUNDLE.entries
-  .filter((entry) => entry.standalonePath)
-  .map((entry) => path.join(projectRoot, entry.standalonePath))
-  .filter((entryPath) =>
-    fs
-      .readFileSync(entryPath, 'utf8')
-      .includes('<script data-flow-inspector-renderer>')
-  )
+const targetEntries =
+  bundleSandbox.globalThis.FLOW_INSPECTOR_WORKSPACE_BUNDLE.entries
+    .filter((entry) => entry.standalonePath)
+    .map((entry) => path.join(projectRoot, entry.standalonePath))
+    .filter((entryPath) =>
+      fs
+        .readFileSync(entryPath, 'utf8')
+        .includes('<script data-flow-inspector-renderer>')
+    )
 
 const embeddedScript = `    <script data-flow-inspector-renderer>\n${rendererSource}\n    </script>`
 const externalRendererPattern =

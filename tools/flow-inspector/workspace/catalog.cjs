@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
-
 module.exports = Object.freeze({
   discoveryRoots: Object.freeze([
     'docs/ai/framework/plans',

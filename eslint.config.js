@@ -19,6 +19,8 @@ export default tseslint.config(
     ignores: [
       '.claude/**/*',
       'docs/**/*',
+      'tools/flow-inspector/workspace/generated/**/*',
+      'tools/flow-inspector/workspace/workspace-bundle.data.js',
       '**/*.md',
       '**/*.mdx',
       '**/next-env.d.ts'
@@ -79,17 +81,19 @@ export default tseslint.config(
     }
   },
   {
-    files: ['scripts/**/*.{js,mjs}', 'create-app/**/*.js'],
+    files: ['scripts/**/*.{js,mjs}', 'create-app/**/*.js', 'tools/**/*.cjs'],
     languageOptions: {
       globals: {
         console: 'readonly',
         process: 'readonly',
+        require: 'readonly',
         __dirname: 'readonly',
         __filename: 'readonly',
         Buffer: 'readonly',
         structuredClone: 'readonly',
         setTimeout: 'readonly',
-        clearTimeout: 'readonly'
+        clearTimeout: 'readonly',
+        module: 'readonly'
       }
     }
   }

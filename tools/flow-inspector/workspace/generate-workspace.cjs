@@ -1,6 +1,4 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-/* global __dirname, require */
-
 const fs = require('node:fs')
 const path = require('node:path')
 
@@ -12,24 +10,20 @@ const candidatePattern = /-flow-inspector\.data\.(?:cjs|js)$/
 const toPosix = (value) => value.split(path.sep).join('/')
 
 const walk = (root) =>
-  fs
-    .readdirSync(root, { withFileTypes: true })
-    .flatMap((entry) => {
-      const entryPath = path.join(root, entry.name)
-      if (entry.isDirectory()) return walk(entryPath)
-      return candidatePattern.test(entry.name) ? [entryPath] : []
-    })
+  fs.readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = path.join(root, entry.name)
+    if (entry.isDirectory()) return walk(entryPath)
+    return candidatePattern.test(entry.name) ? [entryPath] : []
+  })
 
 const loadSource = (sourcePath) => {
   const resolved = require.resolve(sourcePath)
-  delete require.cache[resolved]
+  Reflect.deleteProperty(require.cache, resolved)
   return require(resolved)
 }
 
 const idFromPath = (sourcePath) =>
-  path
-    .basename(sourcePath)
-    .replace(/-flow-inspector\.data\.(?:cjs|js)$/, '')
+  path.basename(sourcePath).replace(/-flow-inspector\.data\.(?:cjs|js)$/, '')
 
 const titleFromId = (id) =>
   id
@@ -72,9 +66,7 @@ const ownerMetadata = (repoPath, id) => {
   if (repoPath.startsWith('docs/ai/tools/')) {
     return { group: 'Tools', subgroup: 'Flow Inspector' }
   }
-  if (
-    /(release|website|public-package|public-readme|runtime-atlas)/.test(id)
-  ) {
+  if (/(release|website|public-package|public-readme|runtime-atlas)/.test(id)) {
     return { group: 'Release', subgroup: 'Website and Distribution' }
   }
   return { group: 'Framework', subgroup: 'Architecture and Runtime' }
@@ -98,12 +90,16 @@ const duplicateCandidate = candidates.find(
   (candidate, index) => candidates.indexOf(candidate) !== index
 )
 if (duplicateCandidate) {
-  throw new Error(`Duplicate Inspector discovery candidate: ${duplicateCandidate}`)
+  throw new Error(
+    `Duplicate Inspector discovery candidate: ${duplicateCandidate}`
+  )
 }
 
 for (const excludedPath of exclusionsByPath.keys()) {
   if (!candidates.includes(excludedPath)) {
-    throw new Error(`Catalog exclusion is not a discovery candidate: ${excludedPath}`)
+    throw new Error(
+      `Catalog exclusion is not a discovery candidate: ${excludedPath}`
+    )
   }
 }
 
@@ -147,7 +143,8 @@ const entries = candidates
 
 const ids = new Set()
 for (const entry of entries) {
-  if (ids.has(entry.id)) throw new Error(`Duplicate workspace catalog id: ${entry.id}`)
+  if (ids.has(entry.id))
+    throw new Error(`Duplicate workspace catalog id: ${entry.id}`)
   ids.add(entry.id)
 }
 
