@@ -99,14 +99,14 @@ Use this file to route a new framework request to the right docs first.
 
 - public Framework docs/website/Runtime Atlas and advanced learning guides
   - `plans/completed/asyra-framework-website-plan.md`
-  - `plans/asyra-public-readme-and-entrypoint-alignment-plan.md`
-  - `plans/asyra-public-package-documentation-plan.md`
+  - `plans/completed/asyra-public-readme-and-entrypoint-alignment-plan.md`
+  - `plans/completed/asyra-public-package-documentation-plan.md`
   - `plans/asyra-executable-examples-plan.md`
   - `plans/completed/asyra-website-visual-reimagine-plan.md`
   - `plans/asyra-website-platform-and-docs-plan.md`
   - `plans/asyra-website-landing-page-plan.md`
   - `plans/asyra-runtime-atlas-plan.md`
-  - `plans/asyra-website-launch-and-operations-plan.md`
+  - `plans/completed/asyra-website-launch-and-operations-plan.md`
 
 - repository-wide documentation contract, owner, or reality audit
   - `design-principles/docs-as-contract.md`

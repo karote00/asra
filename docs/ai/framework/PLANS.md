@@ -11,7 +11,7 @@ None.
 The Input System environment-neutrality prerequisite completed on 2026-08-10.
 Its retained plan and Inspector are:
 
-- `docs/ai/framework/plans/input-system-environment-neutrality-plan.md`
+- `docs/ai/framework/plans/completed/input-system-environment-neutrality-plan.md`
 - `docs/ai/framework/plans/input-system-environment-neutrality-flow-inspector.data.cjs`
 
 No active App persistence blocker remains. The completed

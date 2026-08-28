@@ -2441,3 +2441,25 @@ unregister -> app migration -> core.start()` as the public app route.
   - [#126](https://github.com/karote00/asyra/pull/126)
 - Production Verification:
   - Production smoke passed; synchronized production E2E passed 20 of 20 cases.
+
+## 2026-08-29 - Normalize completed Framework plan records
+
+- Context:
+  - Four Framework plans already carried explicit accepted completion evidence
+    but their detailed records still lived in the active plans directory.
+- Decision:
+  - Move the public package documentation, public README alignment, website
+    launch and operations, and Input System environment-neutrality records to
+    `docs/ai/framework/plans/completed/`.
+  - Retain concise redirects at their former paths so append-only historical
+    decisions and external document links continue to resolve.
+- Consequences:
+  - Active plan routing no longer treats completed detailed records as active.
+  - Retained Inspectors continue to resolve their canonical plan references.
+  - This closeout creates no Changeset, version bump, tag, publication, or
+    deployment side effect.
+- Completed Plans:
+  - `docs/ai/framework/plans/completed/asyra-public-package-documentation-plan.md`
+  - `docs/ai/framework/plans/completed/asyra-public-readme-and-entrypoint-alignment-plan.md`
+  - `docs/ai/framework/plans/completed/asyra-website-launch-and-operations-plan.md`
+  - `docs/ai/framework/plans/completed/input-system-environment-neutrality-plan.md`

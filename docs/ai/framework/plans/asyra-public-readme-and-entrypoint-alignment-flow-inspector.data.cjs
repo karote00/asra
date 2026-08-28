@@ -40,7 +40,7 @@ const step = (definition) =>
 module.exports = Object.freeze({
   authority: Object.freeze({
     specPath:
-      'docs/ai/framework/plans/asyra-public-readme-and-entrypoint-alignment-plan.md',
+      'docs/ai/framework/plans/completed/asyra-public-readme-and-entrypoint-alignment-plan.md',
     inspectorPath:
       'docs/ai/framework/plans/asyra-public-readme-and-entrypoint-alignment-flow-inspector.data.cjs',
     generatedReadmeSource: 'apps/asyra-design/README.md',
@@ -113,7 +113,7 @@ module.exports = Object.freeze({
         'complete guide duplication'
       ],
       implementationBoundary: [
-        'docs/ai/framework/plans/asyra-public-readme-and-entrypoint-alignment-plan.md',
+        'docs/ai/framework/plans/completed/asyra-public-readme-and-entrypoint-alignment-plan.md',
         'docs/ai/framework/plans/asyra-public-readme-and-entrypoint-alignment-flow-inspector.data.cjs',
         'docs/ai/framework/plans/__tests__/asyra-public-readme-and-entrypoint-alignment-flow-inspector.contract.test.cjs'
       ],

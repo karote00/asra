@@ -2,7 +2,7 @@
   'use strict'
 
   const specPath =
-    'docs/ai/framework/plans/input-system-environment-neutrality-plan.md'
+    'docs/ai/framework/plans/completed/input-system-environment-neutrality-plan.md'
   const inspectorPath =
     'docs/ai/framework/plans/input-system-environment-neutrality-flow-inspector.data.cjs'
   const lanes = [

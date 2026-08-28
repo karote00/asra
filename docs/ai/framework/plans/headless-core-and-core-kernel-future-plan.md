@@ -108,7 +108,7 @@ documentation, and clean-consumer acceptance criteria.
 ## References
 
 - [Architecture research report](../research/headless-core-and-core-kernel-architecture-research.md)
-- [Current Input System release task](input-system-environment-neutrality-plan.md)
+- [Completed Input System release task](completed/input-system-environment-neutrality-plan.md)
 - [Framework Architecture](../ARCHITECTURE.md)
 - [Framework Workflow](../WORKFLOW.md)
 - [Bounded task scope and closure](../rules/bounded-task-scope-and-closure.md)

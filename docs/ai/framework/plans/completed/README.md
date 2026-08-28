@@ -33,6 +33,16 @@ This directory stores completed framework plans by category so `PLANS.md` stays 
 - Completed Framework release-readiness audit:
   - `framework-release-readiness-and-closeout-plan.md`
 
+7. Public website program child plans
+- Completed public package documentation:
+  - `asyra-public-package-documentation-plan.md`
+- Completed public README and entrypoint alignment:
+  - `asyra-public-readme-and-entrypoint-alignment-plan.md`
+- Completed website launch and operations:
+  - `asyra-website-launch-and-operations-plan.md`
+- Completed Input System environment-neutrality prerequisite:
+  - `input-system-environment-neutrality-plan.md`
+
 ## Update Rule
 
 - When a plan is completed, remove it from `docs/ai/framework/PLANS.md` and

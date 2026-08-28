@@ -28,7 +28,7 @@ module.exports = Object.freeze({
     inspectorPath:
       'docs/ai/framework/plans/asyra-executable-examples-flow-inspector.data.cjs',
     documentationPlanPath:
-      'docs/ai/framework/plans/asyra-public-package-documentation-plan.md',
+      'docs/ai/framework/plans/completed/asyra-public-package-documentation-plan.md',
     websitePlanPath:
       'docs/ai/framework/plans/asyra-website-platform-and-docs-plan.md'
   }),
