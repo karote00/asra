@@ -17,6 +17,14 @@ The exact launch Inspector, environment and ownership contract, executable
 deployment cases, rollback path, and bounded Definition of Done are frozen in
 [the Launch flow Inspector](asyra-website-launch-and-operations-flow-inspector.data.cjs).
 
+On August 28, 2026, the user additionally authorized repository-configured
+continuous Git deployments for the dedicated Framework site project. Pull
+request commits may create Preview deployments and accepted `main` commits may
+create Production deployments when the tracked Framework-site artifact inputs
+change. This standing automation authority is scoped to the existing dedicated
+Framework site project and does not extend to the Asyra Design project, custom
+DNS, analytics, monitoring, new secrets, or package publication.
+
 ## Accepted Production Record
 
 - Public URL: `https://asyra-framework.vercel.app`
@@ -187,6 +195,33 @@ contract, and public disclosure where required.
 The website must expose verified security, support, license, release, and
 contribution-policy links. It must not offer public issue or contribution flows
 that contradict the separately owned repository policy.
+
+### Continuous Git deployment selection
+
+The dedicated Framework site uses Vercel Git integration for Preview and
+Production deployments. Deployment selection follows the website artifact
+graph, not a release-version comparison:
+
+- `apps/asyra-framework-site/**` owns the site application, configuration, and
+  public assets;
+- `docs/public/**` owns the rendered documentation and generated public facts;
+- `packages/**` owns the Framework runtime bundled by Runtime Atlas;
+- `.yarn/releases/**`, `.yarnrc.yml`, `package.json`, `turbo.json`, and
+  `yarn.lock` own the shared build and dependency environment.
+
+The app-owned `scripts/vercel-ignore-build.mjs` compares the current commit to
+its first parent. It continues the build when any owned input changed and
+ignores the build otherwise. If the comparison cannot be resolved, it fails
+open by continuing the build. A package or root version change is neither
+required nor sufficient by itself: deployment occurs because a tracked
+artifact input changed.
+
+Pull request deployments remain Preview deployments. Production deployment is
+limited to accepted commits on `main`; repository branch protection and CI own
+pre-merge correctness, while Vercel owns the immutable build and alias update.
+Deployment success never substitutes for the required CI, site, content, or
+production verification gates. The previous healthy Production deployment
+remains the rollback target.
 
 ## Implementation Stages
 

@@ -78,23 +78,3 @@ jobs:
 
       - name: Verify release records
         run: yarn release:records
-
-  deploy:
-    if: github.ref == 'refs/heads/main'
-    needs: validate
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Yarn
-        run: corepack enable && yarn set version 4.3.1
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: 'yarn'
-
-      - name: Install dependencies
-        run: yarn

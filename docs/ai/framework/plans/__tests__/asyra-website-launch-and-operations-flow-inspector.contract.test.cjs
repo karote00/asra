@@ -64,7 +64,7 @@ test('accepted Preview owns every tracked launch input before its commit is froz
   })
 })
 
-test('dedicated target configuration changes provider state without changing accepted source', () => {
+test('dedicated target configuration owns reviewed Git deployment selection', () => {
   const target = step('configure-vercel-target')
   const source = JSON.stringify(target)
   assert.match(source, /org and project ids differ/i)
@@ -72,19 +72,24 @@ test('dedicated target configuration changes provider state without changing acc
   assert.match(source, /No token, secret, or provider credential/i)
   assert.match(source, /root \.vercel link mutation/i)
   assert.match(source, /tracked website source or configuration change/i)
+  assert.match(source, /tracked artifact inputs rather than release versions/i)
   assert.deepEqual(target.implementationBoundary, [
     'authenticated Vercel project and environment operations',
+    'apps/asyra-framework-site/vercel.json',
+    'apps/asyra-framework-site/scripts/vercel-ignore-build.mjs',
+    '.github/workflows/main.yml',
     'docs/ai/framework/plans/asyra-website-launch-and-operations-plan.md',
     '.vercel/project.json read-only; never mutate'
   ])
 })
 
-test('deployment uses the accepted source, stable alias, and a real rollback path', () => {
+test('deployment uses accepted Git commits, the stable alias, and a real rollback path', () => {
   const source = JSON.stringify(step('deploy-accepted-candidate'))
   assert.match(
     source,
-    /deployed source commit equals the accepted Preview commit/i
+    /Preview deployments use pull request commits and Production deployments use accepted main-branch commits/i
   )
+  assert.match(source, /artifact inputs.*never requires a release-version change/i)
   assert.match(source, /stable production alias/i)
   assert.match(source, /prior healthy deployment remains resolvable/i)
   assert.match(source, /first project deployment.*unpromote\/delete-current/i)

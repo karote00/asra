@@ -40,7 +40,8 @@ module.exports = Object.freeze({
       outputs: ['artifact:launch-contract'],
       conditions: [
         'The Framework site uses a dedicated Vercel project and never mutates the existing Asyra Design project id or stable alias.',
-        'One exact source commit and reviewed configuration own Preview and production acceptance.',
+        'Every Preview and production deployment identifies one exact source commit and reviewed configuration.',
+        'Repository-configured Git automation may deploy changed Framework-site artifact inputs after the applicable pull request or main-branch gates pass.',
         'Production indexing is project-scoped and enabled only for the accepted production environment.',
         'Custom DNS, analytics, monitoring vendors, new secrets, and package publication remain excluded.'
       ],
@@ -131,6 +132,7 @@ module.exports = Object.freeze({
       conditions: [
         'The selected org and project ids differ from the read-only Asyra Design link.',
         'The project root and build settings resolve the Framework site workspace and repository workspace dependencies.',
+        'Git deployment is enabled only for the dedicated Framework site project and the app-owned ignore command selects builds from tracked artifact inputs rather than release versions.',
         'NEXT_PUBLIC_SITE_INDEXING=true exists only as a project-scoped production setting.',
         'No token, secret, or provider credential is written to tracked files or printed.'
       ],
@@ -151,6 +153,9 @@ module.exports = Object.freeze({
       ],
       implementationBoundary: [
         'authenticated Vercel project and environment operations',
+        'apps/asyra-framework-site/vercel.json',
+        'apps/asyra-framework-site/scripts/vercel-ignore-build.mjs',
+        '.github/workflows/main.yml',
         'docs/ai/framework/plans/asyra-website-launch-and-operations-plan.md',
         '.vercel/project.json read-only; never mutate'
       ],
@@ -173,7 +178,8 @@ module.exports = Object.freeze({
       ],
       outputs: ['artifact:production-deployment', 'artifact:rollback-target'],
       conditions: [
-        'The deployed source commit equals the accepted Preview commit.',
+        'Preview deployments use pull request commits and Production deployments use accepted main-branch commits from the same reviewed Git integration.',
+        'A deployment is selected by Framework-site artifact inputs and never requires a release-version change.',
         'The deployment build succeeds under the project-owned Node and Yarn contract.',
         'The stable production alias resolves the new immutable deployment only after provider success.',
         'The immediately prior healthy deployment remains resolvable for rollback.'
@@ -355,7 +361,8 @@ module.exports = Object.freeze({
   ),
   invariants: Object.freeze([
     'The Framework site project and Asyra Design project remain distinct.',
-    'Preview acceptance and production deployment resolve one exact source commit.',
+    'Every Preview and production deployment resolves one exact source commit and reviewed Git configuration.',
+    'Continuous deployment selection follows tracked Framework-site artifact inputs rather than release-version cadence.',
     'Only production permits indexing and every absolute public URL uses the accepted stable origin.',
     'No credential, secret, private endpoint, or internal-only document is published.',
     'Anonymous production evidence is required before the stable alias is accepted.',

@@ -4,9 +4,8 @@
   "installCommand": "cd ../.. && corepack yarn install --immutable",
   "buildCommand": "cd ../.. && corepack yarn turbo run build:asyra-framework-site --filter=@asyra/asyra-framework-site",
   "outputDirectory": "dist",
+  "ignoreCommand": "node scripts/vercel-ignore-build.mjs",
   "git": {
-    "deploymentEnabled": {
-      "*": false
-    }
+    "deploymentEnabled": true
   }
 }
