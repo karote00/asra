@@ -9,7 +9,8 @@
 
 2. Source-of-truth first
 
-- Implement changes in source packages/apps (for example `packages/*`, `apps/*`, scripts/templates source).
+- Implement changes in source packages/apps (for example `packages/*`,
+  `apps/*`, or generation scripts).
 - Regenerate `create-app/<app>/template` via the project generation/release
   scripts after source changes.
 
@@ -18,8 +19,7 @@
 - If `create-app/<app>/template` changes are present, they should be explained
   as generated sync output.
 - Reject manual-only edits in a generated template that are not traceable to
-  source changes. This restriction does not apply to CLI-owned source above the
-  template.
+  source changes.
 
 4. Template sync command (explicit)
 

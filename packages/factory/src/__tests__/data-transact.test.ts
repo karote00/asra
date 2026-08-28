@@ -683,7 +683,7 @@ describe('DataTransact user action completion', () => {
     ).toThrow(deliveryFailure)
 
     expect(() => transact.end()).not.toThrow()
-    expect(statuses.at(-1)).toMatchObject({
+    expect(statuses.slice(-1)[0]).toMatchObject({
       status: 'rolled-back',
       failure: { kind: 'explicit', cause: deliveryFailure }
     })
@@ -753,7 +753,7 @@ describe('DataTransact user action completion', () => {
         payload: expect.objectContaining({ before: 1, after: 0 })
       })
     ])
-    expect(statuses.at(-1)).toMatchObject({ status: 'rolled-back' })
+    expect(statuses.slice(-1)[0]).toMatchObject({ status: 'rolled-back' })
     expect((transact as unknown as { undoStack: unknown[] }).undoStack).toEqual(
       []
     )
@@ -2999,7 +2999,7 @@ describe('DataTransact user action completion', () => {
         transact as unknown as {
           undoStack: readonly unknown[]
         }
-      ).undoStack.at(-1)
+      ).undoStack.slice(-1)[0]
       return false
     })
     const transact = new DataTransact({ pushBatchToSharedChannel })
@@ -3021,7 +3021,7 @@ describe('DataTransact user action completion', () => {
         transact as unknown as {
           undoStack: readonly unknown[]
         }
-      ).undoStack.at(-1)
+      ).undoStack.slice(-1)[0]
     )
 
     subscription.unsubscribe()

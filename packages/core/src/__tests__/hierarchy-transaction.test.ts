@@ -689,7 +689,7 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     expect(childrenOf('facade-group')).toEqual(childIds)
     const committedProps = propsManager.save()
     expect(Object.keys(committedProps).length).toBeGreaterThan(0)
-    expect(statuses.at(-1)).toMatchObject({
+    expect(statuses.slice(-1)[0]).toMatchObject({
       origin: 'action',
       status: 'committed'
     })
@@ -702,7 +702,7 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
       expect(sceneTree.getElementById(id)).toBeUndefined()
     )
     expect(propsManager.save()).toEqual({})
-    expect(statuses.at(-1)).toMatchObject({
+    expect(statuses.slice(-1)[0]).toMatchObject({
       origin: 'undo',
       status: 'committed'
     })
@@ -712,7 +712,7 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     expect(childrenOf(sceneTree.workspace)).toEqual(['facade-group'])
     expect(childrenOf('facade-group')).toEqual(childIds)
     expect(propsManager.save()).toEqual(committedProps)
-    expect(statuses.at(-1)).toMatchObject({
+    expect(statuses.slice(-1)[0]).toMatchObject({
       origin: 'redo',
       status: 'committed'
     })
@@ -777,7 +777,7 @@ describe('Factory and Scene Tree hierarchy transaction integration', () => {
     expect(propsManager.changes).toEqual([])
     expect(sceneTree.changes).toEqual([])
     expect(factory.getUndoHistoryDepth()).toBe(0)
-    expect(statuses.at(-1)).toMatchObject({ status: 'rolled-back' })
+    expect(statuses.slice(-1)[0]).toMatchObject({ status: 'rolled-back' })
     expect(statuses.some(({ status }) => status === 'rollback-failed')).toBe(
       false
     )

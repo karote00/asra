@@ -1,7 +1,7 @@
-# Asyra Design as a reference product
+# Asyra Design as a complete product implementation
 
 Asyra Design is a complete app built on Asyra Framework. It demonstrates one
-coherent design-tool product—not the only product shape Asyra supports and not
+coherent design-tool product - not the only product shape Asyra supports and not
 a set of behaviors that Core silently installs.
 
 Use it to study how a real app composes public packages, Preset defaults,
@@ -135,7 +135,7 @@ Disconnected editing uses the declared provisional document and app-owned
 recovery behavior; it does not select a second canonical document mode.
 
 See [Build opt-in collaboration](../build/collaboration.md) and
-[Build persistence with app-owned migration](../build/persistence-migration.md).
+[Define migrations for your product](../build/persistence-migration.md).
 
 ## Optional AI actions
 
@@ -150,7 +150,7 @@ for confirmation, and enters one app transaction. Executors call the same
 `src/common-apis/*` used by human interactions.
 
 For a large drawing, the accepted action creates ordinary independently
-editable elements—optionally inside one Group—through canonical plural
+editable elements - optionally inside one Group - through canonical plural
 preflight/apply. It does not become one opaque image, one giant Vector, a
 render-only overlay, or a special AI document.
 
@@ -203,7 +203,7 @@ Framework composition, use the [official 2D baseline](../start/preset-2d.md) or
 - [Extend the generated product](../start/create-design-app.md)
 - [Build registered AI actions](../build/ai-actions.md)
 - [Build opt-in collaboration](../build/collaboration.md)
-- [Build persistence with app-owned migration](../build/persistence-migration.md)
+- [Define migrations for your product](../build/persistence-migration.md)
 - Inspect the generated app's owner-focused tests and synchronized product E2E
   tests for the exact feature being changed.
 

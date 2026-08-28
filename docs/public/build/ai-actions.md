@@ -46,16 +46,20 @@ import {
   type AiActionDefinition
 } from '@asyra/ai-agent-runtime'
 
-const setVisibilityAction: AiActionDefinition<{
+type SetVisibilityInput = Readonly<{
   readonly visible: boolean
-}> = {
+}>
+
+const setVisibilityAction: AiActionDefinition<SetVisibilityInput> = {
   name: 'set_visibility',
   description: 'Set one selected record visibility.',
   inputSchema: {
     type: 'object',
     additionalProperties: false,
     required: ['visible'],
-    properties: { visible: { type: 'boolean' } }
+    properties: {
+      visible: { type: 'boolean' }
+    }
   },
   execute: async ({ visible }) => {
     visibilityFeature.api.setVisible(visible)
@@ -67,17 +71,21 @@ const runtime = createAiAgentRuntime({
   provider: {
     requestActionBatch: async () => ({
       batchId: 'visibility-batch',
-      actions: [{
-        id: 'visibility-1',
-        name: 'set_visibility',
-        arguments: { visible: false },
-        summary: { outcome: 'Hide the selected record' }
-      }]
+      actions: [
+        {
+          id: 'visibility-1',
+          name: 'set_visibility',
+          arguments: { visible: false },
+          summary: { outcome: 'Hide the selected record' }
+        }
+      ]
     })
   },
   actionDefinitions: [setVisibilityAction],
   contextProvider: {
-    getContext: async () => ({ selectedIds: selectionFeature.api.ids() })
+    getContext: async () => ({
+      selectedIds: selectionFeature.api.ids()
+    })
   },
   permissionPolicy: {
     evaluate: async ({ action }) =>

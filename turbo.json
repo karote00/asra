@@ -65,7 +65,13 @@
       "outputs": [
         "dist/**"
       ],
-      "dependsOn": []
+      "dependsOn": [
+        "@asyra/ai-agent-runtime#build:ai-agent-runtime",
+        "@asyra/collaboration#build:collaboration",
+        "@asyra/factory#build:factory",
+        "@asyra/feature-system#build:feature-system",
+        "@asyra/system-context#build:system-context"
+      ]
     },
     "@asyra/collaboration#build:collaboration": {
       "cache": false,

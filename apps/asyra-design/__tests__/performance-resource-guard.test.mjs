@@ -115,7 +115,7 @@ test('endpoint build attestation resolves workspace and standalone assets from t
       },
       workspaceRoot: '/project'
     }),
-    '/project/dist/assets'
+    '/project/apps/asyra-design/dist/frontend/assets'
   )
   assert.equal(
     resolveEndpointBuildAssetsDirectory({
@@ -127,7 +127,7 @@ test('endpoint build attestation resolves workspace and standalone assets from t
       },
       workspaceRoot: '/project'
     }),
-    '/project/tmp/standalone-design-app/dist/assets'
+    '/project/tmp/standalone-design-app/dist/frontend/assets'
   )
 })
 

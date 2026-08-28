@@ -13,11 +13,16 @@ app templates.
 - The `create-app/` directory has no version. Each CLI package under
   `create-app/<app>` owns its own manually selected version and must never be a
   Changeset release entry.
+- `apps/asyra-design` and `create-app/asyra-design` share the published Asyra
+  Design release version; their manifest versions must remain identical.
 - Root `asyra` is the main release identity. Its stable version is always
   `a.b.0` and is changed manually only after the required release sequence.
-- A canonical private app owns its own identity version. A generated template
-  inherits that app version through the official generator; the template is
-  never edited, versioned, or selected in Changesets independently.
+  `apps/asyra-framework-site` is the public site for that release identity, so
+  its manifest version must always equal the root version and must be changed
+  in the same commit.
+- A canonical private product app owns its own identity version. A generated
+  template inherits that app version through the official generator; the
+  template is never edited, versioned, or selected in Changesets independently.
 
 An empty Changeset may record a non-documentation PR that changes no Framework
 package. Empty records satisfy closeout without assigning a release version to
@@ -46,11 +51,11 @@ An authorized `a` or `b` transition must run in this order:
 2. Prove those public packages through the generated-app consumer path, then
    manually align and release the applicable `create-app/<app>` CLI package.
 3. Only after the Framework and CLI stages pass, manually align root `asyra`
-   to `a.b.0`.
+   and `apps/asyra-framework-site` together to `a.b.0`.
 
 The next stage must not begin from an unpublished, unverified, or mixed prior
-stage. CLI and root version changes remain manual even when Framework package
-changes in the same release family use Changesets.
+stage. CLI, root, and Framework site version changes remain manual even when
+Framework package changes in the same release family use Changesets.
 
 During a staged family transition, the existing root manifest may retain its
 older pre-alignment version until the final root stage. That temporary state is
@@ -63,4 +68,5 @@ the user-approved release decision; this rule never duplicates the numeric
 family or target version. The applicable create-app CLI target is selected and
 materialized manually after its candidate and public Framework consumer gates
 pass. Root `asyra` aligns to the same family at `a.b.0` only after the CLI stage
-completes. Neither CLI nor root belongs in the Framework Changeset.
+completes, and `apps/asyra-framework-site` aligns with root in the same commit.
+Neither CLI, root, nor the Framework site belongs in the Framework Changeset.

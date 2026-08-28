@@ -1,15 +1,14 @@
 # Support, security, and release boundaries
 
-This page describes the current release candidate. It is not publication,
-merge, tagging, registry, or deployment authorization.
+This guide explains the environment, security, migration, and compatibility
+boundaries of the current project package set. It does not announce or
+authorize publication, tagging, or deployment.
 
 ## Candidate package set
 
-The Framework candidate contains exactly 19 public ESM packages. The set,
-versions, exports, dependencies, and artifact names are read from package
-manifests by the release/documentation gates; this page does not duplicate
-version constants. Root `asyra`, private Asyra Design, and
-`create-asyra-design-app` have independently owned versions and release flows.
+The Framework package set contains exactly 19 public ESM packages. Package
+names, versions, exports, and dependencies are generated from the project
+manifests so this reference stays synchronized with the code.
 
 Consumers may import only package roots and explicitly exported subpaths.
 Workspace aliases, `workspace:*`, hoisting assumptions, monorepo-only paths,
@@ -17,11 +16,11 @@ and package-private `src` imports are not public contracts.
 
 ## Supported environment
 
-- Node.js `24.x` for formal artifact/release gates
-- Yarn `4.3.1` for repository release gates
-- public ESM entrypoints and TypeScript declarations
+- Node.js `24.x` for package verification
+- Yarn `4.3.1` for repository contributors and release verification
+- public ESM entrypoints with TypeScript declarations
 - React 19 for Asyra Design and `@asyra/design-system`
-- current browser evidence through the project-owned Playwright Chromium gate
+- Chromium through the current Playwright browser verification
 - official `2D` and engine-neutral `CUSTOM` composition
 
 Input System and default Core entries import without eager DOM access in the
@@ -68,9 +67,10 @@ Runtime compatibility warns once where observable. Type-only aliases carry
 deprecation and replacement in declarations. New code should use replacements
 now; do not build new dependencies on compatibility names.
 
-## Reproducible readiness
+## Repository release verification
 
-From a clean Node.js 24.x checkout:
+For maintainers validating the complete repository from a clean Node.js 24.x
+checkout:
 
 ```shell
 yarn install --immutable
@@ -80,10 +80,10 @@ yarn release:consumer
 yarn release:records
 ```
 
-Final release acceptance additionally requires formal tests, dependency/lint,
-E2E, performance, visual, Inspector, exact package artifacts, and registry-only
-consumer gates. A successful candidate run is evidence, not publication
-permission.
+Complete release acceptance additionally requires the project-owned tests,
+dependency checks, visual review, exact package artifacts, and registry-only
+consumer verification. Successful verification shows candidate readiness; it
+does not publish packages.
 
 ## License
 

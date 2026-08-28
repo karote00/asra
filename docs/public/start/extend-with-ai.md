@@ -13,15 +13,15 @@ it already exists.
 
 Include these facts in each request:
 
-1. **Outcome** — one observable product behavior, stated in app-domain terms.
-2. **Owner** — the app module, Feature, schema, or adapter allowed to change.
-3. **Canonical route** — the public Core/common API and transaction boundary
+1. **Outcome** - one observable product behavior, stated in app-domain terms.
+2. **Owner** - the app module, Feature, schema, or adapter allowed to change.
+3. **Canonical route** - the public Core/common API and transaction boundary
    that owns the write.
-4. **Composition** — which optional Preset, Render, Collaboration, or AI
+4. **Composition** - which optional Preset, Render, Collaboration, or AI
    capabilities are active and which are absent.
-5. **Proof** — the exact unit, integration, type, build, or E2E behavior that
+5. **Proof** - the exact unit, integration, type, build, or E2E behavior that
    must pass.
-6. **Exclusions** — private imports, duplicate state, UI-only fixes, fallback
+6. **Exclusions** - private imports, duplicate state, UI-only fixes, fallback
    output, secrets, and unrelated refactors.
 
 A useful request is concrete: “Add an app-owned review status to the generated

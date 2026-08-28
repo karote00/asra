@@ -23,12 +23,12 @@ const listFiles = async (directory) => {
 
 const localArtworkTest = env.LOCAL_ARTWORK_TESTS === '1' ? test : test.skip
 
-test('the website contains one new landing page and no legacy implementation', async () => {
+test('the website preserves the accepted landing owner beside the supporting platform', async () => {
   const appFiles = (await listFiles(appRoot)).filter((entry) =>
     /\.(?:css|tsx|ts)$/.test(entry)
   )
 
-  assert.deepEqual(appFiles, [
+  for (const ownerFile of [
     'error.tsx',
     'globals.css',
     'layout.tsx',
@@ -36,25 +36,35 @@ test('the website contains one new landing page and no legacy implementation', a
     'page.tsx',
     'robots.ts',
     'sitemap.ts'
-  ])
-  assert.deepEqual(await listFiles(path.join(siteRoot, 'components')), [])
-  assert.deepEqual(await listFiles(path.join(siteRoot, 'workers')), [])
-  assert.deepEqual(await listFiles(path.join(siteRoot, 'lib')), [
-    'site-origin.ts'
-  ])
+  ]) {
+    assert.ok(appFiles.includes(ownerFile), ownerFile)
+  }
+  assert.ok(appFiles.includes('atlas/page.tsx'))
+  assert.ok(appFiles.includes('docs/page.tsx'))
+  assert.ok(appFiles.includes('releases/page.tsx'))
+  assert.ok((await listFiles(path.join(siteRoot, 'components'))).length > 0)
+  assert.ok((await listFiles(path.join(siteRoot, 'workers'))).length > 0)
+  assert.ok(
+    (await listFiles(path.join(siteRoot, 'lib'))).includes('site-origin.ts')
+  )
 })
 
 test('the result-first narrative matches the approved V04 landing page', async () => {
-  const page = await readAppFile('page.tsx')
+  const [page, header] = await Promise.all([
+    readAppFile('page.tsx'),
+    readFile(path.join(siteRoot, 'components', 'site-header.tsx'), 'utf8')
+  ])
   const pageText = page.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
   const requiredCopy = [
     'Build the tool your world needs.',
     'You bring the domain knowledge. AI builds with Asyra. Your tool',
     'One foundation. Any field.',
-    'Examples, not limits.',
     'Add what your workflow needs without rebuilding the rest.',
-    'Build each feature once. People and AI use the same action path.',
+    'People and AI follow the same governed action path.',
     'One source of truth across every feature and view.',
+    'Prove it once. Keep what works.',
+    'Keep validated work moving.',
+    'What proves the idea becomes the starting point for the product.',
     'Bring your domain. Keep its logic.'
   ]
 
@@ -62,16 +72,19 @@ test('the result-first narrative matches the approved V04 landing page', async (
     assert.ok(pageText.includes(copy), `Missing approved copy: ${copy}`)
   }
 
+  assert.doesNotMatch(pageText, /Examples, not limits\./)
+
   assert.equal((page.match(/Start building/g) ?? []).length, 2)
   assert.doesNotMatch(page, /site-header[\s\S]*button--compact/)
-  assert.equal((page.match(/See examples/g) ?? []).length, 1)
+  assert.equal((page.match(/Try the demo/g) ?? []).length, 1)
+  assert.equal((header.match(/label:\s*'Asyra Design'/g) ?? []).length, 1)
   for (const line of [
     'Build the tool',
     'your world needs.',
     'Add what your workflow',
     'needs without rebuilding',
-    'Build each feature once.',
-    'People and AI use the',
+    'People and AI follow the',
+    'same governed action path.',
     'One source of truth across',
     'every feature and view.',
     'Bring your domain.',
@@ -88,6 +101,232 @@ test('the result-first narrative matches the approved V04 landing page', async (
   assert.doesNotMatch(page, /[—–]/)
 })
 
+test('the PoC storyboard keeps validated work on one governed product path', async () => {
+  const page = await readAppFile('page.tsx')
+  const css = await readAppFile('globals.css')
+  const illustrationFiles = await listFiles(
+    path.join(siteRoot, 'public', 'illustrations')
+  )
+  const governanceStart = page.indexOf('<p className="poc-story__governance">')
+  const panelsStart = page.indexOf('<div className="story-panels">')
+  const traditionalPathStart = page.indexOf("key: 'traditional'")
+  const asyraPathStart = page.indexOf("key: 'asyra'")
+  const flowMapStart = page.indexOf('{pocStoryPaths.map((path) =>')
+  const panelMapStart = page.indexOf(
+    '{pocStoryPanels.map((panel) =>',
+    flowMapStart
+  )
+
+  assert.match(page, /className="poc-story"/)
+  assert.match(page, /id="how-it-works"/)
+  assert.doesNotMatch(page, />\s*Workflow\s*<\/p>/)
+  assert.doesNotMatch(page, /Workflow comparison/)
+  assert.doesNotMatch(page, /Same PoC\. Two paths\./)
+  assert.match(page, /const pocStoryPanels = \[/)
+  assert.match(page, /const pocStoryPaths = \[/)
+  assert.equal((page.match(/className="poc-story__legend"/g) ?? []).length, 1)
+  assert.match(page, />Traditional</)
+  assert.match(page, />With Asyra</)
+  assert.match(page, /className="story-panels"/)
+  assert.match(page, /className="story-flow__steps"/)
+  assert.match(page, /className="story-flow__label"/)
+  assert.match(page, /className="story-panel"/)
+  assert.match(page, /story-flow--\$\{path\.key\}/)
+  assert.match(page, /story-panel__scene--\$\{path\.key\}/)
+  assert.doesNotMatch(page, /panel\.stage === '01'/)
+  assert.match(page, /className="story-panel__artwork-frame"/)
+  assert.match(page, /className="story-panel__artwork"/)
+  assert.ok(traditionalPathStart < asyraPathStart)
+  assert.ok(flowMapStart < panelMapStart)
+  assert.match(page, /poc-storyboard-stage-01-traditional\.png/)
+  assert.match(page, /poc-storyboard-stage-01-asyra\.png/)
+  assert.doesNotMatch(page, /poc-storyboard-stage-01\.png/)
+  assert.doesNotMatch(page, /StoryCharacter|StoryAction|StoryVignette/)
+  assert.doesNotMatch(page, /className="story-vignette"/)
+  assert.deepEqual(
+    illustrationFiles.filter((file) =>
+      /poc-storyboard-stage-\d{2}-(?:traditional|asyra)\.png$/.test(file)
+    ),
+    [
+      'poc-storyboard-stage-01-asyra.png',
+      'poc-storyboard-stage-01-traditional.png',
+      'poc-storyboard-stage-02-asyra.png',
+      'poc-storyboard-stage-02-traditional.png',
+      'poc-storyboard-stage-03-asyra.png',
+      'poc-storyboard-stage-03-traditional.png',
+      'poc-storyboard-stage-04-asyra.png',
+      'poc-storyboard-stage-04-traditional.png'
+    ]
+  )
+  assert.equal((page.match(/traditional: \{/g) ?? []).length, 4)
+  assert.equal((page.match(/asyra: \{/g) ?? []).length, 4)
+  assert.doesNotMatch(
+    page,
+    /className="workflow-lane|className="workflow-step|story-panel__paths/
+  )
+  assert.match(page, /Domain \+ AI/)
+  assert.match(page, /Real Feature/)
+  assert.match(page, /Engineer review/)
+  assert.doesNotMatch(page, /Same implementation/)
+  assert.match(page, /Engineering still owns production readiness/)
+  assert.match(page, /review, tests, security, and performance/)
+  assert.ok(governanceStart > panelsStart)
+  assert.doesNotMatch(page, /production-ready/i)
+
+  assert.match(
+    css,
+    /\.story-flow__steps\s*\{[\s\S]*grid-template-columns: repeat\(4,/
+  )
+  assert.match(
+    css,
+    /@media \(max-width: 960px\)[\s\S]*\.story-flow__steps\s*\{[\s\S]*grid-template-columns: repeat\(2,/
+  )
+  assert.match(
+    css,
+    /@media \(max-width: 680px\)[\s\S]*\.story-flow__steps\s*\{[\s\S]*grid-template-columns: 1fr/
+  )
+  assert.match(
+    css,
+    /\.story-flow--asyra \.story-panel__header\s*\{[\s\S]*display: none/
+  )
+  assert.match(
+    css,
+    /\.story-panel__artwork-frame\s*\{[\s\S]*border: 2px solid[\s\S]*overflow: hidden/
+  )
+  assert.match(css, /\.story-panel__artwork\s*\{[\s\S]*inset: 0/)
+  assert.match(css, /\.story-flow__label\s*\{[\s\S]*position: absolute/)
+  assert.match(
+    css,
+    /@media \(max-width: 960px\)[\s\S]*\.poc-story__legend\s*\{[\s\S]*display: none[\s\S]*\.story-flow__label\s*\{[\s\S]*position: static/
+  )
+  assert.match(
+    css,
+    /\.poc-story__legend-swatch--traditional\s*\{[\s\S]*rgb\(220 36 27/
+  )
+  assert.match(
+    css,
+    /\.poc-story__legend-swatch--asyra\s*\{[\s\S]*rgb\(8 119 200/
+  )
+  assert.doesNotMatch(
+    css,
+    /\.story-panel__stage\s*\{[^}]*color: var\(--signal-red\)/
+  )
+  assert.doesNotMatch(
+    css,
+    /\.workflow-lane|\.workflow-step|\.story-panel__paths/
+  )
+})
+
+test('the Landing Framework value story isolates change cost from the proof sections below it', async () => {
+  const [page, component, css, tokens] = await Promise.all([
+    readAppFile('page.tsx'),
+    readFile(
+      path.join(siteRoot, 'components', 'framework-value-story.tsx'),
+      'utf8'
+    ),
+    readAppFile('globals.css'),
+    readAppFile('styles/tokens.css')
+  ])
+  const storyStart = page.indexOf('className="poc-story"')
+  const valueStart = page.indexOf('<FrameworkValueStory />')
+  const proofStart = page.indexOf('<div className="proof-stack">')
+
+  assert.match(page, /import \{ FrameworkValueStory \}/)
+  assert.ok(storyStart >= 0 && storyStart < valueStart)
+  assert.ok(valueStart < proofStart)
+  assert.match(component, /className="framework-value"/)
+  assert.match(component, />Change cost</)
+  assert.match(component, /One feature request\. One place to change\./)
+  assert.match(component, /Without Asyra/)
+  assert.match(component, /One request, many edits/)
+  assert.match(component, /With Asyra/)
+  assert.match(component, /One request, one bounded change/)
+  assert.match(component, /One Feature definition/)
+  assert.equal(
+    (component.match(/className="framework-value__accent /g) ?? []).length,
+    2
+  )
+  assert.match(component, /framework-value__accent--traditional/)
+  assert.match(component, /framework-value__accent--asyra/)
+  assert.match(component, /Product screen/)
+  assert.match(component, /AI action/)
+  assert.match(component, /Saved work/)
+  assert.match(component, /Undo \+ redo/)
+  assert.match(component, /Synced users/)
+  assert.match(component, /Clear owner/)
+  assert.match(component, /Focused review/)
+  assert.match(component, /Focused tests/)
+  assert.match(component, /Smaller change/)
+  assert.match(component, /Easier revisit/)
+  assert.equal((component.match(/framework-value__flow/g) ?? []).length, 2)
+  assert.doesNotMatch(component, /framework-value__outcome/)
+  assert.doesNotMatch(
+    component,
+    /One definition changes\. The whole product stays consistent\./
+  )
+  assert.doesNotMatch(
+    component,
+    /Change one definition\. Update the whole product\.|Every product surface uses the same Feature\.|Meaning, rules, and history stay together\./
+  )
+  assert.doesNotMatch(page, /Build each feature once\./)
+  assert.doesNotMatch(component, /Canonical|Transaction|State application/)
+  assert.doesNotMatch(component, /[—–]/)
+  assert.match(
+    css,
+    /\.framework-value__comparison\s*\{[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/
+  )
+  assert.match(css, /\.framework-value__heading\s*\{[\s\S]*align-items:\s*end/)
+  assert.match(
+    css,
+    /\.framework-value__heading\s*\{[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/
+  )
+  assert.match(
+    css,
+    /\.framework-value__comparison\s*\{[^}]*grid-template-rows:\s*repeat\(4, auto\);/s
+  )
+  assert.doesNotMatch(component, /framework-value__stripe/)
+  assert.match(
+    css,
+    /\.framework-value__accent\s*\{[^}]*bottom:\s*var\(--framework-value-accent-inset\);[^}]*position:\s*absolute;[^}]*top:\s*var\(--framework-value-accent-inset\);[^}]*width:\s*3px;/s
+  )
+  assert.match(
+    css,
+    /\.framework-value__accent--traditional\s*\{[^}]*background:\s*var\(--signal-red-hover\);[^}]*left:\s*var\(--framework-value-accent-inset\);/s
+  )
+  assert.match(
+    css,
+    /\.framework-value\s*\{[^}]*--framework-value-stripe-blue:\s*var\(--signal-blue-bright\);/s
+  )
+  assert.match(tokens, /--color-blue-bright:\s*#1491e4;/)
+  assert.match(
+    css,
+    /\.framework-value__accent--asyra\s*\{[^}]*background:\s*var\(--framework-value-stripe-blue\);[^}]*right:\s*var\(--framework-value-accent-inset\);/s
+  )
+  assert.doesNotMatch(css, /\.framework-value__stripe(?:-|\s*\{)/)
+  assert.doesNotMatch(
+    css,
+    /border-top:\s*3px solid var\(--framework-value-stripe-blue\)/
+  )
+  assert.doesNotMatch(css, /\.framework-value__comparison::before\s*\{/)
+  assert.doesNotMatch(css, /\.framework-value__path::before\s*\{/)
+  assert.match(
+    css,
+    /\.framework-value__path\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-row:\s*1\s*\/\s*span 4;[\s\S]*grid-template-rows:\s*subgrid/
+  )
+  assert.match(
+    css,
+    /\.framework-value__path\s*>\s*header\s*\{[\s\S]*display:\s*contents/
+  )
+  assert.match(
+    css,
+    /@media \(max-width: 680px\)[\s\S]*\.framework-value__comparison\s*\{[\s\S]*grid-template-columns:\s*1fr/
+  )
+  assert.match(
+    css,
+    /@media \(max-width: 680px\)[\s\S]*\.framework-value__accent--asyra\s*\{[^}]*left:\s*var\(--framework-value-accent-inset\);[^}]*right:\s*auto;/s
+  )
+})
+
 test('the retired change-impact sections do not contribute to the landing narrative', async () => {
   const page = await readAppFile('page.tsx')
 
@@ -98,28 +337,56 @@ test('the retired change-impact sections do not contribute to the landing narrat
   )
 })
 
-test('every navigation and CTA target is clickable, including placeholders', async () => {
-  const page = await readAppFile('page.tsx')
-  const anchors = page.match(/<a\b/g) ?? []
-  const anchorsWithTargets = page.match(/<a\b[^>]*\bhref=/g) ?? []
+test('every navigation and CTA target is connected to the completed site', async () => {
+  const [page, header, footer] = await Promise.all([
+    readAppFile('page.tsx'),
+    readFile(path.join(siteRoot, 'components', 'site-header.tsx'), 'utf8'),
+    readFile(path.join(siteRoot, 'components', 'site-footer.tsx'), 'utf8')
+  ])
+  const source = `${page}\n${header}\n${footer}`
 
-  assert.equal(anchors.length, 13)
-  assert.equal(anchorsWithTargets.length, anchors.length)
-  assert.doesNotMatch(page, /href=["']\s*["']/)
+  assert.match(page, /<SiteHeader variant="landing"\s*\/>/)
+  assert.match(page, /<SiteFooter\s*\/>/)
+  assert.doesNotMatch(source, /href=["']\s*["']/)
+  assert.doesNotMatch(source, /href=["']#["']/)
+  assert.match(header, /href:\s*['"]\/docs['"]/)
+  assert.match(header, /href:\s*['"]\/atlas['"]/)
+  assert.match(header, /href:\s*['"]\/asyra-design['"]/)
+  assert.match(header, /href:\s*['"]\/releases['"]/)
+  assert.match(header, /href:\s*['"]\/roadmap['"]/)
+  assert.match(page, /href="\/docs\/start\/custom-composition"/)
+  assert.equal(
+    (source.match(/https:\/\/asyra-design\.vercel\.app\/\?fileId=demo/g) ?? [])
+      .length,
+    1
+  )
+  assert.equal(
+    (
+      page.match(
+        /<a\b(?=[^>]*href="https:\/\/asyra-design\.vercel\.app\/\?fileId=demo")(?=[^>]*target="_blank")(?=[^>]*rel="noopener noreferrer")[^>]*>/g
+      ) ?? []
+    ).length,
+    1
+  )
+  assert.doesNotMatch(page, /href="#examples"|id="examples"/)
+  assert.match(page, /id="domains"/)
+  assert.match(footer, /https:\/\/github\.com\/karote00\/asyra/)
 })
 
-test('the footer identifies its license without an open-source or company label', async () => {
+test('the footer stays focused on navigation without redundant legal metadata', async () => {
   const source = [
     await readAppFile('page.tsx'),
     await readAppFile('layout.tsx'),
-    await readAppFile('not-found.tsx')
+    await readAppFile('not-found.tsx'),
+    await readFile(path.join(siteRoot, 'components', 'site-footer.tsx'), 'utf8')
   ].join('\n')
   const css = await readAppFile('globals.css')
 
-  assert.match(source, /2026/)
-  assert.match(source, /MIT License/)
-  assert.doesNotMatch(source, /2025|Open source|Asyra Systems?|Inc\.|Company/i)
-  assert.doesNotMatch(css, /\.project-identity a::before/)
+  assert.doesNotMatch(
+    source,
+    /2025|2026|MIT License|Open source|Asyra Systems?|Inc\.|Company/i
+  )
+  assert.doesNotMatch(css, /\.project-identity/)
 })
 
 test('metadata falls back to the canonical HTTPS origin', async () => {
@@ -130,6 +397,34 @@ test('metadata falls back to the canonical HTTPS origin', async () => {
 
   assert.ok(source.includes('https://asyra-framework.vercel.app'))
   assert.doesNotMatch(source, /http:\/\/127\.0\.0\.1:3020/)
+})
+
+test('metadata identifies the Framework for canvas-based and domain-driven tools', async () => {
+  const layout = await readAppFile('layout.tsx')
+
+  assert.match(
+    layout,
+    /Asyra - Framework for canvas-based and domain-driven tools/
+  )
+  assert.match(layout, /canvas-based editors/)
+  assert.match(layout, /visual tools/)
+  assert.match(layout, /BIM workspaces/)
+  assert.match(layout, /domain products/)
+})
+
+test('the public llms discovery surface mirrors the generated documentation inventory', async () => {
+  const websiteLlms = await readFile(
+    path.join(siteRoot, 'public', 'llms.txt'),
+    'utf8'
+  )
+  const generatedLlms = await readFile(
+    path.join(siteRoot, '..', '..', 'docs', 'public', 'llms.txt'),
+    'utf8'
+  )
+
+  assert.equal(websiteLlms, generatedLlms)
+  assert.match(websiteLlms, /^# Asyra Framework/m)
+  assert.doesNotMatch(websiteLlms, /docs\/ai\//)
 })
 
 test('local artwork sources are Git-ignored and run only through the opt-in artwork gate', async () => {
@@ -149,6 +444,10 @@ test('local artwork sources are Git-ignored and run only through the opt-in artw
   assert.match(
     ignore,
     /^!apps\/asyra-framework-site\/public\/illustrations\/\*-photoroom-\*\.webp$/m
+  )
+  assert.match(
+    ignore,
+    /^!apps\/asyra-framework-site\/public\/illustrations\/poc-storyboard-stage-\*\.png$/m
   )
   assert.equal(
     packageJson.scripts['test:artwork:local'],
@@ -198,6 +497,72 @@ test('production includes only the twenty-two selected Photoroom derivatives', a
   }
   assert.match(page, /domain-rail-v08-desktop-photoroom-row-1-800\.webp/)
   assert.match(page, /name="domain-rail-v08-desktop-photoroom-row-2"/)
+})
+
+test('One Source shortens and centers its three view labels before responsive export', async () => {
+  const builder = await readFile(
+    path.join(siteRoot, 'scripts', 'build-photoroom-assets.py'),
+    'utf8'
+  )
+
+  for (const [currentLabel, nextLabel, centerX, centerY] of [
+    ['3D VIEW', '3D', 273, 84],
+    ['LIST VIEW', 'LIST', 273, 469],
+    ['DETAIL VIEW', 'DETAIL', 1260, 469]
+  ]) {
+    assert.match(
+      builder,
+      new RegExp(
+        `\\("${currentLabel}",\\s*"${nextLabel}",\\s*\\(${centerX},\\s*${centerY}\\)\\)`
+      )
+    )
+  }
+  assert.match(builder, /def replace_one_source_labels\(/)
+  assert.match(builder, /assert_changes_within_regions\(/)
+  assert.match(
+    builder,
+    /if spec\.name == "one-source-v08-desktop-photoroom":\s*source = replace_one_source_labels\(source\)/s
+  )
+})
+
+test('Domain Rail keeps every card from the immutable supplied master', async () => {
+  const builder = await readFile(
+    path.join(siteRoot, 'scripts', 'build-photoroom-assets.py'),
+    'utf8'
+  )
+  const expectedDerivativeHashes = {
+    'domain-rail-v08-desktop-photoroom-800.webp':
+      '534fec545e85dfb3df6ce471e2b3c0dfa6b43ca099eeb24f566941e618c0a44d',
+    'domain-rail-v08-desktop-photoroom-1600.webp':
+      '57fe0039c9bc25016b8433457dfd3b1c6e0d0d3341e2c2ef627968b0a49f3936',
+    'domain-rail-v08-desktop-photoroom-2400.webp':
+      'f280f3866fbcc6031da8f879077221d5356a5e7af549907ab81422f26f192841'
+  }
+
+  assert.doesNotMatch(
+    builder,
+    /photoroom-refined|domain-rail-structure-complete/
+  )
+  assert.equal(
+    (builder.match(/"domain-rail-v08-desktop-master-Photoroom\.png"/g) ?? [])
+      .length,
+    3
+  )
+  assert.match(builder, /\(0,\s*0,\s*1200,\s*325\)/)
+  assert.match(builder, /\(1200,\s*0,\s*2400,\s*325\)/)
+
+  for (const [filename, expectedHash] of Object.entries(
+    expectedDerivativeHashes
+  )) {
+    const asset = await readFile(
+      path.join(siteRoot, 'public', 'illustrations', filename)
+    )
+    assert.equal(
+      createHash('sha256').update(asset).digest('hex'),
+      expectedHash,
+      `${filename} must remain the complete pre-refinement derivative`
+    )
+  }
 })
 
 localArtworkTest(
@@ -411,7 +776,7 @@ localArtworkTest(
     )
     assert.match(builder, /def premultiplied_resize/)
     assert.match(builder, /def assert_true_alpha/)
-    assert.match(builder, /domain-rail-structure-complete-v02\.png/)
+    assert.match(builder, /domain-rail-v08-desktop-master-Photoroom\.png/)
     assert.match(builder, /\(0,\s*0,\s*1200,\s*325\)/)
     assert.match(builder, /\(1200,\s*0,\s*2400,\s*325\)/)
     assert.match(builder, /lossless=True/)
@@ -1060,10 +1425,14 @@ localArtworkTest(
 )
 
 test('CTA interaction becomes brighter and the closing uses the transparent supplied domain-preservation concept', async () => {
-  const page = await readAppFile('page.tsx')
-  const css = await readAppFile('globals.css')
+  const [page, css, tokens] = await Promise.all([
+    readAppFile('page.tsx'),
+    readAppFile('globals.css'),
+    readAppFile('styles/tokens.css')
+  ])
 
-  assert.match(css, /--signal-red-hover:\s*#f[0-9a-f]{5}/i)
+  assert.match(tokens, /--color-red-hover:\s*#f[0-9a-f]{5}/i)
+  assert.match(tokens, /--signal-red-hover:\s*var\(--color-red-hover\)/)
   assert.match(css, /\.button--red:hover\s*\{[^}]*var\(--signal-red-hover\)/s)
   assert.match(css, /\.button--red:focus-visible\s*\{/)
   assert.match(page, /name="closing-core-v09-photoroom"/)
@@ -1071,11 +1440,53 @@ test('CTA interaction becomes brighter and the closing uses the transparent supp
 })
 
 test('the responsive layout keeps balanced proof spacing without section rules', async () => {
-  const css = await readAppFile('globals.css')
+  const [css, tokens] = await Promise.all([
+    readAppFile('globals.css'),
+    readAppFile('styles/tokens.css')
+  ])
   const proofRule = css.match(/\.proof\s*\{([^}]+)\}/s)?.[1] ?? ''
+  const sharedHeaderRule =
+    css.match(/\.site-header,\s*\.site-frame-header\s*\{([^}]+)\}/s)?.[1] ?? ''
+  const baseRule = (selector) => {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return css.match(new RegExp(`${escaped}\\s*\\{([^}]+)\\}`, 's'))?.[1] ?? ''
+  }
 
-  assert.match(css, /--paper:\s*#[0-9a-f]{6}/i)
-  assert.match(css, /--signal-red:\s*#[0-9a-f]{6}/i)
+  assert.match(tokens, /--paper:\s*var\(--color-paper\)/)
+  assert.match(tokens, /--signal-red:\s*var\(--color-red\)/)
+  assert.match(tokens, /--page-min-width:\s*320px/)
+  assert.match(tokens, /--page-max-width:\s*2520px/)
+  assert.match(tokens, /--page-padding-x:\s*clamp\(38px,\s*6\.25vw,\s*64px\)/)
+  assert.match(tokens, /--site-header-max-width:\s*var\(--page-max-width\)/)
+  assert.match(tokens, /--site-header-padding-x:\s*var\(--page-padding-x\)/)
+  assert.match(css, /body\s*\{[^}]*min-width:\s*var\(--page-min-width\)/s)
+  for (const selector of [
+    '.hero',
+    '.poc-story__inner',
+    '.proof-stack',
+    '.site-footer'
+  ]) {
+    const rule = baseRule(selector)
+    assert.match(rule, /max-width:\s*var\(--page-max-width\)/, selector)
+    assert.match(rule, /var\(--page-padding-x\)/, selector)
+  }
+  assert.match(baseRule('.domains__heading'), /margin:\s*0\s+auto/)
+  assert.match(baseRule('.domains__heading'), /width:\s*min\(100%,\s*720px\)/)
+  assert.match(
+    baseRule('.domains__heading'),
+    /padding-inline:\s*var\(--page-padding-x\)/
+  )
+  assert.match(baseRule('.domains'), /min-height:\s*0/)
+  assert.match(
+    baseRule('.domains__rail'),
+    /margin-top:\s*clamp\(8px,\s*1vw,\s*16px\)/
+  )
+  assert.match(sharedHeaderRule, /max-width:\s*var\(--site-header-max-width\)/)
+  assert.match(sharedHeaderRule, /var\(--site-header-padding-x\)/)
+  assert.match(
+    baseRule('.closing'),
+    /padding:\s*14px\s+var\(--page-content-inset-x\)/
+  )
   assert.match(css, /@media\s*\(max-width:\s*1100px\)/)
   assert.match(css, /@media\s*\(max-width:\s*800px\)/)
   assert.match(css, /@media\s*\(max-width:\s*680px\)/)
@@ -1085,8 +1496,8 @@ test('the responsive layout keeps balanced proof spacing without section rules',
   assert.match(css, /prefers-reduced-motion/)
   assert.match(proofRule, /min-height:\s*clamp\(220px,\s*25vw,\s*390px\)/)
   assert.match(
-    css,
-    /\.proof-stack\s*\{[^}]*padding-inline:\s*var\(--page-pad\)/s
+    baseRule('.proof-stack'),
+    /padding-inline:\s*var\(--page-padding-x\)/
   )
   assert.match(
     css,
@@ -1114,6 +1525,10 @@ test('every illustration uses the shared adaptive code grid and alpha-aware drop
   assert.match(css, /\.illustration-stage\s*\{/)
   assert.match(css, /\.illustration-stage::before\s*\{/)
   assert.match(css, /--grid-unit:\s*clamp\(/)
+  assert.match(
+    css,
+    /\.illustration-stage--rail\s*\{[^}]*--grid-unit:\s*clamp\(26px,\s*3vw,\s*48px\)/s
+  )
   assert.match(css, /repeating-linear-gradient\(/)
   assert.match(css, /radial-gradient\(/)
   assert.match(css, /mask-image:/)
@@ -1148,11 +1563,17 @@ test('every illustration uses the shared adaptive code grid and alpha-aware drop
 })
 
 test('the typography uses a modern system sans stack without legacy display serifs', async () => {
-  const css = await readAppFile('globals.css')
+  const [css, tokens] = await Promise.all([
+    readAppFile('globals.css'),
+    readAppFile('styles/tokens.css')
+  ])
 
-  assert.match(css, /--display:\s*system-ui,\s*-apple-system/i)
-  assert.match(css, /--sans:\s*system-ui,\s*-apple-system/i)
-  assert.doesNotMatch(css, /Baskerville|Iowan Old Style|Times New Roman/i)
+  assert.match(tokens, /--font-family-display:\s*system-ui,\s*-apple-system/i)
+  assert.match(tokens, /--font-family-sans:\s*system-ui,\s*-apple-system/i)
+  assert.doesNotMatch(
+    `${tokens}\n${css}`,
+    /Baskerville|Iowan Old Style|Times New Roman/i
+  )
   assert.doesNotMatch(css, /font-family:\s*var\(--serif\)/)
 
   const headingRules = [

@@ -84,6 +84,7 @@ test('clean consumer replaces every frozen package with one packed artifact', ()
     assert.ok(name.startsWith('@asyra/'))
     assert.equal(manifest.resolutions[name], specifier)
   })
+  assert.equal(manifest.resolutions.vite, '6.4.3')
 })
 
 test('registry consumer derives exact public versions from package manifests', () => {
@@ -97,7 +98,7 @@ test('registry consumer derives exact public versions from package manifests', (
     assert.equal(specifier, packageVersions[name])
     assert.doesNotMatch(specifier, /workspace:|(?:file|link|portal|patch):/)
   })
-  assert.equal(manifest.resolutions, undefined)
+  assert.equal(manifest.resolutions.vite, '6.4.3')
 })
 
 test('clean consumer runner owns install, compile, build, test, and cleanup', () => {

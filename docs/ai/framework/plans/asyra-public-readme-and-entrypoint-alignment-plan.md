@@ -4,7 +4,7 @@
 
 Completed locally on August 10, 2026, as a child plan of the
 [Asyra Framework Website Program](completed/asyra-framework-website-plan.md). The
-accepted bundle contains all 24 public README surfaces, deterministic package
+accepted bundle contains all 23 public README surfaces, deterministic package
 generation for the 19 release packages, canonical generated-App
 synchronization, and fail-closed link, API, support-policy, and freshness
 validation.
@@ -35,7 +35,6 @@ The exact candidate inventory includes:
 - all Framework package `packages/*/README.md` files in the manifest-derived
   release inventory, currently 19;
 - `apps/asyra-design/README.md`;
-- `apps/asyra-design/TEMPLATE.md` as the canonical generated-app README source;
 - `create-app/asyra-design/README.md`; and
 - `create-app/asyra-design/template/README.md`, only as canonical generated
   output.
@@ -48,17 +47,15 @@ Ownership remains local to each surface:
   public boundary, and links;
 - Asyra Design owns real-product setup, optional/complete service paths,
   Framework-versus-App ownership, and extension entry;
-- `release-configs/asyra-design.json` selects the canonical generated-app
-  README source;
+- `apps/asyra-design/README.md` is the canonical generated-app README source;
 - the CLI owns the public creation command, generated-project expectations,
   and next steps; and
 - the official generator owns generated-template README synchronization. A
   generated README is never hand-edited.
 
-The frozen inventory contains exactly 24 surfaces: one root README, 19 package
-READMEs derived from the Framework release inventory, one Asyra Design README,
-one canonical generated-app README source, one CLI README, and one generated
-README output.
+The frozen inventory contains exactly 23 surfaces: one root README, 19 package
+READMEs derived from the Framework release inventory, one canonical Asyra
+Design README source, one CLI README, and one generated README output.
 
 Public documentation fingerprints canonical README sources. This workstream
 may therefore regenerate only `docs/public/generated/source-map.json` through
@@ -69,7 +66,7 @@ any other generated documentation artifact.
 ## Executable README Cases
 
 - the inventory equals the current manifest-derived 19-package release set and
-  all 24 paths exist exactly once;
+  all 23 paths exist exactly once;
 - every package README resolves its package manifest, public guide, approved
   public entrypoints, and its complete maintained guide;
 - root, App, canonical template source, CLI, and generated output each satisfy
@@ -81,8 +78,8 @@ any other generated documentation artifact.
   contributions are not accepted;
 - repository, documentation, advanced-guide, security, license, support, and policy
   links resolve from their rendered owner context;
-- generated output is byte-identical to the canonical source selected by
-  `release-configs/asyra-design.json`; and
+- generated output differs from the canonical Asyra Design README only by the
+  deterministic standalone license link rewrite; and
 - the public-documentation source map deterministically acknowledges the
   reviewed README source revisions; and
 - stale versions, unknown packages or guides, private imports, unsupported
@@ -161,8 +158,7 @@ and CLI wording must not create conflicting contribution routes.
 ## Generated-App Contract
 
 `create-app/asyra-design/template` is generated output. Update its canonical
-`apps/asyra-design/TEMPLATE.md` source, selected by
-`release-configs/asyra-design.json`, then run the official
+`apps/asyra-design/README.md` source, then run the official
 `yarn release:app --prod=asyra-design` route and verify
 `yarn release:app:check --prod=asyra-design`. Never repair the generated README
 directly.

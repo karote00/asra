@@ -64,14 +64,15 @@ test('release records derive Framework and excluded-owner versions from manifest
   assert.equal(result.publicationAuthorized, false)
 })
 
-test('public release docs describe manifest-owned candidates without a fixed package version', () => {
+test('public release docs link current support while release records derive manifest-owned candidates', () => {
   const read = (relativePath) =>
     fs.readFileSync(path.join(repositoryRoot, relativePath), 'utf8')
   const readme = read('README.md')
   const releaseNotes = read('RELEASE_NOTES.md')
   const support = read('docs/ai/framework/RELEASE_SUPPORT.md')
 
-  assert.match(readme, /current Framework package manifests/i)
+  assert.match(readme, /## Current support/i)
+  assert.match(readme, /docs\/public\/reference\/support-release\.md/i)
   assert.match(releaseNotes, /Framework pre-publication candidate/i)
   assert.match(releaseNotes, /release decision remains `PENDING`/)
   assert.match(support, /current Framework package manifests/i)

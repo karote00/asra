@@ -11,8 +11,10 @@ source, published from the validated feature-branch source, installed through
 its exact public `npx` command, and accepted after the complete generated-app
 behavior matrix plus manual product testing passed.
 
-Root `asyra` remains unchanged throughout this plan. A private
-`@asyra/asyra-design` identity change also requires an explicit user decision.
+The private root workspace `asyra` remains unchanged and unpublished
+throughout this plan. The private
+`@asyra/asyra-design` App and `create-asyra-design-app` CLI share one explicitly
+selected release version.
 
 ## Completion Summary
 
@@ -51,13 +53,11 @@ publish only the manually versioned `create-asyra-design-app` CLI.
 - Repository runtime, CI, and deployment-preview prerequisites are `READY`.
 - Every required Framework manifest version is publicly installable.
 - Registry-only Framework clean-consumer proof passes.
-- Private app identity remains unchanged unless the user explicitly selects a
-  replacement.
-- The user explicitly confirms the CLI target version.
+- The user explicitly confirms the shared App and CLI target version.
 - Work uses a clean exact source commit on `main` or a non-main feature branch.
 
 The CLI target cannot be materialized before the generated-template contract
-passes. Root remains deferred until after the CLI release.
+passes. The private root workspace remains excluded from publication.
 
 ## Required Inspector
 
@@ -83,9 +83,10 @@ The executable authority is
 
 ### 1. Record user-specified versions
 
-- Keep root unchanged for its later release stage.
-- Keep private Asyra Design unchanged unless explicitly selected otherwise.
-- Record the user-selected CLI target without changing its manifest yet.
+- Keep the private root workspace unchanged and unpublished.
+- Set canonical Asyra Design to the explicitly selected shared App and CLI
+  target before generation.
+- Record that shared target without changing the CLI manifest yet.
 - Update the canonical app's Framework dependencies to the exact
   registry-verified package versions.
 
@@ -101,10 +102,13 @@ The executable authority is
 ### 3. Materialize the CLI version
 
 - Only after generated-template verification passes, manually set
-  `create-app/asyra-design/package.json` to the user-selected CLI target.
+  `create-app/asyra-design/package.json` to the same user-selected version as
+  `apps/asyra-design/package.json`.
 - Never create a Changeset entry for the CLI, root, private app, or generated
   template.
-- Keep root, private app identity, and generated-template identity unchanged.
+- Keep root and Framework package versions unchanged. The generated template
+  inherits the App version through the official generator and is never
+  versioned independently.
 
 ### 4. Verify synchronization and CLI artifact
 
@@ -158,14 +162,16 @@ The executable authority is
   fails.
 - The CLI manifest does not equal the explicitly selected target when the
   publication segment begins.
+- The App, generated template, and CLI manifest versions are not identical.
 - A required private identity decision or P0/P1/P2 finding remains unresolved.
 
 ## Definition of Done
 
-- Root remains unchanged and private Asyra Design uses its unchanged or
-  explicitly selected identity.
-- The CLI is manually materialized at the explicitly selected target without a
-  Changeset entry.
+- The private root workspace remains unchanged and unpublished while private
+  Asyra Design, the generated template, and the CLI use the same explicitly
+  selected release version.
+- The CLI is manually materialized at that shared target without a Changeset
+  entry.
 - Generated identity equals the canonical app identity.
 - Generated dependencies resolve only to the reviewed public Framework
   versions.

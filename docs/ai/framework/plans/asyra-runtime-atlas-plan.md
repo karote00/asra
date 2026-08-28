@@ -6,17 +6,18 @@ Required child plan of the
 [Asyra Framework Website Program](completed/asyra-framework-website-plan.md). The Atlas
 is a real-runtime product surface, not a decorative architecture diagram.
 
-Preview-ready on the accepted website platform and public-documentation handoff
-as of August 10, 2026. The bounded product contract, six exact browser cases,
-observation contract, Atlas Inspector, production browser bundle, responsive
-experience, and synchronized visual evidence are complete. Production
-deployment remains owned by Launch and Operations.
+Active implementation contract. The bounded product contract, six exact browser
+cases, observation contract, and Atlas Inspector are frozen. Runtime,
+presentation, production-browser, responsive, and synchronized visual evidence
+must be regenerated against the current Framework website before Preview-ready
+status can be claimed. Production deployment remains owned by Launch and
+Operations.
 
-The user-selected Cosmic Atlas Revision 2 handoff is the active whole-site
-visual direction. Atlas presentation adopts its deep cosmic observatory,
-rounded dark evidence surfaces, coral/cyan/violet/amber causal routes, and
-luminous state nodes without changing any executing runtime case, evidence
-source, or ownership boundary.
+The accepted Landing V04 contract is the active whole-site visual direction.
+Atlas presentation extends its warm paper, near-black, signal-red, engineering
+grid, and dark mechanical-stage material system without reusing Landing artwork
+as decoration or changing any executing runtime case, evidence source, or
+ownership boundary.
 
 ## Goal
 
@@ -102,7 +103,7 @@ behavior, Landing narrative, public docs, Asyra Design, publication state, and
 deployment remain unchanged.
 
 Discovery is fixed to the six runtime cases, their package-root API owners, the
-accepted public-content index, the selected visual handoff,
+accepted public-content index, the accepted Landing V04 contract,
 the Atlas route and its direct site consumers, and the formal gates named in
 this plan. Package-private imports, Framework behavior repair, new dependencies,
 production deployment, or a required case that cannot be proven through a
@@ -240,22 +241,15 @@ interaction and evidence.
 - visual review inspects default, active, success, failure, and future-roadmap
   disclosure states.
 
-## Verification Evidence
+## Required Verification Evidence
 
-- Runtime Atlas Inspector contract: 10/10 passing.
-- Framework site contract and unit suite: 69/69 passing, including all six
-  isolated runtime cases and stale-placeholder test removal.
-- Production-browser Atlas E2E: 6/6 passing for Run, Pause, Step, Replay,
-  Reset, keyboard Escape, rejection, all six terminal results, 1440px, 390px,
-  320px, desktop 200 percent reflow, reduced motion, no-JavaScript reading,
-  resource budgets, and runtime budgets.
-- Production route smoke: 48 public routes passing.
-- Strict site typecheck, site lint, and the 50-page production build pass.
-- Synchronized screenshots and the live in-app browser review cover default,
-  active, paused, accepted, rejected, App-owned projection, mobile, and
-  future-Roadmap states with no remaining visual difference.
-- Repository integration passes `yarn test:ci` with 72 script tests and all 21
-  workspace test tasks, plus all 20 `yarn react:build` tasks.
+- Runtime Atlas Inspector contract and all six isolated runtime cases.
+- Production-browser Run, Pause, Step, Replay, Reset, rejection, terminal,
+  keyboard, touch, reduced-motion, and no-overflow behavior.
+- Production route smoke, strict site typecheck, lint, and production build.
+- Synchronized screenshots and live browser review for default, active,
+  paused, accepted, rejected, App-owned projection, mobile, and Roadmap states.
+- Bounded runtime and resource budgets from the production browser bundle.
 
 ## Stop Conditions
 

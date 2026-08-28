@@ -1,8 +1,9 @@
-# Build persistence with app-owned migration
+# Define migrations for your product
 
-Treat stored documents as untrusted input. The app interprets versions and
-performs deterministic migration; Core and canonical packages validate the
-candidate before activation.
+Asyra provides the migration integration point and load lifecycle. Extend your
+product by supplying its version history and deterministic transforms, then let
+Core and the canonical packages validate the migrated candidate before
+activation.
 
 ## Prerequisites
 
@@ -14,10 +15,11 @@ candidate before activation.
 ## Ownership
 
 Persistence owns `DocumentLoadSource`, `IPersistenceProvider`, load/save hook
-types, and reference providers. Core owns hook ordering and coordinates
-package-owner validation/apply. Props Manager and Scene Tree validate their
-canonical data. The app owns migration meaning, supported versions, storage
-selection, scheduling, authentication, retention, and backend topology.
+types, and reference providers. Core owns migration hook ordering, result
+enforcement, and package-owner validation/apply. Props Manager and Scene Tree
+validate their canonical data. The app owns migration meaning, supported
+versions, domain transforms, storage selection, scheduling, authentication,
+retention, and backend topology.
 
 ## Public APIs
 
@@ -28,8 +30,9 @@ selection, scheduling, authentication, retention, and backend topology.
   `LocalStoragePersistence`
 - `SaveHook` and `LoadHook`
 
-The implementation below is an app-owned migration helper, not a Framework
-API.
+The transition registry below is product code built on the Framework migration
+lifecycle. It supplies domain meaning without replacing Core's migration and
+load orchestration.
 
 ## Where this runs
 
@@ -41,7 +44,15 @@ credentials in app/server adapters rather than the browser document model.
 ## Implementation
 
 ```ts
-type AppDocument = { version: string; [key: string]: unknown }
+type AppDocument = {
+  version: string
+  [key: string]: unknown
+}
+
+type DocumentEnvelope = {
+  version?: unknown
+}
+
 type Migration = (document: AppDocument) => AppDocument
 
 const migrations = new Map<string, Migration>([
@@ -66,7 +77,7 @@ core.registerLoadHook((rawDocument) => {
   if (!rawDocument || typeof rawDocument !== 'object') {
     throw new Error('Invalid document envelope')
   }
-  if (typeof (rawDocument as { version?: unknown }).version !== 'string') {
+  if (typeof (rawDocument as DocumentEnvelope).version !== 'string') {
     throw new Error('Document version is required')
   }
   let document = rawDocument as AppDocument
@@ -131,5 +142,5 @@ prior-document preservation, and provider-failure tests for your app schema.
 
 ## Next
 
-- [Learn validation, load, and migration](../learn/validation-load-migration.md)
+- [Understand versioned loading and migration](../learn/validation-load-migration.md)
 - [Read the Persistence guide](../reference/packages/persistence.md)

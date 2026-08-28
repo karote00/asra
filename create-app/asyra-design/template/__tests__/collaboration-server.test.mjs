@@ -169,7 +169,7 @@ test('reference server is a TypeScript build with an opaque uncompressed publica
     /\bPendingInboundPublicationFrame\b|\bpendingInboundFrames\b/
   )
   assert.equal(manifest.dependencies.vite, undefined)
-  assert.equal(manifest.devDependencies.vite, '^6.2.3')
+  assert.equal(manifest.devDependencies.vite, '^6.4.3')
   assert.match(
     manifest.scripts['build:collaboration-server'],
     /tsc -p tsconfig\.collaboration-server\.json/

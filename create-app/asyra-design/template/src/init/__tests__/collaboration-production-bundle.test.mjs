@@ -47,6 +47,11 @@ test('production bundle keeps the deployable collaboration reference composition
     'production bundle is missing the collaboration route'
   )
   assert.equal(
+    bundledCode.includes('ws://127.0.0.1'),
+    false,
+    'production bundle must not connect a public page to the visitor loopback interface'
+  )
+  assert.equal(
     moduleIds.some((moduleId) =>
       /[/\\]apps[/\\]asyra-design[/\\]src[/\\]document-persistence\.ts$/.test(
         moduleId

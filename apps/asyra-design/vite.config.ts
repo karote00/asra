@@ -1,6 +1,5 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
-import vercel from 'vite-plugin-vercel'
 import tailwindcss from 'tailwindcss'
 import { loadEnvironment, resolveEnvironment } from './app-environment.mjs'
 import { createDocumentDatabaseMiddleware } from './e2e/document-database-middleware.mjs'
@@ -49,7 +48,6 @@ export default defineConfig({
     ...(enablesE2eDocumentDatabase ? [createDocumentDatabaseTestPlugin()] : []),
     createActionBatchPlugin(),
     createVTracerPlugin(),
-    vercel(),
     react()
   ],
   server: {
@@ -62,7 +60,7 @@ export default defineConfig({
   },
   publicDir: 'public',
   build: {
-    outDir: '../../dist',
+    outDir: 'dist/frontend',
     assetsDir: 'assets',
     emptyOutDir: true
   }

@@ -6,7 +6,8 @@ import { fileURLToPath } from 'node:url'
 
 import {
   checkPublicDocumentation,
-  createPublicDocumentationBundle
+  createPublicDocumentationBundle,
+  WEBSITE_LLM_DISCOVERY_PATH
 } from '../public-documentation.mjs'
 
 const repositoryRoot = path.resolve(
@@ -23,8 +24,39 @@ test('public indexes derive the exact page, source, and API inventories', async 
   assert.equal(bundle.apiIndex.packages.length, 19)
   assert.deepEqual(
     bundle.contentIndex.sections.map(({ id }) => id),
-    ['overview', 'start', 'learn', 'build', 'reference', 'cases']
+    ['overview', 'start', 'concepts', 'extend', 'customize', 'reference']
   )
+  const sections = Object.fromEntries(
+    bundle.contentIndex.sections.map(({ id, pageIds }) => [id, pageIds])
+  )
+  assert.deepEqual(sections.start, [
+    'start/create-design-app',
+    'start/preset-2d',
+    'cases/asyra-design'
+  ])
+  assert.deepEqual(sections.concepts, [
+    'learn/information-models',
+    'learn/intent-and-features',
+    'learn/canonical-state',
+    'learn/transactions-and-durability',
+    'learn/validation-load-migration',
+    'learn/projection-registration-replacement',
+    'learn/runtime-boundaries-roadmap'
+  ])
+  assert.deepEqual(sections.extend, [
+    'start/extend-with-ai',
+    'build/custom-schema',
+    'build/feature-session',
+    'build/hierarchy-groups',
+    'build/persistence-migration',
+    'build/collaboration',
+    'build/ai-actions',
+    'build/app-retrieval-action'
+  ])
+  assert.deepEqual(sections.customize, [
+    'start/custom-composition',
+    'build/render-boundary'
+  ])
 
   for (const page of bundle.contentIndex.pages) {
     assert.match(page.contentSha256, /^[a-f0-9]{64}$/)
@@ -96,4 +128,11 @@ test('checked public documentation artifacts are deterministic and current', asy
   const bundle = await checkPublicDocumentation({ repositoryRoot })
   assert.equal(bundle.contentIndex.pages.length, 41)
   assert.equal(bundle.apiIndex.packages.length, 19)
+  assert.equal(
+    fs.readFileSync(
+      path.join(repositoryRoot, WEBSITE_LLM_DISCOVERY_PATH),
+      'utf8'
+    ),
+    bundle.llms
+  )
 })

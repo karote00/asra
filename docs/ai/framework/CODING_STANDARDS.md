@@ -113,7 +113,7 @@
 
 - Every architectural rule must have one source-of-truth doc in this folder.
 - Plans are concrete and implementation-ready after implementation is accepted.
-- Use consistent naming: Asyra (framework), Asyra Design (reference app).
+- Use consistent naming: Asyra (framework), Asyra Design (design-tool product).
 
 ## Generated Output Standards
 

@@ -31,26 +31,31 @@ test('a deployed HTTPS origin remains the single app URL', () => {
   assert.equal(config.vitePort, 443)
 })
 
-test('project defaults load without overwriting an explicit app URL', () => {
-  const environment = {
-    APP_URL: 'http://localhost:4555'
-  }
+test('missing project environment uses safe development defaults without a browser socket override', () => {
+  const environment = {}
 
   loadEnvironment(environment)
 
-  assert.equal(environment.APP_URL, 'http://localhost:4555')
-  assert.equal(typeof environment.VITE_COLLABORATION_WS_URL, 'string')
+  assert.equal(environment.APP_URL, undefined)
+  assert.equal(environment.VITE_COLLABORATION_WS_URL, undefined)
+  assert.deepEqual(resolveEnvironment(environment), {
+    appURL: 'http://localhost:3000',
+    viteHost: 'localhost',
+    vitePort: 3000,
+    collaborationWebSocketHost: '127.0.0.1',
+    collaborationWebSocketPort: 4101,
+    collaborationHealthURL: 'http://127.0.0.1:4101/health'
+  })
 })
 
 test('legacy parallel base URL variables do not replace the app URL owner', () => {
-  assert.throws(
-    () =>
-      resolveEnvironment({
-        VISUAL_REVIEW_BASE_URL: 'http://localhost:3000',
-        PLAYWRIGHT_TEST_BASE_URL: 'http://localhost:3000'
-      }),
-    /APP_URL/
-  )
+  const config = resolveEnvironment({
+    VISUAL_REVIEW_BASE_URL: 'http://localhost:4555',
+    PLAYWRIGHT_TEST_BASE_URL: 'http://localhost:4666'
+  })
+
+  assert.equal(config.appURL, 'http://localhost:3000')
+  assert.equal(config.vitePort, 3000)
 })
 
 test('invalid app URL and collaboration port fail before startup', () => {

@@ -187,7 +187,7 @@ describe('AI runtime operational progress', () => {
     await vi.waitFor(() => {
       expect(phases(updates)).toContain('confirmation')
     })
-    expect(updates.at(-1)).toEqual({
+    expect(updates[updates.length - 1]).toEqual({
       actionCount: 1,
       attempt: 1,
       phase: 'confirmation',
@@ -297,7 +297,7 @@ describe('AI runtime operational progress', () => {
       'provider',
       'settled'
     ])
-    expect(updates.at(-1)).toEqual({
+    expect(updates[updates.length - 1]).toEqual({
       attempt: 2,
       outcome: 'failed',
       phase: 'settled',

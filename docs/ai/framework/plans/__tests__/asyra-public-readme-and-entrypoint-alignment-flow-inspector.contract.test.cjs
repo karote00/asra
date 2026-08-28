@@ -17,8 +17,8 @@ test('README authority and exact public surface inventory are frozen', () => {
   assert.ok(fs.existsSync(path.join(repoRoot, data.authority.inspectorPath)))
   assert.equal(data.packageNames.length, 19)
   assert.equal(data.packageReadmePaths.length, 19)
-  assert.equal(data.readmePaths.length, 24)
-  assert.equal(new Set(data.readmePaths).size, 24)
+  assert.equal(data.readmePaths.length, 23)
+  assert.equal(new Set(data.readmePaths).size, 23)
   data.readmePaths.forEach((readmePath) => {
     assert.ok(fs.existsSync(path.join(repoRoot, readmePath)), readmePath)
   })
@@ -44,7 +44,7 @@ test('input and content contract exclude handwritten facts and content forks', (
   assert.match(source, /manifests and declarations/i)
   assert.match(source, /accepted 41-page public documentation bundle/i)
   assert.doesNotMatch(source, /example inventory|docs\/examples/i)
-  assert.match(source, /Exactly 24 README surfaces/i)
+  assert.match(source, /Exactly 23 README surfaces/i)
   assert.match(source, /manual generated-template edits/i)
   assert.match(source, /complete guide duplication/i)
 })
@@ -68,14 +68,14 @@ test('generated README route preserves canonical source ownership', () => {
   const generated = step('transform-generated-readme')
   assert.equal(
     data.authority.generatedReadmeSource,
-    'apps/asyra-design/TEMPLATE.md'
+    'apps/asyra-design/README.md'
   )
   assert.equal(
     data.authority.generatedReadmeOutput,
     'create-app/asyra-design/template/README.md'
   )
   assert.match(JSON.stringify(generated), /official release:app route/i)
-  assert.match(JSON.stringify(generated), /byte-identical/i)
+  assert.match(JSON.stringify(generated), /link rewrite/i)
   assert.match(JSON.stringify(generated), /handwritten/i)
 })
 

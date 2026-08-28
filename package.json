@@ -1,22 +1,34 @@
 {
   "name": "asyra",
-  "version": "0.2.5",
-  "description": "An open-source design tool demonstrating Communication-Driven Development and AI collaboration patterns.",
+  "version": "0.5.0",
+  "private": true,
+  "description": "Composable framework for canvas-based, visual, and domain-driven products.",
   "author": "Asa Tsai",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karote00/asyra.git"
+  },
+  "homepage": "https://asyra-framework.vercel.app",
   "packageManager": "yarn@4.3.1",
-  "main": "index.js",
   "type": "module",
   "keywords": [
-    "design-tool",
+    "canvas-framework",
+    "canvas-editor",
+    "visual-editor",
+    "whiteboard",
+    "bim",
+    "undo-redo",
+    "information-modeling",
+    "application-framework",
+    "deterministic-runtime",
     "communication-driven-development",
     "cdd",
     "event-driven-architecture",
     "ai-collaboration",
     "typescript",
-    "react",
     "monorepo",
-    "reference-implementation"
+    "asyra-design"
   ],
   "scripts": {
     "dev:all": "node scripts/dev-all.js",
@@ -37,6 +49,7 @@
     "gen:event": "yarn workspace @asyra/reactive-events add-event",
     "deps:validate": "node --test scripts/__tests__/deps-validate.test.mjs && node scripts/deps-validate.js",
     "deps:validate:verbose": "node --test scripts/__tests__/deps-validate.test.mjs && node scripts/deps-validate.js --verbose",
+    "security:audit": "yarn npm audit --all --recursive --severity high",
     "docs:public": "node scripts/docs/public-documentation.mjs --write",
     "docs:public:check": "node scripts/docs/public-documentation.mjs --check",
     "docs:public:validate": "node scripts/docs/public-documentation-validation.mjs",
@@ -70,7 +83,9 @@
   },
   "resolutions": {
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "js-yaml@npm:4.1.1": "npm:4.3.2",
+    "minimatch@npm:10.1.1": "npm:10.2.6"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.8",
@@ -81,8 +96,8 @@
     "eslint-plugin-prettier": "^5.2.1",
     "eslint-plugin-react": "^7.37.3",
     "fs-extra": "^11.3.3",
-    "glob": "^13.0.0",
-    "jsdom": "16.7.0",
+    "glob": "^13.0.6",
+    "jsdom": "^27.4.0",
     "prettier": "^3.4.2",
     "turbo": "^2.3.3",
     "typescript": "^5.7.2",

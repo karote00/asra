@@ -1,12 +1,20 @@
-# Validate at every write and load boundary
+# Understand versioned loading and migration
 
-Schema validation protects canonical state regardless of where a value comes
-from. Local UI, an AI action, a collaboration message, a stored document, and a
-test fixture must all satisfy the same owner contract.
+Migration is part of the Framework load lifecycle, not a separate custom
+pipeline. Core provides the migration integration point, ordered load
+orchestration, result enforcement, package validation, and failure-safe
+activation. Your product supplies the version history and domain-specific
+transforms because only the product can interpret what its older documents
+mean.
+
+Schema validation then protects canonical state regardless of where a value
+comes from. Local UI, an AI action, a collaboration message, a stored document,
+and a test fixture must all satisfy the same owner contract.
 
 Props Manager owns property definitions and runtime/load validation. Persistence
-coordinates storage adapters. Your app owns document versions, domain
-interpretation, migration rules, and the decision to reject unsupported data.
+coordinates storage adapters. Core owns the load and migration lifecycle. Your
+app owns document versions, domain interpretation, migration rules, and the
+decision to reject unsupported data.
 
 ## Write behavior
 
@@ -26,42 +34,22 @@ registers a synchronous load hook before Core starts. Persistence supplies the
 untrusted envelope; the app migrates domain versions; Core and package owners
 validate the resulting candidate before activation.
 
-## Implementation
+## Use the capability in your product
 
-Register a connected, deterministic version path. This compact form shows the
-ownership boundary; production code should also reject cycles, duplicate
-transitions, missing versions, and asynchronous results:
+These concepts describe the Framework contract. When you are ready to add the
+version-specific rules for your product, use the guide that matches the
+boundary you are implementing:
 
-```ts
-type Document = { version: string; [key: string]: unknown }
+- [Build a custom component and schema](../build/custom-schema.md) shows
+  runtime property registration, defaults, and owner validation.
+- [Define migrations for your product](../build/persistence-migration.md) shows
+  the complete document envelope, deterministic version path, load hook,
+  candidate validation, and failure behavior.
 
-const migrations = new Map<string, (document: Document) => Document>([
-  ['v1', (document) => ({ ...document, version: 'v2' })],
-  ['v2', (document) => ({ ...document, version: 'v3' })]
-])
-
-core.registerLoadHook((rawDocument) => {
-  if (!rawDocument || typeof rawDocument !== 'object') {
-    throw new Error('Document envelope is invalid')
-  }
-  if (typeof (rawDocument as { version?: unknown }).version !== 'string') {
-    throw new Error('Document version is required')
-  }
-  let document = rawDocument as Document
-  const visited = new Set<string>()
-  while (migrations.has(document.version)) {
-    if (visited.has(document.version)) {
-      throw new Error(`Migration cycle at ${document.version}`)
-    }
-    visited.add(document.version)
-    document = migrations.get(document.version)!(document)
-  }
-  if (document.version !== 'v3') {
-    throw new Error(`Unsupported document version: ${document.version}`)
-  }
-  return document
-})
-```
+Do not copy a second migration dispatcher into a concept page or UI module.
+Use the Framework load lifecycle once, supply one product-owned migration
+chain, and let the canonical owners validate the migrated candidate before it
+becomes active.
 
 ## Flow
 
@@ -75,10 +63,10 @@ schema history.
 
 ## Expected result
 
-A `v1` document reaches `v3` through `v2`, then enters the ordinary package
-validation and canonical apply flow. Missing, disconnected, cyclic,
-asynchronous, or unsupported migrations fail before the previous active
-document changes.
+A supported older document follows one declared version path, then enters the
+ordinary package validation and canonical apply flow. Missing, disconnected,
+cyclic, asynchronous, or unsupported migrations fail before the previous
+active document changes.
 
 ## Load behavior
 
@@ -112,5 +100,5 @@ transport origin does not bypass validation.
 
 ## Next
 
-- [Build persistence and migration](../build/persistence-migration.md)
+- [Define migrations for your product](../build/persistence-migration.md)
 - [Read the Persistence package guide](../reference/packages/persistence.md)

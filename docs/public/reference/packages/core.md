@@ -26,11 +26,11 @@ branch as a public server/headless lifecycle.
 
 ## Public entrypoints and prerequisites
 
-- `@asyra/core` — default singleton, `Core` class, concrete facade, and curated
+- `@asyra/core` - default singleton, `Core` class, concrete facade, and curated
   helpers
-- `@asyra/core/contracts` — side-effect-free public contracts for consumers and
+- `@asyra/core/contracts` - side-effect-free public contracts for consumers and
   independent backends
-- `@asyra/core/canvas-pipeline-debugger` — opt-in visual diagnostics facade
+- `@asyra/core/canvas-pipeline-debugger` - opt-in visual diagnostics facade
 
 Current visual startup requires the browser/Core host contract and a provider
 for visual output. Registration occurs before the first `core.start(...)`.

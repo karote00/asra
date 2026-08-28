@@ -1,6 +1,6 @@
 {
   "name": "@asyra/asyra-framework-site",
-  "version": "0.0.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -13,19 +13,25 @@
     "react:build": "yarn build:asyra-framework-site",
     "typecheck": "tsc --noEmit",
     "test": "yarn test:local",
-    "test:contracts": "node --test ../../docs/ai/framework/plans/__tests__/*website-landing-flow-inspector.contract.test.cjs",
+    "test:contracts": "node --test ../../docs/ai/framework/plans/__tests__/asyra-website-landing-flow-inspector.contract.test.cjs ../../docs/ai/framework/plans/__tests__/asyra-website-platform-flow-inspector.contract.test.cjs ../../docs/ai/framework/plans/__tests__/asyra-runtime-atlas-flow-inspector.contract.test.cjs",
     "test:routes": "node scripts/route-smoke.mjs",
     "test:e2e": "playwright test --config playwright.config.ts",
-    "test:production": "node scripts/production-smoke.mjs && playwright test --config playwright.config.ts editorial-landing-visual.spec.ts",
+    "test:production": "node scripts/production-smoke.mjs && playwright test --config playwright.config.ts",
     "test:local": "yarn test:contracts && node --test __tests__/*.test.mjs",
     "test:artwork:local": "LOCAL_ARTWORK_TESTS=1 yarn test:local",
     "test:ci": "yarn test:local",
     "lint": "yarn --cwd ../.. eslint apps/asyra-framework-site"
   },
   "dependencies": {
+    "@asyra/ai-agent-runtime": "workspace:*",
+    "@asyra/collaboration": "workspace:*",
+    "@asyra/factory": "workspace:*",
+    "@asyra/feature-system": "workspace:*",
+    "@asyra/system-context": "workspace:*",
     "next": "16.3.0",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "shiki": "^4.4.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",

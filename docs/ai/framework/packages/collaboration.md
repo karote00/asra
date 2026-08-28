@@ -229,7 +229,7 @@ real transport adapters own serialization and receive-side isolation. Loading
 the Collaboration package does not activate or load the Factory runtime.
 App-supplied publication-source composition remains explicit.
 
-## Reference App
+## Asyra Design Integration
 
 Asyra Design supplies a real WebSocket Provider, socket sequencer, App-owned
 IndexedDB recovery outbox, and materializing backend. `fileId` is its public

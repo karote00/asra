@@ -5,6 +5,7 @@ import { fileURLToPath, URL } from 'node:url'
 
 const appDir = fileURLToPath(new URL('.', import.meta.url))
 const defaultEnvironmentPath = resolve(appDir, '.env')
+const defaultAppURL = 'http://localhost:3000'
 
 const isNonEmptyString = (value) =>
   typeof value === 'string' && value.trim().length > 0
@@ -51,10 +52,10 @@ export const loadEnvironment = (
 }
 
 export const resolveEnvironment = (environment = process.env) => {
-  const appURLValue = environment.APP_URL?.trim()
-  if (!isNonEmptyString(appURLValue)) {
-    throw new Error('APP_URL must define the app origin')
-  }
+  const configuredAppURL = environment.APP_URL?.trim()
+  const appURLValue = isNonEmptyString(configuredAppURL)
+    ? configuredAppURL
+    : defaultAppURL
 
   let appURL
   try {

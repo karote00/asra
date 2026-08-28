@@ -4,6 +4,12 @@
   "description": "Manages and optimizes data from data contexts for UI consumption, ensuring efficient rendering and framework flexibility.",
   "author": "Asa Tsai",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karote00/asyra.git",
+    "directory": "packages/ui-context"
+  },
+  "homepage": "https://asyra-framework.vercel.app",
   "type": "module",
   "engines": {
     "node": "24.x"
@@ -37,15 +43,15 @@
   },
   "devDependencies": {
     "@types/lodash": "^4",
-    "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/coverage-v8": "^3.2.6",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^3.2.6"
   },
   "dependencies": {
     "@asyra/scene-tree": "workspace:*",
     "@asyra/selection": "workspace:*",
     "@asyra/utils": "workspace:*",
-    "lodash": "^4.17.21",
+    "lodash": "^4.18.1",
     "rxjs": "^7.8.1"
   }
 }

@@ -997,7 +997,7 @@ describe('Factory local shared delivery contract', () => {
       })
     ])
     expect(publications).toEqual([])
-    expect(statuses.at(-1)).toEqual(
+    expect(statuses.slice(-1)[0]).toEqual(
       expect.objectContaining({ origin: 'action', status: 'rolled-back' })
     )
     expect(
@@ -1116,7 +1116,7 @@ describe('Factory local shared delivery contract', () => {
       })
     ])
     expect(publications).toEqual([])
-    expect(statuses.at(-1)).toEqual(
+    expect(statuses.slice(-1)[0]).toEqual(
       expect.objectContaining({ origin: 'remote', status: 'rolled-back' })
     )
     expect(

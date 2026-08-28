@@ -1,110 +1,84 @@
-# Register projections; replace providers
+# Register projections without changing ownership
 
 Canonical information and visual output are separate owners. Render observes
 canonical changes, projects them through registered strategies and layers, and
 delegates engine work through the public render-engine contract. A concrete
-engine never becomes the owner of document geometry or app behavior.
+engine never becomes the owner of document geometry, domain meaning, or app
+behavior.
+
+This boundary lets one information model appear as a canvas, list, detail view,
+analytics panel, export, or another projection. The projections may differ,
+but accepted product intent still reaches the same canonical owners.
 
 ## Registration
 
 Register component definitions, render strategies, render layers, interaction
 targets, and UI properties while composition is open. Core exposes curated
-public registration facades; the owning package retains the underlying
-lifecycle and validation.
+public registration facades; the owning package retains lifecycle and
+validation.
 
-Registration should fail explicitly on duplicate or invalid ownership. Do not
-silently replace a strategy because two extensions chose the same id. Use the
-declared unregister/replacement path while composition permits it.
+Registration should fail explicitly when an id is duplicated or ownership is
+invalid. Do not silently replace a strategy because two extensions chose the
+same id. Use the declared unregister or replacement path while composition
+still permits it.
 
-## Where this runs
+## Projection ownership
 
-Provider selection happens in the browser app's composition module before
-Core startup. The concrete adapter belongs in an app-owned or provider package;
-the rest of the app imports only `@asyra/render-engine` types and Render/Core
-facades.
+A projection may decide how canonical information looks and how engine input
+is normalized into a Framework target. It may cache provider-owned resources
+needed to draw that output. It may not become the only copy of product state,
+decide whether a domain command is valid, or mutate another owner directly.
 
-## Implementation
+App Features decide what an accepted interaction means. Canonical packages
+settle the resulting state. Projection layers then render that state. Keeping
+those steps separate allows the same intent to work through a canvas, another
+UI, automation, collaboration, or an AI action without creating competing
+sources of truth.
 
-Expose the concrete adapter as a provider function and bind it exactly once:
+## Provider boundary
 
-```ts
-import type { RenderEngineProvider } from '@asyra/render-engine'
-import { applyPreset, PresetProfiles } from '@asyra/preset'
-import { createCanvasRenderEngine } from './canvas-render-engine'
+`@asyra/render-engine` defines an engine-neutral provider contract. The
+official `@asyra/render-engine-pixi` package is one optional implementation
+selected by the current Preset `2D` profile. Concrete SDK objects, contexts,
+resources, and handles remain inside their provider boundary.
 
-const canvasProvider: RenderEngineProvider = () => createCanvasRenderEngine()
-
-applyPreset(core, { profile: PresetProfiles.CUSTOM, defaults: [] })
-core.setRenderEngineProvider(canvasProvider)
-await core.start(document.querySelector('#app')!, {
-  width: window.innerWidth,
-  height: window.innerHeight
-})
-```
-
-`createCanvasRenderEngine()` is your adapter implementation. It keeps DOM nodes,
-Canvas contexts, SDK objects, resource caches, and handles behind the public
-engine-neutral methods.
-
-## Flow
-
-1. The app selects `CUSTOM` policy while composition is open.
-2. Core accepts one engine provider without constructing it immediately.
-3. Startup asks the provider for one engine and initializes it with the host.
-4. Render issues semantic commands and queries through the adapter.
-5. The adapter normalizes interactions back to engine-neutral events.
-6. App disposal destroys provider-owned objects and resources.
-
-## Expected result
-
-Canonical information projects through the custom provider without concrete
-SDK objects entering Core, Factory, Scene Tree, or app document state. Missing
-capabilities, invalid engines, initialization failure, and cleanup failure stay
-visible; none silently switches to Pixi.
-
-## Provider replacement
-
-`@asyra/render-engine` defines the engine-neutral provider contract. The
-official `@asyra/render-engine-pixi` package is one optional implementation,
-selected by the current Preset `2D` profile. A custom app can choose
-`PresetProfiles.CUSTOM`, call `core.setRenderEngineProvider(...)` before
-startup, and verify actual product behavior at the adapter boundary. Concrete
-SDK objects, resources, and handles must not escape into Core or canonical
-package state.
-
-## Layer ownership
-
-Render layers own presentation order and projection behavior. Interaction
-bridges normalize engine events back to Framework targets. App Features decide
-what an accepted interaction means. A layer may display selection or guides,
-but it cannot make those visuals the only state oracle.
+Choosing or replacing a provider is not an ordinary app-domain extension. It
+changes the lower-level Framework composition and therefore belongs in
+Customize. Follow the
+[custom render-boundary guide](../build/render-boundary.md) for the copyable
+provider setup, lifecycle, capability checks, failure behavior, and cleanup
+proof.
 
 ## Failure and absence
 
-Direct `Render.init()` without a provider throws the declared missing-provider
-error. Core's exact no-provider compatibility path is narrower and remains the
-ordinary browser-shaped `core.start(...)`; it is not public Headless support.
-Provider callback, capability, initialization, or cleanup failures remain real
-errors and must not fall back to Pixi.
+Missing capabilities, invalid engines, initialization failure, and cleanup
+failure remain visible. They must not silently fall back to Pixi or another
+provider. Direct `Render.init()` without a provider throws the declared
+missing-provider error. Core's narrower no-provider compatibility path is part
+of the current browser-shaped startup and is not public Headless support.
 
-## Validate replacement
+## What to validate
 
-- provider selection occurs before startup and exactly once;
-- engine capabilities and lifecycle pass the shared contract;
-- canonical create/update/remove and replay project correctly;
-- hit testing and interaction return normalized semantic results;
-- engine resources are released; and
-- no app or Framework package imports the concrete engine SDK outside its
-  provider boundary.
+At the conceptual boundary, verify that:
+
+- canonical create, update, remove, load, replay, undo, and redo remain owned
+  outside the concrete engine;
+- projections receive canonical changes rather than inventing a second model;
+- interactions return normalized semantic targets before Features interpret
+  intent;
+- provider resources do not enter document state or Core contracts; and
+- provider absence and failure stay explicit.
+
+These checks prove that output can change without moving product authority into
+the renderer.
 
 ## Canonical sources
 
 - [Render contract](../../ai/framework/packages/render.md)
 - [Render Engine contract](../../ai/framework/packages/render-engine.md)
 - [Replace the default engine](../../ai/framework/golden-paths/replace-render-engine.md)
-- [Custom render-boundary guide](../build/render-boundary.md)
 
 ## Next
 
-- [Build a custom render boundary](../build/render-boundary.md)
-- [Read the Render Engine guide](../reference/packages/render-engine.md)
+- [Customize a render boundary](../build/render-boundary.md)
+- [Read the Render Engine reference](../reference/packages/render-engine.md)

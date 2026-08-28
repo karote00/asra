@@ -42,7 +42,14 @@
           "pattern": "^(index|(?:start|learn|build|reference|cases)/[a-z0-9-]+(?:/[a-z0-9-]+)?)\\.md$"
         },
         "section": {
-          "enum": ["Overview", "Start", "Learn", "Build", "Reference", "Cases"]
+          "enum": [
+            "Overview",
+            "Start",
+            "Concepts",
+            "Extend",
+            "Customize",
+            "Reference"
+          ]
         },
         "title": {
           "type": "string",

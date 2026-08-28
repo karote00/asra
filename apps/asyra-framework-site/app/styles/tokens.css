@@ -1,0 +1,81 @@
+:root {
+  /* Color primitives */
+  --color-paper: #f1eae3;
+  --color-paper-bright: #f8f4ed;
+  --color-paper-muted: #e3e0d9;
+  --color-ink: #151614;
+  --color-ink-deep: #292b27;
+  --color-ink-strong: #343531;
+  --color-ink-body: #393a36;
+  --color-ink-soft: #464742;
+  --color-ink-faint: #5c5d58;
+  --color-muted: #62615d;
+  --color-dark: #101412;
+  --color-red: #d51f17;
+  --color-red-hover: #ff453a;
+  --color-red-focus: #ff6d64;
+  --color-blue: #0877c8;
+  --color-blue-deep: #0877b8;
+  --color-blue-bright: #1491e4;
+  --color-blue-soft: #68b7e9;
+  --color-blue-highlight: #41a9ee;
+  --color-green: #2c8a51;
+  --color-green-bright: #81d09c;
+  --color-orange: #bd7312;
+
+  /* Semantic colors */
+  --paper: var(--color-paper);
+  --paper-bright: var(--color-paper-bright);
+  --ink: var(--color-ink);
+  --muted: var(--color-muted);
+  --dark: var(--color-dark);
+  --signal-red: var(--color-red);
+  --signal-red-hover: var(--color-red-hover);
+  --signal-red-focus: var(--color-red-focus);
+  --signal-blue: var(--color-blue);
+  --signal-blue-deep: var(--color-blue-deep);
+  --signal-blue-bright: var(--color-blue-bright);
+  --signal-blue-soft: var(--color-blue-soft);
+  --status-current: var(--color-green);
+  --status-future: var(--color-blue);
+  --status-caution: var(--color-orange);
+  --frame-rule: rgb(21 22 20 / 18%);
+
+  /* Typography */
+  --font-family-display:
+    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --header-navigation-font-size: clamp(0.72rem, calc(0.68rem + 0.1vw), 0.78rem);
+  --font-size-supporting-copy: 0.875rem;
+
+  /* Page and reading layout */
+  --page-max-width: 2520px;
+  --page-min-width: 320px;
+  --page-padding-x: clamp(38px, 6.25vw, 64px);
+  --page-content-inset-x: max(
+    var(--page-padding-x),
+    calc((100vw - var(--page-max-width)) / 2 + var(--page-padding-x))
+  );
+  --frame-content: 1320px;
+  --frame-gutter: clamp(24px, 4.2vw, 60px);
+  --frame-reading: 72ch;
+
+  /* Page header */
+  --site-header-max-width: var(--page-max-width);
+  --site-header-min-height: clamp(68px, 5.5vw, 82px);
+  --site-header-padding-x: var(--page-padding-x);
+
+  /* Dialog controls - intentionally independent from the page header */
+  --dialog-header-min-height: 62px;
+  --dialog-header-title-size: 1.3rem;
+  --dialog-close-control-size: 44px;
+  --dialog-close-mark-size: 1.4rem;
+}
+
+@media (max-width: 800px) {
+  :root {
+    --page-padding-x: clamp(22px, 4vw, 32px);
+    --site-header-min-height: 62px;
+  }
+}

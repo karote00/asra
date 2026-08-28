@@ -183,10 +183,13 @@ test('CLI version materialization is user-selected, manual, and precedes packing
 
   assert.match(decision, /registry-verified Framework dependency versions/i)
   assert.match(decision, /CLI target.*selected by the user/i)
+  assert.match(decision, /app.*CLI.*same.*version/i)
   assert.match(decision, /root.*unchanged/i)
   assert.match(decision, /publication.*blocked/i)
   assert.match(materialize, /manual/i)
   assert.match(materialize, /selected CLI target/i)
+  assert.match(materialize, /apps\/asyra-design.*same.*version/i)
+  assert.match(materialize, /generated template.*inherit.*app version/i)
   assert.match(materialize, /Changeset/i)
   assert.match(materialize, /root.*unchanged/i)
   assert.ok(pack.inputs.includes('artifact:versioned-cli-source'))
@@ -197,6 +200,17 @@ test('CLI version materialization is user-selected, manual, and precedes packing
   assert.doesNotMatch(publication, /reviewed.*merged/i)
   assert.match(publication, /authorization/i)
   assert.doesNotMatch(JSON.stringify(data), /0\.\d+\.(?:\d+|n)/u)
+})
+
+test('Asyra Design App, generated template, and CLI versions stay synchronized', () => {
+  const readManifest = (relativePath) =>
+    JSON.parse(fs.readFileSync(path.resolve(repoRoot, relativePath), 'utf8'))
+  const app = readManifest('apps/asyra-design/package.json')
+  const template = readManifest('create-app/asyra-design/template/package.json')
+  const cli = readManifest('create-app/asyra-design/package.json')
+
+  assert.equal(template.version, app.version)
+  assert.equal(cli.version, app.version)
 })
 
 test('template is generated-only and registry proof rejects local substitutions', () => {
@@ -215,6 +229,17 @@ test('template is generated-only and registry proof rejects local substitutions'
     /no workspace.*link.*portal.*file.*tarball.*resolutions/i
   )
   assert.match(install, /public npm registry/i)
+})
+
+test('canonical App README and environment example are the only generated source documents', () => {
+  const source = step('own-canonical-app-source')
+  const transform = step('transform-generated-template')
+  const combined = JSON.stringify([source, transform])
+
+  assert.ok(source.implementationBoundary.includes('apps/asyra-design/README.md'))
+  assert.doesNotMatch(combined, /apps\/asyra-design\/TEMPLATE\.md/)
+  assert.match(combined, /apps\/asyra-design\/\.env\.example/)
+  assert.match(combined, /link rewrite/i)
 })
 
 test('behavior proof covers tests, build, startup, interactions, and disabled side effects', () => {

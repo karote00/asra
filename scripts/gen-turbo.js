@@ -11,9 +11,16 @@ const baseConfigPath = path.join(workspaceRoot, 'turbo.base.json')
 
 const ignorePackages = ['create-app/*']
 
-const getBuildTask = (packageName) => {
-  const repoName = packageName.split('/').pop()
-  return repoName === 'asyra-design' ? 'react:build' : `build:${repoName}`
+const getBuildTask = (pkg) => {
+  const repoName = pkg.name.split('/').pop()
+  const packageBuildTask = `build:${repoName}`
+  const task = [packageBuildTask, 'react:build', 'build'].find(
+    (candidate) => pkg.scripts[candidate]
+  )
+  if (!task) {
+    throw new Error(`${pkg.name} must declare a canonical build task`)
+  }
+  return task
 }
 
 // Scan all packages in the monorepo workspaces
@@ -57,7 +64,7 @@ function generateTurboJson(packages) {
   const packagesByName = new Map(packages.map((pkg) => [pkg.name, pkg]))
 
   for (const pkg of packages) {
-    const buildCmd = getBuildTask(pkg.name)
+    const buildCmd = getBuildTask(pkg)
     if (!pkg.scripts[buildCmd]) {
       throw new Error(`${pkg.name} must declare the canonical ${buildCmd} task`)
     }
@@ -70,7 +77,7 @@ function generateTurboJson(packages) {
         if (!dependency) {
           throw new Error(`${pkg.name} references unknown workspace ${dep}`)
         }
-        return `${dep}#${getBuildTask(dep)}`
+        return `${dep}#${getBuildTask(dependency)}`
       })
     }
   }

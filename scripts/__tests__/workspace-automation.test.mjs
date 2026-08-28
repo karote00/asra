@@ -22,16 +22,23 @@ const readText = (relativePath) =>
   fs.readFileSync(path.join(repositoryRoot, relativePath), 'utf8')
 
 const getBuildTask = (manifest) => {
-  const task =
-    manifest.name === '@asyra/asyra-design'
-      ? 'react:build'
-      : `build:${manifest.name.split('/').pop()}`
-  assert.ok(
-    manifest.scripts?.[task],
-    `${manifest.name} must declare its canonical ${task} task`
+  const packageBuildTask = `build:${manifest.name.split('/').pop()}`
+  const task = [packageBuildTask, 'react:build', 'build'].find(
+    (candidate) => manifest.scripts?.[candidate]
   )
+  assert.ok(task, `${manifest.name} must declare a canonical build task`)
   return task
 }
+
+test('repository root is a private workspace and not a publishable package', () => {
+  const rootManifest = readJSON('package.json')
+
+  assert.equal(rootManifest.private, true)
+  assert.equal(rootManifest.main, undefined)
+  assert.equal(fs.existsSync(path.join(repositoryRoot, 'index.js')), false)
+  assert.equal(rootManifest.license, 'MIT')
+  assert.match(rootManifest.repository.url, /github\.com\/karote00\/asyra/)
+})
 
 const getWorkspaceManifests = () => {
   const rootManifest = readJSON('package.json')
@@ -77,6 +84,7 @@ test('Turbo uses exact workspace task relationships generated from manifests', (
       return `${dependency}#${getBuildTask(dependencyManifest)}`
     })
 
+    assert.ok(turbo.tasks[taskName], `${taskName} must exist`)
     assert.deepEqual(
       turbo.tasks[taskName]?.dependsOn ?? [],
       expectedDependencies,
@@ -118,60 +126,70 @@ test('root commands validate the committed Turbo graph without rewriting it', ()
 
 test('Asyra Design keeps frontend startup, live transport, and local persistence separate', () => {
   const rootManifest = readJSON('package.json')
-  const appReadme = readText('apps/asyra-design/README.md')
+  const developmentGuide = readText('apps/asyra-design/docs/development.md')
+  const collaborationReference = readText(
+    'docs/ai/apps/asyra-design/modules/collaboration-reference.md'
+  )
   const devAllRunner = readText('scripts/dev-all.js')
 
   assert.equal(rootManifest.scripts['dev:all'], 'node scripts/dev-all.js')
   assert.doesNotMatch(rootManifest.scripts['dev:all'], /gen:turbo/)
   assert.doesNotMatch(devAllRunner, /initialBuilds/)
-  assert.match(appReadme, /yarn dev:all/)
+  assert.match(developmentGuide, /yarn dev:all/)
+  assert.match(developmentGuide, /In a generated project:[\s\S]*yarn start/)
+  assert.match(developmentGuide, /fileId.*must be non-empty/i)
+  assert.match(developmentGuide, /yarn document:backend/)
+  assert.match(developmentGuide, /yarn collaboration:server/)
+  assert.match(collaborationReference, /durable unaccepted-publication outbox/i)
   assert.match(
-    appReadme,
-    /`dev:all` starts.*workspace package watchers.*App\s+dev server only/is
-  )
-  assert.doesNotMatch(appReadme, /`dev:all` builds/i)
-  assert.doesNotMatch(
-    appReadme,
-    /workspace packages,\s+the memory-only WebSocket reference server,\s+and the App dev server/i
-  )
-  assert.match(
-    appReadme,
-    /yarn workspace @asyra\/asyra-design collaboration:server/
+    collaborationReference,
+    /three-second persistence window, and backend materialization/i
   )
   assert.match(
-    appReadme,
+    collaborationReference,
     /yarn workspace @asyra\/asyra-design collaboration:server:start/
-  )
-  assert.match(appReadme, /http:\/\/localhost:3000\/\?fileId=/)
-  assert.match(appReadme, /required non-empty `fileId`/i)
-  assert.match(appReadme, /always starts Collaboration/i)
-  assert.doesNotMatch(appReadme, /browser-local IndexedDB document/i)
-  assert.match(appReadme, /IndexedDB recovery outbox/i)
-  assert.match(appReadme, /browser never writes a materialized document/i)
-  assert.match(
-    appReadme,
-    /Factory publication, socket sequence,\s+three-second persistence window, and backend materialization path/i
-  )
-  assert.match(
-    appReadme,
-    /socket server reads and\s+writes checkpoints only through `DOCUMENT_PERSISTENCE_BACKEND_URL`/i
   )
 })
 
 test('CI, E2E, and release validation own their bounded integration gates', () => {
   const collaboration = readJSON('packages/collaboration/package.json')
   const vercel = readJSON('vercel.json')
+  const designViteConfig = readText('apps/asyra-design/vite.config.ts')
   const ci = readText('.github/workflows/main.yml')
   const e2e = readText('.github/workflows/e2e.yml')
   const releaseValidation = readText('scripts/release-validate.js')
 
   assert.equal(collaboration.scripts.clean, 'rm -rf dist')
   assert.equal(vercel.buildCommand, 'turbo run react:build')
+  assert.equal(vercel.outputDirectory, 'dist/frontend')
+  assert.match(designViteConfig, /outDir:\s*['"]dist\/frontend['"]/)
+  assert.doesNotMatch(designViteConfig, /outDir:\s*['"]\.\.\/\.\.\/dist['"]/)
   assert.match(ci, /yarn gen:turbo:check/)
   assert.match(ci, /yarn deps:validate/)
   assert.doesNotMatch(ci, /yarn release:app:check/)
   assert.match(e2e, /test:e2e:collaboration/)
   assert.match(releaseValidation, /yarn release:app:check --prod=\$\{appName\}/)
+})
+
+test('Vite builds rely on dedicated lint gates and native Vercel output configuration', () => {
+  const designManifest = readJSON('apps/asyra-design/package.json')
+  const designViteConfig = readText('apps/asyra-design/vite.config.ts')
+  const designSystemManifest = readJSON('packages/design-system/package.json')
+  const designSystemViteConfig = readText(
+    'packages/design-system/vite.config.ts'
+  )
+  const releaseTemplate = readText('scripts/release-template.js')
+
+  for (const manifest of [designManifest, designSystemManifest]) {
+    assert.equal(manifest.devDependencies?.['vite-plugin-eslint'], undefined)
+  }
+  assert.equal(
+    designManifest.devDependencies?.['vite-plugin-vercel'],
+    undefined
+  )
+  assert.doesNotMatch(designViteConfig, /vite-plugin-(?:eslint|vercel)/)
+  assert.doesNotMatch(designSystemViteConfig, /vite-plugin-eslint/)
+  assert.doesNotMatch(releaseTemplate, /vite-plugin-vercel/)
 })
 
 test('CI validates the active Framework package release from packed artifacts on Node 24', () => {

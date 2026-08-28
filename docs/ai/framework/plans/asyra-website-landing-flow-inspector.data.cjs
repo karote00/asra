@@ -6,11 +6,14 @@ const caseIds = Object.freeze([
   'grow-without-rebuild',
   'shared-human-ai-action-path',
   'one-source-across-views',
-  'clickable-placeholder-actions',
+  'poc-to-product-continuity',
+  'canonical-runtime-flow-explainer',
+  'connected-site-actions',
   'responsive-transparent-raster-assets',
   'perceptually-sharp-raster-rendering',
-  'open-source-2026-footer',
-  'no-client-reduced-motion-reading'
+  'navigation-only-project-footer',
+  'no-client-reduced-motion-reading',
+  'machine-readable-discovery'
 ])
 
 const step = (definition) =>
@@ -38,6 +41,11 @@ module.exports = Object.freeze({
         'product-owner copy and identity corrections',
         'product-owner adaptive grid, alpha-shadow, and asset-specific directional shadow decision',
         'product-owner local-only artwork decision',
+        'product-owner PoC-to-product continuity decision',
+        'product-owner four-panel recurring-character storyboard decision',
+        'product-owner canonical runtime flow explainer decision',
+        'product-owner-approved person storyboard preview',
+        'product-owner shared horizontal page geometry decision',
         'current Framework product truth',
         'existing Website environment setup'
       ],
@@ -46,10 +54,15 @@ module.exports = Object.freeze({
         'The approved V04 image is the visual authority for the retained composition; the product-owner-approved V09 closing concept is the explicit closing exception.',
         'Visible Change and Impact Preview contribute no public UI, copy, JavaScript, or selected illustration.',
         'All existing committed and uncommitted website UI, CSS, tests, and assets are replaced while environment setup is retained.',
-        'Every public hyperlink remains clickable even when its destination is a placeholder.',
+        'Every public hyperlink resolves to its approved in-page or Website Platform supporting route destination.',
         'Every selected illustration uses the shared adaptive CSS engineering grid plus an asset-specific alpha-derived drop shadow with directional contact and cast vectors, without code-drawing internal diagram topology.',
         'Source artwork, historical design experiments, and unselected derivative history are Git-ignored local-only inputs excluded from default CI; the eighteen selected public derivatives are the committed public derivatives and production deployment assets.',
-        'The footer identifies 2026 open source work and contains no company identity.'
+        'The generated public documentation inventory is published at /llms.txt; supporting human-facing routes remain owned by the Website Platform and do not contribute to this Landing route.',
+        'The PoC keeps the same implementation on the product path through explicit engineering review instead of becoming a disposable prototype that must be rebuilt.',
+        'The PoC comparison uses eight border-free direct raster crops from the product-owner-approved person storyboard preview, preserving the same recurring domain expert and engineer instead of redrawing the scenes.',
+        'A semantic HTML and CSS Framework value comparison follows the PoC story and contrasts repeated product behavior with one Feature used by every product surface.',
+        'Header, Hero, domain copy, PoC, proofs, Closing, and Footer share one minimum page width, one 2520px maximum content width, and one responsive inline padding, while every visible Domain Rail row remains full bleed below 2520px and adopts the shared inline padding at and above 2520px.',
+        'The footer contains project navigation only and does not repeat year, license, open-source, or company metadata.'
       ],
       bypasses: [
         'No removed Website implementation may contribute UI, CSS, illustration, route, or copy.'
@@ -60,6 +73,11 @@ module.exports = Object.freeze({
         'product-owner-approved V09 closing concept',
         'product-owner adaptive grid, alpha-shadow, and asset-specific directional shadow decision',
         'product-owner local-only artwork decision',
+        'product-owner PoC-to-product continuity decision',
+        'product-owner four-panel recurring-character storyboard decision',
+        'product-owner canonical runtime flow explainer decision',
+        'product-owner-approved person storyboard preview',
+        'product-owner shared horizontal page geometry decision',
         'product-owner corrections including the retired change-impact sections',
         'current Framework product truth'
       ],
@@ -67,7 +85,7 @@ module.exports = Object.freeze({
         'removed Website implementation',
         'unverified product capability',
         'new dependency',
-        'external production asset'
+        'unapproved external production asset'
       ],
       implementationBoundary: [
         'docs/ai/framework/plans/asyra-website-landing-page-plan.md',
@@ -93,7 +111,17 @@ module.exports = Object.freeze({
       conditions: [
         'The hero reports the product outcome before implementation detail.',
         'Any field is shown as an open-ended possibility, not a catalog of built-in apps.',
-        'People and AI use the same action path for a feature built once.',
+        'Human and AI intent follow the same governed action path, independent of whether the request came from a person or AI.',
+        'A semantic PoC-to-product storyboard pairs eight border-free direct raster crops from the product-owner-approved person storyboard preview with accessible HTML labels.',
+        'Two ordered Traditional and Asyra flows align as two four-stage desktop rows; below 960px the complete Traditional sequence precedes the complete Asyra sequence, with the same recurring domain expert and engineer carrying both flows; the implementation must not redraw the approved people or scenes.',
+        'At 680px and below, each storyboard panel is scaled against the median rendered proof illustration width and remains within 0.9 to 1.1 times that width so the comic and surrounding proof sections keep one visual scale.',
+        'Every storyboard crop contains no authored edge border and is presented inside one uniform 2px CSS frame.',
+        'The same bounded Feature continues from domain validation through engineer review, hardening, and product delivery.',
+        'The storyboard states that a PoC is not production-ready without engineering review, tests, security, and performance hardening.',
+        'The Landing Framework value comparison shows one product request becoming separate maintenance edits across the product screen, AI action, saved work, undo/redo, and synchronized users; Asyra keeps the request inside its owning Feature as one bounded change.',
+        'The comparison leads with the bounded change-cost result and does not require readers to understand API, transaction, state-application, canonical-owner, projection, or integration terminology.',
+        'The comparison remains readable without connector geometry or color, uses two comparable columns at 1440px and 820px, and reads the complete traditional story before the complete Asyra story at 390px and 320px.',
+        'Header, Hero, domain copy, PoC, proofs, Closing, and Footer resolve through one shared horizontal page geometry contract, while the continuous Domain Rail and both split mobile rows touch the viewport edges below 2520px and align with the shared padded content edges at and above 2520px.',
         'Every section preserves the approved title, reference line breaks, exact proof image, and V04 vertical rhythm.',
         'Each active complex visual uses a hash-locked product-owner-supplied Photoroom true-alpha master and three source-bounded lossless responsive WebP derivatives.',
         'Every selected derivative contains both transparent and opaque pixels, never exceeds its native master width, and preserves the supplied subject pixels through premultiplied-alpha resizing.',
@@ -121,7 +149,8 @@ module.exports = Object.freeze({
         'The same complete narrative remains in DOM order at desktop, mobile, and without JavaScript.'
       ],
       bypasses: [
-        'If an image does not load, semantic headings and descriptive alt text preserve the complete reading.'
+        'If an image does not load, semantic headings and descriptive alt text preserve the complete reading.',
+        'If visual connectors are unavailable, the storyboard ordered lists preserve the complete PoC-to-product sequence.'
       ],
       allowedContributors: [
         'artifact:result-first-contract',
@@ -135,6 +164,10 @@ module.exports = Object.freeze({
         'semantic React server components',
         'project-owned source-bounded lossless true-alpha responsive assets',
         'modern system sans typography',
+        'generated public documentation inventory',
+        'semantic HTML and CSS PoC-to-product storyboard',
+        'semantic HTML and CSS Framework value comparison',
+        'eight border-free direct raster crops from the product-owner-approved person storyboard preview',
         'CSS responsive layout',
         'shared adaptive CSS grid and asset-specific alpha-derived directional drop shadows'
       ],
@@ -147,16 +180,19 @@ module.exports = Object.freeze({
         'repeated card crops that contain rail or background pixels',
         'unreviewed generative topology drift',
         'invented or merged Grow connector geometry',
-        'code-drawn SVG complex diagrams',
-        'CSS-drawn internal diagram topology',
+        'code-drawn SVG substitutes for the six supplied mechanical illustrations',
+        'CSS-drawn internal topology for the six supplied mechanical illustrations',
         'raster section-background grid plates',
         'canvas or WebGL',
         'icon-library diagram substitutes',
+        'redrawn storyboard people or scenes',
+        'claim that a PoC is production-ready without engineering review',
         'Framework runtime package import'
       ],
       implementationBoundary: [
         'apps/asyra-framework-site/app/page.tsx',
         'apps/asyra-framework-site/app/globals.css',
+        'apps/asyra-framework-site/components/framework-value-story.tsx',
         'apps/asyra-framework-site/app/layout.tsx',
         'apps/asyra-framework-site/app/error.tsx',
         'apps/asyra-framework-site/app/not-found.tsx',
@@ -177,6 +213,9 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/artwork/v12-transparent',
         'apps/asyra-framework-site/artwork/photoroom',
         'apps/asyra-framework-site/public/illustrations',
+        'apps/asyra-framework-site/public/llms.txt',
+        'docs/public/llms.txt',
+        'scripts/docs/public-documentation.mjs',
         'apps/asyra-framework-site/scripts/build-v06-assets.py',
         'apps/asyra-framework-site/scripts/build-closing-v07-superres.py',
         'apps/asyra-framework-site/scripts/build-closing-v08-geometric.py',
@@ -191,7 +230,8 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/scripts/build-v14-grow-connector-preview.py',
         'apps/asyra-framework-site/scripts/build-transparent-v12-assets.py',
         'apps/asyra-framework-site/scripts/verify-transparent-v12-assets.py',
-        'apps/asyra-framework-site/scripts/build-photoroom-assets.py'
+        'apps/asyra-framework-site/scripts/build-photoroom-assets.py',
+        'apps/asyra-framework-site/scripts/build-poc-storyboard-crops.py'
       ],
       specRefs: [
         '#visual-authority',
@@ -219,8 +259,14 @@ module.exports = Object.freeze({
         'The adaptive CSS grid and alpha-derived drop shadow are asserted from computed styles and inspected at 2048px, 1440px, 864px, 820px, 390px, and 320px.',
         'Six distinct computed shadow vectors are asserted at 2048px, 1440px, 864px, 820px, 390px, and 320px; section crops confirm the contact, cast, and dark-stage ambient layers remain visible without clipping.',
         'The supplied Hero, Domain Rail, Grow, Same Path, One Source, and Closing derivatives are inspected at 1440px and 2048px with section crops before deployment.',
+        'The PoC-to-product storyboard is inspected at 1440px, 820px, 390px, and 320px for path continuity, readable role labels, balanced density, and natural DOM order; at every width below 960px all four Traditional stages precede all four Asyra stages.',
+        'The Landing Framework value comparison is inspected at 1440px, 820px, 390px, and 320px for immediate define-once comprehension, directly comparable desktop and tablet columns, complete small-screen story order, readable type, and freedom from horizontal overflow.',
+        'At 680px, 520px, 390px, and 320px, computed geometry proves each storyboard panel is scaled against the median rendered proof illustration width and remains within 0.9 to 1.1 times that width.',
+        'Computed geometry proves one 2520px maximum content width and the same constrained content edges for Header, Hero, domain copy, PoC, proofs, Closing, and Footer at 3840px, 2560px, 2520px, 2519px, 2048px, 1440px, 864px, 820px, 800px, 680px, 520px, 390px, and 320px, while every visible Domain Rail row remains full bleed below 2520px and aligns with the shared padded content edges at and above 2520px.',
+        'All eight border-free storyboard crops are inspected inside one uniform 2px CSS frame contract without doubled authored edges.',
         'No-client and reduced-motion modes preserve the complete reading and actions.',
-        'The retired change-impact sections remain absent at every breakpoint and without JavaScript.'
+        'The retired change-impact sections remain absent at every breakpoint and without JavaScript.',
+        'The public /llms.txt response exactly matches the generated public documentation inventory while supporting human-facing routes remain independently owned by the Website Platform.'
       ],
       bypasses: [
         'Production deployment occurs only after every Landing gate passes.'
@@ -243,9 +289,12 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/__tests__/e2e/editorial-landing-visual.spec.ts',
         'apps/asyra-framework-site/scripts/route-smoke.mjs',
         'apps/asyra-framework-site/scripts/production-smoke.mjs',
+        'apps/asyra-framework-site/public/llms.txt',
+        'docs/public/llms.txt',
         'apps/asyra-framework-site/scripts/build-transparent-v12-assets.py',
         'apps/asyra-framework-site/scripts/verify-transparent-v12-assets.py',
-        'apps/asyra-framework-site/scripts/build-photoroom-assets.py'
+        'apps/asyra-framework-site/scripts/build-photoroom-assets.py',
+        'apps/asyra-framework-site/scripts/build-poc-storyboard-crops.py'
       ],
       specRefs: ['#quality-gates', '#definition-of-done'],
       failureOwnerStepId: 'verify-result-first-page'
@@ -281,10 +330,13 @@ module.exports = Object.freeze({
   ]),
   invariants: Object.freeze([
     'Any field may define the product while Asyra never decides its domain.',
-    'A feature built once gives people and AI the same action path.',
+    'Human and AI intent follow the same governed action path.',
+    'A PoC keeps the same implementation on the product path through engineering review and hardening.',
+    'New product intent and existing-state application remain distinct routes that settle through the same canonical owners before projections update.',
+    'Every constrained Landing section shares one horizontal page geometry contract while the Domain Rail remains full bleed below 2520px and adopts the shared inline padding at and above 2520px.',
     'Complex diagrams use the six immutable supplied Photoroom true-alpha masters with one shared CSS grid-and-shadow stage, while prior and rejected experiments remain preserved but unselected.',
-    'The footer says 2026 open source and makes no company identity claim.',
-    'All links remain keyboard-focusable and clickable while placeholder destinations are allowed.',
+    'The footer contains project navigation only and makes no year, license, open-source, or company identity claim.',
+    'All links remain keyboard-focusable and resolve to in-page or Website Platform destinations.',
     'Visible Change and Impact Preview remain absent from the public narrative.',
     'Production deployment occurs only after every Landing gate passes.'
   ])

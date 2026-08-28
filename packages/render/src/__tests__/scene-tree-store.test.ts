@@ -42,7 +42,7 @@ const seedStore = (
   elementId: string
 ) => {
   store.addElementById(elementId)
-  const snapshot = renderMock.addElement.mock.calls.at(-1)?.[0] as
+  const snapshot = renderMock.addElement.mock.calls.slice(-1)[0]?.[0] as
     | Record<string, unknown>
     | undefined
   renderMock.addElement.mockClear()
@@ -1668,7 +1668,7 @@ describe('RenderSceneTree computed data mirror', () => {
     )
     await flushScheduledFrame()
 
-    const snapshot = renderMock.addElement.mock.calls.at(-1)?.[0] as
+    const snapshot = renderMock.addElement.mock.calls.slice(-1)[0]?.[0] as
       | Record<string, unknown>
       | undefined
     expect(outcome).toEqual({ status: 'resynced', elementId: 'vector-1' })
@@ -1856,7 +1856,7 @@ describe('RenderSceneTree computed data mirror', () => {
     )
     await flushScheduledFrame()
 
-    const snapshot = renderMock.updateElement.mock.calls.at(-1)?.[4] as
+    const snapshot = renderMock.updateElement.mock.calls.slice(-1)[0]?.[4] as
       | { points?: Record<string, unknown> }
       | undefined
     expect(outcome).toEqual({ status: 'applied', elementId: 'vector-1' })
@@ -3072,7 +3072,7 @@ describe('RenderSceneTree computed data mirror', () => {
 
     const expectLatestStrategyDataToEqualFreshSnapshot = async () => {
       await flushScheduledFrame()
-      const strategyData = renderMock.updateElement.mock.calls.at(-1)?.[4]
+      const strategyData = renderMock.updateElement.mock.calls.slice(-1)[0]?.[4]
       const freshSnapshot = {
         ...element.save(),
         ...element.getAllComputedData()

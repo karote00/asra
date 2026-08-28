@@ -83,7 +83,7 @@ describe('@asyra/render-engine contract', () => {
     })
 
     expect(report.engine).toBe(facade)
-    expect(report.operationTypes.at(-1)).toBe('destroy')
+    expect(report.operationTypes.slice(-1)[0]).toBe('destroy')
   })
 
   it('delivers one requested frame at most once and cancels pending work', () => {

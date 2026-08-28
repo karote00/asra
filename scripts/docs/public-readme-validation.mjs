@@ -9,17 +9,21 @@ import { checkPublicDocumentation } from './public-documentation.mjs'
 import { readApprovedReadmeInputs } from './public-readme-inputs.mjs'
 
 const REPOSITORY_URL = 'https://github.com/karote00/asyra'
+const VERIFIED_PUBLIC_LINKS = new Set([
+  'https://asyra-design.vercel.app/?fileId=demo'
+])
 const REQUIRED_POLICY =
   'This repository does not accept external issues or contributions'
 
 const REQUIRED_HEADINGS = Object.freeze({
   root: Object.freeze([
-    '## What Asyra is',
+    '## Build product features, not infrastructure',
+    '## Try the demo',
     '## Choose your starting point',
-    '## Runtime model',
-    '## Ownership boundary',
+    '## How Asyra works',
+    '### Ownership boundaries',
     '## Where Asyra can go',
-    '## Current release and roadmap',
+    '## Current support',
     '## Documentation',
     '## Support and contribution policy',
     '## License'
@@ -34,17 +38,18 @@ const REQUIRED_HEADINGS = Object.freeze({
     '## Support and policy'
   ]),
   'asyra-design': Object.freeze([
-    '## Start in this repository',
-    '## Editing paths',
-    '## Complete local services',
-    '## Extend the product',
-    '## Framework and App ownership',
+    '## Install and start',
+    '## Start editing',
+    '## Run the complete local services',
+    '## Make your first extension',
+    '## Build with an AI coding agent',
+    '## Framework flows',
     '## Verify',
-    '## Deployment boundary',
+    '## Current release boundary',
     '## Support and contribution policy',
     '## License'
   ]),
-  'generated-app-source': Object.freeze([
+  'generated-app-output': Object.freeze([
     '## Install and start',
     '## Start editing',
     '## Run the complete local services',
@@ -97,6 +102,7 @@ const ensureRepositoryTarget = ({
   sourcePath
 }) => {
   const url = new URL(destination)
+  if (VERIFIED_PUBLIC_LINKS.has(destination)) return
   if (`${url.origin}${url.pathname}` === REPOSITORY_URL) return
   const prefix = `${REPOSITORY_URL}/blob/main/`
   const treePrefix = `${REPOSITORY_URL}/tree/main/`
@@ -288,12 +294,8 @@ export const validatePublicReadmes = async ({ repositoryRoot }) => {
       source,
       sourcePath: surface.path
     })
-    const renderedFilePath =
-      surface.id === 'generated-app-source'
-        ? path.join(root, inputs.generatedReadme.output)
-        : filePath
     linkCount += validateReadmeLinks({
-      filePath: renderedFilePath,
+      filePath,
       repositoryRoot: root,
       source
     })
@@ -329,9 +331,10 @@ export const validatePublicReadmes = async ({ repositoryRoot }) => {
 }
 
 export const validateGeneratedReadmePair = ({ output, source }) => {
-  const matches = Buffer.isBuffer(source)
-    ? source.equals(output)
-    : source === output
+  const sourceText = Buffer.isBuffer(source) ? source.toString('utf8') : source
+  const outputText = Buffer.isBuffer(output) ? output.toString('utf8') : output
+  const matches =
+    sourceText.replaceAll('../../LICENSE', 'LICENSE') === outputText
   if (!matches) {
     throw new Error('Generated Asyra Design README is stale')
   }

@@ -5,7 +5,6 @@ import '@asyra/design-system/index.css'
 import DataContexts from './contexts/data-change'
 
 import App from './app'
-import reportWebVitals from './reportWebVitals'
 import {
   isAiDrawingPerformanceProfileRequested,
   installAiDrawingPerformanceProfile
@@ -56,11 +55,6 @@ const bootstrapApp = async (): Promise<void> => {
       )
     }
   })
-
-  // If you want to start measuring performance in your app, pass a function
-  // to log results (for example: reportWebVitals(console.log))
-  // or send it to an analytics endpoint. Learn more here: https://bit.ly/CRA-vitals
-  reportWebVitals()
 }
 
 void bootstrapApp().catch((error: unknown) => {

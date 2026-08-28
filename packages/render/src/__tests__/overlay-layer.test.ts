@@ -16,7 +16,7 @@ describe('overlay layer', () => {
 
     expect(points.length).toBeGreaterThan(MIN_EXPECTED_BEZIER_POINTS)
     expect(points[0]).toEqual({ x: 0, y: 0 })
-    expect(points.at(-1)).toEqual({ x: 120, y: 0 })
+    expect(points.slice(-1)[0]).toEqual({ x: 120, y: 0 })
   })
 
   it('renders overlay beziers through sampled line segments instead of direct bezierCurveTo calls', () => {

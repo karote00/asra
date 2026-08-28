@@ -4,6 +4,12 @@
   "description": "Render engine",
   "author": "Asa Tsai",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karote00/asyra.git",
+    "directory": "packages/render"
+  },
+  "homepage": "https://asyra-framework.vercel.app",
   "type": "module",
   "engines": {
     "node": "24.x"
@@ -51,8 +57,8 @@
   },
   "devDependencies": {
     "@types/earcut": "^2.1.4",
-    "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/coverage-v8": "^3.2.6",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^3.2.6"
   }
 }

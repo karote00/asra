@@ -13,20 +13,24 @@ import {
   writePublicPackageReference
 } from './public-package-reference.mjs'
 
+export const WEBSITE_LLM_DISCOVERY_PATH =
+  'apps/asyra-framework-site/public/llms.txt'
+
 export const PUBLIC_DOCUMENTATION_PATHS = Object.freeze({
   apiIndex: 'docs/public/generated/api-index.json',
   contentIndex: 'docs/public/generated/content-index.json',
   llms: 'docs/public/llms.txt',
-  sourceMap: 'docs/public/generated/source-map.json'
+  sourceMap: 'docs/public/generated/source-map.json',
+  websiteLlms: WEBSITE_LLM_DISCOVERY_PATH
 })
 
 const SECTION_IDS = Object.freeze([
   'overview',
   'start',
-  'learn',
-  'build',
-  'reference',
-  'cases'
+  'concepts',
+  'extend',
+  'customize',
+  'reference'
 ])
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex')
@@ -181,7 +185,7 @@ const serializeLlms = ({ contentIndex }) => {
     'Current: browser/Core composition, official 2D Preset, and engine-neutral CUSTOM composition.',
     'Future: Headless Core and Core Kernel for non-visible and machine-facing products; no current public API or delivery date.',
     '',
-    'Use create-asyra-design-app for the complete beginner product path. Use Start and Build for Framework composition.',
+    'Install @asyra/core for package-first composition or use create-asyra-design-app for a ready-to-use design-tool product. Start with official paths, use Extend for app-owned product behavior, and use Customize only when replacing Framework composition or providers.',
     'Treat app domain schemas, permissions, migration, retrieval, services, and product rules as app-owned.',
     '',
     '## Public pages',
@@ -277,7 +281,8 @@ const serializedBundle = (bundle) => ({
   apiIndex: serializeJson(bundle.apiIndex),
   contentIndex: serializeJson(bundle.contentIndex),
   llms: bundle.llms,
-  sourceMap: serializeJson(bundle.sourceMap)
+  sourceMap: serializeJson(bundle.sourceMap),
+  websiteLlms: bundle.llms
 })
 
 export const writePublicDocumentation = async ({ repositoryRoot }) => {

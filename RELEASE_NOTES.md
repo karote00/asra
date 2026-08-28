@@ -13,7 +13,7 @@ authorized, and the public-registry consumer passes. This candidate record does
 not authorize merge, tagging, registry publication, deployment, or a formal
 release.
 
-Root `asyra`, private `@asyra/asyra-design`, and
+The private root workspace `asyra`, private `@asyra/asyra-design`, and
 `create-asyra-design-app` are excluded from this Framework release. The
 committed create-app template is not regenerated or validated by this plan.
 

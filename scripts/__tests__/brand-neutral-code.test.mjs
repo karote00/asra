@@ -116,8 +116,13 @@ const lowercaseIdentityOwnerPaths = new Set([
   'package.json',
   'scripts/__tests__/changeset-all-patch.test.mjs',
   'scripts/__tests__/release-records.test.mjs',
+  'scripts/__tests__/create-app-cli.test.mjs',
+  'scripts/__tests__/release-automation.test.mjs',
+  'scripts/__tests__/test-file-placement.test.mjs',
+  'scripts/__tests__/workspace-automation.test.mjs',
   'scripts/release-records.js'
 ])
+const brandOwnedCodePrefixes = Object.freeze(['apps/asyra-framework-site/'])
 const capitalizedBrandIdentifierPattern = new RegExp(
   String.raw`(?:\b(?:class|const|enum|export|function|import|interface|let|namespace|type|var)\s+|[({,.]\s*)${repositoryDisplayName}(?=\s*(?:[:=,;)\]}]|$))`,
   'u'
@@ -125,6 +130,12 @@ const capitalizedBrandIdentifierPattern = new RegExp(
 
 const isAllowedPublicIdentity = (token, line, filePath) => {
   const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const relativePath = path.relative(repositoryRoot, filePath)
+  if (
+    brandOwnedCodePrefixes.some((prefix) => relativePath.startsWith(prefix))
+  ) {
+    return true
+  }
   if (
     publicIdentityDataValues.has(token) &&
     new RegExp(`(['"])[^'"\\n]*${escapedToken}[^'"\\n]*\\1`, 'u').test(line)
@@ -141,9 +152,13 @@ const isAllowedPublicIdentity = (token, line, filePath) => {
   }
 
   if (token === repositoryBrand) {
-    const relativePath = path.relative(repositoryRoot, filePath)
     return (
       line.includes(`@${repositoryBrand}`) ||
+      line.includes(`https://github.com/karote00/${repositoryBrand}`) ||
+      (path.basename(filePath) === 'package.json' &&
+        new RegExp(`(['"])${escapedRepositoryBrand}\\1`, 'u').test(line)) ||
+      (lowercaseIdentityOwnerPaths.has(relativePath) &&
+        new RegExp(`/${escapedRepositoryBrand}(?:/|['"])`, 'u').test(line)) ||
       (lowercaseIdentityOwnerPaths.has(relativePath) &&
         new RegExp(`(['"])${escapedRepositoryBrand}\\1`, 'u').test(line))
     )
@@ -247,7 +262,7 @@ test('Public-facing surfaces preserve the official project identities', () => {
   assert.match(
     appReadme,
     new RegExp(
-      `${referenceAppDisplayName}.*${repositoryDisplayName} Framework`,
+      `${referenceAppDisplayName}[\\s\\S]*${repositoryDisplayName}\\s+Framework`,
       'u'
     )
   )
@@ -275,7 +290,7 @@ test('Public-facing surfaces preserve the official project identities', () => {
   )
 })
 
-test('Active docs do not replace the reference app name with a generic label', () => {
+test('Active docs do not replace the Asyra Design name with a generic label', () => {
   const genericReferenceAppName = new RegExp(
     `(?<!${repositoryDisplayName} )Design App`,
     'u'
@@ -309,6 +324,56 @@ test('Active docs do not replace the reference app name with a generic label', (
     })
 
   assert.deepEqual(violations, [])
+})
+
+test('Active entry docs position Asyra Design as one product use, not the Framework default', () => {
+  const positioningPaths = [
+    'README.md',
+    'apps/asyra-design/README.md',
+    'apps/asyra-design/docs/README.md',
+    'create-app/asyra-design/README.md',
+    'docs/ai/apps/asyra-design/API_SURFACES.md',
+    'docs/ai/framework/CODING_STANDARDS.md',
+    'docs/ai/framework/GETTING_STARTED.md',
+    'docs/ai/framework/packages/ai-agent-runtime.md',
+    'docs/ai/framework/packages/collaboration.md',
+    'docs/ai/framework/website/visual-reimagine/handoff.md',
+    'docs/public/cases/asyra-design.md',
+    'docs/public/index.md',
+    'docs/public/start/create-design-app.md'
+  ]
+  const legacyPositioning =
+    /reference[- ](?:app|product)|recommended beginner entrance/iu
+
+  for (const relativePath of positioningPaths) {
+    const source = fs.readFileSync(
+      path.join(repositoryRoot, relativePath),
+      'utf8'
+    )
+    assert.doesNotMatch(source, legacyPositioning, relativePath)
+  }
+
+  assert.match(rootManifest.description, /framework/iu)
+  assert.doesNotMatch(rootManifest.description, /^An open-source design tool/u)
+})
+
+test('Active product positioning does not claim generic VR support', () => {
+  const positioningPaths = [
+    'README.md',
+    'docs/ai/framework/website/visual-reimagine/concept-manifest.json',
+    'docs/ai/framework/website/visual-reimagine/handoff.md',
+    'docs/public/build/render-boundary.md',
+    'docs/public/index.md',
+    'docs/public/start/custom-composition.md'
+  ]
+
+  for (const relativePath of positioningPaths) {
+    const source = fs.readFileSync(
+      path.join(repositoryRoot, relativePath),
+      'utf8'
+    )
+    assert.doesNotMatch(source, /\bVR\b/u, relativePath)
+  }
 })
 
 test('Programmatic code and configuration use brand-neutral identifiers', () => {

@@ -23,8 +23,8 @@ module.exports = Object.freeze({
     contentIndexPath: 'docs/public/generated/content-index.json',
     sourceMapPath: 'docs/public/generated/source-map.json',
     packageReferencePath: 'docs/public/generated/package-reference.json',
-    visualHandoffPath:
-      'docs/ai/framework/website/visual-reimagine/handoff.md',
+    landingContractPath:
+      'docs/ai/framework/plans/asyra-website-landing-page-plan.md',
     workspacePath: 'apps/asyra-framework-site'
   }),
   toolchain: Object.freeze({
@@ -33,7 +33,6 @@ module.exports = Object.freeze({
     reactDom: '19.1.0',
     tailwindcss: '4.3.3',
     tailwindPostcss: '4.3.3',
-    lucideReact: '1.31.0',
     typescript: '5.8.3',
     node: '24.x',
     yarn: '4.3.1'
@@ -48,7 +47,7 @@ module.exports = Object.freeze({
         'Freeze exact toolchain, workspace ownership, source authorities, route cases, shared boundaries, and deterministic gates before workspace implementation.',
       inputs: [
         'accepted public-content handoff',
-        'accepted Cosmic Atlas Revision 2 visual handoff',
+        'accepted Result-First Landing visual and responsive contract',
         'repository Node, Yarn, React, TypeScript, workspace, and CI contracts'
       ],
       outputs: ['artifact:platform-contract'],
@@ -87,24 +86,25 @@ module.exports = Object.freeze({
       order: 2,
       ownerPackage: '@asyra/asyra-framework-site foundation',
       purpose:
-        'Create the strict Next.js workspace, metadata, Cosmic Atlas Revision 2 tokens, semantic shell, and accessible navigation foundations.',
+        'Create the strict Next.js workspace, metadata, warm paper and engineering grid tokens, semantic shell, and accessible navigation foundations.',
       inputs: ['artifact:platform-contract'],
       outputs: ['artifact:site-foundation'],
       conditions: [
         'The workspace participates in root build, lint, dependency, Turbo, and test contracts.',
-        'The shell is server-first, keyboard ordered, localization resilient, reduced-motion safe, and usable without generated raster assets.',
-        'Landing and Atlas receive placeholders and stable shared anatomy only, not their product-owned implementation.'
+        "Development Content Security Policy permits React diagnostics, while production omits script-src 'unsafe-eval'.",
+        'The shell is server-first, keyboard ordered, localization resilient, reduced-motion safe, and uses warm paper, near-black ink, restrained signal red, engineering grid detail, and dark mechanical stages.',
+        'The current Landing remains unchanged while Atlas receives stable shared anatomy without inheriting Landing product meaning.'
       ],
       bypasses: [
         'Client components are allowed only for browser interaction or browser APIs.'
       ],
       allowedContributors: [
         'artifact:platform-contract',
-        'accepted visual handoff',
+        'accepted Result-First Landing contract',
         'existing repository workspace conventions'
       ],
       forbiddenContributors: [
-        'generated raster production assets',
+        'Landing illustration assets reused as supporting-route decoration',
         'external font, UI kit, analytics, or CMS',
         'Framework package-private source'
       ],
@@ -149,7 +149,7 @@ module.exports = Object.freeze({
       conditions: [
         'All forty-one public pages resolve exactly once with stable ids, routes, headings, and digests.',
         'Release and package facts derive from generated project-owned inputs and remain visibly provisional.',
-        'Links to internal canonical sources are presented as source evidence rather than rewritten as public website routes.'
+        'Links to internal canonical sources remain in approved page content or verification metadata rather than being rewritten as public website routes.'
       ],
       bypasses: [
         'Content failure renders an explicit unavailable state and never fabricates fallback product copy.'
@@ -183,7 +183,7 @@ module.exports = Object.freeze({
       order: 4,
       ownerPackage: 'Website documentation experience',
       purpose:
-        'Present all accepted documentation with stable anchors, three-region desktop reading, mobile navigation, local search, source evidence, and copy-as-Markdown.',
+        'Present all accepted documentation with stable anchors, three-region desktop reading, mobile navigation, local search, and reader-facing canonical source links.',
       inputs: [
         'artifact:site-foundation',
         'artifact:verified-site-content'
@@ -193,15 +193,18 @@ module.exports = Object.freeze({
         'The docs route renders without client JavaScript for basic reading.',
         'Search records map to stable page and heading ids.',
         'Mobile navigation is modal, focus-contained, Escape-closeable, and returns focus.',
-        'Copy-as-Markdown uses the accepted page bytes and canonical source links.'
+        'Approved page content retains reader-facing canonical source links without exposing authoring telemetry or duplicate source-path evidence.',
+        'Only the Documentation Overview presents one compact, light, docs-native technical flow after the owner-model explanation and before current support, without rewriting verified Markdown semantics.',
+        'The technical flow presents product intent and existing state as two distinct routes into the same canonical owners, followed by render, search, AI, save, and integration consumers.',
+        'The technical flow remains readable at 1440px, 820px, 390px, and 320px without a Landing dark stage, engineering grid, giant nested frames, or horizontal overflow.'
       ],
       bypasses: [
-        'Interactive search and copy controls may enhance a complete server-rendered document.'
+        'Interactive search may enhance a complete server-rendered document.'
       ],
       allowedContributors: [
         'artifact:site-foundation',
         'artifact:verified-site-content',
-        'local browser APIs for search and copy interaction'
+        'local browser APIs for search interaction'
       ],
       forbiddenContributors: [
         'hosted search',
@@ -214,9 +217,9 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/app/globals.css',
         'apps/asyra-framework-site/app/styles/docs.css',
         'apps/asyra-framework-site/components/docs-*.tsx',
+        'apps/asyra-framework-site/components/framework-technical-flow.tsx',
         'apps/asyra-framework-site/components/markdown-*.tsx',
         'apps/asyra-framework-site/components/search-*.tsx',
-        'apps/asyra-framework-site/components/copy-markdown-button.tsx',
         'apps/asyra-framework-site/__tests__/docs.test.mjs'
       ],
       specRefs: [
@@ -242,6 +245,7 @@ module.exports = Object.freeze({
         'Asyra Design remains a reference product rather than the Framework owner.',
         'Every external Asyra Design product entry uses the verified public alias with one non-empty fileId.',
         'Release inventory is manifest-derived and visibly provisional.',
+        'Framework release history renders only accepted milestone records and does not expand into package-level or website-level update notes.',
         'Future non-visible runtime remains Roadmap and is not presented as a current Headless API.'
       ],
       bypasses: [
@@ -250,10 +254,11 @@ module.exports = Object.freeze({
       allowedContributors: [
         'artifact:verified-site-content',
         'accepted Asyra Design case study',
+        'accepted Framework milestone release records',
         'generated package inventory'
       ],
       forbiddenContributors: [
-        'invented release notes, version, date, or support claim',
+        'invented release notes, date, or support claim outside an accepted Framework milestone release record',
         'unverified app URL',
         'future capability presented as current'
       ],
@@ -293,7 +298,7 @@ module.exports = Object.freeze({
       ],
       allowedContributors: [
         'artifact:site-foundation',
-        'accepted visual handoff',
+        'accepted Result-First Landing contract',
         'shared semantic web contracts'
       ],
       forbiddenContributors: [
@@ -338,7 +343,7 @@ module.exports = Object.freeze({
       conditions: [
         'Strict typecheck, lint, focused tests, root dependency validation, production build, and route smoke gates pass.',
         'Keyboard, focus, touch, responsive, reduced-motion, and synchronized visual cases pass.',
-        'All forty-one content pages, generated facts, source links, headings, search records, and Markdown-copy bytes resolve exactly.'
+        'All forty-one content pages, generated facts, source links, headings, and search records resolve exactly.'
       ],
       bypasses: [
         'Production deployment remains owned by Launch and Operations.'
@@ -402,8 +407,8 @@ module.exports = Object.freeze({
     'A global non-engineer can read the site before opening technical depth.',
     'The platform never rewrites accepted content semantics or example behavior.',
     'Release facts come from manifests and remain candidate facts until public reconciliation.',
-    'Landing narrative and Runtime Atlas execution remain downstream owner work.',
-    'Generated visual boards are evidence and never production assets.',
+    'The current Landing remains the visual authority and keeps its accepted content, geometry, illustrations, and responsive behavior.',
+    'Landing illustration assets remain Landing-only while supporting routes use code-native semantic surfaces.',
     'No production deployment occurs in the Website Platform child.'
   ])
 })

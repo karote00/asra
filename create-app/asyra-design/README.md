@@ -1,9 +1,9 @@
 # `create-asyra-design-app`
 
 Create an immediately editable **Asyra Design** product from the official
-standalone template. This is the recommended beginner entrance when you want to
-learn from a working product and continue building it directly or with an AI
-coding agent.
+standalone template. This is the product-first entrance when you want a
+complete design tool you can use, study, and continue building directly or
+with an AI coding agent.
 
 Requirements:
 
@@ -121,8 +121,8 @@ Use the equivalent npm or pnpm script command when that manager was selected.
 
 ## Generated project contract
 
-- `apps/asyra-design` is the canonical reference-product source.
-- `apps/asyra-design/TEMPLATE.md` is the canonical generated README source.
+- `apps/asyra-design` is the canonical Asyra Design product source.
+- `apps/asyra-design/README.md` is the canonical generated README source.
 - the official generator materializes
   `create-app/asyra-design/template`; generated output receives no handwritten
   product fixes.

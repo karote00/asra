@@ -1,21 +1,37 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
 import { isIndexingAuthorized, resolveSiteOrigin } from '@/lib/site-origin'
+import './styles/tokens.css'
 import './globals.css'
+import './styles/foundation.css'
+import './styles/docs.css'
+import './styles/support.css'
+import './styles/atlas.css'
 
+const title = 'Asyra - Framework for canvas-based and domain-driven tools'
 const description =
-  'Bring your domain knowledge. Build the tool your world needs on Asyra.'
+  'Build canvas-based editors, visual tools, BIM workspaces, simulations, and other domain products from composable application building blocks.'
 
 export const metadata: Metadata = {
   metadataBase: new URL(resolveSiteOrigin()),
-  title: 'Asyra - Build the tool your world needs',
+  title,
   description,
   applicationName: 'Asyra',
+  keywords: [
+    'canvas tool framework',
+    'canvas editor framework',
+    'visual editor framework',
+    'whiteboard framework',
+    'BIM application framework',
+    'undo redo framework',
+    'domain-driven tools',
+    'TypeScript application framework'
+  ],
   alternates: { canonical: '/' },
   openGraph: {
     description,
     siteName: 'Asyra',
-    title: 'Asyra - Build the tool your world needs',
+    title,
     type: 'website',
     url: '/'
   },
@@ -25,7 +41,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary',
     description,
-    title: 'Asyra - Build the tool your world needs'
+    title
   }
 }
 

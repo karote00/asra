@@ -2,38 +2,69 @@
 
 Asyra is infrastructure for building products around app-owned information and
 rules. A product may project that information as a design tool, whiteboard,
-BIM environment, VR workspace, simulation system, or another visual tool. The
-Framework does not own the meaning of a building, manufacturing rule, chemical
-constraint, design object, or AI task; that remains your product's domain.
+BIM environment, simulation system, or another domain product. The Framework
+does not own the meaning of a building, manufacturing rule, chemical
+constraint, design object, or AI task. That meaning remains in your product.
 
-The same separation also points toward future non-visible, machine-facing
+The same separation points toward future non-visible, machine-facing
 information products. That direction is documented as a roadmap, not as a
 supported Headless Core API in the current release.
 
-## Choose your entry
+## Choose your path
+
+The public documentation uses five paths so readers can tell whether they are
+starting from an official product, learning the architecture, extending their
+own domain, or replacing a Framework boundary.
+
+### Start
 
 Use [create-asyra-design-app](start/create-design-app.md) when you want a
-working reference product that you or an AI coding agent can extend. It is the
-fastest beginner route to real product behavior: editing, hierarchy,
-transactions, persistence, optional collaboration, and optional AI actions.
+complete design-tool product that you or an AI coding agent can extend. Use the
+[official 2D Preset](start/preset-2d.md) when you are building a visual product
+from Framework packages and want Asyra's maintained baseline. Read the
+[Asyra Design case study](cases/asyra-design.md) to see how the official app
+uses Framework owners without becoming the only supported product shape.
 
-Use the [official 2D Preset](start/preset-2d.md) when you are building a visual
-product from Framework packages and want Asyra's maintained design-tool
-baseline.
+### Concepts
 
-Use a [custom composition](start/custom-composition.md) when you want to select
-the information, interaction, rendering, persistence, collaboration, and AI
-boundaries yourself.
+Concepts explain how Asyra works before asking you to write implementation
+code. Begin with [information models](learn/information-models.md), then learn
+how Features accept intent, canonical owners settle state, transactions stay
+durable, load boundaries validate data, and projections remain separate from
+providers. Concept pages describe the architecture and link to the appropriate
+implementation path instead of mixing both levels in one guide.
 
-These are complementary paths. The generated app teaches how a complete
-product uses Asyra; the Framework paths teach how to compose Asyra itself.
+### Extend
+
+Extend is the normal path for adding app-owned product behavior. It covers
+schemas, Feature sessions, hierarchy and Group policy, persistence migration,
+collaboration, AI actions, and app-owned retrieval. Use it when the Framework
+composition is correct and your product needs more domain meaning or behavior.
+The [custom schema guide](build/custom-schema.md) is a practical first step.
+
+### Customize
+
+Customize is the advanced path for changing the Framework composition itself.
+Use [custom composition](start/custom-composition.md) to construct only the
+current owners your runtime needs, or the
+[custom render-boundary guide](build/render-boundary.md) to replace a provider
+through its public contract. These guides assume you deliberately need a
+different lower-level composition, not merely another product feature.
+
+### Reference
+
+Reference documents each public package, supported entrypoint, lifecycle,
+replacement behavior, and disabled state. Use it after choosing a path when you
+need the exact contract for a package or API. See
+[Support and release boundaries](reference/support-release.md) before making
+environment or roadmap claims.
 
 ## The owner model
 
 Asyra stays extensible by assigning each concern one owner:
 
 - your app owns domain schemas, product rules, commands, permissions, migration
-  meaning, and service policy;
+  meaning, retrieval, and service policy;
 - Core coordinates public Framework capabilities and lifecycle;
 - canonical packages own state, transactions, hierarchy, validation, and
   typed communication within their declared boundaries;
@@ -42,10 +73,9 @@ Asyra stays extensible by assigning each concern one owner:
 - optional Collaboration and AI packages participate only when the app
   composes and configures them.
 
-Start with [information models](learn/information-models.md), then follow one of
-the maintained [Build guides](build/custom-schema.md). Every guide links to
-advanced implementation guides and canonical source contracts; the website is a
-presentation of these Markdown sources, not a second documentation owner.
+The website presents these Markdown sources rather than maintaining a second
+documentation owner. Every implementation guide links back to canonical
+Framework contracts and forward to the next maintained path.
 
 ## Current support
 
@@ -53,23 +83,16 @@ The initial release supports the current browser/Core composition and the
 official `2D` Preset profile. Production `3D`, `HYBRID`, auto layout,
 unit-aware aggregation, a public `createHeadlessCore()`, and an independent
 Core Kernel are not current capabilities. See
-[Support and release boundaries](reference/support-release.md) and
-[Current runtime and future Core Kernel](learn/runtime-boundaries-roadmap.md).
+[Current runtime and future Core Kernel](learn/runtime-boundaries-roadmap.md)
+for the researched direction and present boundary.
 
-## Learn from implementation guides
-
-The task guides turn Framework verification knowledge into implementation
-material: copyable public-API code, the module where it runs, the owner call
-sequence, the observable result, and the failure or disabled path.
-
-Begin with [information models](learn/information-models.md), then choose a
-focused build guide for schemas, Feature sessions, persistence migration,
-render-engine replacement, collaboration, or registered AI actions. Runtime
-Atlas lets you operate six of those owner flows in the browser while the guides
-explain how to implement them in a product.
+Runtime Atlas lets you operate six current owner flows in the browser. Concepts
+explain why those boundaries exist, Extend guides show how app-owned behavior
+enters them, Customize guides cover intentional provider or composition
+replacement, and Reference pages state the exact public package contracts.
 
 ## Canonical sources
 
 - [Framework Essentials](../ai/framework/FRAMEWORK_ESSENTIALS.md)
 - [Framework Architecture](../ai/framework/ARCHITECTURE.md)
-- [Build guides](build/custom-schema.md)
+- [Framework Workflow](../ai/framework/WORKFLOW.md)

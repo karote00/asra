@@ -10,9 +10,12 @@ website composition, including committed and uncommitted Landing work.
 Build one public Asyra page that reports the result first: people can bring
 knowledge from any field and build the tool their world needs on Asyra. The
 page then proves that the tool can grow, that people and AI use the same action
-path, and that every view shares one source of truth. The product owner retired
-the Visible Change proof and the later Impact Preview because change-impact
-analysis is not a public product capability.
+path, that a PoC can continue into the product as the same bounded
+implementation, and that every view shares one source of truth. A reader-first
+Framework value comparison then shows why defining one Feature once replaces
+repeated screen, AI, saved-work, undo, and synchronization logic. The product
+owner retired the Visible Change proof and the later Impact Preview because
+change-impact analysis is not a public product capability.
 
 ## Visual Authority
 
@@ -27,7 +30,18 @@ essential composition is:
 - a compact ASYRA header and short calls to action;
 - a result-first two-column hero with the exact V04 modular core and its
   measurement grid;
+- one shared horizontal page geometry contract for Header, Hero, domain copy,
+  PoC, proofs, Closing, and Footer, with one minimum page width, one maximum
+  content width, and one responsive inline padding;
 - an unlimited-domain rail immediately after the hero;
+- one code-native PoC-to-product storyboard with two ordered Traditional and
+  Asyra flows, four stages per flow, recurring human roles, and direct
+  comparisons that contrast repeated handoffs and rebuilding with one bounded
+  Feature continuing through engineering review;
+- one semantic HTML and CSS Framework value comparison, placed after the PoC
+  story and before the three proof sections, that contrasts the maintenance
+  cost of separate product edits with one bounded change inside the Feature
+  that owns the requested behavior;
 - three spacious alternating proof sections without separator rules;
 - six immutable product-owner-supplied Photoroom true-alpha masters, with
   source-bounded responsive lossless WebP derivatives that preserve their
@@ -45,7 +59,7 @@ essential composition is:
   protected central domain core inside one continuous blue infrastructure loop
   with four directional bridges, presented over the shared code-drawn
   engineering grid;
-- an open-source closing statement and compact footer; and
+- a domain-owned closing statement and compact navigation-only footer; and
 - modern system sans headlines and labels at regular-to-medium display weight,
   open line spacing, generous section padding, and responsive single-column
   reflow.
@@ -73,13 +87,13 @@ the project test commands.
   asset builders, the V09 closing asset builder, directly affected Landing
   tests and smoke scripts, this plan, and the Landing Inspector.
 - **Fixed discovery:** the approved V04 image, the product-owner copy decisions
-  in this task, current Framework product truth, and existing environment
-  configuration.
+  in this task, the product-owner PoC-to-product continuity decision, current
+  Framework product truth, and existing environment configuration.
 - **Required gates:** Inspector contract, semantic regression test, strict
   typecheck, site lint, production build, route smoke, no-JavaScript reading,
   reduced motion, and synchronized full-page plus section-level 1440px, 864px,
-  820px, 390px, and 320px visual review, including CTA default, hover, and
-  focus states.
+  820px, 390px, and 320px visual review, including the PoC-to-product
+  storyboard and CTA default, hover, and focus states.
 - **Excluded:** Framework package behavior, Asyra Design behavior, new packages,
   tablet and mobile raster asset changes, analytics, and unrelated repository
   changes. Production deployment is authorized only after all required gates
@@ -96,11 +110,14 @@ the project test commands.
 5. growth without rebuilding the rest;
 6. one shared human and AI action path;
 7. one source across features and views;
-8. clickable placeholder actions;
-9. responsive true-alpha Photoroom raster assets;
-10. adaptive code-drawn grids and alpha-aware shadows at every review size;
-11. a 2026 open-source footer with no company identity; and
-12. complete no-client and reduced-motion reading.
+8. PoC-to-product continuity through the same bounded implementation;
+9. one canonical runtime flow explainer;
+10. connected in-page and Website Platform actions;
+11. responsive true-alpha Photoroom raster assets;
+12. adaptive code-drawn grids and alpha-aware shadows at every review size;
+13. a navigation-only footer without redundant year or license metadata; and
+14. complete no-client and reduced-motion reading; and
+15. public machine-readable discovery independent from supporting content pages.
 
 ## Content Contract
 
@@ -109,26 +126,35 @@ The page must include these exact anchors:
 - `Build the tool your world needs.`
 - `You bring the domain knowledge. AI builds with Asyra. Your tool stays easy to extend, automate, and undo.`
 - `One foundation. Any field.`
-- `Examples, not limits.`
 - `Add what your workflow needs without rebuilding the rest.`
-- `Build each feature once. People and AI use the same action path.`
+- `People and AI follow the same governed action path.`
 - `One source of truth across every feature and view.`
+- `Prove it once. Keep what works.`
+- `Keep validated work moving.`
+- `What proves the idea becomes the starting point for the product.`
+- `One feature request. One place to change.`
 - `Bring your domain. Keep its logic.`
 
 Calls to action use only `Start building` and `See examples`. Navigation and
-footer links may use placeholder destinations, but every link must have a
-clickable non-empty `href` attribute. Public copy contains no Unicode em dash
-or en dash.
+footer links resolve to approved Website Platform or project source
+destinations, and every link has a clickable non-empty `href` attribute. Public
+copy contains no Unicode em dash or en dash.
 
-The footer identifies the project only as `2026`, `OPEN SOURCE`, and
-`MIT LICENSE`. It must not claim an Asyra company, corporation, or incorporated
-owner.
+The footer contains project navigation only. It does not repeat year, license,
+open-source, company, corporation, or incorporated-owner metadata.
+
+The Website publishes the generated public documentation inventory at
+`/llms.txt`. This machine-readable discovery surface mirrors
+`docs/public/llms.txt`. Supporting human-facing routes belong exclusively to
+the Website Platform contract; they may be restored without changing or
+contributing to this Landing route.
 
 ## Ownership Boundary
 
 The app owns semantic server-rendered HTML, the paper visual system, responsive
-layout, metadata, robots, sitemap, error state, not-found state, and
-project-local responsive WebP assets. The selected source-of-truth files are
+layout, metadata, robots, sitemap, the generated `/llms.txt` discovery surface,
+error state, not-found state, and project-local responsive WebP assets. The
+selected source-of-truth files are
 the six immutable product-owner-supplied PNG masters under
 `apps/asyra-framework-site/artwork/photoroom`; their hashes are enforced by the
 semantic regression test. `build-photoroom-assets.py` produces three
@@ -138,6 +164,15 @@ must not exceed its master width. The domain rail's native 2400px master is not
 artificially enlarged; it may provide a minimum 1.1 source pixels per rendered
 CSS pixel at the widest review size, while the other illustrations remain at
 least 2x at their supported review sizes.
+
+The Landing route owns one shared horizontal page geometry contract. A single
+minimum page width prevents unsupported collapse, while one maximum content
+width and one responsive inline padding establish the same left and right
+content edges for Header, Hero, domain copy, PoC, all proofs, Closing, and
+Footer. The Domain Rail is the only responsive edge exception: its continuous
+track and both mobile rows touch the viewport edges below the 2520px maximum
+content width, then align with the shared padded content edges once that maximum
+width is reached.
 
 The app owns one shared `.illustration-stage` decoration for all six images.
 Its pseudo-element draws minor lines, major lines, and intersection nodes with
@@ -153,6 +188,40 @@ vectors follow the supplied top-left lighting and apparent elevation instead
 of applying one generic vertical shadow. Dark stages may add a restrained blue
 ambient reflection so the silhouette remains legible without changing source
 pixels.
+
+The app also owns one semantic PoC-to-product storyboard built from eight
+border-free direct raster crops of the product-owner-approved person storyboard
+preview. The approved people and scenes must not be redrawn. Two ordered
+Traditional and Asyra flows keep each path contiguous. Desktop aligns the flows
+as two four-stage rows for direct comparison. Below 960px, the complete
+Traditional sequence precedes the complete Asyra sequence instead of nesting
+both paths inside each stage. At 680px and below, each storyboard panel stays
+within 0.9 to 1.1 times the median rendered width of the three proof
+illustrations so the comic does not overpower the surrounding product story.
+The same recurring domain expert and engineer carry the narrative through idea,
+validation, review, and delivery. Traditional shows a disposable prototype
+crossing handoff and rewrite steps; Asyra keeps one visibly continuous bounded
+Feature through domain validation, engineering review, hardening, and product
+delivery. Semantic HTML labels expose the same meaning without relying on color
+or illustration geometry. The storyboard must not claim that a PoC is
+production-ready without engineering review, tests, security, or performance
+hardening.
+
+The app owns one code-native Framework value comparison immediately after the
+PoC story. It explains change cost: one product request can become separate
+maintenance edits for the product screen, AI action, saved work, undo/redo,
+and synchronized users. With Asyra, the request stays inside the Feature that
+owns the behavior as one bounded change. This comparison does not duplicate
+the proof sections below it: Grow owns modular expansion, Same Path owns the
+governed human and AI action path, and One Source owns authoritative
+information across views.
+The Landing must not require readers to understand API, transaction,
+canonical-owner, state-application, projection, or integration terminology.
+The comparison stays readable without color or connector geometry. At 1440px
+and 820px, Without Asyra and With Asyra remain directly comparable columns. At
+390px and 320px, the complete Without Asyra story precedes the complete With
+Asyra story. The Documentation Overview owns its own compact technical
+presentation and does not reuse the Landing renderer.
 
 Prior V04 through V12 raster assets and the rejected V08 through V14 Grow
 experiments remain preserved but are not selected. The retired Visible Change
@@ -187,9 +256,11 @@ The active visual review must match these approved details:
   a complete gunmetal outer frame, with the shared adaptive grid visible
   behind it.
 
-The implementation must not recreate complex diagram topology with SVG, CSS,
-canvas, WebGL, or icon libraries. CSS is allowed only for the shared background
-grid and alpha-derived drop shadow.
+The implementation must not recreate the six supplied mechanical
+illustrations' complex topology with SVG, CSS, canvas, WebGL, or icon
+libraries. CSS is allowed for the shared background grid, alpha-derived drop
+shadow, the storyboard's uniform 2px frame, and the semantic Framework flow
+map's code-native borders and connectors.
 
 The page uses a modern system sans stack for display and body text. Display
 headings stay at weight 500 or below with line height at least equal to their
@@ -205,13 +276,28 @@ copy, or selected illustration.
 
 ## Quality Gates
 
-- one static `/` content route and only required Next.js shell files under
-  `app`;
+- one static `/` Landing route whose content, imagery, and responsive behavior
+  stay independent from Website Platform supporting routes;
+- `/llms.txt` exactly matches the generated public documentation inventory;
 - no import or copy from the removed website implementation;
 - all information and actions remain readable without JavaScript;
 - the retired Visible Change and Impact Preview sections are absent;
-- every anchor has a clickable `href` and placeholder destinations are allowed;
+- every anchor has a clickable `href` that resolves to an in-page, Website
+  Platform, or project source destination;
 - no horizontal overflow at 390px and 320px;
+- the Landing Framework value comparison preserves the exact semantic order of
+  many traditional file changes, one Asyra Feature definition, and consistent
+  product results at 1440px, 820px, 390px, and 320px; 1440px and 820px use two
+  directly comparable columns, 390px and 320px read the complete traditional
+  story before the complete Asyra story, and no engineering terminology is
+  required to understand the outcome;
+- the PoC-to-product storyboard preserves eight border-free direct raster crops
+  from the approved person preview inside one uniform 2px CSS frame contract,
+  the same recurring human roles, one continuous implementation path, legible
+  role labels, and natural DOM order at 1440px, 820px, 390px, and 320px; below
+  960px, all four Traditional stages precede all four Asyra stages; at 680px,
+  520px, 390px, and 320px, each storyboard panel remains within 0.9 to 1.1
+  times the median proof illustration width;
 - phone, tablet, and desktop receive the supplied Photoroom WebP derivatives
   through `srcset` and `sizes`, with source-bounded density and no artificial
   enlargement of the 2400px Domain Rail master;
@@ -230,6 +316,10 @@ copy, or selected illustration.
   reference card proportions, both edge assemblies, and reference bottom
   clearance; the closing uses the supplied transparent reviewed concept and
   its three responsive WebP sources;
+- Header, Hero, domain copy, PoC, proofs, Closing, and Footer resolve to the
+  same computed content edges at every review width, while each visible Domain
+  Rail row remains connected to both viewport edges below 2520px and adopts
+  the shared inline padding at and above 2520px;
 - reference line breaks and two-column geometry match the 864px V04 authority;
 - every heading and interface label resolves through the modern system sans
   stack without a legacy display serif;
@@ -259,4 +349,14 @@ remain independently buildable and deployable. It has no active
 dependency on previous website code or assets, passes the formal gates, is
 inspected from a synchronized local production preview, and is then deployed
 to the linked official Website project for product-owner review. Every
-full-page and section crop is inspected before completion is claimed.
+full-page and section crop, including the PoC-to-product storyboard, is
+inspected before completion is claimed. The code-native Framework value
+comparison is also inspected as its own section crop at desktop, tablet, and
+phone widths and must make the define-once result understandable without
+requiring the Documentation architecture flow.
+The final page keeps a 320px minimum
+page width and uses one 2520px maximum content width plus one responsive inline
+padding for every constrained Landing section. The Domain Rail remains full
+bleed below 2520px and adopts the shared inline padding at and above that
+maximum. The maximum-width contract is verified immediately below, at, and
+above 2520px as well as at 2560px and 3840px.

@@ -107,7 +107,7 @@ export const createCleanConsumerPackageManifest = ({
   })
 
   const dependencies = { ...fixtureManifest.dependencies }
-  const resolutions = {}
+  const resolutions = { ...(fixtureManifest.resolutions ?? {}) }
   for (const record of validated.packages) {
     const relativeTarball = path
       .relative(resolvedConsumerDirectory, record.tarballPath)

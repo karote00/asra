@@ -128,14 +128,16 @@ project-local consumer. The final release decision additionally requires the
 formal test, dependency, lint, E2E, performance, visual, Inspector, and
 registry-only consumer gates owned by the Framework package release plan.
 
-`create-asyra-design-app`, its committed template, root `asyra`, and private
+`create-asyra-design-app`, its committed template, private root workspace
+`asyra`, and private
 `@asyra/asyra-design` are excluded from this Framework release. Their
 versioning, template proof, and publication remain separately owned.
 
 ## Publication boundary
 
 The frozen candidate is represented by exactly the 19 Framework package
-manifests. Root `asyra`, private `@asyra/asyra-design`, and
+manifests. The private root workspace `asyra`, private
+`@asyra/asyra-design`, and
 `create-asyra-design-app` retain their independently owned manifest versions.
 Release records read those versions from the manifests; documentation does not
 duplicate them as constants. A Changeset may already have been consumed by

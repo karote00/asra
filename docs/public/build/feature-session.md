@@ -50,7 +50,15 @@ const EVENT = 'app:set-value'
 const SESSION = 'app:value-drag'
 const FEATURE = 'app:value-tool'
 
-type ValuePayload = Readonly<{ before: number; after: number }>
+type ValuePayload = Readonly<{
+  before: number
+  after: number
+}>
+
+type ValueUpdate = Readonly<{
+  nextValue: number
+}>
+
 const readValuePayload = (payload: unknown): ValuePayload => {
   if (
     !payload ||
@@ -87,7 +95,7 @@ const applyValue = (after: number) => {
 
 sessions.registerSession(SESSION, FEATURE, 100, true, 'rollback', {
   onStart: () => ({ initialValue: state.value }),
-  onUpdate: ({ nextValue }: { nextValue: number }) => applyValue(nextValue),
+  onUpdate: ({ nextValue }: ValueUpdate) => applyValue(nextValue),
   onEnd: () => undefined,
   onCancel: () => 'rollback'
 })

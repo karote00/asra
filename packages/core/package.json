@@ -1,7 +1,7 @@
 {
   "name": "@asyra/core",
-  "version": "0.5.2",
-  "description": "Core of Asyra.",
+  "version": "0.5.3",
+  "description": "Public composition core for canvas-based, visual, and domain-driven Asyra products",
   "author": "Asa Tsai",
   "license": "MIT",
   "type": "module",
@@ -9,7 +9,23 @@
     "node": "24.x"
   },
   "packageManager": "yarn@4.3.1",
-  "keywords": [],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karote00/asyra.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://asyra-framework.vercel.app",
+  "keywords": [
+    "application-framework",
+    "canvas-framework",
+    "canvas-editor",
+    "visual-editor",
+    "whiteboard",
+    "bim",
+    "undo-redo",
+    "information-modeling",
+    "typescript"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -46,9 +62,9 @@
     "test:ci": "yarn has:test && vitest run --coverage --reporter=default --reporter=junit || echo 'No test files found. Skipping test:ci.'"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/coverage-v8": "^3.2.6",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^3.2.6"
   },
   "dependencies": {
     "@asyra/factory": "workspace:*",

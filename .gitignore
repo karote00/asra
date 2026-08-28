@@ -32,6 +32,12 @@ dist
 *storybook.log
 .vercel
 
+# Private environment files
+.env
+.env.*
+!.env.example
+!.env.*.example
+
 # Test Repo or File
 count.bash
 chrome-dev-perf-trace.json
@@ -43,10 +49,7 @@ apps/*/playwright-report/
 apps/asyra-framework-site/artwork/
 apps/asyra-framework-site/public/illustrations/*
 !apps/asyra-framework-site/public/illustrations/*-photoroom-*.webp
-apps/asyra-design/visual-review-records/**/*.png
-apps/asyra-design/visual-review-records/**/*.webm
-!apps/asyra-design/visual-review-records/research/research-02-original-tabby-source.png
-apps/asyra-design/visual-review-records/crdt-ai-agent/thumbnails-10s/
+!apps/asyra-framework-site/public/illustrations/poc-storyboard-stage-*.png
 packages/*/tmp/
 docs/ai/apps/*/plans/*/artifacts/
 docs/ai/apps/*/plans/*/artifacts/transient/

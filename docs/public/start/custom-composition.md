@@ -5,7 +5,7 @@ does not want the complete official design-tool baseline. Start from Core,
 define your app-owned information, and compose only the capabilities your
 runtime actually uses.
 
-This is the general Asyra path for whiteboards, BIM, VR, simulations, and other
+This is the general Asyra path for whiteboards, BIM, simulations, and other
 domain products. The Framework supplies owner boundaries and coordination; it
 does not know the domain rules that make your product correct.
 
@@ -98,6 +98,25 @@ silent fallback behavior.
 Core is the public composition facade. Do not reach into dependency containers
 or package-private source, and do not make one package call another package's
 owner through a relative import. Use public facades and typed communication.
+
+## Customize transaction replay and inversion
+
+When an app introduces a canonical event shape that Factory cannot invert or
+replay through a built-in contract, register that lower-level behavior on the
+composition-owned `Factory` before product work begins. Use
+`Factory.registerTransactionInverter(...)` for the inverse evidence and
+`Factory.registerTransactionReplayHandler(...)` for the semantic replay route.
+Every inverter output must itself have a built-in or registered inverse, and a
+custom inverter must never return an empty result.
+
+This is a Customize concern because it changes how the Framework restores a
+canonical event. Ordinary product intent still belongs in an Extend guide and
+should use the existing transaction-safe Feature path. Do not create a second
+history system, an AI-only transaction engine, or a collaboration-specific
+replay path. See the
+[transaction-safe Feature guide](../build/feature-session.md) for the normal
+app-owned session flow and the [Factory reference](../reference/packages/factory.md)
+for the exact public contract.
 
 ## Validate the boundary
 

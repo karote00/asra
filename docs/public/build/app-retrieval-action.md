@@ -46,7 +46,10 @@ same API after app permission succeeds.
 ```ts
 const RECORDS = 'app:records'
 type RecordStatus = 'open' | 'approved'
-type AppRecord = Readonly<{ label: string; status: RecordStatus }>
+type AppRecord = Readonly<{
+  label: string
+  status: RecordStatus
+}>
 type AppRecords = Readonly<Record<string, AppRecord>>
 
 core.defineSystemProperty(RECORDS, {
@@ -135,4 +138,4 @@ canonical snapshot before and after retrieval to prove search is read-only.
 ## Next
 
 - [Read current and future runtime boundaries](../learn/runtime-boundaries-roadmap.md)
-- [See Asyra Design as a reference product](../cases/asyra-design.md)
+- [Study the complete Asyra Design product](../cases/asyra-design.md)

@@ -45,7 +45,7 @@ change Persistence ownership.
 
 ## Maintained use path
 
-Follow [Build persistence with app-owned migration](../../build/persistence-migration.md)
+Follow [Define migrations for your product](../../build/persistence-migration.md)
 for the hook location, migration code, call flow, expected result, and failure
 boundary.
 

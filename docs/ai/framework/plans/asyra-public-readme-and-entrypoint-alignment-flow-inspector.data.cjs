@@ -30,7 +30,6 @@ const readmePaths = Object.freeze([
   'README.md',
   ...packageReadmePaths,
   'apps/asyra-design/README.md',
-  'apps/asyra-design/TEMPLATE.md',
   'create-app/asyra-design/README.md',
   'create-app/asyra-design/template/README.md'
 ])
@@ -44,7 +43,7 @@ module.exports = Object.freeze({
       'docs/ai/framework/plans/asyra-public-readme-and-entrypoint-alignment-plan.md',
     inspectorPath:
       'docs/ai/framework/plans/asyra-public-readme-and-entrypoint-alignment-flow-inspector.data.cjs',
-    generatedReadmeSource: 'apps/asyra-design/TEMPLATE.md',
+    generatedReadmeSource: 'apps/asyra-design/README.md',
     generatedReadmeOutput: 'create-app/asyra-design/template/README.md'
   }),
   packageNames,
@@ -90,14 +89,14 @@ module.exports = Object.freeze({
       order: 2,
       ownerPackage: 'public README contract',
       purpose:
-        'Own the exact 24-surface inventory, owner mapping, required sections, link policy, generated route, negative cases, and contribution-policy invariant.',
+        'Own the exact 23-surface inventory, owner mapping, required sections, link policy, generated route, negative cases, and contribution-policy invariant.',
       inputs: [
         'artifact:approved-readme-inputs',
         'surface-specific content contract'
       ],
       outputs: ['artifact:public-readme-contract'],
       conditions: [
-        'Exactly 24 README surfaces and 19 release package READMEs are declared once.',
+        'Exactly 23 README surfaces and 19 release package READMEs are declared once.',
         'Every surface has one canonical owner and required content contract.',
         'External issues and contributions remain closed across every public surface.'
       ],
@@ -209,8 +208,7 @@ module.exports = Object.freeze({
         'manual generated output edits'
       ],
       implementationBoundary: [
-        'apps/asyra-design/README.md',
-        'apps/asyra-design/TEMPLATE.md'
+        'apps/asyra-design/README.md'
       ],
       specRefs: ['#asyra-design', '#generated-app-contract'],
       failureOwnerStepId: 'author-design-readme-sources'
@@ -249,7 +247,7 @@ module.exports = Object.freeze({
       order: 7,
       ownerPackage: 'official create-app template generator',
       purpose:
-        'Regenerate the standalone README from the canonical Asyra Design template source without a generated-output repair.',
+        'Regenerate the standalone README from the canonical Asyra Design README without a generated-output repair.',
       inputs: [
         'artifact:design-readme-sources',
         'artifact:cli-readme',
@@ -258,13 +256,13 @@ module.exports = Object.freeze({
       outputs: ['artifact:generated-readme'],
       conditions: [
         'The official release:app route produces the generated README.',
-        'The generated README is byte-identical to apps/asyra-design/TEMPLATE.md.'
+        'The generated README applies only the deterministic license link rewrite required by its standalone location.'
       ],
       bypasses: [
         'A stale generated README returns to the canonical source or generator owner.'
       ],
       allowedContributors: [
-        'apps/asyra-design/TEMPLATE.md',
+        'apps/asyra-design/README.md',
         'release-configs/asyra-design.json',
         'scripts/release-template.js'
       ],
@@ -309,7 +307,6 @@ module.exports = Object.freeze({
         'README.md',
         'packages/*/README.md',
         'apps/asyra-design/README.md',
-        'apps/asyra-design/TEMPLATE.md',
         'create-app/asyra-design/README.md',
         'create-app/asyra-design/template/README.md',
         'docs/public/generated/source-map.json',
@@ -360,7 +357,7 @@ module.exports = Object.freeze({
       id: 'complete-readme-inventory',
       stepIds: ['freeze-readme-contract', 'verify-public-readmes'],
       assertions: [
-        'Exactly 24 public README surfaces and all 19 package owners are present.',
+        'Exactly 23 public README surfaces and all 19 package owners are present.',
         'Every surface is concise and links to its complete guide or next step.'
       ]
     }),
@@ -376,7 +373,7 @@ module.exports = Object.freeze({
       id: 'generated-and-policy-invariants',
       stepIds: ['transform-generated-readme', 'verify-public-readmes'],
       assertions: [
-        'Generated README output is byte-identical to its canonical source.',
+        'Generated README output differs from its canonical source only by the deterministic standalone license link rewrite.',
         'No public surface invites external issues or contributions.'
       ]
     })

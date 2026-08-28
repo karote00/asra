@@ -1,3 +1,7 @@
+import { FrameworkValueStory } from '@/components/framework-value-story'
+import { SiteFooter } from '@/components/site-footer'
+import { SiteHeader } from '@/components/site-header'
+
 interface IllustrationProps {
   alt: string
   className?: string
@@ -41,20 +45,82 @@ function Illustration({
   )
 }
 
+const pocStoryPanels = [
+  {
+    asyra: {
+      alt: 'The domain expert builds the idea directly with AI in the product.',
+      image: '/illustrations/poc-storyboard-stage-01-asyra.png',
+      title: 'Domain + AI'
+    },
+    stage: '01',
+    traditional: {
+      alt: 'A domain expert sketches a domain idea on a whiteboard.',
+      image: '/illustrations/poc-storyboard-stage-01-traditional.png',
+      title: 'Domain idea'
+    },
+    width: 374
+  },
+  {
+    asyra: {
+      alt: 'The validated proof of concept continues as a real feature.',
+      image: '/illustrations/poc-storyboard-stage-02-asyra.png',
+      title: 'Real Feature'
+    },
+    stage: '02',
+    traditional: {
+      alt: 'A disposable proof of concept is thrown away.',
+      image: '/illustrations/poc-storyboard-stage-02-traditional.png',
+      title: 'Disposable PoC'
+    },
+    width: 376
+  },
+  {
+    asyra: {
+      alt: 'The domain expert and engineer review the same implementation together.',
+      image: '/illustrations/poc-storyboard-stage-03-asyra.png',
+      title: 'Engineer review'
+    },
+    stage: '03',
+    traditional: {
+      alt: 'A proof of concept stops at a handoff wall between domain expert and engineer.',
+      image: '/illustrations/poc-storyboard-stage-03-traditional.png',
+      title: 'Handoff'
+    },
+    width: 374
+  },
+  {
+    asyra: {
+      alt: 'The reviewed feature continues into the product.',
+      image: '/illustrations/poc-storyboard-stage-04-asyra.png',
+      title: 'Product'
+    },
+    stage: '04',
+    traditional: {
+      alt: 'A product is rebuilt around the proof of concept.',
+      image: '/illustrations/poc-storyboard-stage-04-traditional.png',
+      title: 'Rebuild'
+    },
+    width: 374
+  }
+] as const
+
+const pocStoryPaths = [
+  {
+    artworkHeight: 225,
+    key: 'traditional',
+    label: 'Traditional'
+  },
+  {
+    artworkHeight: 217,
+    key: 'asyra',
+    label: 'With Asyra'
+  }
+] as const
+
 export default function HomePage() {
   return (
     <div className="site-shell" id="top">
-      <header className="site-header">
-        <a className="wordmark" href="#top" aria-label="Asyra home">
-          ASYRA
-        </a>
-        <nav className="primary-nav" aria-label="Primary navigation">
-          <a href="#examples">Examples</a>
-          <a href="#how-it-works">How it works</a>
-          <a href="#">Docs</a>
-          <a href="#">About</a>
-        </nav>
-      </header>
+      <SiteHeader variant="landing" />
 
       <main>
         <section className="hero" aria-labelledby="hero-title">
@@ -72,11 +138,19 @@ export default function HomePage() {
               </span>
             </p>
             <div className="button-row">
-              <a className="button button--red" href="#">
+              <a
+                className="button button--red"
+                href="/docs/start/custom-composition"
+              >
                 Start building
               </a>
-              <a className="text-action" href="#examples">
-                See examples
+              <a
+                className="text-action"
+                href="https://asyra-design.vercel.app/?fileId=demo"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Try the demo
               </a>
             </div>
           </div>
@@ -96,7 +170,7 @@ export default function HomePage() {
 
         <section
           className="domains"
-          id="examples"
+          id="domains"
           aria-labelledby="domains-title"
         >
           <div className="domains__heading">
@@ -105,7 +179,6 @@ export default function HomePage() {
               Design tools, research workspaces, BIM systems, studio pipelines,
               field apps, simulations, and whatever your world needs next.
             </p>
-            <span>Examples, not limits.</span>
           </div>
           <div className="domains__rail illustration-stage illustration-stage--dark illustration-stage--rail">
             <picture className="domain-rail__picture">
@@ -138,7 +211,115 @@ export default function HomePage() {
           </div>
         </section>
 
-        <div className="proof-stack" id="how-it-works">
+        <section
+          className="poc-story"
+          id="how-it-works"
+          aria-labelledby="poc-story-title"
+        >
+          <div className="poc-story__inner">
+            <div className="poc-story__heading">
+              <div>
+                <p className="eyebrow">PoC to product</p>
+                <h2 id="poc-story-title">Prove it once. Keep what works.</h2>
+              </div>
+              <div className="poc-story__intro">
+                <p className="poc-story__summary">
+                  <strong>Keep validated work moving.</strong>
+                  What proves the idea becomes the starting point for the
+                  product.
+                </p>
+                <ul aria-label="Storyboard paths" className="poc-story__legend">
+                  <li className="poc-story__legend-item poc-story__legend-item--traditional">
+                    <span
+                      aria-hidden="true"
+                      className="poc-story__legend-swatch poc-story__legend-swatch--traditional"
+                    />
+                    <span>Traditional</span>
+                  </li>
+                  <li className="poc-story__legend-item poc-story__legend-item--asyra">
+                    <span
+                      aria-hidden="true"
+                      className="poc-story__legend-swatch poc-story__legend-swatch--asyra"
+                    />
+                    <span>With Asyra</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="story-panels">
+              {pocStoryPaths.map((path) => (
+                <section
+                  aria-labelledby={`story-flow-${path.key}`}
+                  className={`story-flow story-flow--${path.key}`}
+                  key={path.key}
+                >
+                  <h3
+                    className="story-flow__label"
+                    id={`story-flow-${path.key}`}
+                  >
+                    {path.label}
+                  </h3>
+                  <ol
+                    aria-label={`${path.label} product path`}
+                    className="story-flow__steps"
+                  >
+                    {pocStoryPanels.map((panel) => {
+                      const scene = panel[path.key]
+
+                      return (
+                        <li
+                          className="story-panel"
+                          key={`${path.key}-${panel.stage}`}
+                        >
+                          <header className="story-panel__header">
+                            <span className="story-panel__stage">
+                              {panel.stage}
+                            </span>
+                          </header>
+                          <figure
+                            className={`story-panel__scene story-panel__scene--${path.key}`}
+                          >
+                            <figcaption className="story-panel__scene-header">
+                              <h4 className="story-panel__title">
+                                {scene.title}
+                              </h4>
+                            </figcaption>
+                            <div
+                              className="story-panel__artwork-frame"
+                              style={{
+                                aspectRatio: `${panel.width} / ${path.artworkHeight}`
+                              }}
+                            >
+                              <img
+                                alt={scene.alt}
+                                className="story-panel__artwork"
+                                decoding="async"
+                                height={path.artworkHeight}
+                                loading="lazy"
+                                src={scene.image}
+                                width={panel.width}
+                              />
+                            </div>
+                          </figure>
+                        </li>
+                      )
+                    })}
+                  </ol>
+                </section>
+              ))}
+            </div>
+
+            <p className="poc-story__governance">
+              <strong>Engineering still owns production readiness:</strong>{' '}
+              review, tests, security, and performance.
+            </p>
+          </div>
+        </section>
+
+        <FrameworkValueStory />
+
+        <div className="proof-stack">
           <section
             className="proof proof--visual-first"
             aria-labelledby="grow-title"
@@ -168,9 +349,10 @@ export default function HomePage() {
             <div className="proof__copy">
               <p className="eyebrow">Same path</p>
               <h2 id="path-title">
-                <span className="reference-line">Build each feature once.</span>
-                <span className="reference-line">People and AI use the</span>
-                <span className="reference-line">same action path.</span>
+                <span className="reference-line">People and AI follow the</span>
+                <span className="reference-line">
+                  same governed action path.
+                </span>
               </h2>
             </div>
             <figure className="proof__visual illustration-stage illustration-stage--light illustration-stage--proof illustration-stage--same-path">
@@ -232,26 +414,16 @@ export default function HomePage() {
             widths={[960, 1280, 1536]}
             width={1536}
           />
-          <a className="button button--red closing__button" href="#">
+          <a
+            className="button button--red closing__button"
+            href="/docs/start/custom-composition"
+          >
             Start building
           </a>
         </section>
       </main>
 
-      <footer className="site-footer">
-        <a className="wordmark" href="#top">
-          ASYRA
-        </a>
-        <nav aria-label="Footer navigation">
-          <a href="#">Docs</a>
-          <a href="#">GitHub</a>
-          <a href="#">About</a>
-        </nav>
-        <p className="project-identity">
-          <span>2026</span>
-          <a href="#">MIT License</a>
-        </p>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }

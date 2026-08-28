@@ -4,6 +4,12 @@
   "description": "Engine-independent render engine contracts for Asyra",
   "author": "Asa Tsai",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/karote00/asyra.git",
+    "directory": "packages/render-engine"
+  },
+  "homepage": "https://asyra-framework.vercel.app",
   "type": "module",
   "engines": {
     "node": "24.x"
@@ -42,8 +48,8 @@
     "test:ci": "yarn has:test && yarn test:types && vitest run --coverage --reporter=default --reporter=junit || echo 'No test files found. Skipping test:ci.'"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "^2.1.8",
+    "@vitest/coverage-v8": "^3.2.6",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^3.2.6"
   }
 }
