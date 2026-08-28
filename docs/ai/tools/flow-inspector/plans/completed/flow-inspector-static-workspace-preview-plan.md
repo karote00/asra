@@ -2,11 +2,12 @@
 
 ## Status
 
-Active implementation. Phase 0 completed on 2026-08-29 with one product
+Completed on 2026-08-29. Phase 0 through Phase 2 delivered one product
 contract, one exact workspace Inspector, three fixed discovery roots, 34
 classified candidates, 32 included entries, two explicit historical
-exclusions, and exact generated-snapshot validation. Phase 1 is the next owner
-step.
+exclusions, a React/Vite static workspace, isolated target routing, standalone
+compatibility, exact generated-snapshot validation, formal DOM coverage, and
+desktop plus narrow-viewport browser verification.
 
 This plan covers Phase 0 through Phase 2 and ends with a static
 `v0.1.0-preview` workspace that may accompany the current Asyra Framework
@@ -20,7 +21,7 @@ enters the Framework Changesets publication allowlist, or becomes a
 Framework/App runtime dependency.
 
 Roadmap authority:
-[`flow-inspector-workflow-control-plane-roadmap.md`](flow-inspector-workflow-control-plane-roadmap.md).
+[`flow-inspector-workflow-control-plane-roadmap.md`](../flow-inspector-workflow-control-plane-roadmap.md).
 
 ## Objective
 
@@ -210,7 +211,7 @@ Estimates are planning ranges, not delivery commitments.
 
 ## References
 
-- [Workflow Control Plane Roadmap](flow-inspector-workflow-control-plane-roadmap.md)
-- [Flow Inspector contract](../FLOW_INSPECTOR.md)
-- [Framework Workflow](../../../framework/WORKFLOW.md)
-- [Inspector contract readiness](../../../framework/rules/inspector-contract-readiness.md)
+- [Workflow Control Plane Roadmap](../flow-inspector-workflow-control-plane-roadmap.md)
+- [Flow Inspector contract](../../FLOW_INSPECTOR.md)
+- [Framework Workflow](../../../../framework/WORKFLOW.md)
+- [Inspector contract readiness](../../../../framework/rules/inspector-contract-readiness.md)

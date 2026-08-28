@@ -34,7 +34,7 @@ const data = {
       id: 'static-workspace-plan',
       kind: 'plan',
       label: 'Static Workspace Preview Plan',
-      href: './flow-inspector-static-workspace-preview-plan.md'
+      href: './completed/flow-inspector-static-workspace-preview-plan.md'
     }
   ],
   lanes: [

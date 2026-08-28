@@ -75,4 +75,4 @@ Approximately 4–7 weeks after the Static Workspace Preview is accepted.
 ## References
 
 - [Workflow Control Plane Roadmap](flow-inspector-workflow-control-plane-roadmap.md)
-- [Static Workspace Preview Plan](flow-inspector-static-workspace-preview-plan.md)
+- [Static Workspace Preview Plan](completed/flow-inspector-static-workspace-preview-plan.md)

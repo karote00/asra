@@ -12,7 +12,7 @@ without execution state, CI comparison, machine interfaces, or actions. It may
 accompany the current Asyra Framework release wave, but it is optional,
 independently versioned, and never blocks Framework package publication. The
 bounded execution plan is:
-[`flow-inspector-static-workspace-preview-plan.md`](flow-inspector-static-workspace-preview-plan.md).
+[`flow-inspector-static-workspace-preview-plan.md`](completed/flow-inspector-static-workspace-preview-plan.md).
 
 The preview implementation root is fixed at `tools/flow-inspector/workspace/`.
 The later dynamic product is separately rooted at
@@ -379,7 +379,7 @@ minimum, v1 must prove:
 
 ## References
 
-- [Static Workspace Preview Plan](flow-inspector-static-workspace-preview-plan.md)
+- [Static Workspace Preview Plan](completed/flow-inspector-static-workspace-preview-plan.md)
 - [Evidence and CI Plan](flow-inspector-control-plane-evidence-and-ci-plan.md)
 - [Actions and Integrations Plan](flow-inspector-control-plane-actions-and-integrations-plan.md)
 - [Flow Inspector contract](../FLOW_INSPECTOR.md)
