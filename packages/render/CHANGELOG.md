@@ -1,5 +1,12 @@
 # @asyra/render
 
+## 0.5.4
+
+### Patch Changes
+
+- Republish the validated `0.5.3` release contents under a new version after the
+  npm registry left `0.5.3` in a non-public staged state.
+
 ## 0.5.3
 
 ### Patch Changes
