@@ -67,3 +67,16 @@ test('Atlas styling preserves material hierarchy and responsive controls', async
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/)
   assert.doesNotMatch(css, /Cosmic Atlas|#020b15/i)
 })
+
+test('Atlas wide layout uses aligned editorial bookends around the focused studio', async () => {
+  const css = await readSiteFile('app/styles/atlas.css')
+
+  assert.match(
+    css,
+    /\.atlas-boundary\s*{[^}]*max-width:\s*var\(--page-max-width\)/s
+  )
+  assert.match(
+    css,
+    /\.atlas-shell\s*{[^}]*max-width:\s*var\(--frame-content\)/s
+  )
+})

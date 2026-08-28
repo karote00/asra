@@ -83,7 +83,7 @@ test('contract replaces every previous website surface with the approved V04 pag
   )
   assert.match(
     source,
-    /Domain Rail row.*full bleed below 2520px.*shared inline padding/i
+    /Domain Rail row.*full bleed below 1720px.*shared inline padding/i
   )
   assert.doesNotMatch(
     source,
@@ -153,7 +153,7 @@ test('page owner selects the supplied true-alpha masters with one adaptive grid-
   assert.match(source, /eight border-free direct raster crops/i)
   assert.match(source, /uniform 2px CSS frame/i)
   assert.match(source, /one shared horizontal page geometry contract/i)
-  assert.match(source, /Domain Rail.*mobile rows.*viewport edges below 2520px/i)
+  assert.match(source, /Domain Rail.*mobile rows.*viewport edges below 1720px/i)
   assert.match(source, /must not redraw.*people or scenes/i)
   assert.match(source, /code-drawn SVG/i)
   assert.match(
@@ -358,9 +358,9 @@ test('verification requires synchronized production visual evidence', () => {
   )
   assert.match(
     source,
-    /2520px maximum content width.*3840px.*2560px.*2520px.*2519px.*2048px.*320px/i
+    /1720px maximum content width.*3840px.*2560px.*1920px.*1720px.*1719px.*1440px.*320px/i
   )
-  assert.match(source, /Domain Rail row remains full bleed below 2520px/i)
+  assert.match(source, /Domain Rail row remains full bleed below 1720px/i)
   assert.ok(owner.implementationBoundary.includes('.gitignore'))
   assert.ok(
     owner.implementationBoundary.includes(
@@ -403,7 +403,7 @@ test('Landing invariants preserve broad domains and a navigation-only footer', (
   assert.match(source, /Human and AI intent.*same governed action path/i)
   assert.match(source, /PoC.*same implementation.*product path/i)
   assert.match(source, /constrained Landing section.*horizontal page geometry/i)
-  assert.match(source, /Domain Rail remains full bleed below 2520px/i)
+  assert.match(source, /Domain Rail remains full bleed below 1720px/i)
   assert.match(source, /footer contains project navigation only/i)
   assert.match(source, /no year, license, open-source, or company identity/i)
   assert.match(

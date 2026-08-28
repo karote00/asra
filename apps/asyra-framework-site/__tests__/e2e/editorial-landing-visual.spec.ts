@@ -1433,7 +1433,7 @@ test('constrained Landing sections share one content geometry while the centered
   page
 }) => {
   for (const width of [
-    4200, 3440, 2560, 2520, 2519, 1920, 1440, 1200, 864, 820, 800, 680, 520,
+    4200, 3440, 2560, 1920, 1720, 1719, 1440, 1200, 864, 820, 800, 680, 520,
     390, 320
   ]) {
     await page.setViewportSize({ width, height: 1000 })
@@ -1485,9 +1485,9 @@ test('constrained Landing sections share one content geometry while the centered
         })
         .map((element) => {
           const bounds = element.getBoundingClientRect()
-          const expectedLeft = window.innerWidth >= 2520 ? reference.left : 0
+          const expectedLeft = window.innerWidth >= 1720 ? reference.left : 0
           const expectedRight =
-            window.innerWidth >= 2520 ? reference.right : window.innerWidth
+            window.innerWidth >= 1720 ? reference.right : window.innerWidth
           return {
             leftDifference: Math.abs(bounds.left - expectedLeft),
             rightDifference: Math.abs(bounds.right - expectedRight)
@@ -1523,7 +1523,7 @@ test('constrained Landing sections share one content geometry while the centered
     })
 
     expect(geometry.pageMinWidth).toBe(320)
-    expect(geometry.pageMaxWidth).toBe(2520)
+    expect(geometry.pageMaxWidth).toBe(1720)
     expect(geometry.domainWidth).toBeCloseTo(
       Math.min(width, geometry.pageMaxWidth),
       0
@@ -1544,9 +1544,9 @@ test('constrained Landing sections share one content geometry while the centered
       geometry.domainRailGap,
       `${width}px Domain copy-to-rail gap`
     ).toBeLessThanOrEqual(17)
-    expect(geometry.referenceContainerWidth).toBeLessThanOrEqual(2520)
-    if (width >= 2520) {
-      expect(geometry.referenceContainerWidth).toBe(2520)
+    expect(geometry.referenceContainerWidth).toBeLessThanOrEqual(1720)
+    if (width >= 1720) {
+      expect(geometry.referenceContainerWidth).toBe(1720)
     }
     for (const section of geometry.constrained) {
       expect(
@@ -1825,7 +1825,7 @@ test('wide screens grow the proof copy area with its display typography', async 
 }, testInfo) => {
   const copyWidths: number[] = []
 
-  for (const width of [1440, 2520]) {
+  for (const width of [1440, 1920]) {
     await page.setViewportSize({ width, height: 1200 })
     await loadLanding(page)
     copyWidths.push(
@@ -1836,12 +1836,12 @@ test('wide screens grow the proof copy area with its display typography', async 
     )
   }
 
-  expect(copyWidths[1]).toBeGreaterThan(copyWidths[0] + 150)
+  expect(copyWidths[1]).toBeGreaterThan(copyWidths[0] + 120)
   await assertUnbrokenReferenceLines(page)
   await assertNoHorizontalOverflow(page)
   await page.locator('.proof-stack').screenshot({
     animations: 'disabled',
-    path: testInfo.outputPath('proof-copy-wide-2520.png')
+    path: testInfo.outputPath('proof-copy-wide-1920.png')
   })
 })
 
@@ -2126,10 +2126,10 @@ test('800px balances the complete compact two-column composition', async ({
   })
 })
 
-test('desktop and compact domain rail stays connected to both viewport edges', async ({
+test('domain rail stays connected to both viewport edges below the page maximum', async ({
   page
 }) => {
-  for (const width of [2048, 1440, 864, 820, 800, 797, 701, 700]) {
+  for (const width of [1719, 1440, 864, 820, 800, 797, 701, 700]) {
     await page.setViewportSize({ width, height: 900 })
     await loadLanding(page)
 

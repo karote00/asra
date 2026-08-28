@@ -170,7 +170,7 @@ minimum page width prevents unsupported collapse, while one maximum content
 width and one responsive inline padding establish the same left and right
 content edges for Header, Hero, domain copy, PoC, all proofs, Closing, and
 Footer. The Domain Rail is the only responsive edge exception: its continuous
-track and both mobile rows touch the viewport edges below the 2520px maximum
+track and both mobile rows touch the viewport edges below the 1720px maximum
 content width, then align with the shared padded content edges once that maximum
 width is reached.
 
@@ -318,8 +318,8 @@ copy, or selected illustration.
   its three responsive WebP sources;
 - Header, Hero, domain copy, PoC, proofs, Closing, and Footer resolve to the
   same computed content edges at every review width, while each visible Domain
-  Rail row remains connected to both viewport edges below 2520px and adopts
-  the shared inline padding at and above 2520px;
+  Rail row remains connected to both viewport edges below 1720px and adopts
+  the shared inline padding at and above 1720px;
 - reference line breaks and two-column geometry match the 864px V04 authority;
 - every heading and interface label resolves through the modern system sans
   stack without a legacy display serif;
@@ -355,8 +355,8 @@ comparison is also inspected as its own section crop at desktop, tablet, and
 phone widths and must make the define-once result understandable without
 requiring the Documentation architecture flow.
 The final page keeps a 320px minimum
-page width and uses one 2520px maximum content width plus one responsive inline
+page width and uses one 1720px maximum content width plus one responsive inline
 padding for every constrained Landing section. The Domain Rail remains full
-bleed below 2520px and adopts the shared inline padding at and above that
+bleed below 1720px and adopts the shared inline padding at and above that
 maximum. The maximum-width contract is verified immediately below, at, and
-above 2520px as well as at 2560px and 3840px.
+above 1720px as well as at 1920px, 2560px, and 3840px.

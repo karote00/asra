@@ -1455,7 +1455,7 @@ test('the responsive layout keeps balanced proof spacing without section rules',
   assert.match(tokens, /--paper:\s*var\(--color-paper\)/)
   assert.match(tokens, /--signal-red:\s*var\(--color-red\)/)
   assert.match(tokens, /--page-min-width:\s*320px/)
-  assert.match(tokens, /--page-max-width:\s*2520px/)
+  assert.match(tokens, /--page-max-width:\s*1720px/)
   assert.match(tokens, /--page-padding-x:\s*clamp\(38px,\s*6\.25vw,\s*64px\)/)
   assert.match(tokens, /--site-header-max-width:\s*var\(--page-max-width\)/)
   assert.match(tokens, /--site-header-padding-x:\s*var\(--page-padding-x\)/)
