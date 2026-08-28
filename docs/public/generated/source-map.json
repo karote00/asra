@@ -356,7 +356,7 @@
         },
         {
           "path": "packages/design-system/package.json",
-          "sha256": "a8e9c7bfab0ef4a5bd632788a3472c4ae0c5bc4b3b237f6ebf4552492700a960"
+          "sha256": "6f0f30a01925d770f81f1fe083ca5037ea59682b0e5753fd358de92f23519ff3"
         }
       ]
     },
@@ -588,7 +588,7 @@
         },
         {
           "path": "package.json",
-          "sha256": "b583f4263931a6867da762fea567d7429cc974cf4280c927a69c4e15c51c225f"
+          "sha256": "10b9cde0eede79fcb2b43bb49cdbb0a1102a926ecc9eb4d1d1386844047e0b73"
         }
       ]
     },

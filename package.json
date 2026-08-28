@@ -85,8 +85,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "js-yaml@npm:4.1.1": "npm:4.3.2",
-    "minimatch@npm:10.1.1": "npm:10.2.6",
-    "path-to-regexp@npm:6.1.0": "npm:6.3.0"
+    "minimatch@npm:10.1.1": "npm:10.2.6"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.8",

@@ -171,6 +171,27 @@ test('CI, E2E, and release validation own their bounded integration gates', () =
   assert.match(releaseValidation, /yarn release:app:check --prod=\$\{appName\}/)
 })
 
+test('Vite builds rely on dedicated lint gates and native Vercel output configuration', () => {
+  const designManifest = readJSON('apps/asyra-design/package.json')
+  const designViteConfig = readText('apps/asyra-design/vite.config.ts')
+  const designSystemManifest = readJSON('packages/design-system/package.json')
+  const designSystemViteConfig = readText(
+    'packages/design-system/vite.config.ts'
+  )
+  const releaseTemplate = readText('scripts/release-template.js')
+
+  for (const manifest of [designManifest, designSystemManifest]) {
+    assert.equal(manifest.devDependencies?.['vite-plugin-eslint'], undefined)
+  }
+  assert.equal(
+    designManifest.devDependencies?.['vite-plugin-vercel'],
+    undefined
+  )
+  assert.doesNotMatch(designViteConfig, /vite-plugin-(?:eslint|vercel)/)
+  assert.doesNotMatch(designSystemViteConfig, /vite-plugin-eslint/)
+  assert.doesNotMatch(releaseTemplate, /vite-plugin-vercel/)
+})
+
 test('CI validates the active Framework package release from packed artifacts on Node 24', () => {
   const ci = readText('.github/workflows/main.yml')
   const releaseJob = ci.slice(ci.indexOf('framework-release-readiness:'))

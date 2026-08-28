@@ -247,87 +247,8 @@ if (!fs.existsSync(pkgPath)) {
     if (VERBOSE) console.log('Removed old eslintConfig (react-app)')
   }
 
-  // ----------------------
-  // Remove vite-plugin-vercel from devDependencies
-  // ----------------------
-  if (pkg.devDependencies?.['vite-plugin-vercel']) {
-    delete pkg.devDependencies['vite-plugin-vercel']
-    if (VERBOSE) console.log('Removed vite-plugin-vercel from devDependencies')
-  }
-
   fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2))
   if (VERBOSE) console.log('package.json updated ✅')
-}
-
-// ----------------------
-// Remove monorepo-only Vercel config from the standalone template
-// ----------------------
-const viteConfigPath = path.join(DEST_DIR, 'vite.config.ts')
-if (fs.existsSync(viteConfigPath)) {
-  let viteConfigContent = fs.readFileSync(viteConfigPath, 'utf-8')
-  const originalConfig = viteConfigContent
-
-  // Remove vercel import
-  viteConfigContent = viteConfigContent.replace(
-    /import\s+vercel\s+from\s+['"]vite-plugin-vercel['"]\s*\n/,
-    ''
-  )
-
-  // Remove vercel plugin from plugins array
-  viteConfigContent = viteConfigContent.replace(/vercel\(\)(?:,\s*)?/g, '')
-
-  // Clean up any duplicate commas after removing elements
-  viteConfigContent = viteConfigContent.replace(/,(\s*[}\]])/g, '$1')
-
-  // Fix top-level property indentation after plugin removal.
-  // A top-level property with wrong indent will have: 4 spaces, followed by lines with <= 4 spaces (not children)
-  const lines = viteConfigContent.split('\n')
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    const trimmed = line.trim()
-
-    // Check if this is a property line opening an object
-    if (trimmed.match(/^[a-z]+\s*:\s*\{/)) {
-      const leadingSpaces = (line.match(/^\s*/)[0] || '').length
-
-      // If it has 4 spaces, check if it should be 2 (top-level property)
-      if (leadingSpaces === 4) {
-        // Check next few lines to see if they're children (more indented) or siblings (same/less indented)
-        let hasChildren = false
-        for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
-          const nextLine = lines[j]
-          const nextSpaces = (nextLine.match(/^\s*/)[0] || '').length
-          const nextTrimmed = nextLine.trim()
-
-          // Skip empty lines
-          if (!nextTrimmed) continue
-
-          // If next non-empty line has MORE indentation, this is a parent with children
-          if (nextSpaces > 4) {
-            hasChildren = true
-            break
-          }
-
-          // If next non-empty line has SAME or LESS indentation, this is a sibling
-          break
-        }
-
-        // If no children found, this is likely a top-level property with wrong indent
-        if (!hasChildren) {
-          lines[i] = '  ' + trimmed
-        }
-      }
-    }
-  }
-  viteConfigContent = lines.join('\n')
-
-  if (viteConfigContent !== originalConfig) {
-    fs.writeFileSync(viteConfigPath, viteConfigContent)
-    if (VERBOSE)
-      console.log('Fixed vite.config.ts: removed Vercel config and set outDir')
-  } else if (VERBOSE) {
-    console.log('vite.config.ts already configured correctly')
-  }
 }
 
 // ----------------------
