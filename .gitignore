@@ -46,6 +46,7 @@ chrome-dev-perf-trace.json
 tmp/
 apps/*/test-results/
 apps/*/playwright-report/
+apps/*/visual-review-records/
 apps/asyra-framework-site/artwork/
 apps/asyra-framework-site/public/illustrations/*
 !apps/asyra-framework-site/public/illustrations/*-photoroom-*.webp
