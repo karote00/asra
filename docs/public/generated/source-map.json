@@ -176,11 +176,11 @@
         },
         {
           "path": "docs/ai/framework/plans/headless-core-and-core-kernel-future-plan.md",
-          "sha256": "7df5b4318b9904be74931b349266c2e9014dae4b53ab864fd332c77710b09d6e"
+          "sha256": "931f63eba00b303ef56f20d6baec6f107631edf7c8b0815b57dfb434cfbb40a4"
         },
         {
           "path": "docs/ai/framework/research/headless-core-and-core-kernel-architecture-research.md",
-          "sha256": "d016984e5ac8cd04a13e6e65024126a1dda1d376ef9906af5975a40948a567a2"
+          "sha256": "784bcfcf659eaf646c556fcc0fb4c25e99ac4470347185011c23f6c1b31d032c"
         }
       ]
     },
@@ -588,7 +588,7 @@
         },
         {
           "path": "package.json",
-          "sha256": "9091b7cf55652eb1b467298b57c2dcb51a2ed4d6b6fb43aa11b63f787308cb9c"
+          "sha256": "7b5dffed9cab24fe002c728eb8d0ad594443c38a54b5a10eb0556543ffe727bc"
         }
       ]
     },

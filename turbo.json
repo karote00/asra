@@ -33,13 +33,6 @@
     "test": {},
     "test:local": {},
     "test:ci": {},
-    "@asyra-tool/flow-inspector#react:build": {
-      "cache": false,
-      "outputs": [
-        "dist/**"
-      ],
-      "dependsOn": []
-    },
     "@asyra/ai-agent-runtime#build:ai-agent-runtime": {
       "cache": false,
       "outputs": [
@@ -139,6 +132,13 @@
         "@asyra/reactive-events#build:reactive-events",
         "@asyra/utils#build:utils"
       ]
+    },
+    "@asyra/flow-inspector#react:build": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": []
     },
     "@asyra/input-system#build:input-system": {
       "cache": false,

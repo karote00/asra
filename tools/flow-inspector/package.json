@@ -1,5 +1,5 @@
 {
-  "name": "@asyra-tool/flow-inspector",
+  "name": "@asyra/flow-inspector",
   "version": "0.1.0-preview",
   "private": true,
   "type": "module",

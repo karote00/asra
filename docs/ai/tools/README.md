@@ -6,7 +6,7 @@ become product dependencies merely because they inspect or validate them.
 
 Current tools:
 
-- [`flow-inspector/`](flow-inspector/README.md) — static architecture contract
+- [`flow-inspector/`](flow-inspector/README.md) - static architecture contract
   viewer and the planned workflow control plane.
 
 Each tool folder owns its purpose, architecture, operational boundaries, plans,

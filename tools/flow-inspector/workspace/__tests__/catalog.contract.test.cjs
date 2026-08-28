@@ -51,7 +51,7 @@ test('Phase 0 authorities and catalog owners exist', () => {
 
 test('preview artifact is independently versioned and static-only', () => {
   const toolPackage = JSON.parse(fs.readFileSync(toolPackagePath, 'utf8'))
-  assert.equal(toolPackage.name, '@asyra-tool/flow-inspector')
+  assert.equal(toolPackage.name, '@asyra/flow-inspector')
   assert.equal(toolPackage.version, '0.1.0-preview')
   assert.equal(toolPackage.private, true)
   assert.equal(fs.existsSync(path.join(workspaceRoot, 'workspace.html')), true)

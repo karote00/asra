@@ -27,11 +27,11 @@ independent from Framework package Changesets and publication.
 
 ## Documentation Structure
 
-- `FLOW_INSPECTOR.md` — current static Inspector contract.
-- `PLANS.md` — active, completed, and future Flow Inspector planning index.
-- `plans/` — detailed roadmap and active phase plans.
-- `plans/completed/` — completed plan records.
-- `decisions/releases/` — append-only tool release decision history.
+- `FLOW_INSPECTOR.md` - current static Inspector contract.
+- `PLANS.md` - active, completed, and future Flow Inspector planning index.
+- `plans/` - detailed roadmap and active phase plans.
+- `plans/completed/` - completed plan records.
+- `decisions/releases/` - append-only tool release decision history.
 - Future active implementation may add tool-owned `ARCHITECTURE.md`,
   `WORKFLOW.md`, `API_SURFACES.md`, and `rules/` following the established
   Framework/App context pattern.

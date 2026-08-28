@@ -21,9 +21,9 @@ Inspector HTML files remain independently openable.
 ## Develop and verify
 
 ```bash
-yarn workspace @asyra-tool/flow-inspector typecheck
-yarn workspace @asyra-tool/flow-inspector test:local
-yarn workspace @asyra-tool/flow-inspector build
+yarn workspace @asyra/flow-inspector typecheck
+yarn workspace @asyra/flow-inspector test:local
+yarn workspace @asyra/flow-inspector build
 node tools/flow-inspector/workspace/generate-workspace.cjs
 ```
 
