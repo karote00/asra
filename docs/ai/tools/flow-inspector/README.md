@@ -14,10 +14,12 @@ family.
 ## Scope
 
 Flow Inspector currently includes a static, read-only architecture viewer at
-`tools/flow-inspector/`. The planned control plane will live at
+`tools/flow-inspector/`. The first integrated workspace will live at
+`tools/flow-inspector/workspace/` and provide one sidebar-driven static surface
+for current Inspectors. A later control plane will live at
 `tools/flow-inspector/control-plane/` and add evidence-backed workflow state,
-machine interfaces, and typed actions without changing the static Inspector's
-schema version 2 contract.
+CI comparison, machine interfaces, and typed actions without changing the
+static Inspector's schema version 2 contract.
 
 The tool may inspect Framework and App contracts, but neither Framework nor an
 App may depend on the tool at runtime. Tool publication and versioning remain

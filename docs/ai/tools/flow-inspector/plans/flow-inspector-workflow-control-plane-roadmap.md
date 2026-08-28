@@ -2,22 +2,24 @@
 
 ## Status
 
-Approved roadmap with Phase 2 selected as the first release target. This file
-owns the cross-phase product direction and boundaries; it is not the execution
-plan for an individual phase and does not change the existing Flow Inspector
-schema or viewer contract.
+Approved long-term roadmap. This file owns the cross-phase product direction
+and boundaries; it is not the execution plan for an individual phase and does
+not change the existing Flow Inspector schema or viewer contract.
 
-The first delivery target is a headless `v0.1.0-preview` companion after Phase
-2. It may accompany the current Asyra Framework release wave, but it is
-optional, independently versioned, and never blocks Framework package
-publication. The bounded execution plan is:
-[`flow-inspector-control-plane-core-preview-plan.md`](flow-inspector-control-plane-core-preview-plan.md).
+The first delivery target is a static `v0.1.0-preview` workspace after Phase 2.
+It integrates current-project Inspectors behind one sidebar and shared viewer
+without execution state, CI comparison, machine interfaces, or actions. It may
+accompany the current Asyra Framework release wave, but it is optional,
+independently versioned, and never blocks Framework package publication. The
+bounded execution plan is:
+[`flow-inspector-static-workspace-preview-plan.md`](flow-inspector-static-workspace-preview-plan.md).
 
-The preview implementation root is fixed at
-`tools/flow-inspector/control-plane/`. It is a tool-owned, independently
-versioned package outside `packages/` and outside the Framework Changesets
-publication allowlist. After preview validation, extraction to a separate
-repository remains an explicit future decision.
+The preview implementation root is fixed at `tools/flow-inspector/workspace/`.
+The later dynamic product is separately rooted at
+`tools/flow-inspector/control-plane/`. Both are tool-owned and remain outside
+`packages/` and the Framework Changesets publication allowlist. After preview
+validation, extraction to a separate repository remains an explicit future
+decision.
 
 The current static contract remains authoritative for architecture inspection:
 [`../FLOW_INSPECTOR.md`](../FLOW_INSPECTOR.md). That contract intentionally
@@ -292,31 +294,30 @@ marketplace, arbitrary workflow automation, or every external integration.
 
 Implementation is split into three independently closable plans:
 
-1. **Core Preview Plan — Phase 0 through Phase 2**
-   - product contract and schema;
-   - registry, mapping, evidence ingestion, provenance, basic freshness, and
-     headless state derivation; and
-   - CLI/API, typed focused-test actions, local runner, cancellation,
-     confirmation, and audit.
-   - Release target: independently versioned `v0.1.0-preview` optional companion
-     to the current Asyra Framework release wave.
-2. **Reconciliation and UI Plan — Phase 3 through Phase 4**
-   - mapping drift, candidate reconciliation, complete freshness, and
-     cross-panel propagation; and
-   - workspace server, Web UI, node actions, explanations, and review surfaces.
-3. **Delivery and Integrations Plan — Phase 5 through Phase 6**
-   - visual evidence, Git and CI completion flows; and
-   - outbox-based external adapters, security hardening, and team-readiness
-     validation.
+1. **Static Workspace Preview Plan — Phase 0 through Phase 2**
+   - current-project Inspector inventory and catalog contract;
+   - one static workspace shell with sidebar, search, dynamic routing, deep
+     links, and selected-target isolation; and
+   - complete static integration while preserving standalone HTML entries.
+   - Release target: independently versioned static `v0.1.0-preview` optional
+     companion to the current Asyra Framework release wave.
+2. **Evidence, Reconciliation, and CI Plan — future Control Plane**
+   - test/evidence mapping, result ingestion, provenance, freshness, dynamic
+     status, mapping reconciliation, and cross-panel propagation; and
+   - API/CLI, dynamic workspace projection, and gradual CI enforcement.
+3. **Actions, Delivery, and Integrations Plan — future Control Plane**
+   - typed test, visual, Git, and delivery actions with permission, execution,
+     confirmation, and audit boundaries; and
+   - outbox-based external adapters, security hardening, and team readiness.
 
-The second plan starts only after the Core Preview acceptance gates pass. The
-third starts only after the status/action UI proves the same truth as the
-machine-facing interfaces. Completing or activating a later plan must not
-silently expand an earlier plan.
+The second plan starts only after the Static Workspace acceptance gates pass.
+The third starts only after dynamic evidence, reconciliation, and CI truth are
+proven. Completing or activating a later plan must not silently expand an
+earlier plan.
 
 ## Required Activation Decisions
 
-Before implementation begins, decide:
+Before dynamic Control Plane implementation begins, decide:
 
 - the product/package name, supported runtime environments, and persistence
   backend;
@@ -330,8 +331,8 @@ Before implementation begins, decide:
 
 ## Activation Prerequisites
 
-- the fixed `tools/flow-inspector/control-plane/` implementation root and
-  independent publication boundary remain intact;
+- the static `tools/flow-inspector/workspace/` and dynamic
+  `tools/flow-inspector/control-plane/` ownership boundary remains intact;
 - a fresh bounded implementation plan based on the chosen repository's current
   state;
 - a product specification with supported, boundary, invalid, stale, and
@@ -378,9 +379,9 @@ minimum, v1 must prove:
 
 ## References
 
-- [Phase 0–2 Core Preview Plan](flow-inspector-control-plane-core-preview-plan.md)
-- [Phase 3–4 Reconciliation and UI Plan](flow-inspector-control-plane-reconciliation-and-ui-plan.md)
-- [Phase 5–6 Delivery and Integrations Plan](flow-inspector-control-plane-delivery-and-integrations-plan.md)
+- [Static Workspace Preview Plan](flow-inspector-static-workspace-preview-plan.md)
+- [Evidence and CI Plan](flow-inspector-control-plane-evidence-and-ci-plan.md)
+- [Actions and Integrations Plan](flow-inspector-control-plane-actions-and-integrations-plan.md)
 - [Flow Inspector contract](../FLOW_INSPECTOR.md)
 - [Framework Architecture](../../../framework/ARCHITECTURE.md)
 - [Framework Workflow](../../../framework/WORKFLOW.md)

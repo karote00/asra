@@ -1,9 +1,10 @@
-# Flow Inspector Control Plane Delivery and Integrations Plan
+# Flow Inspector Control Plane Actions and Integrations Plan
 
 ## Status
 
-Deferred until the Reconciliation and UI Plan completes. This plan covers
-Phase 5 and Phase 6 and is not part of the `v0.1.0-preview` companion release.
+Deferred until the dynamic Evidence, Reconciliation, and CI Plan completes.
+This plan owns executable actions and integrations and is not part of the
+static `v0.1.0-preview` companion release.
 
 ## Objective
 
@@ -19,8 +20,11 @@ audit, or canonical truth ownership.
   and
 - each selected integration has an explicit product need and owner.
 
-## Phase 5 — Visual, Git, and CI Delivery Flow
+## Phase 5 — Typed Actions and Delivery Flow
 
+- add the typed action registry, local runner, timeout, cancellation,
+  capability, confirmation, and audit boundaries;
+- add focused test and evidence actions;
 - ingest and explain visual-review artifacts and screenshots;
 - run registered visual-review actions through the established execution path;
 - ingest CI results without making a CI vendor the panel truth owner;
@@ -71,4 +75,4 @@ hosted multi-tenancy remain separate version 2 work.
 ## References
 
 - [Workflow Control Plane Roadmap](flow-inspector-workflow-control-plane-roadmap.md)
-- [Phase 3–4 Reconciliation and UI Plan](flow-inspector-control-plane-reconciliation-and-ui-plan.md)
+- [Evidence and CI Plan](flow-inspector-control-plane-evidence-and-ci-plan.md)

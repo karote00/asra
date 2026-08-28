@@ -1,9 +1,10 @@
-# Flow Inspector Control Plane Reconciliation and UI Plan
+# Flow Inspector Control Plane Evidence and CI Plan
 
 ## Status
 
-Deferred until the Core Preview Plan completes. This plan covers Phase 3 and
-Phase 4 and is not part of the `v0.1.0-preview` companion release.
+Deferred until the Static Workspace Preview Plan completes. This plan begins
+the dynamic Control Plane and is not part of the static `v0.1.0-preview`
+companion release.
 
 ## Objective
 
@@ -12,13 +13,16 @@ the same trustworthy state and actions through one workspace-level Web UI.
 
 ## Entry Criteria
 
-- Phase 0–2 Core Preview gates are complete.
-- JSON, CLI, and API expose one deterministic state truth.
-- Focused actions are typed, bounded, permission-shaped, and audited.
-- Preview usage has produced real mapping-drift and freshness cases to specify.
+- Static Workspace Phase 0–2 gates are complete.
+- Every current-project Inspector has a stable catalog identity and can be
+  loaded through the shared workspace.
+- Preview usage has confirmed which active and reusable release Inspectors
+  require dynamic evidence and CI enforcement.
 
-## Phase 3 — Reconciliation and Complete Freshness
+## Phase 3 — Evidence, Status, and Reconciliation
 
+- define test/evidence registry and node-evidence mappings;
+- ingest provenance-bearing results and derive dynamic node status;
 - detect test rename, move, content change, split, merge, missing selector, and
   newly observed evidence;
 - produce confidence-bearing mapping candidates without modifying formal
@@ -31,15 +35,14 @@ the same trustworthy state and actions through one workspace-level Web UI.
 - prevent ambiguous, stale, or unmapped observations from producing a trusted
   passed state.
 
-## Phase 4 — Workspace Server and Web UI
+## Phase 4 — CI Enforcement and Dynamic Workspace UI
 
-- run one local workspace service for multiple panels;
+- add the local service, API/CLI, and dynamic state projection;
 - render graph routes, node status, causes, provenance, evidence, artifacts,
-  execution progress, and cross-panel impact;
-- expose only registry-backed actions;
+  and cross-panel impact in the existing workspace shell;
 - provide mapping-candidate review and reconciliation;
 - reload configuration and result state without broad automatic test runs; and
-- prove that UI, CLI, and API present the same canonical state.
+- prove that UI, CLI, API, and CI present the same canonical state.
 
 The first UI prioritizes legibility and operational usefulness. Cinematic
 visual polish, hosted collaboration, and a plugin marketplace are not required.
@@ -52,8 +55,8 @@ visual polish, hosted collaboration, and a plugin marketplace are not required.
   formal intent automatically;
 - cross-panel many-to-many propagation is correct;
 - opening or switching panels cannot change canonical truth;
-- UI actions use the same action registry, permission checks, execution
-  lifecycle, ingestion, and audit path as CLI/API; and
+- dynamic UI and CI consume the same evidence, freshness, and status authority;
+  and
 - representative human and AI workflows demonstrate reduced repo discovery
   and unnecessary broad test runs.
 
@@ -67,9 +70,9 @@ visual polish, hosted collaboration, and a plugin marketplace are not required.
 
 ## Estimated Duration
 
-Approximately 3–5 weeks after the Core Preview is accepted.
+Approximately 4–7 weeks after the Static Workspace Preview is accepted.
 
 ## References
 
 - [Workflow Control Plane Roadmap](flow-inspector-workflow-control-plane-roadmap.md)
-- [Phase 0–2 Core Preview Plan](flow-inspector-control-plane-core-preview-plan.md)
+- [Static Workspace Preview Plan](flow-inspector-static-workspace-preview-plan.md)
