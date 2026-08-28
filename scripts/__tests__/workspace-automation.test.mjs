@@ -161,7 +161,7 @@ test('CI, E2E, and release validation own their bounded integration gates', () =
 
   assert.equal(collaboration.scripts.clean, 'rm -rf dist')
   assert.equal(vercel.buildCommand, 'turbo run react:build')
-  assert.equal(vercel.outputDirectory, 'apps/asyra-design/dist/frontend')
+  assert.equal(vercel.outputDirectory, 'dist/frontend')
   assert.match(designViteConfig, /outDir:\s*['"]dist\/frontend['"]/)
   assert.doesNotMatch(designViteConfig, /outDir:\s*['"]\.\.\/\.\.\/dist['"]/)
   assert.match(ci, /yarn gen:turbo:check/)
