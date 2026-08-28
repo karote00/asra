@@ -13,6 +13,7 @@ const bundleSource = fs.readFileSync(
   'utf8'
 )
 const workspaceSourcePath = path.join(workspaceRoot, 'workspace.js')
+const targetSourcePath = path.join(workspaceRoot, 'target.js')
 
 const loadBundle = () => {
   const sandbox = { globalThis: {} }
@@ -30,6 +31,17 @@ const createWorkspace = (hash = '') => {
   })
   dom.window.FLOW_INSPECTOR_WORKSPACE_BUNDLE = loadBundle()
   dom.window.eval(fs.readFileSync(workspaceSourcePath, 'utf8'))
+  return dom
+}
+
+const createTarget = (hash = '') => {
+  const html = fs.readFileSync(path.join(workspaceRoot, 'target.html'), 'utf8')
+  const dom = new JSDOM(html, {
+    runScripts: 'outside-only',
+    url: `file://${path.join(workspaceRoot, 'target.html')}${hash}`
+  })
+  dom.window.FLOW_INSPECTOR_WORKSPACE_BUNDLE = loadBundle()
+  dom.window.eval(fs.readFileSync(targetSourcePath, 'utf8'))
   return dom
 }
 
@@ -135,4 +147,40 @@ test('click and keyboard activation update the stable hash route', () => {
       `#inspector=${encodeURIComponent(item.dataset.inspectorId)}`
     )
   }
+})
+
+test('target document resolves one included entry from its own hash', () => {
+  const entry = loadBundle().entries[0]
+  const dom = createTarget(`#inspector=${encodeURIComponent(entry.id)}`)
+
+  assert.equal(dom.window.FLOW_INSPECTOR_WORKSPACE_ENTRY.id, entry.id)
+  assert.equal(dom.window.document.documentElement.dataset.targetState, 'ready')
+  assert.equal(dom.window.document.querySelector('[data-target-error]').hidden, true)
+})
+
+test('target document rejects missing, unknown, and excluded ids without fallback', () => {
+  for (const hash of ['', '#inspector=missing-target', '#inspector=asyra-executable-examples']) {
+    const dom = createTarget(hash)
+    assert.equal(dom.window.FLOW_INSPECTOR_WORKSPACE_ENTRY, undefined)
+    assert.equal(dom.window.document.documentElement.dataset.targetState, 'error')
+    assert.equal(dom.window.document.querySelector('[data-target-error]').hidden, false)
+    assert.match(
+      dom.window.document.querySelector('[data-target-error]').textContent,
+      /not available|requires/i
+    )
+  }
+})
+
+test('separate target documents do not retain selected entry globals', () => {
+  const [first, second] = loadBundle().entries
+  const firstDom = createTarget(`#inspector=${encodeURIComponent(first.id)}`)
+  firstDom.window.FLOW_INSPECTOR_WORKSPACE_ENTRY.transientMarker = true
+  const secondDom = createTarget(`#inspector=${encodeURIComponent(second.id)}`)
+
+  assert.equal(secondDom.window.FLOW_INSPECTOR_WORKSPACE_ENTRY.id, second.id)
+  assert.equal(secondDom.window.FLOW_INSPECTOR_WORKSPACE_ENTRY.transientMarker, undefined)
+  assert.notEqual(
+    firstDom.window.FLOW_INSPECTOR_WORKSPACE_ENTRY,
+    secondDom.window.FLOW_INSPECTOR_WORKSPACE_ENTRY
+  )
 })

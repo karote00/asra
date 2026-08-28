@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en" data-target-state="loading">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Flow Inspector Target</title>
+    <style>
+      :root { color-scheme:dark; --bg:#101418; --panel:#151b22; --line:#334155; --text:#e5edf5; --muted:#9caab8; --accent:#59b7ff; }
+      * { box-sizing:border-box; }
+      body { margin:0; min-height:100vh; color:var(--text); background:var(--bg); font:14px/1.5 ui-sans-serif,system-ui,sans-serif; }
+      .target-error { padding:clamp(24px,6vw,72px); }
+      .target-error h1 { font-size:clamp(28px,5vw,52px); }
+      [hidden] { display:none !important; }
+    </style>
+  </head>
+  <body>
+    <main class="target-error" data-target-error hidden>
+      <p>Target error</p>
+      <h1>Inspector is not available.</h1>
+      <p>No fallback target was rendered.</p>
+    </main>
+    <div data-target-root></div>
+    <script src="./workspace-bundle.data.js"></script>
+    <script src="./target.js"></script>
+  </body>
+</html>
