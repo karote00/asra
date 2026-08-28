@@ -1,5 +1,14 @@
 # @asyra/input-system
 
+## 0.5.3
+
+### Patch Changes
+
+- Exceptional synchronized patch release for the fixed 19-package Framework set.
+- Updated dependencies
+  - @asyra/reactive-events@0.5.2
+  - @asyra/utils@0.5.1
+
 ## 0.5.2
 
 ### Patch Changes

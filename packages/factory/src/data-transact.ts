@@ -671,7 +671,14 @@ class DataTransact {
   update(
     event: UpdateTransactionEvent
   ): FactoryMutationBatchDeliveryHandle | null {
-    return this.updateBatch([event])
+    try {
+      return this.updateBatch([event])
+    } catch (error) {
+      if (error instanceof FactoryMutationBatchAcceptanceError) {
+        throw error.batchCause
+      }
+      throw error
+    }
   }
 
   updateBatch(

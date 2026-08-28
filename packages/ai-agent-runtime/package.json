@@ -1,6 +1,6 @@
 {
   "name": "@asyra/ai-agent-runtime",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Optional provider-replaceable AI agent orchestration runtime for Asyra",
   "author": "Asa Tsai",
   "license": "MIT",

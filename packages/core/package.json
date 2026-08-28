@@ -1,6 +1,6 @@
 {
   "name": "@asyra/core",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "Public composition core for canvas-based, visual, and domain-driven Asyra products",
   "author": "Asa Tsai",
   "license": "MIT",

@@ -1,5 +1,18 @@
 # @asyra/render
 
+## 0.5.3
+
+### Patch Changes
+
+- Exceptional synchronized patch release for the fixed 19-package Framework set.
+- Updated dependencies
+  - @asyra/factory@0.5.2
+  - @asyra/reactive-events@0.5.2
+  - @asyra/render-engine@0.5.1
+  - @asyra/scene-tree@0.5.2
+  - @asyra/selection@0.5.1
+  - @asyra/utils@0.5.1
+
 ## 0.5.2
 
 ### Patch Changes

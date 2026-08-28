@@ -1,5 +1,15 @@
 # @asyra/factory
 
+## 0.5.2
+
+### Patch Changes
+
+- Preserve the original scalar mutation failure while retaining structured batch
+  acceptance evidence for batch callers.
+- Updated dependencies
+  - @asyra/reactive-events@0.5.2
+  - @asyra/utils@0.5.1
+
 ## 0.5.1
 
 ### Patch Changes
