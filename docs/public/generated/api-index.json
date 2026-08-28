@@ -229,7 +229,7 @@
       "publicEntries": [
         "."
       ],
-      "version": "0.5.0"
+      "version": "0.5.1"
     },
     {
       "entries": [
@@ -484,7 +484,7 @@
       "publicEntries": [
         "."
       ],
-      "version": "0.5.2"
+      "version": "0.5.4"
     },
     {
       "entries": [
@@ -1632,7 +1632,7 @@
         "./canvas-pipeline-debugger",
         "./contracts"
       ],
-      "version": "0.5.3"
+      "version": "0.5.5"
     },
     {
       "entries": [
@@ -2086,7 +2086,7 @@
         ".",
         "./index.css"
       ],
-      "version": "0.5.0"
+      "version": "0.5.2"
     },
     {
       "entries": [
@@ -2322,7 +2322,7 @@
       "publicEntries": [
         "."
       ],
-      "version": "0.5.1"
+      "version": "0.5.3"
     },
     {
       "entries": [
@@ -2527,7 +2527,7 @@
       "publicEntries": [
         "."
       ],
-      "version": "0.5.1"
+      "version": "0.5.3"
     },
     {
       "entries": [
@@ -2617,7 +2617,7 @@
       "publicEntries": [
         "."
       ],
-      "version": "0.5.2"
+      "version": "0.5.4"
     },
     {
       "entries": [
@@ -2662,7 +2662,7 @@
       "publicEntries": [
         "."
       ],
-      "version": "0.5.0"
+      "version": "0.5.2"
     },
     {
       "entries": [
@@ -3008,7 +3008,7 @@
       "publicEntries": [
         "."
       ],
-      "version": "0.5.3"
+      "version": "0.5.5"
     },
     {
       "entries": [
@@ -3348,7 +3348,7 @@
       "publicEntries": [
         "."
       ],
-      "version": "0.5.1"
+      "version": "0.5.3"
     },
     {
       "entries": [
@@ -3717,7 +3717,7 @@
       "publicEntries": [
         "."
       ],
-      "version": "0.5.1"
+      "version": "0.5.3"
     },
     {
       "entries": [
@@ -4283,7 +4283,7 @@
         ".",
         "./canvas-pipeline-debugger"
       ],
-      "version": "0.5.2"
+      "version": "0.5.5"
     },
     {
       "entries": [
@@ -4538,7 +4538,7 @@
         ".",
         "./testing"
       ],
-      "version": "0.5.0"
+      "version": "0.5.1"
     },
     {
       "entries": [
@@ -4596,7 +4596,7 @@
       "publicEntries": [
         "."
       ],
-      "version": "0.5.0"
+      "version": "0.5.2"
     },
     {
       "entries": [
@@ -4799,7 +4799,7 @@
       "publicEntries": [
         "."
       ],
-      "version": "0.5.1"
+      "version": "0.5.3"
     },
     {
       "entries": [
@@ -4852,7 +4852,7 @@
       "publicEntries": [
         "."
       ],
-      "version": "0.5.0"
+      "version": "0.5.2"
     },
     {
       "entries": [
@@ -4886,7 +4886,7 @@
       "publicEntries": [
         "."
       ],
-      "version": "0.5.0"
+      "version": "0.5.2"
     },
     {
       "entries": [
@@ -4955,7 +4955,7 @@
       "publicEntries": [
         "."
       ],
-      "version": "0.5.1"
+      "version": "0.5.3"
     },
     {
       "entries": [
@@ -5729,7 +5729,7 @@
       "publicEntries": [
         "."
       ],
-      "version": "0.5.0"
+      "version": "0.5.1"
     }
   ],
   "schemaVersion": 1
