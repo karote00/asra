@@ -33,9 +33,10 @@ test('full release validates exact artifacts before publish and always restores 
   assert.deepEqual(plan, {
     prepare: [
       'yarn changeset version',
-      'yarn bump:workspace --env=prod',
       'yarn release:app --prod=asyra-design',
-      'yarn release:validate --prod=asyra-design'
+      'yarn release:validate --prod=asyra-design',
+      'yarn bump:workspace --env=release',
+      'yarn release:ranges:check'
     ],
     publish: ['yarn changeset publish'],
     finally: ['yarn bump:workspace --env=dev']
@@ -144,7 +145,8 @@ test('release template excludes local runtime data directories', () => {
     'coverage',
     'dist',
     'playwright-report',
-    'test-results'
+    'test-results',
+    'visual-review-records'
   ])
 
   const releaseTemplate = readFileSync(
@@ -160,7 +162,7 @@ test('release template excludes local runtime data directories', () => {
   assert.match(releaseTemplate, /\/\^\\\..\+-data\$\/u\.test\(name\)/)
 })
 
-test('Asyra Design release source retains only active drawing fixtures', () => {
+test('Asyra Design release template retains only active drawing fixtures', () => {
   const config = JSON.parse(
     readFileSync(
       path.join(repositoryRoot, 'release-configs/asyra-design.json'),
@@ -173,13 +175,8 @@ test('Asyra Design release source retains only active drawing fixtures', () => {
     'test-data/ai-drawing/detailed-tabby-polygon.svg'
   ]
 
-  assert.equal(config.cleanFiles.includes('visual-review-records'), false)
+  assert.equal(config.cleanFiles.includes('visual-review-records'), true)
   for (const retiredPath of retiredPaths) {
-    assert.equal(
-      existsSync(path.join(repositoryRoot, 'apps/asyra-design', retiredPath)),
-      false,
-      retiredPath
-    )
     assert.equal(
       existsSync(
         path.join(

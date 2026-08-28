@@ -1,5 +1,14 @@
 # @asyra/collaboration
 
+## 0.5.4
+
+### Patch Changes
+
+- Republish the affected Framework packages with publishable internal dependency
+  ranges instead of monorepo-only `workspace:*` metadata.
+- Updated dependencies
+  - @asyra/factory@0.5.3
+
 ## 0.5.3
 
 ### Patch Changes

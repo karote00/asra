@@ -1,5 +1,24 @@
 # @asyra/core
 
+## 0.5.5
+
+### Patch Changes
+
+- Republish the affected Framework packages with publishable internal dependency
+  ranges instead of monorepo-only `workspace:*` metadata.
+- Updated dependencies
+  - @asyra/factory@0.5.3
+  - @asyra/feature-system@0.5.3
+  - @asyra/input-system@0.5.4
+  - @asyra/persistence@0.5.2
+  - @asyra/props-manager@0.5.3
+  - @asyra/reactive-events@0.5.3
+  - @asyra/render@0.5.5
+  - @asyra/scene-tree@0.5.3
+  - @asyra/selection@0.5.2
+  - @asyra/system-context@0.5.2
+  - @asyra/ui-context@0.5.3
+
 ## 0.5.4
 
 ### Patch Changes

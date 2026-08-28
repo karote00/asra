@@ -1,6 +1,6 @@
 {
   "name": "@asyra/render-engine-pixi",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Pixi implementation of the Asyra render engine contract",
   "author": "Asa Tsai",
   "license": "MIT",

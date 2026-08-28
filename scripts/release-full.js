@@ -7,8 +7,9 @@
  *
  * Full release workflow:
  * 1. compute versions from the existing changesets
- * 2. convert workspace ranges to publishable versions
- * 3. regenerate and validate the app template and release artifacts
+ * 2. regenerate and validate the app template and release artifacts while
+ *    workspace ranges remain in development mode
+ * 3. convert workspace ranges to exact publishable versions
  * 4. publish packages
  * 5. restore workspace ranges even when validation or publish fails
  */
@@ -37,9 +38,10 @@ if (!PROD_APP) {
 const releasePlan = {
   prepare: [
     'yarn changeset version',
-    'yarn bump:workspace --env=prod',
     `yarn release:app --prod=${PROD_APP}`,
-    `yarn release:validate --prod=${PROD_APP}`
+    `yarn release:validate --prod=${PROD_APP}`,
+    'yarn bump:workspace --env=release',
+    'yarn release:ranges:check'
   ],
   publish: ['yarn changeset publish'],
   finally: ['yarn bump:workspace --env=dev']
@@ -61,9 +63,10 @@ let releaseFailed = false
 try {
   run(releasePlan.prepare[0])
   run(releasePlan.prepare[1])
-  productionRangesApplied = true
   run(releasePlan.prepare[2])
   run(releasePlan.prepare[3])
+  productionRangesApplied = true
+  run(releasePlan.prepare[4])
   run(releasePlan.publish[0])
 } catch (error) {
   releaseFailed = true

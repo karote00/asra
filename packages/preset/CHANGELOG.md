@@ -1,5 +1,17 @@
 # @asyra/preset
 
+## 0.5.5
+
+### Patch Changes
+
+- Republish the affected Framework packages with publishable internal dependency
+  ranges instead of monorepo-only `workspace:*` metadata.
+- Updated dependencies
+  - @asyra/core@0.5.5
+  - @asyra/reactive-events@0.5.3
+  - @asyra/render-engine-pixi@0.5.2
+  - @asyra/ui-context@0.5.3
+
 ## 0.5.4
 
 ### Patch Changes

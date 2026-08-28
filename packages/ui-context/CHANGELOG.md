@@ -1,5 +1,15 @@
 # @asyra/ui-context
 
+## 0.5.3
+
+### Patch Changes
+
+- Republish the affected Framework packages with publishable internal dependency
+  ranges instead of monorepo-only `workspace:*` metadata.
+- Updated dependencies
+  - @asyra/scene-tree@0.5.3
+  - @asyra/selection@0.5.2
+
 ## 0.5.2
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @asyra/persistence
 
+## 0.5.2
+
+### Patch Changes
+
+- Republish the affected Framework packages with publishable internal dependency
+  ranges instead of monorepo-only `workspace:*` metadata.
+
 ## 0.5.1
 
 ### Patch Changes

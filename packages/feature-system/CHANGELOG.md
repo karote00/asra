@@ -1,5 +1,14 @@
 # @asyra/feature-system
 
+## 0.5.3
+
+### Patch Changes
+
+- Republish the affected Framework packages with publishable internal dependency
+  ranges instead of monorepo-only `workspace:*` metadata.
+- Updated dependencies
+  - @asyra/reactive-events@0.5.3
+
 ## 0.5.2
 
 ### Patch Changes

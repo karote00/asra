@@ -58,6 +58,7 @@
     "docs:readme:validate": "node scripts/docs/public-readme-validation.mjs",
     "docs:readme:check": "yarn docs:readme:packages:check && yarn docs:readme:validate && yarn release:app:check --prod=asyra-design && yarn docs:public:check",
     "bump:workspace": "node scripts/bump-workspace-versions.js",
+    "release:ranges:check": "node scripts/assert-publishable-workspace-ranges.js",
     "release:app": "node scripts/release-template.js",
     "release:app:build": "node scripts/build-release-template.js",
     "release:app:verbose": "node scripts/release-template.js --verbose",
