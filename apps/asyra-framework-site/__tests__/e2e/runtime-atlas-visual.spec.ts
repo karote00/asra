@@ -232,6 +232,41 @@ test('Runtime Atlas closing block uses the hero gutters at every width', async (
   }
 })
 
+test('Runtime Atlas wide layout bookends the focused studio', async ({
+  page
+}) => {
+  for (const viewport of [
+    { width: 1440, height: 1000 },
+    { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+    { width: 3600, height: 1800 }
+  ]) {
+    await page.setViewportSize(viewport)
+    await page.goto('/atlas')
+
+    const widths = await page.evaluate(() => {
+      const hero = document.querySelector('.atlas-hero')
+      const shell = document.querySelector('.atlas-shell')
+      const boundary = document.querySelector('.atlas-boundary')
+      if (!hero || !shell || !boundary) {
+        throw new Error('Missing Runtime Atlas layout region')
+      }
+
+      return {
+        boundary: boundary.getBoundingClientRect().width,
+        hero: hero.getBoundingClientRect().width,
+        shell: shell.getBoundingClientRect().width
+      }
+    })
+
+    expect(widths.hero).toBeCloseTo(widths.boundary, 0)
+    expect(widths.hero).toBeLessThanOrEqual(1720)
+    expect(widths.shell).toBeLessThanOrEqual(1320)
+    expect(widths.hero).toBeGreaterThan(widths.shell)
+    await assertNoHorizontalOverflow(page)
+  }
+})
+
 test('Runtime Atlas distinguishes package facts from guide actions', async ({
   page
 }, testInfo) => {

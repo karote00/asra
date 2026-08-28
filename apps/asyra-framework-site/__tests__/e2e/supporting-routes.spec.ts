@@ -799,7 +799,7 @@ test('landing and supporting routes share the landing footer at every responsive
     })
 
   for (const viewport of [
-    { width: 2520, height: 1000 },
+    { width: 3600, height: 1800 },
     { width: 1229, height: 900 },
     { width: 800, height: 900 },
     { width: 390, height: 844 }
@@ -954,6 +954,8 @@ test('releases presents user-facing package and support facts at every width', a
   ]
 
   for (const viewport of [
+    { width: 3600, height: 1800 },
+    { width: 1920, height: 1080 },
     { width: 1440, height: 1000 },
     { width: 820, height: 900 },
     { width: 390, height: 844 },

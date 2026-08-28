@@ -455,7 +455,7 @@
   gap: clamp(42px, 8vw, 110px);
   grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
   margin: 0 auto;
-  max-width: var(--frame-content);
+  max-width: var(--page-max-width);
   padding: clamp(72px, 8vw, 112px) var(--page-padding-x);
 }
 

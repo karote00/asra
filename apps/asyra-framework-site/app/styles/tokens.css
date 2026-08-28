@@ -50,7 +50,7 @@
   --font-size-supporting-copy: 0.875rem;
 
   /* Page and reading layout */
-  --page-max-width: 2520px;
+  --page-max-width: 1720px;
   --page-min-width: 320px;
   --page-padding-x: clamp(38px, 6.25vw, 64px);
   --page-content-inset-x: max(
