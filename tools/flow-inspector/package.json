@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "node workspace/generate-workspace.cjs && vite --open /workspace/dev.html",
     "build": "vite build",
     "react:build": "vite build",
     "typecheck": "tsc --noEmit",

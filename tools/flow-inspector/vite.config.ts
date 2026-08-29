@@ -2,9 +2,11 @@ import react from '@vitejs/plugin-react'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   define: {
-    'process.env.NODE_ENV': JSON.stringify('production')
+    'process.env.NODE_ENV': JSON.stringify(
+      command === 'serve' ? 'development' : 'production'
+    )
   },
   plugins: [react()],
   build: {
@@ -18,4 +20,4 @@ export default defineConfig({
     },
     outDir: resolve(import.meta.dirname, 'workspace/generated')
   }
-})
+}))

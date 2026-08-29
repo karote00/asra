@@ -5,7 +5,18 @@ Inspector from one sidebar. The checked-in Vite build uses classic scripts, so
 `workspace.html` can be opened directly from the repository with a `file:` URL
 and does not require a development server.
 
-## Use
+## Local development
+
+From the repository root, start the React app with Vite and open it directly:
+
+```bash
+yarn workspace @asyra/flow-inspector dev
+```
+
+The command refreshes the Inspector catalog, starts the app server, opens the
+workspace, and enables React hot module replacement. Stop it with `Ctrl+C`.
+
+## Static preview
 
 Open `tools/flow-inspector/workspace/workspace.html` in a browser. Select an
 Inspector from the sidebar or open a stable deep link:

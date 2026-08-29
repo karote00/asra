@@ -58,6 +58,22 @@ test('preview artifact is independently versioned and static-only', () => {
   assert.equal(Object.hasOwn(toolPackage, 'publishConfig'), false)
 })
 
+test('React workspace exposes one direct Vite development command', () => {
+  const toolPackage = JSON.parse(fs.readFileSync(toolPackagePath, 'utf8'))
+  const devEntryPath = path.join(workspaceRoot, 'dev.html')
+
+  assert.equal(
+    toolPackage.scripts.dev,
+    'node workspace/generate-workspace.cjs && vite --open /workspace/dev.html'
+  )
+  assert.equal(fs.existsSync(devEntryPath), true)
+
+  const devEntry = fs.readFileSync(devEntryPath, 'utf8')
+  assert.match(devEntry, /src="\.\/workspace-bundle\.data\.js"/)
+  assert.match(devEntry, /type="module" src="\.\.\/src\/main\.tsx"/)
+  assert.doesNotMatch(devEntry, /generated\/flow-inspector-workspace\.js/)
+})
+
 test('workspace Inspector resolves the exact static architecture contract', () => {
   const inspector = require(inspectorPath)
   assert.deepEqual(inspector.schema, { id: 'flow-inspector', version: 2 })
