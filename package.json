@@ -76,7 +76,8 @@
   "workspaces": [
     "apps/*",
     "packages/*",
-    "create-app/*"
+    "create-app/*",
+    "tools/*"
   ],
   "engines": {
     "node": "24.x",

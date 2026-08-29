@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The Flow Inspector is a framework-level, product-runtime-independent viewer for
+The Flow Inspector is a project-owned, product-runtime-independent viewer for
 feature and system contracts. It renders target-owned semantic data without
 owning or modifying that data. Stroke Engine is the first target; neither the
 schema nor the renderer may contain Stroke-specific fields, rules, paths, or
@@ -178,9 +178,12 @@ verified against the target specification by the target's formal gates.
   generic structural gate cannot prove route-conditional behavior
 - Workspace package: not required for the static schema and renderer
 
-A future generator, result sidecar, or local server requires a separate
-contract. It must not add execution fields to schema version 2 or make the
-static viewer dependent on product/runtime internals.
+A multi-target workspace, catalog, future generator, result sidecar, or local
+server requires a separate contract. A static workspace may discover and load
+schema version 2 targets, but its catalog must not duplicate target semantics
+or make standalone viewer entries dependent on the workspace. Future dynamic
+layers must not add execution fields to schema version 2 or make the static
+viewer dependent on product/runtime internals.
 
 ## First Target
 

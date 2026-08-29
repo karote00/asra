@@ -78,7 +78,7 @@ test('dedicated target configuration owns reviewed Git deployment selection', ()
     'apps/asyra-framework-site/vercel.json',
     'apps/asyra-framework-site/scripts/vercel-ignore-build.mjs',
     '.github/workflows/main.yml',
-    'docs/ai/framework/plans/asyra-website-launch-and-operations-plan.md',
+    'docs/ai/framework/plans/completed/asyra-website-launch-and-operations-plan.md',
     '.vercel/project.json read-only; never mutate'
   ])
 })

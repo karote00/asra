@@ -58,7 +58,7 @@ const step = (definition) =>
 module.exports = Object.freeze({
   authority: Object.freeze({
     specPath:
-      'docs/ai/framework/plans/asyra-public-package-documentation-plan.md',
+      'docs/ai/framework/plans/completed/asyra-public-package-documentation-plan.md',
     inspectorPath:
       'docs/ai/framework/plans/asyra-public-package-documentation-flow-inspector.data.cjs'
   }),
@@ -133,7 +133,7 @@ module.exports = Object.freeze({
         'README content'
       ],
       implementationBoundary: [
-        'docs/ai/framework/plans/asyra-public-package-documentation-plan.md',
+        'docs/ai/framework/plans/completed/asyra-public-package-documentation-plan.md',
         'docs/ai/framework/plans/asyra-public-package-documentation-flow-inspector.data.cjs',
         'docs/ai/framework/plans/__tests__/asyra-public-package-documentation-flow-inspector.contract.test.cjs',
         'docs/public/content-manifest.json',

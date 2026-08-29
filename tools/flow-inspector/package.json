@@ -1,0 +1,32 @@
+{
+  "name": "@asyra/flow-inspector",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node workspace/generate-workspace.cjs && vite --open /workspace/dev.html",
+    "build": "vite build",
+    "react:build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test:react": "vitest run --config vitest.config.ts",
+    "test:contracts": "node --test __tests__/viewer-entry.test.cjs workspace/__tests__/catalog.contract.test.cjs workspace/__tests__/workspace.test.cjs",
+    "test": "yarn test:react && yarn test:contracts",
+    "test:local": "yarn test:react && yarn test:contracts",
+    "test:ci": "yarn test:react && yarn test:contracts"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "jsdom": "^27.4.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.4.3",
+    "vitest": "^3.2.6"
+  }
+}

@@ -51,6 +51,11 @@
   const flow = document.getElementById('flow')
   const detail = document.getElementById('detail')
   const filters = document.getElementById('filters')
+  const app = flow?.closest('.app')
+  const main = flow?.closest('.main')
+  const header = main?.querySelector('.header')
+  const guide = main?.querySelector('.guide-panel')
+  const targetMeta = document.querySelector('.target-meta')
   const title = document.getElementById('inspector-title')
   const subtitle = document.getElementById('inspector-subtitle')
   const headerLinks = document.getElementById('inspector-links')
@@ -60,6 +65,10 @@
     flow,
     detail,
     filters,
+    app,
+    main,
+    header,
+    guide,
     title,
     subtitle,
     headerLinks,
@@ -73,6 +82,10 @@
       `Flow Inspector shell is missing: ${missingElements.join(', ')}`
     )
   }
+
+  const detailContent = document.createElement('div')
+  detailContent.className = 'detail-content'
+  detail.appendChild(detailContent)
 
   const escapeHtml = (value) =>
     String(value)
@@ -98,7 +111,7 @@
   const section = (heading, items, className = '') => {
     const values = items && items.length ? items : ['None']
     return `
-      <section class="detail-section ${className}">
+      <section class="detail-section ${className}" data-detail-section="${escapeHtml(heading)}">
         <h3>${escapeHtml(heading)}</h3>
         <ul>${values.map((item) => `<li>${formatItem(item)}</li>`).join('')}</ul>
       </section>`
@@ -119,16 +132,232 @@
   )
 
   const layout = {
-    left: 28,
+    left: 60,
     top: 68,
-    cardW: 270,
-    cardH: 118,
-    gapX: 220,
-    gapY: 100
+    cardW: 290,
+    cardH: 168,
+    gapX: 180,
+    gapY: 84
   }
 
   let selectedId = steps[0]?.id ?? null
   let selectedLaneId = 'All'
+
+  const ensureFlowViewport = () => {
+    if (flow.parentElement?.classList.contains('flow-zoom-surface')) {
+      return flow.parentElement.closest('.flow-viewport')
+    }
+    const shell = document.createElement('div')
+    shell.className = 'flow-shell'
+    const viewport = document.createElement('div')
+    viewport.className = 'flow-viewport'
+    const surface = document.createElement('div')
+    surface.className = 'flow-zoom-surface'
+    flow.before(shell)
+    shell.appendChild(viewport)
+    viewport.appendChild(surface)
+    surface.appendChild(flow)
+    return viewport
+  }
+
+  const enablePanelControls = () => {
+    let catalogVisible = true
+    let headerVisible = true
+    let detailVisible = true
+    const headerPanel = header
+    const catalogToggle = document.createElement('button')
+    const headerClose = document.createElement('button')
+    const detailClose = document.createElement('button')
+    const headerOpen = document.createElement('button')
+    const detailOpen = document.createElement('button')
+    const isEmbedded = window.parent !== window
+    const panelRail = document.createElement('div')
+    catalogToggle.type = 'button'
+    catalogToggle.dataset.panelButton = 'catalog'
+    catalogToggle.setAttribute('aria-label', 'Catalog panel')
+    catalogToggle.textContent = '☰'
+    headerClose.className = 'panel-close-button'
+    headerClose.type = 'button'
+    headerClose.dataset.closeHeader = ''
+    headerClose.setAttribute('aria-label', 'Close Inspector header')
+    headerClose.textContent = '×'
+    detailClose.className = 'panel-close-button'
+    detailClose.type = 'button'
+    detailClose.dataset.closeDetails = ''
+    detailClose.setAttribute('aria-label', 'Close step details')
+    detailClose.textContent = '×'
+    headerOpen.type = 'button'
+    headerOpen.dataset.panelButton = 'header'
+    headerOpen.setAttribute('aria-label', 'Header panel')
+    headerOpen.title = 'Header panel is open'
+    headerOpen.textContent = '▤'
+    detailOpen.type = 'button'
+    detailOpen.dataset.panelButton = 'details'
+    detailOpen.setAttribute('aria-label', 'Details panel')
+    detailOpen.title = 'Details panel is open'
+    detailOpen.textContent = '◧'
+    headerPanel.prepend(headerClose)
+    detail.prepend(detailClose)
+    panelRail.className = 'panel-rail viewer-panel-rail'
+    panelRail.dataset.panelRail = ''
+    panelRail.setAttribute('role', 'toolbar')
+    panelRail.setAttribute('aria-label', 'Inspector panels')
+    panelRail.append(catalogToggle, headerOpen, detailOpen)
+    flow.closest('.flow-shell').appendChild(panelRail)
+
+    const notifyParent = (panel, visible) => {
+      if (!isEmbedded) return
+      window.parent.postMessage(
+        { type: 'flow-inspector:panel-visibility', panel, visible },
+        '*'
+      )
+    }
+
+    const renderVisibility = () => {
+      catalogToggle.disabled = !isEmbedded
+      catalogToggle.setAttribute('aria-pressed', String(catalogVisible))
+      if (!isEmbedded) {
+        catalogToggle.title = 'Catalog panel is available in the workspace'
+      } else {
+        catalogToggle.title = catalogVisible
+          ? 'Catalog panel is open'
+          : 'Open Catalog panel'
+      }
+      if (targetMeta) targetMeta.hidden = !headerVisible
+      header.hidden = !headerVisible
+      filters.hidden = !headerVisible
+      guide.hidden = !headerVisible
+      detail.hidden = !detailVisible
+      main.classList.toggle('is-header-collapsed', !headerVisible)
+      app.classList.toggle('is-detail-collapsed', !detailVisible)
+      headerOpen.setAttribute('aria-pressed', String(headerVisible))
+      headerOpen.title = headerVisible
+        ? 'Header panel is open'
+        : 'Open Header panel'
+      detailOpen.setAttribute('aria-pressed', String(detailVisible))
+      detailOpen.title = detailVisible
+        ? 'Details panel is open'
+        : 'Open Details panel'
+    }
+
+    headerClose.addEventListener('click', () => {
+      headerVisible = false
+      renderVisibility()
+      notifyParent('header', false)
+    })
+    catalogToggle.addEventListener('click', () => {
+      if (!isEmbedded) return
+      catalogVisible = !catalogVisible
+      renderVisibility()
+      notifyParent('catalog', catalogVisible)
+    })
+    detailClose.addEventListener('click', () => {
+      detailVisible = false
+      renderVisibility()
+      notifyParent('details', false)
+    })
+    headerOpen.addEventListener('click', () => {
+      headerVisible = !headerVisible
+      renderVisibility()
+      notifyParent('header', headerVisible)
+    })
+    detailOpen.addEventListener('click', () => {
+      detailVisible = !detailVisible
+      renderVisibility()
+      notifyParent('details', detailVisible)
+    })
+    window.addEventListener('message', (event) => {
+      const message = event.data
+      if (message?.type !== 'flow-inspector:set-panel-visibility') return
+      if (message.panel === 'catalog') catalogVisible = message.visible
+      else if (message.panel === 'header') headerVisible = message.visible
+      else if (message.panel === 'details') detailVisible = message.visible
+      else return
+      renderVisibility()
+      notifyParent(message.panel, message.visible)
+    })
+    renderVisibility()
+    notifyParent('catalog', catalogVisible)
+    notifyParent('header', headerVisible)
+    notifyParent('details', detailVisible)
+  }
+
+  const enableViewportZoom = (viewport) => {
+    const minimumScale = 0.2
+    const maximumScale = 2.5
+    let scale = 1
+    const surface = flow.parentElement
+    const controls = document.createElement('div')
+    const reset = document.createElement('button')
+    controls.className = 'zoom-controls'
+    reset.type = 'button'
+    reset.dataset.resetZoom = ''
+    reset.title = 'Reset flow zoom to 100% (⌘0)'
+    viewport.tabIndex = 0
+    viewport.setAttribute(
+      'aria-label',
+      'Zoomable and scrollable Inspector flow'
+    )
+    controls.appendChild(reset)
+    viewport.parentElement.appendChild(controls)
+
+    const updateResetLabel = () => {
+      reset.textContent = `Reset zoom · ${Math.round(scale * 100)}%`
+    }
+
+    const syncSurfaceSize = () => {
+      const baseWidth = Number(flow.dataset.baseWidth)
+      const baseHeight = Number(flow.dataset.baseHeight)
+      if (baseWidth > 0) surface.style.width = `${baseWidth * scale}px`
+      if (baseHeight > 0) surface.style.height = `${baseHeight * scale}px`
+    }
+
+    const setScale = (nextScale, anchor) => {
+      const boundedScale = Math.min(
+        maximumScale,
+        Math.max(minimumScale, nextScale)
+      )
+      const anchorX = anchor?.x ?? viewport.clientWidth / 2
+      const anchorY = anchor?.y ?? viewport.clientHeight / 2
+      const contentX = (viewport.scrollLeft + anchorX) / scale
+      const contentY = (viewport.scrollTop + anchorY) / scale
+      scale = boundedScale
+      viewport.dataset.zoomScale = String(scale)
+      flow.style.transformOrigin = '0 0'
+      flow.style.transform = `scale(${scale})`
+      syncSurfaceSize()
+      viewport.scrollLeft = contentX * scale - anchorX
+      viewport.scrollTop = contentY * scale - anchorY
+      updateResetLabel()
+    }
+
+    const resetZoom = () => setScale(1)
+
+    viewport.addEventListener(
+      'wheel',
+      (event) => {
+        if (!event.ctrlKey) return
+        event.preventDefault()
+        viewport.focus({ preventScroll: true })
+        const bounds = viewport.getBoundingClientRect()
+        const deltaMultiplier = event.deltaMode === 1 ? 16 : 1
+        const zoomFactor = Math.exp(-event.deltaY * deltaMultiplier * 0.002)
+        setScale(scale * zoomFactor, {
+          x: event.clientX - bounds.left,
+          y: event.clientY - bounds.top
+        })
+      },
+      { passive: false }
+    )
+    reset.addEventListener('click', resetZoom)
+    document.addEventListener('keydown', (event) => {
+      if (!event.metaKey || event.key !== '0') return
+      event.preventDefault()
+      resetZoom()
+    })
+    flow.addEventListener('flowboundschange', syncSurfaceSize)
+    setScale(1, { x: 0, y: 0 })
+  }
 
   const isVisible = (step) =>
     selectedLaneId === 'All' || step.laneId === selectedLaneId
@@ -322,42 +551,63 @@
   const renderDetail = () => {
     const selected = stepById.get(selectedId) ?? steps[0]
     if (!selected) {
-      detail.innerHTML = '<p>No steps are declared.</p>'
+      detailContent.innerHTML = '<p>No steps are declared.</p>'
       return
     }
     const lane = laneById.get(selected.laneId)
-    detail.innerHTML = `
+    detailContent.innerHTML = `
       <div class="detail-group">${escapeHtml(lane?.title ?? selected.laneId)}</div>
       <div class="detail-heading">
         <span class="step-number">Step ${escapeHtml(selected.order)}</span>
         <h2>${escapeHtml(selected.title)}</h2>
       </div>
       <p class="detail-summary">${escapeHtml(selected.purpose)}</p>
-      ${section('Target links', links, 'rule-box')}
-      ${section('Owner package', [selected.ownerPackage], 'alignment-box')}
-      ${section('Inputs', selected.inputs)}
-      ${section('Outputs', selected.outputs)}
-      ${section('Conditions', selected.conditions, 'trace-box')}
-      ${section('Bypasses', selected.bypasses, 'trace-box')}
-      ${section('Allowed contributors', selected.allowedContributors, 'evidence-box')}
-      ${section('Forbidden contributors', selected.forbiddenContributors, 'risk-box')}
-      ${section('Cache dimensions', selected.cacheDimensions, 'trace-box')}
-      ${section('Implementation boundary', selected.implementationBoundary)}
-      ${section('Spec references', selected.specRefs, 'rule-box')}
-      ${section('Failure owner step', [selected.failureOwnerStepId], 'risk-box')}
-      ${section('Incoming routes', routesForStep(selected.id, 'to'), 'trace-box')}
-      ${section('Outgoing routes', routesForStep(selected.id, 'from'), 'trace-box')}
-      ${section('Owned artifacts', artifactsOwnedBy(selected.id), 'trace-box')}
-      ${section('Consumed artifacts', artifactsConsumedBy(selected.id), 'trace-box')}
-      ${section('Invariants', invariantsForStep(selected.id), 'evidence-box')}
-      ${section('Acceptance contracts', acceptanceForStep(selected.id), 'test-box')}`
+      <section class="detail-category detail-at-a-glance">
+        <h3 class="detail-category-title">At a glance</h3>
+        ${section('Owner package', [selected.ownerPackage], 'alignment-box')}
+        ${section('Inputs', selected.inputs)}
+        ${section('Outputs', selected.outputs)}
+        ${section('Failure owner step', [selected.failureOwnerStepId], 'risk-box')}
+        ${section('Spec references', selected.specRefs, 'rule-box')}
+        ${section('Target links', links, 'rule-box')}
+      </section>
+      <details class="full-contract" data-full-contract>
+        <summary>
+          <span>Full contract</span>
+          <small>Execution rules, boundaries, routes, and verification</small>
+        </summary>
+        <section class="detail-category">
+          <h3 class="detail-category-title">Execution rules</h3>
+          ${section('Conditions', selected.conditions, 'trace-box')}
+          ${section('Bypasses', selected.bypasses, 'trace-box')}
+          ${section('Cache dimensions', selected.cacheDimensions, 'trace-box')}
+          ${section('Implementation boundary', selected.implementationBoundary)}
+        </section>
+        <section class="detail-category">
+          <h3 class="detail-category-title">Ownership boundaries</h3>
+          ${section('Allowed contributors', selected.allowedContributors, 'evidence-box')}
+          ${section('Forbidden contributors', selected.forbiddenContributors, 'risk-box')}
+        </section>
+        <section class="detail-category">
+          <h3 class="detail-category-title">Related contract data</h3>
+          ${section('Incoming routes', routesForStep(selected.id, 'to'), 'trace-box')}
+          ${section('Outgoing routes', routesForStep(selected.id, 'from'), 'trace-box')}
+          ${section('Owned artifacts', artifactsOwnedBy(selected.id), 'trace-box')}
+          ${section('Consumed artifacts', artifactsConsumedBy(selected.id), 'trace-box')}
+          ${section('Invariants', invariantsForStep(selected.id), 'evidence-box')}
+          ${section('Acceptance contracts', acceptanceForStep(selected.id), 'test-box')}
+        </section>
+      </details>`
   }
 
   const renderFlow = () => {
     flow.innerHTML = ''
     const bounds = getFlowBounds()
-    flow.style.minWidth = `${bounds.width}px`
-    flow.style.minHeight = `${bounds.height}px`
+    flow.style.width = `${bounds.width}px`
+    flow.style.height = `${bounds.height}px`
+    flow.dataset.baseWidth = String(bounds.width)
+    flow.dataset.baseHeight = String(bounds.height)
+    flow.dispatchEvent(new window.Event('flowboundschange'))
 
     lanes.forEach((lane, laneIndex) => {
       const label = document.createElement('div')
@@ -406,7 +656,7 @@
         <div class="step-title">${escapeHtml(step.title)}</div>
         <div class="step-summary">${escapeHtml(step.purpose)}</div>
         <div class="badge-row">
-          <span class="badge truth">${escapeHtml(step.ownerPackage)}</span>
+          <span class="badge owner">Owner: ${escapeHtml(step.ownerPackage)}</span>
           ${tags
             .slice(0, 2)
             .map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`)
@@ -601,7 +851,10 @@
   }
 
   runStaticChecks()
+  const viewport = ensureFlowViewport()
+  enableViewportZoom(viewport)
   render()
+  enablePanelControls()
   window.addEventListener('resize', () => {
     const svg = flow.querySelector('.flow-svg')
     if (svg) renderEdges(svg)

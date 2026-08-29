@@ -26,7 +26,7 @@ const contractText = (owner) =>
 test('plan and direct-open Inspector are resolvable authorities', () => {
   assert.equal(
     data.authority.specPath,
-    'docs/ai/framework/plans/input-system-environment-neutrality-plan.md'
+    'docs/ai/framework/plans/completed/input-system-environment-neutrality-plan.md'
   )
   assert.ok(fs.existsSync(path.resolve(repoRoot, data.authority.specPath)))
   assert.ok(fs.existsSync(path.resolve(repoRoot, data.authority.inspectorPath)))

@@ -122,7 +122,10 @@ const lowercaseIdentityOwnerPaths = new Set([
   'scripts/__tests__/workspace-automation.test.mjs',
   'scripts/release-records.js'
 ])
-const brandOwnedCodePrefixes = Object.freeze(['apps/asyra-framework-site/'])
+const brandOwnedCodePrefixes = Object.freeze([
+  'apps/asyra-framework-site/',
+  'tools/flow-inspector/'
+])
 const capitalizedBrandIdentifierPattern = new RegExp(
   String.raw`(?:\b(?:class|const|enum|export|function|import|interface|let|namespace|type|var)\s+|[({,.]\s*)${repositoryDisplayName}(?=\s*(?:[:=,;)\]}]|$))`,
   'u'

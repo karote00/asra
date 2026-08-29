@@ -13,7 +13,7 @@ const step = (definition) =>
 module.exports = Object.freeze({
   authority: Object.freeze({
     specPath:
-      'docs/ai/framework/plans/asyra-website-launch-and-operations-plan.md',
+      'docs/ai/framework/plans/completed/asyra-website-launch-and-operations-plan.md',
     inspectorPath:
       'docs/ai/framework/plans/asyra-website-launch-and-operations-flow-inspector.data.cjs',
     programPath: 'docs/ai/framework/plans/asyra-framework-website-plan.md',
@@ -61,7 +61,7 @@ module.exports = Object.freeze({
         'upstream product semantic rewrite'
       ],
       implementationBoundary: [
-        'docs/ai/framework/plans/asyra-website-launch-and-operations-plan.md',
+        'docs/ai/framework/plans/completed/asyra-website-launch-and-operations-plan.md',
         'docs/ai/framework/plans/asyra-website-launch-and-operations-flow-inspector.data.cjs',
         'docs/ai/framework/plans/__tests__/asyra-website-launch-and-operations-flow-inspector.contract.test.cjs'
       ],
@@ -112,7 +112,7 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/__tests__/e2e/launch-production.spec.ts',
         'apps/asyra-framework-site/scripts/production-smoke.mjs',
         'docs/public/**',
-        'docs/ai/framework/plans/asyra-website-launch-and-operations-plan.md'
+        'docs/ai/framework/plans/completed/asyra-website-launch-and-operations-plan.md'
       ],
       specRefs: [
         '#preview-acceptance',
@@ -156,7 +156,7 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/vercel.json',
         'apps/asyra-framework-site/scripts/vercel-ignore-build.mjs',
         '.github/workflows/main.yml',
-        'docs/ai/framework/plans/asyra-website-launch-and-operations-plan.md',
+        'docs/ai/framework/plans/completed/asyra-website-launch-and-operations-plan.md',
         '.vercel/project.json read-only; never mutate'
       ],
       specRefs: [
@@ -200,7 +200,7 @@ module.exports = Object.freeze({
       ],
       implementationBoundary: [
         'authenticated Vercel project and deployment operations',
-        'docs/ai/framework/plans/asyra-website-launch-and-operations-plan.md'
+        'docs/ai/framework/plans/completed/asyra-website-launch-and-operations-plan.md'
       ],
       specRefs: [
         '#deployment-and-verification-contract',
@@ -240,7 +240,7 @@ module.exports = Object.freeze({
       implementationBoundary: [
         'apps/asyra-framework-site/__tests__/e2e/launch-production.spec.ts',
         'apps/asyra-framework-site/scripts/production-smoke.mjs',
-        'docs/ai/framework/plans/asyra-website-launch-and-operations-plan.md',
+        'docs/ai/framework/plans/completed/asyra-website-launch-and-operations-plan.md',
         'anonymous production URL read-only verification',
         'authorized rollback operation on blocking failure'
       ],
@@ -282,7 +282,7 @@ module.exports = Object.freeze({
         'unapproved monitoring or incident commitment'
       ],
       implementationBoundary: [
-        'docs/ai/framework/plans/asyra-website-launch-and-operations-plan.md'
+        'docs/ai/framework/plans/completed/asyra-website-launch-and-operations-plan.md'
       ],
       specRefs: [
         '#operational-contract',

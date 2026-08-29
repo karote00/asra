@@ -9,7 +9,7 @@ Inspector, a public support promise, or a delivery schedule.
 The corresponding unscheduled target is
 [`../plans/headless-core-and-core-kernel-future-plan.md`](../plans/headless-core-and-core-kernel-future-plan.md).
 The release-scoped Input System work is
-[`../plans/input-system-environment-neutrality-plan.md`](../plans/input-system-environment-neutrality-plan.md).
+[`../plans/completed/input-system-environment-neutrality-plan.md`](../plans/completed/input-system-environment-neutrality-plan.md).
 
 ## Executive Conclusion
 

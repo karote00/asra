@@ -1,94 +1,53 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-/* global __dirname, require */
-
 const fs = require('node:fs')
 const path = require('node:path')
+const vm = require('node:vm')
 
 const projectRoot = path.resolve(__dirname, '../..')
 const rendererSource = fs
   .readFileSync(path.join(__dirname, 'viewer.js'), 'utf8')
   .trimEnd()
+const viewerStylesSource = fs
+  .readFileSync(path.join(__dirname, 'viewer.css'), 'utf8')
+  .trimEnd()
 
-const targetEntries = [
-  path.join(
-    projectRoot,
-    'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.html'
+const bundleSandbox = { globalThis: {} }
+vm.runInNewContext(
+  fs.readFileSync(
+    path.join(__dirname, 'workspace/workspace-bundle.data.js'),
+    'utf8'
   ),
-  path.join(
-    projectRoot,
-    'docs/ai/apps/asyra-design/plans/group-context-menu-flow-inspector.html'
-  ),
-  path.join(
-    projectRoot,
-    'docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-flow-inspector.html'
-  ),
-  path.join(
-    projectRoot,
-    'docs/ai/apps/asyra-design/plans/remote-subtree-restore-snapshot-flow-inspector.html'
-  ),
-  path.join(
-    projectRoot,
-    'docs/ai/apps/asyra-design/plans/group-interaction-mvp-flow-inspector.html'
-  ),
-  path.join(
-    projectRoot,
-    'docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.html'
-  ),
-  path.join(
-    projectRoot,
-    'docs/ai/framework/plans/transaction-flow-inspector.html'
-  ),
-  path.join(
-    projectRoot,
-    'docs/ai/framework/plans/canonical-projection-and-collaboration-contract-flow-inspector.html'
-  ),
-  path.join(
-    projectRoot,
-    'docs/ai/framework/plans/render-engine-boundary-flow-inspector.html'
-  ),
-  path.join(
-    projectRoot,
-    'docs/ai/framework/plans/canvas-pipeline-debugger-flow-inspector.html'
-  ),
-  path.join(
-    projectRoot,
-    'docs/ai/framework/plans/property-type-redefinition-flow-inspector.html'
-  ),
-  path.join(
-    projectRoot,
-    'docs/ai/framework/plans/ai-agent-runtime-flow-inspector.html'
-  ),
-  path.join(
-    projectRoot,
-    'docs/ai/framework/plans/group-component-and-hierarchy-flow-inspector.html'
-  ),
-  path.join(
-    projectRoot,
-    'docs/ai/framework/plans/framework-release-readiness-flow-inspector.html'
-  ),
-  path.join(
-    projectRoot,
-    'docs/ai/framework/plans/framework-package-release-flow-inspector.html'
-  ),
-  path.join(
-    projectRoot,
-    'docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.html'
-  )
-]
+  bundleSandbox
+)
+const targetEntries =
+  bundleSandbox.globalThis.FLOW_INSPECTOR_WORKSPACE_BUNDLE.entries
+    .filter((entry) => entry.standalonePath)
+    .map((entry) => path.join(projectRoot, entry.standalonePath))
+    .filter((entryPath) =>
+      fs
+        .readFileSync(entryPath, 'utf8')
+        .includes('<script data-flow-inspector-renderer>')
+    )
 
 const embeddedScript = `    <script data-flow-inspector-renderer>\n${rendererSource}\n    </script>`
+const embeddedStyles = `    <style data-flow-inspector-viewer-styles>\n${viewerStylesSource}\n    </style>`
 const externalRendererPattern =
   /[ ]{4}<script src=["'][^"']*tools\/flow-inspector\/viewer\.js["']><\/script>/
 const embeddedRendererPattern =
   /[ ]{4}<script data-flow-inspector-renderer>\n[\s\S]*?\n[ ]{4}<\/script>/
+const embeddedStylesPattern =
+  /[ ]{4}<style data-flow-inspector-viewer-styles>\n[\s\S]*?\n[ ]{4}<\/style>/
 
 for (const entryPath of targetEntries) {
   const html = fs.readFileSync(entryPath, 'utf8')
-  const nextHtml = externalRendererPattern.test(html)
+  const rendererHtml = externalRendererPattern.test(html)
     ? html.replace(externalRendererPattern, embeddedScript)
     : html.replace(embeddedRendererPattern, embeddedScript)
+  const nextHtml = embeddedStylesPattern.test(rendererHtml)
+    ? rendererHtml.replace(embeddedStylesPattern, embeddedStyles)
+    : rendererHtml.replace('</head>', `${embeddedStyles}\n  </head>`)
 
-  if (nextHtml === html && !html.includes(embeddedScript)) {
+  if (!nextHtml.includes(embeddedScript)) {
     throw new Error(`No Flow Inspector renderer slot found in ${entryPath}`)
   }
 

@@ -15,7 +15,7 @@ const step = (id) => {
 test('documentation authority and exact page inventory are frozen', () => {
   assert.equal(
     data.authority.specPath,
-    'docs/ai/framework/plans/asyra-public-package-documentation-plan.md'
+    'docs/ai/framework/plans/completed/asyra-public-package-documentation-plan.md'
   )
   assert.ok(fs.existsSync(path.join(repoRoot, data.authority.specPath)))
   assert.equal(data.pageIds.length, 41)

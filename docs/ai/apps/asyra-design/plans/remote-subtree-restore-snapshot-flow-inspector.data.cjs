@@ -1335,7 +1335,7 @@
       {
         id: 'flow-inspector-contract',
         label: 'Flow Inspector Contract',
-        href: '../../../framework/FLOW_INSPECTOR.md',
+        href: '../../../tools/flow-inspector/FLOW_INSPECTOR.md',
         kind: 'framework'
       }
     ],

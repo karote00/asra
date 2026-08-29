@@ -133,6 +133,13 @@
         "@asyra/utils#build:utils"
       ]
     },
+    "@asyra/flow-inspector#react:build": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": []
+    },
     "@asyra/input-system#build:input-system": {
       "cache": false,
       "outputs": [

@@ -18,6 +18,7 @@ Each app folder documents:
 - app plans and app-scoped decision history (`decisions/releases/*`)
 
 Framework-level contracts remain in `docs/ai/framework/*`.
+Project-owned development-tool contracts remain in `docs/ai/tools/*`.
 
 ## Project-wide Rules Inherited By All Apps
 

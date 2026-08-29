@@ -251,6 +251,24 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@asyra/flow-inspector@workspace:tools/flow-inspector":
+  version: 0.0.0-use.local
+  resolution: "@asyra/flow-inspector@workspace:tools/flow-inspector"
+  dependencies:
+    "@testing-library/dom": "npm:^10.4.1"
+    "@testing-library/react": "npm:^16.3.3"
+    "@types/react": "npm:^19.0.0"
+    "@types/react-dom": "npm:^19.0.0"
+    "@vitejs/plugin-react": "npm:^4.7.0"
+    jsdom: "npm:^27.4.0"
+    react: "npm:^19.0.0"
+    react-dom: "npm:^19.0.0"
+    typescript: "npm:^5.7.2"
+    vite: "npm:^6.4.3"
+    vitest: "npm:^3.2.6"
+  languageName: unknown
+  linkType: soft
+
 "@asyra/input-system@workspace:*, @asyra/input-system@workspace:packages/input-system":
   version: 0.0.0-use.local
   resolution: "@asyra/input-system@workspace:packages/input-system"
