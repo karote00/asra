@@ -112,16 +112,53 @@ h1 {
   background: var(--panel-2);
 }
 
-.flow-viewport {
+.flow-shell {
   flex: 1 1 auto;
+  position: relative;
   min-width: 0;
   min-height: 360px;
+  overflow: hidden;
+}
+
+.flow-viewport {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable both-edges;
+  box-sizing: border-box;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: #0c1117;
+}
+
+.flow-viewport:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.zoom-controls {
+  position: absolute;
+  top: 12px;
+  right: 24px;
+  z-index: 5;
+}
+
+.zoom-controls button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 11px;
+  color: var(--text);
+  background: rgba(22, 29, 38, 0.94);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+}
+
+.zoom-controls button:hover,
+.zoom-controls button:focus-visible {
+  border-color: var(--accent);
 }
 
 .flow {
@@ -376,7 +413,7 @@ code {
     padding: 16px;
   }
 
-  .flow-viewport {
+  .flow-shell {
     min-height: 420px;
   }
 

@@ -131,11 +131,84 @@
   let selectedLaneId = 'All'
 
   const ensureFlowViewport = () => {
-    if (flow.parentElement?.classList.contains('flow-viewport')) return
+    if (flow.parentElement?.classList.contains('flow-viewport')) {
+      return flow.parentElement
+    }
+    const shell = document.createElement('div')
+    shell.className = 'flow-shell'
     const viewport = document.createElement('div')
     viewport.className = 'flow-viewport'
-    flow.before(viewport)
+    flow.before(shell)
+    shell.appendChild(viewport)
     viewport.appendChild(flow)
+    return viewport
+  }
+
+  const enableViewportZoom = (viewport) => {
+    const minimumScale = 0.5
+    const maximumScale = 2.5
+    let scale = 1
+    const controls = document.createElement('div')
+    const reset = document.createElement('button')
+    controls.className = 'zoom-controls'
+    reset.type = 'button'
+    reset.dataset.resetZoom = ''
+    reset.title = 'Reset flow zoom to 100% (⌘0)'
+    viewport.tabIndex = 0
+    viewport.setAttribute(
+      'aria-label',
+      'Zoomable and scrollable Inspector flow'
+    )
+    controls.appendChild(reset)
+    viewport.parentElement.appendChild(controls)
+
+    const updateResetLabel = () => {
+      reset.textContent = `Reset zoom · ${Math.round(scale * 100)}%`
+    }
+
+    const setScale = (nextScale, anchor) => {
+      const boundedScale = Math.min(
+        maximumScale,
+        Math.max(minimumScale, nextScale)
+      )
+      const anchorX = anchor?.x ?? viewport.clientWidth / 2
+      const anchorY = anchor?.y ?? viewport.clientHeight / 2
+      const contentX = (viewport.scrollLeft + anchorX) / scale
+      const contentY = (viewport.scrollTop + anchorY) / scale
+      scale = boundedScale
+      viewport.dataset.zoomScale = String(scale)
+      flow.style.transformOrigin = '0 0'
+      flow.style.transform = `scale(${scale})`
+      viewport.scrollLeft = contentX * scale - anchorX
+      viewport.scrollTop = contentY * scale - anchorY
+      updateResetLabel()
+    }
+
+    const resetZoom = () => setScale(1)
+
+    viewport.addEventListener(
+      'wheel',
+      (event) => {
+        if (!event.ctrlKey) return
+        event.preventDefault()
+        viewport.focus({ preventScroll: true })
+        const bounds = viewport.getBoundingClientRect()
+        const deltaMultiplier = event.deltaMode === 1 ? 16 : 1
+        const zoomFactor = Math.exp(-event.deltaY * deltaMultiplier * 0.002)
+        setScale(scale * zoomFactor, {
+          x: event.clientX - bounds.left,
+          y: event.clientY - bounds.top
+        })
+      },
+      { passive: false }
+    )
+    reset.addEventListener('click', resetZoom)
+    document.addEventListener('keydown', (event) => {
+      if (!event.metaKey || event.key !== '0') return
+      event.preventDefault()
+      resetZoom()
+    })
+    setScale(1, { x: 0, y: 0 })
   }
 
   const isVisible = (step) =>
@@ -609,7 +682,8 @@
   }
 
   runStaticChecks()
-  ensureFlowViewport()
+  const viewport = ensureFlowViewport()
+  enableViewportZoom(viewport)
   render()
   window.addEventListener('resize', () => {
     const svg = flow.querySelector('.flow-svg')

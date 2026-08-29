@@ -145,6 +145,97 @@ test('v2 viewer owns a scrollable canvas with visible routes and bounded cards',
   )
 })
 
+test('v2 viewer supports trackpad pinch zoom and an exact scale reset', () => {
+  const entry = loadBundle().entries.find(
+    (candidate) => candidate.kind === 'flow-v2'
+  )
+  const dom = createRenderedTarget(entry)
+  const { document, WheelEvent } = dom.window
+  const viewport = document.querySelector('.flow-viewport')
+  const flow = document.querySelector('#flow')
+  const reset = document.querySelector('[data-reset-zoom]')
+
+  assert.ok(viewport)
+  assert.ok(reset, 'the flow viewport must expose a zoom reset button')
+  viewport.getBoundingClientRect = () => ({
+    left: 0,
+    top: 0,
+    right: 800,
+    bottom: 600,
+    width: 800,
+    height: 600
+  })
+  viewport.scrollLeft = 180
+  viewport.scrollTop = 120
+
+  const pinch = new WheelEvent('wheel', {
+    bubbles: true,
+    cancelable: true,
+    clientX: 240,
+    clientY: 180,
+    ctrlKey: true,
+    deltaY: -120
+  })
+  viewport.dispatchEvent(pinch)
+
+  assert.equal(pinch.defaultPrevented, true)
+  assert.equal(document.activeElement, viewport)
+  assert.ok(Number(viewport.dataset.zoomScale) > 1)
+  assert.match(flow.style.transform, /^scale\([\d.]+\)$/)
+  assert.notEqual(reset.textContent, 'Reset zoom · 100%')
+
+  const ordinaryScroll = new WheelEvent('wheel', {
+    bubbles: true,
+    cancelable: true,
+    deltaY: 80
+  })
+  const scaleAfterPinch = viewport.dataset.zoomScale
+  viewport.dispatchEvent(ordinaryScroll)
+  assert.equal(ordinaryScroll.defaultPrevented, false)
+  assert.equal(viewport.dataset.zoomScale, scaleAfterPinch)
+
+  const commandZero = new dom.window.KeyboardEvent('keydown', {
+    bubbles: true,
+    cancelable: true,
+    key: '0',
+    metaKey: true
+  })
+  document.dispatchEvent(commandZero)
+  assert.equal(commandZero.defaultPrevented, true)
+  assert.equal(viewport.dataset.zoomScale, '1')
+  assert.equal(flow.style.transform, 'scale(1)')
+
+  viewport.dispatchEvent(
+    new WheelEvent('wheel', {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+      deltaY: -120
+    })
+  )
+  reset.click()
+  assert.equal(viewport.dataset.zoomScale, '1')
+  assert.equal(flow.style.transform, 'scale(1)')
+  assert.equal(reset.textContent, 'Reset zoom · 100%')
+
+  viewport.dispatchEvent(
+    new WheelEvent('wheel', {
+      cancelable: true,
+      ctrlKey: true,
+      deltaY: -10000
+    })
+  )
+  assert.equal(viewport.dataset.zoomScale, '2.5')
+  viewport.dispatchEvent(
+    new WheelEvent('wheel', {
+      cancelable: true,
+      ctrlKey: true,
+      deltaY: 10000
+    })
+  )
+  assert.equal(viewport.dataset.zoomScale, '0.5')
+})
+
 test('target resolves one included entry only when query and hash match', () => {
   const entry = loadBundle().entries[0]
   const dom = createTarget(routeFor(entry.id))
