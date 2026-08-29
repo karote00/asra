@@ -31111,7 +31111,7 @@
       "kind": "plan-contract",
       "group": "Release",
       "subgroup": "Website and Distribution",
-      "lifecycle": "current",
+      "lifecycle": "retained",
       "sourcePath": "tools/flow-inspector/inspectors/asyra-runtime-atlas-flow-inspector.data.cjs",
       "standalonePath": null,
       "labels": [
@@ -31122,10 +31122,10 @@
       ],
       "data": {
         "authority": {
-          "specPath": "docs/ai/framework/plans/asyra-runtime-atlas-plan.md",
+          "specPath": "docs/ai/framework/plans/completed/asyra-runtime-atlas-plan.md",
           "inspectorPath": "tools/flow-inspector/inspectors/asyra-runtime-atlas-flow-inspector.data.cjs",
           "contentIndexPath": "docs/public/generated/content-index.json",
-          "landingContractPath": "docs/ai/framework/plans/asyra-website-landing-page-plan.md",
+          "landingContractPath": "docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md",
           "landingInspectorPath": "tools/flow-inspector/inspectors/asyra-website-landing-flow-inspector.data.cjs",
           "workspacePath": "apps/asyra-framework-site"
         },
@@ -31195,7 +31195,7 @@
               "future server or Headless lifecycle claim"
             ],
             "implementationBoundary": [
-              "docs/ai/framework/plans/asyra-runtime-atlas-plan.md",
+              "docs/ai/framework/plans/completed/asyra-runtime-atlas-plan.md",
               "tools/flow-inspector/inspectors/asyra-runtime-atlas-flow-inspector.data.cjs",
               "tools/flow-inspector/inspectors/__tests__/asyra-runtime-atlas-flow-inspector.contract.test.cjs"
             ],
@@ -31444,7 +31444,7 @@
             ],
             "implementationBoundary": [
               "apps/asyra-framework-site/**",
-              "docs/ai/framework/plans/asyra-runtime-atlas-plan.md",
+              "docs/ai/framework/plans/completed/asyra-runtime-atlas-plan.md",
               "tools/flow-inspector/inspectors/asyra-runtime-atlas-flow-inspector.data.cjs",
               "tools/flow-inspector/inspectors/__tests__/asyra-runtime-atlas-flow-inspector.contract.test.cjs"
             ],
@@ -31588,7 +31588,7 @@
       "kind": "plan-contract",
       "group": "Release",
       "subgroup": "Website and Distribution",
-      "lifecycle": "current",
+      "lifecycle": "retained",
       "sourcePath": "tools/flow-inspector/inspectors/asyra-website-landing-flow-inspector.data.cjs",
       "standalonePath": null,
       "labels": [
@@ -31599,7 +31599,7 @@
       ],
       "data": {
         "authority": {
-          "specPath": "docs/ai/framework/plans/asyra-website-landing-page-plan.md",
+          "specPath": "docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md",
           "inspectorPath": "tools/flow-inspector/inspectors/asyra-website-landing-flow-inspector.data.cjs",
           "workspacePath": "apps/asyra-framework-site",
           "visualReferencePath": "docs/ai/framework/website/asyra-landing-v04-approved.png"
@@ -31682,7 +31682,7 @@
               "unapproved external production asset"
             ],
             "implementationBoundary": [
-              "docs/ai/framework/plans/asyra-website-landing-page-plan.md",
+              "docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md",
               "tools/flow-inspector/inspectors/asyra-website-landing-flow-inspector.data.cjs",
               "tools/flow-inspector/inspectors/__tests__/asyra-website-landing-flow-inspector.contract.test.cjs"
             ],
@@ -31975,7 +31975,7 @@
           "contentIndexPath": "docs/public/generated/content-index.json",
           "advancedGuidesRoot": "docs/public",
           "rootHostingConfigPath": "vercel.json",
-          "atlasPlanPath": "docs/ai/framework/plans/asyra-runtime-atlas-plan.md"
+          "atlasPlanPath": "docs/ai/framework/plans/completed/asyra-runtime-atlas-plan.md"
         },
         "caseIds": [
           "distinct-project-preservation",
@@ -32397,7 +32397,7 @@
       "kind": "plan-contract",
       "group": "Release",
       "subgroup": "Website and Distribution",
-      "lifecycle": "current",
+      "lifecycle": "retained",
       "sourcePath": "tools/flow-inspector/inspectors/asyra-website-platform-flow-inspector.data.cjs",
       "standalonePath": null,
       "labels": [
@@ -32408,13 +32408,13 @@
       ],
       "data": {
         "authority": {
-          "specPath": "docs/ai/framework/plans/asyra-website-platform-and-docs-plan.md",
+          "specPath": "docs/ai/framework/plans/completed/asyra-website-platform-and-docs-plan.md",
           "inspectorPath": "tools/flow-inspector/inspectors/asyra-website-platform-flow-inspector.data.cjs",
           "contentManifestPath": "docs/public/content-manifest.json",
           "contentIndexPath": "docs/public/generated/content-index.json",
           "sourceMapPath": "docs/public/generated/source-map.json",
           "packageReferencePath": "docs/public/generated/package-reference.json",
-          "landingContractPath": "docs/ai/framework/plans/asyra-website-landing-page-plan.md",
+          "landingContractPath": "docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md",
           "workspacePath": "apps/asyra-framework-site"
         },
         "toolchain": {
@@ -32473,7 +32473,7 @@
               "Landing or Atlas product implementation"
             ],
             "implementationBoundary": [
-              "docs/ai/framework/plans/asyra-website-platform-and-docs-plan.md",
+              "docs/ai/framework/plans/completed/asyra-website-platform-and-docs-plan.md",
               "tools/flow-inspector/inspectors/asyra-website-platform-flow-inspector.data.cjs",
               "tools/flow-inspector/inspectors/__tests__/asyra-website-platform-flow-inspector.contract.test.cjs"
             ],
@@ -32781,7 +32781,7 @@
             ],
             "implementationBoundary": [
               "apps/asyra-framework-site/**",
-              "docs/ai/framework/plans/asyra-website-platform-and-docs-plan.md",
+              "docs/ai/framework/plans/completed/asyra-website-platform-and-docs-plan.md",
               "tools/flow-inspector/inspectors/asyra-website-platform-flow-inspector.data.cjs",
               "tools/flow-inspector/inspectors/__tests__/asyra-website-platform-flow-inspector.contract.test.cjs"
             ],

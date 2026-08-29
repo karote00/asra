@@ -2463,3 +2463,30 @@ unregister -> app migration -> core.start()` as the public app route.
   - `docs/ai/framework/plans/completed/asyra-public-readme-and-entrypoint-alignment-plan.md`
   - `docs/ai/framework/plans/completed/asyra-website-launch-and-operations-plan.md`
   - `docs/ai/framework/plans/completed/input-system-environment-neutrality-plan.md`
+
+## 2026-08-30 - Close retained completed and superseded Framework plans
+
+- Context:
+  - The Website Program had accepted all nine child workstreams on 2026-08-10,
+    but the Platform, Landing, and Runtime Atlas detailed records still lived in
+    the active plan directory.
+  - Executable Examples had completed with the program and was superseded on
+    2026-08-11, while Collaborative Conflict Policies had been superseded by
+    Network Collaboration Transport on 2026-07-22.
+- Decision:
+  - Move all five retained detailed records to the Framework completed-plan
+    directory and keep only the conflict-policy redirect required by historical
+    append-only decision links.
+  - Preserve Framework package publication and every deferred or unscheduled
+    roadmap plan as non-completed work.
+- Consequences:
+  - The active plan directory no longer presents completed Website child
+    contracts or superseded detailed records as current implementation plans.
+  - This closeout creates no Changeset, version bump, tag, publication,
+    deployment, or merge side effect.
+- Completed Plans:
+  - `docs/ai/framework/plans/completed/asyra-website-platform-and-docs-plan.md`
+  - `docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md`
+  - `docs/ai/framework/plans/completed/asyra-runtime-atlas-plan.md`
+  - `docs/ai/framework/plans/completed/asyra-executable-examples-plan.md`
+  - `docs/ai/framework/plans/completed/collaborative-conflict-policies-plan.md`

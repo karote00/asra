@@ -21,7 +21,7 @@ module.exports = Object.freeze({
     contentIndexPath: 'docs/public/generated/content-index.json',
     advancedGuidesRoot: 'docs/public',
     rootHostingConfigPath: 'vercel.json',
-    atlasPlanPath: 'docs/ai/framework/plans/asyra-runtime-atlas-plan.md'
+    atlasPlanPath: 'docs/ai/framework/plans/completed/asyra-runtime-atlas-plan.md'
   }),
   caseIds,
   steps: Object.freeze([

@@ -16,7 +16,7 @@ const step = (definition) =>
 module.exports = Object.freeze({
   authority: Object.freeze({
     specPath:
-      'docs/ai/framework/plans/asyra-website-platform-and-docs-plan.md',
+      'docs/ai/framework/plans/completed/asyra-website-platform-and-docs-plan.md',
     inspectorPath:
       'tools/flow-inspector/inspectors/asyra-website-platform-flow-inspector.data.cjs',
     contentManifestPath: 'docs/public/content-manifest.json',
@@ -24,7 +24,7 @@ module.exports = Object.freeze({
     sourceMapPath: 'docs/public/generated/source-map.json',
     packageReferencePath: 'docs/public/generated/package-reference.json',
     landingContractPath:
-      'docs/ai/framework/plans/asyra-website-landing-page-plan.md',
+      'docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md',
     workspacePath: 'apps/asyra-framework-site'
   }),
   toolchain: Object.freeze({
@@ -69,7 +69,7 @@ module.exports = Object.freeze({
         'Landing or Atlas product implementation'
       ],
       implementationBoundary: [
-        'docs/ai/framework/plans/asyra-website-platform-and-docs-plan.md',
+        'docs/ai/framework/plans/completed/asyra-website-platform-and-docs-plan.md',
         'tools/flow-inspector/inspectors/asyra-website-platform-flow-inspector.data.cjs',
         'tools/flow-inspector/inspectors/__tests__/asyra-website-platform-flow-inspector.contract.test.cjs'
       ],
@@ -360,7 +360,7 @@ module.exports = Object.freeze({
       ],
       implementationBoundary: [
         'apps/asyra-framework-site/**',
-        'docs/ai/framework/plans/asyra-website-platform-and-docs-plan.md',
+        'docs/ai/framework/plans/completed/asyra-website-platform-and-docs-plan.md',
         'tools/flow-inspector/inspectors/asyra-website-platform-flow-inspector.data.cjs',
         'tools/flow-inspector/inspectors/__tests__/asyra-website-platform-flow-inspector.contract.test.cjs'
       ],

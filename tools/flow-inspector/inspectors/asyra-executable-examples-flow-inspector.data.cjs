@@ -24,13 +24,13 @@ module.exports = Object.freeze({
   status: 'SUPERSEDED',
   authority: Object.freeze({
     specPath:
-      'docs/ai/framework/plans/asyra-executable-examples-plan.md',
+      'docs/ai/framework/plans/completed/asyra-executable-examples-plan.md',
     inspectorPath:
       'tools/flow-inspector/inspectors/asyra-executable-examples-flow-inspector.data.cjs',
     documentationPlanPath:
       'docs/ai/framework/plans/completed/asyra-public-package-documentation-plan.md',
     websitePlanPath:
-      'docs/ai/framework/plans/asyra-website-platform-and-docs-plan.md'
+      'docs/ai/framework/plans/completed/asyra-website-platform-and-docs-plan.md'
   }),
   guideMappings,
   currentOwners: Object.freeze({

@@ -2,7 +2,8 @@
 
 ## Status
 
-Superseded on August 11, 2026, by maintainer product review on the dedicated
+Completed within the Website Program on 2026-08-10, then superseded on
+2026-08-11 by maintainer product review on the dedicated
 website review branch. The previously completed 11-example runner, public
 inventory, source-linked website route, and generated-app extension fixture
 were removed from the current product surface.
@@ -51,7 +52,7 @@ quality evidence; the official website presents what a user can build and how
 the public owner flow works, not raw test-runner output.
 
 The current exact supersession contract is retained in
-[`asyra-executable-examples-flow-inspector.data.cjs`](asyra-executable-examples-flow-inspector.data.cjs)
+[`asyra-executable-examples-flow-inspector.data.cjs`](../asyra-executable-examples-flow-inspector.data.cjs)
 and its contract test.
 
 ## Exclusions

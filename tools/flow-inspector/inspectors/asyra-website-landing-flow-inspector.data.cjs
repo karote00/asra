@@ -21,7 +21,7 @@ const step = (definition) =>
 
 module.exports = Object.freeze({
   authority: Object.freeze({
-    specPath: 'docs/ai/framework/plans/asyra-website-landing-page-plan.md',
+    specPath: 'docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md',
     inspectorPath:
       'tools/flow-inspector/inspectors/asyra-website-landing-flow-inspector.data.cjs',
     workspacePath: 'apps/asyra-framework-site',
@@ -88,7 +88,7 @@ module.exports = Object.freeze({
         'unapproved external production asset'
       ],
       implementationBoundary: [
-        'docs/ai/framework/plans/asyra-website-landing-page-plan.md',
+        'docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md',
         'tools/flow-inspector/inspectors/asyra-website-landing-flow-inspector.data.cjs',
         'tools/flow-inspector/inspectors/__tests__/asyra-website-landing-flow-inspector.contract.test.cjs'
       ],

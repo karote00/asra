@@ -74,7 +74,7 @@ test('the whole site extends the current Landing visual authority', () => {
 
   assert.equal(
     data.authority.landingContractPath,
-    'docs/ai/framework/plans/asyra-website-landing-page-plan.md'
+    'docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md'
   )
   assert.match(source, /warm paper/i)
   assert.match(source, /industrial|engineering grid/i)

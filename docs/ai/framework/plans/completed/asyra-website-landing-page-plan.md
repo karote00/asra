@@ -2,8 +2,12 @@
 
 ## Status
 
-Current implementation contract. This contract replaces every previous public
-website composition, including committed and uncommitted Landing work.
+Completed on 2026-08-10 as a child workstream of the accepted Asyra Framework
+Website Program. The approved V04 composition, responsive product evidence,
+and Preview-ready Landing gates passed the umbrella program's closeout.
+
+This retained contract replaces every previous public website composition,
+including committed and uncommitted Landing work.
 
 ## Goal
 

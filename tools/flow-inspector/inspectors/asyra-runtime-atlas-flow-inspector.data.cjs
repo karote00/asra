@@ -12,12 +12,12 @@ const step = (definition) =>
 
 module.exports = Object.freeze({
   authority: Object.freeze({
-    specPath: 'docs/ai/framework/plans/asyra-runtime-atlas-plan.md',
+    specPath: 'docs/ai/framework/plans/completed/asyra-runtime-atlas-plan.md',
     inspectorPath:
       'tools/flow-inspector/inspectors/asyra-runtime-atlas-flow-inspector.data.cjs',
     contentIndexPath: 'docs/public/generated/content-index.json',
     landingContractPath:
-      'docs/ai/framework/plans/asyra-website-landing-page-plan.md',
+      'docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md',
     landingInspectorPath:
       'tools/flow-inspector/inspectors/asyra-website-landing-flow-inspector.data.cjs',
     workspacePath: 'apps/asyra-framework-site'
@@ -69,7 +69,7 @@ module.exports = Object.freeze({
         'future server or Headless lifecycle claim'
       ],
       implementationBoundary: [
-        'docs/ai/framework/plans/asyra-runtime-atlas-plan.md',
+        'docs/ai/framework/plans/completed/asyra-runtime-atlas-plan.md',
         'tools/flow-inspector/inspectors/asyra-runtime-atlas-flow-inspector.data.cjs',
         'tools/flow-inspector/inspectors/__tests__/asyra-runtime-atlas-flow-inspector.contract.test.cjs'
       ],
@@ -297,7 +297,7 @@ module.exports = Object.freeze({
       ],
       implementationBoundary: [
         'apps/asyra-framework-site/**',
-        'docs/ai/framework/plans/asyra-runtime-atlas-plan.md',
+        'docs/ai/framework/plans/completed/asyra-runtime-atlas-plan.md',
         'tools/flow-inspector/inspectors/asyra-runtime-atlas-flow-inspector.data.cjs',
         'tools/flow-inspector/inspectors/__tests__/asyra-runtime-atlas-flow-inspector.contract.test.cjs'
       ],

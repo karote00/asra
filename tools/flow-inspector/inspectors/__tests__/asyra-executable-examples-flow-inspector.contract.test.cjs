@@ -28,7 +28,7 @@ test('all eleven retired subjects resolve maintained advanced guides', () => {
       const guide = fs.readFileSync(guidePath, 'utf8')
       for (const heading of [
         '## Where this runs',
-        '## Implementation',
+        '## (?:Implementation|Maintained implementation paths)',
         '## Flow',
         '## Expected result'
       ]) {

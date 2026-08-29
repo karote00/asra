@@ -101,11 +101,11 @@ Use this file to route a new framework request to the right docs first.
   - `plans/completed/asyra-framework-website-plan.md`
   - `plans/completed/asyra-public-readme-and-entrypoint-alignment-plan.md`
   - `plans/completed/asyra-public-package-documentation-plan.md`
-  - `plans/asyra-executable-examples-plan.md`
+  - `plans/completed/asyra-executable-examples-plan.md`
   - `plans/completed/asyra-website-visual-reimagine-plan.md`
-  - `plans/asyra-website-platform-and-docs-plan.md`
-  - `plans/asyra-website-landing-page-plan.md`
-  - `plans/asyra-runtime-atlas-plan.md`
+  - `plans/completed/asyra-website-platform-and-docs-plan.md`
+  - `plans/completed/asyra-website-landing-page-plan.md`
+  - `plans/completed/asyra-runtime-atlas-plan.md`
   - `plans/completed/asyra-website-launch-and-operations-plan.md`
 
 - repository-wide documentation contract, owner, or reality audit

@@ -2,16 +2,14 @@
 
 ## Status
 
-Required child plan of the
-[Asyra Framework Website Program](completed/asyra-framework-website-plan.md). The Atlas
-is a real-runtime product surface, not a decorative architecture diagram.
+Completed on 2026-08-10 as a child workstream of the accepted Asyra Framework
+Website Program. All six runtime cases and the required Preview-ready browser,
+responsive, accessibility, and synchronized visual evidence passed program
+closeout.
 
-Active implementation contract. The bounded product contract, six exact browser
-cases, observation contract, and Atlas Inspector are frozen. Runtime,
-presentation, production-browser, responsive, and synchronized visual evidence
-must be regenerated against the current Framework website before Preview-ready
-status can be claimed. Production deployment remains owned by Launch and
-Operations.
+Retained child contract of the
+[Asyra Framework Website Program](asyra-framework-website-plan.md). The Atlas
+is a real-runtime product surface, not a decorative architecture diagram.
 
 The accepted Landing V04 contract is the active whole-site visual direction.
 Atlas presentation extends its warm paper, near-black, signal-red, engineering

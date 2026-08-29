@@ -2,9 +2,13 @@
 
 ## Status
 
-Current implementation contract for every public Website route outside the
-accepted Landing composition. This contract replaces the previous Cosmic Atlas
-whole-site direction and extends the current
+Completed on 2026-08-10 as a child workstream of the accepted Asyra Framework
+Website Program. The common platform, documentation experience, supporting
+routes, and Preview-ready evidence passed the umbrella program's bounded gates.
+
+This retained contract governs every public Website route outside the accepted
+Landing composition. It replaces the previous Cosmic Atlas whole-site
+direction and extends the retained
 [Result-First Landing contract](asyra-website-landing-page-plan.md) without
 changing its content, geometry, illustrations, or responsive behavior.
 

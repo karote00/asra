@@ -89,17 +89,17 @@ The program is split into nine independently reviewable child plans:
 3. [Public Package Documentation](../asyra-public-package-documentation-plan.md)
    owns durable public guides, information architecture, package reference,
    AI-readable content, and semantic case-study content.
-4. [Executable Examples](../asyra-executable-examples-plan.md) owns maintained
+4. [Executable Examples](asyra-executable-examples-plan.md) owns maintained
    sample code and the formal gates that prove documented flows still work.
 5. [Visual Reimagine](asyra-website-visual-reimagine-plan.md) owns generated
    concepts, interaction and motion direction, responsive states, and the
    accepted visual specification before composed UI code.
-6. [Website Platform and Documentation Experience](../asyra-website-platform-and-docs-plan.md)
+6. [Website Platform and Documentation Experience](asyra-website-platform-and-docs-plan.md)
    owns the site workspace, content adapter, documentation shell, search,
    reference/release surfaces, and common web foundations.
-7. [Landing Page and Product Narrative](../asyra-website-landing-page-plan.md) owns
+7. [Landing Page and Product Narrative](asyra-website-landing-page-plan.md) owns
    the homepage implementation and its interactive product story.
-8. [Asyra Runtime Atlas](../asyra-runtime-atlas-plan.md) owns the real-runtime
+8. [Asyra Runtime Atlas](asyra-runtime-atlas-plan.md) owns the real-runtime
    interactive lab, its six required executable cases, and runtime evidence.
 9. [Launch and Operations](../asyra-website-launch-and-operations-plan.md) owns
    Preview closure and, only after explicit authorization, production
