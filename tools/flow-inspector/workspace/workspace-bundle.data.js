@@ -33240,6 +33240,7 @@
             "cacheDimensions": [],
             "implementationBoundary": [
               "tools/flow-inspector/viewer.js",
+              "tools/flow-inspector/viewer.css",
               "tools/flow-inspector/workspace/legacy-viewer.js",
               "tools/flow-inspector/workspace/target.js",
               "tools/flow-inspector/workspace/__tests__/workspace.test.cjs"

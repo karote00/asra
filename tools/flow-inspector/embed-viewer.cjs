@@ -7,6 +7,9 @@ const projectRoot = path.resolve(__dirname, '../..')
 const rendererSource = fs
   .readFileSync(path.join(__dirname, 'viewer.js'), 'utf8')
   .trimEnd()
+const viewerStylesSource = fs
+  .readFileSync(path.join(__dirname, 'viewer.css'), 'utf8')
+  .trimEnd()
 
 const bundleSandbox = { globalThis: {} }
 vm.runInNewContext(
@@ -27,18 +30,24 @@ const targetEntries =
     )
 
 const embeddedScript = `    <script data-flow-inspector-renderer>\n${rendererSource}\n    </script>`
+const embeddedStyles = `    <style data-flow-inspector-viewer-styles>\n${viewerStylesSource}\n    </style>`
 const externalRendererPattern =
   /[ ]{4}<script src=["'][^"']*tools\/flow-inspector\/viewer\.js["']><\/script>/
 const embeddedRendererPattern =
   /[ ]{4}<script data-flow-inspector-renderer>\n[\s\S]*?\n[ ]{4}<\/script>/
+const embeddedStylesPattern =
+  /[ ]{4}<style data-flow-inspector-viewer-styles>\n[\s\S]*?\n[ ]{4}<\/style>/
 
 for (const entryPath of targetEntries) {
   const html = fs.readFileSync(entryPath, 'utf8')
-  const nextHtml = externalRendererPattern.test(html)
+  const rendererHtml = externalRendererPattern.test(html)
     ? html.replace(externalRendererPattern, embeddedScript)
     : html.replace(embeddedRendererPattern, embeddedScript)
+  const nextHtml = embeddedStylesPattern.test(rendererHtml)
+    ? rendererHtml.replace(embeddedStylesPattern, embeddedStyles)
+    : rendererHtml.replace('</head>', `${embeddedStyles}\n  </head>`)
 
-  if (nextHtml === html && !html.includes(embeddedScript)) {
+  if (!nextHtml.includes(embeddedScript)) {
     throw new Error(`No Flow Inspector renderer slot found in ${entryPath}`)
   }
 

@@ -9,6 +9,8 @@ const { JSDOM, VirtualConsole } = require('jsdom')
 const projectRoot = path.resolve(__dirname, '../../..')
 const rendererPath = path.join(__dirname, '../viewer.js')
 const rendererSource = fs.readFileSync(rendererPath, 'utf8').trimEnd()
+const viewerStylesPath = path.join(__dirname, '../viewer.css')
+const viewerStylesSource = fs.readFileSync(viewerStylesPath, 'utf8').trimEnd()
 const workspaceBundlePath = path.join(
   projectRoot,
   'tools/flow-inspector/workspace/workspace-bundle.data.js'
@@ -316,8 +318,13 @@ test('every catalog standalone using the shared renderer is synchronized', () =>
     const embeddedRenderer = html.match(
       /<script data-flow-inspector-renderer>\n([\s\S]*?)\n[ ]{4}<\/script>/
     )
+    const embeddedStyles = html.match(
+      /<style data-flow-inspector-viewer-styles>\n([\s\S]*?)\n[ ]{4}<\/style>/
+    )
     assert.ok(embeddedRenderer, entry.id)
     assert.equal(embeddedRenderer[1], rendererSource, entry.id)
+    assert.ok(embeddedStyles, entry.id)
+    assert.equal(embeddedStyles[1], viewerStylesSource, entry.id)
   }
 })
 
@@ -524,6 +531,9 @@ for (const target of targets) {
     const embeddedRenderer = html.match(
       /<script data-flow-inspector-renderer>\n([\s\S]*?)\n[ ]{4}<\/script>/
     )
+    const embeddedStyles = html.match(
+      /<style data-flow-inspector-viewer-styles>\n([\s\S]*?)\n[ ]{4}<\/style>/
+    )
 
     assert.match(
       html,
@@ -542,6 +552,15 @@ for (const target of targets) {
       embeddedRenderer[1],
       rendererSource,
       'embedded renderer must exactly match tools/flow-inspector/viewer.js'
+    )
+    assert.ok(
+      embeddedStyles,
+      'shared viewer styles must be embedded in the entry'
+    )
+    assert.equal(
+      embeddedStyles[1],
+      viewerStylesSource,
+      'embedded styles must exactly match tools/flow-inspector/viewer.css'
     )
   })
 

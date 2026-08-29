@@ -20,6 +20,7 @@ const viewerSource = fs.readFileSync(
   'utf8'
 )
 const legacyViewerPath = path.join(workspaceRoot, 'legacy-viewer.js')
+const viewerStylesPath = path.resolve(workspaceRoot, '../viewer.css')
 
 const loadBundle = () => {
   const sandbox = { globalThis: {} }
@@ -118,6 +119,32 @@ test('workspace entry uses checked-in classic React assets', () => {
   )
 })
 
+test('v2 viewer owns a scrollable canvas with visible routes and bounded cards', () => {
+  assert.equal(fs.existsSync(viewerStylesPath), true)
+  const styles = fs.readFileSync(viewerStylesPath, 'utf8')
+
+  assert.match(
+    styles,
+    /\.flow-viewport\s*\{[^}]*overflow:\s*auto/s,
+    'the flow viewport must scroll on both axes'
+  )
+  assert.match(
+    styles,
+    /\.edge-path\s*\{[^}]*fill:\s*none[^}]*stroke:/s,
+    'routes must declare a visible stroke'
+  )
+  assert.match(
+    styles,
+    /\.step-card\s*\{[^}]*height:\s*var\(--card-h\)[^}]*overflow:\s*hidden/s,
+    'cards must use the same bounded height as layout geometry'
+  )
+  assert.match(
+    styles,
+    /\.step-summary\s*\{[^}]*-webkit-line-clamp:/s,
+    'summary text must not overflow its card'
+  )
+})
+
 test('target resolves one included entry only when query and hash match', () => {
   const entry = loadBundle().entries[0]
   const dom = createTarget(routeFor(entry.id))
@@ -191,6 +218,10 @@ test('every catalog entry renders through its declared renderer kind', () => {
         entry.id
       )
       assert.ok(document.querySelector('[data-flow-v2-shell]'), entry.id)
+      assert.ok(
+        document.querySelector('#flow')?.closest('.flow-viewport'),
+        `${entry.id} must render the flow inside the shared scroll viewport`
+      )
     } else {
       assert.equal(dom.window.FLOW_INSPECTOR_DATA, undefined, entry.id)
       assert.ok(document.querySelector('[data-compatibility-view]'), entry.id)

@@ -121,14 +121,22 @@
   const layout = {
     left: 28,
     top: 68,
-    cardW: 270,
-    cardH: 118,
-    gapX: 220,
-    gapY: 100
+    cardW: 290,
+    cardH: 168,
+    gapX: 180,
+    gapY: 84
   }
 
   let selectedId = steps[0]?.id ?? null
   let selectedLaneId = 'All'
+
+  const ensureFlowViewport = () => {
+    if (flow.parentElement?.classList.contains('flow-viewport')) return
+    const viewport = document.createElement('div')
+    viewport.className = 'flow-viewport'
+    flow.before(viewport)
+    viewport.appendChild(flow)
+  }
 
   const isVisible = (step) =>
     selectedLaneId === 'All' || step.laneId === selectedLaneId
@@ -601,6 +609,7 @@
   }
 
   runStaticChecks()
+  ensureFlowViewport()
   render()
   window.addEventListener('resize', () => {
     const svg = flow.querySelector('.flow-svg')

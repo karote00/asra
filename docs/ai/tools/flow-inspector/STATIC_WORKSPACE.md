@@ -23,7 +23,8 @@ health, execute commands, ingest test results, or decide CI acceptance.
   emitted under `tools/flow-inspector/workspace/generated/`.
 - `tools/flow-inspector/workspace/target.js` owns selected-target lookup and
   isolated target rendering.
-- `tools/flow-inspector/viewer.js` remains the only schema version 2 renderer.
+- `tools/flow-inspector/viewer.js` and `tools/flow-inspector/viewer.css` remain
+  the only shared schema version 2 renderer and presentation owners.
 - `tools/flow-inspector/workspace/legacy-viewer.js` may present pre-v2 or
   plan-specific Inspector data read-only. It must not normalize that data into
   schema version 2 or invent missing semantics.

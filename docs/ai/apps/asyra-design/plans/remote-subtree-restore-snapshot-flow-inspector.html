@@ -149,6 +149,401 @@
         display: none;
       }
     </style>
+      <style data-flow-inspector-viewer-styles>
+:root {
+  --panel-2: #1d2530;
+  --warn: #f6c85f;
+  --ok: #7bd88f;
+  --card-w: 290px;
+  --card-h: 168px;
+  --gap-x: 180px;
+  --gap-y: 84px;
+}
+
+.target-meta {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--line);
+  padding: 8px 18px;
+  color: var(--muted);
+  background: #0c1117;
+}
+
+.target-meta a,
+a {
+  color: var(--accent);
+}
+
+.app {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 30vw, 430px);
+  height: 100vh;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.target-meta + .app {
+  height: calc(100vh - 42px);
+}
+
+.main {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 24px;
+}
+
+.header {
+  display: flex;
+  flex: none;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+h1 {
+  margin: 0 0 6px;
+  font-size: 24px;
+}
+
+.subtitle,
+.detail-summary,
+.step-summary {
+  color: var(--muted);
+}
+
+.header-links,
+.filters {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.header-link,
+.filter-button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: var(--accent);
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.filter-button.is-active,
+.filter-button.active {
+  border-color: var(--accent);
+  background: #142638;
+}
+
+.guide-panel {
+  flex: none;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 14px;
+  background: var(--panel);
+}
+
+.guide-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.guide-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--panel-2);
+}
+
+.flow-viewport {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 360px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #0c1117;
+}
+
+.flow {
+  position: relative;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.lane-label {
+  position: absolute;
+  top: 22px;
+  z-index: 2;
+  width: var(--card-w);
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.flow-svg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.edge-path {
+  fill: none;
+  stroke: rgba(148, 163, 184, 0.56);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.edge-path.route-bypass {
+  stroke: rgba(246, 200, 95, 0.72);
+  stroke-dasharray: 8 7;
+}
+
+.edge-path.route-parallel,
+.edge-path.route-coexecute,
+.edge-path.route-fanout {
+  stroke: rgba(89, 183, 255, 0.68);
+}
+
+.edge-path.is-active {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+.step-card {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  width: var(--card-w);
+  height: var(--card-h);
+  min-height: var(--card-h);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  color: var(--text);
+  background: var(--panel);
+  text-align: left;
+  cursor: pointer;
+}
+
+.step-card:hover,
+.step-card:focus-visible,
+.step-card.is-selected,
+.step-card.selected {
+  border-color: var(--accent);
+}
+
+.step-kicker,
+.badge-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.step-kicker {
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.step-kicker > :last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.step-number {
+  flex: none;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.step-title {
+  display: -webkit-box;
+  margin-top: 8px;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.step-summary {
+  display: -webkit-box;
+  margin-top: 6px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.badge-row {
+  margin-top: auto;
+  overflow: hidden;
+}
+
+.badge {
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 7px;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge.truth {
+  color: var(--ok);
+}
+
+.detail {
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border-left: 1px solid var(--line);
+  padding: 24px;
+  background: #0f1720;
+}
+
+.detail-group {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.detail-heading h2 {
+  margin: 8px 0;
+}
+
+.detail-section {
+  margin-bottom: 16px;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--panel);
+}
+
+.detail-section h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.detail-section ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+code {
+  color: #dbeafe;
+}
+
+.compatibility-view {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 64px);
+}
+
+.compatibility-label {
+  color: var(--warn);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.compatibility-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.compatibility-card {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  background: var(--panel);
+}
+
+.compatibility-card h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.compatibility-card pre {
+  max-height: 360px;
+  overflow: auto;
+  color: #cbd5e1;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .target-meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .target-meta + .app,
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(620px, 72vh) auto;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .main {
+    min-height: 620px;
+    padding: 16px;
+  }
+
+  .flow-viewport {
+    min-height: 420px;
+  }
+
+  .detail {
+    height: auto;
+    max-height: none;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .guide-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+    </style>
   </head>
   <body>
     <div class="app">
@@ -312,14 +707,22 @@
   const layout = {
     left: 28,
     top: 68,
-    cardW: 270,
-    cardH: 118,
-    gapX: 220,
-    gapY: 100
+    cardW: 290,
+    cardH: 168,
+    gapX: 180,
+    gapY: 84
   }
 
   let selectedId = steps[0]?.id ?? null
   let selectedLaneId = 'All'
+
+  const ensureFlowViewport = () => {
+    if (flow.parentElement?.classList.contains('flow-viewport')) return
+    const viewport = document.createElement('div')
+    viewport.className = 'flow-viewport'
+    flow.before(viewport)
+    viewport.appendChild(flow)
+  }
 
   const isVisible = (step) =>
     selectedLaneId === 'All' || step.laneId === selectedLaneId
@@ -792,6 +1195,7 @@
   }
 
   runStaticChecks()
+  ensureFlowViewport()
   render()
   window.addEventListener('resize', () => {
     const svg = flow.querySelector('.flow-svg')
