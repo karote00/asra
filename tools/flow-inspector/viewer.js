@@ -51,6 +51,11 @@
   const flow = document.getElementById('flow')
   const detail = document.getElementById('detail')
   const filters = document.getElementById('filters')
+  const app = flow?.closest('.app')
+  const main = flow?.closest('.main')
+  const header = main?.querySelector('.header')
+  const guide = main?.querySelector('.guide-panel')
+  const targetMeta = document.querySelector('.target-meta')
   const title = document.getElementById('inspector-title')
   const subtitle = document.getElementById('inspector-subtitle')
   const headerLinks = document.getElementById('inspector-links')
@@ -60,6 +65,10 @@
     flow,
     detail,
     filters,
+    app,
+    main,
+    header,
+    guide,
     title,
     subtitle,
     headerLinks,
@@ -73,6 +82,10 @@
       `Flow Inspector shell is missing: ${missingElements.join(', ')}`
     )
   }
+
+  const detailContent = document.createElement('div')
+  detailContent.className = 'detail-content'
+  detail.appendChild(detailContent)
 
   const escapeHtml = (value) =>
     String(value)
@@ -119,7 +132,7 @@
   )
 
   const layout = {
-    left: 28,
+    left: 60,
     top: 68,
     cardW: 290,
     cardH: 168,
@@ -145,6 +158,128 @@
     viewport.appendChild(surface)
     surface.appendChild(flow)
     return viewport
+  }
+
+  const enablePanelControls = () => {
+    let catalogVisible = true
+    let headerVisible = true
+    let detailVisible = true
+    const headerPanel = header
+    const catalogToggle = document.createElement('button')
+    const headerClose = document.createElement('button')
+    const detailClose = document.createElement('button')
+    const headerOpen = document.createElement('button')
+    const detailOpen = document.createElement('button')
+    const isEmbedded = window.parent !== window
+    const panelRail = document.createElement('div')
+    catalogToggle.type = 'button'
+    catalogToggle.dataset.panelButton = 'catalog'
+    catalogToggle.setAttribute('aria-label', 'Catalog panel')
+    catalogToggle.textContent = '☰'
+    headerClose.className = 'panel-close-button'
+    headerClose.type = 'button'
+    headerClose.dataset.closeHeader = ''
+    headerClose.setAttribute('aria-label', 'Close Inspector header')
+    headerClose.textContent = '×'
+    detailClose.className = 'panel-close-button'
+    detailClose.type = 'button'
+    detailClose.dataset.closeDetails = ''
+    detailClose.setAttribute('aria-label', 'Close step details')
+    detailClose.textContent = '×'
+    headerOpen.type = 'button'
+    headerOpen.dataset.panelButton = 'header'
+    headerOpen.setAttribute('aria-label', 'Header panel')
+    headerOpen.title = 'Header panel is open'
+    headerOpen.textContent = '▤'
+    detailOpen.type = 'button'
+    detailOpen.dataset.panelButton = 'details'
+    detailOpen.setAttribute('aria-label', 'Details panel')
+    detailOpen.title = 'Details panel is open'
+    detailOpen.textContent = '◧'
+    headerPanel.prepend(headerClose)
+    detail.prepend(detailClose)
+    panelRail.className = 'panel-rail viewer-panel-rail'
+    panelRail.dataset.panelRail = ''
+    panelRail.setAttribute('role', 'toolbar')
+    panelRail.setAttribute('aria-label', 'Inspector panels')
+    panelRail.append(catalogToggle, headerOpen, detailOpen)
+    flow.closest('.flow-shell').appendChild(panelRail)
+
+    const notifyParent = (panel, visible) => {
+      if (!isEmbedded) return
+      window.parent.postMessage(
+        { type: 'flow-inspector:panel-visibility', panel, visible },
+        '*'
+      )
+    }
+
+    const renderVisibility = () => {
+      catalogToggle.disabled = !isEmbedded
+      catalogToggle.setAttribute('aria-pressed', String(catalogVisible))
+      if (!isEmbedded) {
+        catalogToggle.title = 'Catalog panel is available in the workspace'
+      } else {
+        catalogToggle.title = catalogVisible
+          ? 'Catalog panel is open'
+          : 'Open Catalog panel'
+      }
+      if (targetMeta) targetMeta.hidden = !headerVisible
+      header.hidden = !headerVisible
+      filters.hidden = !headerVisible
+      guide.hidden = !headerVisible
+      detail.hidden = !detailVisible
+      main.classList.toggle('is-header-collapsed', !headerVisible)
+      app.classList.toggle('is-detail-collapsed', !detailVisible)
+      headerOpen.setAttribute('aria-pressed', String(headerVisible))
+      headerOpen.title = headerVisible
+        ? 'Header panel is open'
+        : 'Open Header panel'
+      detailOpen.setAttribute('aria-pressed', String(detailVisible))
+      detailOpen.title = detailVisible
+        ? 'Details panel is open'
+        : 'Open Details panel'
+    }
+
+    headerClose.addEventListener('click', () => {
+      headerVisible = false
+      renderVisibility()
+      notifyParent('header', false)
+    })
+    catalogToggle.addEventListener('click', () => {
+      if (!isEmbedded) return
+      catalogVisible = !catalogVisible
+      renderVisibility()
+      notifyParent('catalog', catalogVisible)
+    })
+    detailClose.addEventListener('click', () => {
+      detailVisible = false
+      renderVisibility()
+      notifyParent('details', false)
+    })
+    headerOpen.addEventListener('click', () => {
+      headerVisible = !headerVisible
+      renderVisibility()
+      notifyParent('header', headerVisible)
+    })
+    detailOpen.addEventListener('click', () => {
+      detailVisible = !detailVisible
+      renderVisibility()
+      notifyParent('details', detailVisible)
+    })
+    window.addEventListener('message', (event) => {
+      const message = event.data
+      if (message?.type !== 'flow-inspector:set-panel-visibility') return
+      if (message.panel === 'catalog') catalogVisible = message.visible
+      else if (message.panel === 'header') headerVisible = message.visible
+      else if (message.panel === 'details') detailVisible = message.visible
+      else return
+      renderVisibility()
+      notifyParent(message.panel, message.visible)
+    })
+    renderVisibility()
+    notifyParent('catalog', catalogVisible)
+    notifyParent('header', headerVisible)
+    notifyParent('details', detailVisible)
   }
 
   const enableViewportZoom = (viewport) => {
@@ -416,11 +551,11 @@
   const renderDetail = () => {
     const selected = stepById.get(selectedId) ?? steps[0]
     if (!selected) {
-      detail.innerHTML = '<p>No steps are declared.</p>'
+      detailContent.innerHTML = '<p>No steps are declared.</p>'
       return
     }
     const lane = laneById.get(selected.laneId)
-    detail.innerHTML = `
+    detailContent.innerHTML = `
       <div class="detail-group">${escapeHtml(lane?.title ?? selected.laneId)}</div>
       <div class="detail-heading">
         <span class="step-number">Step ${escapeHtml(selected.order)}</span>
@@ -701,6 +836,7 @@
   const viewport = ensureFlowViewport()
   enableViewportZoom(viewport)
   render()
+  enablePanelControls()
   window.addEventListener('resize', () => {
     const svg = flow.querySelector('.flow-svg')
     if (svg) renderEdges(svg)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { parseWorkspaceRoute, targetHref, workspaceHash } from './routing'
 import type { InspectorGroup, WorkspaceBundle, WorkspaceEntry } from './types'
 
@@ -19,6 +19,10 @@ export function WorkspaceApp({ bundle, initialHash }: WorkspaceAppProps) {
     typeof window === 'undefined' ? '' : window.location.hash
   )
   const [query, setQuery] = useState('')
+  const [catalogVisible, setCatalogVisible] = useState(true)
+  const [headerVisible, setHeaderVisible] = useState(true)
+  const [detailsVisible, setDetailsVisible] = useState(true)
+  const targetFrameRef = useRef<HTMLIFrameElement>(null)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<InspectorGroup>>(
     new Set()
   )
@@ -34,6 +38,20 @@ export function WorkspaceApp({ bundle, initialHash }: WorkspaceAppProps) {
     window.addEventListener('hashchange', updateHash)
     return () => window.removeEventListener('hashchange', updateHash)
   }, [initialHash])
+
+  useEffect(() => {
+    const receivePanelVisibility = (event: MessageEvent) => {
+      const message = event.data
+      if (event.source !== targetFrameRef.current?.contentWindow) return
+      if (message?.type !== 'flow-inspector:panel-visibility') return
+      if (typeof message.visible !== 'boolean') return
+      if (message.panel === 'catalog') setCatalogVisible(message.visible)
+      if (message.panel === 'header') setHeaderVisible(message.visible)
+      if (message.panel === 'details') setDetailsVisible(message.visible)
+    }
+    window.addEventListener('message', receivePanelVisibility)
+    return () => window.removeEventListener('message', receivePanelVisibility)
+  }, [])
 
   const navigate = (id: string | null) => {
     window.location.hash = id ? workspaceHash(id) : ''
@@ -55,12 +73,45 @@ export function WorkspaceApp({ bundle, initialHash }: WorkspaceAppProps) {
     })
   }
 
+  const sendPanelVisibility = (
+    panel: 'catalog' | 'header' | 'details',
+    visible: boolean
+  ) => {
+    targetFrameRef.current?.contentWindow?.postMessage(
+      {
+        type: 'flow-inspector:set-panel-visibility',
+        panel,
+        visible
+      },
+      '*'
+    )
+  }
+
+  const syncTargetPanels = () => {
+    sendPanelVisibility('catalog', catalogVisible)
+    sendPanelVisibility('header', headerVisible)
+    sendPanelVisibility('details', detailsVisible)
+  }
+
   return (
-    <div className="workspace-shell">
-      <aside className="sidebar" aria-label="Inspector catalog">
+    <div
+      className={`workspace-shell${catalogVisible ? '' : ' is-catalog-collapsed'}`}
+    >
+      <aside
+        className="sidebar"
+        aria-label="Inspector catalog"
+        hidden={!catalogVisible}
+      >
+        <button
+          className="panel-close-button"
+          type="button"
+          aria-label="Close Inspector catalog"
+          onClick={() => setCatalogVisible(false)}
+        >
+          ×
+        </button>
         <div className="brand">
           <h1>Flow Inspector</h1>
-          <span>Static</span>
         </div>
         <button
           className="overview-link"
@@ -136,9 +187,11 @@ export function WorkspaceApp({ bundle, initialHash }: WorkspaceAppProps) {
         {route.kind === 'selected' && (
           <iframe
             className="target-frame"
+            ref={targetFrameRef}
             key={route.entry.id}
             src={targetHref(route.entry.id)}
             title="Selected Flow Inspector"
+            onLoad={syncTargetPanels}
           />
         )}
         {route.kind === 'error' && (

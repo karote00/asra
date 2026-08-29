@@ -93,6 +93,7 @@ describe('React workspace', () => {
       expect(screen.getByTestId(`group-${group}`)).toBeTruthy()
     }
     expect(document.body.textContent).not.toMatch(/runtime healthy/i)
+    expect(screen.queryByText('Static')).toBeNull()
   })
 
   it('filters catalog entries without changing the active route', () => {
@@ -128,5 +129,62 @@ describe('React workspace', () => {
     const finalFrame = screen.getByTitle('Selected Flow Inspector')
     expect(finalFrame).not.toBe(firstFrame)
     expect(finalFrame.getAttribute('src')).toBe(targetHref('framework-flow'))
+  })
+
+  it('toggles the catalog without changing or replacing the selected target', () => {
+    render(<WorkspaceApp bundle={bundle} initialHash="#inspector=app-flow" />)
+    const frame = screen.getByTitle('Selected Flow Inspector')
+    expect(
+      screen.queryByRole('toolbar', { name: 'Inspector panels' })
+    ).toBeNull()
+    const catalog = screen.getByRole('complementary', {
+      name: 'Inspector catalog'
+    })
+    const closeCatalog = within(catalog).getByRole('button', {
+      name: 'Close Inspector catalog'
+    })
+    expect(closeCatalog.textContent).toBe('×')
+    fireEvent.click(closeCatalog)
+    expect(
+      screen.queryByRole('complementary', { name: 'Inspector catalog' })
+    ).toBeNull()
+    expect(screen.getByTitle('Selected Flow Inspector')).toBe(frame)
+    fireEvent(
+      window,
+      new MessageEvent('message', {
+        source: (frame as HTMLIFrameElement).contentWindow,
+        data: {
+          type: 'flow-inspector:panel-visibility',
+          panel: 'catalog',
+          visible: true
+        }
+      })
+    )
+    expect(
+      screen.getByRole('complementary', { name: 'Inspector catalog' })
+    ).toBeTruthy()
+    expect(screen.getByTitle('Selected Flow Inspector')).toBe(frame)
+  })
+
+  it('accepts catalog toggle messages only from the selected target', () => {
+    render(<WorkspaceApp bundle={bundle} initialHash="#inspector=app-flow" />)
+    const frame = screen.getByTitle(
+      'Selected Flow Inspector'
+    ) as HTMLIFrameElement
+    fireEvent(
+      window,
+      new MessageEvent('message', {
+        source: frame.contentWindow,
+        data: {
+          type: 'flow-inspector:panel-visibility',
+          panel: 'catalog',
+          visible: false
+        }
+      })
+    )
+
+    expect(
+      screen.queryByRole('complementary', { name: 'Inspector catalog' })
+    ).toBeNull()
   })
 })

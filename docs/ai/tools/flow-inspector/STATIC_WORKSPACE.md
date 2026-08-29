@@ -103,6 +103,11 @@ JSON-safe serialization. Generator drift is a formal failure.
 - Framework, Apps, Release, and Tools groups;
 - sidebar search by title, id, subgroup, and labels;
 - collapsible groups;
+- independently toggleable catalog, v2 header, and v2 step-detail panels with
+  close controls in each panel's upper-right corner and three persistent 24 px
+  toggle controls positioned 12 px inside the scrollable and scalable flow
+  viewport's upper-left corner; the flow reserves safe space so those controls
+  never cover its content, and the controls do not move with scroll or scale;
 - mouse and keyboard-accessible Inspector selection;
 - trackpad pinch zoom from 20% through 250% inside the v2 flow viewport, with
   scale-matched scroll bounds, a visible reset control, and `Command+0`

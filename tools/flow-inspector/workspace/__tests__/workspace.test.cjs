@@ -21,6 +21,7 @@ const viewerSource = fs.readFileSync(
 )
 const legacyViewerPath = path.join(workspaceRoot, 'legacy-viewer.js')
 const viewerStylesPath = path.resolve(workspaceRoot, '../viewer.css')
+const workspaceStylesPath = path.resolve(workspaceRoot, '../src/workspace.css')
 
 const loadBundle = () => {
   const sandbox = { globalThis: {} }
@@ -145,6 +146,40 @@ test('v2 viewer owns a scrollable canvas with visible routes and bounded cards',
   )
 })
 
+test('panel controls float inside the main viewport with exact safe spacing', () => {
+  const workspaceStyles = fs.readFileSync(workspaceStylesPath, 'utf8')
+  const viewerStyles = fs.readFileSync(viewerStylesPath, 'utf8')
+
+  assert.doesNotMatch(workspaceStyles, /\.panel-rail/)
+  assert.match(
+    viewerStyles,
+    /\.panel-rail button\s*\{[^}]*width:\s*24px[^}]*height:\s*24px/s
+  )
+  assert.match(
+    viewerStyles,
+    /\.panel-rail\s*\{[^}]*position:\s*absolute[^}]*top:\s*12px[^}]*left:\s*12px/s
+  )
+  assert.match(viewerStyles, /--flow-controls-safe-left:\s*60px/)
+})
+
+test('absolute close controls do not reserve panel content space', () => {
+  const workspaceStyles = fs.readFileSync(workspaceStylesPath, 'utf8')
+  const viewerStyles = fs.readFileSync(viewerStylesPath, 'utf8')
+
+  assert.match(
+    workspaceStyles,
+    /\.sidebar\s+\.panel-close-button\s*\{[^}]*top:\s*20px/s
+  )
+  assert.doesNotMatch(workspaceStyles, /\.brand\s*\{[^}]*padding-right:/s)
+  assert.match(
+    viewerStyles,
+    /\.panel-close-button\s*\{[^}]*position:\s*absolute[^}]*top:\s*24px/s
+  )
+  assert.match(viewerStyles, /\.header \.panel-close-button\s*\{[^}]*top:\s*0/s)
+  assert.doesNotMatch(viewerStyles, /\.header\s*\{[^}]*padding-right:/s)
+  assert.match(viewerStyles, /\.detail\s*\{[^}]*padding:\s*24px/s)
+})
+
 test('v2 viewer supports trackpad pinch zoom and an exact scale reset', () => {
   const entry = loadBundle().entries.find(
     (candidate) => candidate.kind === 'flow-v2'
@@ -243,6 +278,71 @@ test('v2 viewer supports trackpad pinch zoom and an exact scale reset', () => {
   )
 })
 
+test('v2 viewer toggles header and step details without hiding the controls', () => {
+  const entry = loadBundle().entries.find(
+    (candidate) => candidate.kind === 'flow-v2'
+  )
+  const dom = createRenderedTarget(entry)
+  const { document } = dom.window
+  const app = document.querySelector('.app')
+  const main = document.querySelector('.main')
+  const targetMeta = document.querySelector('.target-meta')
+  const header = document.querySelector('.header')
+  const headerPanel = header
+  const filters = document.querySelector('.filters')
+  const guide = document.querySelector('.guide-panel')
+  const detail = document.querySelector('.detail')
+  const headerClose = headerPanel.querySelector('[data-close-header]')
+  const detailClose = detail.querySelector('[data-close-details]')
+
+  assert.ok(headerClose, 'header must own its close control')
+  assert.ok(detailClose, 'detail must own its close control')
+  assert.equal(headerClose.textContent, '×')
+  assert.equal(detailClose.textContent, '×')
+  assert.equal(targetMeta, null, 'workspace targets must not render a meta bar')
+  assert.equal(document.querySelector('[data-open-header]'), null)
+  assert.equal(document.querySelector('[data-open-details]'), null)
+
+  headerClose.click()
+  assert.equal(header.hidden, true)
+  assert.equal(filters.hidden, true)
+  assert.equal(guide.hidden, true)
+  assert.equal(main.classList.contains('is-header-collapsed'), true)
+  const panelRail = document.querySelector('[data-panel-rail]')
+  assert.equal(panelRail.parentElement.classList.contains('flow-shell'), true)
+  const catalogToggle = panelRail.querySelector('[data-panel-button="catalog"]')
+  const headerOpen = panelRail.querySelector('[data-panel-button="header"]')
+  const detailOpen = panelRail.querySelector('[data-panel-button="details"]')
+  assert.deepEqual(
+    [...panelRail.querySelectorAll('button')].map(
+      (button) => button.dataset.panelButton
+    ),
+    ['catalog', 'header', 'details']
+  )
+  assert.equal(catalogToggle.disabled, true)
+  assert.equal(headerOpen.disabled, false)
+  assert.equal(headerOpen.getAttribute('aria-pressed'), 'false')
+
+  detailClose.click()
+  assert.equal(detail.hidden, true)
+  assert.equal(app.classList.contains('is-detail-collapsed'), true)
+  assert.equal(detailOpen.disabled, false)
+  assert.equal(detailOpen.getAttribute('aria-pressed'), 'false')
+
+  headerOpen.click()
+  detailOpen.click()
+  assert.equal(header.hidden, false)
+  assert.equal(filters.hidden, false)
+  assert.equal(guide.hidden, false)
+  assert.equal(detail.hidden, false)
+  assert.equal(headerOpen.disabled, false)
+  assert.equal(detailOpen.disabled, false)
+  headerOpen.click()
+  detailOpen.click()
+  assert.equal(header.hidden, true)
+  assert.equal(detail.hidden, true)
+})
+
 test('target resolves one included entry only when query and hash match', () => {
   const entry = loadBundle().entries[0]
   const dom = createTarget(routeFor(entry.id))
@@ -332,24 +432,15 @@ test('every catalog entry renders through its declared renderer kind', () => {
   }
 })
 
-test('rendered target links to standalone entry only when one exists', () => {
+test('rendered targets omit redundant metadata and standalone navigation', () => {
   const bundle = loadBundle()
   const withStandalone = bundle.entries.find((entry) => entry.standalonePath)
   const withoutStandalone = bundle.entries.find(
     (entry) => !entry.standalonePath
   )
-  assert.match(
-    createRenderedTarget(withStandalone)
-      .window.document.querySelector('[data-standalone-link]')
-      .getAttribute('href'),
-    new RegExp(
-      withStandalone.standalonePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    )
-  )
-  assert.equal(
-    createRenderedTarget(withoutStandalone).window.document.querySelector(
-      '[data-standalone-link]'
-    ),
-    null
-  )
+  for (const entry of [withStandalone, withoutStandalone]) {
+    const document = createRenderedTarget(entry).window.document
+    assert.equal(document.querySelector('.target-meta'), null)
+    assert.equal(document.querySelector('[data-standalone-link]'), null)
+  }
 })

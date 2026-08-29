@@ -35,17 +35,10 @@
   const legacyRendererUrl = new URL('./legacy-viewer.js', workspaceUrl).href
   const sourceUrl = new URL(`../../../${entry.sourcePath}`, workspaceUrl)
   const sourceDirectoryUrl = new URL('./', sourceUrl)
-  const standaloneUrl = entry.standalonePath
-    ? new URL(`../../../${entry.standalonePath}`, workspaceUrl).href
-    : null
-
-  const meta = `<div class="target-meta"><span>${entry.group} · ${entry.subgroup} · ${entry.lifecycle}</span>${standaloneUrl ? `<a data-standalone-link href="${standaloneUrl}">Open standalone Inspector</a>` : ''}</div>`
-
   if (entry.kind === 'flow-v2') {
     globalThis.FLOW_INSPECTOR_DATA = entry.data
     targetRoot.dataset.flowV2Shell = ''
-    targetRoot.innerHTML = `${meta}
-      <div class="app">
+    targetRoot.innerHTML = `<div class="app">
         <main class="main">
           <div class="header"><div><h1 id="inspector-title">Flow Inspector</h1><p id="inspector-subtitle" class="subtitle">Loading target contract.</p><div id="inspector-links" class="header-links"></div></div></div>
           <div id="filters" class="filters"></div>
@@ -54,8 +47,6 @@
         </main>
         <aside id="detail" class="detail" aria-label="Step detail"></aside>
       </div>`
-  } else {
-    targetRoot.innerHTML = meta
   }
 
   const base = document.createElement('base')
