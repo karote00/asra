@@ -253,8 +253,8 @@ transport encoding, or an additional validation artifact.
 
 Retained architecture artifacts:
 
-- `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`
-- `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.html`
+- `tools/flow-inspector/inspectors/ai-conversational-drawing-performance-flow-inspector.data.cjs`
+- `tools/flow-inspector/inspectors/ai-conversational-drawing-performance-flow-inspector.html`
 
 The product cases have been realigned and are executable contract authority:
 

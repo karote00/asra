@@ -17,7 +17,7 @@ const specPath = path.join(
 )
 const inspectorPath = path.join(
   projectRoot,
-  'docs/ai/tools/flow-inspector/plans/flow-inspector-static-workspace-flow-inspector.data.cjs'
+  'tools/flow-inspector/inspectors/flow-inspector-static-workspace-flow-inspector.data.cjs'
 )
 
 const discoverCandidates = (root) =>
@@ -25,6 +25,22 @@ const discoverCandidates = (root) =>
     const entryPath = path.join(root, entry.name)
     if (entry.isDirectory()) return discoverCandidates(entryPath)
     return /-flow-inspector\.data\.(?:cjs|js)$/.test(entry.name)
+      ? [entryPath]
+      : []
+  })
+
+const legacyPlanRoots = [
+  path.join(projectRoot, 'docs/ai/framework/plans'),
+  path.join(projectRoot, 'docs/ai/apps/asyra-design/plans')
+]
+
+const discoverLegacyInspectorArtifacts = (root) =>
+  fs.readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = path.join(root, entry.name)
+    if (entry.isDirectory()) return discoverLegacyInspectorArtifacts(entryPath)
+    return /(?:flow-inspector\.data\.(?:cjs|js)|flow-inspector\.html|flow-inspector\.contract\.test\.cjs)$/.test(
+      entry.name
+    )
       ? [entryPath]
       : []
   })
@@ -116,11 +132,7 @@ test('generated catalog classifies every fixed-root candidate exactly once', () 
     id: 'flow-inspector-workspace-bundle',
     version: 1
   })
-  assert.deepEqual(catalog.discoveryRoots, [
-    'docs/ai/framework/plans',
-    'docs/ai/apps',
-    'docs/ai/tools'
-  ])
+  assert.deepEqual(catalog.discoveryRoots, ['tools/flow-inspector/inspectors'])
   assert.equal(Array.isArray(catalog.exclusions), true)
   assert.equal(
     new Set(catalog.exclusions.map((item) => item.path)).size,
@@ -153,4 +165,16 @@ test('generated catalog classifies every fixed-root candidate exactly once', () 
     assert.deepEqual(entry.data, JSON.parse(JSON.stringify(source)))
     if (entry.kind === 'flow-v2') assert.equal(entry.id, entry.data.target.id)
   }
+})
+
+test('Inspector artifacts and contract tests are tool-owned, not plan-owned', () => {
+  const legacyArtifacts = legacyPlanRoots.flatMap((root) =>
+    discoverLegacyInspectorArtifacts(root)
+  )
+  assert.deepEqual(
+    legacyArtifacts.map((artifact) =>
+      path.relative(projectRoot, artifact).split(path.sep).join('/')
+    ),
+    []
+  )
 })

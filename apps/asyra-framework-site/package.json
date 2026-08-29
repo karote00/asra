@@ -13,7 +13,7 @@
     "react:build": "yarn build:asyra-framework-site",
     "typecheck": "tsc --noEmit",
     "test": "yarn test:local",
-    "test:contracts": "node --test ../../docs/ai/framework/plans/__tests__/asyra-website-landing-flow-inspector.contract.test.cjs ../../docs/ai/framework/plans/__tests__/asyra-website-platform-flow-inspector.contract.test.cjs ../../docs/ai/framework/plans/__tests__/asyra-runtime-atlas-flow-inspector.contract.test.cjs",
+    "test:contracts": "node --test ../../tools/flow-inspector/inspectors/__tests__/asyra-website-landing-flow-inspector.contract.test.cjs ../../tools/flow-inspector/inspectors/__tests__/asyra-website-platform-flow-inspector.contract.test.cjs ../../tools/flow-inspector/inspectors/__tests__/asyra-runtime-atlas-flow-inspector.contract.test.cjs",
     "test:routes": "node scripts/route-smoke.mjs",
     "test:e2e": "playwright test --config playwright.config.ts",
     "test:production": "node scripts/production-smoke.mjs && playwright test --config playwright.config.ts",

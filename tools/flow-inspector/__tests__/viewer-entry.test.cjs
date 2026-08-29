@@ -122,7 +122,7 @@ const targets = [
     id: 'design-app-ai-conversational-drawing-performance',
     entryPath: path.join(
       projectRoot,
-      'docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.html'
+      'tools/flow-inspector/inspectors/ai-conversational-drawing-performance-flow-inspector.html'
     ),
     dataScript:
       './ai-conversational-drawing-performance-flow-inspector.data.cjs',
@@ -132,7 +132,7 @@ const targets = [
     id: 'design-app-group-context-menu',
     entryPath: path.join(
       projectRoot,
-      'docs/ai/apps/asyra-design/plans/group-context-menu-flow-inspector.html'
+      'tools/flow-inspector/inspectors/group-context-menu-flow-inspector.html'
     ),
     dataScript: './group-context-menu-flow-inspector.data.cjs',
     filterLaneTitle: 'App Menu and Command Policy'
@@ -141,7 +141,7 @@ const targets = [
     id: 'vector-local-geometry-transform',
     entryPath: path.join(
       projectRoot,
-      'docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-flow-inspector.html'
+      'tools/flow-inspector/inspectors/vector-local-geometry-transform-flow-inspector.html'
     ),
     dataScript: './vector-local-geometry-transform-flow-inspector.data.cjs',
     filterLaneTitle: 'Retained Render Geometry'
@@ -150,7 +150,7 @@ const targets = [
     id: 'design-app-remote-subtree-restore-snapshot',
     entryPath: path.join(
       projectRoot,
-      'docs/ai/apps/asyra-design/plans/remote-subtree-restore-snapshot-flow-inspector.html'
+      'tools/flow-inspector/inspectors/remote-subtree-restore-snapshot-flow-inspector.html'
     ),
     dataScript: './remote-subtree-restore-snapshot-flow-inspector.data.cjs',
     filterLaneTitle: 'Canonical Owner Restore'
@@ -159,7 +159,7 @@ const targets = [
     id: 'design-app-group-interaction-mvp',
     entryPath: path.join(
       projectRoot,
-      'docs/ai/apps/asyra-design/plans/group-interaction-mvp-flow-inspector.html'
+      'tools/flow-inspector/inspectors/group-interaction-mvp-flow-inspector.html'
     ),
     dataScript: './group-interaction-mvp-flow-inspector.data.cjs',
     filterLaneTitle: 'Layers Interaction and Projection'
@@ -168,16 +168,16 @@ const targets = [
     id: 'stroke-engine',
     entryPath: path.join(
       projectRoot,
-      'docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.html'
+      'tools/flow-inspector/inspectors/stroke-flow-inspector.html'
     ),
-    dataScript: './stroke-flow-inspector.data.js',
+    dataScript: './stroke-flow-inspector.data.cjs',
     filterLaneTitle: 'Integration'
   },
   {
     id: 'transaction-atomicity',
     entryPath: path.join(
       projectRoot,
-      'docs/ai/framework/plans/transaction-flow-inspector.html'
+      'tools/flow-inspector/inspectors/transaction-flow-inspector.html'
     ),
     dataScript: './transaction-flow-inspector.data.cjs',
     filterLaneTitle: 'Factory State'
@@ -186,7 +186,7 @@ const targets = [
     id: 'canonical-projection-and-collaboration-contract-realignment',
     entryPath: path.join(
       projectRoot,
-      'docs/ai/framework/plans/canonical-projection-and-collaboration-contract-flow-inspector.html'
+      'tools/flow-inspector/inspectors/canonical-projection-and-collaboration-contract-flow-inspector.html'
     ),
     dataScript:
       './canonical-projection-and-collaboration-contract-flow-inspector.data.cjs',
@@ -196,7 +196,7 @@ const targets = [
     id: 'render-engine-boundary',
     entryPath: path.join(
       projectRoot,
-      'docs/ai/framework/plans/render-engine-boundary-flow-inspector.html'
+      'tools/flow-inspector/inspectors/render-engine-boundary-flow-inspector.html'
     ),
     dataScript: './render-engine-boundary-flow-inspector.data.cjs',
     filterLaneTitle: 'Render Adapter'
@@ -205,7 +205,7 @@ const targets = [
     id: 'canvas-pipeline-debugger',
     entryPath: path.join(
       projectRoot,
-      'docs/ai/framework/plans/canvas-pipeline-debugger-flow-inspector.html'
+      'tools/flow-inspector/inspectors/canvas-pipeline-debugger-flow-inspector.html'
     ),
     dataScript: './canvas-pipeline-debugger-flow-inspector.data.cjs',
     filterLaneTitle: 'Diagnostic Projection'
@@ -214,7 +214,7 @@ const targets = [
     id: 'property-type-redefinition',
     entryPath: path.join(
       projectRoot,
-      'docs/ai/framework/plans/property-type-redefinition-flow-inspector.html'
+      'tools/flow-inspector/inspectors/property-type-redefinition-flow-inspector.html'
     ),
     dataScript: './property-type-redefinition-flow-inspector.data.cjs',
     filterLaneTitle: 'Property Runtime'
@@ -223,7 +223,7 @@ const targets = [
     id: 'ai-agent-runtime',
     entryPath: path.join(
       projectRoot,
-      'docs/ai/framework/plans/ai-agent-runtime-flow-inspector.html'
+      'tools/flow-inspector/inspectors/ai-agent-runtime-flow-inspector.html'
     ),
     dataScript: './ai-agent-runtime-flow-inspector.data.cjs',
     filterLaneTitle: 'Complete Plan Preflight'
@@ -232,7 +232,7 @@ const targets = [
     id: 'group-component-and-hierarchy',
     entryPath: path.join(
       projectRoot,
-      'docs/ai/framework/plans/group-component-and-hierarchy-flow-inspector.html'
+      'tools/flow-inspector/inspectors/group-component-and-hierarchy-flow-inspector.html'
     ),
     dataScript: './group-component-and-hierarchy-flow-inspector.data.cjs',
     filterLaneTitle: 'App Intent and Remote Policy'
@@ -241,7 +241,7 @@ const targets = [
     id: 'framework-release-readiness',
     entryPath: path.join(
       projectRoot,
-      'docs/ai/framework/plans/framework-release-readiness-flow-inspector.html'
+      'tools/flow-inspector/inspectors/framework-release-readiness-flow-inspector.html'
     ),
     dataScript: './framework-release-readiness-flow-inspector.data.cjs',
     filterLaneTitle: 'Package Artifacts'
@@ -250,7 +250,7 @@ const targets = [
     id: 'framework-package-release-0-5-0',
     entryPath: path.join(
       projectRoot,
-      'docs/ai/framework/plans/framework-package-release-flow-inspector.html'
+      'tools/flow-inspector/inspectors/framework-package-release-flow-inspector.html'
     ),
     dataScript: './framework-package-release-flow-inspector.data.cjs',
     filterLaneTitle: 'Public Registry Release'
@@ -259,7 +259,7 @@ const targets = [
     id: 'node-24-runtime-upgrade',
     entryPath: path.join(
       projectRoot,
-      'docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.html'
+      'tools/flow-inspector/inspectors/node-24-runtime-upgrade-flow-inspector.html'
     ),
     dataScript: './node-24-runtime-upgrade-flow-inspector.data.cjs',
     filterLaneTitle: 'Runtime Contract'
@@ -268,7 +268,7 @@ const targets = [
     id: 'flow-inspector-static-workspace',
     entryPath: path.join(
       projectRoot,
-      'docs/ai/tools/flow-inspector/plans/flow-inspector-static-workspace-flow-inspector.html'
+      'tools/flow-inspector/inspectors/flow-inspector-static-workspace-flow-inspector.html'
     ),
     dataScript: './flow-inspector-static-workspace-flow-inspector.data.cjs',
     filterLaneTitle: 'Workspace Navigation'

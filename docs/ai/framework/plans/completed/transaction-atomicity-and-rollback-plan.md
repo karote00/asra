@@ -19,7 +19,7 @@ Flow Inspector; Yjs network collaboration remains a separate deferred plan.
   passed, and the Atomicity, Consistency, Isolation, and Durability regression
   suites pass on the merged implementation.
 - Canonical executable architecture contract:
-  `docs/ai/framework/plans/transaction-flow-inspector.data.cjs`.
+  `tools/flow-inspector/inspectors/transaction-flow-inspector.data.cjs`.
 
 ## Context
 

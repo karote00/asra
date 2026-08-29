@@ -8,7 +8,7 @@ import {
 } from './public-documentation-inputs.mjs'
 
 const require = createRequire(import.meta.url)
-const inspector = require('../../docs/ai/framework/plans/asyra-public-package-documentation-flow-inspector.data.cjs')
+const inspector = require('../../tools/flow-inspector/inspectors/asyra-public-package-documentation-flow-inspector.data.cjs')
 
 export const PUBLIC_CONTENT_MANIFEST_PATH = 'docs/public/content-manifest.json'
 export const PUBLIC_CONTENT_SCHEMA_PATH =

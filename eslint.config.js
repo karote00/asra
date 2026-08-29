@@ -96,5 +96,14 @@ export default tseslint.config(
         module: 'readonly'
       }
     }
+  },
+  {
+    files: ['tools/flow-inspector/inspectors/**/*.cjs'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+      'no-redeclare': 'off',
+      'no-useless-escape': 'off',
+      'prettier/prettier': 'off'
+    }
   }
 )

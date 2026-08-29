@@ -61,7 +61,7 @@ const REQUIRED_DOCUMENT_TOKENS = Object.freeze({
 const COMPLETED_READINESS_PLAN =
   'docs/ai/framework/plans/completed/framework-release-readiness-and-closeout-plan.md'
 const READINESS_INSPECTOR =
-  'docs/ai/framework/plans/framework-release-readiness-flow-inspector.data.cjs'
+  'tools/flow-inspector/inspectors/framework-release-readiness-flow-inspector.data.cjs'
 
 const readJson = (filePath) => JSON.parse(fs.readFileSync(filePath, 'utf8'))
 

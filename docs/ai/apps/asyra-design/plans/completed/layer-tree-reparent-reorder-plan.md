@@ -21,9 +21,9 @@ product review, and explicit user closeout authorization.
 
 Architecture authority:
 
-- `docs/ai/apps/asyra-design/plans/layer-tree-reparent-reorder-flow-inspector.data.cjs`
-- `docs/ai/apps/asyra-design/plans/layer-tree-reparent-reorder-flow-inspector.html`
-- `docs/ai/apps/asyra-design/plans/__tests__/layer-tree-reparent-reorder-flow-inspector.contract.test.cjs`
+- `tools/flow-inspector/inspectors/layer-tree-reparent-reorder-flow-inspector.data.cjs`
+- `tools/flow-inspector/inspectors/layer-tree-reparent-reorder-flow-inspector.html`
+- `tools/flow-inspector/inspectors/__tests__/layer-tree-reparent-reorder-flow-inspector.contract.test.cjs`
 
 ## Goal
 

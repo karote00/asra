@@ -11,7 +11,7 @@ at deterministic, engine-neutral pre-handoff evidence and does not claim pixel,
 hit-test, concrete-engine, or product-data authority.
 
 The exact owner flow remains defined by
-`docs/ai/framework/plans/canvas-pipeline-debugger-flow-inspector.data.cjs`.
+`tools/flow-inspector/inspectors/canvas-pipeline-debugger-flow-inspector.data.cjs`.
 
 ## Completion Record
 
@@ -32,7 +32,7 @@ The exact owner flow remains defined by
   confirmed an observed focused projection and readable debugger-only overlay
   with no retained fault.
 - Canonical executable architecture contract:
-  `docs/ai/framework/plans/canvas-pipeline-debugger-flow-inspector.data.cjs`.
+  `tools/flow-inspector/inspectors/canvas-pipeline-debugger-flow-inspector.data.cjs`.
 
 ## Product Contract
 
@@ -183,11 +183,11 @@ existing render-engine boundary.
 ## Inspector Authority
 
 - Inspector data:
-  `docs/ai/framework/plans/canvas-pipeline-debugger-flow-inspector.data.cjs`
+  `tools/flow-inspector/inspectors/canvas-pipeline-debugger-flow-inspector.data.cjs`
 - Direct-open Inspector:
-  `docs/ai/framework/plans/canvas-pipeline-debugger-flow-inspector.html`
+  `tools/flow-inspector/inspectors/canvas-pipeline-debugger-flow-inspector.html`
 - Contract gate:
-  `docs/ai/framework/plans/__tests__/canvas-pipeline-debugger-flow-inspector.contract.test.cjs`
+  `tools/flow-inspector/inspectors/__tests__/canvas-pipeline-debugger-flow-inspector.contract.test.cjs`
 
 The product contract owns runtime behavior and public semantics. The Inspector
 owns package and data-flow boundaries. Tests own executable evidence.

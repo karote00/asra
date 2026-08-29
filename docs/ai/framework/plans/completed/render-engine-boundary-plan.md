@@ -27,7 +27,7 @@ mode selection.
   Inspector, app, lint, build, and interaction validation passed; framework
   architecture docs contain the implemented package diagram.
 - Canonical executable architecture contract:
-  `docs/ai/framework/plans/render-engine-boundary-flow-inspector.data.cjs`.
+  `tools/flow-inspector/inspectors/render-engine-boundary-flow-inspector.data.cjs`.
 
 ## Goal
 
@@ -176,11 +176,11 @@ The concrete engine must never call product features directly.
 The exact package and data-flow contract for this plan is:
 
 - Inspector data:
-  `docs/ai/framework/plans/render-engine-boundary-flow-inspector.data.cjs`;
+  `tools/flow-inspector/inspectors/render-engine-boundary-flow-inspector.data.cjs`;
 - direct-open viewer:
-  `docs/ai/framework/plans/render-engine-boundary-flow-inspector.html`;
+  `tools/flow-inspector/inspectors/render-engine-boundary-flow-inspector.html`;
 - target semantic gate:
-  `docs/ai/framework/plans/__tests__/render-engine-boundary-flow-inspector.contract.test.cjs`.
+  `tools/flow-inspector/inspectors/__tests__/render-engine-boundary-flow-inspector.contract.test.cjs`.
 
 This plan remains the product and public-boundary authority. The Inspector maps
 engine selection, Core startup, render adaptation, concrete execution,

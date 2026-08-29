@@ -6304,7 +6304,7 @@ join` constrained dashed product path across: - shape-generated `rect` - closed 
   - Keep current stroke rules only in:
     `docs/ai/apps/asyra-design/PLANS.md`,
     `docs/ai/apps/asyra-design/plans/stroke-engine-final/README.md`, and
-    `docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.data.js`.
+    `tools/flow-inspector/inspectors/stroke-flow-inspector.data.cjs`.
   - Keep `stroke-flow-inspector.html` only as a non-authoritative viewer shell.
   - Record wrong decisions only in decision history. Do not preserve wrong
     specification files as tombstones, completed copies, reports, or BDD
@@ -7397,7 +7397,7 @@ join` constrained dashed product path across: - shape-generated `rect` - closed 
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/completed/group-interaction-mvp-plan.md`
 - Related Inspector:
-  - `docs/ai/apps/asyra-design/plans/group-interaction-mvp-flow-inspector.data.cjs`
+  - `tools/flow-inspector/inspectors/group-interaction-mvp-flow-inspector.data.cjs`
 - Related Commit(s):
   - pending
 
@@ -7455,7 +7455,7 @@ join` constrained dashed product path across: - shape-generated `rect` - closed 
 - Related Completed Plan:
   - `docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md`
 - Related Inspector:
-  - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`
+  - `tools/flow-inspector/inspectors/ai-conversational-drawing-performance-flow-inspector.data.cjs`
 - Related Specification:
   - `docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md`
 - Related Commit(s):
@@ -7500,8 +7500,8 @@ join` constrained dashed product path across: - shape-generated `rect` - closed 
 - Related Specification:
   - `docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md`
 - Related Inspectors:
-  - `docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs`
-  - `docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-flow-inspector.data.cjs`
+  - `tools/flow-inspector/inspectors/ai-conversational-drawing-performance-flow-inspector.data.cjs`
+  - `tools/flow-inspector/inspectors/socket-authoritative-document-persistence-flow-inspector.data.cjs`
 - Related Commit(s):
   - `4fa0d09a5` (`fix: realign 7076 trusted collaboration flow`)
 
@@ -7571,4 +7571,4 @@ join` constrained dashed product path across: - shape-generated `rect` - closed 
 - Related Specification:
   - `docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md`
 - Related Inspector:
-  - `docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-flow-inspector.data.cjs`
+  - `tools/flow-inspector/inspectors/socket-authoritative-document-persistence-flow-inspector.data.cjs`

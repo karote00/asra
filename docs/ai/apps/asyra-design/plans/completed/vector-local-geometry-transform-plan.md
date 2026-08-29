@@ -12,7 +12,7 @@ and dismissible status-toast lifecycle are the maintained product gates.
 Canonical record:
 `docs/ai/apps/asyra-design/plans/completed/vector-local-geometry-transform-plan.md`.
 Retained architecture authority:
-`docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-flow-inspector.data.cjs`.
+`tools/flow-inspector/inspectors/vector-local-geometry-transform-flow-inspector.data.cjs`.
 
 Exit criteria passed on 2026-08-03: both Inspector contract suites, Factory,
 PropsManager, focused App interaction/toast tests, canvas-drag Undo E2E,
@@ -24,10 +24,10 @@ Semantic and execution authority:
 - `docs/ai/apps/asyra-design/plans/completed/vector-local-geometry-transform-plan.md`
   owns the thin product contract, product cases, bounded execution slices, and
   definition of done;
-- `docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-flow-inspector.data.cjs`
+- `tools/flow-inspector/inspectors/vector-local-geometry-transform-flow-inspector.data.cjs`
   owns the exact owner, route, artifact, contributor, cache, failure, and
   implementation-boundary contract;
-- `docs/ai/framework/plans/render-delta-update-flow-inspector.data.cjs`
+- `tools/flow-inspector/inspectors/render-delta-update-flow-inspector.data.cjs`
   continues to own the shared Render delta route.
 
 ## Problem

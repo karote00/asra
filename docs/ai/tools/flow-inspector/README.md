@@ -25,6 +25,11 @@ The tool may inspect Framework and App contracts, but neither Framework nor an
 App may depend on the tool at runtime. Tool publication and versioning remain
 independent from Framework package Changesets and publication.
 
+All Inspector data, standalone HTML, and Inspector contract tests are owned by
+`tools/flow-inspector/inspectors/`. Framework and App documentation remains the
+semantic authority referenced by those artifacts; their `plans/` directories
+do not store Inspector implementation artifacts.
+
 ## Documentation Structure
 
 - `FLOW_INSPECTOR.md` - current static Inspector contract.

@@ -30,9 +30,9 @@ export const FRAMEWORK_RELEASE_PREREQUISITES = Object.freeze([
     planPath:
       'docs/ai/framework/plans/completed/props-manager-app-level-migration-plan.md',
     inspectorPath:
-      'docs/ai/framework/plans/app-level-migration-flow-inspector.data.cjs',
+      'tools/flow-inspector/inspectors/app-level-migration-flow-inspector.data.cjs',
     contractTestPath:
-      'docs/ai/framework/plans/__tests__/app-level-migration-flow-inspector.contract.test.cjs',
+      'tools/flow-inspector/inspectors/__tests__/app-level-migration-flow-inspector.contract.test.cjs',
     completedPattern:
       /Status: completed on July 19, 2026; Framework Release Gate 1 closeout/,
     decisionPattern:
@@ -43,9 +43,9 @@ export const FRAMEWORK_RELEASE_PREREQUISITES = Object.freeze([
     planPath:
       'docs/ai/framework/plans/completed/network-collaboration-transport-plan.md',
     inspectorPath:
-      'docs/ai/framework/plans/network-collaboration-transport-flow-inspector.data.cjs',
+      'tools/flow-inspector/inspectors/network-collaboration-transport-flow-inspector.data.cjs',
     contractTestPath:
-      'docs/ai/framework/plans/__tests__/network-collaboration-transport-flow-inspector.contract.test.cjs',
+      'tools/flow-inspector/inspectors/__tests__/network-collaboration-transport-flow-inspector.contract.test.cjs',
     completedPattern: /Completed and approved for closeout on 2026-07-23/,
     decisionPattern:
       /## 2026-07-23 - Close network collaboration transport Release Gate 2/
@@ -55,9 +55,9 @@ export const FRAMEWORK_RELEASE_PREREQUISITES = Object.freeze([
     planPath:
       'docs/ai/framework/plans/completed/group-component-and-hierarchy-behaviors-plan.md',
     inspectorPath:
-      'docs/ai/framework/plans/group-component-and-hierarchy-flow-inspector.data.cjs',
+      'tools/flow-inspector/inspectors/group-component-and-hierarchy-flow-inspector.data.cjs',
     contractTestPath:
-      'docs/ai/framework/plans/__tests__/group-component-and-hierarchy-flow-inspector.contract.test.cjs',
+      'tools/flow-inspector/inspectors/__tests__/group-component-and-hierarchy-flow-inspector.contract.test.cjs',
     completedPattern:
       /Framework Release Gate 3 completed and approved for closeout on 2026-07-24/,
     decisionPattern:
@@ -67,9 +67,9 @@ export const FRAMEWORK_RELEASE_PREREQUISITES = Object.freeze([
     gate: 4,
     planPath: 'docs/ai/framework/plans/completed/ai-agent-runtime-plan.md',
     inspectorPath:
-      'docs/ai/framework/plans/ai-agent-runtime-flow-inspector.data.cjs',
+      'tools/flow-inspector/inspectors/ai-agent-runtime-flow-inspector.data.cjs',
     contractTestPath:
-      'docs/ai/framework/plans/__tests__/ai-agent-runtime-flow-inspector.contract.test.cjs',
+      'tools/flow-inspector/inspectors/__tests__/ai-agent-runtime-flow-inspector.contract.test.cjs',
     completedPattern: /Framework Release Gate 4 was completed on 2026-07-25/,
     decisionPattern:
       /## 2026-07-25 - Close optional AI Agent Runtime Release Gate 4/
