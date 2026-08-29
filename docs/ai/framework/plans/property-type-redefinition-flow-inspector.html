@@ -540,8 +540,8 @@ h1 {
   white-space: nowrap;
 }
 
-.badge.truth {
-  color: var(--ok);
+.badge.owner {
+  color: #8fc7e8;
 }
 
 .detail {
@@ -567,8 +567,26 @@ h1 {
   margin: 8px 0;
 }
 
+.detail-summary {
+  margin: 0 0 24px;
+}
+
+.detail-category {
+  margin-top: 24px;
+  border-top: 2px solid #34465d;
+  padding-top: 16px;
+}
+
+.detail-category-title {
+  margin: 0 0 14px;
+  color: #b9d9ed;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
 .detail-section {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   overflow-wrap: anywhere;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -580,6 +598,40 @@ h1 {
   margin: 0 0 8px;
   font-size: 12px;
   text-transform: uppercase;
+}
+
+.full-contract {
+  margin-top: 24px;
+  border: 1px solid #3a506a;
+  border-radius: 12px;
+  background: #111923;
+}
+
+.full-contract > summary {
+  display: grid;
+  gap: 3px;
+  padding: 14px 16px;
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 700;
+  list-style-position: inside;
+}
+
+.full-contract > summary small {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.full-contract[open] > summary {
+  border-bottom: 1px solid #3a506a;
+}
+
+.full-contract > .detail-category {
+  margin: 20px 16px 0;
+}
+
+.full-contract > .detail-category:last-child {
+  padding-bottom: 4px;
 }
 
 .detail-section ul {
@@ -821,7 +873,7 @@ code {
   const section = (heading, items, className = '') => {
     const values = items && items.length ? items : ['None']
     return `
-      <section class="detail-section ${className}">
+      <section class="detail-section ${className}" data-detail-section="${escapeHtml(heading)}">
         <h3>${escapeHtml(heading)}</h3>
         <ul>${values.map((item) => `<li>${formatItem(item)}</li>`).join('')}</ul>
       </section>`
@@ -1272,24 +1324,42 @@ code {
         <h2>${escapeHtml(selected.title)}</h2>
       </div>
       <p class="detail-summary">${escapeHtml(selected.purpose)}</p>
-      ${section('Target links', links, 'rule-box')}
-      ${section('Owner package', [selected.ownerPackage], 'alignment-box')}
-      ${section('Inputs', selected.inputs)}
-      ${section('Outputs', selected.outputs)}
-      ${section('Conditions', selected.conditions, 'trace-box')}
-      ${section('Bypasses', selected.bypasses, 'trace-box')}
-      ${section('Allowed contributors', selected.allowedContributors, 'evidence-box')}
-      ${section('Forbidden contributors', selected.forbiddenContributors, 'risk-box')}
-      ${section('Cache dimensions', selected.cacheDimensions, 'trace-box')}
-      ${section('Implementation boundary', selected.implementationBoundary)}
-      ${section('Spec references', selected.specRefs, 'rule-box')}
-      ${section('Failure owner step', [selected.failureOwnerStepId], 'risk-box')}
-      ${section('Incoming routes', routesForStep(selected.id, 'to'), 'trace-box')}
-      ${section('Outgoing routes', routesForStep(selected.id, 'from'), 'trace-box')}
-      ${section('Owned artifacts', artifactsOwnedBy(selected.id), 'trace-box')}
-      ${section('Consumed artifacts', artifactsConsumedBy(selected.id), 'trace-box')}
-      ${section('Invariants', invariantsForStep(selected.id), 'evidence-box')}
-      ${section('Acceptance contracts', acceptanceForStep(selected.id), 'test-box')}`
+      <section class="detail-category detail-at-a-glance">
+        <h3 class="detail-category-title">At a glance</h3>
+        ${section('Owner package', [selected.ownerPackage], 'alignment-box')}
+        ${section('Inputs', selected.inputs)}
+        ${section('Outputs', selected.outputs)}
+        ${section('Failure owner step', [selected.failureOwnerStepId], 'risk-box')}
+        ${section('Spec references', selected.specRefs, 'rule-box')}
+        ${section('Target links', links, 'rule-box')}
+      </section>
+      <details class="full-contract" data-full-contract>
+        <summary>
+          <span>Full contract</span>
+          <small>Execution rules, boundaries, routes, and verification</small>
+        </summary>
+        <section class="detail-category">
+          <h3 class="detail-category-title">Execution rules</h3>
+          ${section('Conditions', selected.conditions, 'trace-box')}
+          ${section('Bypasses', selected.bypasses, 'trace-box')}
+          ${section('Cache dimensions', selected.cacheDimensions, 'trace-box')}
+          ${section('Implementation boundary', selected.implementationBoundary)}
+        </section>
+        <section class="detail-category">
+          <h3 class="detail-category-title">Ownership boundaries</h3>
+          ${section('Allowed contributors', selected.allowedContributors, 'evidence-box')}
+          ${section('Forbidden contributors', selected.forbiddenContributors, 'risk-box')}
+        </section>
+        <section class="detail-category">
+          <h3 class="detail-category-title">Related contract data</h3>
+          ${section('Incoming routes', routesForStep(selected.id, 'to'), 'trace-box')}
+          ${section('Outgoing routes', routesForStep(selected.id, 'from'), 'trace-box')}
+          ${section('Owned artifacts', artifactsOwnedBy(selected.id), 'trace-box')}
+          ${section('Consumed artifacts', artifactsConsumedBy(selected.id), 'trace-box')}
+          ${section('Invariants', invariantsForStep(selected.id), 'evidence-box')}
+          ${section('Acceptance contracts', acceptanceForStep(selected.id), 'test-box')}
+        </section>
+      </details>`
   }
 
   const renderFlow = () => {
@@ -1348,7 +1418,7 @@ code {
         <div class="step-title">${escapeHtml(step.title)}</div>
         <div class="step-summary">${escapeHtml(step.purpose)}</div>
         <div class="badge-row">
-          <span class="badge truth">${escapeHtml(step.ownerPackage)}</span>
+          <span class="badge owner">Owner: ${escapeHtml(step.ownerPackage)}</span>
           ${tags
             .slice(0, 2)
             .map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`)

@@ -382,8 +382,8 @@ h1 {
   white-space: nowrap;
 }
 
-.badge.truth {
-  color: var(--ok);
+.badge.owner {
+  color: #8fc7e8;
 }
 
 .detail {
@@ -409,8 +409,26 @@ h1 {
   margin: 8px 0;
 }
 
+.detail-summary {
+  margin: 0 0 24px;
+}
+
+.detail-category {
+  margin-top: 24px;
+  border-top: 2px solid #34465d;
+  padding-top: 16px;
+}
+
+.detail-category-title {
+  margin: 0 0 14px;
+  color: #b9d9ed;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
 .detail-section {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   overflow-wrap: anywhere;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -422,6 +440,40 @@ h1 {
   margin: 0 0 8px;
   font-size: 12px;
   text-transform: uppercase;
+}
+
+.full-contract {
+  margin-top: 24px;
+  border: 1px solid #3a506a;
+  border-radius: 12px;
+  background: #111923;
+}
+
+.full-contract > summary {
+  display: grid;
+  gap: 3px;
+  padding: 14px 16px;
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 700;
+  list-style-position: inside;
+}
+
+.full-contract > summary small {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.full-contract[open] > summary {
+  border-bottom: 1px solid #3a506a;
+}
+
+.full-contract > .detail-category {
+  margin: 20px 16px 0;
+}
+
+.full-contract > .detail-category:last-child {
+  padding-bottom: 4px;
 }
 
 .detail-section ul {

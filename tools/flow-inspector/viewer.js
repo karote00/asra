@@ -111,7 +111,7 @@
   const section = (heading, items, className = '') => {
     const values = items && items.length ? items : ['None']
     return `
-      <section class="detail-section ${className}">
+      <section class="detail-section ${className}" data-detail-section="${escapeHtml(heading)}">
         <h3>${escapeHtml(heading)}</h3>
         <ul>${values.map((item) => `<li>${formatItem(item)}</li>`).join('')}</ul>
       </section>`
@@ -562,24 +562,42 @@
         <h2>${escapeHtml(selected.title)}</h2>
       </div>
       <p class="detail-summary">${escapeHtml(selected.purpose)}</p>
-      ${section('Target links', links, 'rule-box')}
-      ${section('Owner package', [selected.ownerPackage], 'alignment-box')}
-      ${section('Inputs', selected.inputs)}
-      ${section('Outputs', selected.outputs)}
-      ${section('Conditions', selected.conditions, 'trace-box')}
-      ${section('Bypasses', selected.bypasses, 'trace-box')}
-      ${section('Allowed contributors', selected.allowedContributors, 'evidence-box')}
-      ${section('Forbidden contributors', selected.forbiddenContributors, 'risk-box')}
-      ${section('Cache dimensions', selected.cacheDimensions, 'trace-box')}
-      ${section('Implementation boundary', selected.implementationBoundary)}
-      ${section('Spec references', selected.specRefs, 'rule-box')}
-      ${section('Failure owner step', [selected.failureOwnerStepId], 'risk-box')}
-      ${section('Incoming routes', routesForStep(selected.id, 'to'), 'trace-box')}
-      ${section('Outgoing routes', routesForStep(selected.id, 'from'), 'trace-box')}
-      ${section('Owned artifacts', artifactsOwnedBy(selected.id), 'trace-box')}
-      ${section('Consumed artifacts', artifactsConsumedBy(selected.id), 'trace-box')}
-      ${section('Invariants', invariantsForStep(selected.id), 'evidence-box')}
-      ${section('Acceptance contracts', acceptanceForStep(selected.id), 'test-box')}`
+      <section class="detail-category detail-at-a-glance">
+        <h3 class="detail-category-title">At a glance</h3>
+        ${section('Owner package', [selected.ownerPackage], 'alignment-box')}
+        ${section('Inputs', selected.inputs)}
+        ${section('Outputs', selected.outputs)}
+        ${section('Failure owner step', [selected.failureOwnerStepId], 'risk-box')}
+        ${section('Spec references', selected.specRefs, 'rule-box')}
+        ${section('Target links', links, 'rule-box')}
+      </section>
+      <details class="full-contract" data-full-contract>
+        <summary>
+          <span>Full contract</span>
+          <small>Execution rules, boundaries, routes, and verification</small>
+        </summary>
+        <section class="detail-category">
+          <h3 class="detail-category-title">Execution rules</h3>
+          ${section('Conditions', selected.conditions, 'trace-box')}
+          ${section('Bypasses', selected.bypasses, 'trace-box')}
+          ${section('Cache dimensions', selected.cacheDimensions, 'trace-box')}
+          ${section('Implementation boundary', selected.implementationBoundary)}
+        </section>
+        <section class="detail-category">
+          <h3 class="detail-category-title">Ownership boundaries</h3>
+          ${section('Allowed contributors', selected.allowedContributors, 'evidence-box')}
+          ${section('Forbidden contributors', selected.forbiddenContributors, 'risk-box')}
+        </section>
+        <section class="detail-category">
+          <h3 class="detail-category-title">Related contract data</h3>
+          ${section('Incoming routes', routesForStep(selected.id, 'to'), 'trace-box')}
+          ${section('Outgoing routes', routesForStep(selected.id, 'from'), 'trace-box')}
+          ${section('Owned artifacts', artifactsOwnedBy(selected.id), 'trace-box')}
+          ${section('Consumed artifacts', artifactsConsumedBy(selected.id), 'trace-box')}
+          ${section('Invariants', invariantsForStep(selected.id), 'evidence-box')}
+          ${section('Acceptance contracts', acceptanceForStep(selected.id), 'test-box')}
+        </section>
+      </details>`
   }
 
   const renderFlow = () => {
@@ -638,7 +656,7 @@
         <div class="step-title">${escapeHtml(step.title)}</div>
         <div class="step-summary">${escapeHtml(step.purpose)}</div>
         <div class="badge-row">
-          <span class="badge truth">${escapeHtml(step.ownerPackage)}</span>
+          <span class="badge owner">Owner: ${escapeHtml(step.ownerPackage)}</span>
           ${tags
             .slice(0, 2)
             .map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`)

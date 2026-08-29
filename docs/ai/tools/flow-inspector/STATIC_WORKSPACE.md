@@ -114,6 +114,9 @@ JSON-safe serialization. Generator drift is a formal failure.
   restoration to 100%;
 - stable deep links and reload restoration;
 - schema version 2 rendering through the shared renderer;
+- concise step-detail summaries with clearly separated categories and a
+  collapsed full-contract view for execution rules, ownership boundaries, and
+  related contract data;
 - read-only compatibility presentation for included legacy data; and
 - links to an existing standalone entry when one exists.
 

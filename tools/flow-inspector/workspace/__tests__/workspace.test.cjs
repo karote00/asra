@@ -146,6 +146,55 @@ test('v2 viewer owns a scrollable canvas with visible routes and bounded cards',
   )
 })
 
+test('step cards label ownership without using success semantics', () => {
+  const entry = loadBundle().entries.find(
+    (candidate) => candidate.kind === 'flow-v2'
+  )
+  const dom = createRenderedTarget(entry)
+  const ownerBadges = [
+    ...dom.window.document.querySelectorAll('.step-card .badge.owner')
+  ]
+
+  assert.ok(ownerBadges.length > 0)
+  for (const badge of ownerBadges) {
+    assert.match(badge.textContent, /^Owner: /)
+    assert.equal(badge.classList.contains('truth'), false)
+  }
+  const styles = fs.readFileSync(viewerStylesPath, 'utf8')
+  assert.match(styles, /\.badge\.owner\s*\{[^}]*color:\s*#8fc7e8/s)
+})
+
+test('step details separate a concise summary from a collapsed full contract', () => {
+  const entry = loadBundle().entries.find(
+    (candidate) => candidate.kind === 'flow-v2'
+  )
+  const dom = createRenderedTarget(entry)
+  const { document } = dom.window
+  const fullContract = document.querySelector('[data-full-contract]')
+  const categoryTitles = [
+    ...document.querySelectorAll('.detail-category-title')
+  ].map((title) => title.textContent)
+
+  assert.ok(fullContract)
+  assert.equal(fullContract.open, false)
+  assert.deepEqual(categoryTitles, [
+    'At a glance',
+    'Execution rules',
+    'Ownership boundaries',
+    'Related contract data'
+  ])
+  assert.ok(
+    document
+      .querySelector('[data-detail-section="Inputs"]')
+      .closest('.detail-at-a-glance')
+  )
+  assert.ok(
+    document
+      .querySelector('[data-detail-section="Conditions"]')
+      .closest('[data-full-contract]')
+  )
+})
+
 test('panel controls float inside the main viewport with exact safe spacing', () => {
   const workspaceStyles = fs.readFileSync(workspaceStylesPath, 'utf8')
   const viewerStyles = fs.readFileSync(viewerStylesPath, 'utf8')

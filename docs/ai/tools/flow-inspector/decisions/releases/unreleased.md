@@ -3,6 +3,25 @@
 Append-only decision log for Flow Inspector work not yet published as a tagged
 tool release.
 
+## 2026-08-29 - Version 0.2.0 clarifies workspace navigation and contract reading
+
+- Context:
+  - The integrated workspace needed flow-focused panel controls and a clearer
+    distinction between ownership metadata and future runtime success states.
+- Decision:
+  - Set `@asyra/flow-inspector` to version `0.2.0`.
+  - Keep the three panel toggles fixed inside the scrollable and scalable flow
+    viewport while allowing Catalog, Header, and Details to open and close.
+  - Label step ownership as `Owner: ...` with neutral blue-gray styling, and
+    reserve green styling for future passed or healthy runtime states.
+  - Present concise step details by default and place execution rules,
+    ownership boundaries, and related contract data in a collapsed
+    `Full contract` section with explicit visual category boundaries.
+- Consequences:
+  - Human readers can focus on the flow and scan the selected step without
+    losing access to the complete Inspector contract.
+  - Static ownership metadata no longer implies execution success.
+
 ## 2026-08-29 - Static workspace preview uses a React shell with isolated targets
 
 - Context:
