@@ -6,20 +6,12 @@ This file tracks active and future work for the Flow Inspector tool family.
 
 ## Active Target
 
-No active implementation phase. Dynamic Control Plane work remains deferred
-and requires a separately authorized task.
+No active implementation target. Dynamic Control Plane work remains deferred.
 
 ## Completed Plans
 
-1. Static Workspace `v0.1.0-preview` — Phase 0 through Phase 2
-
-- Completed plan:
-  `docs/ai/tools/flow-inspector/plans/completed/flow-inspector-static-workspace-preview-plan.md`.
-- Delivered the React sidebar workspace, stable deep links, isolated target
-  rendering, complete current-project catalog, standalone compatibility, and
-  preview usage documentation.
-- Dynamic evidence, CI comparison, CLI/API, and command/action buttons remain
-  explicitly deferred to the future Control Plane.
+- Static Workspace `0.2.0` P2:
+  `docs/ai/tools/flow-inspector/plans/completed/flow-inspector-static-workspace-0.2.0-closure-plan.md`.
 
 ## Deferred Plans
 

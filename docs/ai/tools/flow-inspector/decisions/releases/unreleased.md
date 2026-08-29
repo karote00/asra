@@ -42,8 +42,27 @@ tool release.
   - Framework packages and App runtimes do not depend on the tool, and the
     preview cannot block Framework publication.
 - Related Plan:
-  - `docs/ai/tools/flow-inspector/plans/completed/flow-inspector-static-workspace-preview-plan.md`
+  - `docs/ai/tools/flow-inspector/plans/completed/flow-inspector-static-workspace-0.2.0-closure-plan.md`
 - Related Commit(s):
   - `818f1800a` through `209caa540` (catalog, routing, isolation, rendering,
     standalone coverage, and inventory correction)
   - `3e48adfaf` (React/Vite workspace shell)
+
+## 2026-08-29 - Static workspace P2 closes at version 0.2.0
+
+- Context:
+  - Direct product review expanded the original preview contract with flow
+    viewport zoom, scrolling, panel toggles, compact ownership metadata, and a
+    clearer step-detail hierarchy.
+- Decision:
+  - Close P2 after validating all 32 current-project Inspectors, standalone
+    renderer synchronization, the React workspace, desktop and narrow viewport
+    behavior, and the complete package test entrypoints.
+  - Keep execution status, CI enforcement, commands, actions, and integrations
+    deferred to the Control Plane plans.
+- Consequences:
+  - `@asyra/flow-inspector` `0.2.0` is ready to accompany the current Framework
+    release as an optional static tool without becoming a Framework/App runtime
+    dependency or publication blocker.
+- Related Plan:
+  - `docs/ai/tools/flow-inspector/plans/completed/flow-inspector-static-workspace-0.2.0-closure-plan.md`

@@ -4,7 +4,7 @@
 
 Deferred until the dynamic Evidence, Reconciliation, and CI Plan completes.
 This plan owns executable actions and integrations and is not part of the
-static `v0.1.0-preview` companion release.
+completed static `v0.2.0` companion release.
 
 ## Objective
 

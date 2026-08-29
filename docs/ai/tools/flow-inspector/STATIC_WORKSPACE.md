@@ -10,6 +10,8 @@ loads that Inspector in an isolated main frame and updates a stable hash route.
 The workspace is a static documentation tool. It does not report runtime
 health, execute commands, ingest test results, or decide CI acceptance.
 
+The current independently versioned workspace artifact is `0.2.0`.
+
 ## Ownership
 
 - `tools/flow-inspector/workspace/catalog.cjs` owns inclusion, exclusion,
@@ -118,7 +120,8 @@ JSON-safe serialization. Generator drift is a formal failure.
   collapsed full-contract view for execution rules, ownership boundaries, and
   related contract data;
 - read-only compatibility presentation for included legacy data; and
-- links to an existing standalone entry when one exists.
+- preservation and renderer synchronization of every existing standalone
+  entry without adding redundant standalone-navigation chrome to the workspace.
 
 ## Unsupported Behavior
 
@@ -148,6 +151,11 @@ JSON-safe serialization. Generator drift is a formal failure.
 9. Included legacy data is visibly labeled compatibility content and is never
    presented as schema version 2.
 10. The complete static artifact works without a local server.
+11. Panel controls remain fixed inside the flow viewport while its content
+    scrolls or scales, and every control toggles its owner panel in both
+    directions.
+12. Step ownership is visibly neutral metadata, while detail content defaults
+    to a concise summary with an explicitly separated full contract.
 
 ## Definition of Done
 
@@ -161,4 +169,6 @@ JSON-safe serialization. Generator drift is a formal failure.
 - all retained standalone entries pass direct-open and renderer-sync gates;
 - synchronized browser inspection confirms desktop and narrow viewport
   usability, including v2 flow scrolling, pinch zoom, and exact zoom reset; and
+- package `test`, `test:local`, and `test:ci` run the React suite plus complete
+  catalog, workspace, renderer, and standalone Node contract gates; and
 - preview documentation contains no dynamic Control Plane claim.

@@ -52,10 +52,20 @@ test('Phase 0 authorities and catalog owners exist', () => {
 test('preview artifact is independently versioned and static-only', () => {
   const toolPackage = JSON.parse(fs.readFileSync(toolPackagePath, 'utf8'))
   assert.equal(toolPackage.name, '@asyra/flow-inspector')
-  assert.equal(toolPackage.version, '0.1.0-preview')
+  assert.equal(toolPackage.version, '0.2.0')
   assert.equal(toolPackage.private, true)
   assert.equal(fs.existsSync(path.join(workspaceRoot, 'workspace.html')), true)
   assert.equal(Object.hasOwn(toolPackage, 'publishConfig'), false)
+  assert.equal(
+    toolPackage.scripts['test:contracts'],
+    'node --test __tests__/viewer-entry.test.cjs workspace/__tests__/catalog.contract.test.cjs workspace/__tests__/workspace.test.cjs'
+  )
+  for (const scriptName of ['test', 'test:local', 'test:ci']) {
+    assert.equal(
+      toolPackage.scripts[scriptName],
+      'yarn test:react && yarn test:contracts'
+    )
+  }
 })
 
 test('React workspace exposes one direct Vite development command', () => {

@@ -1,16 +1,19 @@
-# Flow Inspector Static Workspace Preview Plan
+# Flow Inspector Static Workspace 0.2.0 Closure Plan
 
 ## Status
 
-Completed on 2026-08-29. Phase 0 through Phase 2 delivered one product
-contract, one exact workspace Inspector, three fixed discovery roots, 34
-classified candidates, 32 included entries, two explicit historical
-exclusions, a React/Vite static workspace, isolated target routing, standalone
-compatibility, exact generated-snapshot validation, formal DOM coverage, and
-desktop plus narrow-viewport browser verification.
+Completed on 2026-08-29. The reopened P2 hardening incorporated the integrated
+workspace UX contract established through direct product review and verified
+the original inventory, isolation, standalone, and static rendering gates
+together with the `0.2.0` interaction and readability requirements below.
 
-This plan covers Phase 0 through Phase 2 and ends with a static
-`v0.1.0-preview` workspace that may accompany the current Asyra Framework
+Final decision: ship the static React workspace as the optional independently
+versioned `@asyra/flow-inspector` `0.2.0` artifact. Dynamic status, CI control,
+commands, actions, and external integrations remain deferred to the Control
+Plane plans.
+
+This plan covers Phase 0 through Phase 2 and ends with a static `v0.2.0`
+workspace that may accompany the current Asyra Framework
 release wave. It is optional and must not block, delay, or alter Framework
 package publication.
 
@@ -165,7 +168,23 @@ representatives.
   target's title, graph, links, filters, or detail state;
 - provide an Overview entry that lists the static inventory without claiming
   runtime health; and
-- produce the independently versioned static preview artifact and usage docs.
+- provide a React development entry through the package `dev` command;
+- keep the flow canvas scrollable on both axes with visible routes and bounded
+  step cards;
+- support Mac trackpad pinch zoom from 20% through 250%, scale-matched scroll
+  bounds, a visible exact reset, and `Command+0` restoration to 100%;
+- allow Catalog, Header, and Details panels to toggle independently through
+  three 24 px controls positioned 12 px inside the flow viewport, unaffected
+  by canvas scroll or scale;
+- keep each panel close control absolutely positioned in its upper-right
+  corner without changing content layout;
+- omit redundant target metadata and standalone-navigation chrome from the
+  integrated workspace while preserving standalone artifacts themselves;
+- label card ownership explicitly without using green success semantics;
+- show a concise detail summary by default and place execution rules,
+  ownership boundaries, and related contract data under a clearly separated,
+  collapsed `Full contract` section; and
+- produce the independently versioned static `0.2.0` artifact and usage docs.
 
 ### Exit gate
 
@@ -173,7 +192,7 @@ The complete catalog and all standalone entries pass structural, path,
 direct-open, router, target-isolation, and renderer-synchronization gates. No
 dynamic Control Plane capability is claimed or required.
 
-## `v0.1.0-preview` Release Contract
+## `v0.2.0` Release Contract
 
 The static preview may be announced with Asyra Framework only when:
 
@@ -183,11 +202,27 @@ The static preview may be announced with Asyra Framework only when:
   records according to the frozen rule;
 - Framework, App, and reusable Release Inspectors are represented;
 - all existing standalone Inspector entries continue to work;
+- package `test`, `test:local`, and `test:ci` execute both React tests and the
+  complete catalog, workspace, renderer, and standalone Node contract gates;
 - documentation labels the preview static and lists every dynamic exclusion;
 - Framework packages have no runtime dependency on the workspace;
 - Framework publication can proceed if the preview is absent or delayed; and
 - the exact preview artifact and release action receive normal explicit
   publication authorization.
+
+## Product Cases Added During 0.2.0 Hardening
+
+1. Scrolling or scaling the flow never moves or scales the three panel toggles.
+2. Each panel toggle opens and closes its owner panel; each panel X closes the
+   same panel without shifting its title or content.
+3. Trackpad pinch respects the 20%–250% range, produces scale-matched scroll
+   bounds, and resets exactly through the button or `Command+0`.
+4. Cards remain bounded, routes remain visible, and ownership appears as
+   neutral `Owner: ...` metadata rather than a passed state.
+5. Selecting a card shows a concise, visibly separated summary; the complete
+   contract remains available under a collapsed disclosure.
+6. Desktop and narrow viewports preserve usable navigation, flow scrolling,
+   panel controls, and detail reading.
 
 ## Stop Conditions
 

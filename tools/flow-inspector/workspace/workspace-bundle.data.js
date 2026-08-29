@@ -32964,7 +32964,7 @@
           "id": "flow-inspector-static-workspace",
           "kind": "tool",
           "title": "Flow Inspector Static Workspace",
-          "subtitle": "Current-project Inspector discovery, isolated navigation, and static rendering"
+          "subtitle": "Version 0.2.0 current-project discovery, isolated navigation, and static contract reading"
         },
         "authority": {
           "specPath": "docs/ai/tools/flow-inspector/STATIC_WORKSPACE.md",
@@ -32982,8 +32982,8 @@
           {
             "id": "static-workspace-plan",
             "kind": "plan",
-            "label": "Static Workspace Preview Plan",
-            "href": "./completed/flow-inspector-static-workspace-preview-plan.md"
+            "label": "Static Workspace 0.2.0 Closure Plan",
+            "href": "./completed/flow-inspector-static-workspace-0.2.0-closure-plan.md"
           }
         ],
         "lanes": [
@@ -33304,7 +33304,9 @@
               "artifact:verified-static-workspace-preview"
             ],
             "conditions": [
-              "All product cases and Definition of Done gates pass."
+              "All product cases and Definition of Done gates pass.",
+              "Package test scripts execute React and complete Node contract gates.",
+              "Desktop and narrow synchronized browser reviews cover the current 0.2.0 UI."
             ],
             "bypasses": [
               "No dynamic Control Plane gate is part of this preview."

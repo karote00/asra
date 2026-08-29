@@ -6,13 +6,14 @@ Approved long-term roadmap. This file owns the cross-phase product direction
 and boundaries; it is not the execution plan for an individual phase and does
 not change the existing Flow Inspector schema or viewer contract.
 
-The first delivery target is a static `v0.1.0-preview` workspace after Phase 2.
+The first delivery target began as `v0.1.0-preview` and completed static
+`v0.2.0` Phase 2 closure on 2026-08-29.
 It integrates current-project Inspectors behind one sidebar and shared viewer
 without execution state, CI comparison, machine interfaces, or actions. It may
 accompany the current Asyra Framework release wave, but it is optional,
 independently versioned, and never blocks Framework package publication. The
 bounded execution plan is:
-[`flow-inspector-static-workspace-preview-plan.md`](completed/flow-inspector-static-workspace-preview-plan.md).
+[`flow-inspector-static-workspace-0.2.0-closure-plan.md`](completed/flow-inspector-static-workspace-0.2.0-closure-plan.md).
 
 The preview implementation root is fixed at `tools/flow-inspector/workspace/`.
 The later dynamic product is separately rooted at
@@ -299,7 +300,7 @@ Implementation is split into three independently closable plans:
    - one static workspace shell with sidebar, search, dynamic routing, deep
      links, and selected-target isolation; and
    - complete static integration while preserving standalone HTML entries.
-   - Release target: independently versioned static `v0.1.0-preview` optional
+   - Release target: independently versioned static `v0.2.0` optional
      companion to the current Asyra Framework release wave.
 2. **Evidence, Reconciliation, and CI Plan — future Control Plane**
    - test/evidence mapping, result ingestion, provenance, freshness, dynamic
@@ -379,7 +380,7 @@ minimum, v1 must prove:
 
 ## References
 
-- [Static Workspace Preview Plan](completed/flow-inspector-static-workspace-preview-plan.md)
+- [Static Workspace 0.2.0 Closure Plan](completed/flow-inspector-static-workspace-0.2.0-closure-plan.md)
 - [Evidence and CI Plan](flow-inspector-control-plane-evidence-and-ci-plan.md)
 - [Actions and Integrations Plan](flow-inspector-control-plane-actions-and-integrations-plan.md)
 - [Flow Inspector contract](../FLOW_INSPECTOR.md)

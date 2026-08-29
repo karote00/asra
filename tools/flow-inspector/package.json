@@ -8,9 +8,11 @@
     "build": "vite build",
     "react:build": "vite build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --config vitest.config.ts",
-    "test:local": "vitest run --config vitest.config.ts",
-    "test:ci": "vitest run --config vitest.config.ts"
+    "test:react": "vitest run --config vitest.config.ts",
+    "test:contracts": "node --test __tests__/viewer-entry.test.cjs workspace/__tests__/catalog.contract.test.cjs workspace/__tests__/workspace.test.cjs",
+    "test": "yarn test:react && yarn test:contracts",
+    "test:local": "yarn test:react && yarn test:contracts",
+    "test:ci": "yarn test:react && yarn test:contracts"
   },
   "dependencies": {
     "react": "^19.0.0",

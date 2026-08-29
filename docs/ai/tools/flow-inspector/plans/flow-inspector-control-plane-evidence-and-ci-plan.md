@@ -3,7 +3,7 @@
 ## Status
 
 Deferred until the Static Workspace Preview Plan completes. This plan begins
-the dynamic Control Plane and is not part of the static `v0.1.0-preview`
+the dynamic Control Plane and is not part of the completed static `v0.2.0`
 companion release.
 
 ## Objective
@@ -75,4 +75,4 @@ Approximately 4–7 weeks after the Static Workspace Preview is accepted.
 ## References
 
 - [Workflow Control Plane Roadmap](flow-inspector-workflow-control-plane-roadmap.md)
-- [Static Workspace Preview Plan](completed/flow-inspector-static-workspace-preview-plan.md)
+- [Static Workspace 0.2.0 Closure Plan](completed/flow-inspector-static-workspace-0.2.0-closure-plan.md)
