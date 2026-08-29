@@ -48,7 +48,7 @@ test('Framework package release Inspector authorities resolve', () => {
   assert.equal(data.target.title, 'Framework Package Release Inspector')
   assert.equal(
     data.authority.specPath,
-    'docs/ai/framework/plans/framework-package-patch-release-plan.md'
+    'docs/ai/workflows/package-release-validation.md'
   )
   assert.equal(
     data.authority.inspectorPath,

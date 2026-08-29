@@ -2511,3 +2511,25 @@ unregister -> app migration -> core.start()` as the public app route.
     the canonical-path transition for those retained records.
   - This cleanup creates no Changeset, version bump, package publication, tag,
     deployment, or merge side effect.
+
+## 2026-08-30 - Route Framework publication through workflow automation
+
+- Context:
+  - Framework package publication was represented as an active patch-release
+    plan even though publication is an operational process already owned by
+    release rules, a reusable workflow, the release Inspector, skills, and
+    executable scripts.
+- Decision:
+  - Remove `framework-package-patch-release-plan.md` from the active Framework
+    plans directory.
+  - Make `docs/ai/workflows/package-release-validation.md` the Inspector's
+    process authority while retaining manifest topology in
+    `docs/ai/framework/rules/release-version-topology.md` and execution in the
+    release scripts.
+- Consequences:
+  - Package publication no longer appears as an unimplemented Framework
+    feature.
+  - Explicit registry-write, tag, push, and release authorization boundaries
+    remain unchanged.
+  - This routing cleanup performs no Changeset, version, publication, tag,
+    deployment, or merge operation.

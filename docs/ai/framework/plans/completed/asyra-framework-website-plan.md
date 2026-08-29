@@ -117,7 +117,7 @@ package, App, CLI, or generator owner and must preserve the root repository's
 no-issues and no-external-contributions declaration.
 
 Framework package publication remains owned by
-[Framework Package Patch Release](../framework-package-patch-release-plan.md).
+[Package and Release Validation](../../../workflows/package-release-validation.md).
 Applicable CLI publication and generated-app proof must use a new bounded
 release execution that follows the retained
 [create-asyra-design-app release contract](create-asyra-design-app-release-plan.md)

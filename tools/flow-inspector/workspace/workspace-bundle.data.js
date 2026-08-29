@@ -25753,16 +25753,16 @@
           "subtitle": "Current registry inventory through manifest-derived Changesets versioning, reviewed artifacts, authorized publication, registry-only proof, recovery, and one final decision."
         },
         "authority": {
-          "specPath": "docs/ai/framework/plans/framework-package-patch-release-plan.md",
+          "specPath": "docs/ai/workflows/package-release-validation.md",
           "inspectorPath": "tools/flow-inspector/inspectors/framework-package-release-flow-inspector.data.cjs",
-          "semanticOwner": "Framework Package Patch Release Plan",
+          "semanticOwner": "Package and Release Validation Workflow",
           "inspectorOwner": "Framework Package Release Inspector data"
         },
         "links": [
           {
             "id": "product-contract",
-            "label": "Release Plan",
-            "href": "../../../docs/ai/framework/plans/framework-package-patch-release-plan.md",
+            "label": "Release Workflow",
+            "href": "../../../docs/ai/workflows/package-release-validation.md",
             "kind": "authority"
           },
           {
@@ -25848,14 +25848,12 @@
             "implementationBoundary": [
               "scripts/framework-release-packages.js",
               "scripts/__tests__/framework-release-packages.test.mjs",
-              "docs/ai/framework/plans/framework-package-patch-release-plan.md",
+              "docs/ai/workflows/package-release-validation.md",
               "tools/flow-inspector/inspectors/framework-package-release-flow-inspector.data.cjs",
               "tmp/framework-release-evidence"
             ],
             "specRefs": [
-              "#release-set",
-              "#1-freeze-source-and-registry-state",
-              "#definition-of-done"
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "inventory-public-registry"
           },
@@ -25895,16 +25893,14 @@
             ],
             "cacheDimensions": [],
             "implementationBoundary": [
-              "docs/ai/framework/plans/framework-package-patch-release-plan.md",
+              "docs/ai/workflows/package-release-validation.md",
               "docs/ai/framework/PLANS.md",
               "tools/flow-inspector/inspectors/framework-package-release-flow-inspector.data.cjs",
               "packages/*/package.json",
               "tmp/framework-release-evidence"
             ],
             "specRefs": [
-              "#status",
-              "#release-set",
-              "#1-freeze-source-and-registry-state"
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "classify-historical-baseline"
           },
@@ -25952,9 +25948,9 @@
               "packages/*/package.json"
             ],
             "specRefs": [
-              "#goal",
-              "#2-resolve-the-changeset-release-scope",
-              "#definition-of-done"
+              "#release-validation-and-publication-boundary",
+              "#release-version-topology",
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "resolve-version-topology"
           },
@@ -26004,9 +26000,8 @@
               ".changeset/config.json"
             ],
             "specRefs": [
-              "#changeset-contract",
-              "#2-resolve-the-changeset-release-scope",
-              "#definition-of-done"
+              "#release-version-topology",
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "review-scoped-changesets"
           },
@@ -26055,8 +26050,8 @@
               ".changeset"
             ],
             "specRefs": [
-              "#3-materialize-framework-versions",
-              "#definition-of-done"
+              "#release-version-topology",
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "materialize-framework-version"
           },
@@ -26110,8 +26105,8 @@
               "packages/*"
             ],
             "specRefs": [
-              "#4-validate-framework-artifacts-before-publication",
-              "#definition-of-done"
+              "#script-tests",
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "validate-framework-artifacts"
           },
@@ -26160,8 +26155,7 @@
               "tmp/framework-release-evidence"
             ],
             "specRefs": [
-              "#5-freeze-the-publication-source",
-              "#definition-of-done"
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "accept-publication-source"
           },
@@ -26218,9 +26212,7 @@
               "yarn changeset publish"
             ],
             "specRefs": [
-              "#6-publish-the-manifest-derived-framework-selection",
-              "#partial-publication-policy",
-              "#definition-of-done"
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "publish-framework-packages"
           },
@@ -26272,9 +26264,9 @@
               "fixtures/framework-release-consumer"
             ],
             "specRefs": [
-              "#6-publish-the-manifest-derived-framework-selection",
-              "#8-run-registry-only-consumer-proof",
-              "#definition-of-done"
+              "#release-validation-and-publication-boundary",
+              "#script-tests",
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "verify-public-registry"
           },
@@ -26327,13 +26319,12 @@
               "scripts/release-readiness.js",
               "scripts/__tests__/release-clean-consumer.test.mjs",
               "scripts/changeset-all-patch.js",
-              "docs/ai/framework/plans/framework-package-patch-release-plan.md",
+              "docs/ai/workflows/package-release-validation.md",
               "tmp/framework-release-evidence"
             ],
             "specRefs": [
-              "#8-run-registry-only-consumer-proof",
-              "#partial-publication-policy",
-              "#definition-of-done"
+              "#script-tests",
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "prove-registry-consumer-and-recover"
           },
@@ -26396,7 +26387,7 @@
             ],
             "cacheDimensions": [],
             "implementationBoundary": [
-              "docs/ai/framework/plans/framework-package-patch-release-plan.md",
+              "docs/ai/workflows/package-release-validation.md",
               "tools/flow-inspector/inspectors/framework-package-release-flow-inspector.data.cjs",
               "docs/ai/framework/decisions/releases",
               "scripts/release-records.js",
@@ -26404,8 +26395,7 @@
               "tmp/framework-release-evidence"
             ],
             "specRefs": [
-              "#partial-publication-policy",
-              "#definition-of-done"
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "decide-release"
           }
@@ -27021,8 +27011,7 @@
               "artifact:release-blocked"
             ],
             "specRefs": [
-              "#release-set",
-              "#definition-of-done"
+              "#release-validation-and-publication-boundary"
             ]
           },
           {
@@ -27038,8 +27027,7 @@
               "artifact:historical-baseline-classification"
             ],
             "specRefs": [
-              "#status",
-              "#release-set"
+              "#release-validation-and-publication-boundary"
             ]
           },
           {
@@ -27057,8 +27045,8 @@
               "artifact:versioned-framework-source"
             ],
             "specRefs": [
-              "#changeset-contract",
-              "#definition-of-done"
+              "#release-version-topology",
+              "#release-validation-and-publication-boundary"
             ]
           },
           {
@@ -27075,7 +27063,7 @@
               "artifact:partial-publication-recovery"
             ],
             "specRefs": [
-              "#partial-publication-policy"
+              "#release-validation-and-publication-boundary"
             ]
           }
         ],
@@ -27092,7 +27080,7 @@
               "classify-historical-baseline"
             ],
             "specRefs": [
-              "#1-freeze-source-and-registry-state"
+              "#release-validation-and-publication-boundary"
             ]
           },
           {
@@ -27108,9 +27096,7 @@
               "materialize-framework-version"
             ],
             "specRefs": [
-              "#2-resolve-the-changeset-release-scope",
-              "#2-resolve-the-changeset-release-scope",
-              "#3-materialize-framework-versions"
+              "#release-version-topology"
             ]
           },
           {
@@ -27125,8 +27111,8 @@
               "accept-publication-source"
             ],
             "specRefs": [
-              "#4-validate-framework-artifacts-before-publication",
-              "#5-freeze-the-publication-source"
+              "#script-tests",
+              "#release-validation-and-publication-boundary"
             ]
           },
           {
@@ -27141,7 +27127,7 @@
               "verify-public-registry"
             ],
             "specRefs": [
-              "#6-publish-the-manifest-derived-framework-selection"
+              "#release-validation-and-publication-boundary"
             ]
           },
           {
@@ -27157,9 +27143,8 @@
               "decide-release"
             ],
             "specRefs": [
-              "#8-run-registry-only-consumer-proof",
-              "#partial-publication-policy",
-              "#definition-of-done"
+              "#script-tests",
+              "#release-validation-and-publication-boundary"
             ]
           }
         ]
