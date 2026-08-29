@@ -506,7 +506,7 @@
       cacheDimensions: [],
       implementationBoundary: [
         'docs/ai/framework/PLANS.md',
-        'docs/ai/framework/plans/framework-release-readiness-and-closeout-plan.md',
+        'docs/ai/framework/plans/completed/framework-release-readiness-and-closeout-plan.md',
         'docs/ai/framework/plans/completed/framework-release-readiness-and-closeout-plan.md',
         'tools/flow-inspector/inspectors/framework-release-readiness-flow-inspector.data.cjs',
         'tools/flow-inspector/inspectors/framework-release-readiness-flow-inspector.html',

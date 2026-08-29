@@ -9594,7 +9594,7 @@
           {
             "id": "product-contract",
             "label": "Product Contract",
-            "href": "../../../docs/ai/framework/plans/ai-agent-runtime-plan.md",
+            "href": "../../../docs/ai/framework/plans/completed/ai-agent-runtime-plan.md",
             "kind": "authority"
           },
           {
@@ -17244,7 +17244,7 @@
           {
             "id": "product-contract",
             "label": "Product contract",
-            "href": "../../../docs/ai/framework/plans/input-system-environment-neutrality-plan.md"
+            "href": "../../../docs/ai/framework/plans/completed/input-system-environment-neutrality-plan.md"
           },
           {
             "id": "contract-test",
@@ -27746,7 +27746,7 @@
             "cacheDimensions": [],
             "implementationBoundary": [
               "docs/ai/framework/PLANS.md",
-              "docs/ai/framework/plans/framework-release-readiness-and-closeout-plan.md",
+              "docs/ai/framework/plans/completed/framework-release-readiness-and-closeout-plan.md",
               "docs/ai/framework/plans/completed/framework-release-readiness-and-closeout-plan.md",
               "tools/flow-inspector/inspectors/framework-release-readiness-flow-inspector.data.cjs",
               "tools/flow-inspector/inspectors/framework-release-readiness-flow-inspector.html",
@@ -31970,7 +31970,7 @@
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/asyra-website-launch-and-operations-plan.md",
           "inspectorPath": "tools/flow-inspector/inspectors/asyra-website-launch-and-operations-flow-inspector.data.cjs",
-          "programPath": "docs/ai/framework/plans/asyra-framework-website-plan.md",
+          "programPath": "docs/ai/framework/plans/completed/asyra-framework-website-plan.md",
           "siteWorkspacePath": "apps/asyra-framework-site",
           "contentIndexPath": "docs/public/generated/content-index.json",
           "advancedGuidesRoot": "docs/public",

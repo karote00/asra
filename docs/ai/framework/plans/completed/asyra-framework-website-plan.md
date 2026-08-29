@@ -79,14 +79,14 @@ surface that:
 
 The program is split into nine independently reviewable child plans:
 
-1. [Input System Environment Neutrality](../input-system-environment-neutrality-plan.md)
+1. [Input System Environment Neutrality](input-system-environment-neutrality-plan.md)
    owns DOM-neutral Input/Core imports, explicit browser listener lifecycle,
    and preservation of existing visual input activation. It must pass PR CI and
    direct product-owner testing before merge.
-2. [Public README and Entrypoint Alignment](../asyra-public-readme-and-entrypoint-alignment-plan.md)
+2. [Public README and Entrypoint Alignment](asyra-public-readme-and-entrypoint-alignment-plan.md)
    owns the root, package, Asyra Design, CLI, and generated-app README release
    surfaces through their canonical owners and generation paths.
-3. [Public Package Documentation](../asyra-public-package-documentation-plan.md)
+3. [Public Package Documentation](asyra-public-package-documentation-plan.md)
    owns durable public guides, information architecture, package reference,
    AI-readable content, and semantic case-study content.
 4. [Executable Examples](asyra-executable-examples-plan.md) owns maintained
@@ -101,7 +101,7 @@ The program is split into nine independently reviewable child plans:
    the homepage implementation and its interactive product story.
 8. [Asyra Runtime Atlas](asyra-runtime-atlas-plan.md) owns the real-runtime
    interactive lab, its six required executable cases, and runtime evidence.
-9. [Launch and Operations](../asyra-website-launch-and-operations-plan.md) owns
+9. [Launch and Operations](asyra-website-launch-and-operations-plan.md) owns
    Preview closure and, only after explicit authorization, production
    deployment and post-deployment verification.
 

@@ -74,3 +74,33 @@ test('unit, integration, and contract tests live in __tests__ directories', asyn
     ].join('\n')
   )
 })
+
+test('Framework active plans do not retain completed-plan redirects', async () => {
+  const activePlansRoot = path.join(repositoryRoot, 'docs/ai/framework/plans')
+  const completedPlansRoot = path.join(activePlansRoot, 'completed')
+  const activePlanNames = (
+    await readdir(activePlansRoot, {
+      withFileTypes: true
+    })
+  )
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
+    .map((entry) => entry.name)
+  const completedPlanNames = new Set(
+    (await readdir(completedPlansRoot, { withFileTypes: true }))
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
+      .map((entry) => entry.name)
+  )
+  const violations = activePlanNames
+    .filter((name) => completedPlanNames.has(name))
+    .sort()
+
+  assert.deepEqual(
+    violations,
+    [],
+    [
+      'Framework plans/ represents work that is not yet complete.',
+      'Remove completed-plan redirects and link directly to plans/completed/.',
+      ...violations
+    ].join('\n')
+  )
+})

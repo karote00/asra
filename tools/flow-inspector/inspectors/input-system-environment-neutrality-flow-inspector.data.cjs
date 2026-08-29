@@ -275,7 +275,7 @@
       {
         id: 'product-contract',
         label: 'Product contract',
-        href: '../../../docs/ai/framework/plans/input-system-environment-neutrality-plan.md'
+        href: '../../../docs/ai/framework/plans/completed/input-system-environment-neutrality-plan.md'
       },
       {
         id: 'contract-test',

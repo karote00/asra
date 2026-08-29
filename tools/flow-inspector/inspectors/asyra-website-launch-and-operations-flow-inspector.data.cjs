@@ -16,7 +16,8 @@ module.exports = Object.freeze({
       'docs/ai/framework/plans/completed/asyra-website-launch-and-operations-plan.md',
     inspectorPath:
       'tools/flow-inspector/inspectors/asyra-website-launch-and-operations-flow-inspector.data.cjs',
-    programPath: 'docs/ai/framework/plans/asyra-framework-website-plan.md',
+    programPath:
+      'docs/ai/framework/plans/completed/asyra-framework-website-plan.md',
     siteWorkspacePath: 'apps/asyra-framework-site',
     contentIndexPath: 'docs/public/generated/content-index.json',
     advancedGuidesRoot: 'docs/public',

@@ -2490,3 +2490,24 @@ unregister -> app migration -> core.start()` as the public app route.
   - `docs/ai/framework/plans/completed/asyra-runtime-atlas-plan.md`
   - `docs/ai/framework/plans/completed/asyra-executable-examples-plan.md`
   - `docs/ai/framework/plans/completed/collaborative-conflict-policies-plan.md`
+
+## 2026-08-30 - Reserve the active plans directory for incomplete work
+
+- Context:
+  - Ten completed Framework plans retained compatibility redirects in the
+    active plans directory even though their canonical records already existed
+    under `plans/completed/`.
+  - Direct implementation review confirmed that the five remaining detailed
+    plans are genuinely active, partially implemented, deferred, or
+    unscheduled and do not satisfy their definitions of done.
+- Decision:
+  - Remove every completed-plan redirect from `docs/ai/framework/plans/` and
+    route current consumers directly to the canonical completed records.
+  - Enforce that an active Framework plan filename cannot also exist in the
+    completed-plan directory.
+- Consequences:
+  - The active directory now represents only work that is not complete.
+  - Historical append-only decision text remains unchanged; this entry records
+    the canonical-path transition for those retained records.
+  - This cleanup creates no Changeset, version bump, package publication, tag,
+    deployment, or merge side effect.

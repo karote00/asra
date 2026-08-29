@@ -1841,7 +1841,7 @@
       {
         id: 'product-contract',
         label: 'Product Contract',
-        href: '../../../docs/ai/framework/plans/ai-agent-runtime-plan.md',
+        href: '../../../docs/ai/framework/plans/completed/ai-agent-runtime-plan.md',
         kind: 'authority'
       },
       {
