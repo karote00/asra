@@ -152,10 +152,12 @@ test('v2 viewer supports trackpad pinch zoom and an exact scale reset', () => {
   const dom = createRenderedTarget(entry)
   const { document, WheelEvent } = dom.window
   const viewport = document.querySelector('.flow-viewport')
+  const surface = document.querySelector('.flow-zoom-surface')
   const flow = document.querySelector('#flow')
   const reset = document.querySelector('[data-reset-zoom]')
 
   assert.ok(viewport)
+  assert.ok(surface, 'the scaled flow must own the exact scroll surface')
   assert.ok(reset, 'the flow viewport must expose a zoom reset button')
   viewport.getBoundingClientRect = () => ({
     left: 0,
@@ -233,7 +235,12 @@ test('v2 viewer supports trackpad pinch zoom and an exact scale reset', () => {
       deltaY: 10000
     })
   )
-  assert.equal(viewport.dataset.zoomScale, '0.5')
+  assert.equal(viewport.dataset.zoomScale, '0.2')
+  assert.equal(surface.style.width, `${Number(flow.dataset.baseWidth) * 0.2}px`)
+  assert.equal(
+    surface.style.height,
+    `${Number(flow.dataset.baseHeight) * 0.2}px`
+  )
 })
 
 test('target resolves one included entry only when query and hash match', () => {

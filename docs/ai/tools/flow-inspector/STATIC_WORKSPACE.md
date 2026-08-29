@@ -104,8 +104,9 @@ JSON-safe serialization. Generator drift is a formal failure.
 - sidebar search by title, id, subgroup, and labels;
 - collapsible groups;
 - mouse and keyboard-accessible Inspector selection;
-- trackpad pinch zoom inside the v2 flow viewport, with visible reset control
-  and `Command+0` restoration to 100%;
+- trackpad pinch zoom from 20% through 250% inside the v2 flow viewport, with
+  scale-matched scroll bounds, a visible reset control, and `Command+0`
+  restoration to 100%;
 - stable deep links and reload restoration;
 - schema version 2 rendering through the shared renderer;
 - read-only compatibility presentation for included legacy data; and

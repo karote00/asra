@@ -131,23 +131,27 @@
   let selectedLaneId = 'All'
 
   const ensureFlowViewport = () => {
-    if (flow.parentElement?.classList.contains('flow-viewport')) {
-      return flow.parentElement
+    if (flow.parentElement?.classList.contains('flow-zoom-surface')) {
+      return flow.parentElement.closest('.flow-viewport')
     }
     const shell = document.createElement('div')
     shell.className = 'flow-shell'
     const viewport = document.createElement('div')
     viewport.className = 'flow-viewport'
+    const surface = document.createElement('div')
+    surface.className = 'flow-zoom-surface'
     flow.before(shell)
     shell.appendChild(viewport)
-    viewport.appendChild(flow)
+    viewport.appendChild(surface)
+    surface.appendChild(flow)
     return viewport
   }
 
   const enableViewportZoom = (viewport) => {
-    const minimumScale = 0.5
+    const minimumScale = 0.2
     const maximumScale = 2.5
     let scale = 1
+    const surface = flow.parentElement
     const controls = document.createElement('div')
     const reset = document.createElement('button')
     controls.className = 'zoom-controls'
@@ -166,6 +170,13 @@
       reset.textContent = `Reset zoom · ${Math.round(scale * 100)}%`
     }
 
+    const syncSurfaceSize = () => {
+      const baseWidth = Number(flow.dataset.baseWidth)
+      const baseHeight = Number(flow.dataset.baseHeight)
+      if (baseWidth > 0) surface.style.width = `${baseWidth * scale}px`
+      if (baseHeight > 0) surface.style.height = `${baseHeight * scale}px`
+    }
+
     const setScale = (nextScale, anchor) => {
       const boundedScale = Math.min(
         maximumScale,
@@ -179,6 +190,7 @@
       viewport.dataset.zoomScale = String(scale)
       flow.style.transformOrigin = '0 0'
       flow.style.transform = `scale(${scale})`
+      syncSurfaceSize()
       viewport.scrollLeft = contentX * scale - anchorX
       viewport.scrollTop = contentY * scale - anchorY
       updateResetLabel()
@@ -208,6 +220,7 @@
       event.preventDefault()
       resetZoom()
     })
+    flow.addEventListener('flowboundschange', syncSurfaceSize)
     setScale(1, { x: 0, y: 0 })
   }
 
@@ -437,8 +450,11 @@
   const renderFlow = () => {
     flow.innerHTML = ''
     const bounds = getFlowBounds()
-    flow.style.minWidth = `${bounds.width}px`
-    flow.style.minHeight = `${bounds.height}px`
+    flow.style.width = `${bounds.width}px`
+    flow.style.height = `${bounds.height}px`
+    flow.dataset.baseWidth = String(bounds.width)
+    flow.dataset.baseHeight = String(bounds.height)
+    flow.dispatchEvent(new window.Event('flowboundschange'))
 
     lanes.forEach((lane, laneIndex) => {
       const label = document.createElement('div')
