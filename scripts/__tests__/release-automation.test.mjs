@@ -123,6 +123,29 @@ test('release template exposes a non-mutating synchronization check', () => {
   )
 })
 
+test('generated app exposes reproducible standalone lint tooling', () => {
+  const manifest = JSON.parse(
+    readFileSync(
+      path.join(
+        repositoryRoot,
+        'create-app/asyra-design/template/package.json'
+      ),
+      'utf8'
+    )
+  )
+  const eslintConfig = readFileSync(
+    path.join(
+      repositoryRoot,
+      'create-app/asyra-design/template/eslint.config.js'
+    ),
+    'utf8'
+  )
+
+  assert.equal(manifest.scripts.lint, 'eslint .')
+  assert.equal(manifest.devDependencies.prettier, '3.5.3')
+  assert.match(eslintConfig, /files: \['\*\*\/\*\.\{ts,tsx\}'\]/u)
+})
+
 test('release template excludes local runtime data directories', () => {
   const config = JSON.parse(
     readFileSync(
@@ -687,7 +710,7 @@ test('generated template manifest is standalone on the supported release runtime
   assert.equal(manifest.packageManager, 'yarn@4.3.1')
   assert.equal(manifest.scripts?.start, 'vite dev')
   assert.equal(manifest.scripts?.['react:start'], undefined)
-  assert.equal(manifest.devDependencies?.prettier, '^3.4.2')
+  assert.equal(manifest.devDependencies?.prettier, '3.5.3')
   assert.doesNotMatch(serializedScripts, /(?:\.\.\/){2}|--cwd\s+\.\.\/\.\./)
   assert.doesNotMatch(JSON.stringify(manifest), /workspace:|(?:link|portal):/)
   for (const [packageName, version] of Object.entries(

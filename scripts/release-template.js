@@ -221,6 +221,7 @@ if (!fs.existsSync(pkgPath)) {
       'tsc -p tsconfig.document-backend.json && vite build --config vite.document-backend.config.ts'
   }
   if (pkg.scripts) {
+    pkg.scripts.lint = 'eslint .'
     pkg.scripts = Object.fromEntries(
       Object.entries(pkg.scripts).filter(
         ([scriptName]) => !REMOVE_SCRIPTS.includes(scriptName)
@@ -249,7 +250,7 @@ if (!fs.existsSync(pkgPath)) {
     'eslint-config-prettier': '^10.1.8',
     'eslint-plugin-prettier': '^5.5.5',
     'eslint-plugin-react': '^7.37.5',
-    prettier: '^3.4.2',
+    prettier: '3.5.3',
     'typescript-eslint': '^8.54.0'
   }
   pkg.devDependencies = pkg.devDependencies || {}
@@ -309,7 +310,7 @@ export default tseslint.config(
     }
   },
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['**/*.{ts,tsx}'],
     plugins: {
       react
     },

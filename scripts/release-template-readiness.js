@@ -571,6 +571,8 @@ export const verifyGeneratedTemplate = async ({
   })
   const phases = [
     ['install', 'yarn', ['install', '--no-immutable']],
+    ['typecheck', 'yarn', ['typecheck']],
+    ['lint', 'yarn', ['eslint', '.']],
     ['build', 'yarn', ['react:build']],
     ['test', 'yarn', ['test']]
   ]

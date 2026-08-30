@@ -249,6 +249,8 @@ test('generated template runner owns install, compile, build, test, smoke, and c
     commands.map(({ command }) => command),
     [
       ['yarn', 'install', '--no-immutable'],
+      ['yarn', 'typecheck'],
+      ['yarn', 'eslint', '.'],
       ['yarn', 'react:build'],
       ['yarn', 'test']
     ]
@@ -266,6 +268,8 @@ test('generated template runner owns install, compile, build, test, smoke, and c
   assert.equal(evidence.status, 'DIAGNOSTIC')
   assert.deepEqual(evidence.phases, [
     'install',
+    'typecheck',
+    'lint',
     'build',
     'test',
     'startup-smoke'
