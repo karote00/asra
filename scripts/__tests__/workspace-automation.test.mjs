@@ -287,6 +287,74 @@ test('Vite builds rely on dedicated lint gates and native Vercel output configur
   assert.doesNotMatch(releaseTemplate, /vite-plugin-vercel/)
 })
 
+test('Tailwind 4 uses the dedicated Vite plugin in canonical and generated apps', () => {
+  const appManifest = readJSON('apps/asyra-design/package.json')
+  const appViteConfig = readText('apps/asyra-design/vite.config.ts')
+  const appStyles = readText('apps/asyra-design/src/index.css')
+  const designSystemManifest = readJSON('packages/design-system/package.json')
+  const designSystemViteConfig = readText(
+    'packages/design-system/vite.config.ts'
+  )
+  const generatedManifest = readJSON(
+    'create-app/asyra-design/template/package.json'
+  )
+  const generatedViteConfig = readText(
+    'create-app/asyra-design/template/vite.config.ts'
+  )
+  const generatedStyles = readText(
+    'create-app/asyra-design/template/src/index.css'
+  )
+
+  for (const manifest of [
+    appManifest,
+    designSystemManifest,
+    generatedManifest
+  ]) {
+    assert.equal(manifest.devDependencies.tailwindcss, '^4.3.3')
+    assert.equal(manifest.devDependencies['@tailwindcss/vite'], '^4.3.3')
+    assert.equal(manifest.devDependencies.autoprefixer, undefined)
+    assert.equal(manifest.devDependencies.postcss, undefined)
+  }
+
+  for (const viteConfig of [
+    appViteConfig,
+    designSystemViteConfig,
+    generatedViteConfig
+  ]) {
+    assert.match(viteConfig, /from '@tailwindcss\/vite'/u)
+    assert.doesNotMatch(viteConfig, /from 'tailwindcss'/u)
+  }
+
+  for (const styles of [appStyles, generatedStyles]) {
+    assert.match(styles, /@import 'tailwindcss';/u)
+    assert.match(styles, /@config '\.\.\/tailwind\.config\.js';/u)
+    assert.match(styles, /@source inline\('h-8'\);/u)
+    assert.doesNotMatch(styles, /@tailwind/u)
+  }
+
+  assert.equal(
+    fs.existsSync(
+      path.join(repositoryRoot, 'apps/asyra-design/postcss.config.js')
+    ),
+    false
+  )
+  assert.equal(
+    fs.existsSync(
+      path.join(repositoryRoot, 'packages/design-system/postcss.config.js')
+    ),
+    false
+  )
+  assert.equal(
+    fs.existsSync(
+      path.join(
+        repositoryRoot,
+        'create-app/asyra-design/template/postcss.config.js'
+      )
+    ),
+    false
+  )
+})
+
 test('CI validates the active Framework package release from packed artifacts on Node 24', () => {
   const ci = readText('.github/workflows/main.yml')
   const releaseJob = ci.slice(ci.indexOf('framework-release-readiness:'))

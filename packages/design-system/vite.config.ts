@@ -1,18 +1,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import svgr from 'vite-plugin-svgr'
 import dts from 'vite-plugin-dts'
-import tailwindcss from 'tailwindcss'
 import { resolve } from 'path'
 import packageJson from './package.json'
 
 export default defineConfig({
-  css: {
-    postcss: {
-      plugins: [tailwindcss()]
-    }
-  },
   plugins: [
+    tailwindcss(),
     react(),
     svgr({
       svgrOptions: {
@@ -28,12 +24,11 @@ export default defineConfig({
       fileName: (format) => `index.${format}.js`
     },
     rollupOptions: {
-      external: [...Object.keys(packageJson.peerDependencies), 'tailwindcss'],
+      external: [...Object.keys(packageJson.peerDependencies)],
       output: {
         globals: {
           react: 'React',
-          'react-dom': 'ReactDOM',
-          tailwindcss: 'tailwindcss'
+          'react-dom': 'ReactDOM'
         }
       }
     },
