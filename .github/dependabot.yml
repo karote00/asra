@@ -6,6 +6,18 @@ updates:
       interval: 'weekly'
     labels:
       - 'dependencies'
+    groups:
+      # Keep routine Action updates together while reviewing workflow changes
+      # separately from application dependencies.
+      github-actions-version-updates:
+        applies-to: 'version-updates'
+        patterns:
+          - '*'
+      # Security updates stay independent from scheduled version maintenance.
+      github-actions-security-updates:
+        applies-to: 'security-updates'
+        patterns:
+          - '*'
 
   - package-ecosystem: 'npm'
     directory: '/'
@@ -13,3 +25,17 @@ updates:
       interval: 'weekly'
     labels:
       - 'dependencies'
+    groups:
+      # Major version updates are intentionally unmatched and remain isolated.
+      npm-minor-and-patch:
+        applies-to: 'version-updates'
+        patterns:
+          - '*'
+        update-types:
+          - 'minor'
+          - 'patch'
+      # Security updates stay independent from scheduled version maintenance.
+      npm-security-updates:
+        applies-to: 'security-updates'
+        patterns:
+          - '*'
