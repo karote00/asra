@@ -143,15 +143,15 @@ path.
 
 ## File-Scoped Persistence
 
-Every ordinary required `fileId` opens the implemented mandatory socket
-document session. Core loads the checkpoint-plus-tail bootstrap; local manual
+With `VITE_COLLABORATION_WS_URL` configured, every ordinary required `fileId`
+opens the implemented socket document session. Core loads the checkpoint-plus-tail bootstrap; local manual
 actions, Agent actions, Undo, and Redo publish existing Factory
 `SharedPublication` values; the socket assigns sequence and batches backend
 materialization on the fixed three-second dirty window. The browser never
 writes a materialized ordinary document snapshot.
 
-`crdt-7076-sample` uses the same mandatory socket document session as every
-other fileId. Its checked-in ordered `AiActionBatch` instruction file is the
+With a configured endpoint, `crdt-7076-sample` uses the same socket document
+session as every other fileId. Its checked-in ordered `AiActionBatch` instruction file is the
 only drawing authority and enters only through Actor A's same-origin HTTP
 action-batch request. The sample retains no SVG, alternate drawing source, or
 request-time geometry reconstruction. Socket unavailability keeps the ordinary

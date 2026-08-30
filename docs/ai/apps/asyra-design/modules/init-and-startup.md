@@ -37,9 +37,10 @@
   active `.env`.
 - Without `APP_URL`, frontend tooling uses `http://localhost:3000` as its
   development origin. This tooling default is not a browser-visible endpoint.
-- Without `VITE_COLLABORATION_WS_URL`, the browser derives same-origin
-  `/collaboration`. An unavailable route enters the existing provisional
-  offline state instead of selecting a second document mode.
+- Without `VITE_COLLABORATION_WS_URL`, the browser starts in explicit
+  local-only mode. Core, Canvas, local actions, Undo, and Redo remain available, while the
+  App does not import the Collaboration lifecycle or create HTTP/WebSocket
+  server communication.
 
 ## Startup Order (Current)
 
@@ -74,10 +75,15 @@
 
 3. RenderApp effect
 
-- a non-empty ordinary `fileId` selects collaboration document/room identity,
-  derives the WebSocket endpoint from configured
-  `VITE_COLLABORATION_WS_URL` or same-origin `/collaboration`, and generates a
-  full UUID actor identity per page
+- a non-empty ordinary `fileId` selects the local document identity; a
+  configured `VITE_COLLABORATION_WS_URL` additionally selects collaboration
+  document/room identity and generates a full UUID actor identity per page
+- without a configured Collaboration endpoint, RenderApp starts Core directly
+  in local-only mode and performs no Collaboration lifecycle import, session registration,
+  WebSocket construction, or server request
+- local-only startup supplies the existing canonical empty document through
+  one read-only `LocalOnlyDocument` load source; it does not register autosave,
+  browser persistence, a recovery outbox, or a second canonical state owner
 - the collaboration lifecycle opens the checkpoint/tail handshake before Core
   startup and RenderApp supplies that checkpoint through
   `core.setLoadSource(...)`

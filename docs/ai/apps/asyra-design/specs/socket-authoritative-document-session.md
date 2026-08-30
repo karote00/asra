@@ -9,8 +9,8 @@
 
 ## Purpose
 
-Asyra Design uses one mandatory socket document session for both
-single-Actor and multi-Actor editing. The browser loads through a socket
+When `VITE_COLLABORATION_WS_URL` is configured, Asyra Design uses one socket
+document session for both single-Actor and multi-Actor editing. The browser loads through a socket
 handshake and publishes canonical document changes, while the socket server
 owns ordering, live fan-out, persistence batching, retry, and durable-watermark
 tracking. The browser does not save document snapshots.
@@ -20,16 +20,13 @@ database writes rather than coexisting with them as a second autosave mode.
 
 ## Product Decisions
 
-- A document is always opened through its socket session, including when only
-  one Actor is connected.
-- The public deployment runs the same full-stack client path as every ordinary
-  document. Because that deployment does not provide the socket server or
-  backend, its handshake fails, the App enters the disconnected state, and
-  local editing continues through the same durable pending-publication path.
-  The initial connection state is `none`; only `none -> connected` is silent.
-  An initial `none -> disconnected` transition reports that the document
-  session is offline.
-- `crdt-7076-sample` uses this same full-stack client path. Actor A's exact
+- Without a configured Collaboration endpoint, the App starts Core directly
+  in local-only mode. Local editing and History remain available, while no
+  Collaboration lifecycle, WebSocket, server request, or browser persistence
+  is created.
+- With a configured endpoint, a document is opened through its socket session,
+  including when only one Actor is connected.
+- With a configured endpoint, `crdt-7076-sample` uses this same full-stack client path. Actor A's exact
   image and instruction receive the checked-in ordered `AiActionBatch`
   instruction file through the same-origin HTTP action-batch interceptor; the
   response then executes through ordinary canonical and publication owners.

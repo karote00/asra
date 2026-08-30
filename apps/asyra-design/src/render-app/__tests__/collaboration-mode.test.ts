@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getCollaborationMode, getRequiredFileId } from '../collaboration-mode'
+import {
+  getConfiguredCollaborationMode,
+  getRequiredFileId
+} from '../collaboration-mode'
 
 const ACTOR_UUID = '12345678-1234-4123-8123-123456789abc'
 const COLLABORATION_ENDPOINT = 'ws://127.0.0.1:4101/collaboration'
@@ -16,7 +19,7 @@ describe('collaboration public file identity', () => {
     vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ACTOR_UUID)
     window.history.replaceState({}, '', '/?fileId=public-crdt-file')
 
-    const mode = getCollaborationMode()
+    const mode = getConfiguredCollaborationMode()
     expect(mode).toMatchObject({
       fileId: 'public-crdt-file',
       actorId: `actor-${ACTOR_UUID}`,
@@ -36,7 +39,7 @@ describe('collaboration public file identity', () => {
       '/?fileId=public-crdt-file&collaboration=0&document=legacy&room=legacy&actor=legacy-a'
     )
 
-    expect(getCollaborationMode()).toMatchObject({
+    expect(getConfiguredCollaborationMode()).toMatchObject({
       fileId: 'public-crdt-file',
       actorId: `actor-${ACTOR_UUID}`,
       endpoint: COLLABORATION_ENDPOINT
@@ -53,28 +56,20 @@ describe('collaboration public file identity', () => {
     )
   })
 
-  it('uses the current deployment socket route when no endpoint is configured', () => {
+  it('selects local-only startup when no collaboration endpoint is configured', () => {
     vi.stubEnv('VITE_COLLABORATION_WS_URL', '')
     vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ACTOR_UUID)
     window.history.replaceState({}, '', '/?fileId=ordinary-document')
 
-    expect(getCollaborationMode()).toEqual({
-      fileId: 'ordinary-document',
-      actorId: `actor-${ACTOR_UUID}`,
-      endpoint: 'ws://localhost:3000/collaboration'
-    })
+    expect(getConfiguredCollaborationMode()).toBeUndefined()
   })
 
-  it('keeps the 7076 sample on the ordinary socket document flow', () => {
+  it('keeps the 7076 sample offline without an explicit endpoint', () => {
     vi.stubEnv('VITE_COLLABORATION_WS_URL', '')
     vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue(ACTOR_UUID)
     window.history.replaceState({}, '', '/?fileId=crdt-7076-sample')
 
     expect(getRequiredFileId()).toBe('crdt-7076-sample')
-    expect(getCollaborationMode()).toEqual({
-      fileId: 'crdt-7076-sample',
-      actorId: `actor-${ACTOR_UUID}`,
-      endpoint: 'ws://localhost:3000/collaboration'
-    })
+    expect(getConfiguredCollaborationMode()).toBeUndefined()
   })
 })
