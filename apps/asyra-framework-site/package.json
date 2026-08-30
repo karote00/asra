@@ -34,7 +34,7 @@
     "shiki": "^4.4.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.57.0",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "^16.18.121",
     "@types/react": "^19.0.0",

@@ -29,7 +29,7 @@
     "@asyra/input-system": "workspace:*",
     "@asyra/reactive-events": "workspace:*",
     "@asyra/render": "workspace:*",
-    "@playwright/test": "^1.57.0",
+    "@playwright/test": "^1.62.1",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.6",
