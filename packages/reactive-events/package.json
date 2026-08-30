@@ -43,12 +43,11 @@
     "add-event": "tsx scripts/add-event.ts"
   },
   "devDependencies": {
-    "@types/inquirer": "^8.2.6",
     "@types/node": "^25.0.2",
     "@vitest/coverage-v8": "^3.2.6",
     "chalk": "^5.6.2",
     "commander": "^14.0.2",
-    "inquirer": "^8.0.0",
+    "inquirer": "^14.2.0",
     "ts-morph": "^27.0.2",
     "tsx": "^4.23.12",
     "typescript": "^5.7.2",

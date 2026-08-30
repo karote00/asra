@@ -20,7 +20,7 @@
       "sources": [
         {
           "path": "create-app/asyra-design/package.json",
-          "sha256": "7ee99d7f8caac23a336640af7f4e20df98001eeb823f9246a195bd180e9e96af"
+          "sha256": "96d65f0e4d7195b301027be569d6ee645bae076705b538d3360cf3e96bbebce6"
         },
         {
           "path": "create-app/asyra-design/template/README.md",
@@ -454,7 +454,7 @@
         },
         {
           "path": "packages/reactive-events/package.json",
-          "sha256": "90120af485d9606265168d91e522ce8e526cb0dbe751be56f9c2e9cf78617c86"
+          "sha256": "dd74ef3b7d762787c720312571dff62b7c3df4a003469bffe8958441701ffcd2"
         }
       ]
     },
