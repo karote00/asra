@@ -65,6 +65,7 @@ const CHECK_DIRECTORY = path.resolve(
 const DEST_DIR = CHECK ? CHECK_DIRECTORY : CONFIGURED_DEST_DIR
 const CLEAN_FILES = config.cleanFiles || []
 const REMOVE_SCRIPTS = config.removeScripts || []
+const REMOVE_SCRIPT_ARGUMENTS = config.removeScriptArguments || {}
 const SOURCE_README = path.join(SRC_DIR, 'README.md')
 const SOURCE_EXAMPLE_ENVIRONMENT = path.join(SRC_DIR, '.env.example')
 const TEMPLATE_LICENSE = config.license
@@ -225,6 +226,17 @@ if (!fs.existsSync(pkgPath)) {
         ([scriptName]) => !REMOVE_SCRIPTS.includes(scriptName)
       )
     )
+    for (const [scriptName, scriptArguments] of Object.entries(
+      REMOVE_SCRIPT_ARGUMENTS
+    )) {
+      if (!pkg.scripts[scriptName]) continue
+      for (const scriptArgument of scriptArguments) {
+        pkg.scripts[scriptName] = pkg.scripts[scriptName].replace(
+          ` ${scriptArgument}`,
+          ''
+        )
+      }
+    }
   }
 
   // ----------------------

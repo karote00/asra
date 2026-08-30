@@ -151,6 +151,7 @@ test('release template excludes local runtime data directories', () => {
     'test-data/ai-drawing',
     'e2e/crdt-7076-render.spec.ts',
     'scripts/generate-crdt-7076-document.ts',
+    '__tests__/prepared-server-response-artifacts.test.mjs',
     'server/__tests__/action-batch.test.ts',
     'src/ai/__tests__/detailed-tabby.test.ts',
     'src/common-apis/element/__tests__/vector-parent-creation.test.ts'
@@ -232,6 +233,17 @@ test('Asyra Design keeps the large CRDT fixture out of the generated template', 
     'generate:crdt-7076-document',
     'test:e2e:crdt-7076'
   ])
+  assert.deepEqual(config.removeScriptArguments, {
+    'test:server-response-harness': [
+      'server/__tests__/action-batch.test.ts',
+      'test-data/ai-drawing/__tests__/action-batch-interceptor.test.ts',
+      'src/ai/__tests__/detailed-tabby.test.ts'
+    ],
+    'test:local': [
+      '__tests__/prepared-server-response-artifacts.test.mjs',
+      'src/common-apis/element/__tests__/vector-parent-creation.test.ts'
+    ]
+  })
   assert.equal(
     existsSync(
       path.join(
@@ -253,6 +265,7 @@ test('Asyra Design keeps the large CRDT fixture out of the generated template', 
   for (const generatedOnlyTestPath of [
     'e2e/crdt-7076-render.spec.ts',
     'scripts/generate-crdt-7076-document.ts',
+    '__tests__/prepared-server-response-artifacts.test.mjs',
     'server/__tests__/action-batch.test.ts',
     'src/ai/__tests__/detailed-tabby.test.ts',
     'src/common-apis/element/__tests__/vector-parent-creation.test.ts'
@@ -267,6 +280,24 @@ test('Asyra Design keeps the large CRDT fixture out of the generated template', 
       ),
       false,
       generatedOnlyTestPath
+    )
+  }
+
+  const generatedManifest = JSON.parse(
+    readFileSync(
+      path.join(
+        repositoryRoot,
+        'create-app/asyra-design/template/package.json'
+      ),
+      'utf8'
+    )
+  )
+  for (const excludedArgument of Object.values(
+    config.removeScriptArguments
+  ).flat()) {
+    assert.doesNotMatch(
+      Object.values(generatedManifest.scripts).join('\n'),
+      new RegExp(excludedArgument.replaceAll('/', String.raw`\/`), 'u')
     )
   }
 })

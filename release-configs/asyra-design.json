@@ -6,6 +6,17 @@
     "generate:crdt-7076-document",
     "test:e2e:crdt-7076"
   ],
+  "removeScriptArguments": {
+    "test:server-response-harness": [
+      "server/__tests__/action-batch.test.ts",
+      "test-data/ai-drawing/__tests__/action-batch-interceptor.test.ts",
+      "src/ai/__tests__/detailed-tabby.test.ts"
+    ],
+    "test:local": [
+      "__tests__/prepared-server-response-artifacts.test.mjs",
+      "src/common-apis/element/__tests__/vector-parent-creation.test.ts"
+    ]
+  },
   "cleanFiles": [
     "node_modules",
     "yarn.lock",
@@ -26,6 +37,7 @@
     "test-data/ai-drawing",
     "e2e/crdt-7076-render.spec.ts",
     "scripts/generate-crdt-7076-document.ts",
+    "__tests__/prepared-server-response-artifacts.test.mjs",
     "server/__tests__/action-batch.test.ts",
     "src/ai/__tests__/detailed-tabby.test.ts",
     "src/common-apis/element/__tests__/vector-parent-creation.test.ts"
