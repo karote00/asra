@@ -15,7 +15,7 @@
     "template"
   ],
   "dependencies": {
-    "inquirer": "^8.2.5"
+    "inquirer": "^14.2.0"
   },
   "packageManager": "yarn@4.3.1",
   "repository": {
