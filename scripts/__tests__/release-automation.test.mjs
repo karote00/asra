@@ -159,6 +159,7 @@ test('release template excludes local runtime data directories', () => {
     'e2e/prepared-server-response-artifacts.mjs',
     'scripts/generate-crdt-7076-document.ts',
     '__tests__/prepared-server-response-artifacts.test.mjs',
+    '__tests__/playwright-config.test.mjs',
     'server/__tests__/action-batch.test.ts',
     'src/ai/__tests__/detailed-tabby.test.ts',
     'src/common-apis/element/__tests__/vector-parent-creation.test.ts'
@@ -259,6 +260,7 @@ test('Asyra Design keeps the large CRDT fixture out of the generated template', 
     ],
     'test:local': [
       '__tests__/prepared-server-response-artifacts.test.mjs',
+      '__tests__/playwright-config.test.mjs',
       'src/common-apis/element/__tests__/vector-parent-creation.test.ts'
     ]
   })
@@ -291,6 +293,7 @@ test('Asyra Design keeps the large CRDT fixture out of the generated template', 
     'e2e/prepared-server-response-artifacts.mjs',
     'scripts/generate-crdt-7076-document.ts',
     '__tests__/prepared-server-response-artifacts.test.mjs',
+    '__tests__/playwright-config.test.mjs',
     'server/__tests__/action-batch.test.ts',
     'src/ai/__tests__/detailed-tabby.test.ts',
     'src/common-apis/element/__tests__/vector-parent-creation.test.ts'
