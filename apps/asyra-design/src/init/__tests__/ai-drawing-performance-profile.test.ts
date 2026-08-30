@@ -435,8 +435,7 @@ describe('AI drawing performance profile', () => {
 
   it('captures detached canonical and Factory evidence without exposing runtime owners', () => {
     let transactionSubscriber:
-      | ((status: TransactionStatusPayload) => void)
-      | undefined
+      ((status: TransactionStatusPayload) => void) | undefined
     const detachTransactions = vi.fn()
     let authoritativeHistoryDepth = 0
     let renderProjectionElementCount = 1
@@ -735,8 +734,7 @@ describe('AI drawing performance profile', () => {
   it('retains a fixed-capacity window for Factory status, commit, and publication evidence', () => {
     const capacity = 16_384
     let transactionSubscriber:
-      | ((status: TransactionStatusPayload) => void)
-      | undefined
+      ((status: TransactionStatusPayload) => void) | undefined
     const profile = installAiDrawingPerformanceProfile({
       epochNow: () => 1_000,
       now: () => 0,
@@ -791,8 +789,7 @@ describe('AI drawing performance profile', () => {
 
   it('captures hostile diagnostic values without losing the latest status', () => {
     let transactionSubscriber:
-      | ((status: TransactionStatusPayload) => void)
-      | undefined
+      ((status: TransactionStatusPayload) => void) | undefined
     const profile = installAiDrawingPerformanceProfile({
       now: () => 0,
       runtime: 'production'

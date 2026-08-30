@@ -18,8 +18,7 @@ export interface ResolveCanvasHierarchyTargetInput {
   elementDataMap: CanvasHierarchyElementDataMap
 }
 
-export interface ResolveCreateElementParentInput
-  extends ResolveCanvasHierarchyTargetInput {
+export interface ResolveCreateElementParentInput extends ResolveCanvasHierarchyTargetInput {
   workspaceId: string
 }
 

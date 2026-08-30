@@ -614,9 +614,8 @@ test.describe('Render delta performance budget', () => {
     test.setTimeout(120_000)
 
     const fixture = await page.evaluate(async (pointCount) => {
-      const { core, elementApis } = await import(
-        '../src/testing/runtime-access'
-      )
+      const { core, elementApis } =
+        await import('../src/testing/runtime-access')
       if (!core || !elementApis) {
         throw new Error('Asyra Design E2E runtime is unavailable')
       }
@@ -923,9 +922,8 @@ test.describe('Render delta performance budget', () => {
     await captureStage('moved')
 
     await page.evaluate(async (elementId) => {
-      const { core, elementApis } = await import(
-        '../src/testing/runtime-access'
-      )
+      const { core, elementApis } =
+        await import('../src/testing/runtime-access')
       const computed =
         core.deps?.sceneTree
           ?.getElementById?.(elementId)

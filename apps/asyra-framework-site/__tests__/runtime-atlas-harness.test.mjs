@@ -6,9 +6,8 @@ import test from 'node:test'
 const siteRoot = path.resolve(import.meta.dirname, '..')
 
 test('Runtime Atlas freezes six plain-language cases and ordered actions', async () => {
-  const { ATLAS_CASES, ATLAS_CASE_IDS } = await import(
-    '../lib/runtime-atlas/case-definitions.mjs'
-  )
+  const { ATLAS_CASES, ATLAS_CASE_IDS } =
+    await import('../lib/runtime-atlas/case-definitions.mjs')
 
   assert.deepEqual(ATLAS_CASE_IDS, [
     'continuous-pointer-undo',

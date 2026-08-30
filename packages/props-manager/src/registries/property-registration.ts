@@ -50,8 +50,7 @@ export interface PropertyRegistrationInUseFailure {
 }
 
 export type PropertyRegistrationUnregisterResult =
-  | PropertyRegistrationUnregisterSuccess
-  | PropertyRegistrationUnregisterMissing
+  PropertyRegistrationUnregisterSuccess | PropertyRegistrationUnregisterMissing
 
 export class PropertyRegistrationError extends Error {
   readonly code: PropertyRegistrationErrorCode

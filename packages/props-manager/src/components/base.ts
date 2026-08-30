@@ -36,8 +36,8 @@ const cloneFallbackValue = (value: unknown): unknown => {
 }
 
 abstract class BaseComponent<
-    T extends PropertyComponentInstanceDataTypes = PositionAttrs
-  >
+  T extends PropertyComponentInstanceDataTypes = PositionAttrs
+>
   extends Setter<T>
   implements IProperty
 {

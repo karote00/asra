@@ -1294,8 +1294,7 @@ class PropsManager {
             Record<string, unknown>
           >
           const ownerPropertyIds = sourceOwner.propertyIds as
-            | Readonly<Record<string, unknown>>
-            | undefined
+            Readonly<Record<string, unknown>> | undefined
           const observedNames = new Set<string>()
           sourceOwner.definitions.forEach((sourceDefinition) => {
             if (
@@ -1643,10 +1642,10 @@ class PropsManager {
         const componentConstructor = registrationContract?.constructor
         const requiresDeferredRebind = Boolean(
           componentConstructor &&
-            isPropertyComponentBatchRebindable(
-              componentConstructor,
-              childRelation
-            )
+          isPropertyComponentBatchRebindable(
+            componentConstructor,
+            childRelation
+          )
         )
         visitingComponentIds.delete(componentId)
         requiresDeferredRebindById.set(componentId, requiresDeferredRebind)
@@ -5387,14 +5386,12 @@ class PropsManager {
           }
         : undefined
     const transactionEvents = deepFreezePropertyContract(
-      frozenEvidence.map(
-        (change, index): PreparedPropsTransactionEvent => ({
-          ...createTransactionEvent(change),
-          ...(index === 0 && replaceLatestHistoryCandidate
-            ? { historyCandidate: replaceLatestHistoryCandidate }
-            : {})
-        })
-      )
+      frozenEvidence.map((change, index): PreparedPropsTransactionEvent => ({
+        ...createTransactionEvent(change),
+        ...(index === 0 && replaceLatestHistoryCandidate
+          ? { historyCandidate: replaceLatestHistoryCandidate }
+          : {})
+      }))
     )
     this.validatedPropertyMutationArtifacts.set(prepared, {
       owners,

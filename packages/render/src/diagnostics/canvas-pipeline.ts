@@ -79,37 +79,32 @@ interface CanvasPipelineEvidenceBase {
   frameId: number
 }
 
-export interface CanvasPipelineElementInputEvidence
-  extends CanvasPipelineEvidenceBase {
+export interface CanvasPipelineElementInputEvidence extends CanvasPipelineEvidenceBase {
   kind: typeof CanvasPipelineEvidenceKinds.ELEMENT_INPUT
   operation: 'add' | 'update' | 'remove'
   elementId: string
   data: CanvasPipelineDetachedValue
 }
 
-export interface CanvasPipelineViewportInputEvidence
-  extends CanvasPipelineEvidenceBase {
+export interface CanvasPipelineViewportInputEvidence extends CanvasPipelineEvidenceBase {
   kind: typeof CanvasPipelineEvidenceKinds.VIEWPORT_INPUT
   operation: 'pan' | 'zoom' | 'zoom-center' | 'zoom-fit' | 'resize'
   data: CanvasPipelineDetachedValue
 }
 
-export interface CanvasPipelineLayerEvaluationEvidence
-  extends CanvasPipelineEvidenceBase {
+export interface CanvasPipelineLayerEvaluationEvidence extends CanvasPipelineEvidenceBase {
   kind: typeof CanvasPipelineEvidenceKinds.LAYER_EVALUATION
   layerName: string
   zIndex: number
   outcome: 'bypassed' | 'unchanged' | 'changed'
 }
 
-export interface CanvasPipelineEngineHandoffEvidence
-  extends CanvasPipelineEvidenceBase {
+export interface CanvasPipelineEngineHandoffEvidence extends CanvasPipelineEvidenceBase {
   kind: typeof CanvasPipelineEvidenceKinds.ENGINE_HANDOFF
   command: CanvasPipelineCommandSnapshot
 }
 
-export interface CanvasPipelineFrameEvidence
-  extends CanvasPipelineEvidenceBase {
+export interface CanvasPipelineFrameEvidence extends CanvasPipelineEvidenceBase {
   kind: typeof CanvasPipelineEvidenceKinds.FRAME
   phase: 'start' | 'complete'
   outcome?: 'rendered' | 'skipped' | 'failed'

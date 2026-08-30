@@ -6,9 +6,7 @@ export interface AiImageToolDescriptor {
   readonly capabilities: readonly string[]
   readonly id: (typeof AiImageToolIds)[keyof typeof AiImageToolIds]
   readonly inputMediaTypes: readonly (
-    | 'image/jpeg'
-    | 'image/png'
-    | 'image/webp'
+    'image/jpeg' | 'image/png' | 'image/webp'
   )[]
 }
 

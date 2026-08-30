@@ -507,8 +507,7 @@ describe('SceneTree canonical transactions and local computed projection', () =>
     ])
 
     const updatedRecord = fixture.updateComputedData.mock.calls[0]?.[1] as
-      | Record<string, unknown>
-      | undefined
+      Record<string, unknown> | undefined
     expect(updatedRecord).toBeDefined()
     expect(Object.prototype.hasOwnProperty.call(updatedRecord, 'point-1')).toBe(
       true
@@ -570,8 +569,7 @@ describe('SceneTree canonical transactions and local computed projection', () =>
     ])
 
     const updatedRecord = fixture.updateComputedData.mock.calls[0]?.[1] as
-      | Record<string, unknown>
-      | undefined
+      Record<string, unknown> | undefined
     expect(Object.getPrototypeOf(updatedRecord)).toBe(Object.prototype)
     expect(
       Object.prototype.hasOwnProperty.call(updatedRecord, '__proto__')

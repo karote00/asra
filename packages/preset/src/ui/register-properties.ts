@@ -34,8 +34,7 @@ import { PresetSystemPropertyKeys } from '../system-property-keys.js'
 const DEFAULT_PRIMARY_TOOL = 'select'
 
 export interface PathEditingContinuationState
-  extends VectorEditingContinuation,
-    Record<string, unknown> {
+  extends VectorEditingContinuation, Record<string, unknown> {
   elementId: string
 }
 

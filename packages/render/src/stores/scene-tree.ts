@@ -1315,8 +1315,7 @@ class RenderSceneTree {
         continue
       }
       const parentData = parent?.save() as
-        | (ElementRawData & { children?: unknown })
-        | undefined
+        (ElementRawData & { children?: unknown }) | undefined
       const children = parentData?.children
       if (!parent || !Array.isArray(children)) {
         return this.projectionOutcome(elementId, 'failed')

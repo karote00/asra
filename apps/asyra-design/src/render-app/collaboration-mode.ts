@@ -24,8 +24,7 @@ export const getRequiredFileId = (): string => {
 }
 
 export const getConfiguredCollaborationMode = ():
-  | CollaborationMode
-  | undefined => {
+  CollaborationMode | undefined => {
   const fileId = getRequiredFileId()
   const configuredEndpoint = import.meta.env.VITE_COLLABORATION_WS_URL?.trim()
   if (!configuredEndpoint) return undefined

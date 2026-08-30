@@ -7,8 +7,7 @@ export const getSceneTreePropsManager = (): PropsManager =>
   scopedPropsManager ?? propsManager
 
 export const getSceneTreeInitialOwnerValues = ():
-  | Readonly<Record<string, unknown>>
-  | undefined => scopedInitialOwnerValues
+  Readonly<Record<string, unknown>> | undefined => scopedInitialOwnerValues
 
 export const runWithSceneTreePropsManager = <T>(
   owner: PropsManager,

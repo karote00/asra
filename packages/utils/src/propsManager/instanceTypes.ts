@@ -36,8 +36,9 @@ export interface AnchorPointsAttrs extends BasePropertyAttrs {
   anchorPoints: string[]
 }
 
-export interface IProperty<T extends BasePropertyAttrs = BasePropertyAttrs>
-  extends ISetter<T> {
+export interface IProperty<
+  T extends BasePropertyAttrs = BasePropertyAttrs
+> extends ISetter<T> {
   load(data: Partial<PropertyComponentRawData>): void
   save(): PropertyComponentRawData
   getValue(): Record<string, DataTypes>
@@ -46,8 +47,7 @@ export interface IProperty<T extends BasePropertyAttrs = BasePropertyAttrs>
 export interface Position extends IProperty {}
 export interface Dimension extends IProperty {}
 
-export interface PropertyComponentInstanceTypes
-  extends IProperty<PropertyComponentInstanceDataTypes> {}
+export interface PropertyComponentInstanceTypes extends IProperty<PropertyComponentInstanceDataTypes> {}
 export type PropertyComponentInstanceDataTypes =
   | PositionAttrs
   | DimensionAttrs

@@ -117,8 +117,7 @@ describe('transaction batch publishing', () => {
 
       expect(ownerUpdate).toHaveBeenCalledOnce()
       const delivered = ownerUpdate.mock.calls[0]?.[0] as
-        | readonly UpdateTransactionEvent[]
-        | undefined
+        readonly UpdateTransactionEvent[] | undefined
       expect(delivered?.map(({ eventName }) => eventName)).toEqual([
         'property.first',
         'property.second'
@@ -162,8 +161,7 @@ describe('transaction batch publishing', () => {
     try {
       updateTransactionBatch(externalBatch)
       const issuedBatch = ownerUpdate.mock.calls[0]?.[0] as
-        | readonly UpdateTransactionEvent[]
-        | undefined
+        readonly UpdateTransactionEvent[] | undefined
 
       expect(issuedBatch).not.toBe(externalBatch)
       expect(issuedBatch?.[0]).not.toBe(sourceEvent)
@@ -207,8 +205,7 @@ describe('transaction batch publishing', () => {
 
       expect(ownerUpdate).toHaveBeenCalledOnce()
       const delivered = ownerUpdate.mock.calls[0]?.[0] as
-        | readonly UpdateTransactionEvent[]
-        | undefined
+        readonly UpdateTransactionEvent[] | undefined
       expect(delivered).toEqual([sourceEvent])
       expect(delivered?.[0]).not.toBe(sourceEvent)
       expect(delivered?.[0]?.canonicalEvidence).not.toBe(

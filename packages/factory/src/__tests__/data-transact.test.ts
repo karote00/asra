@@ -542,8 +542,7 @@ describe('DataTransact user action completion', () => {
     }
 
     const deliveredBatch = pushBatchToSharedChannel.mock.calls[0]?.[1] as
-      | readonly unknown[]
-      | undefined
+      readonly unknown[] | undefined
     expect(deliveredBatch).toHaveLength(1)
     expect(Object.isFrozen(deliveredBatch)).toBe(true)
     expect(

@@ -9,11 +9,10 @@ import React, {
 import { MIXED_STRING } from '@asyra/utils'
 
 // InputProps Interface
-interface InputProps
-  extends Omit<
-    React.InputHTMLAttributes<HTMLInputElement>,
-    'onChange' | 'size'
-  > {
+interface InputProps extends Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  'onChange' | 'size'
+> {
   /** Content inside the input */
   value?: number | string | typeof MIXED_STRING
   /** Prefix element (e.g., currency symbol) */

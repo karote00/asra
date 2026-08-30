@@ -466,15 +466,13 @@ const toPropertySchema = <TFields extends object>(
   definition: PropertyTypeDefinition<TFields>
 ): PropertySchema => ({
   type: definition.type,
-  fields: definition.fields.map(
-    (field): PropertyFieldSchema => ({
-      key: field.key,
-      kind: field.kind,
-      defaultValue: clonePropertyDefinitionValue(field.defaultValue),
-      validate: field.validate,
-      allowedUnits: field.allowedUnits ? [...field.allowedUnits] : undefined
-    })
-  )
+  fields: definition.fields.map((field): PropertyFieldSchema => ({
+    key: field.key,
+    kind: field.kind,
+    defaultValue: clonePropertyDefinitionValue(field.defaultValue),
+    validate: field.validate,
+    allowedUnits: field.allowedUnits ? [...field.allowedUnits] : undefined
+  }))
 })
 
 const toConfigRegistration = <TFields extends object>(

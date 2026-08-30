@@ -145,9 +145,8 @@ test.describe('Group hierarchy product projection', () => {
     })
 
     const result = await page.evaluate(async () => {
-      const { core, hierarchyApis, testRuntimeState } = await import(
-        '../src/testing/runtime-access'
-      )
+      const { core, hierarchyApis, testRuntimeState } =
+        await import('../src/testing/runtime-access')
       const review = testRuntimeState.get<{
         firstElement: unknown
         firstId: string

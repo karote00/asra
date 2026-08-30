@@ -157,8 +157,7 @@ export class PublicationCodecWorkerRuntime {
   private readonly inboundBurstNextPublicationIndex = new Map<string, number>()
   private readonly pendingInboundFrames: InboundFrameToAccept[] = []
   private activeDecodedPublicationDelivery:
-    | ActiveDecodedPublicationDelivery
-    | undefined
+    ActiveDecodedPublicationDelivery | undefined
   private inboundReservedBytes = 0
   private pendingInboundFrameBytes = 0
   private oversizedAssemblyKey: string | undefined
@@ -390,9 +389,9 @@ export class PublicationCodecWorkerRuntime {
         header.frameByteLength > PUBLICATION_FRAME_INBOUND_WINDOW_BYTES) ||
       Boolean(
         assembly &&
-          assembly.acceptedByteLength > 0 &&
-          (this.inboundReservedBytes === assembly.acceptedByteLength ||
-            isOldestAssembly)
+        assembly.acceptedByteLength > 0 &&
+        (this.inboundReservedBytes === assembly.acceptedByteLength ||
+          isOldestAssembly)
       )
     )
   }

@@ -5,8 +5,7 @@ let activeHandle: CanvasPipelineDebugger | undefined
 let initializationId = 0
 
 export const getActiveCanvasPipelineDebugger = ():
-  | CanvasPipelineDebugger
-  | undefined => activeHandle
+  CanvasPipelineDebugger | undefined => activeHandle
 
 const disposeActiveHandle = (): void => {
   const handle = activeHandle
@@ -24,9 +23,8 @@ export const initCanvasPipelineDebugger = async (): Promise<
   const requestId = ++initializationId
   try {
     disposeActiveHandle()
-    const { createCanvasPipelineDebugger } = await import(
-      '@asyra/core/canvas-pipeline-debugger'
-    )
+    const { createCanvasPipelineDebugger } =
+      await import('@asyra/core/canvas-pipeline-debugger')
     if (requestId !== initializationId) {
       return
     }

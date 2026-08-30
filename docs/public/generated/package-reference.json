@@ -94,7 +94,7 @@
       "sourceDigests": {
         "contract": "94c0a88a9ba5d8b317784d22cdaae2201f26d7c7d70c6821adfcafa8d6e56d09",
         "guide": "c2bc81415b3770b776ecd0b282c3889325c76a75a26bdb2d50be5a85b84b042d",
-        "manifest": "ac8ff2afc22b8212471367cc244c627a34499f3fd191f8853257443072b59e6e"
+        "manifest": "097903bfa255686759e3d914999bc1eb18fac3d857020542582f0a2f3bd32f7a"
       },
       "version": "0.5.3"
     },
@@ -251,7 +251,7 @@
       "sourceDigests": {
         "contract": "84e51c0d6cdf49ed672257c433664b0ded00fc1aa3daf8c4edf13d794fff5c0c",
         "guide": "534d53e7eae5e7f38ddbf2977688a63af2857553e1246ef4f77d5b9eb40df275",
-        "manifest": "bf9378adc9f1c407149dc017c12f0b48df57405f917f6d9191cb39b134fc18ae"
+        "manifest": "90120af485d9606265168d91e522ce8e526cb0dbe751be56f9c2e9cf78617c86"
       },
       "version": "0.5.3"
     },

@@ -53,8 +53,7 @@ export interface SharedDeliveryBatch<TPayload = unknown> {
 export type SharedDeliveryBatchSubscriber = (batch: SharedDeliveryBatch) => void
 
 export type SharedPublicationOrigin =
-  | Exclude<TransactionOrigin, 'remote'>
-  | 'rollback-compensation'
+  Exclude<TransactionOrigin, 'remote'> | 'rollback-compensation'
 
 export interface SharedPublicationDelivery<TPayload = unknown> {
   readonly deliveryId: string

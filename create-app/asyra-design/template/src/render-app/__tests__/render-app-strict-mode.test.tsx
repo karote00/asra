@@ -25,8 +25,7 @@ const EMPTY_DOCUMENT = {
 } as const
 let collaborationSessionState: CollaborationSessionState
 let collaborationSessionStateSubscriber:
-  | ((state: CollaborationSessionState) => void)
-  | undefined
+  ((state: CollaborationSessionState) => void) | undefined
 const releaseInteractionLock = vi.fn()
 const collaborationHandle = {
   identity: Object.freeze({

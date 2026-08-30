@@ -31,9 +31,7 @@ export interface RenderPointerPayload {
 }
 
 export type RenderInteractionCaptureMode =
-  | 'none'
-  | 'pointer'
-  | 'pointer-block-input'
+  'none' | 'pointer' | 'pointer-block-input'
 
 export interface RenderPointerCapturePayload {
   targetId: string

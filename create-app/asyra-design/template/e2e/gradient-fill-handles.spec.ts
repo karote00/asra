@@ -66,9 +66,8 @@ test.describe('Gradient Fill Handles', () => {
       (beforeSnapshot?.rect.height ?? 0) * (beforeSnapshot?.zoom ?? 1) * 0.25
 
     await page.evaluate(async () => {
-      const { startSharedChannelCapture } = await import(
-        '../src/testing/runtime-access'
-      )
+      const { startSharedChannelCapture } =
+        await import('../src/testing/runtime-access')
       startSharedChannelCapture('gradient-preview-deliveries', 'props')
     })
     await page.mouse.move(startHandle.x, startHandle.y)

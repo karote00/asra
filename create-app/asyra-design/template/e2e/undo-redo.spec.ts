@@ -207,9 +207,8 @@ test.describe('Undo/Redo Actions', () => {
     }
 
     await page.evaluate(async () => {
-      const { startSharedPublicationCapture } = await import(
-        '../src/testing/runtime-access'
-      )
+      const { startSharedPublicationCapture } =
+        await import('../src/testing/runtime-access')
       startSharedPublicationCapture('move-preview-publications')
     })
     await page.mouse.move(start.x, start.y)
@@ -226,9 +225,8 @@ test.describe('Undo/Redo Actions', () => {
     await expect
       .poll(() =>
         page.evaluate(async () => {
-          const { readTestCapture } = await import(
-            '../src/testing/runtime-access'
-          )
+          const { readTestCapture } =
+            await import('../src/testing/runtime-access')
           return readTestCapture('move-preview-publications').length
         })
       )
@@ -923,9 +921,8 @@ test.describe('Undo/Redo Actions', () => {
     })
 
     await page.evaluate(async () => {
-      const { startSharedPublicationCapture } = await import(
-        '../src/testing/runtime-access'
-      )
+      const { startSharedPublicationCapture } =
+        await import('../src/testing/runtime-access')
       startSharedPublicationCapture('vector-point-preview-publications')
     })
     await page.mouse.move(before.client.x, before.client.y)

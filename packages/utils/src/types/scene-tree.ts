@@ -118,8 +118,7 @@ export interface MoveElementsChange {
 export interface SubtreeChange {
   action: SCENE_TREE_ACTIONS.REMOVE_SUBTREE | SCENE_TREE_ACTIONS.RESTORE_SUBTREE
   undoAction:
-    | SCENE_TREE_ACTIONS.REMOVE_SUBTREE
-    | SCENE_TREE_ACTIONS.RESTORE_SUBTREE
+    SCENE_TREE_ACTIONS.REMOVE_SUBTREE | SCENE_TREE_ACTIONS.RESTORE_SUBTREE
   eventName: string
   elementId: string
   removed: readonly SubtreeRemovalEntry[]

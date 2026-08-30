@@ -1566,9 +1566,7 @@ export const decodePublicationMessageFrames = (
 
 export type EncodedCollaborationMessage = string | Uint8Array
 export type EncodedCollaborationMessageInput =
-  | string
-  | ArrayBuffer
-  | ArrayBufferView
+  string | ArrayBuffer | ArrayBufferView
 
 const collaborationControlMessageTypes = new Set<string>([
   CollaborationMessageTypes.HELLO,

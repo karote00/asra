@@ -543,9 +543,8 @@ test.describe('Property Management', () => {
     }
 
     await page.evaluate(async () => {
-      const { startSharedChannelCapture } = await import(
-        '../src/testing/runtime-access'
-      )
+      const { startSharedChannelCapture } =
+        await import('../src/testing/runtime-access')
       startSharedChannelCapture('stroke-preview-deliveries', 'props')
     })
     await page.mouse.move(paletteBox.x + 24, paletteBox.y + 18)
@@ -704,9 +703,8 @@ test.describe('Property Management', () => {
 
     await page.mouse.move(paletteBox.x + 24, paletteBox.y + 18)
     await page.evaluate(async () => {
-      const { startSharedChannelCapture } = await import(
-        '../src/testing/runtime-access'
-      )
+      const { startSharedChannelCapture } =
+        await import('../src/testing/runtime-access')
       startSharedChannelCapture('fill-preview-deliveries', 'props')
     })
     await page.mouse.down()
@@ -833,9 +831,8 @@ test.describe('Property Management', () => {
     }
 
     await page.evaluate(async () => {
-      const { startSharedChannelCapture } = await import(
-        '../src/testing/runtime-access'
-      )
+      const { startSharedChannelCapture } =
+        await import('../src/testing/runtime-access')
       startSharedChannelCapture('gradient-strip-preview-deliveries', 'props')
     })
     await page.mouse.move(stopBox.x + stopBox.width / 2, stopBox.y + 8)
@@ -920,9 +917,8 @@ test.describe('Property Management', () => {
 
     await page.mouse.move(paletteBox.x + 24, paletteBox.y + 18)
     await page.evaluate(async () => {
-      const { startSharedChannelCapture } = await import(
-        '../src/testing/runtime-access'
-      )
+      const { startSharedChannelCapture } =
+        await import('../src/testing/runtime-access')
       startSharedChannelCapture('gradient-stop-preview-deliveries', 'props')
     })
     await page.mouse.down()

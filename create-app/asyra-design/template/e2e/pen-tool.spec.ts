@@ -995,8 +995,7 @@ test.describe('Pen Tool - Editing Flow', () => {
           const getSegmentDegree = (pointId: string | null) =>
             segmentIds.filter((segmentId) => {
               const segment = segments[segmentId] as
-                | { startId?: string; endId?: string }
-                | undefined
+                { startId?: string; endId?: string } | undefined
               return (
                 !!pointId &&
                 (segment?.startId === pointId || segment?.endId === pointId)
@@ -1952,8 +1951,7 @@ test.describe('Pen Tool - Editing Flow', () => {
       )
 
       const root = core?.deps?.render?.viewport?.view as
-        | { label?: string; children?: unknown[] }
-        | undefined
+        { label?: string; children?: unknown[] } | undefined
       if (!vectorId || !root) {
         return null
       }
@@ -2000,8 +1998,7 @@ test.describe('Pen Tool - Editing Flow', () => {
         return page.evaluate(async (previousVectorId) => {
           const core = (await import('../src/testing/runtime-access')).core
           const root = core?.deps?.render?.viewport?.view as
-            | { label?: string; children?: unknown[] }
-            | undefined
+            { label?: string; children?: unknown[] } | undefined
           let renderItemCount = 0
           const stack: { label?: string; children?: unknown[] }[] = root
             ? [root]

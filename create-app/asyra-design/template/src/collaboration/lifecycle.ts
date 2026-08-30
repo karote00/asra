@@ -77,20 +77,13 @@ export const resolveCollaborationConnectionTransition = (
 }
 
 export type CollaborationSyncState =
-  | 'synced'
-  | 'pending'
-  | 'reconciling'
-  | 'conflicted'
-  | 'storage-failed'
+  'synced' | 'pending' | 'reconciling' | 'conflicted' | 'storage-failed'
 
 export interface CollaborationSessionNotification {
   readonly id: string
   readonly message: string
   readonly type:
-    | 'disconnected'
-    | 'reconnected'
-    | 'storage-failed'
-    | 'conflicted'
+    'disconnected' | 'reconnected' | 'storage-failed' | 'conflicted'
 }
 
 export interface CollaborationSessionState {
@@ -864,8 +857,7 @@ let activeHandle: CollaborationDebugHandle | undefined
 let startPromise: Promise<CollaborationDebugHandle> | undefined
 
 export const getActiveCollaborationHandle = ():
-  | CollaborationDebugHandle
-  | undefined => activeHandle
+  CollaborationDebugHandle | undefined => activeHandle
 
 const createCoreCollaborationBridge = (): CoreCollaborationBridge =>
   Object.freeze({
@@ -966,8 +958,7 @@ export const createCollaborationDocumentSession = (
   mode: CollaborationMode
 ): CoreCollaborationSession => {
   let prepared:
-    | Awaited<ReturnType<typeof prepareCollaborationController>>
-    | undefined
+    Awaited<ReturnType<typeof prepareCollaborationController>> | undefined
 
   return Object.freeze({
     prepare: async (bridge: CoreCollaborationBridge) => {

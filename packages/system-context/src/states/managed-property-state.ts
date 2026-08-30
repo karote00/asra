@@ -50,8 +50,7 @@ const createValidatorFromDefault = <T>(
 ): ManagedPropertyValidator<T> => {
   if (Array.isArray(defaultValue)) {
     return ((value: unknown): value is T => Array.isArray(value)) as
-      | ManagedPropertyValidator<T>
-      | never
+      ManagedPropertyValidator<T> | never
   }
 
   if (defaultValue === null) {
@@ -67,20 +66,17 @@ const createValidatorFromDefault = <T>(
   if (typeof defaultValue === 'number') {
     return ((value: unknown): value is T =>
       typeof value === 'number' && Number.isFinite(value)) as
-      | ManagedPropertyValidator<T>
-      | never
+      ManagedPropertyValidator<T> | never
   }
 
   if (typeof defaultValue === 'object') {
     return ((value: unknown): value is T => isRecord(value)) as
-      | ManagedPropertyValidator<T>
-      | never
+      ManagedPropertyValidator<T> | never
   }
 
   const expectedType = typeof defaultValue
   return ((value: unknown): value is T => typeof value === expectedType) as
-    | ManagedPropertyValidator<T>
-    | never
+    ManagedPropertyValidator<T> | never
 }
 
 export class ManagedPropertyState {

@@ -62,8 +62,7 @@ export type LegacyStrokePaintAttrs = Partial<
 }
 
 export interface StrokeRowAttrs
-  extends Omit<StrokeAttrs, 'id'>,
-    Record<string, unknown> {
+  extends Omit<StrokeAttrs, 'id'>, Record<string, unknown> {
   ids: string[]
 }
 

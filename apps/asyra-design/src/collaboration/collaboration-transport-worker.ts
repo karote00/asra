@@ -183,9 +183,7 @@ export type CollaborationTransportWorkerResponse =
   | CollaborationTransportDiagnosticCounterResponse
 
 export type CollaborationTransportWorkerEventName =
-  | 'message'
-  | 'error'
-  | 'messageerror'
+  'message' | 'error' | 'messageerror'
 
 export interface CollaborationTransportWorkerEvent {
   readonly data?: CollaborationTransportWorkerResponse

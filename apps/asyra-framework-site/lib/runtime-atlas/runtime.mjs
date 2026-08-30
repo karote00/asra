@@ -152,9 +152,9 @@ const createProjectionCase = () => {
             validate: (value) =>
               Boolean(
                 value &&
-                  typeof value === 'object' &&
-                  typeof value.id === 'string' &&
-                  (value.status === 'open' || value.status === 'approved')
+                typeof value === 'object' &&
+                typeof value.id === 'string' &&
+                (value.status === 'open' || value.status === 'approved')
               )
           }
         )

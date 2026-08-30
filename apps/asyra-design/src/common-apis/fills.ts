@@ -252,8 +252,7 @@ export const fillApis = {
     options?: EVENT_OPTIONS
   ): boolean => {
     const computed = core.getElementComputedData(elementId) as
-      | { fills?: unknown }
-      | undefined
+      { fills?: unknown } | undefined
     const fills = computed?.fills
     if (
       !fillId ||
