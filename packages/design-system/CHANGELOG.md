@@ -1,5 +1,11 @@
 # @asyra/design-system
 
+## 0.5.3
+
+### Patch Changes
+
+- Remove unused package dependencies from the published manifests.
+
 ## 0.5.2
 
 ### Patch Changes
