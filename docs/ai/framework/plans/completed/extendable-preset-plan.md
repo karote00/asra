@@ -46,7 +46,7 @@ framework policy remain outside this completed plan.
   Inspector tests, root test/lint/build/dependency/diff gates, self-review, and
   read-only sub-agent review completed with no unresolved concrete finding.
 - Canonical executable architecture contract:
-  `docs/ai/framework/plans/extendable-preset-flow-inspector.data.cjs`.
+  `tools/flow-inspector/inspectors/extendable-preset-flow-inspector.data.cjs`.
 
 ## Scope
 
@@ -379,11 +379,11 @@ core.unregisterPropertyType(PropertyTypes.FILLS)
 ## Inspector Authority
 
 - exact flow data:
-  `docs/ai/framework/plans/extendable-preset-flow-inspector.data.cjs`
+  `tools/flow-inspector/inspectors/extendable-preset-flow-inspector.data.cjs`
 - interactive viewer:
-  `docs/ai/framework/plans/extendable-preset-flow-inspector.html`
+  `tools/flow-inspector/inspectors/extendable-preset-flow-inspector.html`
 - executable contract:
-  `docs/ai/framework/plans/__tests__/extendable-preset-flow-inspector.contract.test.cjs`
+  `tools/flow-inspector/inspectors/__tests__/extendable-preset-flow-inspector.contract.test.cjs`
 
 Implementation advances one Inspector owner step at a time. The Inspector owns
 exact execution routes and implementation allowlists; this plan owns bounded

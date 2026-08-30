@@ -7,7 +7,7 @@ supported behavior, public package boundary, shared product model, representativ
 cases, forbidden fallbacks, and definition of done.
 
 The architecture companion is
-`docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.data.js`.
+`tools/flow-inspector/inspectors/stroke-flow-inspector.data.cjs`.
 It maps package ownership and data flow only. Formal tests and synchronized
 visual cases prove an implementation; they do not redefine this contract.
 

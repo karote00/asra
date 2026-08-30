@@ -360,7 +360,7 @@ Append-only rule: do not edit/delete prior entries; add a superseding entry when
 - Related Plan:
   - `docs/ai/framework/plans/completed/node-24-runtime-upgrade-and-vercel-validation-plan.md`
 - Related Inspector:
-  - `docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.data.cjs`
+  - `tools/flow-inspector/inspectors/node-24-runtime-upgrade-flow-inspector.data.cjs`
 - Related Pull Request:
   - [#107](https://github.com/karote00/asyra/pull/107)
 - Related Preview:

@@ -77,7 +77,7 @@ The create-app release Inspector must define one owner for:
 12. release records and final decision.
 
 The executable authority is
-`docs/ai/framework/plans/create-asyra-design-app-release-flow-inspector.data.cjs`.
+`tools/flow-inspector/inspectors/create-asyra-design-app-release-flow-inspector.data.cjs`.
 
 ## Execution Plan
 

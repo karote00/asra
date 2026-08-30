@@ -1546,7 +1546,7 @@ unregister -> app migration -> core.start()` as the public app route.
     publication.
 - Related Plan:
   - `docs/ai/framework/plans/completed/props-manager-app-level-migration-plan.md`
-  - `docs/ai/framework/plans/app-level-migration-flow-inspector.data.cjs`
+  - `tools/flow-inspector/inspectors/app-level-migration-flow-inspector.data.cjs`
   - `docs/ai/framework/PLANS.md`
 - Related Commit(s):
   - pending local closeout commit
@@ -1593,7 +1593,7 @@ unregister -> app migration -> core.start()` as the public app route.
     publication. Those actions remain subject to explicit user direction.
 - Related Plan:
   - `docs/ai/framework/plans/completed/props-manager-app-level-migration-plan.md`
-  - `docs/ai/framework/plans/app-level-migration-flow-inspector.data.cjs`
+  - `tools/flow-inspector/inspectors/app-level-migration-flow-inspector.data.cjs`
 - Related Commit(s):
   - pending local contract-correction commit
 
@@ -1623,7 +1623,7 @@ unregister -> app migration -> core.start()` as the public app route.
   - This closeout does not authorize merge, release, tag, or publication.
 - Related Plan:
   - `docs/ai/framework/plans/completed/props-manager-app-level-migration-plan.md`
-  - `docs/ai/framework/plans/app-level-migration-flow-inspector.data.cjs`
+  - `tools/flow-inspector/inspectors/app-level-migration-flow-inspector.data.cjs`
   - `docs/ai/framework/PLANS.md`
 - Related Commit(s):
   - `19bbe2c51` (`feat(framework): formalize connected app migrations`, PR #90)
@@ -1667,7 +1667,7 @@ unregister -> app migration -> core.start()` as the public app route.
     merge, tag, release, or publication.
 - Related Plan:
   - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
-  - `docs/ai/framework/plans/network-collaboration-transport-flow-inspector.data.cjs`
+  - `tools/flow-inspector/inspectors/network-collaboration-transport-flow-inspector.data.cjs`
   - `docs/ai/framework/plans/collaborative-conflict-policies-plan.md`
 - Related Commit(s):
   - local Gate 2 implementation commits on
@@ -1705,7 +1705,7 @@ unregister -> app migration -> core.start()` as the public app route.
   - Factory no longer rewrites a state-owner batch into scalar app operations.
 - Related Plan:
   - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
-  - `docs/ai/framework/plans/network-collaboration-transport-flow-inspector.data.cjs`
+  - `tools/flow-inspector/inspectors/network-collaboration-transport-flow-inspector.data.cjs`
 - Related Commit(s):
   - pending local Gate 2 validation
 
@@ -1743,7 +1743,7 @@ unregister -> app migration -> core.start()` as the public app route.
     tag, release, or publication.
 - Related Plan:
   - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
-  - `docs/ai/framework/plans/network-collaboration-transport-flow-inspector.data.cjs`
+  - `tools/flow-inspector/inspectors/network-collaboration-transport-flow-inspector.data.cjs`
 - Related Commit(s):
   - pending local Gate 2 validation
 
@@ -1961,7 +1961,7 @@ unregister -> app migration -> core.start()` as the public app route.
     sub-plan.
 - Related Plan:
   - `docs/ai/framework/plans/network-collaboration-transport-plan.md`
-  - `docs/ai/framework/plans/network-collaboration-transport-flow-inspector.html`
+  - `tools/flow-inspector/inspectors/network-collaboration-transport-flow-inspector.html`
 
 ## 2026-07-23 - Close network collaboration transport Release Gate 2
 
@@ -1985,7 +1985,7 @@ unregister -> app migration -> core.start()` as the public app route.
     path, which now redirects to the canonical completed record.
 - Related Plan:
   - `docs/ai/framework/plans/completed/network-collaboration-transport-plan.md`
-  - `docs/ai/framework/plans/network-collaboration-transport-flow-inspector.html`
+  - `tools/flow-inspector/inspectors/network-collaboration-transport-flow-inspector.html`
 
 ## 2026-07-24 - Close Group component and hierarchy Release Gate 3
 
@@ -2011,7 +2011,7 @@ unregister -> app migration -> core.start()` as the public app route.
     now redirects to the canonical completed record.
 - Related Plan:
   - `docs/ai/framework/plans/completed/group-component-and-hierarchy-behaviors-plan.md`
-  - `docs/ai/framework/plans/group-component-and-hierarchy-flow-inspector.html`
+  - `tools/flow-inspector/inspectors/group-component-and-hierarchy-flow-inspector.html`
 
 ## 2026-07-25 - Close optional AI Agent Runtime Release Gate 4
 
@@ -2050,7 +2050,7 @@ unregister -> app migration -> core.start()` as the public app route.
   - `PLANS.md` now advances to Framework Release Gate 5 readiness/closeout.
 - Related Plan:
   - `docs/ai/framework/plans/completed/ai-agent-runtime-plan.md`
-  - `docs/ai/framework/plans/ai-agent-runtime-flow-inspector.html`
+  - `tools/flow-inspector/inspectors/ai-agent-runtime-flow-inspector.html`
 - Related Commit(s):
   - `b8bdd5fb4` (`docs(framework): ready AI agent runtime gate`)
   - `d37bbdd95` (`feat(ai-runtime): add optional runtime composition`)
@@ -2086,7 +2086,7 @@ unregister -> app migration -> core.start()` as the public app route.
     runtime upgrade, push, PR, merge, or release is implied by this closeout.
 - Related Plan:
   - `docs/ai/framework/plans/completed/canonical-projection-and-collaboration-contract-realignment-plan.md`
-  - `docs/ai/framework/plans/canonical-projection-and-collaboration-contract-flow-inspector.html`
+  - `tools/flow-inspector/inspectors/canonical-projection-and-collaboration-contract-flow-inspector.html`
 
 ## 2026-08-03 - Accept load-only Core and socket-authoritative App persistence target
 
@@ -2118,7 +2118,7 @@ unregister -> app migration -> core.start()` as the public app route.
 - Related Plan:
   - `docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-plan.md`
 - Related Inspector:
-  - `docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-flow-inspector.data.cjs`
+  - `tools/flow-inspector/inspectors/socket-authoritative-document-persistence-flow-inspector.data.cjs`
 - Related Commit(s):
   - pending
 
@@ -2170,7 +2170,7 @@ unregister -> app migration -> core.start()` as the public app route.
 - Related Plan:
   - `docs/ai/framework/plans/completed/group-component-and-hierarchy-behaviors-plan.md`
 - Related Inspector:
-  - `docs/ai/framework/plans/group-component-and-hierarchy-flow-inspector.data.cjs`
+  - `tools/flow-inspector/inspectors/group-component-and-hierarchy-flow-inspector.data.cjs`
 - Related Commit(s):
   - pending
 
@@ -2203,7 +2203,7 @@ unregister -> app migration -> core.start()` as the public app route.
 - Related Plan:
   - `docs/ai/framework/plans/completed/framework-release-readiness-and-closeout-plan.md`
 - Related Inspector:
-  - `docs/ai/framework/plans/framework-release-readiness-flow-inspector.data.cjs`
+  - `tools/flow-inspector/inspectors/framework-release-readiness-flow-inspector.data.cjs`
 - Related Pull Request:
   - [#106](https://github.com/karote00/asyra/pull/106)
 
@@ -2234,7 +2234,7 @@ unregister -> app migration -> core.start()` as the public app route.
 - Related Plan:
   - `docs/ai/framework/plans/completed/node-24-runtime-upgrade-and-vercel-validation-plan.md`
 - Related Inspector:
-  - `docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.data.cjs`
+  - `tools/flow-inspector/inspectors/node-24-runtime-upgrade-flow-inspector.data.cjs`
 - Related Pull Request:
   - [#107](https://github.com/karote00/asyra/pull/107)
 - Related Preview:
@@ -2341,7 +2341,7 @@ unregister -> app migration -> core.start()` as the public app route.
 - Related Plan:
   - `docs/ai/framework/plans/completed/create-asyra-design-app-release-plan.md`
 - Related Inspector:
-  - `docs/ai/framework/plans/create-asyra-design-app-release-flow-inspector.data.cjs`
+  - `tools/flow-inspector/inspectors/create-asyra-design-app-release-flow-inspector.data.cjs`
 - Related Pull Request:
   - [#113](https://github.com/karote00/asyra/pull/113)
 - Accepted Source Commit:
@@ -2463,3 +2463,73 @@ unregister -> app migration -> core.start()` as the public app route.
   - `docs/ai/framework/plans/completed/asyra-public-readme-and-entrypoint-alignment-plan.md`
   - `docs/ai/framework/plans/completed/asyra-website-launch-and-operations-plan.md`
   - `docs/ai/framework/plans/completed/input-system-environment-neutrality-plan.md`
+
+## 2026-08-30 - Close retained completed and superseded Framework plans
+
+- Context:
+  - The Website Program had accepted all nine child workstreams on 2026-08-10,
+    but the Platform, Landing, and Runtime Atlas detailed records still lived in
+    the active plan directory.
+  - Executable Examples had completed with the program and was superseded on
+    2026-08-11, while Collaborative Conflict Policies had been superseded by
+    Network Collaboration Transport on 2026-07-22.
+- Decision:
+  - Move all five retained detailed records to the Framework completed-plan
+    directory and keep only the conflict-policy redirect required by historical
+    append-only decision links.
+  - Preserve Framework package publication and every deferred or unscheduled
+    roadmap plan as non-completed work.
+- Consequences:
+  - The active plan directory no longer presents completed Website child
+    contracts or superseded detailed records as current implementation plans.
+  - This closeout creates no Changeset, version bump, tag, publication,
+    deployment, or merge side effect.
+- Completed Plans:
+  - `docs/ai/framework/plans/completed/asyra-website-platform-and-docs-plan.md`
+  - `docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md`
+  - `docs/ai/framework/plans/completed/asyra-runtime-atlas-plan.md`
+  - `docs/ai/framework/plans/completed/asyra-executable-examples-plan.md`
+  - `docs/ai/framework/plans/completed/collaborative-conflict-policies-plan.md`
+
+## 2026-08-30 - Reserve the active plans directory for incomplete work
+
+- Context:
+  - Ten completed Framework plans retained compatibility redirects in the
+    active plans directory even though their canonical records already existed
+    under `plans/completed/`.
+  - Direct implementation review confirmed that the five remaining detailed
+    plans are genuinely active, partially implemented, deferred, or
+    unscheduled and do not satisfy their definitions of done.
+- Decision:
+  - Remove every completed-plan redirect from `docs/ai/framework/plans/` and
+    route current consumers directly to the canonical completed records.
+  - Enforce that an active Framework plan filename cannot also exist in the
+    completed-plan directory.
+- Consequences:
+  - The active directory now represents only work that is not complete.
+  - Historical append-only decision text remains unchanged; this entry records
+    the canonical-path transition for those retained records.
+  - This cleanup creates no Changeset, version bump, package publication, tag,
+    deployment, or merge side effect.
+
+## 2026-08-30 - Route Framework publication through workflow automation
+
+- Context:
+  - Framework package publication was represented as an active patch-release
+    plan even though publication is an operational process already owned by
+    release rules, a reusable workflow, the release Inspector, skills, and
+    executable scripts.
+- Decision:
+  - Remove `framework-package-patch-release-plan.md` from the active Framework
+    plans directory.
+  - Make `docs/ai/workflows/package-release-validation.md` the Inspector's
+    process authority while retaining manifest topology in
+    `docs/ai/framework/rules/release-version-topology.md` and execution in the
+    release scripts.
+- Consequences:
+  - Package publication no longer appears as an unimplemented Framework
+    feature.
+  - Explicit registry-write, tag, push, and release authorization boundaries
+    remain unchanged.
+  - This routing cleanup performs no Changeset, version, publication, tag,
+    deployment, or merge operation.

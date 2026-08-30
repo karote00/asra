@@ -10,7 +10,7 @@ The PR remains open for human review; this closeout does not claim merge or
 release completion.
 
 The exact owner flow remains defined by
-`docs/ai/framework/plans/render-delta-update-flow-inspector.data.cjs`.
+`tools/flow-inspector/inspectors/render-delta-update-flow-inspector.data.cjs`.
 
 ## Completion Record
 
@@ -34,7 +34,7 @@ The exact owner flow remains defined by
   synchronized visual inspection, repeated dual review, and direct
   product-owner app verification passed with no unresolved P0/P1/P2 finding.
 - Canonical executable architecture contract:
-  `docs/ai/framework/plans/render-delta-update-flow-inspector.data.cjs`.
+  `tools/flow-inspector/inspectors/render-delta-update-flow-inspector.data.cjs`.
 
 ## Goal
 

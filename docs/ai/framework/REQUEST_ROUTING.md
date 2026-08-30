@@ -90,7 +90,10 @@ Use this file to route a new framework request to the right docs first.
   - `plans/framework-release-readiness-flow-inspector.data.cjs`
   - `plans/node-24-runtime-upgrade-and-vercel-validation-plan.md`
   - `plans/completed/local-versioned-package-install-research-plan.md`
-  - `plans/framework-package-patch-release-plan.md`
+  - `../workflows/package-release-validation.md`
+  - `rules/release-version-topology.md`
+  - `../../../scripts/framework-release-packages.js`
+  - `../../../scripts/release-full.js`
   - `plans/completed/create-asyra-design-app-release-plan.md`
   - `plans/completed/asyra-framework-website-plan.md`
   - `rules/generated-artifacts.md`
@@ -101,11 +104,11 @@ Use this file to route a new framework request to the right docs first.
   - `plans/completed/asyra-framework-website-plan.md`
   - `plans/completed/asyra-public-readme-and-entrypoint-alignment-plan.md`
   - `plans/completed/asyra-public-package-documentation-plan.md`
-  - `plans/asyra-executable-examples-plan.md`
+  - `plans/completed/asyra-executable-examples-plan.md`
   - `plans/completed/asyra-website-visual-reimagine-plan.md`
-  - `plans/asyra-website-platform-and-docs-plan.md`
-  - `plans/asyra-website-landing-page-plan.md`
-  - `plans/asyra-runtime-atlas-plan.md`
+  - `plans/completed/asyra-website-platform-and-docs-plan.md`
+  - `plans/completed/asyra-website-landing-page-plan.md`
+  - `plans/completed/asyra-runtime-atlas-plan.md`
   - `plans/completed/asyra-website-launch-and-operations-plan.md`
 
 - repository-wide documentation contract, owner, or reality audit

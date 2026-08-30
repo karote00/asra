@@ -37,17 +37,18 @@ Framework and App runtimes must not import or depend on any workspace file.
 
 ## Discovery Input
 
-The generator searches exactly these roots for files named
-`*flow-inspector.data.cjs` or `*flow-inspector.data.js`:
-
-1. `docs/ai/framework/plans/`
-2. `docs/ai/apps/`
-3. `docs/ai/tools/`
+The generator searches exactly `tools/flow-inspector/inspectors/` for files
+named `*flow-inspector.data.cjs` or `*flow-inspector.data.js`. The same
+tool-owned directory contains standalone HTML entries and its `__tests__/`
+directory contains target contract tests. Framework and App `plans/`
+directories are forbidden artifact roots.
 
 Every discovered file must appear exactly once as included or excluded.
 Exclusion requires a stable reason such as `superseded` or
 `replaced-historical-direction`. Filename location alone is not an exclusion
-reason.
+reason. Catalog policy explicitly owns Framework, App, Release, and Tool
+presentation grouping because filesystem location no longer doubles as
+semantic ownership metadata.
 
 The initial exclusions are:
 

@@ -34,7 +34,7 @@ execution rules.
   self-review, and direct product-owner app verification passed with no
   unresolved concrete finding.
 - Canonical executable architecture contract:
-  `docs/ai/framework/plans/preset-composition-flow-inspector.data.cjs`.
+  `tools/flow-inspector/inspectors/preset-composition-flow-inspector.data.cjs`.
 
 ## Goal
 

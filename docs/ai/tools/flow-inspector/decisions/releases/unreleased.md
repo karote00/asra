@@ -3,6 +3,24 @@
 Append-only decision log for Flow Inspector work not yet published as a tagged
 tool release.
 
+## 2026-08-29 - Inspector artifacts move out of product plan directories
+
+- Context:
+  - Framework and Asyra Design plan directories still contained generated
+    Inspector data, standalone HTML, and Inspector contract tests after the
+    integrated workspace became the central Inspector surface.
+- Decision:
+  - Make `tools/flow-inspector/inspectors/` the single project-owned location
+    for Inspector data and standalone HTML, with contract tests under its
+    `__tests__/` directory.
+  - Keep framework and app plan directories limited to planning records while
+    preserving each Inspector's product authority, identifiers, links, and
+    catalog classification.
+- Consequences:
+  - Inspector artifacts no longer obscure active or completed plan records.
+  - The workspace discovers one tool-owned registry without transferring
+    framework or app contract ownership to the tool.
+
 ## 2026-08-29 - Version 0.2.0 clarifies workspace navigation and contract reading
 
 - Context:

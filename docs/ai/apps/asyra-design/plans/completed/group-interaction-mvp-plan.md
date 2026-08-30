@@ -21,9 +21,9 @@ closeout authorization.
 
 Architecture authority:
 
-- `docs/ai/apps/asyra-design/plans/group-interaction-mvp-flow-inspector.data.cjs`
-- `docs/ai/apps/asyra-design/plans/group-interaction-mvp-flow-inspector.html`
-- `docs/ai/apps/asyra-design/plans/__tests__/group-interaction-mvp-flow-inspector.contract.test.cjs`
+- `tools/flow-inspector/inspectors/group-interaction-mvp-flow-inspector.data.cjs`
+- `tools/flow-inspector/inspectors/group-interaction-mvp-flow-inspector.html`
+- `tools/flow-inspector/inspectors/__tests__/group-interaction-mvp-flow-inspector.contract.test.cjs`
 
 ## Sequence
 

@@ -12,7 +12,7 @@ The Input System environment-neutrality prerequisite completed on 2026-08-10.
 Its retained plan and Inspector are:
 
 - `docs/ai/framework/plans/completed/input-system-environment-neutrality-plan.md`
-- `docs/ai/framework/plans/input-system-environment-neutrality-flow-inspector.data.cjs`
+- `tools/flow-inspector/inspectors/input-system-environment-neutrality-flow-inspector.data.cjs`
 
 No active App persistence blocker remains. The completed
 socket-authoritative document-session record is:
@@ -43,7 +43,7 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
 - Completed plan:
   `docs/ai/framework/plans/completed/node-24-runtime-upgrade-and-vercel-validation-plan.md`.
 - Retained Inspector:
-  `docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.data.cjs`.
+  `tools/flow-inspector/inspectors/node-24-runtime-upgrade-flow-inspector.data.cjs`.
 
 1. Integrated public release candidate
 
@@ -52,7 +52,7 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
 - Completed plan:
   `docs/ai/framework/plans/completed/asyra-framework-website-plan.md`
 
-2. Framework package publication
+2. Framework package publication process
 
 - Begin only after the integrated pre-publication Release Candidate is
   accepted.
@@ -70,8 +70,14 @@ Preview `READY` evidence on 2026-08-05. The retained records are:
   ordinary scoped patch Changesets as changes are made.
 - Keep root `asyra`, private `@asyra/asyra-design`, CLI packages, and generated
   templates outside Framework Changesets.
-- Reference:
-  `docs/ai/framework/plans/framework-package-patch-release-plan.md`
+- This is an operational release process, not an unimplemented Framework
+  feature or active plan.
+- Canonical workflow:
+  `docs/ai/workflows/package-release-validation.md`
+- Version authority:
+  `docs/ai/framework/rules/release-version-topology.md`
+- Executable owner:
+  `scripts/release-full.js`
 
 3. Applicable CLI/generated-app publication and root alignment
 

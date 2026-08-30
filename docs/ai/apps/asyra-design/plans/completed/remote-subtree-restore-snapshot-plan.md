@@ -19,9 +19,9 @@ authorization.
 
 Architecture authority:
 
-- `docs/ai/apps/asyra-design/plans/remote-subtree-restore-snapshot-flow-inspector.data.cjs`
-- `docs/ai/apps/asyra-design/plans/remote-subtree-restore-snapshot-flow-inspector.html`
-- `docs/ai/apps/asyra-design/plans/__tests__/remote-subtree-restore-snapshot-flow-inspector.contract.test.cjs`
+- `tools/flow-inspector/inspectors/remote-subtree-restore-snapshot-flow-inspector.data.cjs`
+- `tools/flow-inspector/inspectors/remote-subtree-restore-snapshot-flow-inspector.html`
+- `tools/flow-inspector/inspectors/__tests__/remote-subtree-restore-snapshot-flow-inspector.contract.test.cjs`
 
 ## Decision
 

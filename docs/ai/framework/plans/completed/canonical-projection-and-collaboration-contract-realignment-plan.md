@@ -17,9 +17,9 @@ This plan completed the release-blocking prerequisite for:
 
 Architecture authority:
 
-- `docs/ai/framework/plans/canonical-projection-and-collaboration-contract-flow-inspector.data.cjs`
-- `docs/ai/framework/plans/canonical-projection-and-collaboration-contract-flow-inspector.html`
-- `docs/ai/framework/plans/__tests__/canonical-projection-and-collaboration-contract-flow-inspector.contract.test.cjs`
+- `tools/flow-inspector/inspectors/canonical-projection-and-collaboration-contract-flow-inspector.data.cjs`
+- `tools/flow-inspector/inspectors/canonical-projection-and-collaboration-contract-flow-inspector.html`
+- `tools/flow-inspector/inspectors/__tests__/canonical-projection-and-collaboration-contract-flow-inspector.contract.test.cjs`
 
 Executable product cases:
 

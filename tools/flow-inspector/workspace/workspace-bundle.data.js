@@ -7,54 +7,52 @@
   },
   "generatedFrom": {
     "discoveryRoots": [
-      "docs/ai/framework/plans",
-      "docs/ai/apps",
-      "docs/ai/tools"
+      "tools/flow-inspector/inspectors"
     ],
     "candidatePaths": [
-      "docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs",
-      "docs/ai/apps/asyra-design/plans/group-context-menu-flow-inspector.data.cjs",
-      "docs/ai/apps/asyra-design/plans/group-interaction-mvp-flow-inspector.data.cjs",
-      "docs/ai/apps/asyra-design/plans/layer-tree-reparent-reorder-flow-inspector.data.cjs",
-      "docs/ai/apps/asyra-design/plans/remote-subtree-restore-snapshot-flow-inspector.data.cjs",
-      "docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-flow-inspector.data.cjs",
-      "docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.data.js",
-      "docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/ai-agent-runtime-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/app-level-migration-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/asyra-executable-examples-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/asyra-public-package-documentation-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/asyra-public-readme-and-entrypoint-alignment-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/asyra-runtime-atlas-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/asyra-website-landing-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/asyra-website-launch-and-operations-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/asyra-website-platform-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/asyra-website-visual-reimagine-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/canonical-projection-and-collaboration-contract-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/canvas-pipeline-debugger-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/create-asyra-design-app-release-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/extendable-preset-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/framework-package-release-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/framework-release-readiness-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/group-component-and-hierarchy-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/input-system-environment-neutrality-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/network-collaboration-transport-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/preset-composition-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/property-type-redefinition-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/render-delta-update-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/render-engine-boundary-flow-inspector.data.cjs",
-      "docs/ai/framework/plans/transaction-flow-inspector.data.cjs",
-      "docs/ai/tools/flow-inspector/plans/flow-inspector-static-workspace-flow-inspector.data.cjs"
+      "tools/flow-inspector/inspectors/ai-agent-runtime-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/ai-conversational-drawing-performance-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/app-level-migration-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/asyra-executable-examples-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/asyra-public-package-documentation-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/asyra-public-readme-and-entrypoint-alignment-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/asyra-runtime-atlas-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/asyra-website-landing-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/asyra-website-launch-and-operations-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/asyra-website-platform-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/asyra-website-visual-reimagine-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/canonical-projection-and-collaboration-contract-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/canvas-pipeline-debugger-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/create-asyra-design-app-release-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/extendable-preset-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/flow-inspector-static-workspace-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/framework-package-release-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/framework-release-readiness-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/group-component-and-hierarchy-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/group-context-menu-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/group-interaction-mvp-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/input-system-environment-neutrality-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/layer-tree-reparent-reorder-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/network-collaboration-transport-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/node-24-runtime-upgrade-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/preset-composition-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/property-type-redefinition-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/remote-subtree-restore-snapshot-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/render-delta-update-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/render-engine-boundary-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/socket-authoritative-document-persistence-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/stroke-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/transaction-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/vector-local-geometry-transform-flow-inspector.data.cjs"
     ]
   },
   "exclusions": [
     {
-      "path": "docs/ai/framework/plans/asyra-executable-examples-flow-inspector.data.cjs",
+      "path": "tools/flow-inspector/inspectors/asyra-executable-examples-flow-inspector.data.cjs",
       "reason": "superseded-and-removed-current-surface"
     },
     {
-      "path": "docs/ai/framework/plans/asyra-website-visual-reimagine-flow-inspector.data.cjs",
+      "path": "tools/flow-inspector/inspectors/asyra-website-visual-reimagine-flow-inspector.data.cjs",
       "reason": "replaced-historical-visual-direction"
     }
   ],
@@ -66,8 +64,8 @@
       "group": "Apps",
       "subgroup": "Asyra Design",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/ai-conversational-drawing-performance-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/ai-conversational-drawing-performance-flow-inspector.html",
       "labels": [
         "ai-conversational-drawing-performance",
         "Apps",
@@ -87,7 +85,7 @@
         },
         "authority": {
           "specPath": "docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md",
-          "inspectorPath": "docs/ai/apps/asyra-design/plans/ai-conversational-drawing-performance-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/ai-conversational-drawing-performance-flow-inspector.data.cjs",
           "semanticOwner": "Asyra Design Conversational AI Drawing Performance Plan",
           "inspectorOwner": "Asyra Design Conversational AI drawing performance owner flow"
         },
@@ -96,7 +94,7 @@
             "id": "performance-plan",
             "kind": "authority",
             "label": "Performance product contract",
-            "href": "./completed/ai-conversational-drawing-performance-plan.md"
+            "href": "../../../docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md"
           }
         ],
         "lanes": [
@@ -2829,8 +2827,8 @@
       "group": "Apps",
       "subgroup": "Asyra Design",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/apps/asyra-design/plans/group-context-menu-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/apps/asyra-design/plans/group-context-menu-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/group-context-menu-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/group-context-menu-flow-inspector.html",
       "labels": [
         "group-context-menu",
         "Apps",
@@ -2850,7 +2848,7 @@
         },
         "authority": {
           "specPath": "docs/ai/apps/asyra-design/plans/completed/group-context-menu-plan.md",
-          "inspectorPath": "docs/ai/apps/asyra-design/plans/group-context-menu-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/group-context-menu-flow-inspector.data.cjs",
           "semanticOwner": "Asyra Design Group Context Menu Plan",
           "inspectorOwner": "Asyra Design Group Context Menu owner flow"
         },
@@ -2859,13 +2857,13 @@
             "id": "group-context-menu-plan",
             "kind": "authority",
             "label": "Product contract",
-            "href": "./completed/group-context-menu-plan.md"
+            "href": "../../../docs/ai/apps/asyra-design/plans/completed/group-context-menu-plan.md"
           },
           {
             "id": "existing-group-inspector",
             "kind": "prerequisite",
             "label": "Existing Group feature authority",
-            "href": "./group-interaction-mvp-flow-inspector.html"
+            "href": "../inspectors/group-interaction-mvp-flow-inspector.html"
           }
         ],
         "lanes": [
@@ -3654,8 +3652,8 @@
       "group": "Apps",
       "subgroup": "Asyra Design",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/apps/asyra-design/plans/group-interaction-mvp-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/apps/asyra-design/plans/group-interaction-mvp-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/group-interaction-mvp-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/group-interaction-mvp-flow-inspector.html",
       "labels": [
         "group-interaction-mvp",
         "Apps",
@@ -3675,7 +3673,7 @@
         },
         "authority": {
           "specPath": "docs/ai/apps/asyra-design/plans/completed/group-interaction-mvp-plan.md",
-          "inspectorPath": "docs/ai/apps/asyra-design/plans/group-interaction-mvp-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/group-interaction-mvp-flow-inspector.data.cjs",
           "semanticOwner": "Asyra Design Group Interaction MVP Plan",
           "inspectorOwner": "Asyra Design Group Interaction owner flow"
         },
@@ -3684,7 +3682,7 @@
             "id": "group-interaction-plan",
             "kind": "authority",
             "label": "Product contract",
-            "href": "./completed/group-interaction-mvp-plan.md"
+            "href": "../../../docs/ai/apps/asyra-design/plans/completed/group-interaction-mvp-plan.md"
           }
         ],
         "lanes": [
@@ -4872,8 +4870,8 @@
       "group": "Apps",
       "subgroup": "Asyra Design",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/apps/asyra-design/plans/layer-tree-reparent-reorder-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/apps/asyra-design/plans/layer-tree-reparent-reorder-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/layer-tree-reparent-reorder-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/layer-tree-reparent-reorder-flow-inspector.html",
       "labels": [
         "layer-tree-reparent-reorder",
         "Apps",
@@ -4893,7 +4891,7 @@
         },
         "authority": {
           "specPath": "docs/ai/apps/asyra-design/plans/completed/layer-tree-reparent-reorder-plan.md",
-          "inspectorPath": "docs/ai/apps/asyra-design/plans/layer-tree-reparent-reorder-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/layer-tree-reparent-reorder-flow-inspector.data.cjs",
           "semanticOwner": "Asyra Design Layer Tree Reparent and Reorder Plan",
           "inspectorOwner": "Layer Tree Reparent and Reorder owner flow"
         },
@@ -4902,13 +4900,13 @@
             "id": "layer-tree-move-plan",
             "kind": "authority",
             "label": "Product contract",
-            "href": "./completed/layer-tree-reparent-reorder-plan.md"
+            "href": "../../../docs/ai/apps/asyra-design/plans/completed/layer-tree-reparent-reorder-plan.md"
           },
           {
             "id": "group-interaction-prerequisite",
             "kind": "authority",
             "label": "Group Interaction prerequisite",
-            "href": "./completed/group-interaction-mvp-plan.md"
+            "href": "../../../docs/ai/apps/asyra-design/plans/completed/group-interaction-mvp-plan.md"
           }
         ],
         "lanes": [
@@ -5908,7 +5906,7 @@
       "group": "Apps",
       "subgroup": "Asyra Design",
       "lifecycle": "current",
-      "sourcePath": "docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-flow-inspector.data.cjs",
+      "sourcePath": "tools/flow-inspector/inspectors/socket-authoritative-document-persistence-flow-inspector.data.cjs",
       "standalonePath": null,
       "labels": [
         "socket-authoritative-document-persistence",
@@ -5929,7 +5927,7 @@
         },
         "authority": {
           "specPath": "docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md",
-          "inspectorPath": "docs/ai/apps/asyra-design/plans/socket-authoritative-document-persistence-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/socket-authoritative-document-persistence-flow-inspector.data.cjs",
           "semanticOwner": "Asyra Design document-session product contract",
           "inspectorOwner": "Asyra Design socket sequencing and backend persistence architecture"
         },
@@ -5938,7 +5936,7 @@
             "id": "product-contract",
             "kind": "authority",
             "label": "Socket document-session specification",
-            "href": "../specs/socket-authoritative-document-session.md"
+            "href": "../../../docs/ai/apps/asyra-design/specs/socket-authoritative-document-session.md"
           },
           {
             "id": "implementation-plan",
@@ -5950,7 +5948,7 @@
             "id": "factory-collaboration-inspector",
             "kind": "upstream-inspector",
             "label": "Canonical projection and collaboration Inspector",
-            "href": "../../../framework/plans/canonical-projection-and-collaboration-contract-flow-inspector.data.cjs"
+            "href": "../inspectors/canonical-projection-and-collaboration-contract-flow-inspector.data.cjs"
           }
         ],
         "lanes": [
@@ -7463,8 +7461,8 @@
       "group": "Apps",
       "subgroup": "Asyra Design",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/vector-local-geometry-transform-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/vector-local-geometry-transform-flow-inspector.html",
       "labels": [
         "vector-local-geometry-transform",
         "Apps",
@@ -7484,7 +7482,7 @@
         },
         "authority": {
           "specPath": "docs/ai/apps/asyra-design/plans/completed/vector-local-geometry-transform-plan.md",
-          "inspectorPath": "docs/ai/apps/asyra-design/plans/vector-local-geometry-transform-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/vector-local-geometry-transform-flow-inspector.data.cjs",
           "semanticOwner": "Asyra Design product contract",
           "inspectorOwner": "Render-owned Vector geometry projection architecture"
         },
@@ -7493,13 +7491,13 @@
             "id": "product-contract",
             "kind": "authority",
             "label": "Completed plan and product contract",
-            "href": "./completed/vector-local-geometry-transform-plan.md"
+            "href": "../../../docs/ai/apps/asyra-design/plans/completed/vector-local-geometry-transform-plan.md"
           },
           {
             "id": "render-delta-inspector",
             "kind": "retained-inspector",
             "label": "Retained Render Delta Update Inspector",
-            "href": "../../../framework/plans/render-delta-update-flow-inspector.data.cjs"
+            "href": "../inspectors/render-delta-update-flow-inspector.data.cjs"
           }
         ],
         "lanes": [
@@ -7776,7 +7774,7 @@
               "packages/props-manager/src/__tests__",
               "docs/ai/framework/rules/data-flow-and-transactions.md",
               "docs/ai/framework/packages/factory.md",
-              "docs/ai/framework/plans/transaction-flow-inspector.data.cjs",
+              "tools/flow-inspector/inspectors/transaction-flow-inspector.data.cjs",
               "docs/ai/apps/asyra-design/modules/collaboration-reference.md",
               "docs/ai/apps/asyra-design/features/move-elements.md",
               "docs/ai/apps/asyra-design/plans/completed/vector-local-geometry-transform-plan.md"
@@ -8105,8 +8103,8 @@
       "group": "Apps",
       "subgroup": "Asyra Design",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/apps/asyra-design/plans/remote-subtree-restore-snapshot-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/apps/asyra-design/plans/remote-subtree-restore-snapshot-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/remote-subtree-restore-snapshot-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/remote-subtree-restore-snapshot-flow-inspector.html",
       "labels": [
         "remote-subtree-restore-snapshot",
         "Apps",
@@ -8126,7 +8124,7 @@
         },
         "authority": {
           "specPath": "docs/ai/apps/asyra-design/plans/completed/remote-subtree-restore-snapshot-plan.md",
-          "inspectorPath": "docs/ai/apps/asyra-design/plans/remote-subtree-restore-snapshot-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/remote-subtree-restore-snapshot-flow-inspector.data.cjs",
           "semanticOwner": "Remote Subtree Restore Snapshot Plan",
           "inspectorOwner": "Remote Subtree Restore Snapshot Inspector data"
         },
@@ -8134,25 +8132,25 @@
           {
             "id": "product-contract",
             "label": "Product Contract",
-            "href": "./completed/remote-subtree-restore-snapshot-plan.md",
+            "href": "../../../docs/ai/apps/asyra-design/plans/completed/remote-subtree-restore-snapshot-plan.md",
             "kind": "authority"
           },
           {
             "id": "gate-2-contract",
             "label": "Gate 2 Transport Contract",
-            "href": "../../../framework/plans/completed/network-collaboration-transport-plan.md",
+            "href": "../../../docs/ai/framework/plans/completed/network-collaboration-transport-plan.md",
             "kind": "authority"
           },
           {
             "id": "gate-3-inspector",
             "label": "Gate 3 Hierarchy Inspector",
-            "href": "../../../framework/plans/group-component-and-hierarchy-flow-inspector.html",
+            "href": "../inspectors/group-component-and-hierarchy-flow-inspector.html",
             "kind": "authority"
           },
           {
             "id": "flow-inspector-contract",
             "label": "Flow Inspector Contract",
-            "href": "../../../tools/flow-inspector/FLOW_INSPECTOR.md",
+            "href": "../../../docs/ai/tools/flow-inspector/FLOW_INSPECTOR.md",
             "kind": "framework"
           }
         ],
@@ -8380,7 +8378,7 @@
               "packages/collaboration/src/process.ts",
               "packages/collaboration/src/__tests__/process.test.ts",
               "packages/collaboration/src/__tests__/action-publication.test.ts",
-              "docs/ai/framework/plans/__tests__/network-collaboration-transport-flow-inspector.contract.test.cjs"
+              "tools/flow-inspector/inspectors/__tests__/network-collaboration-transport-flow-inspector.contract.test.cjs"
             ],
             "specRefs": [
               "#ownership-contract",
@@ -9561,916 +9559,14 @@
       }
     },
     {
-      "id": "stroke-engine",
-      "title": "Stroke Engine Inspector Flow",
-      "kind": "flow-v2",
-      "group": "Apps",
-      "subgroup": "Asyra Design",
-      "lifecycle": "current",
-      "sourcePath": "docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.data.js",
-      "standalonePath": "docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.html",
-      "labels": [
-        "stroke",
-        "Apps",
-        "Asyra Design",
-        "flow-v2"
-      ],
-      "data": {
-        "schema": {
-          "id": "flow-inspector",
-          "version": 2
-        },
-        "target": {
-          "id": "stroke-engine",
-          "kind": "feature",
-          "title": "Stroke Engine Inspector Flow",
-          "subtitle": "Thin ownership and handoff map for canonical stroke products and their render, hit, and export projections."
-        },
-        "authority": {
-          "specPath": "docs/ai/apps/asyra-design/specs/stroke-engine/SPEC.md",
-          "inspectorPath": "docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.data.js",
-          "semanticOwner": "SPEC.md",
-          "inspectorOwner": "stroke-flow-inspector.data.js"
-        },
-        "links": [
-          {
-            "id": "product-spec",
-            "label": "Stroke Engine Product Contract",
-            "href": "../../specs/stroke-engine/SPEC.md",
-            "kind": "authority"
-          },
-          {
-            "id": "inspector-data",
-            "label": "Inspector Data",
-            "href": "./stroke-flow-inspector.data.js",
-            "kind": "source"
-          },
-          {
-            "id": "inspector-readiness-rule",
-            "label": "Inspector Contract Readiness",
-            "href": "../../../../framework/rules/inspector-contract-readiness.md",
-            "kind": "framework"
-          },
-          {
-            "id": "flow-inspector-contract",
-            "label": "Flow Inspector Contract",
-            "href": "../../../../tools/flow-inspector/FLOW_INSPECTOR.md",
-            "kind": "framework"
-          }
-        ],
-        "lanes": [
-          {
-            "id": "app-state",
-            "title": "App And Canonical State",
-            "order": 1
-          },
-          {
-            "id": "integration",
-            "title": "Integration",
-            "order": 2
-          },
-          {
-            "id": "stroke-engine",
-            "title": "Stroke Engine",
-            "order": 3
-          },
-          {
-            "id": "render-output",
-            "title": "Render Output",
-            "order": 4
-          }
-        ],
-        "steps": [
-          {
-            "id": "capture-stroke-intent",
-            "order": 1,
-            "laneId": "app-state",
-            "title": "Capture stroke intent",
-            "ownerPackage": "apps/asyra-design",
-            "purpose": "Translate create, vector-edit, or stroke-property interaction into one explicit canonical mutation intent.",
-            "inputs": [
-              "pointer, keyboard, tool, or property interaction",
-              "feature session state"
-            ],
-            "outputs": [
-              "artifact:user-intent"
-            ],
-            "conditions": [
-              "The app accepts a supported vector or stroke interaction."
-            ],
-            "bypasses": [
-              "No canonical write or stroke product geometry occurs here."
-            ],
-            "allowedContributors": [
-              "@asyra/feature-system",
-              "app property controls"
-            ],
-            "forbiddenContributors": [
-              "renderer state",
-              "stroke product geometry"
-            ],
-            "cacheDimensions": [],
-            "implementationBoundary": [
-              "apps/asyra-design/src/features/**",
-              "apps/asyra-design/src/properties/**"
-            ],
-            "specRefs": [
-              "#package-ownership-and-boundaries"
-            ],
-            "failureOwnerStepId": "capture-stroke-intent"
-          },
-          {
-            "id": "commit-canonical-stroke-change",
-            "order": 2,
-            "laneId": "app-state",
-            "title": "Commit canonical stroke change",
-            "ownerPackage": "@asyra/factory",
-            "purpose": "Validate the requested mutation and commit one canonical model transaction through the existing app/framework flow.",
-            "inputs": [
-              "artifact:user-intent",
-              "canonical topology/property schemas",
-              "current canonical model"
-            ],
-            "outputs": [
-              "artifact:committed-stroke-change"
-            ],
-            "conditions": [
-              "The requested topology or stroke-property mutation is valid."
-            ],
-            "bypasses": [
-              "An invalid mutation is rejected without a model write or event."
-            ],
-            "allowedContributors": [
-              "apps/asyra-design common APIs",
-              "@asyra/props-manager",
-              "@asyra/scene-tree"
-            ],
-            "forbiddenContributors": [
-              "stroke product geometry",
-              "renderer-local state"
-            ],
-            "cacheDimensions": [],
-            "implementationBoundary": [
-              "apps/asyra-design/src/common-apis/**",
-              "packages/factory/src/**",
-              "packages/props-manager/src/**",
-              "packages/scene-tree/src/**"
-            ],
-            "specRefs": [
-              "#asyra-design-and-framework-state-packages"
-            ],
-            "failureOwnerStepId": "commit-canonical-stroke-change"
-          },
-          {
-            "id": "publish-committed-stroke-change",
-            "order": 3,
-            "laneId": "app-state",
-            "title": "Publish committed change",
-            "ownerPackage": "@asyra/reactive-events",
-            "purpose": "Publish the completed canonical change after the transaction succeeds.",
-            "inputs": [
-              "artifact:committed-stroke-change"
-            ],
-            "outputs": [
-              "artifact:committed-stroke-event"
-            ],
-            "conditions": [
-              "The canonical transaction committed successfully."
-            ],
-            "bypasses": [
-              "An aborted or rejected transaction publishes nothing."
-            ],
-            "allowedContributors": [
-              "factory transaction result",
-              "scene-tree committed delta"
-            ],
-            "forbiddenContributors": [
-              "uncommitted preview state",
-              "stroke product geometry"
-            ],
-            "cacheDimensions": [],
-            "implementationBoundary": [
-              "packages/reactive-events/src/**"
-            ],
-            "specRefs": [
-              "#asyra-design-and-framework-state-packages"
-            ],
-            "failureOwnerStepId": "publish-committed-stroke-change"
-          },
-          {
-            "id": "update-stroke-render-mirror",
-            "order": 4,
-            "laneId": "integration",
-            "title": "Update stroke render mirror",
-            "ownerPackage": "@asyra/render",
-            "purpose": "Apply the committed change to the renderer-independent mirror and map one source-local public engine input per active stroke.",
-            "inputs": [
-              "artifact:committed-stroke-event",
-              "current canonical vector/stroke data"
-            ],
-            "outputs": [
-              "artifact:stroke-mirror-update",
-              "artifact:stroke-engine-input"
-            ],
-            "conditions": [
-              "Active strokes preserve explicit anchor continuity, network and region order, ascending stroke order, and the accepted canonical revision.",
-              "Removed strokes remain explicit in the mirror update for pixel clearing."
-            ],
-            "bypasses": [
-              "Removed strokes and zero-stroke elements require clearing but no engine evaluation.",
-              "The mirror never constructs stroke product geometry."
-            ],
-            "allowedContributors": [
-              "committed canonical data",
-              "canonical topology/property/order to source-local engine-input adapter"
-            ],
-            "forbiddenContributors": [
-              "cap/join/dash construction",
-              "final faces",
-              "renderer pixels"
-            ],
-            "cacheDimensions": [],
-            "implementationBoundary": [
-              "packages/render/src/stroke/mirror/**"
-            ],
-            "specRefs": [
-              "#public-interface",
-              "#asyra-design-and-framework-state-packages"
-            ],
-            "failureOwnerStepId": "update-stroke-render-mirror"
-          },
-          {
-            "id": "invoke-registered-stroke-engine",
-            "order": 5,
-            "laneId": "integration",
-            "title": "Invoke registered stroke engine",
-            "ownerPackage": "@asyra/preset",
-            "purpose": "Invoke the registered default engine once per active stroke without changing its canonical input.",
-            "inputs": [
-              "artifact:stroke-engine-input",
-              "registered stroke engine"
-            ],
-            "outputs": [
-              "artifact:stroke-engine-invocation"
-            ],
-            "conditions": [
-              "A registered default engine is required for every active stroke input.",
-              "Missing registration is a fail-fast integration contract failure owned by this step; it must not silently skip invocation or preserve prior output as current."
-            ],
-            "bypasses": [
-              "No active stroke input means no engine invocation."
-            ],
-            "allowedContributors": [
-              "render-strategy registration",
-              "authored stroke ordering"
-            ],
-            "forbiddenContributors": [
-              "input repair",
-              "stroke geometry",
-              "pixel projection"
-            ],
-            "cacheDimensions": [],
-            "implementationBoundary": [
-              "packages/preset/src/integrations/stroke-engine/**"
-            ],
-            "specRefs": [
-              "#asyrapreset"
-            ],
-            "failureOwnerStepId": "invoke-registered-stroke-engine"
-          },
-          {
-            "id": "build-canonical-stroke-outcome",
-            "order": 6,
-            "laneId": "stroke-engine",
-            "title": "Build canonical stroke outcome",
-            "ownerPackage": "@asyra/stroke-engine",
-            "purpose": "Validate input and produce exactly one immutable product, empty, rejected, or failed stroke outcome.",
-            "inputs": [
-              "artifact:stroke-engine-invocation"
-            ],
-            "outputs": [
-              "artifact:stroke-outcome"
-            ],
-            "conditions": [
-              "Accepted supported per-region topology produces one non-overlapping canonical product for the authored stroke.",
-              "Valid non-product input produces a declared empty outcome.",
-              "Invalid or unsupported authored input produces a declared rejected outcome.",
-              "An internal engine or canonical product-geometry mechanic failure during otherwise valid evaluation produces a declared failed outcome."
-            ],
-            "bypasses": [
-              "No product family or alignment may fall back to another behavior."
-            ],
-            "allowedContributors": [
-              "replaceable geometry mechanics",
-              "canonical topology and stroke input"
-            ],
-            "forbiddenContributors": [
-              "Pixi/Canvas/WebGL/WebGPU rendering APIs",
-              "app state",
-              "prior pixels"
-            ],
-            "cacheDimensions": [],
-            "implementationBoundary": [
-              "packages/stroke-engine/src/**"
-            ],
-            "specRefs": [
-              "#supported-behavior",
-              "#public-interface",
-              "#forbidden-fallbacks-and-errors"
-            ],
-            "failureOwnerStepId": "build-canonical-stroke-outcome"
-          },
-          {
-            "id": "build-shared-channel-result",
-            "order": 7,
-            "laneId": "stroke-engine",
-            "title": "Build shared channel result",
-            "ownerPackage": "@asyra/stroke-engine",
-            "purpose": "Atomically project render, hit, and export outputs from the same completed outcome and return the immutable public result.",
-            "inputs": [
-              "artifact:stroke-outcome"
-            ],
-            "outputs": [
-              "artifact:stroke-engine-result",
-              "artifact:stroke-render-output",
-              "artifact:stroke-hit-output",
-              "artifact:stroke-export-output"
-            ],
-            "conditions": [
-              "Product channels share one product id and product-face order; hit and export preserve each matching face winding rule.",
-              "Render entries and export output preserve the completed product paint.",
-              "Empty, rejected, and failed outcomes emit three explicit empty channel outputs.",
-              "If tessellation or any channel projection fails, the public result becomes failed: engine-failure, all three channel outputs are empty, and no partial product output is published."
-            ],
-            "bypasses": [
-              "Hit and export never depend on pixel or GPU output."
-            ],
-            "allowedContributors": [
-              "artifact:stroke-outcome",
-              "source-space mesh tessellation"
-            ],
-            "forbiddenContributors": [
-              "renderer pixels",
-              "renderer-local path stroke",
-              "upstream geometry repair"
-            ],
-            "cacheDimensions": [],
-            "implementationBoundary": [
-              "packages/stroke-engine/src/**"
-            ],
-            "specRefs": [
-              "#shared-product-and-channel-parity",
-              "#public-interface"
-            ],
-            "failureOwnerStepId": "build-shared-channel-result"
-          },
-          {
-            "id": "project-stroke-pixels",
-            "order": 8,
-            "laneId": "render-output",
-            "title": "Project stroke pixels",
-            "ownerPackage": "@asyra/render",
-            "purpose": "Draw completed render entries and clear stale or removed stroke pixels without reconstructing product geometry.",
-            "inputs": [
-              "artifact:stroke-render-output",
-              "artifact:stroke-mirror-update",
-              "render target and projection context"
-            ],
-            "outputs": [
-              "artifact:visible-stroke-output"
-            ],
-            "conditions": [
-              "Product entries are projected by ascending strokeOrder, back-to-front.",
-              "An active stroke update requires both artifact:stroke-mirror-update and a completed artifact:stroke-render-output.",
-              "A removed or zero-stroke update clears from artifact:stroke-mirror-update alone and does not wait for artifact:stroke-render-output.",
-              "Empty, rejected, failed, and removed strokes clear prior visible output for the accepted update."
-            ],
-            "bypasses": [
-              "Hit and export remain complete without this step.",
-              "Non-product overlays remain outside the product-stroke contract."
-            ],
-            "allowedContributors": [
-              "renderer resources",
-              "projection transform",
-              "antialiasing and pixel composition"
-            ],
-            "forbiddenContributors": [
-              "path reconstruction",
-              "cap/join/dash creation",
-              "hit/export authority"
-            ],
-            "cacheDimensions": [],
-            "implementationBoundary": [
-              "packages/render/src/stroke/projection/**"
-            ],
-            "specRefs": [
-              "#asyrarender",
-              "#shared-product-and-channel-parity"
-            ],
-            "failureOwnerStepId": "project-stroke-pixels"
-          }
-        ],
-        "routes": [
-          {
-            "id": "intent-to-commit",
-            "from": "capture-stroke-intent",
-            "to": "commit-canonical-stroke-change",
-            "kind": "normal",
-            "predicate": "a supported app intent requests a canonical mutation",
-            "producedArtifacts": [
-              "artifact:user-intent"
-            ]
-          },
-          {
-            "id": "commit-to-event",
-            "from": "commit-canonical-stroke-change",
-            "to": "publish-committed-stroke-change",
-            "kind": "normal",
-            "predicate": "the canonical transaction commits",
-            "producedArtifacts": [
-              "artifact:committed-stroke-change"
-            ]
-          },
-          {
-            "id": "event-to-mirror",
-            "from": "publish-committed-stroke-change",
-            "to": "update-stroke-render-mirror",
-            "kind": "normal",
-            "predicate": "the committed event affects vector topology or stroke properties",
-            "producedArtifacts": [
-              "artifact:committed-stroke-event"
-            ]
-          },
-          {
-            "id": "mirror-to-preset",
-            "from": "update-stroke-render-mirror",
-            "to": "invoke-registered-stroke-engine",
-            "kind": "normal",
-            "predicate": "the mirror update contains an active stroke input",
-            "producedArtifacts": [
-              "artifact:stroke-engine-input"
-            ]
-          },
-          {
-            "id": "mirror-update-to-render",
-            "from": "update-stroke-render-mirror",
-            "to": "project-stroke-pixels",
-            "kind": "normal",
-            "predicate": "the update contains active or removed stroke state required for projection or clearing",
-            "producedArtifacts": [
-              "artifact:stroke-mirror-update"
-            ]
-          },
-          {
-            "id": "preset-to-engine",
-            "from": "invoke-registered-stroke-engine",
-            "to": "build-canonical-stroke-outcome",
-            "kind": "normal",
-            "predicate": "the registered engine is invoked with the unchanged active input",
-            "producedArtifacts": [
-              "artifact:stroke-engine-invocation"
-            ]
-          },
-          {
-            "id": "outcome-to-channels",
-            "from": "build-canonical-stroke-outcome",
-            "to": "build-shared-channel-result",
-            "kind": "normal",
-            "predicate": "one product, empty, rejected, or failed outcome is complete",
-            "producedArtifacts": [
-              "artifact:stroke-outcome"
-            ]
-          },
-          {
-            "id": "render-output-to-pixels",
-            "from": "build-shared-channel-result",
-            "to": "project-stroke-pixels",
-            "kind": "normal",
-            "predicate": "the completed result contains product or explicit empty render output",
-            "producedArtifacts": [
-              "artifact:stroke-render-output"
-            ]
-          },
-          {
-            "id": "hit-output-terminal",
-            "from": "build-shared-channel-result",
-            "kind": "terminal",
-            "predicate": "the completed hit output is available to hit consumers",
-            "producedArtifacts": [
-              "artifact:stroke-hit-output"
-            ]
-          },
-          {
-            "id": "export-output-terminal",
-            "from": "build-shared-channel-result",
-            "kind": "terminal",
-            "predicate": "the completed export output is available to export consumers",
-            "producedArtifacts": [
-              "artifact:stroke-export-output"
-            ]
-          },
-          {
-            "id": "engine-result-terminal",
-            "from": "build-shared-channel-result",
-            "kind": "terminal",
-            "predicate": "the immutable public result returns from engine evaluation",
-            "producedArtifacts": [
-              "artifact:stroke-engine-result"
-            ]
-          },
-          {
-            "id": "visible-output-terminal",
-            "from": "project-stroke-pixels",
-            "kind": "terminal",
-            "predicate": "pixel projection and stale-output clearing complete",
-            "producedArtifacts": [
-              "artifact:visible-stroke-output"
-            ]
-          }
-        ],
-        "artifacts": [
-          {
-            "id": "artifact:user-intent",
-            "ownerStepId": "capture-stroke-intent",
-            "consumerStepIds": [
-              "commit-canonical-stroke-change"
-            ],
-            "channel": "app",
-            "terminal": false
-          },
-          {
-            "id": "artifact:committed-stroke-change",
-            "ownerStepId": "commit-canonical-stroke-change",
-            "consumerStepIds": [
-              "publish-committed-stroke-change"
-            ],
-            "channel": "canonical-state",
-            "terminal": false
-          },
-          {
-            "id": "artifact:committed-stroke-event",
-            "ownerStepId": "publish-committed-stroke-change",
-            "consumerStepIds": [
-              "update-stroke-render-mirror"
-            ],
-            "channel": "event",
-            "terminal": false
-          },
-          {
-            "id": "artifact:stroke-mirror-update",
-            "ownerStepId": "update-stroke-render-mirror",
-            "consumerStepIds": [
-              "project-stroke-pixels"
-            ],
-            "channel": "integration",
-            "terminal": false
-          },
-          {
-            "id": "artifact:stroke-engine-input",
-            "ownerStepId": "update-stroke-render-mirror",
-            "consumerStepIds": [
-              "invoke-registered-stroke-engine"
-            ],
-            "channel": "integration",
-            "terminal": false
-          },
-          {
-            "id": "artifact:stroke-engine-invocation",
-            "ownerStepId": "invoke-registered-stroke-engine",
-            "consumerStepIds": [
-              "build-canonical-stroke-outcome"
-            ],
-            "channel": "integration",
-            "terminal": false
-          },
-          {
-            "id": "artifact:stroke-outcome",
-            "ownerStepId": "build-canonical-stroke-outcome",
-            "consumerStepIds": [
-              "build-shared-channel-result"
-            ],
-            "channel": "product",
-            "terminal": false
-          },
-          {
-            "id": "artifact:stroke-engine-result",
-            "ownerStepId": "build-shared-channel-result",
-            "consumerStepIds": [],
-            "channel": "public-result",
-            "terminal": true
-          },
-          {
-            "id": "artifact:stroke-render-output",
-            "ownerStepId": "build-shared-channel-result",
-            "consumerStepIds": [
-              "project-stroke-pixels"
-            ],
-            "channel": "render",
-            "terminal": false
-          },
-          {
-            "id": "artifact:stroke-hit-output",
-            "ownerStepId": "build-shared-channel-result",
-            "consumerStepIds": [],
-            "channel": "hit",
-            "terminal": true
-          },
-          {
-            "id": "artifact:stroke-export-output",
-            "ownerStepId": "build-shared-channel-result",
-            "consumerStepIds": [],
-            "channel": "export",
-            "terminal": true
-          },
-          {
-            "id": "artifact:visible-stroke-output",
-            "ownerStepId": "project-stroke-pixels",
-            "consumerStepIds": [],
-            "channel": "pixels",
-            "terminal": true
-          }
-        ],
-        "invariants": [
-          {
-            "id": "canonical-state-before-render",
-            "statement": "Only committed canonical state may reach the render mirror and stroke engine.",
-            "stepIds": [
-              "capture-stroke-intent",
-              "commit-canonical-stroke-change",
-              "publish-committed-stroke-change",
-              "update-stroke-render-mirror",
-              "invoke-registered-stroke-engine",
-              "build-canonical-stroke-outcome"
-            ],
-            "artifactIds": [
-              "artifact:committed-stroke-change",
-              "artifact:committed-stroke-event",
-              "artifact:stroke-engine-input"
-            ],
-            "specRefs": [
-              "#asyra-design-and-framework-state-packages"
-            ]
-          },
-          {
-            "id": "single-product-owner",
-            "statement": "@asyra/stroke-engine is the only owner of stroke product geometry.",
-            "stepIds": [
-              "build-canonical-stroke-outcome",
-              "build-shared-channel-result"
-            ],
-            "artifactIds": [
-              "artifact:stroke-outcome"
-            ],
-            "specRefs": [
-              "#asyrastroke-engine"
-            ]
-          },
-          {
-            "id": "preset-is-wiring-only",
-            "statement": "Preset registers and invokes the engine without changing canonical input or product geometry.",
-            "stepIds": [
-              "invoke-registered-stroke-engine"
-            ],
-            "artifactIds": [
-              "artifact:stroke-engine-invocation"
-            ],
-            "specRefs": [
-              "#asyrapreset"
-            ]
-          },
-          {
-            "id": "shared-product-channels",
-            "statement": "Render, hit, and export share one completed product and face order; hit and export preserve matching face winding rules.",
-            "stepIds": [
-              "build-canonical-stroke-outcome",
-              "build-shared-channel-result"
-            ],
-            "artifactIds": [
-              "artifact:stroke-outcome",
-              "artifact:stroke-render-output",
-              "artifact:stroke-hit-output",
-              "artifact:stroke-export-output"
-            ],
-            "specRefs": [
-              "#shared-product-and-channel-parity"
-            ]
-          },
-          {
-            "id": "single-stroke-single-composition",
-            "statement": "One authored stroke is Boolean-composed into non-overlapping material and painted once before channel projection.",
-            "stepIds": [
-              "build-canonical-stroke-outcome",
-              "build-shared-channel-result"
-            ],
-            "artifactIds": [
-              "artifact:stroke-outcome"
-            ],
-            "specRefs": [
-              "#supported-behavior",
-              "#shared-product-and-channel-parity"
-            ]
-          },
-          {
-            "id": "render-is-pixel-projection-only",
-            "statement": "Render consumes completed entries and never reconstructs product stroke geometry.",
-            "stepIds": [
-              "project-stroke-pixels"
-            ],
-            "artifactIds": [
-              "artifact:stroke-render-output",
-              "artifact:visible-stroke-output"
-            ],
-            "specRefs": [
-              "#asyrarender"
-            ]
-          },
-          {
-            "id": "non-product-clears-all-channels",
-            "statement": "Empty, rejected, and failed active results provide explicit empty channel outputs for stale-output clearing.",
-            "stepIds": [
-              "build-shared-channel-result",
-              "project-stroke-pixels"
-            ],
-            "artifactIds": [
-              "artifact:stroke-engine-result",
-              "artifact:stroke-render-output",
-              "artifact:stroke-hit-output",
-              "artifact:stroke-export-output"
-            ],
-            "specRefs": [
-              "#shared-product-and-channel-parity"
-            ]
-          },
-          {
-            "id": "no-product-fallback",
-            "statement": "No step substitutes alignment, geometry, prior output, pixels, or renderer-local strokes for a missing product.",
-            "stepIds": [
-              "build-canonical-stroke-outcome",
-              "build-shared-channel-result",
-              "project-stroke-pixels"
-            ],
-            "artifactIds": [
-              "artifact:stroke-outcome",
-              "artifact:visible-stroke-output"
-            ],
-            "specRefs": [
-              "#forbidden-fallbacks-and-errors"
-            ]
-          },
-          {
-            "id": "no-declared-cache",
-            "statement": "No current step owns a retained candidate; profiling and an equivalence test are required before one is declared.",
-            "stepIds": [
-              "capture-stroke-intent",
-              "commit-canonical-stroke-change",
-              "publish-committed-stroke-change",
-              "update-stroke-render-mirror",
-              "invoke-registered-stroke-engine",
-              "build-canonical-stroke-outcome",
-              "build-shared-channel-result",
-              "project-stroke-pixels"
-            ],
-            "artifactIds": [],
-            "specRefs": [
-              "#authority",
-              "#definition-of-done"
-            ]
-          }
-        ],
-        "acceptanceContracts": [
-          {
-            "id": "supported-behavior",
-            "title": "Supported stroke behavior",
-            "stepIds": [
-              "build-canonical-stroke-outcome",
-              "build-shared-channel-result"
-            ],
-            "specRefs": [
-              "#supported-behavior"
-            ],
-            "assertions": [
-              "explicit continuity, per-region winding, alignment-specific dash fitting, gradient sampling, and stroke order produce the declared product",
-              "one authored stroke contains no overlapping or duplicate-alpha material",
-              "empty, invalid, unsupported, and engine-failure forms produce their declared non-product result"
-            ]
-          },
-          {
-            "id": "public-interface",
-            "title": "Public input and output",
-            "stepIds": [
-              "update-stroke-render-mirror",
-              "invoke-registered-stroke-engine",
-              "build-canonical-stroke-outcome",
-              "build-shared-channel-result"
-            ],
-            "specRefs": [
-              "#public-interface"
-            ],
-            "assertions": [
-              "one immutable result is returned for each active stroke input",
-              "public topology carries explicit network and region order, anchor continuity, directed loops, and per-face winding rules",
-              "public DTOs contain no renderer object or mutable engine state"
-            ]
-          },
-          {
-            "id": "package-boundaries",
-            "title": "Package ownership and boundaries",
-            "stepIds": [
-              "capture-stroke-intent",
-              "commit-canonical-stroke-change",
-              "publish-committed-stroke-change",
-              "update-stroke-render-mirror",
-              "invoke-registered-stroke-engine",
-              "build-canonical-stroke-outcome",
-              "build-shared-channel-result",
-              "project-stroke-pixels"
-            ],
-            "specRefs": [
-              "#package-ownership-and-boundaries"
-            ],
-            "assertions": [
-              "every step has one owner and uses only declared contributors",
-              "app, preset, and render never create stroke product geometry"
-            ]
-          },
-          {
-            "id": "channel-parity",
-            "title": "Shared product channel parity",
-            "stepIds": [
-              "build-canonical-stroke-outcome",
-              "build-shared-channel-result",
-              "project-stroke-pixels"
-            ],
-            "specRefs": [
-              "#shared-product-and-channel-parity"
-            ],
-            "assertions": [
-              "product ids and face ordering agree across all channels; hit/export winding and render/export paint match the product",
-              "hit and export are independent of pixels and render tessellation"
-            ]
-          },
-          {
-            "id": "canonical-product-cases",
-            "title": "Canonical formal and visual cases",
-            "stepIds": [
-              "build-canonical-stroke-outcome",
-              "build-shared-channel-result",
-              "project-stroke-pixels"
-            ],
-            "specRefs": [
-              "#canonical-product-cases"
-            ],
-            "assertions": [
-              "every listed case has a source-space oracle and required downstream evidence"
-            ]
-          },
-          {
-            "id": "forbidden-fallbacks",
-            "title": "Forbidden fallbacks and errors",
-            "stepIds": [
-              "build-canonical-stroke-outcome",
-              "build-shared-channel-result",
-              "project-stroke-pixels"
-            ],
-            "specRefs": [
-              "#forbidden-fallbacks-and-errors"
-            ],
-            "assertions": [
-              "invalid, unsupported, and internal failure paths publish no substitute or stale product"
-            ]
-          },
-          {
-            "id": "definition-of-done",
-            "title": "Definition of Done",
-            "stepIds": [
-              "capture-stroke-intent",
-              "commit-canonical-stroke-change",
-              "publish-committed-stroke-change",
-              "update-stroke-render-mirror",
-              "invoke-registered-stroke-engine",
-              "build-canonical-stroke-outcome",
-              "build-shared-channel-result",
-              "project-stroke-pixels"
-            ],
-            "specRefs": [
-              "#definition-of-done"
-            ],
-            "assertions": [
-              "all ten product, integration, visual, failure, profiling, build, and test gates pass"
-            ]
-          }
-        ]
-      }
-    },
-    {
       "id": "ai-agent-runtime",
       "title": "AI Agent Runtime Flow Inspector",
       "kind": "flow-v2",
       "group": "Framework",
       "subgroup": "Architecture and Runtime",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/ai-agent-runtime-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/framework/plans/ai-agent-runtime-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/ai-agent-runtime-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/ai-agent-runtime-flow-inspector.html",
       "labels": [
         "ai-agent-runtime",
         "Framework",
@@ -10490,7 +9586,7 @@
         },
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/ai-agent-runtime-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/ai-agent-runtime-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/ai-agent-runtime-flow-inspector.data.cjs",
           "semanticOwner": "AI Agent Runtime Plan product contract",
           "inspectorOwner": "AI Agent Runtime Flow Inspector data"
         },
@@ -10498,31 +9594,31 @@
           {
             "id": "product-contract",
             "label": "Product Contract",
-            "href": "./ai-agent-runtime-plan.md",
+            "href": "../../../docs/ai/framework/plans/completed/ai-agent-runtime-plan.md",
             "kind": "authority"
           },
           {
             "id": "feature-system-contract",
             "label": "Feature System Contract",
-            "href": "../packages/feature-system.md",
+            "href": "../../../docs/ai/framework/packages/feature-system.md",
             "kind": "framework"
           },
           {
             "id": "transaction-contract",
             "label": "Transaction Contract",
-            "href": "../rules/data-flow-and-transactions.md",
+            "href": "../../../docs/ai/framework/rules/data-flow-and-transactions.md",
             "kind": "framework"
           },
           {
             "id": "gate-2-contract",
             "label": "Gate 2 Transport Contract",
-            "href": "./completed/network-collaboration-transport-plan.md",
+            "href": "../../../docs/ai/framework/plans/completed/network-collaboration-transport-plan.md",
             "kind": "authority"
           },
           {
             "id": "flow-inspector-contract",
             "label": "Flow Inspector Contract",
-            "href": "../../tools/flow-inspector/FLOW_INSPECTOR.md",
+            "href": "../../../docs/ai/tools/flow-inspector/FLOW_INSPECTOR.md",
             "kind": "framework"
           }
         ],
@@ -12543,8 +11639,8 @@
       "group": "Framework",
       "subgroup": "Architecture and Runtime",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/app-level-migration-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/framework/plans/app-level-migration-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/app-level-migration-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/app-level-migration-flow-inspector.html",
       "labels": [
         "app-level-migration",
         "Framework",
@@ -12564,7 +11660,7 @@
         },
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/props-manager-app-level-migration-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/app-level-migration-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/app-level-migration-flow-inspector.data.cjs",
           "semanticOwner": "Framework App-Level Migration product contract",
           "inspectorOwner": "App-level Migration Inspector data"
         },
@@ -12572,13 +11668,13 @@
           {
             "id": "product-contract",
             "label": "Product Contract",
-            "href": "./completed/props-manager-app-level-migration-plan.md",
+            "href": "../../../docs/ai/framework/plans/completed/props-manager-app-level-migration-plan.md",
             "kind": "authority"
           },
           {
             "id": "flow-inspector-contract",
             "label": "Flow Inspector Contract",
-            "href": "../../tools/flow-inspector/FLOW_INSPECTOR.md",
+            "href": "../../../docs/ai/tools/flow-inspector/FLOW_INSPECTOR.md",
             "kind": "framework"
           }
         ],
@@ -13676,8 +12772,8 @@
       "group": "Framework",
       "subgroup": "Architecture and Runtime",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/canonical-projection-and-collaboration-contract-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/framework/plans/canonical-projection-and-collaboration-contract-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/canonical-projection-and-collaboration-contract-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/canonical-projection-and-collaboration-contract-flow-inspector.html",
       "labels": [
         "canonical-projection-and-collaboration-contract",
         "Framework",
@@ -13697,7 +12793,7 @@
         },
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/canonical-projection-and-collaboration-contract-realignment-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/canonical-projection-and-collaboration-contract-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/canonical-projection-and-collaboration-contract-flow-inspector.data.cjs",
           "semanticOwner": "Asyra Design Pre-Release Canonical Projection and Collaboration Contract Realignment Plan",
           "inspectorOwner": "Canonical projection and collaboration owner handoff flow"
         },
@@ -13706,19 +12802,19 @@
             "id": "realignment-plan",
             "kind": "authority",
             "label": "Canonical projection and collaboration contract",
-            "href": "./completed/canonical-projection-and-collaboration-contract-realignment-plan.md"
+            "href": "../../../docs/ai/framework/plans/completed/canonical-projection-and-collaboration-contract-realignment-plan.md"
           },
           {
             "id": "performance-plan",
             "kind": "completed-successor",
             "label": "Completed Asyra Design drawing performance plan",
-            "href": "../../apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md"
+            "href": "../../../docs/ai/apps/asyra-design/plans/completed/ai-conversational-drawing-performance-plan.md"
           },
           {
             "id": "transaction-inspector",
             "kind": "framework",
             "label": "Existing Factory transaction authority",
-            "href": "./transaction-flow-inspector.html"
+            "href": "../inspectors/transaction-flow-inspector.html"
           }
         ],
         "lanes": [
@@ -15236,8 +14332,8 @@
       "group": "Framework",
       "subgroup": "Architecture and Runtime",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/canvas-pipeline-debugger-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/framework/plans/canvas-pipeline-debugger-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/canvas-pipeline-debugger-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/canvas-pipeline-debugger-flow-inspector.html",
       "labels": [
         "canvas-pipeline-debugger",
         "Framework",
@@ -15257,7 +14353,7 @@
         },
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/canvas-pipeline-debugger-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/canvas-pipeline-debugger-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/canvas-pipeline-debugger-flow-inspector.data.cjs",
           "semanticOwner": "Canvas Pipeline Debugger product contract",
           "inspectorOwner": "Canvas Pipeline Debugger Inspector data"
         },
@@ -15265,13 +14361,13 @@
           {
             "id": "product-contract",
             "label": "Product Contract",
-            "href": "./completed/canvas-pipeline-debugger-plan.md",
+            "href": "../../../docs/ai/framework/plans/completed/canvas-pipeline-debugger-plan.md",
             "kind": "framework"
           },
           {
             "id": "flow-inspector-contract",
             "label": "Flow Inspector Contract",
-            "href": "../../tools/flow-inspector/FLOW_INSPECTOR.md",
+            "href": "../../../docs/ai/tools/flow-inspector/FLOW_INSPECTOR.md",
             "kind": "framework"
           }
         ],
@@ -15855,8 +14951,8 @@
       "group": "Framework",
       "subgroup": "Architecture and Runtime",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/extendable-preset-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/framework/plans/extendable-preset-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/extendable-preset-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/extendable-preset-flow-inspector.html",
       "labels": [
         "extendable-preset",
         "Framework",
@@ -15872,7 +14968,7 @@
         },
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/extendable-preset-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/extendable-preset-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/extendable-preset-flow-inspector.data.cjs",
           "rulePaths": [
             "docs/ai/framework/rules/inspector-contract-readiness.md",
             "docs/ai/framework/rules/inspector-step-execution.md",
@@ -15884,12 +14980,12 @@
           {
             "id": "product-contract",
             "label": "Product contract",
-            "href": "./completed/extendable-preset-plan.md"
+            "href": "../../../docs/ai/framework/plans/completed/extendable-preset-plan.md"
           },
           {
             "id": "contract-test",
             "label": "Contract test",
-            "href": "./__tests__/extendable-preset-flow-inspector.contract.test.cjs"
+            "href": "../inspectors/__tests__/extendable-preset-flow-inspector.contract.test.cjs"
           }
         ],
         "lanes": [
@@ -16849,8 +15945,8 @@
       "group": "Framework",
       "subgroup": "Architecture and Runtime",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/group-component-and-hierarchy-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/framework/plans/group-component-and-hierarchy-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/group-component-and-hierarchy-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/group-component-and-hierarchy-flow-inspector.html",
       "labels": [
         "group-component-and-hierarchy",
         "Framework",
@@ -16870,7 +15966,7 @@
         },
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/group-component-and-hierarchy-behaviors-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/group-component-and-hierarchy-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/group-component-and-hierarchy-flow-inspector.data.cjs",
           "semanticOwner": "Group Component and Hierarchy Behaviors Plan",
           "inspectorOwner": "Group Component and Hierarchy Inspector data"
         },
@@ -16878,19 +15974,19 @@
           {
             "id": "product-contract",
             "label": "Product Contract",
-            "href": "./completed/group-component-and-hierarchy-behaviors-plan.md",
+            "href": "../../../docs/ai/framework/plans/completed/group-component-and-hierarchy-behaviors-plan.md",
             "kind": "authority"
           },
           {
             "id": "gate-2-contract",
             "label": "Gate 2 Transport Contract",
-            "href": "./completed/network-collaboration-transport-plan.md",
+            "href": "../../../docs/ai/framework/plans/completed/network-collaboration-transport-plan.md",
             "kind": "authority"
           },
           {
             "id": "flow-inspector-contract",
             "label": "Flow Inspector Contract",
-            "href": "../../tools/flow-inspector/FLOW_INSPECTOR.md",
+            "href": "../../../docs/ai/tools/flow-inspector/FLOW_INSPECTOR.md",
             "kind": "framework"
           }
         ],
@@ -17357,7 +16453,7 @@
               "packages/collaboration/src/process.ts",
               "packages/collaboration/src/__tests__/process.test.ts",
               "packages/collaboration/src/__tests__/action-publication.test.ts",
-              "docs/ai/framework/plans/__tests__/network-collaboration-transport-flow-inspector.contract.test.cjs"
+              "tools/flow-inspector/inspectors/__tests__/network-collaboration-transport-flow-inspector.contract.test.cjs"
             ],
             "specRefs": [
               "#remote-hierarchy-apply",
@@ -18118,8 +17214,8 @@
       "group": "Framework",
       "subgroup": "Architecture and Runtime",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/input-system-environment-neutrality-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/framework/plans/input-system-environment-neutrality-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/input-system-environment-neutrality-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/input-system-environment-neutrality-flow-inspector.html",
       "labels": [
         "input-system-environment-neutrality",
         "Framework",
@@ -18135,7 +17231,7 @@
         },
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/input-system-environment-neutrality-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/input-system-environment-neutrality-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/input-system-environment-neutrality-flow-inspector.data.cjs",
           "rulePaths": [
             "docs/ai/framework/rules/bounded-task-scope-and-closure.md",
             "docs/ai/framework/rules/bugfix-test-first.md",
@@ -18148,12 +17244,12 @@
           {
             "id": "product-contract",
             "label": "Product contract",
-            "href": "./input-system-environment-neutrality-plan.md"
+            "href": "../../../docs/ai/framework/plans/completed/input-system-environment-neutrality-plan.md"
           },
           {
             "id": "contract-test",
             "label": "Contract test",
-            "href": "./__tests__/input-system-environment-neutrality-flow-inspector.contract.test.cjs"
+            "href": "../inspectors/__tests__/input-system-environment-neutrality-flow-inspector.contract.test.cjs"
           }
         ],
         "lanes": [
@@ -18477,8 +17573,8 @@
       "group": "Framework",
       "subgroup": "Architecture and Runtime",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/network-collaboration-transport-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/framework/plans/network-collaboration-transport-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/network-collaboration-transport-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/network-collaboration-transport-flow-inspector.html",
       "labels": [
         "network-collaboration-transport",
         "Framework",
@@ -18498,7 +17594,7 @@
         },
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/network-collaboration-transport-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/network-collaboration-transport-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/network-collaboration-transport-flow-inspector.data.cjs",
           "semanticOwner": "Network Collaboration Transport Plan product contract",
           "inspectorOwner": "Network Collaboration Transport Inspector data"
         },
@@ -18506,13 +17602,13 @@
           {
             "id": "product-contract",
             "label": "Product Contract",
-            "href": "./completed/network-collaboration-transport-plan.md",
+            "href": "../../../docs/ai/framework/plans/completed/network-collaboration-transport-plan.md",
             "kind": "authority"
           },
           {
             "id": "flow-inspector-contract",
             "label": "Flow Inspector Contract",
-            "href": "../../tools/flow-inspector/FLOW_INSPECTOR.md",
+            "href": "../../../docs/ai/tools/flow-inspector/FLOW_INSPECTOR.md",
             "kind": "framework"
           }
         ],
@@ -19483,8 +18579,8 @@
       "group": "Framework",
       "subgroup": "Architecture and Runtime",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/preset-composition-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/framework/plans/preset-composition-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/preset-composition-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/preset-composition-flow-inspector.html",
       "labels": [
         "preset-composition",
         "Framework",
@@ -19500,7 +18596,7 @@
         },
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/preset-composition-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/preset-composition-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/preset-composition-flow-inspector.data.cjs",
           "rulePaths": [
             "docs/ai/framework/rules/inspector-contract-readiness.md",
             "docs/ai/framework/rules/inspector-step-execution.md",
@@ -19513,12 +18609,12 @@
           {
             "id": "product-contract",
             "label": "Product contract",
-            "href": "./completed/preset-composition-plan.md"
+            "href": "../../../docs/ai/framework/plans/completed/preset-composition-plan.md"
           },
           {
             "id": "contract-test",
             "label": "Contract test",
-            "href": "./__tests__/preset-composition-flow-inspector.contract.test.cjs"
+            "href": "../inspectors/__tests__/preset-composition-flow-inspector.contract.test.cjs"
           }
         ],
         "lanes": [
@@ -20403,8 +19499,8 @@
       "group": "Framework",
       "subgroup": "Architecture and Runtime",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/property-type-redefinition-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/framework/plans/property-type-redefinition-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/property-type-redefinition-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/property-type-redefinition-flow-inspector.html",
       "labels": [
         "property-type-redefinition",
         "Framework",
@@ -20424,7 +19520,7 @@
         },
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/property-type-redefinition-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/property-type-redefinition-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/property-type-redefinition-flow-inspector.data.cjs",
           "semanticOwner": "Declarative Property Type Redefinition product contract",
           "inspectorOwner": "Property Type Redefinition Inspector data"
         },
@@ -20432,13 +19528,13 @@
           {
             "id": "product-contract",
             "label": "Product Contract",
-            "href": "./completed/property-type-redefinition-plan.md",
+            "href": "../../../docs/ai/framework/plans/completed/property-type-redefinition-plan.md",
             "kind": "authority"
           },
           {
             "id": "flow-inspector-contract",
             "label": "Flow Inspector Contract",
-            "href": "../../tools/flow-inspector/FLOW_INSPECTOR.md",
+            "href": "../../../docs/ai/tools/flow-inspector/FLOW_INSPECTOR.md",
             "kind": "framework"
           }
         ],
@@ -21200,8 +20296,8 @@
       "group": "Framework",
       "subgroup": "Architecture and Runtime",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/render-delta-update-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/framework/plans/render-delta-update-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/render-delta-update-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/render-delta-update-flow-inspector.html",
       "labels": [
         "render-delta-update",
         "Framework",
@@ -21221,7 +20317,7 @@
         },
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/render-delta-update-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/render-delta-update-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/render-delta-update-flow-inspector.data.cjs",
           "semanticOwner": "render-delta-update-plan.md",
           "inspectorOwner": "render-delta-update-flow-inspector.data.cjs"
         },
@@ -21229,37 +20325,37 @@
           {
             "id": "product-contract",
             "label": "Render Delta Update Plan",
-            "href": "./completed/render-delta-update-plan.md",
+            "href": "../../../docs/ai/framework/plans/completed/render-delta-update-plan.md",
             "kind": "authority"
           },
           {
             "id": "inspector-data",
             "label": "Inspector Data",
-            "href": "./render-delta-update-flow-inspector.data.cjs",
+            "href": "../inspectors/render-delta-update-flow-inspector.data.cjs",
             "kind": "source"
           },
           {
             "id": "performance-oracle",
             "label": "Dense Vector Performance Oracle",
-            "href": "../../../../apps/asyra-design/e2e/render-delta-performance.spec.ts",
+            "href": "../../../apps/asyra-design/e2e/render-delta-performance.spec.ts",
             "kind": "test"
           },
           {
             "id": "inspector-readiness-rule",
             "label": "Inspector Contract Readiness",
-            "href": "../rules/inspector-contract-readiness.md",
+            "href": "../../../docs/ai/framework/rules/inspector-contract-readiness.md",
             "kind": "framework"
           },
           {
             "id": "inspector-execution-rule",
             "label": "Inspector Step Execution",
-            "href": "../rules/inspector-step-execution.md",
+            "href": "../../../docs/ai/framework/rules/inspector-step-execution.md",
             "kind": "framework"
           },
           {
             "id": "flow-inspector-contract",
             "label": "Flow Inspector Contract",
-            "href": "../../tools/flow-inspector/FLOW_INSPECTOR.md",
+            "href": "../../../docs/ai/tools/flow-inspector/FLOW_INSPECTOR.md",
             "kind": "framework"
           }
         ],
@@ -22422,8 +21518,8 @@
       "group": "Framework",
       "subgroup": "Architecture and Runtime",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/render-engine-boundary-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/framework/plans/render-engine-boundary-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/render-engine-boundary-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/render-engine-boundary-flow-inspector.html",
       "labels": [
         "render-engine-boundary",
         "Framework",
@@ -22443,7 +21539,7 @@
         },
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/render-engine-boundary-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/render-engine-boundary-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/render-engine-boundary-flow-inspector.data.cjs",
           "semanticOwner": "completed/render-engine-boundary-plan.md",
           "inspectorOwner": "render-engine-boundary-flow-inspector.data.cjs",
           "completedAmendmentSpecPath": "docs/ai/framework/plans/completed/preset-composition-plan.md"
@@ -22452,31 +21548,31 @@
           {
             "id": "product-contract",
             "label": "Render-Engine Boundary Plan",
-            "href": "./completed/render-engine-boundary-plan.md",
+            "href": "../../../docs/ai/framework/plans/completed/render-engine-boundary-plan.md",
             "kind": "authority"
           },
           {
             "id": "completed-provider-amendment",
             "label": "Preset Profile and Selectable Defaults Plan",
-            "href": "./completed/preset-composition-plan.md",
+            "href": "../../../docs/ai/framework/plans/completed/preset-composition-plan.md",
             "kind": "authority"
           },
           {
             "id": "inspector-data",
             "label": "Inspector Data",
-            "href": "./render-engine-boundary-flow-inspector.data.cjs",
+            "href": "../inspectors/render-engine-boundary-flow-inspector.data.cjs",
             "kind": "source"
           },
           {
             "id": "inspector-readiness-rule",
             "label": "Inspector Contract Readiness",
-            "href": "../rules/inspector-contract-readiness.md",
+            "href": "../../../docs/ai/framework/rules/inspector-contract-readiness.md",
             "kind": "framework"
           },
           {
             "id": "flow-inspector-contract",
             "label": "Flow Inspector Contract",
-            "href": "../../tools/flow-inspector/FLOW_INSPECTOR.md",
+            "href": "../../../docs/ai/tools/flow-inspector/FLOW_INSPECTOR.md",
             "kind": "framework"
           }
         ],
@@ -23680,14 +22776,916 @@
       }
     },
     {
+      "id": "stroke-engine",
+      "title": "Stroke Engine Inspector Flow",
+      "kind": "flow-v2",
+      "group": "Framework",
+      "subgroup": "Architecture and Runtime",
+      "lifecycle": "current",
+      "sourcePath": "tools/flow-inspector/inspectors/stroke-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/stroke-flow-inspector.html",
+      "labels": [
+        "stroke",
+        "Framework",
+        "Architecture and Runtime",
+        "flow-v2"
+      ],
+      "data": {
+        "schema": {
+          "id": "flow-inspector",
+          "version": 2
+        },
+        "target": {
+          "id": "stroke-engine",
+          "kind": "feature",
+          "title": "Stroke Engine Inspector Flow",
+          "subtitle": "Thin ownership and handoff map for canonical stroke products and their render, hit, and export projections."
+        },
+        "authority": {
+          "specPath": "docs/ai/apps/asyra-design/specs/stroke-engine/SPEC.md",
+          "inspectorPath": "tools/flow-inspector/inspectors/stroke-flow-inspector.data.cjs",
+          "semanticOwner": "SPEC.md",
+          "inspectorOwner": "stroke-flow-inspector.data.cjs"
+        },
+        "links": [
+          {
+            "id": "product-spec",
+            "label": "Stroke Engine Product Contract",
+            "href": "../../../docs/ai/apps/asyra-design/specs/stroke-engine/SPEC.md",
+            "kind": "authority"
+          },
+          {
+            "id": "inspector-data",
+            "label": "Inspector Data",
+            "href": "../inspectors/stroke-flow-inspector.data.cjs",
+            "kind": "source"
+          },
+          {
+            "id": "inspector-readiness-rule",
+            "label": "Inspector Contract Readiness",
+            "href": "../../../docs/ai/framework/rules/inspector-contract-readiness.md",
+            "kind": "framework"
+          },
+          {
+            "id": "flow-inspector-contract",
+            "label": "Flow Inspector Contract",
+            "href": "../../../docs/ai/tools/flow-inspector/FLOW_INSPECTOR.md",
+            "kind": "framework"
+          }
+        ],
+        "lanes": [
+          {
+            "id": "app-state",
+            "title": "App And Canonical State",
+            "order": 1
+          },
+          {
+            "id": "integration",
+            "title": "Integration",
+            "order": 2
+          },
+          {
+            "id": "stroke-engine",
+            "title": "Stroke Engine",
+            "order": 3
+          },
+          {
+            "id": "render-output",
+            "title": "Render Output",
+            "order": 4
+          }
+        ],
+        "steps": [
+          {
+            "id": "capture-stroke-intent",
+            "order": 1,
+            "laneId": "app-state",
+            "title": "Capture stroke intent",
+            "ownerPackage": "apps/asyra-design",
+            "purpose": "Translate create, vector-edit, or stroke-property interaction into one explicit canonical mutation intent.",
+            "inputs": [
+              "pointer, keyboard, tool, or property interaction",
+              "feature session state"
+            ],
+            "outputs": [
+              "artifact:user-intent"
+            ],
+            "conditions": [
+              "The app accepts a supported vector or stroke interaction."
+            ],
+            "bypasses": [
+              "No canonical write or stroke product geometry occurs here."
+            ],
+            "allowedContributors": [
+              "@asyra/feature-system",
+              "app property controls"
+            ],
+            "forbiddenContributors": [
+              "renderer state",
+              "stroke product geometry"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "apps/asyra-design/src/features/**",
+              "apps/asyra-design/src/properties/**"
+            ],
+            "specRefs": [
+              "#package-ownership-and-boundaries"
+            ],
+            "failureOwnerStepId": "capture-stroke-intent"
+          },
+          {
+            "id": "commit-canonical-stroke-change",
+            "order": 2,
+            "laneId": "app-state",
+            "title": "Commit canonical stroke change",
+            "ownerPackage": "@asyra/factory",
+            "purpose": "Validate the requested mutation and commit one canonical model transaction through the existing app/framework flow.",
+            "inputs": [
+              "artifact:user-intent",
+              "canonical topology/property schemas",
+              "current canonical model"
+            ],
+            "outputs": [
+              "artifact:committed-stroke-change"
+            ],
+            "conditions": [
+              "The requested topology or stroke-property mutation is valid."
+            ],
+            "bypasses": [
+              "An invalid mutation is rejected without a model write or event."
+            ],
+            "allowedContributors": [
+              "apps/asyra-design common APIs",
+              "@asyra/props-manager",
+              "@asyra/scene-tree"
+            ],
+            "forbiddenContributors": [
+              "stroke product geometry",
+              "renderer-local state"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "apps/asyra-design/src/common-apis/**",
+              "packages/factory/src/**",
+              "packages/props-manager/src/**",
+              "packages/scene-tree/src/**"
+            ],
+            "specRefs": [
+              "#asyra-design-and-framework-state-packages"
+            ],
+            "failureOwnerStepId": "commit-canonical-stroke-change"
+          },
+          {
+            "id": "publish-committed-stroke-change",
+            "order": 3,
+            "laneId": "app-state",
+            "title": "Publish committed change",
+            "ownerPackage": "@asyra/reactive-events",
+            "purpose": "Publish the completed canonical change after the transaction succeeds.",
+            "inputs": [
+              "artifact:committed-stroke-change"
+            ],
+            "outputs": [
+              "artifact:committed-stroke-event"
+            ],
+            "conditions": [
+              "The canonical transaction committed successfully."
+            ],
+            "bypasses": [
+              "An aborted or rejected transaction publishes nothing."
+            ],
+            "allowedContributors": [
+              "factory transaction result",
+              "scene-tree committed delta"
+            ],
+            "forbiddenContributors": [
+              "uncommitted preview state",
+              "stroke product geometry"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/reactive-events/src/**"
+            ],
+            "specRefs": [
+              "#asyra-design-and-framework-state-packages"
+            ],
+            "failureOwnerStepId": "publish-committed-stroke-change"
+          },
+          {
+            "id": "update-stroke-render-mirror",
+            "order": 4,
+            "laneId": "integration",
+            "title": "Update stroke render mirror",
+            "ownerPackage": "@asyra/render",
+            "purpose": "Apply the committed change to the renderer-independent mirror and map one source-local public engine input per active stroke.",
+            "inputs": [
+              "artifact:committed-stroke-event",
+              "current canonical vector/stroke data"
+            ],
+            "outputs": [
+              "artifact:stroke-mirror-update",
+              "artifact:stroke-engine-input"
+            ],
+            "conditions": [
+              "Active strokes preserve explicit anchor continuity, network and region order, ascending stroke order, and the accepted canonical revision.",
+              "Removed strokes remain explicit in the mirror update for pixel clearing."
+            ],
+            "bypasses": [
+              "Removed strokes and zero-stroke elements require clearing but no engine evaluation.",
+              "The mirror never constructs stroke product geometry."
+            ],
+            "allowedContributors": [
+              "committed canonical data",
+              "canonical topology/property/order to source-local engine-input adapter"
+            ],
+            "forbiddenContributors": [
+              "cap/join/dash construction",
+              "final faces",
+              "renderer pixels"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/render/src/stroke/mirror/**"
+            ],
+            "specRefs": [
+              "#public-interface",
+              "#asyra-design-and-framework-state-packages"
+            ],
+            "failureOwnerStepId": "update-stroke-render-mirror"
+          },
+          {
+            "id": "invoke-registered-stroke-engine",
+            "order": 5,
+            "laneId": "integration",
+            "title": "Invoke registered stroke engine",
+            "ownerPackage": "@asyra/preset",
+            "purpose": "Invoke the registered default engine once per active stroke without changing its canonical input.",
+            "inputs": [
+              "artifact:stroke-engine-input",
+              "registered stroke engine"
+            ],
+            "outputs": [
+              "artifact:stroke-engine-invocation"
+            ],
+            "conditions": [
+              "A registered default engine is required for every active stroke input.",
+              "Missing registration is a fail-fast integration contract failure owned by this step; it must not silently skip invocation or preserve prior output as current."
+            ],
+            "bypasses": [
+              "No active stroke input means no engine invocation."
+            ],
+            "allowedContributors": [
+              "render-strategy registration",
+              "authored stroke ordering"
+            ],
+            "forbiddenContributors": [
+              "input repair",
+              "stroke geometry",
+              "pixel projection"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/preset/src/integrations/stroke-engine/**"
+            ],
+            "specRefs": [
+              "#asyrapreset"
+            ],
+            "failureOwnerStepId": "invoke-registered-stroke-engine"
+          },
+          {
+            "id": "build-canonical-stroke-outcome",
+            "order": 6,
+            "laneId": "stroke-engine",
+            "title": "Build canonical stroke outcome",
+            "ownerPackage": "@asyra/stroke-engine",
+            "purpose": "Validate input and produce exactly one immutable product, empty, rejected, or failed stroke outcome.",
+            "inputs": [
+              "artifact:stroke-engine-invocation"
+            ],
+            "outputs": [
+              "artifact:stroke-outcome"
+            ],
+            "conditions": [
+              "Accepted supported per-region topology produces one non-overlapping canonical product for the authored stroke.",
+              "Valid non-product input produces a declared empty outcome.",
+              "Invalid or unsupported authored input produces a declared rejected outcome.",
+              "An internal engine or canonical product-geometry mechanic failure during otherwise valid evaluation produces a declared failed outcome."
+            ],
+            "bypasses": [
+              "No product family or alignment may fall back to another behavior."
+            ],
+            "allowedContributors": [
+              "replaceable geometry mechanics",
+              "canonical topology and stroke input"
+            ],
+            "forbiddenContributors": [
+              "Pixi/Canvas/WebGL/WebGPU rendering APIs",
+              "app state",
+              "prior pixels"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/stroke-engine/src/**"
+            ],
+            "specRefs": [
+              "#supported-behavior",
+              "#public-interface",
+              "#forbidden-fallbacks-and-errors"
+            ],
+            "failureOwnerStepId": "build-canonical-stroke-outcome"
+          },
+          {
+            "id": "build-shared-channel-result",
+            "order": 7,
+            "laneId": "stroke-engine",
+            "title": "Build shared channel result",
+            "ownerPackage": "@asyra/stroke-engine",
+            "purpose": "Atomically project render, hit, and export outputs from the same completed outcome and return the immutable public result.",
+            "inputs": [
+              "artifact:stroke-outcome"
+            ],
+            "outputs": [
+              "artifact:stroke-engine-result",
+              "artifact:stroke-render-output",
+              "artifact:stroke-hit-output",
+              "artifact:stroke-export-output"
+            ],
+            "conditions": [
+              "Product channels share one product id and product-face order; hit and export preserve each matching face winding rule.",
+              "Render entries and export output preserve the completed product paint.",
+              "Empty, rejected, and failed outcomes emit three explicit empty channel outputs.",
+              "If tessellation or any channel projection fails, the public result becomes failed: engine-failure, all three channel outputs are empty, and no partial product output is published."
+            ],
+            "bypasses": [
+              "Hit and export never depend on pixel or GPU output."
+            ],
+            "allowedContributors": [
+              "artifact:stroke-outcome",
+              "source-space mesh tessellation"
+            ],
+            "forbiddenContributors": [
+              "renderer pixels",
+              "renderer-local path stroke",
+              "upstream geometry repair"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/stroke-engine/src/**"
+            ],
+            "specRefs": [
+              "#shared-product-and-channel-parity",
+              "#public-interface"
+            ],
+            "failureOwnerStepId": "build-shared-channel-result"
+          },
+          {
+            "id": "project-stroke-pixels",
+            "order": 8,
+            "laneId": "render-output",
+            "title": "Project stroke pixels",
+            "ownerPackage": "@asyra/render",
+            "purpose": "Draw completed render entries and clear stale or removed stroke pixels without reconstructing product geometry.",
+            "inputs": [
+              "artifact:stroke-render-output",
+              "artifact:stroke-mirror-update",
+              "render target and projection context"
+            ],
+            "outputs": [
+              "artifact:visible-stroke-output"
+            ],
+            "conditions": [
+              "Product entries are projected by ascending strokeOrder, back-to-front.",
+              "An active stroke update requires both artifact:stroke-mirror-update and a completed artifact:stroke-render-output.",
+              "A removed or zero-stroke update clears from artifact:stroke-mirror-update alone and does not wait for artifact:stroke-render-output.",
+              "Empty, rejected, failed, and removed strokes clear prior visible output for the accepted update."
+            ],
+            "bypasses": [
+              "Hit and export remain complete without this step.",
+              "Non-product overlays remain outside the product-stroke contract."
+            ],
+            "allowedContributors": [
+              "renderer resources",
+              "projection transform",
+              "antialiasing and pixel composition"
+            ],
+            "forbiddenContributors": [
+              "path reconstruction",
+              "cap/join/dash creation",
+              "hit/export authority"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/render/src/stroke/projection/**"
+            ],
+            "specRefs": [
+              "#asyrarender",
+              "#shared-product-and-channel-parity"
+            ],
+            "failureOwnerStepId": "project-stroke-pixels"
+          }
+        ],
+        "routes": [
+          {
+            "id": "intent-to-commit",
+            "from": "capture-stroke-intent",
+            "to": "commit-canonical-stroke-change",
+            "kind": "normal",
+            "predicate": "a supported app intent requests a canonical mutation",
+            "producedArtifacts": [
+              "artifact:user-intent"
+            ]
+          },
+          {
+            "id": "commit-to-event",
+            "from": "commit-canonical-stroke-change",
+            "to": "publish-committed-stroke-change",
+            "kind": "normal",
+            "predicate": "the canonical transaction commits",
+            "producedArtifacts": [
+              "artifact:committed-stroke-change"
+            ]
+          },
+          {
+            "id": "event-to-mirror",
+            "from": "publish-committed-stroke-change",
+            "to": "update-stroke-render-mirror",
+            "kind": "normal",
+            "predicate": "the committed event affects vector topology or stroke properties",
+            "producedArtifacts": [
+              "artifact:committed-stroke-event"
+            ]
+          },
+          {
+            "id": "mirror-to-preset",
+            "from": "update-stroke-render-mirror",
+            "to": "invoke-registered-stroke-engine",
+            "kind": "normal",
+            "predicate": "the mirror update contains an active stroke input",
+            "producedArtifacts": [
+              "artifact:stroke-engine-input"
+            ]
+          },
+          {
+            "id": "mirror-update-to-render",
+            "from": "update-stroke-render-mirror",
+            "to": "project-stroke-pixels",
+            "kind": "normal",
+            "predicate": "the update contains active or removed stroke state required for projection or clearing",
+            "producedArtifacts": [
+              "artifact:stroke-mirror-update"
+            ]
+          },
+          {
+            "id": "preset-to-engine",
+            "from": "invoke-registered-stroke-engine",
+            "to": "build-canonical-stroke-outcome",
+            "kind": "normal",
+            "predicate": "the registered engine is invoked with the unchanged active input",
+            "producedArtifacts": [
+              "artifact:stroke-engine-invocation"
+            ]
+          },
+          {
+            "id": "outcome-to-channels",
+            "from": "build-canonical-stroke-outcome",
+            "to": "build-shared-channel-result",
+            "kind": "normal",
+            "predicate": "one product, empty, rejected, or failed outcome is complete",
+            "producedArtifacts": [
+              "artifact:stroke-outcome"
+            ]
+          },
+          {
+            "id": "render-output-to-pixels",
+            "from": "build-shared-channel-result",
+            "to": "project-stroke-pixels",
+            "kind": "normal",
+            "predicate": "the completed result contains product or explicit empty render output",
+            "producedArtifacts": [
+              "artifact:stroke-render-output"
+            ]
+          },
+          {
+            "id": "hit-output-terminal",
+            "from": "build-shared-channel-result",
+            "kind": "terminal",
+            "predicate": "the completed hit output is available to hit consumers",
+            "producedArtifacts": [
+              "artifact:stroke-hit-output"
+            ]
+          },
+          {
+            "id": "export-output-terminal",
+            "from": "build-shared-channel-result",
+            "kind": "terminal",
+            "predicate": "the completed export output is available to export consumers",
+            "producedArtifacts": [
+              "artifact:stroke-export-output"
+            ]
+          },
+          {
+            "id": "engine-result-terminal",
+            "from": "build-shared-channel-result",
+            "kind": "terminal",
+            "predicate": "the immutable public result returns from engine evaluation",
+            "producedArtifacts": [
+              "artifact:stroke-engine-result"
+            ]
+          },
+          {
+            "id": "visible-output-terminal",
+            "from": "project-stroke-pixels",
+            "kind": "terminal",
+            "predicate": "pixel projection and stale-output clearing complete",
+            "producedArtifacts": [
+              "artifact:visible-stroke-output"
+            ]
+          }
+        ],
+        "artifacts": [
+          {
+            "id": "artifact:user-intent",
+            "ownerStepId": "capture-stroke-intent",
+            "consumerStepIds": [
+              "commit-canonical-stroke-change"
+            ],
+            "channel": "app",
+            "terminal": false
+          },
+          {
+            "id": "artifact:committed-stroke-change",
+            "ownerStepId": "commit-canonical-stroke-change",
+            "consumerStepIds": [
+              "publish-committed-stroke-change"
+            ],
+            "channel": "canonical-state",
+            "terminal": false
+          },
+          {
+            "id": "artifact:committed-stroke-event",
+            "ownerStepId": "publish-committed-stroke-change",
+            "consumerStepIds": [
+              "update-stroke-render-mirror"
+            ],
+            "channel": "event",
+            "terminal": false
+          },
+          {
+            "id": "artifact:stroke-mirror-update",
+            "ownerStepId": "update-stroke-render-mirror",
+            "consumerStepIds": [
+              "project-stroke-pixels"
+            ],
+            "channel": "integration",
+            "terminal": false
+          },
+          {
+            "id": "artifact:stroke-engine-input",
+            "ownerStepId": "update-stroke-render-mirror",
+            "consumerStepIds": [
+              "invoke-registered-stroke-engine"
+            ],
+            "channel": "integration",
+            "terminal": false
+          },
+          {
+            "id": "artifact:stroke-engine-invocation",
+            "ownerStepId": "invoke-registered-stroke-engine",
+            "consumerStepIds": [
+              "build-canonical-stroke-outcome"
+            ],
+            "channel": "integration",
+            "terminal": false
+          },
+          {
+            "id": "artifact:stroke-outcome",
+            "ownerStepId": "build-canonical-stroke-outcome",
+            "consumerStepIds": [
+              "build-shared-channel-result"
+            ],
+            "channel": "product",
+            "terminal": false
+          },
+          {
+            "id": "artifact:stroke-engine-result",
+            "ownerStepId": "build-shared-channel-result",
+            "consumerStepIds": [],
+            "channel": "public-result",
+            "terminal": true
+          },
+          {
+            "id": "artifact:stroke-render-output",
+            "ownerStepId": "build-shared-channel-result",
+            "consumerStepIds": [
+              "project-stroke-pixels"
+            ],
+            "channel": "render",
+            "terminal": false
+          },
+          {
+            "id": "artifact:stroke-hit-output",
+            "ownerStepId": "build-shared-channel-result",
+            "consumerStepIds": [],
+            "channel": "hit",
+            "terminal": true
+          },
+          {
+            "id": "artifact:stroke-export-output",
+            "ownerStepId": "build-shared-channel-result",
+            "consumerStepIds": [],
+            "channel": "export",
+            "terminal": true
+          },
+          {
+            "id": "artifact:visible-stroke-output",
+            "ownerStepId": "project-stroke-pixels",
+            "consumerStepIds": [],
+            "channel": "pixels",
+            "terminal": true
+          }
+        ],
+        "invariants": [
+          {
+            "id": "canonical-state-before-render",
+            "statement": "Only committed canonical state may reach the render mirror and stroke engine.",
+            "stepIds": [
+              "capture-stroke-intent",
+              "commit-canonical-stroke-change",
+              "publish-committed-stroke-change",
+              "update-stroke-render-mirror",
+              "invoke-registered-stroke-engine",
+              "build-canonical-stroke-outcome"
+            ],
+            "artifactIds": [
+              "artifact:committed-stroke-change",
+              "artifact:committed-stroke-event",
+              "artifact:stroke-engine-input"
+            ],
+            "specRefs": [
+              "#asyra-design-and-framework-state-packages"
+            ]
+          },
+          {
+            "id": "single-product-owner",
+            "statement": "@asyra/stroke-engine is the only owner of stroke product geometry.",
+            "stepIds": [
+              "build-canonical-stroke-outcome",
+              "build-shared-channel-result"
+            ],
+            "artifactIds": [
+              "artifact:stroke-outcome"
+            ],
+            "specRefs": [
+              "#asyrastroke-engine"
+            ]
+          },
+          {
+            "id": "preset-is-wiring-only",
+            "statement": "Preset registers and invokes the engine without changing canonical input or product geometry.",
+            "stepIds": [
+              "invoke-registered-stroke-engine"
+            ],
+            "artifactIds": [
+              "artifact:stroke-engine-invocation"
+            ],
+            "specRefs": [
+              "#asyrapreset"
+            ]
+          },
+          {
+            "id": "shared-product-channels",
+            "statement": "Render, hit, and export share one completed product and face order; hit and export preserve matching face winding rules.",
+            "stepIds": [
+              "build-canonical-stroke-outcome",
+              "build-shared-channel-result"
+            ],
+            "artifactIds": [
+              "artifact:stroke-outcome",
+              "artifact:stroke-render-output",
+              "artifact:stroke-hit-output",
+              "artifact:stroke-export-output"
+            ],
+            "specRefs": [
+              "#shared-product-and-channel-parity"
+            ]
+          },
+          {
+            "id": "single-stroke-single-composition",
+            "statement": "One authored stroke is Boolean-composed into non-overlapping material and painted once before channel projection.",
+            "stepIds": [
+              "build-canonical-stroke-outcome",
+              "build-shared-channel-result"
+            ],
+            "artifactIds": [
+              "artifact:stroke-outcome"
+            ],
+            "specRefs": [
+              "#supported-behavior",
+              "#shared-product-and-channel-parity"
+            ]
+          },
+          {
+            "id": "render-is-pixel-projection-only",
+            "statement": "Render consumes completed entries and never reconstructs product stroke geometry.",
+            "stepIds": [
+              "project-stroke-pixels"
+            ],
+            "artifactIds": [
+              "artifact:stroke-render-output",
+              "artifact:visible-stroke-output"
+            ],
+            "specRefs": [
+              "#asyrarender"
+            ]
+          },
+          {
+            "id": "non-product-clears-all-channels",
+            "statement": "Empty, rejected, and failed active results provide explicit empty channel outputs for stale-output clearing.",
+            "stepIds": [
+              "build-shared-channel-result",
+              "project-stroke-pixels"
+            ],
+            "artifactIds": [
+              "artifact:stroke-engine-result",
+              "artifact:stroke-render-output",
+              "artifact:stroke-hit-output",
+              "artifact:stroke-export-output"
+            ],
+            "specRefs": [
+              "#shared-product-and-channel-parity"
+            ]
+          },
+          {
+            "id": "no-product-fallback",
+            "statement": "No step substitutes alignment, geometry, prior output, pixels, or renderer-local strokes for a missing product.",
+            "stepIds": [
+              "build-canonical-stroke-outcome",
+              "build-shared-channel-result",
+              "project-stroke-pixels"
+            ],
+            "artifactIds": [
+              "artifact:stroke-outcome",
+              "artifact:visible-stroke-output"
+            ],
+            "specRefs": [
+              "#forbidden-fallbacks-and-errors"
+            ]
+          },
+          {
+            "id": "no-declared-cache",
+            "statement": "No current step owns a retained candidate; profiling and an equivalence test are required before one is declared.",
+            "stepIds": [
+              "capture-stroke-intent",
+              "commit-canonical-stroke-change",
+              "publish-committed-stroke-change",
+              "update-stroke-render-mirror",
+              "invoke-registered-stroke-engine",
+              "build-canonical-stroke-outcome",
+              "build-shared-channel-result",
+              "project-stroke-pixels"
+            ],
+            "artifactIds": [],
+            "specRefs": [
+              "#authority",
+              "#definition-of-done"
+            ]
+          }
+        ],
+        "acceptanceContracts": [
+          {
+            "id": "supported-behavior",
+            "title": "Supported stroke behavior",
+            "stepIds": [
+              "build-canonical-stroke-outcome",
+              "build-shared-channel-result"
+            ],
+            "specRefs": [
+              "#supported-behavior"
+            ],
+            "assertions": [
+              "explicit continuity, per-region winding, alignment-specific dash fitting, gradient sampling, and stroke order produce the declared product",
+              "one authored stroke contains no overlapping or duplicate-alpha material",
+              "empty, invalid, unsupported, and engine-failure forms produce their declared non-product result"
+            ]
+          },
+          {
+            "id": "public-interface",
+            "title": "Public input and output",
+            "stepIds": [
+              "update-stroke-render-mirror",
+              "invoke-registered-stroke-engine",
+              "build-canonical-stroke-outcome",
+              "build-shared-channel-result"
+            ],
+            "specRefs": [
+              "#public-interface"
+            ],
+            "assertions": [
+              "one immutable result is returned for each active stroke input",
+              "public topology carries explicit network and region order, anchor continuity, directed loops, and per-face winding rules",
+              "public DTOs contain no renderer object or mutable engine state"
+            ]
+          },
+          {
+            "id": "package-boundaries",
+            "title": "Package ownership and boundaries",
+            "stepIds": [
+              "capture-stroke-intent",
+              "commit-canonical-stroke-change",
+              "publish-committed-stroke-change",
+              "update-stroke-render-mirror",
+              "invoke-registered-stroke-engine",
+              "build-canonical-stroke-outcome",
+              "build-shared-channel-result",
+              "project-stroke-pixels"
+            ],
+            "specRefs": [
+              "#package-ownership-and-boundaries"
+            ],
+            "assertions": [
+              "every step has one owner and uses only declared contributors",
+              "app, preset, and render never create stroke product geometry"
+            ]
+          },
+          {
+            "id": "channel-parity",
+            "title": "Shared product channel parity",
+            "stepIds": [
+              "build-canonical-stroke-outcome",
+              "build-shared-channel-result",
+              "project-stroke-pixels"
+            ],
+            "specRefs": [
+              "#shared-product-and-channel-parity"
+            ],
+            "assertions": [
+              "product ids and face ordering agree across all channels; hit/export winding and render/export paint match the product",
+              "hit and export are independent of pixels and render tessellation"
+            ]
+          },
+          {
+            "id": "canonical-product-cases",
+            "title": "Canonical formal and visual cases",
+            "stepIds": [
+              "build-canonical-stroke-outcome",
+              "build-shared-channel-result",
+              "project-stroke-pixels"
+            ],
+            "specRefs": [
+              "#canonical-product-cases"
+            ],
+            "assertions": [
+              "every listed case has a source-space oracle and required downstream evidence"
+            ]
+          },
+          {
+            "id": "forbidden-fallbacks",
+            "title": "Forbidden fallbacks and errors",
+            "stepIds": [
+              "build-canonical-stroke-outcome",
+              "build-shared-channel-result",
+              "project-stroke-pixels"
+            ],
+            "specRefs": [
+              "#forbidden-fallbacks-and-errors"
+            ],
+            "assertions": [
+              "invalid, unsupported, and internal failure paths publish no substitute or stale product"
+            ]
+          },
+          {
+            "id": "definition-of-done",
+            "title": "Definition of Done",
+            "stepIds": [
+              "capture-stroke-intent",
+              "commit-canonical-stroke-change",
+              "publish-committed-stroke-change",
+              "update-stroke-render-mirror",
+              "invoke-registered-stroke-engine",
+              "build-canonical-stroke-outcome",
+              "build-shared-channel-result",
+              "project-stroke-pixels"
+            ],
+            "specRefs": [
+              "#definition-of-done"
+            ],
+            "assertions": [
+              "all ten product, integration, visual, failure, profiling, build, and test gates pass"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "id": "transaction-atomicity",
       "title": "Transaction Atomicity Inspector Flow",
       "kind": "flow-v2",
       "group": "Framework",
       "subgroup": "Architecture and Runtime",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/transaction-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/framework/plans/transaction-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/transaction-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/transaction-flow-inspector.html",
       "labels": [
         "transaction",
         "Framework",
@@ -23707,7 +23705,7 @@
         },
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/transaction-atomicity-and-rollback-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/transaction-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/transaction-flow-inspector.data.cjs",
           "semanticOwner": "completed/transaction-atomicity-and-rollback-plan.md",
           "inspectorOwner": "transaction-flow-inspector.data.cjs"
         },
@@ -23715,25 +23713,25 @@
           {
             "id": "product-contract",
             "label": "Transaction Atomicity Contract",
-            "href": "./completed/transaction-atomicity-and-rollback-plan.md",
+            "href": "../../../docs/ai/framework/plans/completed/transaction-atomicity-and-rollback-plan.md",
             "kind": "authority"
           },
           {
             "id": "inspector-data",
             "label": "Inspector Data",
-            "href": "./transaction-flow-inspector.data.cjs",
+            "href": "../inspectors/transaction-flow-inspector.data.cjs",
             "kind": "source"
           },
           {
             "id": "inspector-readiness-rule",
             "label": "Inspector Contract Readiness",
-            "href": "../rules/inspector-contract-readiness.md",
+            "href": "../../../docs/ai/framework/rules/inspector-contract-readiness.md",
             "kind": "framework"
           },
           {
             "id": "flow-inspector-contract",
             "label": "Flow Inspector Contract",
-            "href": "../../tools/flow-inspector/FLOW_INSPECTOR.md",
+            "href": "../../../docs/ai/tools/flow-inspector/FLOW_INSPECTOR.md",
             "kind": "framework"
           }
         ],
@@ -24504,7 +24502,7 @@
       "group": "Release",
       "subgroup": "CLI and Generated App",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/create-asyra-design-app-release-flow-inspector.data.cjs",
+      "sourcePath": "tools/flow-inspector/inspectors/create-asyra-design-app-release-flow-inspector.data.cjs",
       "standalonePath": null,
       "labels": [
         "create-asyra-design-app-release",
@@ -24525,7 +24523,7 @@
         },
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/create-asyra-design-app-release-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/create-asyra-design-app-release-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/create-asyra-design-app-release-flow-inspector.data.cjs",
           "semanticOwner": "create-asyra-design-app Formal Release Plan",
           "inspectorOwner": "create-asyra-design-app Release Inspector data"
         },
@@ -24533,13 +24531,13 @@
           {
             "id": "product-contract",
             "label": "Release Plan",
-            "href": "./completed/create-asyra-design-app-release-plan.md",
+            "href": "../../../docs/ai/framework/plans/completed/create-asyra-design-app-release-plan.md",
             "kind": "authority"
           },
           {
             "id": "flow-inspector-contract",
             "label": "Flow Inspector Contract",
-            "href": "../../tools/flow-inspector/FLOW_INSPECTOR.md",
+            "href": "../../../docs/ai/tools/flow-inspector/FLOW_INSPECTOR.md",
             "kind": "framework"
           }
         ],
@@ -24617,8 +24615,8 @@
               "create-app/asyra-design/package.json",
               "packages/*/package.json",
               "docs/ai/framework/plans/completed/create-asyra-design-app-release-plan.md",
-              "docs/ai/framework/plans/create-asyra-design-app-release-flow-inspector.data.cjs",
-              "docs/ai/framework/plans/__tests__/create-asyra-design-app-release-flow-inspector.contract.test.cjs"
+              "tools/flow-inspector/inspectors/create-asyra-design-app-release-flow-inspector.data.cjs",
+              "tools/flow-inspector/inspectors/__tests__/create-asyra-design-app-release-flow-inspector.contract.test.cjs"
             ],
             "specRefs": [
               "#status",
@@ -24831,8 +24829,8 @@
               "create-app/asyra-design/package.json",
               "docs/ai/framework/rules/release-version-topology.md",
               "docs/ai/framework/plans/completed/create-asyra-design-app-release-plan.md",
-              "docs/ai/framework/plans/create-asyra-design-app-release-flow-inspector.data.cjs",
-              "docs/ai/framework/plans/__tests__/create-asyra-design-app-release-flow-inspector.contract.test.cjs"
+              "tools/flow-inspector/inspectors/create-asyra-design-app-release-flow-inspector.data.cjs",
+              "tools/flow-inspector/inspectors/__tests__/create-asyra-design-app-release-flow-inspector.contract.test.cjs"
             ],
             "specRefs": [
               "#3-materialize-the-cli-version",
@@ -25191,7 +25189,7 @@
             "implementationBoundary": [
               "docs/ai/framework/plans/completed/create-asyra-design-app-release-plan.md",
               "docs/ai/framework/PLANS.md",
-              "docs/ai/framework/plans/create-asyra-design-app-release-flow-inspector.data.cjs"
+              "tools/flow-inspector/inspectors/create-asyra-design-app-release-flow-inspector.data.cjs"
             ],
             "specRefs": [
               "#stop-conditions",
@@ -25735,8 +25733,8 @@
       "group": "Release",
       "subgroup": "Framework Packages",
       "lifecycle": "current",
-      "sourcePath": "docs/ai/framework/plans/framework-package-release-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/framework/plans/framework-package-release-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/framework-package-release-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/framework-package-release-flow-inspector.html",
       "labels": [
         "framework-package-release",
         "Release",
@@ -25755,28 +25753,28 @@
           "subtitle": "Current registry inventory through manifest-derived Changesets versioning, reviewed artifacts, authorized publication, registry-only proof, recovery, and one final decision."
         },
         "authority": {
-          "specPath": "docs/ai/framework/plans/framework-package-patch-release-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/framework-package-release-flow-inspector.data.cjs",
-          "semanticOwner": "Framework Package Patch Release Plan",
+          "specPath": "docs/ai/workflows/package-release-validation.md",
+          "inspectorPath": "tools/flow-inspector/inspectors/framework-package-release-flow-inspector.data.cjs",
+          "semanticOwner": "Package and Release Validation Workflow",
           "inspectorOwner": "Framework Package Release Inspector data"
         },
         "links": [
           {
             "id": "product-contract",
-            "label": "Release Plan",
-            "href": "./framework-package-patch-release-plan.md",
+            "label": "Release Workflow",
+            "href": "../../../docs/ai/workflows/package-release-validation.md",
             "kind": "authority"
           },
           {
             "id": "release-support",
             "label": "Release Support",
-            "href": "../RELEASE_SUPPORT.md",
+            "href": "../../../docs/ai/framework/RELEASE_SUPPORT.md",
             "kind": "framework"
           },
           {
             "id": "flow-inspector-contract",
             "label": "Flow Inspector Contract",
-            "href": "../../tools/flow-inspector/FLOW_INSPECTOR.md",
+            "href": "../../../docs/ai/tools/flow-inspector/FLOW_INSPECTOR.md",
             "kind": "framework"
           }
         ],
@@ -25850,14 +25848,12 @@
             "implementationBoundary": [
               "scripts/framework-release-packages.js",
               "scripts/__tests__/framework-release-packages.test.mjs",
-              "docs/ai/framework/plans/framework-package-patch-release-plan.md",
-              "docs/ai/framework/plans/framework-package-release-flow-inspector.data.cjs",
+              "docs/ai/workflows/package-release-validation.md",
+              "tools/flow-inspector/inspectors/framework-package-release-flow-inspector.data.cjs",
               "tmp/framework-release-evidence"
             ],
             "specRefs": [
-              "#release-set",
-              "#1-freeze-source-and-registry-state",
-              "#definition-of-done"
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "inventory-public-registry"
           },
@@ -25897,16 +25893,14 @@
             ],
             "cacheDimensions": [],
             "implementationBoundary": [
-              "docs/ai/framework/plans/framework-package-patch-release-plan.md",
+              "docs/ai/workflows/package-release-validation.md",
               "docs/ai/framework/PLANS.md",
-              "docs/ai/framework/plans/framework-package-release-flow-inspector.data.cjs",
+              "tools/flow-inspector/inspectors/framework-package-release-flow-inspector.data.cjs",
               "packages/*/package.json",
               "tmp/framework-release-evidence"
             ],
             "specRefs": [
-              "#status",
-              "#release-set",
-              "#1-freeze-source-and-registry-state"
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "classify-historical-baseline"
           },
@@ -25954,9 +25948,9 @@
               "packages/*/package.json"
             ],
             "specRefs": [
-              "#goal",
-              "#2-resolve-the-changeset-release-scope",
-              "#definition-of-done"
+              "#release-validation-and-publication-boundary",
+              "#release-version-topology",
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "resolve-version-topology"
           },
@@ -26006,9 +26000,8 @@
               ".changeset/config.json"
             ],
             "specRefs": [
-              "#changeset-contract",
-              "#2-resolve-the-changeset-release-scope",
-              "#definition-of-done"
+              "#release-version-topology",
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "review-scoped-changesets"
           },
@@ -26057,8 +26050,8 @@
               ".changeset"
             ],
             "specRefs": [
-              "#3-materialize-framework-versions",
-              "#definition-of-done"
+              "#release-version-topology",
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "materialize-framework-version"
           },
@@ -26112,8 +26105,8 @@
               "packages/*"
             ],
             "specRefs": [
-              "#4-validate-framework-artifacts-before-publication",
-              "#definition-of-done"
+              "#script-tests",
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "validate-framework-artifacts"
           },
@@ -26162,8 +26155,7 @@
               "tmp/framework-release-evidence"
             ],
             "specRefs": [
-              "#5-freeze-the-publication-source",
-              "#definition-of-done"
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "accept-publication-source"
           },
@@ -26220,9 +26212,7 @@
               "yarn changeset publish"
             ],
             "specRefs": [
-              "#6-publish-the-manifest-derived-framework-selection",
-              "#partial-publication-policy",
-              "#definition-of-done"
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "publish-framework-packages"
           },
@@ -26274,9 +26264,9 @@
               "fixtures/framework-release-consumer"
             ],
             "specRefs": [
-              "#6-publish-the-manifest-derived-framework-selection",
-              "#8-run-registry-only-consumer-proof",
-              "#definition-of-done"
+              "#release-validation-and-publication-boundary",
+              "#script-tests",
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "verify-public-registry"
           },
@@ -26329,13 +26319,12 @@
               "scripts/release-readiness.js",
               "scripts/__tests__/release-clean-consumer.test.mjs",
               "scripts/changeset-all-patch.js",
-              "docs/ai/framework/plans/framework-package-patch-release-plan.md",
+              "docs/ai/workflows/package-release-validation.md",
               "tmp/framework-release-evidence"
             ],
             "specRefs": [
-              "#8-run-registry-only-consumer-proof",
-              "#partial-publication-policy",
-              "#definition-of-done"
+              "#script-tests",
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "prove-registry-consumer-and-recover"
           },
@@ -26398,16 +26387,15 @@
             ],
             "cacheDimensions": [],
             "implementationBoundary": [
-              "docs/ai/framework/plans/framework-package-patch-release-plan.md",
-              "docs/ai/framework/plans/framework-package-release-flow-inspector.data.cjs",
+              "docs/ai/workflows/package-release-validation.md",
+              "tools/flow-inspector/inspectors/framework-package-release-flow-inspector.data.cjs",
               "docs/ai/framework/decisions/releases",
               "scripts/release-records.js",
               "scripts/__tests__/release-records.test.mjs",
               "tmp/framework-release-evidence"
             ],
             "specRefs": [
-              "#partial-publication-policy",
-              "#definition-of-done"
+              "#release-validation-and-publication-boundary"
             ],
             "failureOwnerStepId": "decide-release"
           }
@@ -27023,8 +27011,7 @@
               "artifact:release-blocked"
             ],
             "specRefs": [
-              "#release-set",
-              "#definition-of-done"
+              "#release-validation-and-publication-boundary"
             ]
           },
           {
@@ -27040,8 +27027,7 @@
               "artifact:historical-baseline-classification"
             ],
             "specRefs": [
-              "#status",
-              "#release-set"
+              "#release-validation-and-publication-boundary"
             ]
           },
           {
@@ -27059,8 +27045,8 @@
               "artifact:versioned-framework-source"
             ],
             "specRefs": [
-              "#changeset-contract",
-              "#definition-of-done"
+              "#release-version-topology",
+              "#release-validation-and-publication-boundary"
             ]
           },
           {
@@ -27077,7 +27063,7 @@
               "artifact:partial-publication-recovery"
             ],
             "specRefs": [
-              "#partial-publication-policy"
+              "#release-validation-and-publication-boundary"
             ]
           }
         ],
@@ -27094,7 +27080,7 @@
               "classify-historical-baseline"
             ],
             "specRefs": [
-              "#1-freeze-source-and-registry-state"
+              "#release-validation-and-publication-boundary"
             ]
           },
           {
@@ -27110,9 +27096,7 @@
               "materialize-framework-version"
             ],
             "specRefs": [
-              "#2-resolve-the-changeset-release-scope",
-              "#2-resolve-the-changeset-release-scope",
-              "#3-materialize-framework-versions"
+              "#release-version-topology"
             ]
           },
           {
@@ -27127,8 +27111,8 @@
               "accept-publication-source"
             ],
             "specRefs": [
-              "#4-validate-framework-artifacts-before-publication",
-              "#5-freeze-the-publication-source"
+              "#script-tests",
+              "#release-validation-and-publication-boundary"
             ]
           },
           {
@@ -27143,7 +27127,7 @@
               "verify-public-registry"
             ],
             "specRefs": [
-              "#6-publish-the-manifest-derived-framework-selection"
+              "#release-validation-and-publication-boundary"
             ]
           },
           {
@@ -27159,9 +27143,8 @@
               "decide-release"
             ],
             "specRefs": [
-              "#8-run-registry-only-consumer-proof",
-              "#partial-publication-policy",
-              "#definition-of-done"
+              "#script-tests",
+              "#release-validation-and-publication-boundary"
             ]
           }
         ]
@@ -27174,8 +27157,8 @@
       "group": "Release",
       "subgroup": "Framework Readiness",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/framework-release-readiness-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/framework/plans/framework-release-readiness-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/framework-release-readiness-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/framework-release-readiness-flow-inspector.html",
       "labels": [
         "framework-release-readiness",
         "Release",
@@ -27195,7 +27178,7 @@
         },
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/framework-release-readiness-and-closeout-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/framework-release-readiness-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/framework-release-readiness-flow-inspector.data.cjs",
           "semanticOwner": "Framework Release Gate 5 product contract",
           "inspectorOwner": "Framework Release Readiness Flow Inspector data"
         },
@@ -27203,19 +27186,19 @@
           {
             "id": "product-contract",
             "label": "Product Contract",
-            "href": "./completed/framework-release-readiness-and-closeout-plan.md",
+            "href": "../../../docs/ai/framework/plans/completed/framework-release-readiness-and-closeout-plan.md",
             "kind": "authority"
           },
           {
             "id": "release-workflow",
             "label": "Release Workflow",
-            "href": "../../workflows/package-release-validation.md",
+            "href": "../../../docs/ai/workflows/package-release-validation.md",
             "kind": "framework"
           },
           {
             "id": "flow-inspector-contract",
             "label": "Flow Inspector Contract",
-            "href": "../../tools/flow-inspector/FLOW_INSPECTOR.md",
+            "href": "../../../docs/ai/tools/flow-inspector/FLOW_INSPECTOR.md",
             "kind": "framework"
           }
         ],
@@ -27289,9 +27272,9 @@
             "cacheDimensions": [],
             "implementationBoundary": [
               "docs/ai/framework/plans/completed/framework-release-readiness-and-closeout-plan.md",
-              "docs/ai/framework/plans/framework-release-readiness-flow-inspector.data.cjs",
-              "docs/ai/framework/plans/framework-release-readiness-flow-inspector.html",
-              "docs/ai/framework/plans/__tests__/framework-release-readiness-flow-inspector.contract.test.cjs",
+              "tools/flow-inspector/inspectors/framework-release-readiness-flow-inspector.data.cjs",
+              "tools/flow-inspector/inspectors/framework-release-readiness-flow-inspector.html",
+              "tools/flow-inspector/inspectors/__tests__/framework-release-readiness-flow-inspector.contract.test.cjs",
               "tools/flow-inspector/embed-viewer.cjs",
               "tools/flow-inspector/__tests__/viewer-entry.test.cjs",
               "scripts/framework-release-packages.js",
@@ -27748,10 +27731,10 @@
             "cacheDimensions": [],
             "implementationBoundary": [
               "docs/ai/framework/PLANS.md",
-              "docs/ai/framework/plans/framework-release-readiness-and-closeout-plan.md",
               "docs/ai/framework/plans/completed/framework-release-readiness-and-closeout-plan.md",
-              "docs/ai/framework/plans/framework-release-readiness-flow-inspector.data.cjs",
-              "docs/ai/framework/plans/framework-release-readiness-flow-inspector.html",
+              "docs/ai/framework/plans/completed/framework-release-readiness-and-closeout-plan.md",
+              "tools/flow-inspector/inspectors/framework-release-readiness-flow-inspector.data.cjs",
+              "tools/flow-inspector/inspectors/framework-release-readiness-flow-inspector.html",
               "docs/ai/framework/decisions/releases/unreleased.md",
               "RELEASE_NOTES.md",
               "scripts/release-records.js",
@@ -28385,8 +28368,8 @@
       "group": "Release",
       "subgroup": "Runtime Prerequisite",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/node-24-runtime-upgrade-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/node-24-runtime-upgrade-flow-inspector.html",
       "labels": [
         "node-24-runtime-upgrade",
         "Release",
@@ -28406,7 +28389,7 @@
         },
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/node-24-runtime-upgrade-and-vercel-validation-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/node-24-runtime-upgrade-flow-inspector.data.cjs",
           "semanticOwner": "Node.js 24 runtime upgrade product contract",
           "inspectorOwner": "Node.js 24 Runtime Upgrade Flow Inspector data"
         },
@@ -28414,19 +28397,19 @@
           {
             "id": "product-contract",
             "label": "Product Contract",
-            "href": "./completed/node-24-runtime-upgrade-and-vercel-validation-plan.md",
+            "href": "../../../docs/ai/framework/plans/completed/node-24-runtime-upgrade-and-vercel-validation-plan.md",
             "kind": "authority"
           },
           {
             "id": "release-support",
             "label": "Release Support",
-            "href": "../RELEASE_SUPPORT.md",
+            "href": "../../../docs/ai/framework/RELEASE_SUPPORT.md",
             "kind": "framework"
           },
           {
             "id": "flow-inspector-contract",
             "label": "Flow Inspector Contract",
-            "href": "../../tools/flow-inspector/FLOW_INSPECTOR.md",
+            "href": "../../../docs/ai/tools/flow-inspector/FLOW_INSPECTOR.md",
             "kind": "framework"
           }
         ],
@@ -28507,9 +28490,9 @@
               "package.json",
               "scripts/__tests__/node-runtime-contract.test.mjs",
               "docs/ai/framework/plans/completed/node-24-runtime-upgrade-and-vercel-validation-plan.md",
-              "docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.data.cjs",
-              "docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.html",
-              "docs/ai/framework/plans/__tests__/node-24-runtime-upgrade-flow-inspector.contract.test.cjs"
+              "tools/flow-inspector/inspectors/node-24-runtime-upgrade-flow-inspector.data.cjs",
+              "tools/flow-inspector/inspectors/node-24-runtime-upgrade-flow-inspector.html",
+              "tools/flow-inspector/inspectors/__tests__/node-24-runtime-upgrade-flow-inspector.contract.test.cjs"
             ],
             "specRefs": [
               "#goal",
@@ -28985,9 +28968,9 @@
             "implementationBoundary": [
               "docs/ai/framework/PLANS.md",
               "docs/ai/framework/plans/completed/node-24-runtime-upgrade-and-vercel-validation-plan.md",
-              "docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.data.cjs",
-              "docs/ai/framework/plans/node-24-runtime-upgrade-flow-inspector.html",
-              "docs/ai/framework/plans/__tests__/node-24-runtime-upgrade-flow-inspector.contract.test.cjs",
+              "tools/flow-inspector/inspectors/node-24-runtime-upgrade-flow-inspector.data.cjs",
+              "tools/flow-inspector/inspectors/node-24-runtime-upgrade-flow-inspector.html",
+              "tools/flow-inspector/inspectors/__tests__/node-24-runtime-upgrade-flow-inspector.contract.test.cjs",
               "docs/ai/framework/decisions/releases/unreleased.md",
               "docs/ai/decisions/releases/unreleased.md"
             ],
@@ -29917,7 +29900,7 @@
       "group": "Release",
       "subgroup": "Website and Distribution",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/asyra-public-package-documentation-flow-inspector.data.cjs",
+      "sourcePath": "tools/flow-inspector/inspectors/asyra-public-package-documentation-flow-inspector.data.cjs",
       "standalonePath": null,
       "labels": [
         "asyra-public-package-documentation",
@@ -29928,7 +29911,7 @@
       "data": {
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/asyra-public-package-documentation-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/asyra-public-package-documentation-flow-inspector.data.cjs"
+          "inspectorPath": "tools/flow-inspector/inspectors/asyra-public-package-documentation-flow-inspector.data.cjs"
         },
         "packageNames": [
           "@asyra/ai-agent-runtime",
@@ -30091,8 +30074,8 @@
             ],
             "implementationBoundary": [
               "docs/ai/framework/plans/completed/asyra-public-package-documentation-plan.md",
-              "docs/ai/framework/plans/asyra-public-package-documentation-flow-inspector.data.cjs",
-              "docs/ai/framework/plans/__tests__/asyra-public-package-documentation-flow-inspector.contract.test.cjs",
+              "tools/flow-inspector/inspectors/asyra-public-package-documentation-flow-inspector.data.cjs",
+              "tools/flow-inspector/inspectors/__tests__/asyra-public-package-documentation-flow-inspector.contract.test.cjs",
               "docs/public/content-manifest.json",
               "docs/public/schema/**",
               "scripts/docs/**"
@@ -30515,7 +30498,7 @@
       "group": "Release",
       "subgroup": "Website and Distribution",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/asyra-public-readme-and-entrypoint-alignment-flow-inspector.data.cjs",
+      "sourcePath": "tools/flow-inspector/inspectors/asyra-public-readme-and-entrypoint-alignment-flow-inspector.data.cjs",
       "standalonePath": null,
       "labels": [
         "asyra-public-readme-and-entrypoint-alignment",
@@ -30526,7 +30509,7 @@
       "data": {
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/asyra-public-readme-and-entrypoint-alignment-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/asyra-public-readme-and-entrypoint-alignment-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/asyra-public-readme-and-entrypoint-alignment-flow-inspector.data.cjs",
           "generatedReadmeSource": "apps/asyra-design/README.md",
           "generatedReadmeOutput": "create-app/asyra-design/template/README.md"
         },
@@ -30671,8 +30654,8 @@
             ],
             "implementationBoundary": [
               "docs/ai/framework/plans/completed/asyra-public-readme-and-entrypoint-alignment-plan.md",
-              "docs/ai/framework/plans/asyra-public-readme-and-entrypoint-alignment-flow-inspector.data.cjs",
-              "docs/ai/framework/plans/__tests__/asyra-public-readme-and-entrypoint-alignment-flow-inspector.contract.test.cjs"
+              "tools/flow-inspector/inspectors/asyra-public-readme-and-entrypoint-alignment-flow-inspector.data.cjs",
+              "tools/flow-inspector/inspectors/__tests__/asyra-public-readme-and-entrypoint-alignment-flow-inspector.contract.test.cjs"
             ],
             "specRefs": [
               "#owned-surfaces",
@@ -31113,8 +31096,8 @@
       "kind": "plan-contract",
       "group": "Release",
       "subgroup": "Website and Distribution",
-      "lifecycle": "current",
-      "sourcePath": "docs/ai/framework/plans/asyra-runtime-atlas-flow-inspector.data.cjs",
+      "lifecycle": "retained",
+      "sourcePath": "tools/flow-inspector/inspectors/asyra-runtime-atlas-flow-inspector.data.cjs",
       "standalonePath": null,
       "labels": [
         "asyra-runtime-atlas",
@@ -31124,11 +31107,11 @@
       ],
       "data": {
         "authority": {
-          "specPath": "docs/ai/framework/plans/asyra-runtime-atlas-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/asyra-runtime-atlas-flow-inspector.data.cjs",
+          "specPath": "docs/ai/framework/plans/completed/asyra-runtime-atlas-plan.md",
+          "inspectorPath": "tools/flow-inspector/inspectors/asyra-runtime-atlas-flow-inspector.data.cjs",
           "contentIndexPath": "docs/public/generated/content-index.json",
-          "landingContractPath": "docs/ai/framework/plans/asyra-website-landing-page-plan.md",
-          "landingInspectorPath": "docs/ai/framework/plans/asyra-website-landing-flow-inspector.data.cjs",
+          "landingContractPath": "docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md",
+          "landingInspectorPath": "tools/flow-inspector/inspectors/asyra-website-landing-flow-inspector.data.cjs",
           "workspacePath": "apps/asyra-framework-site"
         },
         "caseIds": [
@@ -31197,9 +31180,9 @@
               "future server or Headless lifecycle claim"
             ],
             "implementationBoundary": [
-              "docs/ai/framework/plans/asyra-runtime-atlas-plan.md",
-              "docs/ai/framework/plans/asyra-runtime-atlas-flow-inspector.data.cjs",
-              "docs/ai/framework/plans/__tests__/asyra-runtime-atlas-flow-inspector.contract.test.cjs"
+              "docs/ai/framework/plans/completed/asyra-runtime-atlas-plan.md",
+              "tools/flow-inspector/inspectors/asyra-runtime-atlas-flow-inspector.data.cjs",
+              "tools/flow-inspector/inspectors/__tests__/asyra-runtime-atlas-flow-inspector.contract.test.cjs"
             ],
             "specRefs": [
               "#bounded-task-contract",
@@ -31446,9 +31429,9 @@
             ],
             "implementationBoundary": [
               "apps/asyra-framework-site/**",
-              "docs/ai/framework/plans/asyra-runtime-atlas-plan.md",
-              "docs/ai/framework/plans/asyra-runtime-atlas-flow-inspector.data.cjs",
-              "docs/ai/framework/plans/__tests__/asyra-runtime-atlas-flow-inspector.contract.test.cjs"
+              "docs/ai/framework/plans/completed/asyra-runtime-atlas-plan.md",
+              "tools/flow-inspector/inspectors/asyra-runtime-atlas-flow-inspector.data.cjs",
+              "tools/flow-inspector/inspectors/__tests__/asyra-runtime-atlas-flow-inspector.contract.test.cjs"
             ],
             "specRefs": [
               "#quality-gates",
@@ -31590,8 +31573,8 @@
       "kind": "plan-contract",
       "group": "Release",
       "subgroup": "Website and Distribution",
-      "lifecycle": "current",
-      "sourcePath": "docs/ai/framework/plans/asyra-website-landing-flow-inspector.data.cjs",
+      "lifecycle": "retained",
+      "sourcePath": "tools/flow-inspector/inspectors/asyra-website-landing-flow-inspector.data.cjs",
       "standalonePath": null,
       "labels": [
         "asyra-website-landing",
@@ -31601,8 +31584,8 @@
       ],
       "data": {
         "authority": {
-          "specPath": "docs/ai/framework/plans/asyra-website-landing-page-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/asyra-website-landing-flow-inspector.data.cjs",
+          "specPath": "docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md",
+          "inspectorPath": "tools/flow-inspector/inspectors/asyra-website-landing-flow-inspector.data.cjs",
           "workspacePath": "apps/asyra-framework-site",
           "visualReferencePath": "docs/ai/framework/website/asyra-landing-v04-approved.png"
         },
@@ -31684,9 +31667,9 @@
               "unapproved external production asset"
             ],
             "implementationBoundary": [
-              "docs/ai/framework/plans/asyra-website-landing-page-plan.md",
-              "docs/ai/framework/plans/asyra-website-landing-flow-inspector.data.cjs",
-              "docs/ai/framework/plans/__tests__/asyra-website-landing-flow-inspector.contract.test.cjs"
+              "docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md",
+              "tools/flow-inspector/inspectors/asyra-website-landing-flow-inspector.data.cjs",
+              "tools/flow-inspector/inspectors/__tests__/asyra-website-landing-flow-inspector.contract.test.cjs"
             ],
             "specRefs": [
               "#visual-authority",
@@ -31960,7 +31943,7 @@
       "group": "Release",
       "subgroup": "Website and Distribution",
       "lifecycle": "retained",
-      "sourcePath": "docs/ai/framework/plans/asyra-website-launch-and-operations-flow-inspector.data.cjs",
+      "sourcePath": "tools/flow-inspector/inspectors/asyra-website-launch-and-operations-flow-inspector.data.cjs",
       "standalonePath": null,
       "labels": [
         "asyra-website-launch-and-operations",
@@ -31971,13 +31954,13 @@
       "data": {
         "authority": {
           "specPath": "docs/ai/framework/plans/completed/asyra-website-launch-and-operations-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/asyra-website-launch-and-operations-flow-inspector.data.cjs",
-          "programPath": "docs/ai/framework/plans/asyra-framework-website-plan.md",
+          "inspectorPath": "tools/flow-inspector/inspectors/asyra-website-launch-and-operations-flow-inspector.data.cjs",
+          "programPath": "docs/ai/framework/plans/completed/asyra-framework-website-plan.md",
           "siteWorkspacePath": "apps/asyra-framework-site",
           "contentIndexPath": "docs/public/generated/content-index.json",
           "advancedGuidesRoot": "docs/public",
           "rootHostingConfigPath": "vercel.json",
-          "atlasPlanPath": "docs/ai/framework/plans/asyra-runtime-atlas-plan.md"
+          "atlasPlanPath": "docs/ai/framework/plans/completed/asyra-runtime-atlas-plan.md"
         },
         "caseIds": [
           "distinct-project-preservation",
@@ -32027,8 +32010,8 @@
             ],
             "implementationBoundary": [
               "docs/ai/framework/plans/completed/asyra-website-launch-and-operations-plan.md",
-              "docs/ai/framework/plans/asyra-website-launch-and-operations-flow-inspector.data.cjs",
-              "docs/ai/framework/plans/__tests__/asyra-website-launch-and-operations-flow-inspector.contract.test.cjs"
+              "tools/flow-inspector/inspectors/asyra-website-launch-and-operations-flow-inspector.data.cjs",
+              "tools/flow-inspector/inspectors/__tests__/asyra-website-launch-and-operations-flow-inspector.contract.test.cjs"
             ],
             "specRefs": [
               "#authorization-boundary",
@@ -32399,8 +32382,8 @@
       "kind": "plan-contract",
       "group": "Release",
       "subgroup": "Website and Distribution",
-      "lifecycle": "current",
-      "sourcePath": "docs/ai/framework/plans/asyra-website-platform-flow-inspector.data.cjs",
+      "lifecycle": "retained",
+      "sourcePath": "tools/flow-inspector/inspectors/asyra-website-platform-flow-inspector.data.cjs",
       "standalonePath": null,
       "labels": [
         "asyra-website-platform",
@@ -32410,13 +32393,13 @@
       ],
       "data": {
         "authority": {
-          "specPath": "docs/ai/framework/plans/asyra-website-platform-and-docs-plan.md",
-          "inspectorPath": "docs/ai/framework/plans/asyra-website-platform-flow-inspector.data.cjs",
+          "specPath": "docs/ai/framework/plans/completed/asyra-website-platform-and-docs-plan.md",
+          "inspectorPath": "tools/flow-inspector/inspectors/asyra-website-platform-flow-inspector.data.cjs",
           "contentManifestPath": "docs/public/content-manifest.json",
           "contentIndexPath": "docs/public/generated/content-index.json",
           "sourceMapPath": "docs/public/generated/source-map.json",
           "packageReferencePath": "docs/public/generated/package-reference.json",
-          "landingContractPath": "docs/ai/framework/plans/asyra-website-landing-page-plan.md",
+          "landingContractPath": "docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md",
           "workspacePath": "apps/asyra-framework-site"
         },
         "toolchain": {
@@ -32475,9 +32458,9 @@
               "Landing or Atlas product implementation"
             ],
             "implementationBoundary": [
-              "docs/ai/framework/plans/asyra-website-platform-and-docs-plan.md",
-              "docs/ai/framework/plans/asyra-website-platform-flow-inspector.data.cjs",
-              "docs/ai/framework/plans/__tests__/asyra-website-platform-flow-inspector.contract.test.cjs"
+              "docs/ai/framework/plans/completed/asyra-website-platform-and-docs-plan.md",
+              "tools/flow-inspector/inspectors/asyra-website-platform-flow-inspector.data.cjs",
+              "tools/flow-inspector/inspectors/__tests__/asyra-website-platform-flow-inspector.contract.test.cjs"
             ],
             "specRefs": [
               "#technology-contract",
@@ -32783,9 +32766,9 @@
             ],
             "implementationBoundary": [
               "apps/asyra-framework-site/**",
-              "docs/ai/framework/plans/asyra-website-platform-and-docs-plan.md",
-              "docs/ai/framework/plans/asyra-website-platform-flow-inspector.data.cjs",
-              "docs/ai/framework/plans/__tests__/asyra-website-platform-flow-inspector.contract.test.cjs"
+              "docs/ai/framework/plans/completed/asyra-website-platform-and-docs-plan.md",
+              "tools/flow-inspector/inspectors/asyra-website-platform-flow-inspector.data.cjs",
+              "tools/flow-inspector/inspectors/__tests__/asyra-website-platform-flow-inspector.contract.test.cjs"
             ],
             "specRefs": [
               "#quality-gates",
@@ -32947,8 +32930,8 @@
       "group": "Tools",
       "subgroup": "Flow Inspector",
       "lifecycle": "current",
-      "sourcePath": "docs/ai/tools/flow-inspector/plans/flow-inspector-static-workspace-flow-inspector.data.cjs",
-      "standalonePath": "docs/ai/tools/flow-inspector/plans/flow-inspector-static-workspace-flow-inspector.html",
+      "sourcePath": "tools/flow-inspector/inspectors/flow-inspector-static-workspace-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/flow-inspector-static-workspace-flow-inspector.html",
       "labels": [
         "flow-inspector-static-workspace",
         "Tools",
@@ -32968,7 +32951,7 @@
         },
         "authority": {
           "specPath": "docs/ai/tools/flow-inspector/STATIC_WORKSPACE.md",
-          "inspectorPath": "docs/ai/tools/flow-inspector/plans/flow-inspector-static-workspace-flow-inspector.data.cjs",
+          "inspectorPath": "tools/flow-inspector/inspectors/flow-inspector-static-workspace-flow-inspector.data.cjs",
           "semanticOwner": "Flow Inspector Static Workspace Contract",
           "inspectorOwner": "Flow Inspector Tool"
         },
@@ -32977,13 +32960,13 @@
             "id": "static-workspace-contract",
             "kind": "authority",
             "label": "Static Workspace Contract",
-            "href": "../STATIC_WORKSPACE.md"
+            "href": "../../../docs/ai/tools/flow-inspector/STATIC_WORKSPACE.md"
           },
           {
             "id": "static-workspace-plan",
             "kind": "plan",
             "label": "Static Workspace 0.2.0 Closure Plan",
-            "href": "./completed/flow-inspector-static-workspace-0.2.0-closure-plan.md"
+            "href": "../../../docs/ai/tools/flow-inspector/plans/completed/flow-inspector-static-workspace-0.2.0-closure-plan.md"
           }
         ],
         "lanes": [
@@ -33015,9 +32998,9 @@
             "laneId": "authority",
             "title": "Discover Inspector sources",
             "ownerPackage": "tools/flow-inspector/workspace",
-            "purpose": "Discover every fixed-root Inspector data candidate without interpreting target semantics.",
+            "purpose": "Discover every tool-owned Inspector data candidate without interpreting target semantics.",
             "inputs": [
-              "fixed discovery roots",
+              "tool-owned discovery root",
               "Inspector filename contract"
             ],
             "outputs": [
@@ -33030,7 +33013,7 @@
               "No root or filename candidate may be silently bypassed."
             ],
             "allowedContributors": [
-              "filesystem paths under the three fixed roots"
+              "filesystem paths under tools/flow-inspector/inspectors"
             ],
             "forbiddenContributors": [
               "runtime status",
@@ -33038,6 +33021,7 @@
             ],
             "cacheDimensions": [],
             "implementationBoundary": [
+              "tools/flow-inspector/inspectors/**",
               "tools/flow-inspector/workspace/generate-workspace.cjs",
               "tools/flow-inspector/workspace/__tests__/catalog.contract.test.cjs"
             ],
@@ -33069,7 +33053,7 @@
             ],
             "allowedContributors": [
               "catalog policy",
-              "source-owned target metadata"
+              "tool-owned target data metadata"
             ],
             "forbiddenContributors": [
               "duplicated target steps",

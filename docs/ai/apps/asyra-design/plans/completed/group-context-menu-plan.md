@@ -22,9 +22,9 @@ its required gates and received explicit user closeout authorization.
 
 Architecture authority:
 
-- `docs/ai/apps/asyra-design/plans/group-context-menu-flow-inspector.data.cjs`
-- `docs/ai/apps/asyra-design/plans/group-context-menu-flow-inspector.html`
-- `docs/ai/apps/asyra-design/plans/__tests__/group-context-menu-flow-inspector.contract.test.cjs`
+- `tools/flow-inspector/inspectors/group-context-menu-flow-inspector.data.cjs`
+- `tools/flow-inspector/inspectors/group-context-menu-flow-inspector.html`
+- `tools/flow-inspector/inspectors/__tests__/group-context-menu-flow-inspector.contract.test.cjs`
 
 ## Decision
 

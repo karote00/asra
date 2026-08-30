@@ -9,7 +9,7 @@ PR #86 at `91cee525af34ebb9f2fa717610663d61b245589a`. This closeout archives the
 accepted product contract after merge; it does not claim a shipped release.
 
 The exact owner flow remains defined by
-`docs/ai/framework/plans/property-type-redefinition-flow-inspector.data.cjs`.
+`tools/flow-inspector/inspectors/property-type-redefinition-flow-inspector.data.cjs`.
 
 ## Completion Record
 
@@ -31,7 +31,7 @@ The exact owner flow remains defined by
   reviews, regression repairs, and direct product-owner app verification passed
   with no unresolved P0/P1/P2 finding.
 - Canonical executable architecture contract:
-  `docs/ai/framework/plans/property-type-redefinition-flow-inspector.data.cjs`.
+  `tools/flow-inspector/inspectors/property-type-redefinition-flow-inspector.data.cjs`.
 
 ## Product Contract
 
@@ -337,11 +337,11 @@ of scope.
 ## Inspector Authority
 
 - Inspector data:
-  `docs/ai/framework/plans/property-type-redefinition-flow-inspector.data.cjs`
+  `tools/flow-inspector/inspectors/property-type-redefinition-flow-inspector.data.cjs`
 - Direct-open Inspector:
-  `docs/ai/framework/plans/property-type-redefinition-flow-inspector.html`
+  `tools/flow-inspector/inspectors/property-type-redefinition-flow-inspector.html`
 - Contract gate:
-  `docs/ai/framework/plans/__tests__/property-type-redefinition-flow-inspector.contract.test.cjs`
+  `tools/flow-inspector/inspectors/__tests__/property-type-redefinition-flow-inspector.contract.test.cjs`
 
 The product contract owns public behavior. The Inspector owns package and data
 flow boundaries. Formal tests own executable evidence.

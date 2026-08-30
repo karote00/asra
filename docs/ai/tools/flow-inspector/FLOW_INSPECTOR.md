@@ -22,8 +22,10 @@ Flow Inspector helps a reader answer:
 `tools/flow-inspector/viewer.js` owns generic browser rendering and structural
 validation. It may read only the public Flow Inspector schema.
 
-Each target owns one data file near its authoritative documentation. A target
-data file directly declares its complete contract and exposes it as
+`tools/flow-inspector/inspectors/` owns every target data artifact, standalone
+HTML entry, and Inspector contract test. Framework and App `plans/` directories
+contain plans only; they must not own generated or executable Inspector
+artifacts. A target data file directly declares its complete contract and exposes it as
 `globalThis.FLOW_INSPECTOR_DATA` for the browser. It may also export the same
 object through CommonJS for static validation. It must not import, require, or
 re-export another target data file.
@@ -31,7 +33,7 @@ re-export another target data file.
 Each viewer entry owns only the established HTML/CSS shell and these browser
 inputs, in order:
 
-1. the target data file from the same target directory;
+1. the target data file from the shared tool-owned Inspector directory;
 2. a synchronized inline snapshot of `tools/flow-inspector/viewer.js`.
 
 `tools/flow-inspector/embed-viewer.cjs` owns snapshot embedding. Target entries
@@ -39,8 +41,10 @@ must not load the renderer across directories because each entry must remain
 directly openable without a local server. `viewer-entry.test.cjs` verifies that
 the inline snapshot exactly matches the shared renderer source.
 
-Product semantics remain in the target's authoritative specification. The
-Inspector data maps that specification; the shared renderer never defines it.
+Product semantics remain in the target's authoritative Framework, App, Release,
+or Tool specification. Centralized artifact ownership does not transfer those
+semantics to the Flow Inspector tool; Inspector data maps the specification and
+the shared renderer never defines it.
 
 ## Schema
 
@@ -192,11 +196,11 @@ Stroke Engine uses:
 - semantic authority:
   `docs/ai/apps/asyra-design/specs/stroke-engine/SPEC.md`;
 - target data:
-  `docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.data.js`;
+  `tools/flow-inspector/inspectors/stroke-flow-inspector.data.cjs`;
 - viewer entry:
-  `docs/ai/apps/asyra-design/plans/stroke-engine-final/stroke-flow-inspector.html`.
+  `tools/flow-inspector/inspectors/stroke-flow-inspector.html`.
 - target-specific semantic handoff gate:
-  `docs/ai/apps/asyra-design/plans/stroke-engine-final/__tests__/stroke-flow-inspector.contract.test.cjs`.
+  `tools/flow-inspector/inspectors/__tests__/stroke-flow-inspector.contract.test.cjs`.
 
 The Stroke data file exercises the generic schema with its end-to-end feature
 flow. Future features must provide their own target data and viewer entry while

@@ -56,16 +56,6 @@ const standalonePathFor = (repoPath) => {
 const ownerMetadata = (repoPath, id) => {
   const override = catalogPolicy.groupOverrides[id]
   if (override) return override
-  const appMatch = repoPath.match(/^docs\/ai\/apps\/([^/]+)\//)
-  if (appMatch) {
-    return {
-      group: 'Apps',
-      subgroup: titleFromId(appMatch[1])
-    }
-  }
-  if (repoPath.startsWith('docs/ai/tools/')) {
-    return { group: 'Tools', subgroup: 'Flow Inspector' }
-  }
   if (/(release|website|public-package|public-readme|runtime-atlas)/.test(id)) {
     return { group: 'Release', subgroup: 'Website and Distribution' }
   }

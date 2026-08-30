@@ -11,7 +11,7 @@ import {
 import { readApprovedDocumentationInputs } from '../public-documentation-inputs.mjs'
 
 const require = createRequire(import.meta.url)
-const inspector = require('../../../docs/ai/framework/plans/asyra-public-package-documentation-flow-inspector.data.cjs')
+const inspector = require('../../../tools/flow-inspector/inspectors/asyra-public-package-documentation-flow-inspector.data.cjs')
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../..'

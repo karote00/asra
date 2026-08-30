@@ -79,29 +79,29 @@ surface that:
 
 The program is split into nine independently reviewable child plans:
 
-1. [Input System Environment Neutrality](../input-system-environment-neutrality-plan.md)
+1. [Input System Environment Neutrality](input-system-environment-neutrality-plan.md)
    owns DOM-neutral Input/Core imports, explicit browser listener lifecycle,
    and preservation of existing visual input activation. It must pass PR CI and
    direct product-owner testing before merge.
-2. [Public README and Entrypoint Alignment](../asyra-public-readme-and-entrypoint-alignment-plan.md)
+2. [Public README and Entrypoint Alignment](asyra-public-readme-and-entrypoint-alignment-plan.md)
    owns the root, package, Asyra Design, CLI, and generated-app README release
    surfaces through their canonical owners and generation paths.
-3. [Public Package Documentation](../asyra-public-package-documentation-plan.md)
+3. [Public Package Documentation](asyra-public-package-documentation-plan.md)
    owns durable public guides, information architecture, package reference,
    AI-readable content, and semantic case-study content.
-4. [Executable Examples](../asyra-executable-examples-plan.md) owns maintained
+4. [Executable Examples](asyra-executable-examples-plan.md) owns maintained
    sample code and the formal gates that prove documented flows still work.
 5. [Visual Reimagine](asyra-website-visual-reimagine-plan.md) owns generated
    concepts, interaction and motion direction, responsive states, and the
    accepted visual specification before composed UI code.
-6. [Website Platform and Documentation Experience](../asyra-website-platform-and-docs-plan.md)
+6. [Website Platform and Documentation Experience](asyra-website-platform-and-docs-plan.md)
    owns the site workspace, content adapter, documentation shell, search,
    reference/release surfaces, and common web foundations.
-7. [Landing Page and Product Narrative](../asyra-website-landing-page-plan.md) owns
+7. [Landing Page and Product Narrative](asyra-website-landing-page-plan.md) owns
    the homepage implementation and its interactive product story.
-8. [Asyra Runtime Atlas](../asyra-runtime-atlas-plan.md) owns the real-runtime
+8. [Asyra Runtime Atlas](asyra-runtime-atlas-plan.md) owns the real-runtime
    interactive lab, its six required executable cases, and runtime evidence.
-9. [Launch and Operations](../asyra-website-launch-and-operations-plan.md) owns
+9. [Launch and Operations](asyra-website-launch-and-operations-plan.md) owns
    Preview closure and, only after explicit authorization, production
    deployment and post-deployment verification.
 
@@ -117,7 +117,7 @@ package, App, CLI, or generator owner and must preserve the root repository's
 no-issues and no-external-contributions declaration.
 
 Framework package publication remains owned by
-[Framework Package Patch Release](../framework-package-patch-release-plan.md).
+[Package and Release Validation](../../../workflows/package-release-validation.md).
 Applicable CLI publication and generated-app proof must use a new bounded
 release execution that follows the retained
 [create-asyra-design-app release contract](create-asyra-design-app-release-plan.md)
