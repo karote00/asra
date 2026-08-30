@@ -146,7 +146,11 @@ test('release template excludes local runtime data directories', () => {
     'dist',
     'playwright-report',
     'test-results',
-    'visual-review-records'
+    'visual-review-records',
+    'samples/crdt-7076',
+    'test-data/ai-drawing/maximum-tabby-polygon.svg',
+    'e2e/crdt-7076-render.spec.ts',
+    'scripts/generate-crdt-7076-document.ts'
   ])
 
   const releaseTemplate = readFileSync(
@@ -199,6 +203,54 @@ test('Asyra Design release template retains only active drawing fixtures', () =>
       existsSync(path.join(repositoryRoot, 'apps/asyra-design', requiredPath)),
       true,
       requiredPath
+    )
+  }
+})
+
+test('Asyra Design keeps the large CRDT fixture out of the generated template', () => {
+  const canonicalFixture = path.join(
+    repositoryRoot,
+    'apps/asyra-design/samples/crdt-7076/action-batch.json'
+  )
+  const generatedFixtureRoot = path.join(
+    repositoryRoot,
+    'create-app/asyra-design/template/samples/crdt-7076'
+  )
+
+  assert.equal(existsSync(canonicalFixture), true)
+  assert.equal(existsSync(generatedFixtureRoot), false)
+  assert.equal(
+    existsSync(
+      path.join(
+        repositoryRoot,
+        'apps/asyra-design/test-data/ai-drawing/maximum-tabby-polygon.svg'
+      )
+    ),
+    true
+  )
+  assert.equal(
+    existsSync(
+      path.join(
+        repositoryRoot,
+        'create-app/asyra-design/template/test-data/ai-drawing/maximum-tabby-polygon.svg'
+      )
+    ),
+    false
+  )
+  for (const generatedOnlyTestPath of [
+    'e2e/crdt-7076-render.spec.ts',
+    'scripts/generate-crdt-7076-document.ts'
+  ]) {
+    assert.equal(
+      existsSync(
+        path.join(
+          repositoryRoot,
+          'create-app/asyra-design/template',
+          generatedOnlyTestPath
+        )
+      ),
+      false,
+      generatedOnlyTestPath
     )
   }
 })

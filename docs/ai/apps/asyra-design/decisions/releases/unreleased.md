@@ -847,7 +847,7 @@ Append-only rule: only append new entries at the end; do not edit/delete or inse
 - Consequences:
   - Plan references now resolve to the completed record.
 - Related Plan:
-  - `/Users/asa/Desktop/workspace/asra/docs/ai/apps/asyra-design/plans/completed/vector-handle-mode-plan.md`
+  - `docs/ai/apps/asyra-design/plans/completed/vector-handle-mode-plan.md`
 
 ## 2026-03-13 - Vector geometry consistency helper closeout
 

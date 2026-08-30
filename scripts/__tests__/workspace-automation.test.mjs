@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
@@ -20,6 +21,59 @@ const readJSON = (relativePath) =>
 
 const readText = (relativePath) =>
   fs.readFileSync(path.join(repositoryRoot, relativePath), 'utf8')
+
+test('tracked files do not expose developer-specific absolute home paths', () => {
+  const result = spawnSync(
+    'git',
+    [
+      'grep',
+      '-nI',
+      '-E',
+      String.raw`/Users/[^/]+|/home/[^/]+|[A-Za-z]:\\Users\\[^\\]+`,
+      '--',
+      '.',
+      ':(exclude)scripts/__tests__/workspace-automation.test.mjs'
+    ],
+    { cwd: repositoryRoot, encoding: 'utf8' }
+  )
+
+  assert.equal(result.status, 1, result.stdout || result.stderr)
+})
+
+test('GitHub Actions use least privilege and immutable action revisions', () => {
+  const workflowPaths = [
+    '.github/workflows/main.yml',
+    '.github/workflows/e2e.yml'
+  ]
+
+  for (const workflowPath of workflowPaths) {
+    const workflow = readText(workflowPath)
+    assert.match(workflow, /^permissions:\n {2}contents: read$/m, workflowPath)
+    for (const line of workflow.match(/^\s*-?\s*uses:\s*\S+$/gm) ?? []) {
+      assert.match(line, /@[0-9a-f]{40}(?:\s+#.*)?$/u, line)
+    }
+  }
+
+  const dependabot = readText('.github/dependabot.yml')
+  assert.match(dependabot, /package-ecosystem: ['"]github-actions['"]/)
+  assert.match(dependabot, /directory: ['"]\/['"]/)
+  assert.match(dependabot, /interval: ['"]weekly['"]/)
+})
+
+test('workspace manifests omit confirmed unused dependencies', () => {
+  const designSystem = readJSON('packages/design-system/package.json')
+  const preset = readJSON('packages/preset/package.json')
+
+  for (const dependency of [
+    '@storybook/blocks',
+    '@storybook/types',
+    'postcss-cli'
+  ]) {
+    assert.equal(designSystem.devDependencies?.[dependency], undefined)
+  }
+  assert.equal(preset.devDependencies?.['@types/bezier-js'], undefined)
+  assert.equal(preset.dependencies?.['bezier-js'], undefined)
+})
 
 const getBuildTask = (manifest) => {
   const packageBuildTask = `build:${manifest.name.split('/').pop()}`

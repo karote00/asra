@@ -220,6 +220,7 @@ if (!fs.existsSync(pkgPath)) {
   }
   if (pkg.scripts) {
     delete pkg.scripts['generate:crdt-7076-document']
+    delete pkg.scripts['test:e2e:crdt-7076']
   }
 
   // ----------------------

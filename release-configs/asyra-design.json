@@ -17,6 +17,10 @@
     "dist",
     "playwright-report",
     "test-results",
-    "visual-review-records"
+    "visual-review-records",
+    "samples/crdt-7076",
+    "test-data/ai-drawing/maximum-tabby-polygon.svg",
+    "e2e/crdt-7076-render.spec.ts",
+    "scripts/generate-crdt-7076-document.ts"
   ]
 }

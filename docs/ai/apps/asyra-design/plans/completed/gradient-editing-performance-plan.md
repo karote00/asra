@@ -25,19 +25,19 @@ Out of scope:
 ## Known Performance Hotspots (Baseline)
 
 1. Drag-time fill updates on every pointer move  
-`/Users/asa/Desktop/workspace/asra/apps/asyra-design/src/features/gradient-fill-handles/index.ts`
+`apps/asyra-design/src/features/gradient-fill-handles/index.ts`
 
 2. Repeated computed-data reads for fill + size during drag/hit testing  
-`/Users/asa/Desktop/workspace/asra/apps/asyra-design/src/common-apis/fills.ts`
+`apps/asyra-design/src/common-apis/fills.ts`
 
 3. Unthrottled properties-panel stop dragging writes  
-`/Users/asa/Desktop/workspace/asra/apps/asyra-design/src/properties/fills/use-gradient-interactions.ts`
+`apps/asyra-design/src/properties/fills/use-gradient-interactions.ts`
 
 4. Overlay render layer re-parsing stop colors every frame  
-`/Users/asa/Desktop/workspace/asra/apps/asyra-design/src/render-layers/gradient-fill-handles-render-layer.ts`
+`apps/asyra-design/src/render-layers/gradient-fill-handles-render-layer.ts`
 
 5. Gradient fill rendering recomputed for each drag tick  
-`/Users/asa/Desktop/workspace/asra/packages/preset/src/components/fills.ts`
+`packages/preset/src/components/fills.ts`
 
 ## Target Behavior
 
