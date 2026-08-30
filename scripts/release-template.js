@@ -220,9 +220,11 @@ if (!fs.existsSync(pkgPath)) {
       'tsc -p tsconfig.document-backend.json && vite build --config vite.document-backend.config.ts'
   }
   if (pkg.scripts) {
-    for (const scriptName of REMOVE_SCRIPTS) {
-      delete pkg.scripts[scriptName]
-    }
+    pkg.scripts = Object.fromEntries(
+      Object.entries(pkg.scripts).filter(
+        ([scriptName]) => !REMOVE_SCRIPTS.includes(scriptName)
+      )
+    )
   }
 
   // ----------------------
