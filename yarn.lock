@@ -374,7 +374,6 @@ __metadata:
     "@asyra/scene-tree": "workspace:*"
     "@asyra/selection": "workspace:*"
     "@asyra/utils": "workspace:*"
-    "@types/earcut": "npm:^3.0.0"
     "@vitest/coverage-v8": "npm:^3.2.6"
     earcut: "npm:^3.2.3"
     typescript: "npm:^5.7.2"
