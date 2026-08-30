@@ -159,8 +159,10 @@ interface VectorPointSelectionReader {
   getSelectedIds(): Set<string>
 }
 
-interface VectorPathEditingRenderLayerDeps
-  extends Pick<PresetDependencies, 'render' | 'sceneTree' | 'systemContext'> {
+interface VectorPathEditingRenderLayerDeps extends Pick<
+  PresetDependencies,
+  'render' | 'sceneTree' | 'systemContext'
+> {
   getSelection: (type: string) => VectorPointSelectionReader | undefined
 }
 

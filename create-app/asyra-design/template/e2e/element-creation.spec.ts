@@ -87,9 +87,8 @@ test.describe('Element Creation', () => {
 
       await page.keyboard.press(key)
       await page.evaluate(async () => {
-        const { startSharedPublicationCapture } = await import(
-          '../src/testing/runtime-access'
-        )
+        const { startSharedPublicationCapture } =
+          await import('../src/testing/runtime-access')
         startSharedPublicationCapture('create-preview-publications')
       })
       await page.mouse.move(start.x, start.y)
@@ -124,9 +123,8 @@ test.describe('Element Creation', () => {
           path: testInfo.outputPath(`${label}-pointer-down.png`)
         })
         await page.evaluate(async () => {
-          const { clearTestCapture } = await import(
-            '../src/testing/runtime-access'
-          )
+          const { clearTestCapture } =
+            await import('../src/testing/runtime-access')
           clearTestCapture('create-preview-publications')
         })
 
@@ -152,17 +150,15 @@ test.describe('Element Creation', () => {
         await expect
           .poll(() =>
             page.evaluate(async () => {
-              const { readTestCapture } = await import(
-                '../src/testing/runtime-access'
-              )
+              const { readTestCapture } =
+                await import('../src/testing/runtime-access')
               return readTestCapture('create-preview-publications').length
             })
           )
           .toBeGreaterThan(0)
         const previewPublications = await page.evaluate(async () => {
-          const { readTestCapture } = await import(
-            '../src/testing/runtime-access'
-          )
+          const { readTestCapture } =
+            await import('../src/testing/runtime-access')
           return readTestCapture('create-preview-publications')
         })
         expect(previewPublications).toContainEqual(
@@ -198,9 +194,8 @@ test.describe('Element Creation', () => {
       } finally {
         await page.mouse.up()
         await page.evaluate(async () => {
-          const { stopTestCapture } = await import(
-            '../src/testing/runtime-access'
-          )
+          const { stopTestCapture } =
+            await import('../src/testing/runtime-access')
           stopTestCapture('create-preview-publications')
         })
       }
@@ -337,9 +332,8 @@ test.describe('Element Creation', () => {
     await expect
       .poll(() =>
         page.evaluate(async () => {
-          const { testRuntimeState } = await import(
-            '../src/testing/runtime-access'
-          )
+          const { testRuntimeState } =
+            await import('../src/testing/runtime-access')
           return (
             testRuntimeState.get<unknown[]>('create-transaction-statuses') ?? []
           ).map(
@@ -387,9 +381,8 @@ test.describe('Element Creation', () => {
       await expect.poll(() => getElementCount(page)).toBe(initialCount)
     } catch (error) {
       const diagnostics = await page.evaluate(async () => {
-        const { core, testRuntimeState } = await import(
-          '../src/testing/runtime-access'
-        )
+        const { core, testRuntimeState } =
+          await import('../src/testing/runtime-access')
         const transact = core?.deps?.factory?.transact as unknown as {
           inRedo?: boolean
           inUndo?: boolean

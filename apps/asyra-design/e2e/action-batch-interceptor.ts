@@ -767,8 +767,7 @@ const createDetailedTabbyPrefixBatch = async (
 
   const storedAction = storedBatch.actions[0]
   const storedArtifact = storedAction?.arguments as
-    | PreparedDrawingArtifact
-    | undefined
+    PreparedDrawingArtifact | undefined
   if (
     storedBatch.actions.length !== 1 ||
     !storedAction ||
@@ -791,8 +790,7 @@ const createDetailedTabbyPrefixBatch = async (
         total +
         Object.keys(
           (descriptor.points as
-            | Readonly<Record<string, unknown>>
-            | undefined) ?? {}
+            Readonly<Record<string, unknown>> | undefined) ?? {}
         ).length,
       0
     )

@@ -121,8 +121,7 @@ const getVectorBoundsRepairPatch = (
 
 const getPrimaryStroke = (elementId: string): StrokeAttrs | null => {
   const computed = core.getElementComputedData(elementId) as
-    | { strokes?: unknown }
-    | undefined
+    { strokes?: unknown } | undefined
   if (!Array.isArray(computed?.strokes)) {
     return null
   }
@@ -151,8 +150,7 @@ export const strokeApis = {
     options?: EVENT_OPTIONS
   ): boolean => {
     const computed = core.getElementComputedData(elementId) as
-      | { strokes?: unknown }
-      | undefined
+      { strokes?: unknown } | undefined
     const strokes = computed?.strokes
     if (
       !strokeId ||

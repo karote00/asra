@@ -98,9 +98,8 @@ test.describe('Element Selection', () => {
     await clickCanvas(page, 0.9, 0.9)
     await expect.poll(() => hasSelectedElement(page)).toBe(false)
     await page.evaluate(async () => {
-      const { startSharedChannelCapture } = await import(
-        '../src/testing/runtime-access'
-      )
+      const { startSharedChannelCapture } =
+        await import('../src/testing/runtime-access')
       startSharedChannelCapture('selection-preview-deliveries', 'selection')
     })
 
@@ -302,9 +301,8 @@ test.describe('Element Selection', () => {
     await page.mouse.click(centers.dragOwner.x, centers.dragOwner.y)
 
     await page.evaluate(async () => {
-      const { startSystemPropertyWriteCapture } = await import(
-        '../src/testing/runtime-access'
-      )
+      const { startSystemPropertyWriteCapture } =
+        await import('../src/testing/runtime-access')
       startSystemPropertyWriteCapture('drag-hover-writes', {
         propertyName: 'hoveredElementId',
         whileMouseDragging: true
@@ -323,9 +321,8 @@ test.describe('Element Selection', () => {
       )
       await page.waitForTimeout(100)
       const dragHoverState = await page.evaluate(async () => {
-        const { core, readTestCapture } = await import(
-          '../src/testing/runtime-access'
-        )
+        const { core, readTestCapture } =
+          await import('../src/testing/runtime-access')
         return {
           writes: readTestCapture('drag-hover-writes').map(
             (entry) => (entry as readonly [string, string | null])[1]
@@ -338,9 +335,8 @@ test.describe('Element Selection', () => {
     } finally {
       await page.mouse.up()
       await page.evaluate(async () => {
-        const { stopTestCapture } = await import(
-          '../src/testing/runtime-access'
-        )
+        const { stopTestCapture } =
+          await import('../src/testing/runtime-access')
         stopTestCapture('drag-hover-writes')
       })
     }

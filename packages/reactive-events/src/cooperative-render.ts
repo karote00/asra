@@ -4,8 +4,7 @@ export interface CooperativeRenderBatchOptions {
   readonly maxItemsPerSlice?: number
 }
 
-export interface CooperativeRenderOptions
-  extends CooperativeRenderBatchOptions {
+export interface CooperativeRenderOptions extends CooperativeRenderBatchOptions {
   readonly mode?: CooperativeRenderMode
   readonly waitForPaint?: () => Promise<void>
   readonly yieldToHost?: () => Promise<void>

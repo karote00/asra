@@ -214,8 +214,7 @@ interface ElementBatchPreflight {
   readonly insertionIndex: number
   readonly tombstones: ReadonlyMap<string, ElementInstanceTypes | undefined>
   readonly preparedOrdinaryProperties:
-    | PreparedOrdinaryPropertyCreationBatch
-    | undefined
+    PreparedOrdinaryPropertyCreationBatch | undefined
 }
 
 export interface CanonicalElementRemoval {
@@ -259,8 +258,7 @@ interface ElementInsertionRegistrationContract {
   readonly constructor: ElementInsertionRegistration['constructor']
   readonly registrationDefinitions: readonly ElementInsertionRelationDefinition[]
   readonly constructorDefinitions:
-    | readonly ElementInsertionRelationDefinition[]
-    | undefined
+    readonly ElementInsertionRelationDefinition[] | undefined
   readonly effectiveDefinitions: readonly ElementInsertionRelationDefinition[]
 }
 
@@ -293,9 +291,7 @@ interface PreparedElementRemovalEntry {
 
 interface PreparedElementRemovalArtifact {
   readonly kind:
-    | 'element-removal'
-    | 'canonical-element-removal'
-    | 'subtree-removal'
+    'element-removal' | 'canonical-element-removal' | 'subtree-removal'
   readonly entries: readonly PreparedElementRemovalEntry[]
   readonly relationRevisionBefore: number
   readonly relationIndexUpdates: readonly ElementPropertyRelationIndexUpdate[]
@@ -1897,8 +1893,7 @@ class SceneTree {
   private prepareElementRemovalMutation(
     removals: readonly (string | CanonicalElementRemoval)[],
     kind:
-      | PreparedElementRemoval['kind']
-      | PreparedCanonicalElementRemoval['kind']
+      PreparedElementRemoval['kind'] | PreparedCanonicalElementRemoval['kind']
   ): PreparedElementRemoval | PreparedCanonicalElementRemoval {
     const relationRevisionBefore = this.elementPropertyRelationRevision
     if (removals.length === 0) {
@@ -2429,8 +2424,7 @@ class SceneTree {
       const changedParentIds: string[] = []
       let elementMapChanged = false
       let relationIndexUpdates:
-        | readonly ElementPropertyRelationIndexUpdate[]
-        | undefined
+        readonly ElementPropertyRelationIndexUpdate[] | undefined
       try {
         artifact.entries.forEach(({ data, tombstone }) => {
           const element = tombstone ?? this.createElement(data, false)
@@ -3158,8 +3152,7 @@ class SceneTree {
         }
 
         elements[normalizedId] = normalized as unknown as
-          | ElementRawData
-          | GroupRawData
+          ElementRawData | GroupRawData
       })
     }
 

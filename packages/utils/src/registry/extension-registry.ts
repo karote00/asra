@@ -44,8 +44,9 @@ export type ExtensionCleanup = () => void
 
 export type ExtensionInstaller<Context> = (context: Context) => ExtensionCleanup
 
-export interface ExtensionTargetDefinition<Context>
-  extends ExtensionTargetMetadata {
+export interface ExtensionTargetDefinition<
+  Context
+> extends ExtensionTargetMetadata {
   install: ExtensionInstaller<Context>
 }
 
@@ -73,8 +74,7 @@ export interface ExtensionOperationFailure {
 }
 
 export type ExtensionOperationResult =
-  | ExtensionOperationSuccess
-  | ExtensionOperationFailure
+  ExtensionOperationSuccess | ExtensionOperationFailure
 
 export class ExtensionContractError extends Error {
   readonly result: ExtensionOperationFailure

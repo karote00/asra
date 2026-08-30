@@ -13,11 +13,7 @@ export type LayerPointerTarget =
     }
 
 export type LayerPointerCancellationReason =
-  | 'escape'
-  | 'pointer-cancel'
-  | 'lost-capture'
-  | 'unmount'
-  | 'outside'
+  'escape' | 'pointer-cancel' | 'lost-capture' | 'unmount' | 'outside'
 
 export interface LayerPointerSession {
   phase: 'start' | 'update' | 'end' | 'cancel'

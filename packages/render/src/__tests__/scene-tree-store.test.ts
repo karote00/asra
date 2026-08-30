@@ -43,8 +43,7 @@ const seedStore = (
 ) => {
   store.addElementById(elementId)
   const snapshot = renderMock.addElement.mock.calls.slice(-1)[0]?.[0] as
-    | Record<string, unknown>
-    | undefined
+    Record<string, unknown> | undefined
   renderMock.addElement.mockClear()
   return snapshot
 }
@@ -1669,8 +1668,7 @@ describe('RenderSceneTree computed data mirror', () => {
     await flushScheduledFrame()
 
     const snapshot = renderMock.addElement.mock.calls.slice(-1)[0]?.[0] as
-      | Record<string, unknown>
-      | undefined
+      Record<string, unknown> | undefined
     expect(outcome).toEqual({ status: 'resynced', elementId: 'vector-1' })
     expect(
       Object.prototype.hasOwnProperty.call(snapshot ?? {}, '__proto__')
@@ -1857,8 +1855,7 @@ describe('RenderSceneTree computed data mirror', () => {
     await flushScheduledFrame()
 
     const snapshot = renderMock.updateElement.mock.calls.slice(-1)[0]?.[4] as
-      | { points?: Record<string, unknown> }
-      | undefined
+      { points?: Record<string, unknown> } | undefined
     expect(outcome).toEqual({ status: 'applied', elementId: 'vector-1' })
     expect(Object.getPrototypeOf(snapshot?.points)).toBe(Object.prototype)
     expect(

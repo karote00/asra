@@ -61,8 +61,7 @@ export interface AiDrawingPerformanceDiagnosticErrorEvidence {
 }
 
 export type AiDrawingPerformanceDiagnosticValue =
-  | AiDrawingPerformanceDiagnosticErrorEvidence
-  | string
+  AiDrawingPerformanceDiagnosticErrorEvidence | string
 
 export interface AiDrawingPerformanceFactoryTransactionStatusEvidence {
   readonly capturedAtMs: number

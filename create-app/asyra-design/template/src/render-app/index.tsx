@@ -68,8 +68,7 @@ const RenderApp: React.FC<RenderAppProps> = ({
         }
         const collaborationMode = getConfiguredCollaborationMode()
         let collaborationLifecycle:
-          | typeof import('../collaboration/lifecycle')
-          | undefined
+          typeof import('../collaboration/lifecycle') | undefined
         if (collaborationMode) {
           collaborationLifecycle = await import('../collaboration/lifecycle')
           core.registerCollaborationSession(

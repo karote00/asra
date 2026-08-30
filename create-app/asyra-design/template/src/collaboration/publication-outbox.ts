@@ -147,9 +147,7 @@ export class PublicationOutboxStorageError extends Error {
   }
 }
 
-export class IndexedDbPublicationOutboxStorage
-  implements PublicationOutboxStorage
-{
+export class IndexedDbPublicationOutboxStorage implements PublicationOutboxStorage {
   private readonly factory: IDBFactory
   private readonly databaseName: string
   private databasePromise: Promise<IDBDatabase> | undefined

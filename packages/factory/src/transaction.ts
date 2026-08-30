@@ -29,9 +29,7 @@ export interface TransactionValidationSuccess {
 }
 
 export type TransactionValidationResult =
-  | undefined
-  | TransactionValidationSuccess
-  | TransactionValidationFailure
+  undefined | TransactionValidationSuccess | TransactionValidationFailure
 
 export type TransactionValidator = (
   context: Readonly<TransactionValidationContext>

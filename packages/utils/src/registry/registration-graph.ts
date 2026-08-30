@@ -24,8 +24,7 @@ export const getRegistrationRefKey = (ref: RegistrationRef): string =>
   `${ref.kind}\u0000${ref.key}`
 
 export type RegistrationRelationUnregisterPolicy =
-  | 'detach'
-  | 'unregister-source'
+  'detach' | 'unregister-source'
 
 export interface RegistrationRelationDeclaration {
   name: string
@@ -42,8 +41,7 @@ export interface RegistrationDefinitionMetadata {
   relations?: readonly RegistrationRelationDeclaration[]
 }
 
-export interface RegistrationRelationMetadata
-  extends RegistrationRelationDeclaration {
+export interface RegistrationRelationMetadata extends RegistrationRelationDeclaration {
   source: RegistrationRef
 }
 

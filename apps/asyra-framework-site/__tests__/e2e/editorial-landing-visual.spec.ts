@@ -915,16 +915,16 @@ test('the PoC storyboard preserves one implementation path across review widths'
         )
         return Boolean(
           title &&
-            scene &&
-            stage &&
-            image &&
-            scene.tagName === 'FIGURE' &&
-            title.closest('figcaption') &&
-            (!stageIsVisible ||
-              stage.getBoundingClientRect().bottom <=
-                title.getBoundingClientRect().top) &&
-            title.getBoundingClientRect().bottom <=
-              image.getBoundingClientRect().top
+          scene &&
+          stage &&
+          image &&
+          scene.tagName === 'FIGURE' &&
+          title.closest('figcaption') &&
+          (!stageIsVisible ||
+            stage.getBoundingClientRect().bottom <=
+              title.getBoundingClientRect().top) &&
+          title.getBoundingClientRect().bottom <=
+            image.getBoundingClientRect().top
         )
       })
       const everyStageNumberIsLeftAligned = Array.from(
@@ -934,12 +934,12 @@ test('the PoC storyboard preserves one implementation path across review widths'
         const header = stage?.closest<HTMLElement>('.story-panel__header')
         return Boolean(
           stage &&
-            header &&
-            (getComputedStyle(header).display === 'none' ||
-              Math.abs(
-                stage.getBoundingClientRect().left -
-                  panel.getBoundingClientRect().left
-              ) <= 5)
+          header &&
+          (getComputedStyle(header).display === 'none' ||
+            Math.abs(
+              stage.getBoundingClientRect().left -
+                panel.getBoundingClientRect().left
+            ) <= 5)
         )
       })
       const artwork = Array.from(
@@ -1106,7 +1106,7 @@ test('the PoC storyboard preserves one implementation path across review widths'
         legendBeforePanels: legendBounds.bottom <= panelsBounds.top,
         legendOrderIsTraditionalThenAsyra: Boolean(
           traditionalLegend.compareDocumentPosition(asyraLegend) &
-            Node.DOCUMENT_POSITION_FOLLOWING
+          Node.DOCUMENT_POSITION_FOLLOWING
         ),
         legendVisible,
         panelToProofImageWidthRatio: smallestPanelWidth / medianProofImageWidth,
@@ -1330,7 +1330,7 @@ test('the Landing Framework value story isolates change cost from the proof sect
         accentRects,
         asyraFollowsTraditional: Boolean(
           traditional.compareDocumentPosition(asyra) &
-            Node.DOCUMENT_POSITION_FOLLOWING
+          Node.DOCUMENT_POSITION_FOLLOWING
         ),
         bodyFontSize: Number.parseFloat(getComputedStyle(lead).fontSize),
         comparisonColumns:

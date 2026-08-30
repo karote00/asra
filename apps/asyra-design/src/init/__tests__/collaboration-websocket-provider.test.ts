@@ -235,9 +235,7 @@ type TestWorkerListener = (event: {
   readonly error?: unknown
 }) => void
 
-class TestCollaborationTransportWorker
-  implements CollaborationTransportWorkerLike
-{
+class TestCollaborationTransportWorker implements CollaborationTransportWorkerLike {
   readonly posted: {
     readonly message: CollaborationTransportWorkerRequest
   }[] = []

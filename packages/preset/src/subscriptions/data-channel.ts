@@ -658,14 +658,12 @@ const PROJECTED_ELEMENT_MAP_BUCKET_COUNT = 256
 const PROJECTED_ELEMENT_DELETED = Symbol('projected-element-deleted')
 
 type ProjectedElementBucketValue =
-  | ProjectedElementData
-  | typeof PROJECTED_ELEMENT_DELETED
+  ProjectedElementData | typeof PROJECTED_ELEMENT_DELETED
 
 interface ProjectedElementDataMapBacking {
   readonly base: ProjectedElementDataMap
   readonly buckets: readonly (
-    | ReadonlyMap<string, ProjectedElementBucketValue>
-    | undefined
+    ReadonlyMap<string, ProjectedElementBucketValue> | undefined
   )[]
   readonly orderedKeys: readonly string[]
 }

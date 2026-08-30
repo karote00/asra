@@ -9,12 +9,7 @@ export type AiConfirmationRequest = (
 ) => Promise<boolean>
 
 export type AiConfirmationActionKind =
-  | 'create'
-  | 'delete'
-  | 'mixed'
-  | 'modify'
-  | 'selection'
-  | 'visibility'
+  'create' | 'delete' | 'mixed' | 'modify' | 'selection' | 'visibility'
 
 export interface AiConfirmationSummary {
   readonly actionKind: AiConfirmationActionKind

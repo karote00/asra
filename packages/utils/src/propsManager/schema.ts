@@ -1,10 +1,5 @@
 export type PropertyValueKind =
-  | 'number'
-  | 'string'
-  | 'boolean'
-  | 'object'
-  | 'array'
-  | 'custom'
+  'number' | 'string' | 'boolean' | 'object' | 'array' | 'custom'
 
 export type PropertyUnitKind = 'px' | 'pct' | 'auto' | 'custom'
 

@@ -60,10 +60,7 @@ const parseDocumentRoute = (
   if (!url.pathname.startsWith(DOCUMENT_ENDPOINT_PREFIX)) return
   const encoded = url.pathname.slice(DOCUMENT_ENDPOINT_PREFIX.length)
   let operation:
-    | 'bootstrap-checkpoint'
-    | 'persistence-batch'
-    | 'reset'
-    | undefined
+    'bootstrap-checkpoint' | 'persistence-batch' | 'reset' | undefined
   if (encoded.endsWith(BOOTSTRAP_CHECKPOINT_SUFFIX)) {
     operation = 'bootstrap-checkpoint'
   } else if (encoded.endsWith(PERSISTENCE_BATCH_SUFFIX)) {

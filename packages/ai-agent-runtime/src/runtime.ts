@@ -211,9 +211,7 @@ export interface AiRuntimeFailedResult {
 }
 
 export type AiRuntimeResult =
-  | AiRuntimeCancelledResult
-  | AiRuntimeExecutedResult
-  | AiRuntimeFailedResult
+  AiRuntimeCancelledResult | AiRuntimeExecutedResult | AiRuntimeFailedResult
 
 export interface AiAgentRuntime {
   resolveAiActionBatch(
@@ -254,8 +252,7 @@ export interface ConfirmedAiActionBatch extends PermissionReadyAiActionBatch {
 }
 
 export type AiPermissionErrorCode =
-  | 'AI_PERMISSION_DENIED'
-  | 'AI_PERMISSION_POLICY_FAILED'
+  'AI_PERMISSION_DENIED' | 'AI_PERMISSION_POLICY_FAILED'
 
 export class AiPermissionError extends Error {
   readonly code: AiPermissionErrorCode

@@ -57,8 +57,7 @@ export interface FillAttrs extends BasePropertyAttrs {
 }
 
 export interface FillRowAttrs
-  extends Omit<FillAttrs, 'id'>,
-    Record<string, unknown> {
+  extends Omit<FillAttrs, 'id'>, Record<string, unknown> {
   ids: string[]
 }
 

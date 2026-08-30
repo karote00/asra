@@ -444,11 +444,11 @@ test('the Documentation Overview alone presents a compact docs-native technical 
           rgb.length >= 3 && (rgb[0] + rgb[1] + rgb[2]) / 3 > 180,
         beforeCurrentSupport: Boolean(
           element.compareDocumentPosition(currentSupport) &
-            Node.DOCUMENT_POSITION_FOLLOWING
+          Node.DOCUMENT_POSITION_FOLLOWING
         ),
         ownerModelBefore: Boolean(
           ownerModel.compareDocumentPosition(element) &
-            Node.DOCUMENT_POSITION_FOLLOWING
+          Node.DOCUMENT_POSITION_FOLLOWING
         ),
         ownerOutputColumnsAligned:
           Math.abs(

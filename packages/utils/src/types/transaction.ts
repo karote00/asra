@@ -1,12 +1,7 @@
 export type TransactionOutcome = 'commit' | 'rollback'
 
 export type TransactionOrigin =
-  | 'action'
-  | 'automation'
-  | 'remote'
-  | 'undo'
-  | 'redo'
-  | 'load-migration'
+  'action' | 'automation' | 'remote' | 'undo' | 'redo' | 'load-migration'
 
 export type TransactionFailureKind =
   | 'cancelled'

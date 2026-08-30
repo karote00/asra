@@ -6093,8 +6093,7 @@ describe('PropsManager', () => {
 
     expect(updateTransactionBatch).toHaveBeenCalledTimes(1)
     const ownerBatch = updateTransactionBatch.mock.calls[0]?.[0] as
-      | readonly UpdateTransactionEvent[]
-      | undefined
+      readonly UpdateTransactionEvent[] | undefined
     expect(ownerBatch).toHaveLength(2)
     expect(ownerBatch?.map(({ eventName }) => eventName)).toEqual([
       ReactiveEventsModule.EventTypes.UPDATE_PROPERTY,
@@ -6149,8 +6148,7 @@ describe('PropsManager', () => {
     )
 
     const ownerBatch = updateTransactionBatch.mock.calls[0]?.[0] as
-      | readonly UpdateTransactionEvent[]
-      | undefined
+      readonly UpdateTransactionEvent[] | undefined
     expect(ownerBatch).toHaveLength(1)
     expect(ownerBatch?.[0]?.payload).toMatchObject({
       id: 'staged-history-position',
@@ -6243,8 +6241,7 @@ describe('PropsManager', () => {
     )
 
     const ownerBatch = updateTransactionBatch.mock.calls[0]?.[0] as
-      | readonly UpdateTransactionEvent[]
-      | undefined
+      readonly UpdateTransactionEvent[] | undefined
     expect(ownerBatch).toHaveLength(1)
     expect(ownerBatch?.[0]?.payload).toMatchObject({
       id: child.get('id'),
@@ -6324,8 +6321,7 @@ describe('PropsManager', () => {
     ).not.toThrow()
 
     const ownerBatch = updateTransactionBatch.mock.calls[0]?.[0] as
-      | readonly UpdateTransactionEvent[]
-      | undefined
+      readonly UpdateTransactionEvent[] | undefined
     expect(ownerBatch?.length).toBeGreaterThan(0)
     expect(
       ownerBatch?.every(

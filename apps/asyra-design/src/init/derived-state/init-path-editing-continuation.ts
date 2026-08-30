@@ -155,9 +155,9 @@ const syncContinuation = () => {
 export const initPathEditingContinuation = () => {
   // Sync on path editing state changes
   core
-    .getSystemPropertyObservable<
-      string | null
-    >(PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID)
+    .getSystemPropertyObservable<string | null>(
+      PresetSystemPropertyKeys.PATH_EDITING_VECTOR_ID
+    )
     ?.subscribe(() => syncContinuation())
   core
     .getSystemPropertyObservable<boolean>(

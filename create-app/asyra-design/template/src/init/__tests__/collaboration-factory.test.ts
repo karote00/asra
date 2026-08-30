@@ -79,8 +79,7 @@ describe('Asyra Design collaboration composition', () => {
 
   it('forwards only app-owned document channels', () => {
     let publicationSubscriber:
-      | ((publication: SharedPublication) => void)
-      | undefined
+      ((publication: SharedPublication) => void) | undefined
     const owner = {
       subscribeToSharedPublication: vi.fn((subscriber) => {
         publicationSubscriber = subscriber
@@ -182,8 +181,7 @@ describe('Asyra Design collaboration composition', () => {
 
   it('keeps one valid atomic document slice after removing a local selection slice', () => {
     let publicationSubscriber:
-      | ((publication: SharedPublication) => void)
-      | undefined
+      ((publication: SharedPublication) => void) | undefined
     const owner = {
       subscribeToSharedPublication: vi.fn((subscriber) => {
         publicationSubscriber = subscriber
@@ -276,8 +274,7 @@ describe('Asyra Design collaboration composition', () => {
 
   it('records profiling evidence from retained Factory batches without affecting transport', () => {
     let publicationSubscriber:
-      | ((publication: SharedPublication) => void)
-      | undefined
+      ((publication: SharedPublication) => void) | undefined
     const owner = {
       subscribeToSharedPublication: vi.fn((subscriber) => {
         publicationSubscriber = subscriber
@@ -377,8 +374,7 @@ describe('Asyra Design collaboration composition', () => {
 
   it('rejects local-only computed evidence before the adapter publishes a document batch', () => {
     let publicationSubscriber:
-      | ((publication: SharedPublication) => void)
-      | undefined
+      ((publication: SharedPublication) => void) | undefined
     const owner = {
       subscribeToSharedPublication: vi.fn((subscriber) => {
         publicationSubscriber = subscriber

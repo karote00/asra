@@ -113,8 +113,7 @@ class CanvasPipelineTraceAdapter implements CanvasPipelineDebuggerAdapter {
   private lastFrame: (CanvasPipelineTraceEntry & { kind: 'frame' }) | null =
     null
   private lastViewport:
-    | (CanvasPipelineTraceEntry & { kind: 'viewport-input' })
-    | null = null
+    (CanvasPipelineTraceEntry & { kind: 'viewport-input' }) | null = null
   private latestViewportTransform: CanvasPipelineMatrixSnapshot | null = null
   private fault: Error | null = null
   private unsubscribe: (() => void) | null = null

@@ -409,9 +409,7 @@ const getValidatedVectorComputedPatchRequest = ({
   patch
 }: {
   structuralOperationIntent:
-    | StructuralVectorOperationPatchIntent
-    | null
-    | undefined
+    StructuralVectorOperationPatchIntent | null | undefined
   elementId: string
   operation: StructuralVectorOperation | null
   patch: ComputedDataPatch

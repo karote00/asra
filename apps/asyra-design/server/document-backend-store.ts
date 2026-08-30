@@ -16,8 +16,7 @@ interface StoredDocumentRecord {
   readonly record: MaterializedDocumentRecord<AppDocumentData>
 }
 
-export interface FileDocumentMaterializationStore
-  extends DocumentMaterializationStore<AppDocumentData> {
+export interface FileDocumentMaterializationStore extends DocumentMaterializationStore<AppDocumentData> {
   readCheckpoint(
     documentId: string
   ): Promise<MaterializedDocumentRecord<AppDocumentData>>

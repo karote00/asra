@@ -22,6 +22,4 @@ export interface UpdatePropertyEvent {
 }
 
 export type PropEvents =
-  | AddPropertyEvent
-  | RemovePropertyEvent
-  | UpdatePropertyEvent
+  AddPropertyEvent | RemovePropertyEvent | UpdatePropertyEvent

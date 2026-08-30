@@ -45,8 +45,7 @@ export type AiAgentFeatureTerminalResult =
     }
 
 export type AiAgentFeatureResult =
-  | AiAgentFeatureTerminalResult
-  | AiRuntimeResult
+  AiAgentFeatureTerminalResult | AiRuntimeResult
 
 export interface AiAgentFeatureApi {
   execute(
