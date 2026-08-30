@@ -60,6 +60,31 @@ test('GitHub Actions use least privilege and immutable action revisions', () => 
   assert.match(dependabot, /interval: ['"]weekly['"]/)
 })
 
+test('Dependabot separates routine, major, and security update lanes', () => {
+  const dependabot = readText('.github/dependabot.yml')
+
+  assert.match(
+    dependabot,
+    /github-actions-version-updates:\n\s+applies-to: ['"]version-updates['"]\n\s+patterns:\n\s+- ['"]\*['"]/
+  )
+  assert.match(
+    dependabot,
+    /github-actions-security-updates:\n\s+applies-to: ['"]security-updates['"]\n\s+patterns:\n\s+- ['"]\*['"]/
+  )
+  assert.match(
+    dependabot,
+    /npm-minor-and-patch:\n\s+applies-to: ['"]version-updates['"]\n\s+patterns:\n\s+- ['"]\*['"]\n\s+update-types:\n\s+- ['"]minor['"]\n\s+- ['"]patch['"]/
+  )
+  assert.match(
+    dependabot,
+    /npm-security-updates:\n\s+applies-to: ['"]security-updates['"]\n\s+patterns:\n\s+- ['"]\*['"]/
+  )
+  assert.doesNotMatch(
+    dependabot,
+    /npm-minor-and-patch:[\s\S]*?update-types:[\s\S]*?- ['"]major['"]/
+  )
+})
+
 test('workspace manifests omit confirmed unused dependencies', () => {
   const designSystem = readJSON('packages/design-system/package.json')
   const preset = readJSON('packages/preset/package.json')
