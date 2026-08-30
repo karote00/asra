@@ -150,6 +150,13 @@ test('release template excludes local runtime data directories', () => {
     'samples/crdt-7076',
     'test-data/ai-drawing',
     'e2e/crdt-7076-render.spec.ts',
+    'e2e/action-batch-interceptor.ts',
+    'e2e/ai-drawing-performance.spec.ts',
+    'e2e/collaboration-ai-agent-video.spec.ts',
+    'e2e/collaboration.spec.ts',
+    'e2e/conversational-ai.spec.ts',
+    'e2e/crdt-endpoint-performance.spec.ts',
+    'e2e/prepared-server-response-artifacts.mjs',
     'scripts/generate-crdt-7076-document.ts',
     '__tests__/prepared-server-response-artifacts.test.mjs',
     'server/__tests__/action-batch.test.ts',
@@ -231,7 +238,18 @@ test('Asyra Design keeps the large CRDT fixture out of the generated template', 
   assert.equal(existsSync(generatedFixtureRoot), false)
   assert.deepEqual(config.removeScripts, [
     'generate:crdt-7076-document',
-    'test:e2e:crdt-7076'
+    'test:e2e:crdt-7076',
+    'test:e2e:collaboration',
+    'prepare:e2e:endpoint-performance',
+    'test:e2e:crdt-endpoint-performance',
+    'test:e2e:ai-attribution:16',
+    'test:e2e:ai-attribution:16-reduced-motion',
+    'test:e2e:ai-attribution:1280',
+    'test:e2e:ai-attribution:maximum',
+    'test:e2e:ai-crdt-activity:16',
+    'test:e2e:ai-crdt-attribution:1280',
+    'test:e2e:ai-crdt-attribution:320',
+    'test:e2e:ai-crdt-video'
   ])
   assert.deepEqual(config.removeScriptArguments, {
     'test:server-response-harness': [
@@ -264,6 +282,13 @@ test('Asyra Design keeps the large CRDT fixture out of the generated template', 
   )
   for (const generatedOnlyTestPath of [
     'e2e/crdt-7076-render.spec.ts',
+    'e2e/action-batch-interceptor.ts',
+    'e2e/ai-drawing-performance.spec.ts',
+    'e2e/collaboration-ai-agent-video.spec.ts',
+    'e2e/collaboration.spec.ts',
+    'e2e/conversational-ai.spec.ts',
+    'e2e/crdt-endpoint-performance.spec.ts',
+    'e2e/prepared-server-response-artifacts.mjs',
     'scripts/generate-crdt-7076-document.ts',
     '__tests__/prepared-server-response-artifacts.test.mjs',
     'server/__tests__/action-batch.test.ts',
