@@ -86,6 +86,7 @@ describe('RenderApp StrictMode lifecycle', () => {
     localStorage.clear()
 
     vi.spyOn(core, 'setPersistence').mockImplementation(() => undefined)
+    vi.spyOn(core, 'setLoadSource').mockImplementation(() => undefined)
     vi.spyOn(core, 'load').mockImplementation(() => undefined)
     vi.spyOn(core, 'registerCollaborationSession').mockImplementation(
       () => undefined
@@ -251,11 +252,12 @@ describe('RenderApp StrictMode lifecycle', () => {
     await act(async () => root.unmount())
   })
 
-  it('opens the 7076 sample through the ordinary socket checkpoint and activation', async () => {
+  it('starts local-only without server communication when no endpoint is configured', async () => {
     vi.stubEnv('VITE_COLLABORATION_WS_URL', '')
     window.history.replaceState({}, '', '/?fileId=crdt-7076-sample')
     const fetch = vi.fn()
     vi.stubGlobal('fetch', fetch)
+    vi.mocked(core.start).mockResolvedValueOnce(undefined)
     const host = document.createElement('div')
     document.body.append(host)
     const root = createRoot(host)
@@ -267,19 +269,19 @@ describe('RenderApp StrictMode lifecycle', () => {
       await Promise.resolve()
     })
 
-    await vi.waitFor(() =>
-      expect(
-        collaborationLifecycle.createCollaborationDocumentSession
-      ).toHaveBeenCalledWith({
-        fileId: 'crdt-7076-sample',
-        actorId: `actor-${ACTOR_UUID}`,
-        endpoint: 'ws://localhost:3000/collaboration'
-      })
-    )
-    expect(core.registerCollaborationSession).toHaveBeenCalledWith(
-      coreCollaborationSession
-    )
-    expect(coreCollaborationSession.activate).toHaveBeenCalledOnce()
+    await vi.waitFor(() => expect(core.start).toHaveBeenCalledOnce())
+    expect(
+      collaborationLifecycle.createCollaborationDocumentSession
+    ).not.toHaveBeenCalled()
+    expect(core.registerCollaborationSession).not.toHaveBeenCalled()
+    expect(coreCollaborationSession.activate).not.toHaveBeenCalled()
+    expect(core.setLoadSource).toHaveBeenCalledWith({
+      name: 'LocalOnlyDocument',
+      load: expect.any(Function)
+    })
+    await expect(
+      vi.mocked(core.setLoadSource).mock.calls[0]?.[0]?.load()
+    ).resolves.toEqual(EMPTY_DOCUMENT)
     expect(fetch).not.toHaveBeenCalled()
     expect(core.setPersistence).not.toHaveBeenCalled()
 

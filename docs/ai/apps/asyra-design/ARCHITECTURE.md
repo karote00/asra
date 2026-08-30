@@ -66,13 +66,13 @@
 
 3. `src/render-app/index.tsx`
 
-- requires one non-empty `fileId`; that value maps to the App document,
-  collaboration document, and room identity for every ordinary file. A full
-  UUID actor identity is generated per page and configures the canonical
-  ID-counter namespace before collaborative actions
-- derives the ordinary WebSocket endpoint from
-  `VITE_COLLABORATION_WS_URL` or same-origin `/collaboration`, composes one
-  App-owned document session, and registers its neutral lifecycle with Core
+- requires one non-empty `fileId`; that value always maps to the local App
+  document identity
+- when `VITE_COLLABORATION_WS_URL` is configured, maps `fileId` to the
+  Collaboration document and room identity, generates a full UUID actor
+  identity, composes one App-owned document session, and registers it with Core
+- without that setting, starts Core directly in local-only mode without importing
+  Collaboration or creating server communication
 - Core prepares the checkpoint/tail handshake, loads the returned read-only
   checkpoint source, initializes Features, applies the pending tail, activates
   live transport, and only then publishes ready

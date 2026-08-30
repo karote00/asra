@@ -1145,7 +1145,7 @@
             "inputs": [
               "required fileId URL",
               "Asyra Design RenderApp startup policy",
-              "configured or same-deployment Collaboration WebSocket endpoint",
+              "optional configured Collaboration WebSocket endpoint",
               "artifact:remote-publication-settlement"
             ],
             "outputs": [
@@ -1153,8 +1153,10 @@
             ],
             "conditions": [
               "A missing or empty fileId does not open a document session.",
-              "Every required fileId, including crdt-7076-sample, creates one socket-authoritative document and Collaboration identity. No fileId may select a second RenderApp, Core.load, persistence, or Collaboration composition.",
-              "RenderApp derives the configured or same-deployment WebSocket endpoint, prepares the socket checkpoint and pending tail before Core starts, supplies only that checkpoint through SocketDocumentSession, and activates live publication delivery only after Core hydration.",
+              "Every required fileId selects one local document identity. A non-empty configured Collaboration endpoint additionally creates one socket-authoritative document and Collaboration identity; no fileId selects a second RenderApp, Core.load, or persistence owner.",
+              "With a configured endpoint, RenderApp prepares the socket checkpoint and pending tail before Core starts, supplies only that checkpoint through SocketDocumentSession, and activates live publication delivery only after Core hydration.",
+              "Without a configured endpoint, RenderApp supplies the canonical empty document through one read-only LocalOnlyDocument load source, starts Core directly in local-only mode, and does not import the Collaboration lifecycle, register a Collaboration session, construct a WebSocket, fetch a server route, register browser persistence, or create a recovery outbox.",
+              "With a configured endpoint, crdt-7076-sample uses the same socket session and HTTP action-batch flow: Actor A executes the prepared batch and Actor B receives its CRDT publications.",
               "When the socket is unavailable, the lifecycle returns the formal provisional local checkpoint so Core, Canvas, local actions, AI actions, Undo, and Redo remain available; local publications enter the ordinary durable outbox and connection failures remain console diagnostics plus the ordinary connection-state notification.",
               "Root dev:all starts only workspace package watchers and the App dev server. The explicit collaboration:server command or collaboration Playwright startup separately owns the reference WebSocket server.",
               "With one connected Actor the session is classified as single-Actor; when a second Actor joins the same document session it is classified as two-Actor CRDT processing.",
@@ -1173,7 +1175,7 @@
               "Single-Actor and two-Actor sessions still preserve one outer action transaction, exact Undo and Redo, canonical IDs, complete detail, and ordered canonical publication."
             ],
             "bypasses": [
-              "Socket unavailability uses the existing provisional local checkpoint and durable outbox without bypassing Collaboration composition.",
+              "A configured but unavailable socket uses the existing provisional offline checkpoint and durable outbox without bypassing Collaboration composition; a missing endpoint selects explicit local-only composition before any transport exists.",
               "An Actor that only opens the sample URL performs zero action-batch request and remains on the same socket-authoritative startup path.",
               "A malformed or unsupported HTTP action-batch request fails before Runtime and canonical mutation."
             ],
@@ -1190,7 +1192,7 @@
               "Agent action-batch transport as a socket checkpoint or document snapshot",
               "checked-in compressed canonical document startup load",
               "localStorage Reset or demo bootstrap state",
-              "sample-specific socket rejection, null Collaboration mode, or alternate startup path",
+              "sample-specific socket rejection or an endpoint-configured alternate startup path",
               "demo-only fake connection success",
               "receiver-side persistence, Undo, or echo publication",
               "old-format compatibility or dual-format document branches",

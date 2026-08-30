@@ -5,7 +5,8 @@ import {
   CANVAS_BACKGROUND_COLOR
 } from '../constants'
 import type { CollaborationSessionNotification } from '../collaboration/lifecycle'
-import { getCollaborationMode } from './collaboration-mode'
+import { createEmptyDocument } from '../config/empty-document'
+import { getConfiguredCollaborationMode } from './collaboration-mode'
 import AiDrawingProgressIndicator from './ai-drawing-progress-indicator'
 import { StatusToastStack } from './status-toast-stack'
 
@@ -65,15 +66,23 @@ const RenderApp: React.FC<RenderAppProps> = ({
         if (!container) {
           return
         }
-        const collaborationMode = getCollaborationMode()
-        const collaborationLifecycle = await import(
-          '../collaboration/lifecycle'
-        )
-        core.registerCollaborationSession(
-          collaborationLifecycle.createCollaborationDocumentSession(
-            collaborationMode
+        const collaborationMode = getConfiguredCollaborationMode()
+        let collaborationLifecycle:
+          | typeof import('../collaboration/lifecycle')
+          | undefined
+        if (collaborationMode) {
+          collaborationLifecycle = await import('../collaboration/lifecycle')
+          core.registerCollaborationSession(
+            collaborationLifecycle.createCollaborationDocumentSession(
+              collaborationMode
+            )
           )
-        )
+        } else {
+          core.setLoadSource({
+            name: 'LocalOnlyDocument',
+            load: async () => createEmptyDocument()
+          })
+        }
 
         await core.start(container, {
           width: window.innerWidth,
@@ -86,18 +95,22 @@ const RenderApp: React.FC<RenderAppProps> = ({
           return
         }
 
-        const handle = collaborationLifecycle.getActiveCollaborationHandle()
-        if (!handle) {
+        const handle = collaborationLifecycle?.getActiveCollaborationHandle()
+        if (collaborationMode && !handle) {
           throw new Error(
             '[RenderApp] collaboration session did not activate through Core'
           )
         }
-        setCollaborationNotification(handle.getSessionState().notification)
-        unsubscribeCollaborationState = handle.onSessionStateChange((state) => {
-          if (active) {
-            setCollaborationNotification(state.notification)
-          }
-        })
+        if (handle) {
+          setCollaborationNotification(handle.getSessionState().notification)
+          unsubscribeCollaborationState = handle.onSessionStateChange(
+            (state) => {
+              if (active) {
+                setCollaborationNotification(state.notification)
+              }
+            }
+          )
+        }
         if (!active) await destroyRuntime()
       })
     lifecycleRef.current = lifecycle
