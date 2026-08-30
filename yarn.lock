@@ -328,7 +328,6 @@ __metadata:
   dependencies:
     "@asyra/persistence": "workspace:*"
     "@asyra/utils": "workspace:*"
-    "@types/inquirer": "npm:^8.2.6"
     "@types/node": "npm:^25.0.2"
     "@vitest/coverage-v8": "npm:^3.2.6"
     chalk: "npm:^5.6.2"
@@ -3981,16 +3980,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/inquirer@npm:^8.2.6":
-  version: 8.2.12
-  resolution: "@types/inquirer@npm:8.2.12"
-  dependencies:
-    "@types/through": "npm:*"
-    rxjs: "npm:^7.2.0"
-  checksum: 10c0/a9bb3ca2960aa4b985e8cf7f7bafb4aae015136be87764ec78ce84925aac222d346e540e1459484c8dfc46f9579069025d9c0676dc9cefce71304d96cf9fb50a
-  languageName: node
-  linkType: hard
-
 "@types/json-schema@npm:^7.0.15":
   version: 7.0.15
   resolution: "@types/json-schema@npm:7.0.15"
@@ -4084,15 +4073,6 @@ __metadata:
   version: 1.20.6
   resolution: "@types/resolve@npm:1.20.6"
   checksum: 10c0/a9b0549d816ff2c353077365d865a33655a141d066d0f5a3ba6fd4b28bc2f4188a510079f7c1f715b3e7af505a27374adce2a5140a3ece2a059aab3d6e1a4244
-  languageName: node
-  linkType: hard
-
-"@types/through@npm:*":
-  version: 0.0.33
-  resolution: "@types/through@npm:0.0.33"
-  dependencies:
-    "@types/node": "npm:*"
-  checksum: 10c0/6a8edd7f40cd7e197318e86310a40e568cddd380609dde59b30d5cc6c5f8276ddc698905eac4b3b429eb39f2e8ee326bc20dc6e95a2cdc41c4d3fc9a1ebd4929
   languageName: node
   linkType: hard
 
@@ -10156,7 +10136,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rxjs@npm:7.8.2, rxjs@npm:^7.2.0, rxjs@npm:^7.5.5, rxjs@npm:^7.8.1, rxjs@npm:^7.8.2":
+"rxjs@npm:7.8.2, rxjs@npm:^7.5.5, rxjs@npm:^7.8.1, rxjs@npm:^7.8.2":
   version: 7.8.2
   resolution: "rxjs@npm:7.8.2"
   dependencies:
