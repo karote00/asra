@@ -100,11 +100,11 @@ const api: CreateElementAPI = {
 const boundsMatch = (left: Rect | null, right: Rect | null): boolean =>
   Boolean(
     left &&
-      right &&
-      left.x === right.x &&
-      left.y === right.y &&
-      left.width === right.width &&
-      left.height === right.height
+    right &&
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height
   )
 
 export const createElementSession = {

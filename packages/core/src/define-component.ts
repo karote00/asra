@@ -72,8 +72,7 @@ export interface UnregisterComponentOptions {
   detailed?: boolean
 }
 
-export interface ComponentPropertyRelationMetadata
-  extends RegistrationRelationMetadata {
+export interface ComponentPropertyRelationMetadata extends RegistrationRelationMetadata {
   componentType: string
   propertyName: string
   property: PropertyDefinition

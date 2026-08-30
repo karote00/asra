@@ -212,8 +212,7 @@ export class PropertyRegistry {
     TElementData extends object = Record<never, never>
   >(key: string): PropertyRegistration<T, TElementData> | undefined {
     return this.registrations.get(key) as
-      | PropertyRegistration<T, TElementData>
-      | undefined
+      PropertyRegistration<T, TElementData> | undefined
   }
 
   unregister(key: string): void {

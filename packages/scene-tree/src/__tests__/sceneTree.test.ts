@@ -294,8 +294,7 @@ class TestStrokesComponent extends BasePropertyComponent<TestStrokesAttrs> {
 
     this.data.strokes.forEach((strokeId) => {
       const stroke = propsManager.getPropertyById(strokeId) as
-        | TestStrokeComponent
-        | undefined
+        TestStrokeComponent | undefined
       if (!stroke) {
         return
       }

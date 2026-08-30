@@ -78,8 +78,7 @@ export const hoverElementRenderHoverFeature = defineFeature(
       }
 
       const payload = (snapshot.detail ?? snapshot.payload) as
-        | RenderPointerPayload
-        | undefined
+        RenderPointerPayload | undefined
       if (payload?.targetKind && payload.targetKind !== 'element') {
         return null
       }
@@ -107,8 +106,7 @@ export const hoverElementRenderLeaveFeature = defineFeature(
       }
 
       const payload = (snapshot.detail ?? snapshot.payload) as
-        | RenderPointerPayload
-        | undefined
+        RenderPointerPayload | undefined
       if (payload?.targetKind && payload.targetKind !== 'element') {
         return null
       }

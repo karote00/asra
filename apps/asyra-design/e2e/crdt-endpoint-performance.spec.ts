@@ -230,9 +230,7 @@ interface EndpointHeartbeat {
   readonly ownerEvidence?: EndpointOwnerEvidence | null
   readonly phase: string
   readonly proofKind:
-    | 'endpoint'
-    | 'local-attribution'
-    | 'collaboration-attribution'
+    'endpoint' | 'local-attribution' | 'collaboration-attribution'
   readonly publications: PublicationHeartbeat
 }
 
@@ -320,11 +318,7 @@ interface EndpointPhaseTiming {
 }
 
 type EndpointAiTurnOutcome =
-  | 'cancelled'
-  | 'failed'
-  | 'no-change'
-  | 'partial'
-  | 'success'
+  'cancelled' | 'failed' | 'no-change' | 'partial' | 'success'
 
 interface EndpointTurnSettlementEvidence {
   readonly code: string | null
@@ -567,9 +561,7 @@ interface EndpointReport {
     readonly diagnostics: FinalActorDiagnostics
     readonly firstVisibleMs: number | null
     readonly summary:
-      | CanonicalSummary
-      | LocalAttributionSummary
-      | TwoActorActivitySummary
+      CanonicalSummary | LocalAttributionSummary | TwoActorActivitySummary
   } | null
   readonly convergedMs: number | null
   readonly durationMs: number
@@ -584,9 +576,7 @@ interface EndpointReport {
   readonly totalCreationFlowMs?: number
   readonly owner: string
   readonly proofKind:
-    | 'endpoint'
-    | 'local-attribution'
-    | 'collaboration-attribution'
+    'endpoint' | 'local-attribution' | 'collaboration-attribution'
   readonly actionBatchInterceptor?: PreparedActionBatchInterceptorMetrics
   readonly status: 'complete'
 }
@@ -1994,8 +1984,7 @@ const installLocalInteractionProbe = async (
           let observer: MutationObserver | null = null
           const finish = (
             result:
-              | { snapshot: LocalInteractionProbeSnapshot }
-              | { error: Error }
+              { snapshot: LocalInteractionProbeSnapshot } | { error: Error }
           ): void => {
             if (settled) return
             settled = true
@@ -2097,8 +2086,7 @@ const installLocalInteractionProbe = async (
           let observer: MutationObserver | null = null
           const finish = (
             result:
-              | { snapshot: LocalInteractionProbeSnapshot }
-              | { error: Error }
+              { snapshot: LocalInteractionProbeSnapshot } | { error: Error }
           ): void => {
             if (settled) return
             settled = true
@@ -2423,8 +2411,7 @@ const prepareEndpointActorsSequentially = async ({
       )
     }
     let actionBatchInterceptor:
-      | PreparedActionBatchInterceptorMetrics
-      | undefined
+      PreparedActionBatchInterceptorMetrics | undefined
     await waitForConnectivityCpuSample(
       'actor-a-action-batch-interceptor',
       async () => {
@@ -2663,8 +2650,7 @@ test('single-Actor local attribution', async ({ browser }, testInfo) => {
 
   try {
     let actionBatchInterceptor:
-      | PreparedActionBatchInterceptorMetrics
-      | undefined
+      PreparedActionBatchInterceptorMetrics | undefined
     await waitForConnectivityCpuSample(
       'local-action-batch-interceptor',
       async () => {

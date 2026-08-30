@@ -466,8 +466,7 @@ describe('feature transaction lifecycle', () => {
     })
 
     let stateAfterSecondStart:
-      | { cancelledStates: unknown[]; outcomes: string[] }
-      | undefined
+      { cancelledStates: unknown[]; outcomes: string[] } | undefined
     try {
       await manager.handleStart('drag', snapshot)
       await manager.handleStart('drag', snapshot)

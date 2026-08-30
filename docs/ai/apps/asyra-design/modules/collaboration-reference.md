@@ -33,9 +33,10 @@ authentication; a deployment may replace that adapter. It is not a
 Collaboration toggle. A missing or empty `fileId` does not open a document
 session.
 
-RenderApp currently prepares Collaboration before Core for every ordinary
-file. It uses `VITE_COLLABORATION_WS_URL` when configured and otherwise derives
-same-origin `/collaboration`. Each page creates its own actor ID and uses it as
+RenderApp prepares Collaboration before Core only when
+`VITE_COLLABORATION_WS_URL` is configured. Without it, the App starts Core in
+local-only mode with no Collaboration or server communication. In the configured
+composition, each page creates its own actor ID and uses it as
 the canonical ID-counter namespace before collaborative element or property
 creation. The socket returns one checkpoint plus exact pending tail; Core loads
 the checkpoint and the App applies the tail before live activation. One Actor

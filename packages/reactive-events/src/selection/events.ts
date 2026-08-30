@@ -14,6 +14,4 @@ export type SelectVectorPointsEvent = SelectionIdsEvent
 export type SelectVectorSegmentsEvent = SelectionIdsEvent
 
 export type SelectionEvents =
-  | SelectElementsEvent
-  | SelectVectorPointsEvent
-  | SelectVectorSegmentsEvent
+  SelectElementsEvent | SelectVectorPointsEvent | SelectVectorSegmentsEvent

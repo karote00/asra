@@ -25,11 +25,9 @@ const action = (
   schema: unknown = inputSchema()
 ): AiActionDefinition<ResizeArgs, { resized: true }> => ({
   description: `Execute ${name}`,
-  execute: vi.fn(
-    async (): Promise<{ resized: true }> => ({
-      resized: true
-    })
-  ),
+  execute: vi.fn(async (): Promise<{ resized: true }> => ({
+    resized: true
+  })),
   inputSchema: schema,
   name
 })

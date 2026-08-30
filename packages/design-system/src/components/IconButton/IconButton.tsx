@@ -1,11 +1,10 @@
 import { forwardRef, type ButtonHTMLAttributes, type ForwardedRef } from 'react'
 import { Icon, type IconName } from '../Icon/index.js'
 
-export interface IconButtonProps
-  extends Omit<
-    ButtonHTMLAttributes<HTMLButtonElement>,
-    'aria-label' | 'children'
-  > {
+export interface IconButtonProps extends Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  'aria-label' | 'children'
+> {
   'aria-label': string
   icon: IconName
   iconClassName?: string

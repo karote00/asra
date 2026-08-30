@@ -23,8 +23,7 @@ import { EventTypes } from '../types.js'
 import { SCENE_TREE_ACTIONS, type AddRemoveElementsChange } from '@asyra/utils'
 
 type LocalComputedProjectionEvent =
-  | UpdateComputedDataEvent
-  | UpdateComputedDataPatchEvent
+  UpdateComputedDataEvent | UpdateComputedDataPatchEvent
 
 type LocalComputedBatchPublishers = typeof sceneTreeEvents & {
   publishLocalComputedDataEvents(

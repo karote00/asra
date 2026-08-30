@@ -26,19 +26,16 @@ export interface PropertyComponentConstructorDefinition {
   registration?: RegistrationDefinitionMetadata
 }
 
-export interface PropertyComponentConfigDefinition
-  extends PropertyComponentConfigRegistration {
+export interface PropertyComponentConfigDefinition extends PropertyComponentConfigRegistration {
   options?: PropertyRegistrationOptions
   registration?: RegistrationDefinitionMetadata
 }
 
 export type PropertyComponentDefinition =
-  | PropertyComponentConstructorDefinition
-  | PropertyComponentConfigDefinition
+  PropertyComponentConstructorDefinition | PropertyComponentConfigDefinition
 
 export interface PropertyChildRelationMetadata
-  extends RegistrationRelationMetadata,
-    PropertyChildRelationDefinition {
+  extends RegistrationRelationMetadata, PropertyChildRelationDefinition {
   parentPropertyType: string
 }
 

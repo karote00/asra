@@ -21,8 +21,7 @@ const lodash =
 const { cloneDeep, isEqual } = lodash
 
 type InstanceDataType =
-  | ElementInstanceDataTypes
-  | PropertyComponentInstanceDataTypes
+  ElementInstanceDataTypes | PropertyComponentInstanceDataTypes
 
 export class Setter<T extends InstanceDataType> {
   data!: T

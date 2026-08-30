@@ -28,8 +28,7 @@ export interface ElementPropertyPatchTargetRequest {
 }
 
 export type ElementPropertyTargetRequest =
-  | ElementPropertyValuesTargetRequest
-  | ElementPropertyPatchTargetRequest
+  ElementPropertyValuesTargetRequest | ElementPropertyPatchTargetRequest
 
 export interface ResolvedElementPropertyTargets {
   readonly kind: 'resolved-element-property-targets'
@@ -98,8 +97,7 @@ export interface PreparedElementRemoval extends ElementRemovalRelationEvidence {
   readonly evidence: readonly SceneTreeChange[]
 }
 
-export interface PreparedCanonicalElementRemoval
-  extends ElementRemovalRelationEvidence {
+export interface PreparedCanonicalElementRemoval extends ElementRemovalRelationEvidence {
   readonly kind: 'prepared-canonical-element-removal'
   readonly orderedElementIds: readonly string[]
   readonly evidence: readonly SceneTreeChange[]

@@ -4,6 +4,31 @@ Never record completed plans here.
 
 This file tracks framework planning topics and points to detailed references.
 
+## Active Public Entry Experience Plans
+
+These plans improve how new visitors understand and verify the existing public
+Framework. They do not authorize Framework behavior changes, new public APIs,
+or unsupported capability claims.
+
+1. Root README comprehension and evidence
+
+- Reorder the repository entry around real product proof, a concrete value
+  comparison, one verified public Feature, supported starting paths, ownership,
+  and current support.
+- Preserve the accepted public README inventory, generated-surface ownership,
+  contribution policy, and validation contracts.
+- Plan:
+  `docs/ai/framework/plans/root-readme-comprehension-and-evidence-plan.md`
+
+2. Website product and technical evidence
+
+- Preserve the accepted result-first landing identity while adding current
+  product, code, ownership, and readiness evidence.
+- Rebalance or consolidate conceptual sections instead of extending the page
+  with more unverified abstraction.
+- Plan:
+  `docs/ai/framework/plans/website-product-and-technical-evidence-plan.md`
+
 ## Active Pre-Release Blockers
 
 None.

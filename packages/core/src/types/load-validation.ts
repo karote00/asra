@@ -1,10 +1,7 @@
 import type { CoreRawData, LoadDiagnostic } from '@asyra/utils'
 
 export type LoadValidationScope =
-  | 'core'
-  | 'props-manager'
-  | 'scene-tree'
-  | 'system-context'
+  'core' | 'props-manager' | 'scene-tree' | 'system-context'
 
 export interface LoadValidationDiagnostic extends LoadDiagnostic {
   scope: LoadValidationScope

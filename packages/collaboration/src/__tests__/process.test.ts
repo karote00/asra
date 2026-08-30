@@ -260,8 +260,7 @@ describe('Collaboration ownership, processing, and disposal', () => {
 
   it('binds one async onPublication callback that remains pending until app apply completes', async () => {
     let subscriber:
-      | ((publication: SharedPublication) => Promise<void>)
-      | undefined
+      ((publication: SharedPublication) => Promise<void>) | undefined
     let releaseFirst: (() => void) | undefined
     const firstSettled = new Promise<void>((resolve) => {
       releaseFirst = resolve
@@ -339,8 +338,7 @@ describe('Collaboration ownership, processing, and disposal', () => {
 
   it('rejects a failed async onPublication callback without retrying app apply', async () => {
     let subscriber:
-      | ((publication: SharedPublication) => Promise<void>)
-      | undefined
+      ((publication: SharedPublication) => Promise<void>) | undefined
     const failure = new Error('async app rejection')
     const provider = createProvider({
       onPublication: vi.fn((next) => {

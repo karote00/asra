@@ -40,8 +40,9 @@ export interface IComputed<T extends ComputedAttrs> extends ISetter<T> {
   set<K extends keyof T>(key: K, data: T[K]): void
 }
 
-export interface IElement<T extends ElementAttrs = ElementAttrs>
-  extends ISetter<T> {
+export interface IElement<
+  T extends ElementAttrs = ElementAttrs
+> extends ISetter<T> {
   props: IProps
   computed: IComputed<ComputedAttrs>
   load(data: Partial<ElementRawData>): void
@@ -54,8 +55,9 @@ export interface IElement<T extends ElementAttrs = ElementAttrs>
   ): void
 }
 
-export interface IGroupElement<T extends GroupAttrs = GroupAttrs>
-  extends IElement<T> {
+export interface IGroupElement<
+  T extends GroupAttrs = GroupAttrs
+> extends IElement<T> {
   addElement(element: ElementInstanceTypes, index?: number): void
   removeElement(element: ElementInstanceTypes): void
 }

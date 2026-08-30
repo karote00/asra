@@ -9,8 +9,7 @@ import {
 export const AI_CONTEXT_SELECTED_ELEMENT_LIMIT = 50
 
 export type AiContextCollectionErrorCode =
-  | 'AI_CONTEXT_ABORTED'
-  | 'AI_CONTEXT_INVALID_INTENT'
+  'AI_CONTEXT_ABORTED' | 'AI_CONTEXT_INVALID_INTENT'
 
 export class AiContextCollectionError extends Error {
   readonly code: AiContextCollectionErrorCode

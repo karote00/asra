@@ -214,8 +214,10 @@ export interface SelectedVectorSegmentState extends Record<string, unknown> {
   segmentId: string
 }
 
-export interface HoveredVectorSegmentInsertPointState
-  extends Record<string, unknown> {
+export interface HoveredVectorSegmentInsertPointState extends Record<
+  string,
+  unknown
+> {
   elementId: string
   segmentId: string
   x: number

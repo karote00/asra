@@ -4,8 +4,10 @@ This file is the app-level API contract map.
 
 ## Socket-Authoritative Document Session
 
-- `fileId` opens one mandatory socket document session for both one-Actor
-  and multi-Actor use.
+- `fileId` selects one local document identity. A configured
+  `VITE_COLLABORATION_WS_URL` additionally opens one socket document session
+  for both one-Actor and multi-Actor use; without it, startup is offline and
+  creates no server communication.
 - The socket handshake provides one backend checkpoint, durable/head
   sequences, and the exact pending publication tail before authoritative
   reconciliation begins.
@@ -324,9 +326,9 @@ Semantic authority:
 - one non-empty `fileId` is required to open the App document; it selects the
   App-owned document session identity and is future server authorization input,
   but it is never a Collaboration activation flag
-- RenderApp prepares Collaboration before Core for every required `fileId`,
-  including `crdt-7076-sample`, using configured
-  `VITE_COLLABORATION_WS_URL` or same-origin `/collaboration`
+- RenderApp prepares Collaboration before Core only when
+  `VITE_COLLABORATION_WS_URL` is configured. Without it, RenderApp starts Core
+  directly and does not create Collaboration or server side effects.
 - the composition maps `fileId` to both internal document and room identity and
   generates a full UUID actor identity per page
 - one connected Actor is the single-Actor execution case; when another Actor

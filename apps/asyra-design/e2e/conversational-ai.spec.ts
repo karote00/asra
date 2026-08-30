@@ -80,11 +80,9 @@ const readElementFillProjection = async (
     const element = core?.deps.sceneTree.getElementById(targetElementId)
     const renderElement = core?.deps.render.getElementById(targetElementId)
     const computed = element?.getAllComputedData() as
-      | { fills?: readonly { readonly color?: unknown }[] }
-      | undefined
+      { fills?: readonly { readonly color?: unknown }[] } | undefined
     const rendered = renderElement?.__renderDataSnapshot as
-      | { fills?: readonly { readonly color?: unknown }[] }
-      | undefined
+      { fills?: readonly { readonly color?: unknown }[] } | undefined
     const computedColor = computed?.fills?.[0]?.color
     const renderedColor = rendered?.fills?.[0]?.color
     return {

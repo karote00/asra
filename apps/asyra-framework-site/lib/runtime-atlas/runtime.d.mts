@@ -1,9 +1,5 @@
 export type AtlasRunStatus =
-  | 'ready'
-  | 'running'
-  | 'succeeded'
-  | 'rejected'
-  | 'failed'
+  'ready' | 'running' | 'succeeded' | 'rejected' | 'failed'
 
 export interface AtlasEvidence {
   readonly caseId: string

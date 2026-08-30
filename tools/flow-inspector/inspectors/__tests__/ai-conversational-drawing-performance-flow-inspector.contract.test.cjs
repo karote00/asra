@@ -1905,7 +1905,7 @@ test('Core returns ordered ids while Factory records transaction evidence direct
   )
 })
 
-test('every document uses socket-authoritative startup while remote apply stays nonpersistent', () => {
+test('local-only startup is transport-free while configured socket remote apply stays nonpersistent', () => {
   const owner = step('open-socket-authoritative-document-session')
   const localProofOwner = step('evaluate-endpoint-performance')
   const text = contractText(owner)
@@ -1915,6 +1915,10 @@ test('every document uses socket-authoritative startup while remote apply stays 
   )
 
   assert.match(text, /fileId.*socket-authoritative.*before Core starts/i)
+  assert.match(
+    text,
+    /without a configured endpoint.*LocalOnlyDocument.*local-only mode.*does not import.*WebSocket.*fetch.*persistence.*outbox/i
+  )
   assert.match(
     text,
     /socket.*unavailable.*provisional local.*Core.*Canvas.*local actions.*outbox/i

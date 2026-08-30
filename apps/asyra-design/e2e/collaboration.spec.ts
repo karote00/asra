@@ -769,9 +769,8 @@ const captureTransactionStatuses = (page: Page) =>
       performanceProfile.reset()
       return
     }
-    const { core, testRuntimeState } = await import(
-      '../src/testing/runtime-access'
-    )
+    const { core, testRuntimeState } =
+      await import('../src/testing/runtime-access')
     const statuses = testRuntimeState.set<unknown[]>(
       'factory-transaction-statuses',
       []
@@ -816,9 +815,8 @@ const captureFactoryPublicationShapes = (page: Page) =>
       ).getActiveAiDrawingPerformanceProfile()
     )
       return
-    const { core, testRuntimeState } = await import(
-      '../src/testing/runtime-access'
-    )
+    const { core, testRuntimeState } =
+      await import('../src/testing/runtime-access')
     const shapes = testRuntimeState.set<unknown[]>(
       'factory-publication-shapes',
       []
@@ -892,9 +890,8 @@ const getFactoryPublicationShapes = (page: Page) =>
 
 const captureFactoryPublicationSummaries = (page: Page) =>
   page.evaluate(async () => {
-    const { core, testRuntimeState } = await import(
-      '../src/testing/runtime-access'
-    )
+    const { core, testRuntimeState } =
+      await import('../src/testing/runtime-access')
     const summaries = testRuntimeState.set<unknown[]>(
       'factory-publication-summaries',
       []
@@ -977,9 +974,8 @@ const getFactoryUndoXChanges = (page: Page) =>
 
 const classifyFactoryPublicationsInApp = (page: Page) =>
   page.evaluate(async () => {
-    const operationsModule = await import(
-      '/src/collaboration/publication-processor.ts'
-    )
+    const operationsModule =
+      await import('/src/collaboration/publication-processor.ts')
     const { testRuntimeState } = await import('../src/testing/runtime-access')
     const canonicalRequests: string[][] = []
     const processor = operationsModule.createPublicationProcessor({
@@ -1000,9 +996,8 @@ const classifyFactoryPublicationsInApp = (page: Page) =>
 
 const capturePublicationOutcomes = (page: Page) =>
   page.evaluate(async () => {
-    const { getActiveCollaborationHandle, testRuntimeState } = await import(
-      '../src/testing/runtime-access'
-    )
+    const { getActiveCollaborationHandle, testRuntimeState } =
+      await import('../src/testing/runtime-access')
     const outcomes = testRuntimeState.set<unknown[]>(
       'remote-restore-outcomes',
       []
@@ -2299,9 +2294,8 @@ test('remote undo restores an exact nested Group with and without local tombston
     ).toEqual({ scene: 0, props: 0 })
 
     await noTombstonePeer.evaluate(async () => {
-      const { core, testRuntimeState } = await import(
-        '../src/testing/runtime-access'
-      )
+      const { core, testRuntimeState } =
+        await import('../src/testing/runtime-access')
       const publications = testRuntimeState.set<unknown[]>(
         'remote-restore-publications',
         []
@@ -2386,9 +2380,8 @@ test('remote undo restores an exact nested Group with and without local tombston
     expect(await getUndoDepth(noTombstonePeer)).toBe(noTombstoneUndoDepth)
     expect(
       await noTombstonePeer.evaluate(async () => {
-        const { testRuntimeState } = await import(
-          '../src/testing/runtime-access'
-        )
+        const { testRuntimeState } =
+          await import('../src/testing/runtime-access')
         return {
           publications:
             testRuntimeState.get<unknown[]>('remote-restore-publications')
@@ -2848,8 +2841,7 @@ test('mouse-down create and drag frames reach peer canonical state before pointe
       .toEqual(await getCanonicalSnapshot(first))
 
     const clickCreated = (await getCanonicalSnapshot(second))[0]?.computed as
-      | { width?: unknown; height?: unknown }
-      | undefined
+      { width?: unknown; height?: unknown } | undefined
     expect(clickCreated?.width).toBe(100)
     expect(clickCreated?.height).toBe(100)
 

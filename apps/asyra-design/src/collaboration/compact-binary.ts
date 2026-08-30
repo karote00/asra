@@ -395,7 +395,7 @@ class BinaryWriter {
     }
     let remaining = value
     while (remaining >= 0x80) {
-      this.writeByte(remaining % 0x80 | 0x80)
+      this.writeByte((remaining % 0x80) | 0x80)
       remaining = Math.floor(remaining / 0x80)
     }
     this.writeByte(remaining)
@@ -500,9 +500,7 @@ export interface PreparedCompactBinaryEncoding {
   readonly byteLength: number
 }
 
-class PreparedCompactBinaryEncodingImplementation
-  implements PreparedCompactBinaryEncoding
-{
+class PreparedCompactBinaryEncodingImplementation implements PreparedCompactBinaryEncoding {
   constructor(
     readonly value: unknown,
     readonly dictionary: BinaryDictionary,

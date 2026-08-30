@@ -52,8 +52,10 @@ interface VectorComputedData {
   networks?: Record<string, VectorNetwork>
 }
 
-interface SelectionOverlayRenderLayerDeps
-  extends Pick<PresetDependencies, 'render' | 'sceneTree' | 'systemContext'> {
+interface SelectionOverlayRenderLayerDeps extends Pick<
+  PresetDependencies,
+  'render' | 'sceneTree' | 'systemContext'
+> {
   getSelection: (type: string) => ElementSelectionReader | undefined
 }
 
@@ -61,8 +63,7 @@ const getElementSelectionIds = (deps: SelectionOverlayRenderLayerDeps) => {
   const selectedIds = Array.from(
     (
       deps.getSelection(SelectionChannels.ELEMENT) as
-        | ElementSelectionReader
-        | undefined
+        ElementSelectionReader | undefined
     )?.getSelectedIds() ?? []
   )
   return selectedIds.length > 0
@@ -439,8 +440,7 @@ const drawHoverGeometryOutline = (
 
   const hoveredSceneElement = deps.sceneTree.getElementById(elementId)
   const computed = hoveredSceneElement?.getAllComputedData() as
-    | VectorComputedData
-    | undefined
+    VectorComputedData | undefined
   const width = computed?.width
   const height = computed?.height
 

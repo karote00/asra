@@ -73,8 +73,8 @@ export const getElementGeometryWorldBounds = (
     const toGlobal = element.toGlobal
     const worldTransform = element.worldTransform
     let projectPoint:
-      | ((point: { x: number; y: number }) => { x: number; y: number })
-      | null = null
+      ((point: { x: number; y: number }) => { x: number; y: number }) | null =
+      null
     if (worldTransform) {
       projectPoint = (point) => transformGeometryPoint(worldTransform, point)
     }

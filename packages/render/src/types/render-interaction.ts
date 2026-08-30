@@ -21,11 +21,7 @@ export interface RenderInteractionTarget {
 }
 
 export type RenderInteractionEventType =
-  | 'pointerdown'
-  | 'pointermove'
-  | 'pointerup'
-  | 'pointerenter'
-  | 'pointerleave'
+  'pointerdown' | 'pointermove' | 'pointerup' | 'pointerenter' | 'pointerleave'
 
 export interface RenderInteractionEvent {
   type: RenderInteractionEventType

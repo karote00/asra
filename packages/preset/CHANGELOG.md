@@ -1,5 +1,11 @@
 # @asyra/preset
 
+## 0.5.6
+
+### Patch Changes
+
+- Remove unused package dependencies from the published manifests.
+
 ## 0.5.5
 
 ### Patch Changes

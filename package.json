@@ -84,8 +84,8 @@
     "yarn": ">=4.3.1"
   },
   "resolutions": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "js-yaml@npm:4.1.1": "npm:4.3.2",
     "minimatch@npm:10.1.1": "npm:10.2.6"
   },
@@ -95,16 +95,16 @@
     "@eslint/js": "^9.17.0",
     "eslint": "^9.17.0",
     "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-prettier": "^5.2.1",
+    "eslint-plugin-prettier": "^5.5.6",
     "eslint-plugin-react": "^7.37.3",
-    "fs-extra": "^11.3.3",
+    "fs-extra": "^11.4.0",
     "glob": "^13.0.6",
     "jsdom": "^27.4.0",
-    "prettier": "^3.4.2",
-    "turbo": "^2.3.3",
+    "prettier": "^3.9.6",
+    "turbo": "^2.10.12",
     "typescript": "^5.7.2",
-    "typescript-eslint": "^8.18.2",
-    "wait-on": "^9.0.3"
+    "typescript-eslint": "^8.68.0",
+    "wait-on": "^9.1.0"
   },
   "dependencies": {
     "context-rag": "^2.1.4",

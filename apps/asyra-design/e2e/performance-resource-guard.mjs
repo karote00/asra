@@ -958,9 +958,8 @@ const normalizePreparedResponsePreviewAttestation = (attestation) => {
 }
 
 const attestPreparedResponsePreview = async () => {
-  const { attestPreparedServerResponsePreview } = await import(
-    './prepared-server-response-artifacts.mjs'
-  )
+  const { attestPreparedServerResponsePreview } =
+    await import('./prepared-server-response-artifacts.mjs')
   return attestPreparedServerResponsePreview()
 }
 

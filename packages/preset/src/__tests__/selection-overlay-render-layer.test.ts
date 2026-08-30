@@ -54,8 +54,7 @@ const createOverlayProbe = ({
     throw new Error('Selection overlay registration was not created')
   }
   const layer = registration.layer as
-    | { children?: OverlayGraphicsProbe[] }
-    | undefined
+    { children?: OverlayGraphicsProbe[] } | undefined
   const graphics = layer?.children?.[0]
   if (!graphics) {
     throw new Error('Selection overlay graphics was not created')
@@ -122,8 +121,7 @@ describe('selection overlay render layer', () => {
     )
 
     const layer = registration?.layer as
-      | { children?: OverlayGraphicsProbe[] }
-      | undefined
+      { children?: OverlayGraphicsProbe[] } | undefined
     const graphics = layer?.children?.[0]
     expect(graphics).toBeDefined()
     if (!graphics) {

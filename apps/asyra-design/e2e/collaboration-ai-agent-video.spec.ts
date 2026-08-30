@@ -498,9 +498,8 @@ const waitForCollaboration = async (page: Page) => {
 
 const captureCollaborationOutcomes = async (page: Page) => {
   await page.evaluate(async () => {
-    const { getActiveCollaborationHandle, testRuntimeState } = await import(
-      '../src/testing/runtime-access'
-    )
+    const { getActiveCollaborationHandle, testRuntimeState } =
+      await import('../src/testing/runtime-access')
     const outcomes = testRuntimeState.set<CollaborationOutcomeEvidence[]>(
       'ai-crdt-outcomes',
       []
@@ -810,9 +809,8 @@ const getCanonicalAndRenderedAiElementCounts = (
 
 const installHistoryReplayPaintCapture = (page: Page): Promise<void> =>
   page.evaluate(async () => {
-    const { core, testRuntimeState } = await import(
-      '../src/testing/runtime-access'
-    )
+    const { core, testRuntimeState } =
+      await import('../src/testing/runtime-access')
     const evidence = testRuntimeState.set<
       HistoryReplayPaintSequence & {
         active: 'redo' | 'undo' | null
@@ -851,9 +849,8 @@ const setHistoryReplayPaintDirection = (
   direction: 'redo' | 'undo' | null
 ): Promise<void> =>
   page.evaluate(async (nextDirection) => {
-    const { core, testRuntimeState } = await import(
-      '../src/testing/runtime-access'
-    )
+    const { core, testRuntimeState } =
+      await import('../src/testing/runtime-access')
     const capture = testRuntimeState.get<{
       active: 'redo' | 'undo' | null
       redo: HistoryReplayPaintEvidence[]
@@ -974,8 +971,7 @@ const getHistoryReplayPhaseCapture = (
     }>('ai-history-replay-phases')
     const summarize = (
       totals:
-        | Map<string, { count: number; totalDurationMs: number }>
-        | undefined
+        Map<string, { count: number; totalDurationMs: number }> | undefined
     ) =>
       [...(totals ?? new Map())]
         .map(([name, summary]) => ({ name, ...summary }))
@@ -1805,21 +1801,17 @@ const getPersistedAiDrawingEvidence = async (
     vectorCount += 1
     const elementProperties = element.props ?? {}
     const points = properties[elementProperties.points] as
-      | { points?: readonly string[] }
-      | undefined
+      { points?: readonly string[] } | undefined
     pointCount += points?.points?.length ?? 0
     const fills = properties[elementProperties.fills] as
-      | { fills?: readonly string[] }
-      | undefined
+      { fills?: readonly string[] } | undefined
     const primaryFill = properties[fills?.fills?.[0] ?? ''] as
-      | { color?: unknown }
-      | undefined
+      { color?: unknown } | undefined
     if (primaryFill?.color === '#DC2626') {
       redFillIds.push(id)
     }
     const dimension = properties[elementProperties.dimension] as
-      | { height?: unknown; width?: unknown }
-      | undefined
+      { height?: unknown; width?: unknown } | undefined
     if (
       primaryFill?.color === '#FFFFFF' &&
       dimension?.width === 1672 &&
@@ -1832,11 +1824,9 @@ const getPersistedAiDrawingEvidence = async (
       })
     }
     const strokes = properties[elementProperties.strokes] as
-      | { strokes?: readonly string[] }
-      | undefined
+      { strokes?: readonly string[] } | undefined
     const primaryStroke = properties[strokes?.strokes?.[0] ?? ''] as
-      | { fill?: { color?: unknown } }
-      | undefined
+      { fill?: { color?: unknown } } | undefined
     if (primaryStroke?.fill?.color === '#2563EB') {
       blueStrokeIds.push(id)
     }
@@ -2524,8 +2514,7 @@ test('proves the high-detail progressive CRDT correctness flow without generatin
   let actorBCpuProfilePath: string | undefined
   let actorBCpuProfileStop: (() => Promise<void>) | undefined
   let stopWebSocketPayloadProfile:
-    | (() => Promise<WebSocketPayloadProfile>)
-    | undefined
+    (() => Promise<WebSocketPayloadProfile>) | undefined
   const timings: Record<string, number> = {}
   const measureHarnessPhase = async <T>(
     name: string,

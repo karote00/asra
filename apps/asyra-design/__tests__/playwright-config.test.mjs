@@ -304,9 +304,8 @@ test('ordinary AI profiling stays low-load while high detail remains guarded', a
 })
 
 test('ordinary Playwright runtime policy is local-friendly and CI fail-fast', async () => {
-  const { resolveOrdinaryPlaywrightRuntimePolicy } = await import(
-    '../playwright-runtime-policy.mjs'
-  )
+  const { resolveOrdinaryPlaywrightRuntimePolicy } =
+    await import('../playwright-runtime-policy.mjs')
 
   assert.deepEqual(resolveOrdinaryPlaywrightRuntimePolicy({}), {
     maxFailures: undefined,

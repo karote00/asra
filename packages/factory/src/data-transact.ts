@@ -87,11 +87,9 @@ interface SuppressedHistorySharedReplay {
   suppress: true
 }
 type HistorySharedReplayDirective =
-  | HistorySharedReplay
-  | SuppressedHistorySharedReplay
+  HistorySharedReplay | SuppressedHistorySharedReplay
 type HistorySharedReplayOutputs = readonly (
-  | HistorySharedReplayDirective
-  | undefined
+  HistorySharedReplayDirective | undefined
 )[]
 interface HistoryReplaySharedBatchState {
   readonly batch: SharedDeliveryBatch
@@ -395,8 +393,7 @@ class DataTransact {
     ReplaceLatestHistoryStage
   >()
   private preparedActionHistoryEntries:
-    | readonly TransactionJournalEntry[]
-    | null = null
+    readonly TransactionJournalEntry[] | null = null
   private undoStack: FactoryHistoryEntry[] = []
   private redoStack: FactoryHistoryEntry[] = []
   private isTransacting = 0
@@ -466,8 +463,7 @@ class DataTransact {
   private activeDeliverySequenceValidated = false
   private nextDeliverySliceIndex = 0
   private activeStagedDeliveryController:
-    | FactoryStagedDeliveryController
-    | undefined
+    FactoryStagedDeliveryController | undefined
   private activeDeliveryHandle: FactoryMutationBatchDeliveryHandle | undefined
   private activeDeliveryHandleToken: symbol | undefined
   private readonly pendingTransactionStatuses: TransactionStatusPayload[] = []
@@ -1287,8 +1283,7 @@ class DataTransact {
     const recordPayload = record.change as unknown as Record<string, unknown>
 
     let projectedCollection:
-      | { key: string; value: readonly unknown[] }
-      | undefined
+      { key: string; value: readonly unknown[] } | undefined
     if (
       Array.isArray(inversePayload.entries) &&
       Array.isArray(recordPayload.entries)
@@ -2319,8 +2314,7 @@ class DataTransact {
   }
 
   private resolveCommittedHistoryDeliverySequence():
-    | FactoryMutationDeliverySequence
-    | undefined {
+    FactoryMutationDeliverySequence | undefined {
     if (this.activeDeliverySequence?.mode === 'progressive') {
       return this.activeDeliverySequence
     }
@@ -4120,8 +4114,7 @@ class DataTransact {
   }
 
   private flushNextReadyHistoryReplaySlice():
-    | 'none'
-    | HistoryReplaySliceSettlement {
+    'none' | HistoryReplaySliceSettlement {
     const sharedState = this.historyReplaySharedState
     if (!sharedState) return 'none'
     const firstUndeliveredIndex = sharedState.batchStates.findIndex(

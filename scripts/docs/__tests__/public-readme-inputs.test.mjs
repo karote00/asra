@@ -99,7 +99,8 @@ test('Asyra Design README is the standalone generated-product guide', () => {
   assert.match(readme, /## Build with an AI coding agent/u)
   assert.match(readme, /## Framework flows/u)
   assert.match(readme, /yarn start/u)
-  assert.match(readme, /provisional offline state/u)
+  assert.match(readme, /Without `.env`.*local-only mode/su)
+  assert.match(readme, /Collaboration offline state.*durable outbox/su)
   assert.doesNotMatch(readme, /yarn dev:all|Start in this repository/u)
 })
 

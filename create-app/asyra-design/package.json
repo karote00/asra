@@ -1,6 +1,6 @@
 {
   "name": "create-asyra-design-app",
-  "version": "0.5.11",
+  "version": "0.5.12",
   "description": "Create a ready-to-use Asyra Design canvas and visual editor app",
   "license": "MIT",
   "type": "module",

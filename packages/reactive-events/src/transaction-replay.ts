@@ -12,8 +12,7 @@ const appliedReplayFailures = new WeakMap<
   { token: symbol; applied: boolean }
 >()
 let lastPrimitiveReplayFailure:
-  | { failure: unknown; token: symbol; applied: boolean }
-  | undefined
+  { failure: unknown; token: symbol; applied: boolean } | undefined
 
 const isObjectFailure = (failure: unknown): failure is object =>
   (typeof failure === 'object' && failure !== null) ||

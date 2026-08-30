@@ -22,9 +22,7 @@ export type SessionEndHandler<T = Record<string, unknown>> = (
 ) => void | Promise<void>
 
 export type SessionCancelPolicy =
-  | 'rollback'
-  | 'commit-current'
-  | 'feature-defined'
+  'rollback' | 'commit-current' | 'feature-defined'
 
 export type SessionCancelOutcome = 'rollback' | 'commit-current'
 
@@ -32,9 +30,7 @@ export type SessionCancelHandler<T = Record<string, unknown>> = (
   snapshot: SystemContextSnapshot,
   state: T
 ) =>
-  | SessionCancelOutcome
-  | undefined
-  | Promise<SessionCancelOutcome | undefined>
+  SessionCancelOutcome | undefined | Promise<SessionCancelOutcome | undefined>
 
 export type SessionState = Record<string, unknown>
 

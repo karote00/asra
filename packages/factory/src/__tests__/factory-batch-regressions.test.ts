@@ -875,12 +875,10 @@ describe('Factory batch regression contracts', () => {
       new LocalSharedDataChannel()
     )
     const inverseEvents = () =>
-      ['inverse-x', 'inverse-y'].map(
-        (id): AllEvent => ({
-          type: EventTypes.UPDATE_PROPERTY,
-          payload: { id, before: 1, after: 0 }
-        })
-      )
+      ['inverse-x', 'inverse-y'].map((id): AllEvent => ({
+        type: EventTypes.UPDATE_PROPERTY,
+        payload: { id, before: 1, after: 0 }
+      }))
     factory.registerTransactionInverter('custom.multi-output', inverseEvents)
     factory.registerTransactionReplayHandler(
       EventTypes.UPDATE_PROPERTY,
@@ -946,12 +944,10 @@ describe('Factory batch regression contracts', () => {
           id === 'canonical-mismatch'
             ? ['inverse-x', 'inverse-y']
             : ['inverse-x']
-        return outputIds.map(
-          (outputId): AllEvent => ({
-            type: EventTypes.UPDATE_PROPERTY,
-            payload: { id: outputId, before: 1, after: 0 }
-          })
-        )
+        return outputIds.map((outputId): AllEvent => ({
+          type: EventTypes.UPDATE_PROPERTY,
+          payload: { id: outputId, before: 1, after: 0 }
+        }))
       }
     )
     factory.registerTransactionReplayHandler(
@@ -1258,8 +1254,7 @@ describe('Factory batch regression contracts', () => {
 
     const deliveredPayload = publications[0]?.slices[0]?.batches[0]
       ?.deliveries[0]?.payload as
-      | { readonly geometry?: typeof geometry }
-      | undefined
+      { readonly geometry?: typeof geometry } | undefined
     expect(deliveredPayload?.geometry).toBe(geometry)
     expect(factory.getUndoHistoryDepth()).toBe(1)
     expect(nestedGeometryReads).toBe(0)

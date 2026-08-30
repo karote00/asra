@@ -335,9 +335,8 @@ test.describe('Delete Selected Element', () => {
     await expect
       .poll(() =>
         page.evaluate(async () => {
-          const { testRuntimeState } = await import(
-            '../src/testing/runtime-access'
-          )
+          const { testRuntimeState } =
+            await import('../src/testing/runtime-access')
           return (
             testRuntimeState.get<string[]>('delete-rollback-statuses') ?? []
           )
@@ -543,8 +542,7 @@ test.describe('Delete Selected Element', () => {
       const computed = element?.getAllComputedData?.() ?? {}
       const networks = Object.values(computed.networks ?? {})
       const primaryNetwork = networks[0] as
-        | { pointIds?: string[]; segmentIds?: string[] }
-        | undefined
+        { pointIds?: string[]; segmentIds?: string[] } | undefined
 
       return {
         vectorId: pathEditingVectorId,

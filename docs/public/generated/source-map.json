@@ -20,11 +20,11 @@
       "sources": [
         {
           "path": "create-app/asyra-design/package.json",
-          "sha256": "7e9ddb8cd257a3ab2c828c96d8416739e99d884347d1c0ceac3863b525f297c9"
+          "sha256": "7ee99d7f8caac23a336640af7f4e20df98001eeb823f9246a195bd180e9e96af"
         },
         {
           "path": "create-app/asyra-design/template/README.md",
-          "sha256": "71cac71df17825f1973dd279003ded9bdf2e1d3c2c1a65f950738a8ed7195017"
+          "sha256": "5119d879329d61c113dc064c1b60d3e8d9a16b883061f8e0fd66d22ed61a64ce"
         }
       ]
     },
@@ -272,7 +272,7 @@
         },
         {
           "path": "docs/ai/apps/asyra-design/modules/collaboration-reference.md",
-          "sha256": "d4df9ed4ba87cf34afa000240f3c1ac6b1726ed1a701d74dd6f989985cfcc68c"
+          "sha256": "25fdb5ffc4facbb9bd7d82b90054fb123098f8d21e15928b0473576a7498f930"
         }
       ]
     },
@@ -356,7 +356,7 @@
         },
         {
           "path": "packages/design-system/package.json",
-          "sha256": "c424f0aa9d4d937889f24e0a8de5542f68cedf441ef3a2c1f329289bd1750841"
+          "sha256": "097903bfa255686759e3d914999bc1eb18fac3d857020542582f0a2f3bd32f7a"
         }
       ]
     },
@@ -426,7 +426,7 @@
         },
         {
           "path": "packages/preset/package.json",
-          "sha256": "c9cfbcc08c79170104d4b1ed10599ea3b8f37cbabb957491238cfdec2d435389"
+          "sha256": "73dd7d3d3dd1becce70fb1ffa79d1f2676dbef228859e7de241f2ad73b83c8c1"
         }
       ]
     },
@@ -454,7 +454,7 @@
         },
         {
           "path": "packages/reactive-events/package.json",
-          "sha256": "bf9378adc9f1c407149dc017c12f0b48df57405f917f6d9191cb39b134fc18ae"
+          "sha256": "90120af485d9606265168d91e522ce8e526cb0dbe751be56f9c2e9cf78617c86"
         }
       ]
     },
@@ -588,7 +588,7 @@
         },
         {
           "path": "package.json",
-          "sha256": "7b5dffed9cab24fe002c728eb8d0ad594443c38a54b5a10eb0556543ffe727bc"
+          "sha256": "576ecef1c91bfbc625dce772667cc57c77584dbdcd0bb6f0c443ecf19b98807d"
         }
       ]
     },
@@ -602,11 +602,11 @@
         },
         {
           "path": "docs/ai/apps/asyra-design/ARCHITECTURE.md",
-          "sha256": "36b5b3c871d96d1e2d828e159f38cd39881b7c4900262d4be91ee91775bd3b16"
+          "sha256": "b9d56b75f08facbaa09da3227978c53138dc3148031b0c8b062ccc1850708aec"
         },
         {
           "path": "docs/ai/apps/asyra-design/modules/init-and-startup.md",
-          "sha256": "cdfdcfc16fe55199edc6898feb5514376e5cdffa94f9938ebdd1d07900bdc835"
+          "sha256": "65f45376ceec69a346b050d27ccfb7f28189e5c860774a4961c96c9e7d5d6de2"
         }
       ]
     }

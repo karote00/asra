@@ -9,12 +9,7 @@ export interface AwarenessRecord {
 }
 
 export type AwarenessValue =
-  | null
-  | string
-  | number
-  | boolean
-  | AwarenessValue[]
-  | AwarenessRecord
+  null | string | number | boolean | AwarenessValue[] | AwarenessRecord
 
 export type AwarenessStateInput = Readonly<
   Record<string, AwarenessValue | undefined>
@@ -49,8 +44,7 @@ export interface AwarenessRemovedObservation {
 }
 
 export type AwarenessObservation =
-  | AwarenessUpdatedObservation
-  | AwarenessRemovedObservation
+  AwarenessUpdatedObservation | AwarenessRemovedObservation
 
 export type AwarenessValidationErrorCode =
   | 'invalid-actor'

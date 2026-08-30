@@ -5,11 +5,7 @@ import type {
 } from '@asyra/ai-agent-runtime'
 
 export type AiConversationOutcome =
-  | 'cancelled'
-  | 'failed'
-  | 'no-change'
-  | 'partial'
-  | 'success'
+  'cancelled' | 'failed' | 'no-change' | 'partial' | 'success'
 
 export interface AiTargetHints {
   readonly compositionId: string | null
