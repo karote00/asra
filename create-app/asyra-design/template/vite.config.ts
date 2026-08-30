@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
-import tailwindcss from 'tailwindcss'
+import tailwindcss from '@tailwindcss/vite'
 import { loadEnvironment, resolveEnvironment } from './app-environment.mjs'
 import { createDocumentDatabaseMiddleware } from './e2e/document-database-middleware.mjs'
 import { createVTracerMiddleware } from './vtracer-tool-server.mjs'
@@ -39,12 +39,8 @@ const createDocumentDatabaseTestPlugin = (): Plugin => ({
 })
 
 export default defineConfig({
-  css: {
-    postcss: {
-      plugins: [tailwindcss()]
-    }
-  },
   plugins: [
+    tailwindcss(),
     ...(enablesE2eDocumentDatabase ? [createDocumentDatabaseTestPlugin()] : []),
     createActionBatchPlugin(),
     createVTracerPlugin(),
