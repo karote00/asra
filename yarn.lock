@@ -374,9 +374,8 @@ __metadata:
     "@asyra/scene-tree": "workspace:*"
     "@asyra/selection": "workspace:*"
     "@asyra/utils": "workspace:*"
-    "@types/earcut": "npm:^2.1.4"
     "@vitest/coverage-v8": "npm:^3.2.6"
-    earcut: "npm:^2.2.4"
+    earcut: "npm:^3.2.3"
     typescript: "npm:^5.7.2"
     vitest: "npm:^3.2.6"
   languageName: unknown
@@ -3711,13 +3710,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/earcut@npm:^2.1.4":
-  version: 2.1.4
-  resolution: "@types/earcut@npm:2.1.4"
-  checksum: 10c0/ab76940f1cc66ac861932f254b8c0344ebdcfed69e356606416d562e17cd112221b08340d52232f73ff1ad08d4dcf9caa5352c73258df4b8a41c9110ba370262
-  languageName: node
-  linkType: hard
-
 "@types/earcut@npm:^3.0.0":
   version: 3.0.0
   resolution: "@types/earcut@npm:3.0.0"
@@ -5705,14 +5697,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"earcut@npm:^2.2.4":
-  version: 2.2.4
-  resolution: "earcut@npm:2.2.4"
-  checksum: 10c0/01ca51830edd2787819f904ae580087d37351f6048b4565e7add4b3da8a86b7bc19262ab2aa7fdc64129ab03af2d9cec8cccee4d230c82275f97ef285c79aafb
-  languageName: node
-  linkType: hard
-
-"earcut@npm:^3.0.2":
+"earcut@npm:^3.0.2, earcut@npm:^3.2.3":
   version: 3.2.3
   resolution: "earcut@npm:3.2.3"
   checksum: 10c0/38660ec1ce55eecbbbf11d5a0072934c9f33851527bf5e40923c6656c3a0c6b00bb449ae8f4b28f89a0b249fe18568e630a8ea9ee39ce2707a50a89531a2f995
