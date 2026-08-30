@@ -26,7 +26,7 @@ export default tseslint.config(
     }
   },
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['**/*.{ts,tsx}'],
     plugins: {
       react
     },

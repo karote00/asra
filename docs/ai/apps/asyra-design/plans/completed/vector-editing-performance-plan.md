@@ -24,25 +24,25 @@ Out of scope:
 ## Known Performance Hotspots (Current Baseline)
 
 1. Full fill rebuild inside render strategy  
-`/Users/asa/Desktop/workspace/asra/packages/preset/src/components/vector.ts`
+`packages/preset/src/components/vector.ts`
 2. O(n^2) line intersection splitting  
-`/Users/asa/Desktop/workspace/asra/packages/preset/src/components/vector.ts`
+`packages/preset/src/components/vector.ts`
 3. Curve flattening on every rebuild  
-`/Users/asa/Desktop/workspace/asra/packages/preset/src/components/vector.ts`
+`packages/preset/src/components/vector.ts`
 4. Face extraction + centroid filtering for even-odd  
-`/Users/asa/Desktop/workspace/asra/packages/preset/src/components/vector.ts`
+`packages/preset/src/components/vector.ts`
 5. Render strategy re-run on every property change  
-`/Users/asa/Desktop/workspace/asra/packages/render/src/layers/scene/render-layer.ts`
+`packages/render/src/layers/scene/render-layer.ts`
 6. Frequent system property + selection updates during drag  
-`/Users/asa/Desktop/workspace/asra/apps/asyra-design/src/features/pen-tool/index.ts`
+`apps/asyra-design/src/features/pen-tool/index.ts`
 7. Vector path editing overlay redraw cost  
-`/Users/asa/Desktop/workspace/asra/packages/preset/src/render-layers/vector-path-editing-render-layer.ts`
+`packages/preset/src/render-layers/vector-path-editing-render-layer.ts`
 8. Selection overlay redraw cost  
-`/Users/asa/Desktop/workspace/asra/packages/preset/src/render-layers/selection-overlay-render-layer.ts`
+`packages/preset/src/render-layers/selection-overlay-render-layer.ts`
 9. Render ticker updates all layers every frame  
-`/Users/asa/Desktop/workspace/asra/packages/render/src/render.ts`
+`packages/render/src/render.ts`
 10. No segment-level incremental cache for fill geometry  
-`/Users/asa/Desktop/workspace/asra/packages/preset/src/components/vector.ts`
+`packages/preset/src/components/vector.ts`
 
 ## Target Behavior
 

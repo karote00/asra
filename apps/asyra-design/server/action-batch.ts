@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { Buffer } from 'node:buffer'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { ACTION_BATCH_ENDPOINT } from '../src/ai/action-batch-endpoint'
@@ -11,13 +11,23 @@ import type {
 } from '../src/ai/action-batch-protocol'
 
 const sampleRoot = new URL('../samples/crdt-7076/', import.meta.url)
-const sampleInstruction = readFileSync(
-  new URL('instruction.txt', sampleRoot),
-  'utf8'
-).trim()
-const sampleImage = readFileSync(new URL('reference-image.png', sampleRoot))
-const sampleImageDigest = createHash('sha256').update(sampleImage).digest('hex')
+const sampleInstructionUrl = new URL('instruction.txt', sampleRoot)
+const sampleImageUrl = new URL('reference-image.png', sampleRoot)
 const sampleActionBatchUrl = new URL('action-batch.json', sampleRoot)
+const hasRegisteredSample = [
+  sampleInstructionUrl,
+  sampleImageUrl,
+  sampleActionBatchUrl
+].every((file) => existsSync(file))
+const sampleInstruction = hasRegisteredSample
+  ? readFileSync(sampleInstructionUrl, 'utf8').trim()
+  : undefined
+const sampleImage = hasRegisteredSample
+  ? readFileSync(sampleImageUrl)
+  : undefined
+const sampleImageDigest = sampleImage
+  ? createHash('sha256').update(sampleImage).digest('hex')
+  : undefined
 const maximumRequestBytes = 16 * 1024 * 1024
 let sampleActionBatchPromise: Promise<AiActionBatch> | undefined
 
@@ -51,6 +61,7 @@ const unsupportedSample = (): never => {
 const matchesSampleImageAttachment = (
   metadata: AiJsonValue | undefined
 ): boolean => {
+  if (!sampleImage || !sampleImageDigest) return false
   if (
     !isRecord(metadata) ||
     !Array.isArray(metadata.imageAttachments) ||
@@ -134,7 +145,8 @@ export const resolveActionBatchRequest = async (
       'The action-batch input is invalid.'
     )
   }
-  const matchesSampleInstruction = input.intent.trim() === sampleInstruction
+  const matchesSampleInstruction =
+    sampleInstruction !== undefined && input.intent.trim() === sampleInstruction
   const matchesSampleImage = matchesSampleImageAttachment(input.metadata)
   assertRequestId(options.requestId ?? randomUUID())
 

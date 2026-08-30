@@ -64,6 +64,8 @@ const CHECK_DIRECTORY = path.resolve(
 )
 const DEST_DIR = CHECK ? CHECK_DIRECTORY : CONFIGURED_DEST_DIR
 const CLEAN_FILES = config.cleanFiles || []
+const REMOVE_SCRIPTS = config.removeScripts || []
+const REMOVE_SCRIPT_ARGUMENTS = config.removeScriptArguments || {}
 const SOURCE_README = path.join(SRC_DIR, 'README.md')
 const SOURCE_EXAMPLE_ENVIRONMENT = path.join(SRC_DIR, '.env.example')
 const TEMPLATE_LICENSE = config.license
@@ -219,7 +221,23 @@ if (!fs.existsSync(pkgPath)) {
       'tsc -p tsconfig.document-backend.json && vite build --config vite.document-backend.config.ts'
   }
   if (pkg.scripts) {
-    delete pkg.scripts['generate:crdt-7076-document']
+    pkg.scripts.lint = 'eslint .'
+    pkg.scripts = Object.fromEntries(
+      Object.entries(pkg.scripts).filter(
+        ([scriptName]) => !REMOVE_SCRIPTS.includes(scriptName)
+      )
+    )
+    for (const [scriptName, scriptArguments] of Object.entries(
+      REMOVE_SCRIPT_ARGUMENTS
+    )) {
+      if (!pkg.scripts[scriptName]) continue
+      for (const scriptArgument of scriptArguments) {
+        pkg.scripts[scriptName] = pkg.scripts[scriptName].replace(
+          ` ${scriptArgument}`,
+          ''
+        )
+      }
+    }
   }
 
   // ----------------------
@@ -232,7 +250,7 @@ if (!fs.existsSync(pkgPath)) {
     'eslint-config-prettier': '^10.1.8',
     'eslint-plugin-prettier': '^5.5.5',
     'eslint-plugin-react': '^7.37.5',
-    prettier: '^3.4.2',
+    prettier: '3.5.3',
     'typescript-eslint': '^8.54.0'
   }
   pkg.devDependencies = pkg.devDependencies || {}
@@ -292,7 +310,7 @@ export default tseslint.config(
     }
   },
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['**/*.{ts,tsx}'],
     plugins: {
       react
     },

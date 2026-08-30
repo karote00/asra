@@ -123,6 +123,29 @@ test('release template exposes a non-mutating synchronization check', () => {
   )
 })
 
+test('generated app exposes reproducible standalone lint tooling', () => {
+  const manifest = JSON.parse(
+    readFileSync(
+      path.join(
+        repositoryRoot,
+        'create-app/asyra-design/template/package.json'
+      ),
+      'utf8'
+    )
+  )
+  const eslintConfig = readFileSync(
+    path.join(
+      repositoryRoot,
+      'create-app/asyra-design/template/eslint.config.js'
+    ),
+    'utf8'
+  )
+
+  assert.equal(manifest.scripts.lint, 'eslint .')
+  assert.equal(manifest.devDependencies.prettier, '3.5.3')
+  assert.match(eslintConfig, /files: \['\*\*\/\*\.\{ts,tsx\}'\]/u)
+})
+
 test('release template excludes local runtime data directories', () => {
   const config = JSON.parse(
     readFileSync(
@@ -146,7 +169,23 @@ test('release template excludes local runtime data directories', () => {
     'dist',
     'playwright-report',
     'test-results',
-    'visual-review-records'
+    'visual-review-records',
+    'samples/crdt-7076',
+    'test-data/ai-drawing',
+    'e2e/crdt-7076-render.spec.ts',
+    'e2e/action-batch-interceptor.ts',
+    'e2e/ai-drawing-performance.spec.ts',
+    'e2e/collaboration-ai-agent-video.spec.ts',
+    'e2e/collaboration.spec.ts',
+    'e2e/conversational-ai.spec.ts',
+    'e2e/crdt-endpoint-performance.spec.ts',
+    'e2e/prepared-server-response-artifacts.mjs',
+    'scripts/generate-crdt-7076-document.ts',
+    '__tests__/prepared-server-response-artifacts.test.mjs',
+    '__tests__/playwright-config.test.mjs',
+    'server/__tests__/action-batch.test.ts',
+    'src/ai/__tests__/detailed-tabby.test.ts',
+    'src/common-apis/element/__tests__/vector-parent-creation.test.ts'
   ])
 
   const releaseTemplate = readFileSync(
@@ -199,6 +238,117 @@ test('Asyra Design release template retains only active drawing fixtures', () =>
       existsSync(path.join(repositoryRoot, 'apps/asyra-design', requiredPath)),
       true,
       requiredPath
+    )
+  }
+})
+
+test('Asyra Design keeps the large CRDT fixture out of the generated template', () => {
+  const config = JSON.parse(
+    readFileSync(
+      path.join(repositoryRoot, 'release-configs/asyra-design.json'),
+      'utf8'
+    )
+  )
+  const canonicalFixture = path.join(
+    repositoryRoot,
+    'apps/asyra-design/samples/crdt-7076/action-batch.json'
+  )
+  const generatedFixtureRoot = path.join(
+    repositoryRoot,
+    'create-app/asyra-design/template/samples/crdt-7076'
+  )
+
+  assert.equal(existsSync(canonicalFixture), true)
+  assert.equal(existsSync(generatedFixtureRoot), false)
+  assert.deepEqual(config.removeScripts, [
+    'generate:crdt-7076-document',
+    'test:e2e:crdt-7076',
+    'test:e2e:collaboration',
+    'prepare:e2e:endpoint-performance',
+    'test:e2e:crdt-endpoint-performance',
+    'test:e2e:ai-attribution:16',
+    'test:e2e:ai-attribution:16-reduced-motion',
+    'test:e2e:ai-attribution:1280',
+    'test:e2e:ai-attribution:maximum',
+    'test:e2e:ai-crdt-activity:16',
+    'test:e2e:ai-crdt-attribution:1280',
+    'test:e2e:ai-crdt-attribution:320',
+    'test:e2e:ai-crdt-video'
+  ])
+  assert.deepEqual(config.removeScriptArguments, {
+    'test:server-response-harness': [
+      'server/__tests__/action-batch.test.ts',
+      'test-data/ai-drawing/__tests__/action-batch-interceptor.test.ts',
+      'src/ai/__tests__/detailed-tabby.test.ts'
+    ],
+    'test:local': [
+      '__tests__/prepared-server-response-artifacts.test.mjs',
+      '__tests__/playwright-config.test.mjs',
+      'src/common-apis/element/__tests__/vector-parent-creation.test.ts'
+    ]
+  })
+  assert.equal(
+    existsSync(
+      path.join(
+        repositoryRoot,
+        'apps/asyra-design/test-data/ai-drawing/maximum-tabby-polygon.svg'
+      )
+    ),
+    true
+  )
+  assert.equal(
+    existsSync(
+      path.join(
+        repositoryRoot,
+        'create-app/asyra-design/template/test-data/ai-drawing'
+      )
+    ),
+    false
+  )
+  for (const generatedOnlyTestPath of [
+    'e2e/crdt-7076-render.spec.ts',
+    'e2e/action-batch-interceptor.ts',
+    'e2e/ai-drawing-performance.spec.ts',
+    'e2e/collaboration-ai-agent-video.spec.ts',
+    'e2e/collaboration.spec.ts',
+    'e2e/conversational-ai.spec.ts',
+    'e2e/crdt-endpoint-performance.spec.ts',
+    'e2e/prepared-server-response-artifacts.mjs',
+    'scripts/generate-crdt-7076-document.ts',
+    '__tests__/prepared-server-response-artifacts.test.mjs',
+    '__tests__/playwright-config.test.mjs',
+    'server/__tests__/action-batch.test.ts',
+    'src/ai/__tests__/detailed-tabby.test.ts',
+    'src/common-apis/element/__tests__/vector-parent-creation.test.ts'
+  ]) {
+    assert.equal(
+      existsSync(
+        path.join(
+          repositoryRoot,
+          'create-app/asyra-design/template',
+          generatedOnlyTestPath
+        )
+      ),
+      false,
+      generatedOnlyTestPath
+    )
+  }
+
+  const generatedManifest = JSON.parse(
+    readFileSync(
+      path.join(
+        repositoryRoot,
+        'create-app/asyra-design/template/package.json'
+      ),
+      'utf8'
+    )
+  )
+  for (const excludedArgument of Object.values(
+    config.removeScriptArguments
+  ).flat()) {
+    assert.doesNotMatch(
+      Object.values(generatedManifest.scripts).join('\n'),
+      new RegExp(excludedArgument.replaceAll('/', String.raw`\/`), 'u')
     )
   }
 })
@@ -560,7 +710,7 @@ test('generated template manifest is standalone on the supported release runtime
   assert.equal(manifest.packageManager, 'yarn@4.3.1')
   assert.equal(manifest.scripts?.start, 'vite dev')
   assert.equal(manifest.scripts?.['react:start'], undefined)
-  assert.equal(manifest.devDependencies?.prettier, '^3.4.2')
+  assert.equal(manifest.devDependencies?.prettier, '3.5.3')
   assert.doesNotMatch(serializedScripts, /(?:\.\.\/){2}|--cwd\s+\.\.\/\.\./)
   assert.doesNotMatch(JSON.stringify(manifest), /workspace:|(?:link|portal):/)
   for (const [packageName, version] of Object.entries(
