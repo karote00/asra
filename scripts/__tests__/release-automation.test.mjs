@@ -208,6 +208,12 @@ test('Asyra Design release template retains only active drawing fixtures', () =>
 })
 
 test('Asyra Design keeps the large CRDT fixture out of the generated template', () => {
+  const config = JSON.parse(
+    readFileSync(
+      path.join(repositoryRoot, 'release-configs/asyra-design.json'),
+      'utf8'
+    )
+  )
   const canonicalFixture = path.join(
     repositoryRoot,
     'apps/asyra-design/samples/crdt-7076/action-batch.json'
@@ -219,6 +225,10 @@ test('Asyra Design keeps the large CRDT fixture out of the generated template', 
 
   assert.equal(existsSync(canonicalFixture), true)
   assert.equal(existsSync(generatedFixtureRoot), false)
+  assert.deepEqual(config.removeScripts, [
+    'generate:crdt-7076-document',
+    'test:e2e:crdt-7076'
+  ])
   assert.equal(
     existsSync(
       path.join(

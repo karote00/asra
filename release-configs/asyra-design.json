@@ -2,6 +2,10 @@
   "src": "apps/asyra-design",
   "dest": "create-app/asyra-design/template",
   "license": "create-app/asyra-design/LICENSE",
+  "removeScripts": [
+    "generate:crdt-7076-document",
+    "test:e2e:crdt-7076"
+  ],
   "cleanFiles": [
     "node_modules",
     "yarn.lock",

@@ -64,6 +64,7 @@ const CHECK_DIRECTORY = path.resolve(
 )
 const DEST_DIR = CHECK ? CHECK_DIRECTORY : CONFIGURED_DEST_DIR
 const CLEAN_FILES = config.cleanFiles || []
+const REMOVE_SCRIPTS = config.removeScripts || []
 const SOURCE_README = path.join(SRC_DIR, 'README.md')
 const SOURCE_EXAMPLE_ENVIRONMENT = path.join(SRC_DIR, '.env.example')
 const TEMPLATE_LICENSE = config.license
@@ -219,8 +220,9 @@ if (!fs.existsSync(pkgPath)) {
       'tsc -p tsconfig.document-backend.json && vite build --config vite.document-backend.config.ts'
   }
   if (pkg.scripts) {
-    delete pkg.scripts['generate:crdt-7076-document']
-    delete pkg.scripts['test:e2e:crdt-7076']
+    for (const scriptName of REMOVE_SCRIPTS) {
+      delete pkg.scripts[scriptName]
+    }
   }
 
   // ----------------------
