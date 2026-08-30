@@ -94,9 +94,9 @@
       "sourceDigests": {
         "contract": "94c0a88a9ba5d8b317784d22cdaae2201f26d7c7d70c6821adfcafa8d6e56d09",
         "guide": "c2bc81415b3770b776ecd0b282c3889325c76a75a26bdb2d50be5a85b84b042d",
-        "manifest": "c424f0aa9d4d937889f24e0a8de5542f68cedf441ef3a2c1f329289bd1750841"
+        "manifest": "ac8ff2afc22b8212471367cc244c627a34499f3fd191f8853257443072b59e6e"
       },
-      "version": "0.5.2"
+      "version": "0.5.3"
     },
     {
       "contractPath": "docs/ai/framework/packages/factory.md",
@@ -207,9 +207,9 @@
       "sourceDigests": {
         "contract": "6063335cf9a2a4e5e51c81bdef13b0390b5cc00b82892ef7cc664c5e46b94f9c",
         "guide": "6decd16b73a5a41526c730fe457be980cd6769d08ee1e09224c69dc05fe4c510",
-        "manifest": "c9cfbcc08c79170104d4b1ed10599ea3b8f37cbabb957491238cfdec2d435389"
+        "manifest": "73dd7d3d3dd1becce70fb1ffa79d1f2676dbef228859e7de241f2ad73b83c8c1"
       },
-      "version": "0.5.5"
+      "version": "0.5.6"
     },
     {
       "contractPath": "docs/ai/framework/packages/props-manager.md",

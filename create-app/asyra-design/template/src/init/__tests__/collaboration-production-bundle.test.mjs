@@ -9,19 +9,35 @@ const appRoot = path.resolve(
   '../../..'
 )
 
-test('production bundle keeps the deployable collaboration reference composition', async () => {
+const buildProductionBundle = async (collaborationEndpoint) => {
   const result = await build({
     root: appRoot,
     configFile: path.resolve(appRoot, 'vite.config.ts'),
     mode: 'production',
     logLevel: 'silent',
+    define: {
+      'import.meta.env.VITE_COLLABORATION_WS_URL':
+        collaborationEndpoint === undefined
+          ? 'undefined'
+          : JSON.stringify(collaborationEndpoint)
+    },
     build: {
       emptyOutDir: false,
       write: false
     }
   })
-  const buildResults = Array.isArray(result) ? result : [result]
-  const chunks = buildResults.flatMap((buildResult) => buildResult.output)
+  return (Array.isArray(result) ? result : [result]).flatMap(
+    (buildResult) => buildResult.output
+  )
+}
+
+test('production bundle keeps local-only and configured collaboration modes distinct', async () => {
+  const configuredEndpoint = 'wss://collaboration.example.test/socket'
+  const [localOnlyChunks, configuredChunks] = await Promise.all([
+    buildProductionBundle(undefined),
+    buildProductionBundle(configuredEndpoint)
+  ])
+  const chunks = configuredChunks
   const moduleIds = chunks
     .filter((output) => output.type === 'chunk')
     .flatMap((chunk) => Object.keys(chunk.modules))
@@ -42,9 +58,16 @@ test('production bundle keeps the deployable collaboration reference composition
     'deployable collaboration modules are missing from the production graph'
   )
   assert.equal(
-    bundledCode.includes('/collaboration'),
+    localOnlyChunks
+      .filter((output) => output.type === 'chunk')
+      .some((chunk) => chunk.code.includes(configuredEndpoint)),
+    false,
+    'local-only production bundle must not contain a configured collaboration endpoint'
+  )
+  assert.equal(
+    bundledCode.includes(configuredEndpoint),
     true,
-    'production bundle is missing the collaboration route'
+    'configured production bundle is missing its collaboration endpoint'
   )
   assert.equal(
     bundledCode.includes('ws://127.0.0.1'),

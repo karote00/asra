@@ -23,24 +23,16 @@ export const getRequiredFileId = (): string => {
   return fileId
 }
 
-export const getCollaborationMode = (): CollaborationMode => {
+export const getConfiguredCollaborationMode = ():
+  | CollaborationMode
+  | undefined => {
   const fileId = getRequiredFileId()
   const configuredEndpoint = import.meta.env.VITE_COLLABORATION_WS_URL?.trim()
-  const endpoint =
-    configuredEndpoint ||
-    (() => {
-      const sameDeploymentEndpoint = new URL(
-        '/collaboration',
-        window.location.href
-      )
-      sameDeploymentEndpoint.protocol =
-        sameDeploymentEndpoint.protocol === 'https:' ? 'wss:' : 'ws:'
-      return sameDeploymentEndpoint.toString()
-    })()
+  if (!configuredEndpoint) return undefined
 
   return Object.freeze({
     fileId,
     actorId: `actor-${globalThis.crypto.randomUUID()}`,
-    endpoint
+    endpoint: configuredEndpoint
   })
 }

@@ -16,6 +16,7 @@ import {
  */
 
 const runsStorageFreeReset = process.env.E2E_STORAGE_FREE_RESET === 'true'
+const runsLocalOnlyStartup = process.env.E2E_LOCAL_ONLY_STARTUP === 'true'
 
 test.describe('Asyra Design Tool', () => {
   test.beforeEach(async ({ page }) => {
@@ -192,5 +193,34 @@ test.describe('Asyra Design Tool', () => {
     const toolbar = getToolbar(page)
     const zoomDisplay = toolbar.getByTestId('zoom-level')
     await expect(zoomDisplay).toBeVisible()
+  })
+})
+
+test.describe('Asyra Design local-only startup', () => {
+  test('keeps local editing available without server communication', async ({
+    page
+  }) => {
+    test.skip(!runsLocalOnlyStartup, 'requires the endpoint-free App build')
+    const webSockets: string[] = []
+    const serverRequests: string[] = []
+    page.on('websocket', (socket) => webSockets.push(socket.url()))
+    page.on('request', (request) => {
+      const url = new URL(request.url())
+      if (
+        url.pathname === '/collaboration' ||
+        url.pathname.startsWith('/api/') ||
+        url.pathname.includes('action-batch')
+      ) {
+        serverRequests.push(request.url())
+      }
+    })
+
+    await page.goto(createTestDocumentURL())
+    await waitForAppReady(page)
+    await createRectangle(page)
+    await expect.poll(() => getElementCount(page)).toBe(1)
+
+    expect(webSockets).toEqual([])
+    expect(serverRequests).toEqual([])
   })
 })
