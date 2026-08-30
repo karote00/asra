@@ -148,9 +148,12 @@ test('release template excludes local runtime data directories', () => {
     'test-results',
     'visual-review-records',
     'samples/crdt-7076',
-    'test-data/ai-drawing/maximum-tabby-polygon.svg',
+    'test-data/ai-drawing',
     'e2e/crdt-7076-render.spec.ts',
-    'scripts/generate-crdt-7076-document.ts'
+    'scripts/generate-crdt-7076-document.ts',
+    'server/__tests__/action-batch.test.ts',
+    'src/ai/__tests__/detailed-tabby.test.ts',
+    'src/common-apis/element/__tests__/vector-parent-creation.test.ts'
   ])
 
   const releaseTemplate = readFileSync(
@@ -242,14 +245,17 @@ test('Asyra Design keeps the large CRDT fixture out of the generated template', 
     existsSync(
       path.join(
         repositoryRoot,
-        'create-app/asyra-design/template/test-data/ai-drawing/maximum-tabby-polygon.svg'
+        'create-app/asyra-design/template/test-data/ai-drawing'
       )
     ),
     false
   )
   for (const generatedOnlyTestPath of [
     'e2e/crdt-7076-render.spec.ts',
-    'scripts/generate-crdt-7076-document.ts'
+    'scripts/generate-crdt-7076-document.ts',
+    'server/__tests__/action-batch.test.ts',
+    'src/ai/__tests__/detailed-tabby.test.ts',
+    'src/common-apis/element/__tests__/vector-parent-creation.test.ts'
   ]) {
     assert.equal(
       existsSync(
