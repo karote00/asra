@@ -50,9 +50,9 @@ test('root README follows the product-to-proof reader journey', () => {
     repositoryRoot,
     'docs/public/assets/asyra-design-7076-crdt.mp4'
   )
-  const collaborationPosterPath = path.join(
+  const collaborationAnimationPath = path.join(
     repositoryRoot,
-    'docs/public/assets/asyra-design-7076-crdt-poster.jpg'
+    'docs/public/assets/asyra-design-7076-crdt.gif'
   )
   const productEvidenceSpec = fs.readFileSync(
     path.join(repositoryRoot, 'apps/asyra-design/e2e/crdt-7076-render.spec.ts'),
@@ -117,11 +117,18 @@ test('root README follows the product-to-proof reader journey', () => {
   assert.match(readme, /### 7,076 elements, two live clients/u)
   assert.match(
     readme,
-    /\[!\[Two live Asyra Design clients converging on the 7,076-element cat drawing\]\(docs\/public\/assets\/asyra-design-7076-crdt-poster\.jpg\)\]\(docs\/public\/assets\/asyra-design-7076-crdt\.mp4\)/u
+    /!\[Two live Asyra Design clients converging on the 7,076-element cat drawing\]\(docs\/public\/assets\/asyra-design-7076-crdt\.gif\)/u
   )
-  const collaborationPoster = fs.readFileSync(collaborationPosterPath)
-  assert.deepEqual([...collaborationPoster.subarray(0, 3)], [0xff, 0xd8, 0xff])
-  assert.ok(collaborationPoster.byteLength < 200_000)
+  const collaborationAnimation = fs.readFileSync(collaborationAnimationPath)
+  assert.match(
+    collaborationAnimation.subarray(0, 6).toString('ascii'),
+    /^GIF8[79]a$/u
+  )
+  assert.ok(collaborationAnimation.byteLength < 2_000_000)
+  assert.match(
+    readme,
+    /<a href="docs\/public\/assets\/asyra-design-7076-crdt\.mp4\?raw=1"><strong>Download the 13-second high-quality MP4\.<\/strong><\/a>/u
+  )
   const collaborationEvidence = fs.readFileSync(collaborationEvidencePath)
   assert.equal(collaborationEvidence.subarray(4, 8).toString('ascii'), 'ftyp')
   assert.ok(collaborationEvidence.byteLength < 10_000_000)

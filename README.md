@@ -35,12 +35,12 @@ ordinary Agent, Runtime, canonical-state, and Render paths._
 
 ### 7,076 elements, two live clients
 
-[![Two live Asyra Design clients converging on the 7,076-element cat drawing](docs/public/assets/asyra-design-7076-crdt-poster.jpg)](docs/public/assets/asyra-design-7076-crdt.mp4)
+![Two live Asyra Design clients converging on the 7,076-element cat drawing](docs/public/assets/asyra-design-7076-crdt.gif)
 
-**[Play the 13-second CRDT recording](docs/public/assets/asyra-design-7076-crdt.mp4).**
+<a href="docs/public/assets/asyra-design-7076-crdt.mp4?raw=1"><strong>Download the 13-second high-quality MP4.</strong></a>
 Actor A creates the drawing through the Agent; Actor B receives it through CRDT
-and renders the same editable canonical result. The image above is a frame from
-that recording. See the
+and renders the same editable canonical result. The animation above is generated
+from that recording. See the
 [maintained sample and reproduction steps](apps/asyra-design/samples/crdt-7076/README.md).
 
 The product UI and design-domain behavior belong to the App; they are not
