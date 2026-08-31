@@ -42,6 +42,19 @@ test('README inputs derive the exact release surfaces and owners', async () => {
 
 test('root README follows the product-to-proof reader journey', () => {
   const readme = fs.readFileSync(path.join(repositoryRoot, 'README.md'), 'utf8')
+  const productEvidencePath = path.join(
+    repositoryRoot,
+    'docs/public/assets/asyra-design-product-evidence.jpg'
+  )
+  const undoRedoSource = fs
+    .readFileSync(
+      path.join(
+        repositoryRoot,
+        'apps/asyra-design/src/features/undo-redo/index.ts'
+      ),
+      'utf8'
+    )
+    .replace(/\nexport default undoRedoFeature\s*$/u, '')
 
   assert.match(readme, /https:\/\/asyra-design\.vercel\.app\/\?fileId=demo/u)
   assert.deepEqual(
@@ -64,18 +77,40 @@ test('root README follows the product-to-proof reader journey', () => {
     assert.match(attributes, /(?:^|\s)target="_blank"(?:\s|$)/u)
     assert.match(attributes, /(?:^|\s)rel="noopener noreferrer"(?:\s|$)/u)
   })
-  assert.match(
-    readme,
-    /\n- <a href="https:\/\/asyra-design\.vercel\.app\/\?fileId=demo"[^>]*>Try Asyra Design<\/a>\n- \[Read the documentation\]\(docs\/public\/index\.md\)\n- \[Install `@asyra\/core`\]\(#package-first-composition\)\n- \[Create an Asyra Design app\]\(#complete-design-product\)\n/u
-  )
+  for (const action of [
+    'Try Asyra Design',
+    'Read the documentation',
+    'Install `@asyra/core`',
+    'Create an Asyra Design app'
+  ]) {
+    assert.match(
+      readme,
+      new RegExp(action.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u')
+    )
+  }
   assert.match(readme, /## Try the demo/u)
   assert.match(readme, /Asyra Design case study/u)
+  assert.match(
+    readme,
+    /!\[Asyra Design showing editable shapes, Layers, and Properties\]\(docs\/public\/assets\/asyra-design-product-evidence\.jpg\)/u
+  )
+  const productEvidence = fs.readFileSync(productEvidencePath)
+  assert.deepEqual([...productEvidence.subarray(0, 3)], [0xff, 0xd8, 0xff])
+  assert.ok(productEvidence.byteLength < 100_000)
   assert.match(readme, /## One product behavior, one explicit owner/u)
   assert.match(readme, /Conventional product/u)
   assert.match(readme, /With Asyra/u)
   assert.match(readme, /## A real App-owned Feature/u)
   assert.match(readme, /defineFeature/u)
   assert.match(readme, /historyApis\.(undo|redo)/u)
+  assert.match(
+    readme,
+    /apps\/asyra-design\/src\/features\/undo-redo\/index\.ts/u
+  )
+  const featureExcerpt = readme.match(
+    /## A real App-owned Feature[\s\S]*?```ts\n([\s\S]*?)\n```/u
+  )?.[1]
+  assert.equal(featureExcerpt, undoRedoSource.trim())
   assert.match(readme, /Build a transaction-safe Feature/u)
   assert.match(readme, /## Choose your starting point/u)
   assert.match(readme, /npm install @asyra\/core/u)

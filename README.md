@@ -26,6 +26,11 @@ Features, editable information, the official `2D` Preset, rendering, Undo/Redo,
 persistence, and explicit optional AI and collaboration composition on the
 current browser/Core runtime.
 
+![Asyra Design showing editable shapes, Layers, and Properties](docs/public/assets/asyra-design-product-evidence.jpg)
+
+_Live Asyra Design at 100% zoom. The selected rectangle connects the canvas,
+Layers, and App-owned Properties UI in one editable product state._
+
 The product UI and design-domain behavior belong to the App; they are not
 silently installed by Framework Core. Follow the
 [Asyra Design case study](docs/public/cases/asyra-design.md) from startup and
@@ -38,12 +43,33 @@ A conventional product often reconnects the same behavior across several
 independent paths. An Asyra Feature keeps the App's decision in one explicit
 owner and routes accepted work through established correctness boundaries.
 
-| Reader question                       | Conventional product                                                      | With Asyra                                                                                                      |
-| ------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Where does intent enter?              | UI, shortcuts, automation, and AI may each grow a separate handler.       | Human, UI, automation, device, and AI intent enter an App-owned Feature or its API.                             |
-| Who owns the write?                   | UI state, service code, and saved data can each appear authoritative.     | The Feature calls an App or Framework API; the canonical package owner performs the write.                      |
-| How is failure handled?               | Validation, rollback, and cleanup are rebuilt around each caller.         | The same transaction, validation, and rollback boundaries apply to every caller.                                |
-| What reaches the rest of the product? | Rendering, history, persistence, and synchronization need custom bridges. | Canonical changes feed History, projections, serialization, and App services through their declared boundaries. |
+**Where does intent enter?**
+
+- **Conventional product:** UI, shortcuts, automation, and AI may each grow a
+  separate handler.
+- **With Asyra:** human, UI, automation, device, and AI intent enter an
+  App-owned Feature or its API.
+
+**Who owns the write?**
+
+- **Conventional product:** UI state, service code, and saved data can each
+  appear authoritative.
+- **With Asyra:** the Feature calls an App or Framework API; the canonical
+  package owner performs the write.
+
+**How is failure handled?**
+
+- **Conventional product:** validation, rollback, and cleanup are rebuilt
+  around each caller.
+- **With Asyra:** the same transaction, validation, and rollback boundaries
+  apply to every caller.
+
+**What reaches the rest of the product?**
+
+- **Conventional product:** rendering, history, persistence, and
+  synchronization need custom bridges.
+- **With Asyra:** canonical changes feed History, projections, serialization,
+  and App services through their declared boundaries.
 
 This is a behavior-ownership promise, not a claim that every product change
 fits in one file. Large Features can have multiple focused modules while still
@@ -51,9 +77,11 @@ retaining one governed path.
 
 ## A real App-owned Feature
 
-Asyra Design's Undo/Redo Feature is deliberately small. The App owns the
-shortcut meaning and calls its own common API; `defineFeature` provides the
-registered intent boundary:
+Asyra Design's Undo/Redo Feature is deliberately small. This maintained
+[App source excerpt](apps/asyra-design/src/features/undo-redo/index.ts) keeps
+its App-owned relative imports visible: the App defines the shortcut event,
+Feature name, and common history API, while `defineFeature` is imported through
+the public `@asyra/core` facade.
 
 ```ts
 import { defineFeature } from '@asyra/core'
@@ -80,12 +108,14 @@ export const undoRedoFeature = defineFeature(
 )
 ```
 
-- **The App owns meaning:** which input invokes Undo or Redo and which common
-  API performs it.
-- **The Framework supplies the boundary:** registration, priority, exclusivity,
-  transaction replay, and lifecycle remain governed instead of caller-specific.
-- **Other callers reuse the path:** UI, automation, or approved AI behavior can
-  reach the same App API without creating another history owner.
+- **This excerpt proves:** registration, priority, exclusivity, and execution
+  remain explicit at one App-owned intent boundary.
+- **The App owns meaning:** its shortcut event chooses Undo or Redo and calls
+  the App's common history API.
+- **The complete runtime contract:** the common API reaches Factory-owned
+  transaction, replay, Undo/Redo, rollback, and lifecycle behavior described in
+  the maintained guide below. Those guarantees are not inferred from the code
+  excerpt alone.
 
 For the complete lifecycle, failure, cancellation, rollback, and cleanup
 contract, follow [Build a transaction-safe Feature](docs/public/build/feature-session.md).
@@ -173,7 +203,7 @@ persistence contracts, and explicit optional collaboration and AI paths.
 An App can bring the information, rules, engines, services, and workflows for a
 whiteboard, BIM product, industrial digital twin, simulation, research tool, or
 another domain. The reusable part is the ownership, transaction, validation,
-projection, and persistence infrastructure—not hidden industry knowledge.
+projection, and persistence infrastructure - not hidden industry knowledge.
 
 ### Not turnkey modules
 
@@ -194,13 +224,13 @@ Node does not establish a supported Headless Core or server/worker lifecycle.
 
 ## Documentation
 
-- [Public documentation](docs/public/index.md) — Start, Concepts, Extend,
+- [Public documentation](docs/public/index.md) - Start, Concepts, Extend,
   Customize, Reference, and the Asyra Design case study.
-- [Asyra Design case study](docs/public/cases/asyra-design.md) — one complete
+- [Asyra Design case study](docs/public/cases/asyra-design.md) - one complete
   product's Framework, Preset, App, and backend ownership.
-- [AI-readable discovery](docs/public/llms.txt) — the stable public page
+- [AI-readable discovery](docs/public/llms.txt) - the stable public page
   inventory for retrieval and coding agents.
-- [Security policy](SECURITY.md) — private reporting for sensitive issues.
+- [Security policy](SECURITY.md) - private reporting for sensitive issues.
 
 ## Support and contribution policy
 
