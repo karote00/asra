@@ -50,6 +50,14 @@ test('root README follows the product-to-proof reader journey', () => {
     repositoryRoot,
     'docs/public/assets/asyra-design-7076-crdt.mp4'
   )
+  const collaborationPosterPath = path.join(
+    repositoryRoot,
+    'docs/public/assets/asyra-design-7076-crdt-poster.jpg'
+  )
+  const productEvidenceSpec = fs.readFileSync(
+    path.join(repositoryRoot, 'apps/asyra-design/e2e/crdt-7076-render.spec.ts'),
+    'utf8'
+  )
   const undoRedoSource = fs
     .readFileSync(
       path.join(
@@ -101,10 +109,19 @@ test('root README follows the product-to-proof reader journey', () => {
   const productEvidence = fs.readFileSync(productEvidencePath)
   assert.deepEqual([...productEvidence.subarray(0, 3)], [0xff, 0xd8, 0xff])
   assert.ok(productEvidence.byteLength < 200_000)
+  assert.ok(
+    productEvidenceSpec.indexOf("testInfo.outputPath('crdt-7076-render.png')") <
+      productEvidenceSpec.indexOf('const moved ='),
+    'README evidence must be captured before geometry mutation regressions run'
+  )
+  assert.match(readme, /### 7,076 elements, two live clients/u)
   assert.match(
     readme,
-    /\[Watch two live clients converge on the 7,076-element drawing\]\(docs\/public\/assets\/asyra-design-7076-crdt\.mp4\)/u
+    /\[!\[Two live Asyra Design clients converging on the 7,076-element cat drawing\]\(docs\/public\/assets\/asyra-design-7076-crdt-poster\.jpg\)\]\(docs\/public\/assets\/asyra-design-7076-crdt\.mp4\)/u
   )
+  const collaborationPoster = fs.readFileSync(collaborationPosterPath)
+  assert.deepEqual([...collaborationPoster.subarray(0, 3)], [0xff, 0xd8, 0xff])
+  assert.ok(collaborationPoster.byteLength < 200_000)
   const collaborationEvidence = fs.readFileSync(collaborationEvidencePath)
   assert.equal(collaborationEvidence.subarray(4, 8).toString('ascii'), 'ftyp')
   assert.ok(collaborationEvidence.byteLength < 10_000_000)

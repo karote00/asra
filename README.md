@@ -28,13 +28,19 @@ current browser/Core runtime.
 
 ![Asyra Design showing the complete 7,076-element editable cat drawing](docs/public/assets/asyra-design-7076-product-evidence.jpg)
 
-_The maintained 7,076-element sample rendered in Asyra Design: one App-owned
+_The maintained 7,076-element sample rendered in Asyra Design without any
+subsequent selection or geometry edit: one App-owned
 Group and 7,075 editable Vectors, with 156,373 vector points visible through the
 ordinary Agent, Runtime, canonical-state, and Render paths._
 
-[Watch two live clients converge on the 7,076-element drawing](docs/public/assets/asyra-design-7076-crdt.mp4).
+### 7,076 elements, two live clients
+
+[![Two live Asyra Design clients converging on the 7,076-element cat drawing](docs/public/assets/asyra-design-7076-crdt-poster.jpg)](docs/public/assets/asyra-design-7076-crdt.mp4)
+
+**[Play the 13-second CRDT recording](docs/public/assets/asyra-design-7076-crdt.mp4).**
 Actor A creates the drawing through the Agent; Actor B receives it through CRDT
-and renders the same editable canonical result. See the
+and renders the same editable canonical result. The image above is a frame from
+that recording. See the
 [maintained sample and reproduction steps](apps/asyra-design/samples/crdt-7076/README.md).
 
 The product UI and design-domain behavior belong to the App; they are not
