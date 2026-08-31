@@ -3,7 +3,7 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test'
 const loadLanding = async (page: Page) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
-    'Build the tool'
+    'Build product features'
   )
   const images = page.locator('img')
   await images.evaluateAll((elements: HTMLImageElement[]) => {
@@ -73,7 +73,7 @@ const assertLinksAndCtas = async (page: Page) => {
       }
     })
   )
-  expect(ctas).toHaveLength(2)
+  expect(ctas).toHaveLength(3)
   await expect(page.locator('.site-header .button')).toHaveCount(0)
   for (const cta of ctas) {
     expect(cta.whiteSpace).toBe('nowrap')
@@ -90,7 +90,14 @@ const currentImageSources = (page: Page) =>
 
 const assertTransparentPhotoroomAssets = async (page: Page) => {
   const sources = await currentImageSources(page)
-  expect(sources).toHaveLength(15)
+  expect(sources).toHaveLength(16)
+  expect(
+    sources.some((source) =>
+      source.endsWith(
+        '/product-evidence/asyra-design-7076-product-evidence.webp'
+      )
+    )
+  ).toBe(true)
   for (const name of [
     'hero-core-v08-desktop-photoroom-',
     'domain-rail-v08-desktop-photoroom-',
@@ -112,7 +119,7 @@ const assertTransparentPhotoroomAssets = async (page: Page) => {
     )
   ).toHaveLength(8)
   const alphaSamples = await page
-    .locator('main img:not(.story-panel__artwork)')
+    .locator('.illustration-stage img')
     .evaluateAll((images: HTMLImageElement[]) =>
       images.map((image) => {
         const canvas = document.createElement('canvas')
@@ -276,7 +283,9 @@ const assertModernSansTypography = async (page: Page) => {
 
 const assertAiryHeadingTypography = async (page: Page) => {
   const headings = await page
-    .locator('.hero h1, .domains h2, .poc-story h2, .proof h2, .closing h2')
+    .locator(
+      '.hero h1, .domains h2, .poc-story h2, .product-evidence h2, .feature-evidence h2, .landing-ownership h2, .proof h2, .readiness h2, .closing h2'
+    )
     .evaluateAll((elements) =>
       elements.map((element) => {
         const style = getComputedStyle(element)
@@ -417,6 +426,7 @@ const assertPerceptualImageSharpness = async (
 }
 
 const desktopSharpness = {
+  'asyra-design-7076-product-evidence.webp': 20,
   'hero-core-v08-desktop-photoroom': 30,
   'domain-rail-v08-desktop-photoroom': 32,
   'grow-photoroom': 27,
@@ -434,6 +444,7 @@ const desktopSharpness = {
 }
 
 const mobileSharpness = {
+  'asyra-design-7076-product-evidence.webp': 20,
   'hero-core-v08-desktop-photoroom': 27,
   'domain-rail-v08-desktop-photoroom': 30,
   'domain-rail-v08-desktop-photoroom-row-1': 30,
@@ -469,7 +480,7 @@ const assertTwoColumnProofs = async (page: Page) => {
       }
     })
   )
-  expect(sections).toHaveLength(3)
+  expect(sections).toHaveLength(2)
   for (const section of sections) {
     expect(section.columns).toBe(2)
     expect(section.borderTopWidth).toBe(0)
@@ -698,10 +709,14 @@ const captureLandingSections = async (
   for (const [selector, name] of [
     ['.hero', 'hero'],
     ['.domains', 'domains'],
+    ['.framework-value', 'framework-value'],
     ['.poc-story', 'poc-story'],
+    ['.product-evidence', 'product-evidence'],
+    ['.feature-evidence', 'feature-evidence'],
+    ['.landing-ownership', 'ownership-map'],
     ['.proof:nth-child(1)', 'grow'],
-    ['.proof:nth-child(2)', 'same-path'],
-    ['.proof:nth-child(3)', 'one-source'],
+    ['.proof:nth-child(2)', 'one-source'],
+    ['.readiness', 'readiness'],
     ['.closing', 'closing']
   ]) {
     await captureSection(page, selector, `${name}-${suffix}.png`, testInfo)
@@ -741,7 +756,7 @@ test('1440px captures the complete landing page after every illustration renders
       )
     )
     .toBe(0)
-  await expect(page.locator('img')).toHaveCount(15)
+  await expect(page.locator('img')).toHaveCount(16)
   await expect(page.locator('#change-title')).toHaveCount(0)
   await expect(page.locator('#impact-preview')).toHaveCount(0)
   const domainRailCurrentSource = await page
@@ -1429,6 +1444,75 @@ test('the Landing Framework value story isolates change cost from the proof sect
   }
 })
 
+test('product, code, ownership, and readiness evidence reflow without drift', async ({
+  page
+}, testInfo) => {
+  for (const width of [1440, 820, 390, 320]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await loadLanding(page)
+    await assertNoHorizontalOverflow(page)
+
+    const layout = await page.evaluate(() => {
+      const columns = (selector: string) => {
+        const element = document.querySelector<HTMLElement>(selector)
+        if (!element) throw new Error(`Missing evidence target: ${selector}`)
+        return getComputedStyle(element).gridTemplateColumns.split(' ').length
+      }
+      const sections = [
+        '.product-evidence',
+        '.feature-evidence',
+        '.landing-ownership',
+        '.readiness'
+      ].map((selector) => {
+        const element = document.querySelector<HTMLElement>(selector)
+        if (!element) throw new Error(`Missing evidence section: ${selector}`)
+        const bounds = element.getBoundingClientRect()
+        return { bottom: bounds.bottom, selector, top: bounds.top }
+      })
+      const productImage = document.querySelector<HTMLImageElement>(
+        '.product-evidence__frame img'
+      )
+      if (!productImage) throw new Error('Missing product evidence image')
+      return {
+        featureColumns: columns('.feature-evidence__body'),
+        ownershipColumns: columns('.landing-ownership__grid'),
+        productColumns: columns('.product-evidence'),
+        productImageWidth: productImage.getBoundingClientRect().width,
+        readinessColumns: columns('.readiness__paths'),
+        sections
+      }
+    })
+
+    for (let index = 1; index < layout.sections.length; index += 1) {
+      expect(layout.sections[index].top).toBeGreaterThanOrEqual(
+        layout.sections[index - 1].bottom - 1
+      )
+    }
+    expect(layout.productImageWidth).toBeGreaterThan(width <= 390 ? 260 : 420)
+    if (width <= 680) {
+      expect(layout.productColumns).toBe(1)
+      expect(layout.featureColumns).toBe(1)
+      expect(layout.ownershipColumns).toBe(1)
+      expect(layout.readinessColumns).toBe(1)
+    } else if (width <= 900) {
+      expect(layout.productColumns).toBe(1)
+      expect(layout.featureColumns).toBe(1)
+      expect(layout.ownershipColumns).toBe(2)
+      expect(layout.readinessColumns).toBe(3)
+    } else {
+      expect(layout.productColumns).toBe(2)
+      expect(layout.featureColumns).toBe(2)
+      expect(layout.ownershipColumns).toBe(4)
+      expect(layout.readinessColumns).toBe(3)
+    }
+
+    await page.locator('.product-evidence').screenshot({
+      animations: 'disabled',
+      path: testInfo.outputPath(`product-evidence-${width}.png`)
+    })
+  }
+})
+
 test('constrained Landing sections share one content geometry while the centered Domain copy and full-width rail keep their own composition', async ({
   page
 }) => {
@@ -1619,14 +1703,14 @@ test('864px preserves the approved domain rail proportions and original closing 
     .toBeGreaterThanOrEqual(closingGeometry.renderedWidth * 2)
 })
 
-test('864px matches the V04 composition, assets, line breaks, and CTA states', async ({
+test('864px preserves the accepted visual language across the evidence sequence', async ({
   page
 }, testInfo) => {
   await page.setViewportSize({ width: 864, height: 1000 })
   await loadLanding(page)
 
   await expect(page.locator('.hero h1 .reference-line')).toHaveCount(2)
-  await expect(page.locator('.proof')).toHaveCount(3)
+  await expect(page.locator('.proof')).toHaveCount(2)
   await expect(page.locator('.domain-names')).toHaveCount(0)
   await expect(page.locator('.impact-key')).toHaveCount(0)
   await expect(page.locator('.closing img')).toHaveAttribute(
@@ -1665,7 +1749,6 @@ test('864px matches the V04 composition, assets, line breaks, and CTA states', a
     }
   })
   expect(geometry.hero.bottom).toBeGreaterThanOrEqual(455)
-  expect(geometry.hero.bottom).toBeLessThanOrEqual(480)
   expect(geometry.domains.bottom - geometry.domains.top).toBeGreaterThanOrEqual(
     275
   )
@@ -1673,15 +1756,13 @@ test('864px matches the V04 composition, assets, line breaks, and CTA states', a
     expect(height).toBeGreaterThanOrEqual(215)
     expect(height).toBeLessThanOrEqual(250)
   }
-  const pocStoryHeight = geometry.pocStory.bottom - geometry.pocStory.top
-  const frameworkValueHeight =
-    geometry.frameworkValue.bottom - geometry.frameworkValue.top
-  const originalCompositionBottom =
-    geometry.footer.bottom - pocStoryHeight - frameworkValueHeight
-  expect(pocStoryHeight).toBeGreaterThanOrEqual(1350)
-  expect(pocStoryHeight).toBeLessThanOrEqual(1450)
-  expect(originalCompositionBottom).toBeGreaterThanOrEqual(1640)
-  expect(originalCompositionBottom).toBeLessThanOrEqual(1750)
+  expect(geometry.frameworkValue.top).toBeGreaterThanOrEqual(
+    geometry.domains.bottom - 1
+  )
+  expect(geometry.pocStory.top).toBeGreaterThanOrEqual(
+    geometry.frameworkValue.bottom - 1
+  )
+  expect(geometry.footer.top).toBeGreaterThan(geometry.pocStory.bottom)
 
   const proofImageBounds = await page
     .locator('.proof img')
@@ -1738,7 +1819,7 @@ test('864px matches the V04 composition, assets, line breaks, and CTA states', a
   })
 })
 
-test('1440px scales the same V04 composition without changing its visual language', async ({
+test('1440px extends the V04 visual language with product and technical evidence', async ({
   page
 }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
@@ -1768,10 +1849,8 @@ test('1440px scales the same V04 composition without changing its visual languag
   })
   expect(heights.pocStory).toBeGreaterThanOrEqual(800)
   expect(heights.pocStory).toBeLessThanOrEqual(860)
-  const originalCompositionHeight =
-    heights.document - heights.pocStory - heights.frameworkValue
-  expect(originalCompositionHeight).toBeGreaterThanOrEqual(2520)
-  expect(originalCompositionHeight).toBeLessThanOrEqual(2680)
+  expect(heights.document).toBeGreaterThanOrEqual(6500)
+  expect(heights.document).toBeLessThanOrEqual(8000)
   await captureLandingSections(page, 'desktop-1440', testInfo)
   await page.screenshot({
     animations: 'disabled',

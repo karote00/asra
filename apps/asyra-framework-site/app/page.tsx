@@ -117,6 +117,54 @@ const pocStoryPaths = [
   }
 ] as const
 
+const ownershipLayers = [
+  {
+    detail:
+      'Deterministic execution, transactions, rollback, Undo/Redo, and projections.',
+    label: 'Framework owned',
+    title: 'Repeatable correctness boundaries'
+  },
+  {
+    detail:
+      'Selectable official defaults that an App can use, replace, or omit.',
+    label: 'Preset owned',
+    title: 'A maintained starting composition'
+  },
+  {
+    detail:
+      'Schemas, domain rules, workflows, permissions, product UI, and specialized engines.',
+    label: 'App owned',
+    title: 'What your product means'
+  },
+  {
+    detail:
+      'Transport, authorization, durability, and operational policy without a second product owner.',
+    label: 'Service owned',
+    title: 'External operations and adapters'
+  }
+] as const
+
+const readinessPaths = [
+  {
+    body: 'Start from a complete design product, then replace its domain with yours.',
+    href: '/docs/start/create-design-app',
+    label: 'Product builder',
+    link: 'Create a design app'
+  },
+  {
+    body: 'Compose the browser/Core foundation with the capabilities your product needs.',
+    href: '/docs/start/custom-composition',
+    label: 'Framework composer',
+    link: 'Compose the Framework'
+  },
+  {
+    body: 'Inspect the maintained runtime route, owners, and current boundaries.',
+    href: '/atlas',
+    label: 'Technical evaluator',
+    link: 'Open Runtime Atlas'
+  }
+] as const
+
 export default function HomePage() {
   return (
     <div className="site-shell" id="top">
@@ -126,16 +174,22 @@ export default function HomePage() {
         <section className="hero" aria-labelledby="hero-title">
           <div className="hero__copy">
             <h1 id="hero-title">
-              <span className="reference-line">Build the tool</span>
-              <span className="reference-line">your world needs.</span>
+              <span className="reference-line">Build product features, </span>
+              <span className="reference-line">not infrastructure.</span>
             </h1>
             <p className="hero__lead">
               <span className="reference-line">
-                You bring the domain knowledge. AI builds with Asyra.
+                Build the tool your world needs. You own its information, rules,
+                workflows, services, and UI.
               </span>
               <span className="reference-line">
-                Your tool stays easy to extend, automate, and undo.
+                Asyra keeps intent, transactions, rollback, history,
+                persistence, and projections on one governed path.
               </span>
+            </p>
+            <p className="hero__category">
+              A composable application Framework, not a hosted builder, no-code
+              platform, canvas widget, or bundle of industry tools.
             </p>
             <div className="button-row">
               <a
@@ -209,6 +263,58 @@ export default function HomePage() {
               width={1200}
             />
           </div>
+        </section>
+
+        <FrameworkValueStory />
+
+        <section
+          aria-labelledby="product-evidence-title"
+          className="product-evidence"
+        >
+          <div className="product-evidence__copy">
+            <p className="eyebrow">Built with Asyra</p>
+            <h2 id="product-evidence-title">
+              A real product. One shared foundation.
+            </h2>
+            <p>
+              Asyra Design turns app-owned design rules into editable product
+              behavior. The interface, tools, and drawing semantics belong to
+              the App; Asyra supplies the reusable execution, history,
+              persistence, rendering, and optional AI boundaries beneath them.
+            </p>
+            <ul className="product-evidence__facts">
+              <li>7,076 editable vector elements</li>
+              <li>App-owned Features and design rules</li>
+              <li>Undo/Redo, rendering, and persistence on the same owners</li>
+            </ul>
+            <div className="evidence-actions">
+              <a
+                className="button button--red"
+                href="https://asyra-design.vercel.app/?fileId=demo"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                Open the live product
+              </a>
+              <a className="text-action" href="/asyra-design">
+                Read the product case
+              </a>
+            </div>
+          </div>
+          <figure className="product-evidence__frame">
+            <img
+              alt="Asyra Design displaying a complete 7,076-element vector cat face, with its editable layer tree, AI action progress, and Undo control visible"
+              decoding="async"
+              height={720}
+              loading="lazy"
+              src="/product-evidence/asyra-design-7076-product-evidence.webp"
+              width={1280}
+            />
+            <figcaption>
+              Current product evidence: the completed 7,076-element drawing
+              remains ordinary editable product information.
+            </figcaption>
+          </figure>
         </section>
 
         <section
@@ -317,7 +423,120 @@ export default function HomePage() {
           </div>
         </section>
 
-        <FrameworkValueStory />
+        <section
+          aria-labelledby="feature-evidence-title"
+          className="feature-evidence"
+        >
+          <header className="feature-evidence__heading">
+            <p className="eyebrow">Code to runtime</p>
+            <h2 id="feature-evidence-title">One Feature. Every caller.</h2>
+            <p>
+              The App names the behavior once. A person or AI action enters the
+              same public boundary, so callers do not grow parallel product
+              decisions.
+            </p>
+          </header>
+          <div className="feature-evidence__body">
+            <figure className="code-proof">
+              <figcaption>
+                App-owned behavior from the maintained public guide
+              </figcaption>
+              <pre aria-label="TypeScript Feature example">
+                <code>{`import { defineFeature } from '@asyra/core'
+
+type ReviewState = 'pending' | 'approved'
+const state = new Map<string, ReviewState>([
+  ['review-1', 'pending']
+])
+
+export const reviewActions = defineFeature(
+  'app.reviewActions', undefined, {
+  priority: 30,
+  exclusive: true,
+  api: {
+    setStatus(id: string, status: ReviewState) {
+      if (!state.has(id)) {
+        throw new Error(\`Unknown review: \${id}\`)
+      }
+      state.set(id, status)
+      return { id, status }
+    }
+  }
+})`}</code>
+              </pre>
+              <p>
+                In a document-backed Feature, this body calls the generated App
+                common API so Factory owns the transaction and Undo evidence.
+              </p>
+              <a className="text-action" href="/docs/build/feature-session">
+                Read the complete Feature session guide
+              </a>
+            </figure>
+            <div className="runtime-proof">
+              <ol aria-label="Governed Feature runtime path">
+                <li>
+                  <span>01</span>
+                  <strong>Person or AI intent</strong>
+                  <small>Different callers, one product decision</small>
+                </li>
+                <li>
+                  <span>02</span>
+                  <strong>App Feature and public API</strong>
+                  <small>
+                    The App owns meaning, validation, and permission
+                  </small>
+                </li>
+                <li>
+                  <span>03</span>
+                  <strong>Transaction and canonical owner</strong>
+                  <small>
+                    Asyra supplies commit, rollback, and history boundaries
+                  </small>
+                </li>
+                <li>
+                  <span>04</span>
+                  <strong>Projections update</strong>
+                  <small>
+                    UI, persistence, collaboration, and AI read the accepted
+                    result
+                  </small>
+                </li>
+              </ol>
+              <figure className="illustration-stage illustration-stage--light illustration-stage--proof illustration-stage--same-path">
+                <Illustration
+                  alt="Human and AI inputs traveling through one shared feature gate to the same action"
+                  className="proof-image proof-image--same-path"
+                  height={887}
+                  name="same-path-photoroom"
+                  sizes="(max-width: 680px) 88vw, (max-width: 1100px) 48vw, 650px"
+                  widths={[720, 1280, 1774]}
+                  width={1774}
+                />
+              </figure>
+            </div>
+          </div>
+        </section>
+
+        <section
+          aria-labelledby="ownership-title"
+          className="landing-ownership"
+        >
+          <header>
+            <p className="eyebrow">Clear ownership</p>
+            <h2 id="ownership-title">
+              You own the product. Asyra owns the repeatable boundaries.
+            </h2>
+          </header>
+          <div className="landing-ownership__grid">
+            {ownershipLayers.map((layer) => (
+              <article key={layer.label}>
+                <p>{layer.label}</p>
+                <h3>{layer.title}</h3>
+                <span>{layer.detail}</span>
+              </article>
+            ))}
+          </div>
+        </section>
 
         <div className="proof-stack">
           <section
@@ -341,29 +560,6 @@ export default function HomePage() {
                 sizes="(max-width: 800px) calc(200vw - 80px), (max-width: 1100px) 92vw, 1120px"
                 widths={[720, 1200, 1518]}
                 width={1518}
-              />
-            </figure>
-          </section>
-
-          <section className="proof" aria-labelledby="path-title">
-            <div className="proof__copy">
-              <p className="eyebrow">Same path</p>
-              <h2 id="path-title">
-                <span className="reference-line">People and AI follow the</span>
-                <span className="reference-line">
-                  same governed action path.
-                </span>
-              </h2>
-            </div>
-            <figure className="proof__visual illustration-stage illustration-stage--light illustration-stage--proof illustration-stage--same-path">
-              <Illustration
-                alt="Human and AI inputs traveling through one shared feature gate to the same action"
-                className="proof-image proof-image--same-path"
-                height={887}
-                name="same-path-photoroom"
-                sizes="(max-width: 800px) calc(200vw - 80px), (max-width: 1100px) 104vw, 1360px"
-                widths={[720, 1280, 1774]}
-                width={1774}
               />
             </figure>
           </section>
@@ -394,6 +590,27 @@ export default function HomePage() {
             </figure>
           </section>
         </div>
+
+        <section aria-labelledby="readiness-title" className="readiness">
+          <header>
+            <p className="eyebrow">Ready now</p>
+            <h2 id="readiness-title">Choose your starting point</h2>
+            <p>
+              Current browser/Core support, the official 2D Preset, and
+              engine-neutral custom composition are available today. Future
+              runtime directions remain roadmap, not a public API promise.
+            </p>
+          </header>
+          <div className="readiness__paths">
+            {readinessPaths.map((path) => (
+              <article key={path.label}>
+                <p>{path.label}</p>
+                <span>{path.body}</span>
+                <a href={path.href}>{path.link}</a>
+              </article>
+            ))}
+          </div>
+        </section>
 
         <section
           className="closing illustration-stage illustration-stage--dark illustration-stage--closing"

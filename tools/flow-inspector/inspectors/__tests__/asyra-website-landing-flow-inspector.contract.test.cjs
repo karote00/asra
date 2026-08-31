@@ -334,6 +334,21 @@ test('page owner selects the supplied true-alpha masters with one adaptive grid-
       'apps/asyra-framework-site/components/framework-value-story.tsx'
     )
   )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'apps/asyra-framework-site/public/product-evidence'
+    )
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'apps/asyra-framework-site/scripts/build-product-evidence.py'
+    )
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'apps/asyra-framework-site/app/styles/tokens.css'
+    )
+  )
 })
 
 test('verification requires synchronized production visual evidence', () => {

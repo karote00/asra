@@ -163,7 +163,12 @@ module.exports = Object.freeze({
         'Display and body typography use a modern system sans stack with no legacy display serif or external font dependency.',
         'Display headings use weight 500 or below with line height at least 1.0, and multiline proof and closing headings use at least 1.04.',
         'CTA hover and focus are brighter than the default red.',
-        'The same complete narrative remains in DOM order at desktop, mobile, and without JavaScript.'
+        'The same complete narrative remains in DOM order at desktop, mobile, and without JavaScript.',
+        'The Hero leads with “Build product features, not infrastructure.” and keeps “Build the tool your world needs.” in a supporting role.',
+        'A landing-owned derivative of the canonical 7,076-element Asyra Design frame provides authentic current product evidence with a reproducible hash-locked export.',
+        'The maintained public review-actions Feature excerpt is paired with one person-or-AI to Feature, transaction, canonical-owner, and projection path.',
+        'Framework, Preset, App, and external-service responsibilities are presented as distinct ownership layers.',
+        'Readiness actions distinguish product builders, Framework composers, and technical evaluators while current support remains separate from roadmap direction.'
       ],
       bypasses: [
         'If an image does not load, semantic headings and descriptive alt text preserve the complete reading.',
@@ -209,6 +214,7 @@ module.exports = Object.freeze({
       implementationBoundary: [
         'apps/asyra-framework-site/app/page.tsx',
         'apps/asyra-framework-site/app/globals.css',
+        'apps/asyra-framework-site/app/styles/tokens.css',
         'apps/asyra-framework-site/components/framework-value-story.tsx',
         'apps/asyra-framework-site/app/layout.tsx',
         'apps/asyra-framework-site/app/error.tsx',
@@ -230,6 +236,7 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/artwork/v12-transparent',
         'apps/asyra-framework-site/artwork/photoroom',
         'apps/asyra-framework-site/public/illustrations',
+        'apps/asyra-framework-site/public/product-evidence',
         'apps/asyra-framework-site/public/llms.txt',
         'docs/public/llms.txt',
         'scripts/docs/public-documentation.mjs',
@@ -248,7 +255,8 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/scripts/build-transparent-v12-assets.py',
         'apps/asyra-framework-site/scripts/verify-transparent-v12-assets.py',
         'apps/asyra-framework-site/scripts/build-photoroom-assets.py',
-        'apps/asyra-framework-site/scripts/build-poc-storyboard-crops.py'
+        'apps/asyra-framework-site/scripts/build-poc-storyboard-crops.py',
+        'apps/asyra-framework-site/scripts/build-product-evidence.py'
       ],
       specRefs: [
         '#visual-authority',
