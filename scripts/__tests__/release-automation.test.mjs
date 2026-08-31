@@ -171,6 +171,9 @@ test('release template exposes a non-mutating synchronization check', () => {
 })
 
 test('generated app exposes reproducible standalone lint tooling', () => {
+  const rootManifest = JSON.parse(
+    readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
+  )
   const manifest = JSON.parse(
     readFileSync(
       path.join(
@@ -189,7 +192,10 @@ test('generated app exposes reproducible standalone lint tooling', () => {
   )
 
   assert.equal(manifest.scripts.lint, 'eslint .')
-  assert.equal(manifest.devDependencies.prettier, '3.5.3')
+  assert.equal(
+    manifest.devDependencies.prettier,
+    rootManifest.devDependencies.prettier
+  )
   assert.match(eslintConfig, /files: \['\*\*\/\*\.\{ts,tsx\}'\]/u)
 })
 
@@ -742,6 +748,9 @@ test('Asyra Design keeps build and test tooling out of production dependencies',
 })
 
 test('generated template manifest is standalone on the supported release runtime', () => {
+  const rootManifest = JSON.parse(
+    readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')
+  )
   const manifest = JSON.parse(
     readFileSync(
       path.join(
@@ -757,7 +766,10 @@ test('generated template manifest is standalone on the supported release runtime
   assert.equal(manifest.packageManager, 'yarn@4.3.1')
   assert.equal(manifest.scripts?.start, 'vite dev')
   assert.equal(manifest.scripts?.['react:start'], undefined)
-  assert.equal(manifest.devDependencies?.prettier, '3.5.3')
+  assert.equal(
+    manifest.devDependencies?.prettier,
+    rootManifest.devDependencies.prettier
+  )
   assert.doesNotMatch(serializedScripts, /(?:\.\.\/){2}|--cwd\s+\.\.\/\.\./)
   assert.doesNotMatch(JSON.stringify(manifest), /workspace:|(?:link|portal):/)
   for (const [packageName, version] of Object.entries(
