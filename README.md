@@ -2,72 +2,122 @@
 
 ## Build product features, not infrastructure
 
-Use Asyra to build canvas-based editors, whiteboards, BIM workspaces, industrial tools, simulations, and other domain products without coupling domain rules to one renderer or UI framework.
+Asyra is a composable Framework for products whose information must stay
+editable, reversible, inspectable, persistable, and extensible. Use it to build
+canvas-based editors, whiteboards, BIM workspaces, industrial tools,
+simulations, and other domain products without coupling domain rules to one
+renderer or UI framework.
 
-Asyra gives developers composable building blocks for turning domain-owned information and rules into products. Your App owns its schemas, rules, workflows, services, and UI. Asyra coordinates intent routing, registration, transactions, rollback, Undo/Redo, canonical state, validation, persistence boundaries, and downstream projections.
+Your App owns its product schemas, rules, workflows, services, and UI. Asyra
+coordinates the shared infrastructure around them: intent routing,
+registration, transactions, rollback, Undo/Redo, validation, persistence
+boundaries, and downstream projections.
 
-A Feature is an App-owned, registered unit of product behavior. It gives human input, UI, automation, devices, and AI-issued commands the same Feature and API boundaries instead of creating parallel product paths.
-
-- **Focus on product behavior.** Build what makes the product valuable instead of rebuilding state, history, lifecycle, and integration plumbing for every capability.
-- **Let the PoC become the product.** With AI-assisted development, domain experts, designers, and product teams can validate ideas directly against the product's real schemas, Features, and runtime boundaries. The result is reviewable source code on the actual product path, not a disposable prototype that engineers must rebuild later.
-- **Change one explicit owner.** Add, replace, or remove a registered Feature without rewriting unrelated product paths, keeping the impact visible and technical debt local.
-- **Reuse correctness infrastructure.** Features enter established transaction, validation, rollback, projection, and persistence boundaries instead of inventing parallel implementations.
-- **Compose only what the product needs.** Preset defaults, render providers, persistence, collaboration, and AI remain selectable or replaceable instead of becoming mandatory product architecture.
-- **Know what actually succeeded.** Runtime commit and durable persistence are separate observable states; supported local failures roll back instead of presenting partial state as success.
-
-In a conventional application, one behavior may require coordinated changes across input handlers, UI state, history, rendering, persistence, and automation. With Asyra, a small Feature can remain a few focused lines of registration and domain code. Larger Features remain bounded to their explicit owners instead of spreading across dozens of unrelated files.
-
-This changes the handoff inside a company. Non-engineers can prove domain workflows in the real product, while engineers review, harden, test, and extend the same implementation instead of translating a disconnected PoC into production code. A successful PoC already lives on the product path.
-
-```mermaid
-flowchart TB
-  subgraph traditional["Traditional product development"]
-    direction LR
-    oldIdea["Domain idea"] --> oldPoc["Disposable PoC"] --> handoff["Handoff"] --> rewrite["Rewrite"] --> oldProduct["Product"]
-  end
-```
-
-```mermaid
-flowchart TB
-  subgraph asyra["With Asyra"]
-    direction LR
-    newIdea["Domain expert + AI"] --> feature["Bounded Feature"] -->|"same implementation"| review["Engineering review and hardening"] -->|"same implementation"| newProduct["Product"]
-  end
-```
-
-Asyra is a Framework for products whose information must remain editable, reversible, inspectable, persistable, and extensible as the product grows. It is not a canvas widget or a design-tool-only framework: an App composes Asyra around its own data, rules, engines, services, and interfaces.
+[Try Asyra Design](https://asyra-design.vercel.app/?fileId=demo) ·
+[Read the documentation](docs/public/index.md) ·
+[Install `@asyra/core`](#package-first-composition) ·
+[Create an Asyra Design app](#complete-design-product)
 
 ## Try the demo
 
-<a href="https://asyra-design.vercel.app/?fileId=demo" target="_blank" rel="noopener noreferrer">Asyra Design demo</a>
+[Asyra Design](https://asyra-design.vercel.app/?fileId=demo) is the maintained,
+complete design-tool product in this repository. It demonstrates App-owned
+Features, editable information, the official `2D` Preset, rendering, Undo/Redo,
+persistence, and explicit optional AI and collaboration composition on the
+current browser/Core runtime.
 
-Asyra Design is a complete canvas-based design-tool product built with Asyra. It demonstrates how the Framework, official Preset, App-owned Features, editable information, rendering, Undo/Redo, and persistence fit together in a real product.
+The product UI and design-domain behavior belong to the App; they are not
+silently installed by Framework Core. Follow the
+[Asyra Design case study](docs/public/cases/asyra-design.md) from startup and
+canonical state through rendering, transactions, persistence, collaboration,
+and registered AI actions.
+
+## One product behavior, one explicit owner
+
+A conventional product often reconnects the same behavior across several
+independent paths. An Asyra Feature keeps the App's decision in one explicit
+owner and routes accepted work through established correctness boundaries.
+
+| Reader question                       | Conventional product                                                      | With Asyra                                                                                                      |
+| ------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Where does intent enter?              | UI, shortcuts, automation, and AI may each grow a separate handler.       | Human, UI, automation, device, and AI intent enter an App-owned Feature or its API.                             |
+| Who owns the write?                   | UI state, service code, and saved data can each appear authoritative.     | The Feature calls an App or Framework API; the canonical package owner performs the write.                      |
+| How is failure handled?               | Validation, rollback, and cleanup are rebuilt around each caller.         | The same transaction, validation, and rollback boundaries apply to every caller.                                |
+| What reaches the rest of the product? | Rendering, history, persistence, and synchronization need custom bridges. | Canonical changes feed History, projections, serialization, and App services through their declared boundaries. |
+
+This is a behavior-ownership promise, not a claim that every product change
+fits in one file. Large Features can have multiple focused modules while still
+retaining one governed path.
+
+## A real App-owned Feature
+
+Asyra Design's Undo/Redo Feature is deliberately small. The App owns the
+shortcut meaning and calls its own common API; `defineFeature` provides the
+registered intent boundary:
+
+```ts
+import { defineFeature } from '@asyra/core'
+import { historyApis } from '../../common-apis'
+import { FeatureNames, InputSystemEvents } from '../../constants'
+import type { SystemContextSnapshot } from '@asyra/utils'
+
+export const undoRedoFeature = defineFeature(
+  FeatureNames.UNDO_REDO,
+  InputSystemEvents.INPUT_SHORTCUT_UNDOREDO,
+  {
+    priority: 100,
+    exclusive: true,
+    execution: async (snapshot: SystemContextSnapshot) => {
+      if (snapshot.keyShift) {
+        await historyApis.redo()
+        return { redid: true }
+      } else {
+        await historyApis.undo()
+        return { undid: true }
+      }
+    }
+  }
+)
+```
+
+- **The App owns meaning:** which input invokes Undo or Redo and which common
+  API performs it.
+- **The Framework supplies the boundary:** registration, priority, exclusivity,
+  transaction replay, and lifecycle remain governed instead of caller-specific.
+- **Other callers reuse the path:** UI, automation, or approved AI behavior can
+  reach the same App API without creating another history owner.
+
+For the complete lifecycle, failure, cancellation, rollback, and cleanup
+contract, follow [Build a transaction-safe Feature](docs/public/build/feature-session.md).
 
 ## Choose your starting point
 
-### Start from Framework packages
+### Package-first composition
 
-`@asyra/core` is the package-first starting point. It does not impose a UI framework or predefined product behavior:
+Choose this path when you want to model your own product deliberately or are
+building something other than a design tool. `@asyra/core` is the public
+composition facade for the current browser/Core runtime and does not impose a
+UI framework or predefined product behavior.
 
 ```bash
 npm install @asyra/core
 ```
 
-Asyra is published as 19 public `@asyra/*` ESM packages. Start with `@asyra/core`, then import and compose only the optional capabilities your product needs. Preset, Collaboration, AI, Design System, and concrete rendering providers remain optional.
+Asyra is published as 19 public `@asyra/*` ESM packages. Required package
+dependencies install automatically; Preset, Collaboration, AI, Design System,
+and concrete rendering providers remain optional composition choices.
 
-Required package dependencies are installed automatically. Your App chooses the product capabilities, domain behavior, services, and interfaces that belong in the product. Core is the public composition facade for the current browser/Core runtime. The supported owner graph is documented in the [custom composition guide](docs/public/start/custom-composition.md).
+Continue with:
 
-Continue with the maintained guides that match the first behavior you want to build:
-
+- [Custom composition](docs/public/start/custom-composition.md)
 - [Model product information first](docs/public/learn/information-models.md)
 - [Define an App-owned component and schema](docs/public/build/custom-schema.md)
 - [Build a transaction-safe Feature](docs/public/build/feature-session.md)
 
-This package-first path is the better starting point for experienced builders, non-design products, or ideas that should be composed deliberately.
+### Complete design product
 
-### Start from a ready-to-use design tool
-
-Use [`create-asyra-design-app`](create-app/asyra-design/README.md) to begin with an immediately editable design-tool product. Start with Asyra Design, then add, remove, or replace its Features, product behavior, services, and UI. It gives builders a working design-tool foundation without requiring them to compose every capability first:
+Choose this path when you want an immediately editable design-tool product and
+will replace or extend its App-owned Features, schemas, services, and UI.
 
 ```bash
 npx create-asyra-design-app my-product --package-manager=npm
@@ -75,67 +125,95 @@ cd my-product
 npm run start
 ```
 
-The CLI supports Yarn, npm, or pnpm. It installs the project dependencies and prints the exact start command for the selected package manager.
-
-The generated project is ordinary source code and includes documentation for both humans and AI coding agents. Continue with its bounded extension guide and the public Framework documentation.
+The CLI supports Yarn, npm, or pnpm. It installs the project dependencies and
+prints the exact start command for the selected package manager. The generated
+project is ordinary source code with bounded extension guidance for humans and
+AI coding agents. See [`create-asyra-design-app`](create-app/asyra-design/README.md).
 
 ## How Asyra works
 
 ```mermaid
 flowchart TD
   intent["Human / UI / automation / AI / device intent"]
-  feature["Feature"]
+  feature["App-owned Feature"]
   api["App or Framework API"]
-  transaction["Transaction boundary"]
+  transaction["Transaction and validation boundary"]
   state["Canonical state owner"]
-  projections["Render / UI / serialization / app services"]
+  projections["Render / UI / serialization / App services"]
 
   intent --> feature --> api --> transaction --> state --> projections
 ```
 
-Loading, Undo/Redo replay, and accepted remote changes are state-application paths. They run through migration, validation, conflict policy, and canonical apply owners; they do not invent a second product-decision runtime.
+Loading, Undo/Redo replay, and accepted remote changes are state-application
+paths. They run through migration, validation, conflict policy, and canonical
+apply owners rather than becoming parallel product-decision runtimes.
 
 ### Ownership boundaries
 
-- **Framework** owns deterministic runtime contracts, transaction and rollback boundaries, canonical state owners, validation, registration, and replaceable provider or output boundaries. It does not know the App's domain.
-- **Preset** owns selectable official defaults and profile policy. Its current catalog is design-tool-oriented because it is Asyra's public baseline, not because design behavior belongs in the Framework.
-- **App** owns schemas, domain behavior, physical or business rules, workflows, permissions, search and index policy, backends, custom engines, and product UI.
-- **Backend or external services** own transport, authorization, durability, model-provider, and operational policy without becoming a second canonical product owner.
+- **Framework** owns deterministic runtime contracts, transactions, rollback,
+  canonical state owners, validation, registration, and replaceable provider
+  or output boundaries. It does not know the App's domain.
+- **Preset** owns selectable official defaults and profile policy. Its current
+  catalog is design-tool-oriented because it is the public baseline, not
+  because design behavior belongs in Framework Core.
+- **App** owns schemas, domain behavior, physical or business rules, workflows,
+  permissions, search and index policy, custom engines, services, and product UI.
+- **Backend or external services** own transport, authorization, durability,
+  model-provider, and operational policy without becoming a second canonical
+  product owner.
 
 ## Where Asyra can go
 
-The same infrastructure can support a design tool, whiteboard, BIM system, industrial digital twin, 4D simulation, or domains its authors never anticipated. For example:
+### Built and demonstrated today
 
-- **Industrial products** can add their own physical and chemical rules.
-- **BIM products** can add their own building models and safety policies.
-- **Simulation products** can bind specialized engines.
-- **Semiconductor fabrication plants** can encode manufacturing rules and process constraints to evaluate candidate process flows earlier and make validation more precise and consistent.
-- **Your field** - bring the information, rules, and workflows you know best.
+The maintained Asyra Design product proves the current browser/Core
+composition, official `2D` Preset, engine-neutral `CUSTOM` extension boundary,
+editable canonical information, App-owned Features, rendering, Undo/Redo,
+persistence contracts, and explicit optional collaboration and AI paths.
 
-These possibilities belong to the App. Asyra does not bundle them as turnkey capabilities.
+### Compose your domain
 
-The longer-term direction also includes non-visible information-model products designed for AI retrieval and registered action execution. That direction is important, but it is not a current public Headless Core or Core Kernel runtime.
+An App can bring the information, rules, engines, services, and workflows for a
+whiteboard, BIM product, industrial digital twin, simulation, research tool, or
+another domain. The reusable part is the ownership, transaction, validation,
+projection, and persistence infrastructure—not hidden industry knowledge.
+
+### Not turnkey modules
+
+Asyra does not bundle BIM models, industrial rules, simulation engines, or
+other industries' domain behavior. Production `3D`, `HYBRID`, auto-layout,
+unit-aware aggregation, public Headless Core, and a multi-runtime Core Kernel
+are not current capabilities.
 
 ## Current support
 
-Current public support covers Node.js 24.x, the browser/Core composition, the official `2D` Preset, and engine-neutral `CUSTOM` composition. Production `3D`, `HYBRID`, auto-layout, unit-aware aggregation, public Headless Core, and a multi-runtime Core Kernel are not current capabilities.
+Current public support covers Node.js 24.x for package verification, public ESM
+entrypoints with TypeScript declarations, the browser/Core composition, the
+official `2D` Preset, and engine-neutral `CUSTOM` composition. Import safety in
+Node does not establish a supported Headless Core or server/worker lifecycle.
 
-- [Public support and release guide](docs/public/reference/support-release.md) - environments, entrypoints, migration, security, and deprecation boundaries.
-- [Runtime-boundaries roadmap](docs/public/learn/runtime-boundaries-roadmap.md) - verified capabilities and future direction.
+- [Public support and release guide](docs/public/reference/support-release.md)
+- [Runtime-boundaries roadmap](docs/public/learn/runtime-boundaries-roadmap.md)
 
 ## Documentation
 
-- [Public documentation](docs/public/index.md) - Start, Concepts, Extend, Customize, Reference, and the Asyra Design case study.
-- [Asyra Design case study](docs/public/cases/asyra-design.md) - how one complete product composes Framework infrastructure and App-owned behavior.
-- [AI-readable discovery](docs/public/llms.txt) - the stable public page inventory for retrieval and coding agents.
+- [Public documentation](docs/public/index.md) — Start, Concepts, Extend,
+  Customize, Reference, and the Asyra Design case study.
+- [Asyra Design case study](docs/public/cases/asyra-design.md) — one complete
+  product's Framework, Preset, App, and backend ownership.
+- [AI-readable discovery](docs/public/llms.txt) — the stable public page
+  inventory for retrieval and coding agents.
+- [Security policy](SECURITY.md) — private reporting for sensitive issues.
 
 ## Support and contribution policy
 
 Asyra is publicly available for use, learning, inspection, and forking.
 
-**This repository does not accept external issues or contributions, including pull requests.**
+**This repository does not accept external issues or contributions, including
+pull requests.**
 
-The codebase is intentionally curated as one cohesive reference implementation for Communication-Driven Development and AI-assisted workflows.
+The codebase is intentionally curated as one cohesive reference implementation
+for Communication-Driven Development and AI-assisted workflows.
 
 For security-sensitive reports, follow [SECURITY.md](SECURITY.md).
 

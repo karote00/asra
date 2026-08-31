@@ -40,45 +40,51 @@ test('README inputs derive the exact release surfaces and owners', async () => {
   })
 })
 
-test('root README exposes package-first composition and the working product starter', () => {
+test('root README follows the product-to-proof reader journey', () => {
   const readme = fs.readFileSync(path.join(repositoryRoot, 'README.md'), 'utf8')
 
   assert.match(readme, /https:\/\/asyra-design\.vercel\.app\/\?fileId=demo/u)
+  assert.match(readme, /## Try the demo/u)
+  assert.match(readme, /Asyra Design case study/u)
+  assert.match(readme, /## One product behavior, one explicit owner/u)
+  assert.match(readme, /Conventional product/u)
+  assert.match(readme, /With Asyra/u)
+  assert.match(readme, /## A real App-owned Feature/u)
+  assert.match(readme, /defineFeature/u)
+  assert.match(readme, /historyApis\.(undo|redo)/u)
+  assert.match(readme, /Build a transaction-safe Feature/u)
+  assert.match(readme, /## Choose your starting point/u)
   assert.match(readme, /npm install @asyra\/core/u)
   assert.match(
     readme,
     /npx create-asyra-design-app my-product --package-manager=npm[\s\S]*npm run start/u
   )
   assert.doesNotMatch(readme, /create-asyra-app|one React homepage/u)
-  assert.match(readme, /working design-tool foundation/u)
   assert.match(readme, /Build product features, not infrastructure/u)
   assert.match(
     readme,
-    /build canvas-based editors, whiteboards, BIM workspaces, industrial tools, simulations, and other domain products/u
+    /build\s+canvas-based editors, whiteboards, BIM workspaces, industrial tools,\s+simulations, and other domain products/u
   )
   assert.match(
     readme,
-    /without coupling domain rules to one renderer or UI framework/u
+    /without coupling domain rules to one\s+renderer or UI framework/u
   )
-  assert.match(
-    readme,
-    /composable building blocks for turning domain-owned information and rules into products/u
-  )
-  assert.doesNotMatch(readme, /reusable infrastructure behind a product/u)
-  assert.match(readme, /A Feature is an App-owned, registered unit/u)
-  assert.match(readme, /Add, replace, or remove a registered Feature/u)
-  assert.match(readme, /a few focused lines/u)
-  assert.match(readme, /Compose only what the product needs/u)
-  assert.match(readme, /Runtime commit and durable persistence/u)
   assert.match(readme, /Yarn, npm, or pnpm/u)
   assert.match(readme, /prints the exact start command/u)
   assert.match(
     readme,
-    /Start, Concepts, Extend, Customize, Reference, and the Asyra Design case study/u
+    /Start, Concepts, Extend,\s+Customize, Reference, and the Asyra Design case study/u
   )
   assert.doesNotMatch(readme, /Start, Learn, Build, Reference/u)
   assert.match(readme, /flowchart TD/u)
   assert.doesNotMatch(readme, /flowchart LR/u)
+  assert.match(readme, /### Built and demonstrated today/u)
+  assert.match(readme, /### Compose your domain/u)
+  assert.match(readme, /### Not turnkey modules/u)
+  assert.match(readme, /19 public `@asyra\/\*` ESM packages/u)
+  assert.match(readme, /Node\.js 24\.x/u)
+  assert.match(readme, /Production `3D`, `HYBRID`/u)
+  assert.match(readme, /does not accept external issues or contributions/u)
   assert.doesNotMatch(
     readme,
     /Runtime Atlas|release candidates|does not independently authorize a release|Yarn 4\.3\.1/u
