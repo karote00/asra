@@ -76,8 +76,11 @@ test('root README follows the product-to-proof reader journey', () => {
     /Start, Concepts, Extend,\s+Customize, Reference, and the Asyra Design case study/u
   )
   assert.doesNotMatch(readme, /Start, Learn, Build, Reference/u)
-  assert.match(readme, /flowchart TD/u)
-  assert.doesNotMatch(readme, /flowchart LR/u)
+  assert.match(
+    readme,
+    /App-owned Feature\s+→ App or Framework API\s+→ transaction and validation boundary\s+→ canonical state owner/u
+  )
+  assert.doesNotMatch(readme, /flowchart (TD|LR)/u)
   assert.match(readme, /### Built and demonstrated today/u)
   assert.match(readme, /### Compose your domain/u)
   assert.match(readme, /### Not turnkey modules/u)

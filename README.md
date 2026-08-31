@@ -132,16 +132,13 @@ AI coding agents. See [`create-asyra-design-app`](create-app/asyra-design/README
 
 ## How Asyra works
 
-```mermaid
-flowchart TD
-  intent["Human / UI / automation / AI / device intent"]
-  feature["App-owned Feature"]
-  api["App or Framework API"]
-  transaction["Transaction and validation boundary"]
-  state["Canonical state owner"]
-  projections["Render / UI / serialization / App services"]
-
-  intent --> feature --> api --> transaction --> state --> projections
+```text
+Human / UI / automation / AI / device intent
+→ App-owned Feature
+→ App or Framework API
+→ transaction and validation boundary
+→ canonical state owner
+→ Render / UI / serialization / App services
 ```
 
 Loading, Undo/Redo replay, and accepted remote changes are state-application
