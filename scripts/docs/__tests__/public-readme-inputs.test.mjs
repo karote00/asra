@@ -44,14 +44,26 @@ test('root README follows the product-to-proof reader journey', () => {
   const readme = fs.readFileSync(path.join(repositoryRoot, 'README.md'), 'utf8')
 
   assert.match(readme, /https:\/\/asyra-design\.vercel\.app\/\?fileId=demo/u)
+  assert.deepEqual(
+    [...readme.matchAll(/\[[^\]]+\]\((https?:\/\/[^)]+)\)/gu)].map(
+      (match) => match[1]
+    ),
+    [],
+    'external README links must use safe new-tab HTML anchors'
+  )
+  const externalAnchors = [
+    ...readme.matchAll(/<a\s+([^>]*href="https?:\/\/[^"]+"[^>]*)>/gu)
+  ]
   assert.equal(
-    [
-      ...readme.matchAll(
-        /<a href="https:\/\/asyra-design\.vercel\.app\/\?fileId=demo" target="_blank" rel="noopener noreferrer">/gu
-      )
-    ].length,
+    externalAnchors.filter(([, attributes]) =>
+      attributes.includes('href="https://asyra-design.vercel.app/?fileId=demo"')
+    ).length,
     2
   )
+  externalAnchors.forEach(([, attributes]) => {
+    assert.match(attributes, /(?:^|\s)target="_blank"(?:\s|$)/u)
+    assert.match(attributes, /(?:^|\s)rel="noopener noreferrer"(?:\s|$)/u)
+  })
   assert.match(readme, /## Try the demo/u)
   assert.match(readme, /Asyra Design case study/u)
   assert.match(readme, /## One product behavior, one explicit owner/u)
