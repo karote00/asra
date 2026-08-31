@@ -174,6 +174,66 @@ test('renders the complete crdt-7076 HTTP-intercepted action while the socket is
     throw new Error('The complete sample must contain at least one Vector')
   }
 
+  const screenshotFrame = await page.evaluate(async () => {
+    const { core } = await import('../src/testing/runtime-access')
+    const { viewportApis } = await import('../src/common-apis')
+    viewportApis.zoomFit()
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    )
+    const viewport = document
+      .getElementById('viewport-anchor')
+      ?.getBoundingClientRect()
+    const bounds = core.getAllElementsBounds()
+    const scale = core.getSystemProperty<number>('zoom') ?? 1
+    const position = core.getSystemProperty<{ x: number; y: number }>(
+      'viewportPosition'
+    ) ?? { x: 0, y: 0 }
+    return {
+      output: bounds
+        ? {
+            bottom: bounds.maxY * scale + position.y,
+            left: bounds.minX * scale + position.x,
+            right: bounds.maxX * scale + position.x,
+            top: bounds.minY * scale + position.y
+          }
+        : undefined,
+      viewport: viewport
+        ? {
+            bottom: viewport.bottom,
+            left: viewport.left,
+            right: viewport.right,
+            top: viewport.top
+          }
+        : undefined
+    }
+  })
+  expect(screenshotFrame.viewport).toBeDefined()
+  expect(screenshotFrame.output).toBeDefined()
+  expect(screenshotFrame.output?.left).toBeGreaterThanOrEqual(
+    screenshotFrame.viewport?.left ?? Number.POSITIVE_INFINITY
+  )
+  expect(screenshotFrame.output?.top).toBeGreaterThanOrEqual(
+    screenshotFrame.viewport?.top ?? Number.POSITIVE_INFINITY
+  )
+  expect(screenshotFrame.output?.right).toBeLessThanOrEqual(
+    screenshotFrame.viewport?.right ?? Number.NEGATIVE_INFINITY
+  )
+  expect(screenshotFrame.output?.bottom).toBeLessThanOrEqual(
+    screenshotFrame.viewport?.bottom ?? Number.NEGATIVE_INFINITY
+  )
+
+  const screenshotPath = testInfo.outputPath('crdt-7076-render.png')
+  await page.screenshot({
+    path: screenshotPath,
+    fullPage: true,
+    animations: 'disabled'
+  })
+  await testInfo.attach('crdt-7076-render', {
+    path: screenshotPath,
+    contentType: 'image/png'
+  })
+
   const moved = await page.evaluate(async (elementId) => {
     const { core, elementApis } = await import('../src/testing/runtime-access')
     const element = core.deps?.sceneTree?.getElementById?.(elementId)
@@ -278,15 +338,4 @@ test('renders the complete crdt-7076 HTTP-intercepted action while the socket is
   expect(edited.storedDeltaY).toBeCloseTo(3)
   expect(edited.projectedHitId).toBe(edited.editedPointId)
   expect(renderFailures).toEqual([])
-
-  const screenshotPath = testInfo.outputPath('crdt-7076-render.png')
-  await page.screenshot({
-    path: screenshotPath,
-    fullPage: true,
-    animations: 'disabled'
-  })
-  await testInfo.attach('crdt-7076-render', {
-    path: screenshotPath,
-    contentType: 'image/png'
-  })
 })
