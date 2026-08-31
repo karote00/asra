@@ -15,14 +15,19 @@ move a visitor from conceptual belief to technical confidence.
 
 ## Goal
 
-Strengthen the public landing page with real product proof, a minimal code proof,
-and an explicit Framework-versus-App ownership bridge. The page should continue
-to lead with the result and remain visually distinctive, but it should no longer
-ask conceptual illustrations alone to prove that Asyra is implemented,
-adoptable, and correctly bounded.
+Make `Build product features, not infrastructure.` the landing page's central
+product thesis, then prove that thesis with real product evidence, a minimal
+code proof, and an explicit Framework-versus-App ownership bridge. The page
+should continue to lead with the result and remain visually distinctive, but it
+should no longer ask conceptual illustrations alone to prove that Asyra is
+implemented, adoptable, and correctly bounded.
 
 The intended result is not a longer marketing page. It is a better evidence
 sequence in which every major visitor question has the right kind of proof.
+Every major section should advance one coherent argument: the visitor owns the
+product's information, rules, workflows, and experience; Asyra supplies the
+reusable infrastructure that keeps those product features governed, reversible,
+persistable, and extensible.
 
 ## Problem Statement
 
@@ -49,7 +54,8 @@ visitor can understand what Asyra believes without seeing enough of:
 ## Bounded Task Contract
 
 - **Objective:** revise the `/` landing-page content architecture so conceptual
-  claims are followed by current product, code, ownership, and support evidence.
+  claims are organized around `Build product features, not infrastructure.` and
+  followed by current product, code, ownership, and support evidence.
 - **Implementation owner:** `apps/asyra-framework-site/app/page.tsx`, its
   landing-only styles and components, approved landing media under
   `apps/asyra-framework-site/public`, directly affected landing semantic and
@@ -82,8 +88,9 @@ visitor can understand what Asyra believes without seeing enough of:
 
 The landing page must answer these questions in order:
 
-1. **Possibility:** What kind of tool could I build?
-2. **Relevance:** Which painful product infrastructure does Asyra remove?
+1. **Value:** Why should I spend product effort on Asyra rather than rebuilding
+   infrastructure?
+2. **Possibility:** What kind of tool could I build?
 3. **Reality:** Is there a complete product built on this architecture today?
 4. **Mechanism:** What does one bounded Feature look like in code and flow?
 5. **Boundary:** What does Asyra own, and what remains mine?
@@ -95,7 +102,8 @@ for the remaining four.
 ## Target Evidence Sequence
 
 ```text
-Result-first hero
+Build product features, not infrastructure
+-> the product outcome this makes possible
 -> why the same foundation applies across domains
 -> one concrete maintenance-cost comparison
 -> real product proof
@@ -114,8 +122,17 @@ each form answers a different reader question.
 
 ### 1. Preserve the result-first hero
 
-- Keep `Build the tool your world needs.` as the primary promise unless a later
-  product-owner copy decision explicitly replaces it.
+- Use `Build product features, not infrastructure.` as the primary Hero
+  headline and stable positioning statement.
+- Retain the result-first meaning of `Build the tool your world needs.` as a
+  supporting line, transition, or later outcome statement rather than a
+  competing headline. Its final placement must make the hierarchy unambiguous:
+  Asyra removes repeated infrastructure work so builders can create the tool
+  their domain needs.
+- Follow the headline with one concise explanation that names both sides of the
+  contract: the App owns product information, rules, workflows, services, and
+  UI; Asyra coordinates intent routing, transactions, rollback, Undo/Redo,
+  validation, persistence boundaries, and downstream projections.
 - Keep one primary build action and one direct product-demo action.
 - Add a compact category clarification near the hero or immediately after it so
   visitors understand that Asyra is a composable Framework, not a hosted AI app
@@ -138,6 +155,8 @@ each form answers a different reader question.
 
 - Preserve the maintenance-cost comparison because it gives an accessible
   answer to why the Framework matters.
+- Make the comparison the first direct proof of the Hero thesis rather than a
+  separate campaign idea.
 - Ensure it promises one explicit Feature owner and one governed action path,
   not one literal file or zero integration work.
 - Remove any nearby explanation that repeats the comparison without adding
@@ -157,6 +176,9 @@ each form answers a different reader question.
   case study.
 - State explicitly that the interface and design-domain rules are App-owned;
   the Framework supplies reusable correctness and composition boundaries.
+- Frame the proof as the visible result of the Hero promise: the product work is
+  the editable design experience, while the repeated infrastructure is shared
+  through Asyra rather than rebuilt around each caller and state path.
 
 ### 5. Add a code-to-runtime bridge
 
@@ -220,6 +242,9 @@ each form answers a different reader question.
 
 - Keep `Bring your domain. Keep its logic.` as the closing conclusion unless the
   product owner changes the campaign direction.
+- Make the closing complete the Hero argument rather than introduce a second
+  positioning system: build product features, bring the domain, keep its logic,
+  and reuse Asyra's infrastructure boundaries.
 - Ensure the final action follows naturally from the evidence sequence and does
   not send both reader types to the same destination without explanation.
 
@@ -301,8 +326,9 @@ capability by itself.
 
 ## Acceptance Cases
 
-1. The first viewport still communicates the result before implementation
-   terminology.
+1. The first viewport presents `Build product features, not infrastructure.` as
+   the unmistakable primary headline and explains the result before
+   implementation terminology.
 2. A visitor can identify Asyra's software category without assuming a hosted
    builder, no-code platform, or canvas-only SDK.
 3. Broad domain applicability is explained through shared infrastructure rather
@@ -317,11 +343,17 @@ capability by itself.
 9. The full page remains coherent without JavaScript, images, or motion.
 10. Desktop, tablet, and phone layouts preserve the accepted visual identity,
     readable product detail, natural DOM order, and keyboard accessibility.
+11. Hero, comparison, Asyra Design proof, Feature proof, ownership map,
+    readiness strip, and closing each advance the same product-versus-
+    infrastructure thesis without repeating the headline as filler.
 
 ## Definition of Done
 
 - The landing page retains its approved result-first identity and gains direct
   product, code, ownership, and readiness evidence.
+- `Build product features, not infrastructure.` is the canonical landing-page
+  thesis, while `Build the tool your world needs.` is retained only in a clear
+  supporting role.
 - Every major conceptual claim is either supported by current evidence or
   explicitly framed as a composable direction rather than a shipped domain
   solution.
