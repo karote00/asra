@@ -56,6 +56,14 @@ if (!fs.existsSync(CONFIG_FILE)) {
 }
 
 const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'))
+const rootManifest = JSON.parse(
+  fs.readFileSync(path.resolve('package.json'), 'utf-8')
+)
+const prettierVersion = rootManifest.devDependencies?.prettier
+if (typeof prettierVersion !== 'string') {
+  console.error('Root manifest must declare a Prettier devDependency')
+  process.exit(1)
+}
 const SRC_DIR = path.resolve(config.src)
 const CONFIGURED_DEST_DIR = path.resolve(config.dest)
 const CHECK_DIRECTORY = path.resolve(
@@ -249,7 +257,7 @@ if (!fs.existsSync(pkgPath)) {
     eslint: '^10.0.1',
     'eslint-config-prettier': '^10.1.8',
     'eslint-plugin-prettier': '^5.5.5',
-    prettier: '3.5.3',
+    prettier: prettierVersion,
     'typescript-eslint': '^8.54.0'
   }
   pkg.devDependencies = pkg.devDependencies || {}

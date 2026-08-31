@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 import { execSync } from 'node:child_process'
 
 const args = process.argv.slice(2)
@@ -16,8 +17,13 @@ if (args.some((arg) => arg !== productArgument && arg !== '--plan')) {
 }
 
 const releasePlan = {
-  framework: [`yarn release:framework --prod=${product}`],
-  createApp: [`yarn release:create-app --prod=${product}`]
+  prepare: [
+    'yarn release:consumer:registry',
+    `yarn release:app --prod=${product}`,
+    `yarn release:validate --prod=${product}`,
+    `npm pack ./create-app/${product} --dry-run --json`
+  ],
+  publish: [`node scripts/publish-create-app.js --prod=${product}`]
 }
 
 if (printPlan) {
@@ -25,9 +31,9 @@ if (printPlan) {
   process.exit(0)
 }
 
-for (const command of [...releasePlan.framework, ...releasePlan.createApp]) {
+for (const command of [...releasePlan.prepare, ...releasePlan.publish]) {
   console.log(`\n> ${command}`)
   execSync(command, { stdio: 'inherit' })
 }
 
-console.log('\nFull staged release completed')
+console.log('\nCreate-app release completed')

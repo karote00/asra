@@ -13,5 +13,8 @@ Changeset release entries may target only fixed-allowlist Framework packages
 under `packages/*`. Root `asyra`, private apps, `create-app/*` CLI packages, and
 generated templates use their own manual version owners and must not be listed
 in Changeset frontmatter. Use an empty Changeset for a required non-Framework
-closeout record. See
+closeout record. Pull requests must include a pending Changeset record before
+completion. A release pull request remains valid after `changeset version`
+consumes those records only when the generated Framework package version and
+changelog changes are committed together. See
 `docs/ai/framework/rules/release-version-topology.md`.

@@ -1,5 +1,12 @@
 # @asyra/design-system
 
+## 0.5.4
+
+### Patch Changes
+
+- Publish the updated design-system build output and the Render runtime dependency
+  upgrade, including the required exact internal dependency version propagation.
+
 ## 0.5.3
 
 ### Patch Changes

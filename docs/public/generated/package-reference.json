@@ -72,9 +72,9 @@
       "sourceDigests": {
         "contract": "eb59d200716536560a4f42189c0250dfc3a7d84ff776f0dcea35d3f934a7c27b",
         "guide": "4150d383c83c25e7af0d91299ade90f585fe66fbab1c159d8a873d64efa1a57a",
-        "manifest": "d2577e502f6bc7ca9c4e7a00aaedac0ef97d29243111c9d629dfbd8759d53620"
+        "manifest": "8eeb8bf87e074cb694eff736314d30d76898f351ecd368fc1787a406a70b26fa"
       },
-      "version": "0.5.5"
+      "version": "0.5.6"
     },
     {
       "contractPath": "docs/ai/framework/packages/design-system.md",
@@ -94,9 +94,9 @@
       "sourceDigests": {
         "contract": "94c0a88a9ba5d8b317784d22cdaae2201f26d7c7d70c6821adfcafa8d6e56d09",
         "guide": "c2bc81415b3770b776ecd0b282c3889325c76a75a26bdb2d50be5a85b84b042d",
-        "manifest": "17820763963220ac3be3767ce90e3e3b67c10c180cc73d8756a80039c03b25f8"
+        "manifest": "edc65ab1e37f5fbf16e10f8c8cd1be677d25fdecd8dfe3bab2833a2ce2c95c8c"
       },
-      "version": "0.5.3"
+      "version": "0.5.4"
     },
     {
       "contractPath": "docs/ai/framework/packages/factory.md",
@@ -207,9 +207,9 @@
       "sourceDigests": {
         "contract": "6063335cf9a2a4e5e51c81bdef13b0390b5cc00b82892ef7cc664c5e46b94f9c",
         "guide": "6decd16b73a5a41526c730fe457be980cd6769d08ee1e09224c69dc05fe4c510",
-        "manifest": "73dd7d3d3dd1becce70fb1ffa79d1f2676dbef228859e7de241f2ad73b83c8c1"
+        "manifest": "efbbbcbec3c96bbd1138c57081963cccf5e8247932bca39754fb99a4bdf2e25c"
       },
-      "version": "0.5.6"
+      "version": "0.5.7"
     },
     {
       "contractPath": "docs/ai/framework/packages/props-manager.md",
@@ -278,9 +278,9 @@
       "sourceDigests": {
         "contract": "1e4ac2db7b96309ad33fb608e577b76dea46aa58ccb566adf5c5419524594e79",
         "guide": "bef4926e98157e95bac359858e2868d30939b419876f0d00e2fe9d9f1511c62a",
-        "manifest": "82694c403317f1028af0ec8f4b269a320f960ec9548cc7b79584bf596388cb50"
+        "manifest": "ad686399fecef249ca666bf2e3b36adf722790734a4eb39dcc80b6181adb5c18"
       },
-      "version": "0.5.5"
+      "version": "0.5.6"
     },
     {
       "contractPath": "docs/ai/framework/packages/render-engine.md",

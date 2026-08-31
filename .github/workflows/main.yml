@@ -31,6 +31,13 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
 
+      - name: Require Changeset record
+        if: github.event_name == 'pull_request'
+        env:
+          CHANGESET_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CHANGESET_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: yarn changeset:pr:check
+
       - name: Audit high-severity dependencies
         run: yarn security:audit
 
