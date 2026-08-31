@@ -44,6 +44,14 @@ test('root README follows the product-to-proof reader journey', () => {
   const readme = fs.readFileSync(path.join(repositoryRoot, 'README.md'), 'utf8')
 
   assert.match(readme, /https:\/\/asyra-design\.vercel\.app\/\?fileId=demo/u)
+  assert.equal(
+    [
+      ...readme.matchAll(
+        /<a href="https:\/\/asyra-design\.vercel\.app\/\?fileId=demo" target="_blank" rel="noopener noreferrer">/gu
+      )
+    ].length,
+    2
+  )
   assert.match(readme, /## Try the demo/u)
   assert.match(readme, /Asyra Design case study/u)
   assert.match(readme, /## One product behavior, one explicit owner/u)

@@ -13,14 +13,14 @@ coordinates the shared infrastructure around them: intent routing,
 registration, transactions, rollback, Undo/Redo, validation, persistence
 boundaries, and downstream projections.
 
-[Try Asyra Design](https://asyra-design.vercel.app/?fileId=demo) ·
+<a href="https://asyra-design.vercel.app/?fileId=demo" target="_blank" rel="noopener noreferrer">Try Asyra Design</a> ·
 [Read the documentation](docs/public/index.md) ·
 [Install `@asyra/core`](#package-first-composition) ·
 [Create an Asyra Design app](#complete-design-product)
 
 ## Try the demo
 
-[Asyra Design](https://asyra-design.vercel.app/?fileId=demo) is the maintained,
+<a href="https://asyra-design.vercel.app/?fileId=demo" target="_blank" rel="noopener noreferrer">Asyra Design</a> is the maintained,
 complete design-tool product in this repository. It demonstrates App-owned
 Features, editable information, the official `2D` Preset, rendering, Undo/Redo,
 persistence, and explicit optional AI and collaboration composition on the
