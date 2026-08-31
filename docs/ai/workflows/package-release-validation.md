@@ -168,7 +168,11 @@ authorizes the corresponding remote operation.
 Changesets version only fixed-allowlist Framework packages under `packages/*`.
 Root `asyra`, private apps, `create-app/*` CLI packages, and generated templates
 must never appear as Changeset release entries. A non-Framework code PR may use
-an empty Changeset as its closeout record.
+an empty Changeset as its closeout record. Every pull request must carry that
+pending record before completion. CI accepts a release pull request after
+`changeset version` consumes its pending records only when at least one
+allowlisted Framework package has both its generated manifest version and
+changelog committed; deleting a Changeset alone never satisfies the gate.
 
 Root `asyra` is the `a.b.0` main release identity. Framework packages iterate
 within that family as `a.b.n`. Changing `a` or `b` requires explicit user
