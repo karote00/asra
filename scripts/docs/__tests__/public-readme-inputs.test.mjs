@@ -64,6 +64,10 @@ test('root README follows the product-to-proof reader journey', () => {
     assert.match(attributes, /(?:^|\s)target="_blank"(?:\s|$)/u)
     assert.match(attributes, /(?:^|\s)rel="noopener noreferrer"(?:\s|$)/u)
   })
+  assert.match(
+    readme,
+    /\n- <a href="https:\/\/asyra-design\.vercel\.app\/\?fileId=demo"[^>]*>Try Asyra Design<\/a>\n- \[Read the documentation\]\(docs\/public\/index\.md\)\n- \[Install `@asyra\/core`\]\(#package-first-composition\)\n- \[Create an Asyra Design app\]\(#complete-design-product\)\n/u
+  )
   assert.match(readme, /## Try the demo/u)
   assert.match(readme, /Asyra Design case study/u)
   assert.match(readme, /## One product behavior, one explicit owner/u)

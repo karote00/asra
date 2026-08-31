@@ -13,10 +13,10 @@ coordinates the shared infrastructure around them: intent routing,
 registration, transactions, rollback, Undo/Redo, validation, persistence
 boundaries, and downstream projections.
 
-<a href="https://asyra-design.vercel.app/?fileId=demo" target="_blank" rel="noopener noreferrer">Try Asyra Design</a> ·
-[Read the documentation](docs/public/index.md) ·
-[Install `@asyra/core`](#package-first-composition) ·
-[Create an Asyra Design app](#complete-design-product)
+- <a href="https://asyra-design.vercel.app/?fileId=demo" target="_blank" rel="noopener noreferrer">Try Asyra Design</a>
+- [Read the documentation](docs/public/index.md)
+- [Install `@asyra/core`](#package-first-composition)
+- [Create an Asyra Design app](#complete-design-product)
 
 ## Try the demo
 
