@@ -342,7 +342,7 @@
         },
         {
           "path": "packages/core/package.json",
-          "sha256": "d2577e502f6bc7ca9c4e7a00aaedac0ef97d29243111c9d629dfbd8759d53620"
+          "sha256": "8eeb8bf87e074cb694eff736314d30d76898f351ecd368fc1787a406a70b26fa"
         }
       ]
     },
@@ -356,7 +356,7 @@
         },
         {
           "path": "packages/design-system/package.json",
-          "sha256": "17820763963220ac3be3767ce90e3e3b67c10c180cc73d8756a80039c03b25f8"
+          "sha256": "edc65ab1e37f5fbf16e10f8c8cd1be677d25fdecd8dfe3bab2833a2ce2c95c8c"
         }
       ]
     },
@@ -426,7 +426,7 @@
         },
         {
           "path": "packages/preset/package.json",
-          "sha256": "73dd7d3d3dd1becce70fb1ffa79d1f2676dbef228859e7de241f2ad73b83c8c1"
+          "sha256": "efbbbcbec3c96bbd1138c57081963cccf5e8247932bca39754fb99a4bdf2e25c"
         }
       ]
     },
@@ -468,7 +468,7 @@
         },
         {
           "path": "packages/render/package.json",
-          "sha256": "82694c403317f1028af0ec8f4b269a320f960ec9548cc7b79584bf596388cb50"
+          "sha256": "ad686399fecef249ca666bf2e3b36adf722790734a4eb39dcc80b6181adb5c18"
         }
       ]
     },

@@ -1,5 +1,11 @@
 # @asyra/preset
 
+## 0.5.7
+
+### Patch Changes
+
+- @asyra/core@0.5.6
+
 ## 0.5.6
 
 ### Patch Changes
