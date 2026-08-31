@@ -26,10 +26,16 @@ Features, editable information, the official `2D` Preset, rendering, Undo/Redo,
 persistence, and explicit optional AI and collaboration composition on the
 current browser/Core runtime.
 
-![Asyra Design showing editable shapes, Layers, and Properties](docs/public/assets/asyra-design-product-evidence.jpg)
+![Asyra Design showing the complete 7,076-element editable cat drawing](docs/public/assets/asyra-design-7076-product-evidence.jpg)
 
-_Live Asyra Design at 100% zoom. The selected rectangle connects the canvas,
-Layers, and App-owned Properties UI in one editable product state._
+_The maintained 7,076-element sample rendered in Asyra Design: one App-owned
+Group and 7,075 editable Vectors, with 156,373 vector points visible through the
+ordinary Agent, Runtime, canonical-state, and Render paths._
+
+[Watch two live clients converge on the 7,076-element drawing](docs/public/assets/asyra-design-7076-crdt.mp4).
+Actor A creates the drawing through the Agent; Actor B receives it through CRDT
+and renders the same editable canonical result. See the
+[maintained sample and reproduction steps](apps/asyra-design/samples/crdt-7076/README.md).
 
 The product UI and design-domain behavior belong to the App; they are not
 silently installed by Framework Core. Follow the

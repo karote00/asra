@@ -44,7 +44,11 @@ test('root README follows the product-to-proof reader journey', () => {
   const readme = fs.readFileSync(path.join(repositoryRoot, 'README.md'), 'utf8')
   const productEvidencePath = path.join(
     repositoryRoot,
-    'docs/public/assets/asyra-design-product-evidence.jpg'
+    'docs/public/assets/asyra-design-7076-product-evidence.jpg'
+  )
+  const collaborationEvidencePath = path.join(
+    repositoryRoot,
+    'docs/public/assets/asyra-design-7076-crdt.mp4'
   )
   const undoRedoSource = fs
     .readFileSync(
@@ -92,11 +96,20 @@ test('root README follows the product-to-proof reader journey', () => {
   assert.match(readme, /Asyra Design case study/u)
   assert.match(
     readme,
-    /!\[Asyra Design showing editable shapes, Layers, and Properties\]\(docs\/public\/assets\/asyra-design-product-evidence\.jpg\)/u
+    /!\[Asyra Design showing the complete 7,076-element editable cat drawing\]\(docs\/public\/assets\/asyra-design-7076-product-evidence\.jpg\)/u
   )
   const productEvidence = fs.readFileSync(productEvidencePath)
   assert.deepEqual([...productEvidence.subarray(0, 3)], [0xff, 0xd8, 0xff])
-  assert.ok(productEvidence.byteLength < 100_000)
+  assert.ok(productEvidence.byteLength < 200_000)
+  assert.match(
+    readme,
+    /\[Watch two live clients converge on the 7,076-element drawing\]\(docs\/public\/assets\/asyra-design-7076-crdt\.mp4\)/u
+  )
+  const collaborationEvidence = fs.readFileSync(collaborationEvidencePath)
+  assert.equal(collaborationEvidence.subarray(4, 8).toString('ascii'), 'ftyp')
+  assert.ok(collaborationEvidence.byteLength < 10_000_000)
+  assert.match(readme, /Actor A creates the drawing through the Agent/u)
+  assert.match(readme, /Actor B receives it through CRDT/u)
   assert.match(readme, /## One product behavior, one explicit owner/u)
   assert.match(readme, /Conventional product/u)
   assert.match(readme, /With Asyra/u)
