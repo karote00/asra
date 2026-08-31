@@ -70,6 +70,8 @@
     "release:consumer:registry": "node scripts/release-readiness.js --registry",
     "release:template": "node scripts/release-template-readiness.js",
     "release:records": "node --test scripts/__tests__/release-records.test.mjs && node scripts/release-records.js",
+    "release:framework": "node scripts/release-framework.js",
+    "release:create-app": "node scripts/release-create-app.js",
     "release:full": "node scripts/release-full.js",
     "release:full:asyra-design": "node scripts/release-full.js --prod=asyra-design",
     "dev:description": "Run in watch mode: all packages including design-system, asyra-design app"

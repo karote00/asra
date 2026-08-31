@@ -130,6 +130,8 @@ compilation.
 
 ```bash
 yarn release:validate --prod=asyra-design
+yarn release:framework --prod=asyra-design
+yarn release:create-app --prod=asyra-design
 yarn release:full --prod=asyra-design
 ```
 
@@ -153,11 +155,25 @@ Release validation never cleans or builds the developer's active workspace, so
 an active `dev:all`, app server, or package watcher is not interrupted and
 cannot rewrite artifacts during validation.
 
-`release:full` computes versions from already-present changesets, converts
-workspace dependency ranges, generates the app template, passes
-`release:validate`, and only then invokes registry publication. Once production
-ranges have been applied, a `finally` path restores `workspace:*` whether
-validation or publication succeeds or fails.
+`release:framework` captures the current Changesets status before version
+materialization, rejects every release entry outside the fixed 19-package
+Framework allowlist, converts workspace dependency ranges, publishes only the
+captured Framework release set in dependency order, restores `workspace:*`,
+and then proves the published set through the registry-only consumer.
+
+`release:create-app` begins with that registry-only Framework proof, regenerates
+and validates the selected app template, verifies the CLI pack inventory, and
+publishes only `create-app/<app>`. It never discovers or publishes Framework
+workspaces. `release:full` is the explicit synchronized orchestration: it runs
+the Framework stage first and enters the create-app stage only after Framework
+publication and registry verification succeed. Use `release:framework` alone
+when the CLI does not need a release.
+
+Once exact release ranges have been applied, the Framework stage restores
+`workspace:*` in a `finally` path whether validation or publication succeeds or
+fails. The generic unscoped `changeset publish` command is not a project release
+entrypoint because it would also select any unrelated unpublished public
+workspace, including a manually versioned create-app CLI.
 
 These commands do not create changesets and do not authorize a push, tag,
 registry publication, or deployment unless the user explicitly invokes and

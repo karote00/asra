@@ -27,20 +27,67 @@ const readPlan = (script, args = []) => {
   return JSON.parse(result.stdout)
 }
 
-test('full release validates exact artifacts before publish and always restores workspace ranges', () => {
+test('full release keeps Framework and create-app publication in ordered stages', () => {
   const plan = readPlan('scripts/release-full.js', ['--prod=asyra-design'])
 
   assert.deepEqual(plan, {
+    framework: ['yarn release:framework --prod=asyra-design'],
+    createApp: ['yarn release:create-app --prod=asyra-design']
+  })
+})
+
+test('Framework release publishes only its captured Changesets release plan', () => {
+  const plan = readPlan('scripts/release-framework.js', ['--prod=asyra-design'])
+
+  assert.deepEqual(plan, {
     prepare: [
+      'yarn changeset status --output=tmp/framework-release-plan.json',
       'yarn changeset version',
       'yarn release:app --prod=asyra-design',
       'yarn release:validate --prod=asyra-design',
       'yarn bump:workspace --env=release',
       'yarn release:ranges:check'
     ],
-    publish: ['yarn changeset publish'],
+    publish: [
+      'node scripts/publish-framework-release.js --plan=tmp/framework-release-plan.json'
+    ],
+    verify: ['yarn release:consumer:registry'],
     finally: ['yarn bump:workspace --env=dev']
   })
+})
+
+test('create-app release verifies the Framework registry and publishes only its CLI', () => {
+  const plan = readPlan('scripts/release-create-app.js', [
+    '--prod=asyra-design'
+  ])
+
+  assert.deepEqual(plan, {
+    prepare: [
+      'yarn release:consumer:registry',
+      'yarn release:app --prod=asyra-design',
+      'yarn release:validate --prod=asyra-design',
+      'npm pack ./create-app/asyra-design --dry-run --json'
+    ],
+    publish: ['node scripts/publish-create-app.js --prod=asyra-design']
+  })
+})
+
+test('release publishers enforce separate Framework allowlist and CLI roots', () => {
+  const frameworkPublisher = readFileSync(
+    path.join(repositoryRoot, 'scripts/publish-framework-release.js'),
+    'utf8'
+  )
+  const createAppPublisher = readFileSync(
+    path.join(repositoryRoot, 'scripts/publish-create-app.js'),
+    'utf8'
+  )
+
+  assert.match(frameworkPublisher, /FRAMEWORK_RELEASE_PACKAGE_NAMES/)
+  assert.match(frameworkPublisher, /contains forbidden package/)
+  assert.match(frameworkPublisher, /\.\/packages\/\$\{release\.directory\}/)
+  assert.doesNotMatch(frameworkPublisher, /create-app/)
+  assert.match(createAppPublisher, /path\.resolve\('create-app', product\)/)
+  assert.doesNotMatch(createAppPublisher, /FRAMEWORK_RELEASE_PACKAGE_NAMES/)
 })
 
 test('release validation covers build, tests, dependencies, collaboration, and generated template', () => {
