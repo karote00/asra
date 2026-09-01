@@ -29,9 +29,17 @@ test('result-first Landing authority resolves only the current contract and work
     'e43980029f7bee21f5580d0f58b6869e4dec42fb5e7c84fb98c5b2b7bf7abd3b'
   )
   assert.equal('platformInspectorPath' in data.authority, false)
+  assert.equal(
+    data.authority.specPath,
+    'docs/ai/framework/plans/website-product-and-technical-evidence-plan.md'
+  )
+  assert.equal(
+    data.authority.retainedLandingSpecPath,
+    'docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md'
+  )
 })
 
-test('result-first Landing owns fifteen exact and unique product cases', () => {
+test('result-first Landing owns the exact product and technical evidence cases', () => {
   assert.deepEqual(data.caseIds, [
     'desktop-editorial-composition',
     'mobile-single-column-reflow',
@@ -47,9 +55,26 @@ test('result-first Landing owns fifteen exact and unique product cases', () => {
     'perceptually-sharp-raster-rendering',
     'navigation-only-project-footer',
     'no-client-reduced-motion-reading',
-    'machine-readable-discovery'
+    'machine-readable-discovery',
+    'product-first-hero-thesis',
+    'asyra-design-product-proof',
+    'feature-code-runtime-bridge',
+    'change-ownership-map',
+    'audience-readiness-paths',
+    'domain-owned-closing'
   ])
-  assert.equal(new Set(data.caseIds).size, 15)
+  assert.equal(new Set(data.caseIds).size, 21)
+})
+
+test('contract freezes the product-first evidence architecture before rendering', () => {
+  const source = JSON.stringify(step('freeze-result-first-contract'))
+  assert.match(source, /Build product features, not infrastructure/i)
+  assert.match(source, /Build the tool your world needs.*supporting/i)
+  assert.match(source, /Asyra Design.*first-class product proof/i)
+  assert.match(source, /Feature code.*runtime.*same bounded idea/i)
+  assert.match(source, /change ownership.*App-owned.*Framework-owned/i)
+  assert.match(source, /domain expert.*technical evaluator.*product builder/i)
+  assert.match(source, /does not automatically reuse README media/i)
 })
 
 test('contract replaces every previous website surface with the approved V04 page', () => {
@@ -307,6 +332,21 @@ test('page owner selects the supplied true-alpha masters with one adaptive grid-
   assert.ok(
     owner.implementationBoundary.includes(
       'apps/asyra-framework-site/components/framework-value-story.tsx'
+    )
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'apps/asyra-framework-site/public/product-evidence'
+    )
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'apps/asyra-framework-site/scripts/build-product-evidence.py'
+    )
+  )
+  assert.ok(
+    owner.implementationBoundary.includes(
+      'apps/asyra-framework-site/app/styles/tokens.css'
     )
   )
 })

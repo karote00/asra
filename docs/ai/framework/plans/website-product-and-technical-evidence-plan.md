@@ -2,7 +2,10 @@
 
 ## Status
 
-Planned. Implementation has not started.
+Implementation candidate completed on 2026-09-01. The landing now leads with
+the product-first thesis and includes current Asyra Design, Feature/runtime,
+ownership, and readiness evidence. Final completion remains pending product
+owner review and merge.
 
 This plan follows the completed
 [Asyra Result-First Landing Page Plan](completed/asyra-website-landing-page-plan.md)

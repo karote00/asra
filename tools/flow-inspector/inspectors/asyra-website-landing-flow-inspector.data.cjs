@@ -13,7 +13,13 @@ const caseIds = Object.freeze([
   'perceptually-sharp-raster-rendering',
   'navigation-only-project-footer',
   'no-client-reduced-motion-reading',
-  'machine-readable-discovery'
+  'machine-readable-discovery',
+  'product-first-hero-thesis',
+  'asyra-design-product-proof',
+  'feature-code-runtime-bridge',
+  'change-ownership-map',
+  'audience-readiness-paths',
+  'domain-owned-closing'
 ])
 
 const step = (definition) =>
@@ -21,7 +27,10 @@ const step = (definition) =>
 
 module.exports = Object.freeze({
   authority: Object.freeze({
-    specPath: 'docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md',
+    specPath:
+      'docs/ai/framework/plans/website-product-and-technical-evidence-plan.md',
+    retainedLandingSpecPath:
+      'docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md',
     inspectorPath:
       'tools/flow-inspector/inspectors/asyra-website-landing-flow-inspector.data.cjs',
     workspacePath: 'apps/asyra-framework-site',
@@ -35,7 +44,7 @@ module.exports = Object.freeze({
       order: 1,
       ownerPackage: 'Website Landing contract',
       purpose:
-        'Freeze V04 as the authority for the retained composition, accept the six supplied transparent Photoroom illustrations with one adaptive CSS grid-and-shadow stage, and retire Visible Change and Impact Preview from the public narrative.',
+        'Freeze the product-first evidence architecture over the retained V04 composition and Cosmic Atlas visual language, while preserving the supplied illustrations and retiring unsupported public claims.',
       inputs: [
         'user-approved V04 Landing reference',
         'product-owner copy and identity corrections',
@@ -62,7 +71,14 @@ module.exports = Object.freeze({
         'The PoC comparison uses eight border-free direct raster crops from the product-owner-approved person storyboard preview, preserving the same recurring domain expert and engineer instead of redrawing the scenes.',
         'A semantic HTML and CSS Framework value comparison follows the PoC story and contrasts repeated product behavior with one Feature used by every product surface.',
         'Header, Hero, domain copy, PoC, proofs, Closing, and Footer share one minimum page width, one 1720px maximum content width, and one responsive inline padding, while every visible Domain Rail row remains full bleed below 1720px and adopts the shared inline padding at and above 1720px.',
-        'The footer contains project navigation only and does not repeat year, license, open-source, or company metadata.'
+        'The footer contains project navigation only and does not repeat year, license, open-source, or company metadata.',
+        'The primary thesis is “Build product features, not infrastructure.” while “Build the tool your world needs.” remains a supporting product promise.',
+        'Asyra Design is first-class product proof with a real product frame, a concise caption, and a clear path to the live product.',
+        'One real Feature code sample and its runtime path explain the same bounded idea from product intent through canonical ownership and projections.',
+        'The change ownership map distinguishes App-owned product decisions from Framework-owned infrastructure without implying that every product needs every optional subsystem.',
+        'Readiness paths explicitly serve a domain expert, technical evaluator, and product builder without splitting the page into disconnected funnels.',
+        'The domain-owned closing returns agency to the reader instead of ending on infrastructure terminology.',
+        'Website product evidence owns its crop, density, alt text, size budget, and reading context; it does not automatically reuse README media.'
       ],
       bypasses: [
         'No removed Website implementation may contribute UI, CSS, illustration, route, or copy.'
@@ -89,6 +105,7 @@ module.exports = Object.freeze({
       ],
       implementationBoundary: [
         'docs/ai/framework/plans/completed/asyra-website-landing-page-plan.md',
+        'docs/ai/framework/plans/website-product-and-technical-evidence-plan.md',
         'tools/flow-inspector/inspectors/asyra-website-landing-flow-inspector.data.cjs',
         'tools/flow-inspector/inspectors/__tests__/asyra-website-landing-flow-inspector.contract.test.cjs'
       ],
@@ -146,7 +163,12 @@ module.exports = Object.freeze({
         'Display and body typography use a modern system sans stack with no legacy display serif or external font dependency.',
         'Display headings use weight 500 or below with line height at least 1.0, and multiline proof and closing headings use at least 1.04.',
         'CTA hover and focus are brighter than the default red.',
-        'The same complete narrative remains in DOM order at desktop, mobile, and without JavaScript.'
+        'The same complete narrative remains in DOM order at desktop, mobile, and without JavaScript.',
+        'The Hero leads with “Build product features, not infrastructure.” and keeps “Build the tool your world needs.” in a supporting role.',
+        'A landing-owned derivative of the canonical 7,076-element Asyra Design frame provides authentic current product evidence with a reproducible hash-locked export.',
+        'The maintained public review-actions Feature excerpt is paired with one person-or-AI to Feature, transaction, canonical-owner, and projection path.',
+        'Framework, Preset, App, and external-service responsibilities are presented as distinct ownership layers.',
+        'Readiness actions distinguish product builders, Framework composers, and technical evaluators while current support remains separate from roadmap direction.'
       ],
       bypasses: [
         'If an image does not load, semantic headings and descriptive alt text preserve the complete reading.',
@@ -192,6 +214,7 @@ module.exports = Object.freeze({
       implementationBoundary: [
         'apps/asyra-framework-site/app/page.tsx',
         'apps/asyra-framework-site/app/globals.css',
+        'apps/asyra-framework-site/app/styles/tokens.css',
         'apps/asyra-framework-site/components/framework-value-story.tsx',
         'apps/asyra-framework-site/app/layout.tsx',
         'apps/asyra-framework-site/app/error.tsx',
@@ -213,6 +236,7 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/artwork/v12-transparent',
         'apps/asyra-framework-site/artwork/photoroom',
         'apps/asyra-framework-site/public/illustrations',
+        'apps/asyra-framework-site/public/product-evidence',
         'apps/asyra-framework-site/public/llms.txt',
         'docs/public/llms.txt',
         'scripts/docs/public-documentation.mjs',
@@ -231,7 +255,8 @@ module.exports = Object.freeze({
         'apps/asyra-framework-site/scripts/build-transparent-v12-assets.py',
         'apps/asyra-framework-site/scripts/verify-transparent-v12-assets.py',
         'apps/asyra-framework-site/scripts/build-photoroom-assets.py',
-        'apps/asyra-framework-site/scripts/build-poc-storyboard-crops.py'
+        'apps/asyra-framework-site/scripts/build-poc-storyboard-crops.py',
+        'apps/asyra-framework-site/scripts/build-product-evidence.py'
       ],
       specRefs: [
         '#visual-authority',

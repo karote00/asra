@@ -22,6 +22,9 @@
   --color-green: #2c8a51;
   --color-green-bright: #81d09c;
   --color-orange: #bd7312;
+  --color-code-surface: #071522;
+  --color-code-text: #e4f3f5;
+  --color-violet: #6d3dc0;
 
   /* Semantic colors */
   --paper: var(--color-paper);
@@ -39,6 +42,9 @@
   --status-current: var(--color-green);
   --status-future: var(--color-blue);
   --status-caution: var(--color-orange);
+  --code-surface: var(--color-code-surface);
+  --code-text: var(--color-code-text);
+  --signal-violet: var(--color-violet);
   --frame-rule: rgb(21 22 20 / 18%);
 
   /* Typography */

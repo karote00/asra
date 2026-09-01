@@ -56,11 +56,11 @@ test('the result-first narrative matches the approved V04 landing page', async (
   ])
   const pageText = page.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
   const requiredCopy = [
-    'Build the tool your world needs.',
-    'You bring the domain knowledge. AI builds with Asyra. Your tool',
+    'Build product features, not infrastructure.',
+    'Build the tool your world needs. You own its information, rules,',
     'One foundation. Any field.',
     'Add what your workflow needs without rebuilding the rest.',
-    'People and AI follow the same governed action path.',
+    'One Feature. Every caller.',
     'One source of truth across every feature and view.',
     'Prove it once. Keep what works.',
     'Keep validated work moving.',
@@ -79,12 +79,10 @@ test('the result-first narrative matches the approved V04 landing page', async (
   assert.equal((page.match(/Try the demo/g) ?? []).length, 1)
   assert.equal((header.match(/label:\s*'Asyra Design'/g) ?? []).length, 1)
   for (const line of [
-    'Build the tool',
-    'your world needs.',
+    'Build product features,',
+    'not infrastructure.',
     'Add what your workflow',
     'needs without rebuilding',
-    'People and AI follow the',
-    'same governed action path.',
     'One source of truth across',
     'every feature and view.',
     'Bring your domain.',
@@ -99,6 +97,81 @@ test('the result-first narrative matches the approved V04 landing page', async (
   }
   assert.doesNotMatch(page, /proof__detail|Asyra shows what changed/)
   assert.doesNotMatch(page, /[—–]/)
+})
+
+test('the landing page advances one product-first evidence sequence', async () => {
+  const page = await readAppFile('page.tsx')
+  const pageText = page.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
+
+  for (const copy of [
+    'Build product features, not infrastructure.',
+    'Build the tool your world needs.',
+    'Built with Asyra',
+    'A real product. One shared foundation.',
+    'One Feature. Every caller.',
+    'You own the product. Asyra owns the repeatable boundaries.',
+    'Choose your starting point',
+    'Bring your domain. Keep its logic.'
+  ]) {
+    assert.ok(pageText.includes(copy), `Missing evidence copy: ${copy}`)
+  }
+
+  const hero = page.indexOf('className="hero"')
+  const domains = page.indexOf('className="domains"')
+  const comparison = page.indexOf('<FrameworkValueStory />')
+  const product = page.indexOf('className="product-evidence"')
+  const feature = page.indexOf('className="feature-evidence"')
+  const ownership = page.indexOf('className="landing-ownership"')
+  const readiness = page.indexOf('className="readiness"')
+  const closing = page.indexOf('className="closing ')
+
+  assert.ok(hero < domains)
+  assert.ok(domains < comparison)
+  assert.ok(comparison < product)
+  assert.ok(product < feature)
+  assert.ok(feature < ownership)
+  assert.ok(ownership < readiness)
+  assert.ok(readiness < closing)
+  assert.match(page, /asyra-design-7076-product-evidence\.webp/)
+  assert.match(page, /defineFeature/)
+  assert.match(page, /app\.reviewActions/)
+  assert.match(page, /href="\/docs\/build\/feature-session"/)
+  assert.match(page, /href: '\/docs\/start\/create-design-app'/)
+  assert.match(page, /href: '\/atlas'/)
+  assert.match(page, /Framework owned/)
+  assert.match(page, /Preset owned/)
+  assert.match(page, /App owned/)
+  assert.match(page, /Service owned/)
+})
+
+test('the landing owns a reproducible and size-bounded product evidence derivative', async () => {
+  const [source, derivative, builder] = await Promise.all([
+    readFile(
+      path.join(
+        siteRoot,
+        '../../docs/public/assets/asyra-design-7076-product-evidence.jpg'
+      )
+    ),
+    readFile(
+      path.join(
+        siteRoot,
+        'public/product-evidence/asyra-design-7076-product-evidence.webp'
+      )
+    ),
+    readFile(path.join(siteRoot, 'scripts/build-product-evidence.py'), 'utf8')
+  ])
+
+  assert.equal(
+    createHash('sha256').update(source).digest('hex'),
+    'bb9903dd93dbdf7a5ae4220bea223bfa35ad1748ca1e42752622354545e2e470'
+  )
+  assert.equal(
+    createHash('sha256').update(derivative).digest('hex'),
+    'da7371971cd6d248408579cf286207673086d5aa20a0b5df8fe48d5a2b34bf52'
+  )
+  assert.ok(derivative.byteLength < 100_000)
+  assert.match(builder, /image\.size != \(1280, 720\)/)
+  assert.match(builder, /quality=86/)
 })
 
 test('the PoC storyboard keeps validated work on one governed product path', async () => {
@@ -232,8 +305,8 @@ test('the Landing Framework value story isolates change cost from the proof sect
   const proofStart = page.indexOf('<div className="proof-stack">')
 
   assert.match(page, /import \{ FrameworkValueStory \}/)
-  assert.ok(storyStart >= 0 && storyStart < valueStart)
-  assert.ok(valueStart < proofStart)
+  assert.ok(valueStart >= 0 && valueStart < storyStart)
+  assert.ok(storyStart < proofStart)
   assert.match(component, /className="framework-value"/)
   assert.match(component, />Change cost</)
   assert.match(component, /One feature request\. One place to change\./)
@@ -358,7 +431,7 @@ test('every navigation and CTA target is connected to the completed site', async
   assert.equal(
     (source.match(/https:\/\/asyra-design\.vercel\.app\/\?fileId=demo/g) ?? [])
       .length,
-    1
+    2
   )
   assert.equal(
     (
@@ -366,7 +439,7 @@ test('every navigation and CTA target is connected to the completed site', async
         /<a\b(?=[^>]*href="https:\/\/asyra-design\.vercel\.app\/\?fileId=demo")(?=[^>]*target="_blank")(?=[^>]*rel="noopener noreferrer")[^>]*>/g
       ) ?? []
     ).length,
-    1
+    2
   )
   assert.doesNotMatch(page, /href="#examples"|id="examples"/)
   assert.match(page, /id="domains"/)
