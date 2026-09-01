@@ -2021,6 +2021,53 @@ test('tablet single-column evidence images fill the composition without leaving 
   }
 })
 
+test('every top-level eyebrow stays above and aligned with its section heading', async ({
+  page
+}) => {
+  for (const width of [1440, 1100, 900, 820, 680, 520, 390, 320]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await loadLanding(page)
+
+    const headingPairs = await page
+      .locator(
+        '.product-evidence__copy, .poc-story__heading > div:first-child, .feature-evidence__heading, .landing-ownership > header, .proof__copy, .readiness > header'
+      )
+      .evaluateAll((groups) =>
+        groups.map((group) => {
+          const eyebrow = group.querySelector<HTMLElement>(':scope > .eyebrow')
+          const heading = group.querySelector<HTMLElement>(':scope > h2')
+          if (!eyebrow || !heading) {
+            throw new Error('Missing top-level eyebrow or section heading')
+          }
+          const eyebrowBounds = eyebrow.getBoundingClientRect()
+          const headingBounds = heading.getBoundingClientRect()
+          return {
+            eyebrowBottom: eyebrowBounds.bottom,
+            eyebrowLeft: eyebrowBounds.left,
+            headingLeft: headingBounds.left,
+            headingTop: headingBounds.top,
+            text: eyebrow.textContent?.trim() ?? ''
+          }
+        })
+      )
+
+    for (const pair of headingPairs) {
+      expect(
+        Math.abs(pair.eyebrowLeft - pair.headingLeft),
+        `${width}px ${pair.text} horizontal alignment`
+      ).toBeLessThanOrEqual(1)
+      expect(
+        pair.headingTop - pair.eyebrowBottom,
+        `${width}px ${pair.text} vertical order`
+      ).toBeGreaterThanOrEqual(8)
+      expect(
+        pair.headingTop - pair.eyebrowBottom,
+        `${width}px ${pair.text} vertical rhythm`
+      ).toBeLessThanOrEqual(28)
+    }
+  }
+})
+
 test('closing CTA keeps a compact button-to-label proportion', async ({
   page
 }, testInfo) => {

@@ -1295,17 +1295,16 @@ p {
 }
 
 .landing-ownership > header {
-  display: grid;
-  gap: 20px clamp(40px, 6vw, 90px);
-  grid-template-columns: minmax(0, 0.6fr) minmax(320px, 1.4fr);
+  display: block;
 }
 
 .landing-ownership > header .eyebrow {
-  margin: 0;
+  margin-bottom: clamp(10px, 1.4vw, 20px);
 }
 
 .landing-ownership h2 {
   font-size: clamp(2.4rem, 4.5vw, 4.5rem);
+  max-width: 1200px;
 }
 
 .landing-ownership__grid {
@@ -1345,7 +1344,7 @@ p {
 }
 
 .readiness > header {
-  align-items: end;
+  align-items: start;
   display: grid;
   gap: 18px clamp(36px, 5vw, 80px);
   grid-template-columns: minmax(0, 0.8fr) minmax(300px, 0.6fr);
