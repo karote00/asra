@@ -4,6 +4,8 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
+    # Keep vulnerability alerts enabled without opening routine version PRs.
+    open-pull-requests-limit: 0
     labels:
       - 'dependencies'
     groups:
@@ -23,6 +25,8 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
+    # Keep vulnerability alerts enabled without opening routine version PRs.
+    open-pull-requests-limit: 0
     labels:
       - 'dependencies'
     groups:
