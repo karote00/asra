@@ -45,6 +45,40 @@ const assertNoHorizontalOverflow = async (page: Page) => {
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1)
 }
 
+const assertVisibleImagesStayInsideViewport = async (page: Page) => {
+  const overflow = await page.locator('img').evaluateAll((images) => {
+    const viewportWidth = document.documentElement.clientWidth
+
+    return images.flatMap((image) => {
+      const bounds = image.getBoundingClientRect()
+      const style = getComputedStyle(image)
+      const visible =
+        style.display !== 'none' &&
+        style.visibility !== 'hidden' &&
+        bounds.width > 0 &&
+        bounds.height > 0
+
+      if (
+        !visible ||
+        (bounds.left >= -1 && bounds.right <= viewportWidth + 1)
+      ) {
+        return []
+      }
+
+      return [
+        {
+          className: image.className,
+          left: bounds.left,
+          right: bounds.right,
+          viewportWidth
+        }
+      ]
+    })
+  })
+
+  expect(overflow).toEqual([])
+}
+
 const assertLinksAndCtas = async (page: Page) => {
   const links = await page.locator('a').evaluateAll((anchors) =>
     anchors.map((anchor) => {
@@ -1945,6 +1979,46 @@ test('820px retains the reference two-column composition', async ({
     fullPage: true,
     path: testInfo.outputPath('landing-tablet-820.png')
   })
+})
+
+test('every landing image stays inside the viewport across breakpoints and interval midpoints', async ({
+  page
+}) => {
+  for (const width of [
+    1440, 1270, 1100, 1099, 1030, 960, 959, 930, 900, 899, 850, 800, 799, 783,
+    767, 766, 724, 680, 679, 600, 520, 519, 455, 390, 389, 375, 360, 359, 320
+  ]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await loadLanding(page)
+    await assertVisibleImagesStayInsideViewport(page)
+  }
+})
+
+test('tablet single-column evidence images fill the composition without leaving the viewport', async ({
+  page
+}) => {
+  for (const width of [680, 600, 521]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await loadLanding(page)
+
+    const ratios = await page
+      .locator(
+        '.runtime-proof .proof-image--same-path, .proof-image--grow, .proof-image--one-source'
+      )
+      .evaluateAll((images) =>
+        images.map((image) => {
+          const bounds = image.getBoundingClientRect()
+          return bounds.width / document.documentElement.clientWidth
+        })
+      )
+
+    expect(ratios).toHaveLength(3)
+    for (const ratio of ratios) {
+      expect(ratio).toBeGreaterThanOrEqual(0.72)
+      expect(ratio).toBeLessThanOrEqual(0.9)
+    }
+    await assertVisibleImagesStayInsideViewport(page)
+  }
 })
 
 test('closing CTA keeps a compact button-to-label proportion', async ({

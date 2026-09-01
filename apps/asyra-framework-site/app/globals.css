@@ -1553,7 +1553,7 @@ p {
 
 .proof-image {
   margin: auto;
-  max-width: none;
+  max-width: 100%;
 }
 
 .proof-image--grow {
@@ -2056,6 +2056,17 @@ button:focus-visible {
     min-height: 48px;
     min-width: 0;
     width: min(100%, 180px);
+  }
+}
+
+@media (min-width: 521px) and (max-width: 680px) {
+  .runtime-proof .proof-image--same-path {
+    width: min(88%, 560px);
+  }
+
+  .proof-image--grow,
+  .proof-image--one-source {
+    width: min(82%, 520px);
   }
 }
 
