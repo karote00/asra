@@ -10,6 +10,18 @@ const e2eRoot = path.join(siteRoot, '__tests__', 'e2e')
 const expectedOutputRoot = path.join(siteRoot, 'test-results', 'platform')
 const recursiveSiteRoot = path.join(siteRoot, 'apps', 'asyra-framework-site')
 
+test('ordinary visual review uses the developer machine Chrome', () => {
+  const chromiumProject = playwrightConfig.projects?.find(
+    (project) => project.name === 'chromium'
+  )
+
+  assert.equal(
+    chromiumProject?.use?.channel,
+    'chrome',
+    'ordinary website E2E must use the installed Chrome channel instead of a Playwright-managed browser version'
+  )
+})
+
 test('visual review artifacts stay inside the app-owned output root', async () => {
   assert.equal(
     playwrightConfig.outputDir,

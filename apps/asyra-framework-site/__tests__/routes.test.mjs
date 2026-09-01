@@ -94,7 +94,19 @@ test('release inventory is generated from package facts without duplicated versi
   assert.doesNotMatch(page, /['"]\d+\.\d+\.\d+['"]|version:\s*['"]/)
   assert.match(releaseHistory, /version:\s*'0\.5\.0'/)
   assert.match(releaseHistory, /status:\s*'Current'/)
-  assert.match(releaseHistory, /The public Framework foundation/)
+  assert.match(releaseHistory, /Build product features, not infrastructure/)
+  assert.match(releaseHistory, /7,076-element reference product/)
+  assert.match(releaseHistory, /Optional collaboration and AI/)
+  assert.match(releaseHistory, /Node\.js 24/)
+  assert.match(releaseHistory, /Flow Inspector 0\.2\.0/)
+  assert.match(
+    releaseHistory,
+    /https:\/\/github\.com\/karote00\/asyra\/releases\/tag\/v0\.5\.0/
+  )
+  assert.match(
+    page,
+    /<a\b(?=[^>]*href=\{release\.githubUrl\})(?=[^>]*target="_blank")(?=[^>]*rel="noopener noreferrer")[^>]*>/
+  )
   assert.doesNotMatch(
     releaseHistory,
     /first two|first 2|third number|version relationship/i

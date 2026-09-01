@@ -992,9 +992,15 @@ test('releases presents user-facing package and support facts at every width', a
     await expect(
       page.getByRole('heading', {
         level: 3,
-        name: 'The public Framework foundation.'
+        name: 'Build product features, not infrastructure.'
       })
     ).toBeVisible()
+    await expect(
+      page.getByRole('link', { name: 'Read the complete v0.5.0 release' })
+    ).toHaveAttribute('target', '_blank')
+    await expect(
+      page.getByRole('link', { name: 'Read the complete v0.5.0 release' })
+    ).toHaveAttribute('rel', 'noopener noreferrer')
     const inventoryGap = await page.evaluate(() => {
       const history = document.querySelector('.release-history')
       const inventoryHeading = document.querySelector(
