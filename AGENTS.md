@@ -14,6 +14,10 @@ These rules apply to every task without requiring additional document reads:
 
 - Use Traditional Chinese (Taiwan usage) or English only. Never use Simplified Chinese.
 - Do not write, move, copy, or delete files outside the project. Read-only access outside the project is allowed.
+- External links in project-authored websites and rendered Markdown must open
+  in a new tab. Use an HTML anchor with `target="_blank"` and
+  `rel="noopener noreferrer"` when Markdown syntax cannot express that
+  behavior. Follow `docs/ai/framework/CODING_STANDARDS.md`.
 - On a non-main feature branch, local commits are allowed at completed,
   validated step/stage boundaries. Never push unless the user explicitly
   requests the remote operation. Follow

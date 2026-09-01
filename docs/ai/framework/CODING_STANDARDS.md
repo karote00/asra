@@ -115,6 +115,17 @@
 - Plans are concrete and implementation-ready after implementation is accepted.
 - Use consistent naming: Asyra (framework), Asyra Design (design-tool product).
 
+### External Link Standard
+
+- Every project-authored link that navigates outside the current rendered
+  website or document host must open in a new tab.
+- In HTML or JSX, use `target="_blank"` with
+  `rel="noopener noreferrer"`.
+- In rendered Markdown surfaces such as README files and GitHub Release notes,
+  use an HTML `<a>` element when ordinary Markdown link syntax cannot express
+  the required new-tab behavior.
+- Same-host navigation may use ordinary links and remain in the current tab.
+
 ## Generated Output Standards
 
 - Treat only `create-app/<app>/template` as generated output, not the whole

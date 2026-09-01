@@ -65,19 +65,25 @@ test('Framework Release Gate 5 freezes the exact public package set', () => {
   )
 })
 
-test('every preceding Framework release gate resolves to completed plan, Inspector, contract test, and decision entry', () => {
+test('every preceding Framework release gate resolves to completed plan, Inspector, contract test, and released decision entry', () => {
   assert.deepEqual(
     FRAMEWORK_RELEASE_PREREQUISITES.map((record) => record.gate),
     [1, 2, 3, 4]
   )
 
   const decisionHistory = fs.readFileSync(
+    path.join(repositoryRoot, 'docs/ai/framework/decisions/releases/v0.5.0.md'),
+    'utf8'
+  )
+  const unreleasedDecisionHistory = fs.readFileSync(
     path.join(
       repositoryRoot,
       'docs/ai/framework/decisions/releases/unreleased.md'
     ),
     'utf8'
   )
+
+  assert.equal(unreleasedDecisionHistory, '')
 
   for (const prerequisite of FRAMEWORK_RELEASE_PREREQUISITES) {
     for (const relativePath of [

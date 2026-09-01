@@ -107,12 +107,26 @@ const readGitBaseline = (repositoryRoot) => {
   }
 }
 
-const verifyPrerequisites = (repositoryRoot) => {
-  const decisionHistoryPath = path.join(
+const readFrameworkDecisionHistory = (repositoryRoot) => {
+  const releasesRoot = path.join(
     repositoryRoot,
-    'docs/ai/framework/decisions/releases/unreleased.md'
+    'docs/ai/framework/decisions/releases'
   )
-  const decisionHistory = fs.readFileSync(decisionHistoryPath, 'utf8')
+  const unreleasedHistory = fs.readFileSync(
+    path.join(releasesRoot, 'unreleased.md'),
+    'utf8'
+  )
+  if (unreleasedHistory.trim()) return unreleasedHistory
+
+  const { version } = readJson(path.join(repositoryRoot, 'package.json'))
+  const releasedHistoryPath = path.join(releasesRoot, `v${version}.md`)
+  if (!fs.existsSync(releasedHistoryPath)) return ''
+
+  return fs.readFileSync(releasedHistoryPath, 'utf8')
+}
+
+const verifyPrerequisites = (repositoryRoot) => {
+  const decisionHistory = readFrameworkDecisionHistory(repositoryRoot)
 
   return FRAMEWORK_RELEASE_PREREQUISITES.map((prerequisite) => {
     for (const relativePath of [

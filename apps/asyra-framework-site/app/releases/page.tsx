@@ -80,6 +80,16 @@ export default async function ReleasesPage() {
                     <li key={highlight}>{highlight}</li>
                   ))}
                 </ul>
+                <div className="support-actions">
+                  <a
+                    className="support-text-action"
+                    href={release.githubUrl}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    Read the complete v{release.version} release
+                  </a>
+                </div>
               </div>
             </article>
           ))}
