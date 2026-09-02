@@ -11,6 +11,13 @@ import './styles/atlas.css'
 const title = 'Asyra - Framework for canvas-based and domain-driven tools'
 const description =
   'Build canvas-based editors, visual tools, BIM workspaces, simulations, and other domain products from composable application building blocks.'
+const socialImage = {
+  url: '/product-evidence/asyra-design-7076-product-evidence.jpg',
+  width: 1280,
+  height: 720,
+  type: 'image/jpeg',
+  alt: 'Asyra Design displaying the editable 7,076-element vector cat drawing'
+}
 
 export const metadata: Metadata = {
   metadataBase: new URL(resolveSiteOrigin()),
@@ -29,6 +36,7 @@ export const metadata: Metadata = {
   ],
   alternates: { canonical: '/' },
   openGraph: {
+    images: [socialImage],
     description,
     siteName: 'Asyra',
     title,
@@ -39,7 +47,8 @@ export const metadata: Metadata = {
     ? { follow: true, index: true }
     : { follow: false, index: false },
   twitter: {
-    card: 'summary',
+    images: [socialImage],
+    card: 'summary_large_image',
     description,
     title
   }
