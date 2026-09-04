@@ -473,6 +473,18 @@ class Core implements CoreAPIs {
     )
   }
 
+  resizeRenderer(width: number, height: number): void {
+    if (
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      width <= 0 ||
+      height <= 0
+    ) {
+      throw new RangeError('Renderer size must be finite and positive')
+    }
+    this.renderer.resize(width, height)
+  }
+
   getCanvas(): HTMLCanvasElement | null {
     return this.renderer.getCanvas()
   }

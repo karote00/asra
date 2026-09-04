@@ -28,6 +28,11 @@ Core API tier types (explicit ownership contract):
 Lifecycle and integration:
 
 - `setRenderer(renderer: IRenderer): void`
+- `resizeRenderer(width: number, height: number): void`
+  - validates finite positive CSS dimensions and forwards to the active
+    `IRenderer`; does not change canonical data, camera policy, or composition
+  - invalid dimensions throw `RangeError` before forwarding; renderer lifecycle
+    and execution errors remain errors from the active renderer
 - `setLoadSource(source: DocumentLoadSource): void`
   - `DocumentLoadSource.load(): Promise<unknown | null>` returns raw input; a
     resolved `null` or `undefined` means no persisted document
@@ -456,6 +461,7 @@ See `packages/collaboration.md` and
   - `setRenderEngineProvider(provider)`
   - `hasRenderEngineProvider()`
   - `setRenderer(renderer)` for advanced full-renderer replacement
+  - `resizeRenderer(width, height)` for a validated engine-neutral surface size
   - `destroyRenderer()`
 - managed-property lifecycle queries used by fixed preset installers:
   - `hasSystemProperty(key)`

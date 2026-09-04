@@ -122,6 +122,11 @@ System orchestrator and lifecycle coordinator.
   and advanced-renderer failures without initializing later phases or
   publishing false ready
 - remain unaware of concrete engine instances, capabilities, and resources
+- `resizeRenderer(width, height)` is a basic facade that rejects nonfinite or
+  nonpositive dimensions before forwarding to the active `IRenderer.resize`;
+  it works for the Core-owned adapter or an advanced renderer without changing
+  model data, composition locks, or camera policy. Apps own host measurement;
+  renderer owners retain lifecycle and resize execution failures
 - a successful `setSystemProperty(...)` delegates the state update to System
   Context and requests one ordinary frame from the Core-bound Render instance;
   Core does not interpret the property or add a second projection path, and

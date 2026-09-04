@@ -65,6 +65,59 @@ describe('Core render startup', () => {
     vi.restoreAllMocks()
   })
 
+  it('forwards surface size through the Core-owned RenderAdapter', () => {
+    const resize = vi.fn()
+    const core = createCoreForTest({}, { resize })
+    core.resizeRenderer(640.5, 480.25)
+    expect(resize).toHaveBeenCalledExactlyOnceWith(640.5, 480.25)
+    expect(core.isCompositionOpen()).toBe(true)
+  })
+
+  it('uses the active advanced renderer for resize after startup', async () => {
+    const defaultResize = vi.fn()
+    const core = createCoreForTest({}, { resize: defaultResize })
+    const renderer = createRenderer(
+      vi.fn(async () => ({ canvas: null, instance: null }))
+    )
+    core.setRenderer(renderer)
+    await core.start(document.createElement('div'), { width: 100, height: 100 })
+    core.resizeRenderer(800, 600)
+    expect(renderer.resize).toHaveBeenCalledExactlyOnceWith(800, 600)
+    expect(defaultResize).not.toHaveBeenCalled()
+    expect(core.isCompositionOpen()).toBe(false)
+  })
+
+  it('rejects invalid surface sizes before touching the renderer', () => {
+    const resize = vi.fn(),
+      core = createCoreForTest({}, { resize })
+    for (const [width, height] of [
+      [0, 10],
+      [-1, 10],
+      [10, 0],
+      [10, -1],
+      [NaN, 10],
+      [10, Infinity]
+    ]) {
+      expect(() => core.resizeRenderer(width, height)).toThrow(
+        'finite and positive'
+      )
+    }
+    expect(resize).not.toHaveBeenCalled()
+  })
+
+  it('preserves active renderer resize failures', () => {
+    const failure = new Error('Surface unavailable')
+    const core = createCoreForTest(
+      {},
+      {
+        resize: () => {
+          throw failure
+        }
+      }
+    )
+    expect(() => core.resizeRenderer(10, 10)).toThrow(failure)
+  })
+
   it('initializes the configured engine-neutral renderer once before ready', async () => {
     const initObservers = vi.fn(() => vi.fn())
     const core = createCoreForTest({

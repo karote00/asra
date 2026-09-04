@@ -284,6 +284,7 @@ export type {
 export type { PropertyComponentValuesUpdate } from './types/props.js'
 type CoreBasicApiKeys =
   | 'setRenderer'
+  | 'resizeRenderer'
   | 'destroyRenderer'
   | 'destroy'
   | 'setRenderEngineProvider'
