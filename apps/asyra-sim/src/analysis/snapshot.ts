@@ -7,6 +7,7 @@ import type {
   MethodDescriptor
 } from './contracts'
 import type { Workcell } from '../domain/workcell'
+import { EXPERIMENT_RESOURCE_PROFILE } from './contracts'
 
 export interface CreateExperimentSnapshotInput {
   snapshotId: string
@@ -102,7 +103,7 @@ export function validateHistoricalSnapshot(input: unknown): ExperimentSnapshot {
     !validIdentifier(input.source.candidateId) ||
     !validIdentifier(input.source.experimentId) ||
     !Array.isArray(input.pairs) ||
-    input.pairs.length > 4096 ||
+    input.pairs.length > EXPERIMENT_RESOURCE_PROFILE.maxPairs ||
     !Array.isArray(input.acknowledgedWarnings) ||
     input.acknowledgedWarnings.length > 64 ||
     !input.acknowledgedWarnings.every(

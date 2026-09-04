@@ -78,6 +78,65 @@ const path = (a: number, b: number, duration = 1): Trajectory => ({
 })
 
 describe('complete-time pair evidence', () => {
+  it('accepts the published maximum node budget for ordinary static evidence', () => {
+    const query = input(
+      [moving, { ...fixed, pose: { ...IDENTITY_POSE, position: [0, 5, 0] } }],
+      {
+        version: 1,
+        keyframes: [{ time: 0, joints: { moving: 0 } }]
+      }
+    )
+    expect(
+      queryContinuousPair(query, { ...settings, maxIntervals: 1000000 })
+        .coverage
+    ).toBe('complete')
+  })
+
+  it('bounds interval evidence without hiding unresolved time or discarding observed witnesses', () => {
+    const query = input(
+      [
+        moving,
+        {
+          ...fixed,
+          pose: { ...IDENTITY_POSE, position: [0, 0.200001, 0] }
+        }
+      ],
+      path(-1, 1)
+    )
+    const constrained = { ...settings, threshold: 1e-6, maxEvidenceLeaves: 1 }
+    const result = queryContinuousPair(query, constrained)
+    expect(result.coverage).toBe('partial')
+    expect(result.leaves).toHaveLength(1)
+    expect(result.leaves[0]).toMatchObject({
+      start: 0,
+      end: 1,
+      state: 'unresolved'
+    })
+    expect(result.leaves[0].reason).toContain('evidence')
+    expect(result.leaves[0].upper).not.toBeNull()
+    expect(result.evaluations).toBe(1)
+  })
+
+  it('explicitly marks the full range unknown when initial segments exceed retained evidence capacity', () => {
+    const query = input([moving, fixed], {
+      version: 1,
+      keyframes: [
+        { time: 0, joints: { moving: -1 } },
+        { time: 0.5, joints: { moving: 0 } },
+        { time: 1, joints: { moving: 1 } }
+      ]
+    })
+    const constrained = { ...settings, maxEvidenceLeaves: 1 }
+    const result = queryContinuousPair(query, constrained)
+    expect(result.leaves).toHaveLength(1)
+    expect(result.leaves[0]).toMatchObject({
+      start: 0,
+      end: 1,
+      state: 'unresolved',
+      upper: null
+    })
+    expect(result.evaluations).toBe(0)
+  })
   it('does not report clearance when an off-center crossing misses the initial three witness times', () => {
     const obstacle: Body = {
       ...fixed,

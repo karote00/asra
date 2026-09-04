@@ -80,11 +80,20 @@ static search, not a promised width for the continuous minimum. Report the actua
 continuous lower/upper bounds even when wider than that setting. This route covers
 rotation and translation without assuming a straight Cartesian path.
 
-Preserve the original interval partition, including unresolved leaves. Reaching
+Preserve evaluated interval partitions, including unresolved leaves. Reaching
 the configured time resolution, node/iteration limit, timeout, or cancellation
 cannot establish clearance. Time endpoints are represented as binary64 values;
 subdivision stops if no representable interior midpoint remains. The reported
 time bracket is the actual leaf interval, not an exact first-contact time.
+
+The application caps retained evidence at 200,000 leaves across all pairs,
+independently of the node budget. Reserve at least one unresolved-range record
+for every remaining pair. Do not subdivide when the pending partition would
+exceed its remaining evidence capacity; retain the current bounds and witness
+as unresolved instead. When the initial keyframe partition itself cannot fit,
+record the complete requested range as unevaluated, with no witness and an
+explicit evidence-capacity reason. Never discard an established finding to
+make room or silently present omitted time as covered.
 
 ## Decisions and Verification
 

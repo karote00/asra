@@ -1,5 +1,9 @@
 import { MethodIds, MethodVersions } from '../../constants'
-import type { ExperimentSnapshot, MethodDescriptor } from '../contracts'
+import {
+  EXPERIMENT_RESOURCE_PROFILE,
+  type ExperimentSnapshot,
+  type MethodDescriptor
+} from '../contracts'
 import {
   queryContinuousPair,
   type PairEvidence,
@@ -26,8 +30,8 @@ export const OFFICIAL_CLEARANCE_METHOD: MethodDescriptor = Object.freeze({
   geometryKinds: Object.freeze(['box', 'sphere', 'capsule'] as const),
   supportsStatic: true,
   supportsMotion: true,
-  maxPairs: 4096,
-  warningWorkUnits: 500
+  maxPairs: EXPERIMENT_RESOURCE_PROFILE.maxPairs,
+  warningWorkUnits: EXPERIMENT_RESOURCE_PROFILE.warningWorkUnits
 })
 
 const unresolved = (
@@ -71,6 +75,11 @@ export function runOfficialClearanceMethod(
   )
     throw new Error('Snapshot requests a different method or version')
   if (!snapshot.pairs.length) throw new Error('Snapshot has no analysis pairs')
+  if (
+    snapshot.pairs.length > EXPERIMENT_RESOURCE_PROFILE.maxPairs ||
+    snapshot.pairs.length > EXPERIMENT_RESOURCE_PROFILE.maxEvidenceLeaves
+  )
+    throw new Error('Snapshot exceeds the analysis pair or evidence capacity')
   const settings: Omit<QuerySettings, 'maxIntervals'> = {
     threshold: snapshot.rule.minimumClearance,
     distanceTolerance: snapshot.method.settings.distanceTolerance,
@@ -78,6 +87,7 @@ export function runOfficialClearanceMethod(
     maxIterations: snapshot.method.settings.maxIterations
   }
   let remaining = snapshot.budget.maxIntervals,
+    remainingLeaves = EXPERIMENT_RESOURCE_PROFILE.maxEvidenceLeaves,
     evaluations = 0
   const pairs: OfficialPairEvidence[] = []
   for (const pair of snapshot.pairs) {
@@ -98,12 +108,18 @@ export function runOfficialClearanceMethod(
           b: pair.b,
           interval: snapshot.interval
         },
-        { ...settings, maxIntervals: remaining },
+        {
+          ...settings,
+          maxIntervals: remaining,
+          maxEvidenceLeaves:
+            remainingLeaves - (snapshot.pairs.length - pairs.length - 1)
+        },
         checkpoint
       )
       remaining -= evidence.evaluations
       evaluations += evidence.evaluations
     }
+    remainingLeaves -= evidence.leaves.length
     const completed = deepFreeze({ pairId: pair.id, evidence })
     pairs.push(completed)
     onPair(completed)

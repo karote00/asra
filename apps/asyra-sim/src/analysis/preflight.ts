@@ -6,6 +6,7 @@ import {
 import { hasExactOwnKeys } from '../domain/records'
 import type { TrajectoryJointUnit } from '../domain/trajectory-source'
 import {
+  EXPERIMENT_RESOURCE_PROFILE,
   validateExperimentDefinition,
   type AnalysisPair,
   type ExperimentDefinition,
@@ -224,11 +225,17 @@ function inspectExperiment(
   }
 
   const pairs: AnalysisPair[] = []
+  let pairCount = 0
   for (const [key, [leftId, rightId]] of candidateBodyPairs) {
     if (exclusions.has(key)) continue
     const left = bodies.get(leftId),
       right = bodies.get(rightId)
     if (!left || !right) continue
+    pairCount += left.colliders.length * right.colliders.length
+    if (pairCount > EXPERIMENT_RESOURCE_PROFILE.maxPairs) {
+      pairs.length = 0
+      continue
+    }
     for (const a of left.colliders)
       for (const b of right.colliders)
         pairs.push({
@@ -237,14 +244,21 @@ function inspectExperiment(
           b: { bodyId: right.id, colliderId: b.id }
         })
   }
-  if (!pairs.length)
+  if (!pairCount)
     blockers.push(
       issue(
         'no-pairs',
         'The selected scope contains no checkable collider pairs.'
       )
     )
-  if (method && pairs.length > method.maxPairs)
+  if (pairCount > EXPERIMENT_RESOURCE_PROFILE.maxPairs)
+    blockers.push(
+      issue(
+        'pair-limit',
+        `The selected scope expands to ${pairCount} collider pairs; the application limit is ${EXPERIMENT_RESOURCE_PROFILE.maxPairs}.`
+      )
+    )
+  if (method && pairCount > method.maxPairs)
     blockers.push(
       issue(
         'method-pair-limit',
@@ -282,13 +296,42 @@ function inspectExperiment(
       )
     )
 
-  const segmentCount = Math.max(1, definition.trajectory.keyframes.length - 1),
-    workUnits = pairs.length * segmentCount
-  if (method && workUnits > (method.warningWorkUnits ?? 500))
+  const frames = definition.trajectory.keyframes,
+    [start, end] = definition.interval,
+    segmentCount =
+      start === end
+        ? 1
+        : frames
+            .slice(0, -1)
+            .filter(
+              (frame, index) =>
+                Math.max(start, frame.time) <
+                Math.min(end, frames[index + 1].time)
+            ).length,
+    workUnits = pairCount * segmentCount
+  if (workUnits > EXPERIMENT_RESOURCE_PROFILE.maxWorkUnits)
+    blockers.push(
+      issue(
+        'workload-limit',
+        `The requested interval contains ${workUnits} pair/segment combinations; the application limit is ${EXPERIMENT_RESOURCE_PROFILE.maxWorkUnits}.`
+      )
+    )
+  if (pairCount > EXPERIMENT_RESOURCE_PROFILE.warningPairs)
+    resourceWarnings.push(
+      issue(
+        'large-pair-count',
+        `The scope expands to ${pairCount} collider pairs. No reliable time estimate is available yet.`
+      )
+    )
+  const warningWorkUnits = Math.min(
+    method?.warningWorkUnits ?? EXPERIMENT_RESOURCE_PROFILE.warningWorkUnits,
+    EXPERIMENT_RESOURCE_PROFILE.warningWorkUnits
+  )
+  if (workUnits > warningWorkUnits)
     resourceWarnings.push(
       issue(
         'large-workload',
-        'This scope may consume substantial local resources; no reliable time estimate is available yet.'
+        `The requested interval contains ${workUnits} pair/segment combinations and may consume substantial local resources; no reliable time estimate is available yet.`
       )
     )
 
@@ -298,7 +341,7 @@ function inspectExperiment(
     resourceWarnings,
     pairs,
     estimate: {
-      pairCount: pairs.length,
+      pairCount,
       segmentCount,
       workUnits,
       reliableTimeEstimate: false

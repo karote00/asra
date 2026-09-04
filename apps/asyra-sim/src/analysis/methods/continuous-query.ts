@@ -6,6 +6,7 @@ import {
   poseOperations
 } from '../../domain/kinematic-algebra'
 import type { Trajectory, Workcell } from '../../domain/workcell'
+import { EXPERIMENT_RESOURCE_PROFILE } from '../contracts'
 import {
   convexDistance,
   separationLowerBound,
@@ -30,6 +31,7 @@ export interface QuerySettings {
   timeTolerance: number
   maxIntervals: number
   maxIterations: number
+  maxEvidenceLeaves?: number
 }
 export interface IntervalEvidence {
   start: number
@@ -93,7 +95,12 @@ function checkSettings(settings: QuerySettings): void {
     settings.timeTolerance > 1 ||
     !Number.isInteger(settings.maxIntervals) ||
     settings.maxIntervals < 1 ||
-    settings.maxIntervals > 20000 ||
+    settings.maxIntervals > EXPERIMENT_RESOURCE_PROFILE.maxIntervals ||
+    (settings.maxEvidenceLeaves !== undefined &&
+      (!Number.isInteger(settings.maxEvidenceLeaves) ||
+        settings.maxEvidenceLeaves < 1 ||
+        settings.maxEvidenceLeaves >
+          EXPERIMENT_RESOURCE_PROFILE.maxEvidenceLeaves)) ||
     !Number.isInteger(settings.maxIterations) ||
     settings.maxIterations < 1 ||
     settings.maxIterations > 256
@@ -107,6 +114,8 @@ export function queryContinuousPair(
   checkpoint: () => void = () => undefined
 ): PairEvidence {
   checkSettings(settings)
+  const maxLeaves =
+    settings.maxEvidenceLeaves ?? EXPERIMENT_RESOURCE_PROFILE.maxEvidenceLeaves
   const [start, end] = query.interval,
     frames = query.trajectory.keyframes
   const first = frames[0],
@@ -142,6 +151,26 @@ export function queryContinuousPair(
       const a = Math.max(start, frames[segment].time),
         b = Math.min(end, frames[segment + 1].time)
       if (a < b) pending.push({ start: a, end: b, segment })
+    }
+  if (pending.length > maxLeaves)
+    return {
+      leaves: [
+        {
+          start,
+          end,
+          lower: 0,
+          upper: null,
+          witnessTime: null,
+          penetration: false,
+          state: 'unresolved',
+          reason:
+            'The retained evidence budget cannot cover the initial trajectory segments.'
+        }
+      ],
+      lower: 0,
+      upper: null,
+      coverage: 'partial',
+      evaluations: 0
     }
   let evaluations = 0
   while (pending.length && evaluations < settings.maxIntervals) {
@@ -208,6 +237,13 @@ export function queryContinuousPair(
         state: 'unresolved',
         reason: 'Threshold uncertainty remains at the declared time resolution.'
       })
+    else if (leaves.length + pending.length + 2 > maxLeaves)
+      leaves.push({
+        ...base,
+        state: 'unresolved',
+        reason:
+          'The retained evidence budget prevents further interval subdivision.'
+      })
     else
       pending.push(
         { start: node.start, end: middle, segment: node.segment },
@@ -234,7 +270,10 @@ export function queryContinuousPair(
   )
   return {
     leaves,
-    lower: Math.min(...leaves.map((leaf) => leaf.lower)),
+    lower: leaves.reduce(
+      (lower, leaf) => Math.min(lower, leaf.lower),
+      Infinity
+    ),
     upper,
     coverage: leaves.some((leaf) => leaf.state === 'unresolved')
       ? 'partial'

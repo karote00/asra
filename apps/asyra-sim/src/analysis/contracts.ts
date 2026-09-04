@@ -47,6 +47,27 @@ export interface ExperimentBudget {
   maxDurationMs: number
 }
 
+/** App-wide admission ceilings; a method may declare stricter limits. */
+export const EXPERIMENT_RESOURCE_PROFILE = Object.freeze({
+  maxPairs: 4096,
+  maxWorkUnits: 500000,
+  warningPairs: 256,
+  warningWorkUnits: 10000,
+  maxIntervals: 1000000,
+  minDurationMs: 100,
+  maxDurationMs: 120000,
+  maxEvidenceLeaves: 200000,
+  maxEvidenceBytes: 64 * 1024 * 1024,
+  terminationGraceMs: 250,
+  progressIntervalMs: 100
+})
+
+export const DEFAULT_EXPERIMENT_BUDGET: Readonly<ExperimentBudget> =
+  Object.freeze({
+    maxIntervals: 100000,
+    maxDurationMs: 30000
+  })
+
 export interface ExperimentDefinition {
   version: 1
   revision: number
@@ -271,8 +292,16 @@ export function validateExperimentDefinition(
   const budget = input.budget
   if (
     !hasExactOwnKeys(budget, budgetFields) ||
-    !integerIn(budget.maxIntervals, 1, 20000) ||
-    !integerIn(budget.maxDurationMs, 100, 300000)
+    !integerIn(
+      budget.maxIntervals,
+      1,
+      EXPERIMENT_RESOURCE_PROFILE.maxIntervals
+    ) ||
+    !integerIn(
+      budget.maxDurationMs,
+      EXPERIMENT_RESOURCE_PROFILE.minDurationMs,
+      EXPERIMENT_RESOURCE_PROFILE.maxDurationMs
+    )
   )
     throw new Error('Invalid experiment budget')
 }
