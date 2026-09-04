@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { createSyntheticExample } from '../../../samples/synthetic-workcell'
+import { MethodIds, MethodVersions } from '../../constants'
 import type { ExperimentDefinition, MethodDescriptor } from '../contracts'
 import { preflightExperiment } from '../preflight'
 import { createExperimentSnapshot } from '../snapshot'
 
 const method: MethodDescriptor = {
-  id: 'continuous-clearance-v0',
-  version: '0.1.0',
+  id: MethodIds.CONTINUOUS_CLEARANCE,
+  version: MethodVersions.CONTINUOUS_CLEARANCE,
   geometryKinds: ['box', 'sphere', 'capsule'],
   supportsStatic: true,
   supportsMotion: true,

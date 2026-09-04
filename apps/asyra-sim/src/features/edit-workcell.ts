@@ -11,6 +11,12 @@ import {
   loadCanonicalDocument
 } from '../common-apis/document'
 import type { Body, Workcell } from '../domain/workcell'
+import {
+  createExperiment,
+  removeExperiment,
+  updateExperiment,
+  type ExperimentDraft
+} from '../common-apis/experiment'
 
 export function installEditingFeatures(core: Core) {
   const execute = <T>(operation: () => T): Promise<T> =>
@@ -43,7 +49,27 @@ export function installEditingFeatures(core: Core) {
       )
     },
     remove: (candidateId: string, bodyId: string) =>
-      execute(() => model.removeBody(core, candidateId, bodyId))
+      execute(() => model.removeBody(core, candidateId, bodyId)),
+    createExperiment: (
+      candidateId: string,
+      name: string,
+      draft: ExperimentDraft
+    ) => {
+      const input = structuredClone(draft)
+      return execute(() => createExperiment(core, candidateId, name, input))
+    },
+    updateExperiment: (
+      experimentId: string,
+      expectedRevision: number,
+      draft: ExperimentDraft
+    ) => {
+      const input = structuredClone(draft)
+      return execute(() =>
+        updateExperiment(core, experimentId, expectedRevision, input)
+      )
+    },
+    removeExperiment: (experimentId: string) =>
+      execute(() => removeExperiment(core, experimentId))
   }
   const edit = core.defineFeature(FeatureNames.EDIT_WORKCELL, undefined, {
     priority: 100,

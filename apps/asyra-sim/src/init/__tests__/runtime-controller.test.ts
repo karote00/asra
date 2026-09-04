@@ -27,7 +27,10 @@ function runtime() {
         createCandidate: vi.fn(),
         replace: vi.fn(),
         upsert: vi.fn(),
-        remove: vi.fn()
+        remove: vi.fn(),
+        createExperiment: vi.fn(),
+        updateExperiment: vi.fn(),
+        removeExperiment: vi.fn()
       },
       history: { undo: vi.fn(), redo: vi.fn() }
     },

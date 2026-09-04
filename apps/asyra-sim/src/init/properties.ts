@@ -1,5 +1,14 @@
 import type { Core } from '@asyra/core'
-import { PropertyFields, PropertyTypes } from '../constants'
+import {
+  MethodIds,
+  MethodVersions,
+  PropertyFields,
+  PropertyTypes
+} from '../constants'
+import {
+  validExperimentDefinition,
+  type ExperimentDefinition
+} from '../analysis/contracts'
 import { IDENTITY_POSE } from '../domain/math'
 import {
   validBodyParameters,
@@ -13,6 +22,33 @@ export const DEFAULT_BODY_PARAMETERS: BodyParameters = {
   joint: { kind: 'fixed', axis: [0, 1, 0], value: 0, min: 0, max: 0 },
   colliders: [],
   color: 0x5ba8a1
+}
+export const DEFAULT_EXPERIMENT_DEFINITION: ExperimentDefinition = {
+  version: 1,
+  revision: 1,
+  trajectory: { version: 1, keyframes: [{ time: 0, joints: {} }] },
+  sourceUnits: { time: 's', joints: {} },
+  scope: {
+    primaryBodyIds: [],
+    influencingBodyIds: [],
+    selfCollision: false,
+    externalCollision: false,
+    excludedPairs: [],
+    acknowledgedExcludedVisibleBodyIds: [],
+    backgroundNote: 'Scope must be configured before analysis.'
+  },
+  interval: [0, 0],
+  method: {
+    id: MethodIds.CONTINUOUS_CLEARANCE,
+    version: MethodVersions.CONTINUOUS_CLEARANCE,
+    settings: {
+      distanceTolerance: 0.000001,
+      timeTolerance: 0.0001,
+      maxIterations: 64
+    }
+  },
+  rule: { version: 1, revision: 1, minimumClearance: 0.02 },
+  budget: { maxIntervals: 2000, maxDurationMs: 15000 }
 }
 export interface CandidateParameters {
   robotRootId: string | null
@@ -47,6 +83,12 @@ export function installModelProperties(core: Core): void {
       key: PropertyFields.CANDIDATE,
       defaultValue: { robotRootId: null },
       validate: validCandidateParameters
+    },
+    {
+      type: PropertyTypes.EXPERIMENT,
+      key: PropertyFields.EXPERIMENT,
+      defaultValue: DEFAULT_EXPERIMENT_DEFINITION,
+      validate: validExperimentDefinition
     }
   ]
   for (const definition of definitions) {

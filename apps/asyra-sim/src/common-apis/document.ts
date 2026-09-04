@@ -1,6 +1,7 @@
 import type { Core } from '@asyra/core'
 import { PropertyFields, PropertyTypes } from '../constants'
 import { validBodyProperty, validCandidateParameters } from '../init/properties'
+import { validExperimentDefinition } from '../analysis/contracts'
 
 export interface ModelLoadIssue {
   path: string
@@ -40,6 +41,15 @@ export function loadCanonicalDocument(
           path: `props.${id}.${PropertyFields.CANDIDATE}`,
           message:
             'Candidate parameters required schema recovery; confirm or correct the repaired model before analysis.'
+        })
+      if (
+        property.type === PropertyTypes.EXPERIMENT &&
+        !validExperimentDefinition(property[PropertyFields.EXPERIMENT])
+      )
+        issues.push({
+          path: `props.${id}.${PropertyFields.EXPERIMENT}`,
+          message:
+            'Experiment inputs required schema recovery; confirm or correct the definition before analysis.'
         })
     }
   const unsubscribe = core.registerLoadDiagnosticsHook((diagnostics) => {

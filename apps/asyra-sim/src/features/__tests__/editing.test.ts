@@ -1,12 +1,21 @@
 // @vitest-environment jsdom
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import core from '@asyra/core'
-import { ComponentTypes, PropertyFields } from '../../constants'
+import {
+  ComponentTypes,
+  MethodIds,
+  MethodVersions,
+  PropertyFields
+} from '../../constants'
 import { IDENTITY_POSE } from '../../domain/math'
 import type { Body, Workcell } from '../../domain/workcell'
 import { installModelComponents } from '../../init/components'
 import { readWorkcell } from '../../common-apis/workcell'
 import { loadCanonicalDocument } from '../../common-apis/document'
+import {
+  readExperiment,
+  type ExperimentDraft
+} from '../../common-apis/experiment'
 import { installEditingFeatures } from '../edit-workcell'
 
 const empty = {
@@ -43,6 +52,32 @@ const model: Workcell = {
   robotRootId: 'base',
   bodies: [base, fixture]
 }
+const experiment = (): ExperimentDraft => ({
+  version: 1,
+  trajectory: { version: 1, keyframes: [{ time: 0, joints: {} }] },
+  sourceUnits: { time: 's', joints: {} },
+  scope: {
+    primaryBodyIds: ['base'],
+    influencingBodyIds: ['fixture'],
+    selfCollision: false,
+    externalCollision: true,
+    excludedPairs: [],
+    acknowledgedExcludedVisibleBodyIds: [],
+    backgroundNote: 'The two modeled bodies are the complete test scope.'
+  },
+  interval: [0, 0],
+  method: {
+    id: MethodIds.CONTINUOUS_CLEARANCE,
+    version: MethodVersions.CONTINUOUS_CLEARANCE,
+    settings: {
+      distanceTolerance: 0.000001,
+      timeTolerance: 0.0001,
+      maxIterations: 64
+    }
+  },
+  rule: { version: 1, minimumClearance: 0.02 },
+  budget: { maxIntervals: 2000, maxDurationMs: 15000 }
+})
 let features: ReturnType<typeof installEditingFeatures>
 beforeAll(() => {
   installModelComponents(core)
@@ -53,6 +88,123 @@ beforeEach(() => {
 })
 
 describe('normal canonical editing and replay', () => {
+  it('creates and removes a canonical experiment as one Undo action each', async () => {
+    const candidate = await features.edit.createCandidate('A', model)
+    const before = core.getUndoHistoryDepth()
+    const experimentId = await features.edit.createExperiment(
+      candidate,
+      'Clearance study',
+      experiment()
+    )
+    expect(core.getUndoHistoryDepth()).toBe(before + 1)
+    expect(core.getElementData(experimentId)?.parentId).toBe(candidate)
+    expect(readExperiment(core, experimentId).definition.revision).toBe(1)
+    expect(readWorkcell(core, candidate)).toEqual(model)
+    await features.history.undo()
+    expect(core.getElementData(experimentId)).toBeUndefined()
+    await features.history.redo()
+    expect(readExperiment(core, experimentId).name).toBe('Clearance study')
+
+    await features.edit.removeExperiment(experimentId)
+    expect(core.getElementData(experimentId)).toBeUndefined()
+    await features.history.undo()
+    expect(readExperiment(core, experimentId).definition.revision).toBe(1)
+  })
+
+  it('increments experiment and rule revisions only for material changes', async () => {
+    const candidate = await features.edit.createCandidate('A', model)
+    const experimentId = await features.edit.createExperiment(
+      candidate,
+      'Clearance study',
+      experiment()
+    )
+    const before = core.getUndoHistoryDepth()
+    const unchanged = await features.edit.updateExperiment(
+      experimentId,
+      1,
+      experiment()
+    )
+    expect(unchanged.revision).toBe(1)
+    expect(core.getUndoHistoryDepth()).toBe(before)
+
+    const changed = experiment()
+    changed.rule.minimumClearance = 0.03
+    const updated = await features.edit.updateExperiment(
+      experimentId,
+      1,
+      changed
+    )
+    expect(updated.revision).toBe(2)
+    expect(updated.rule.revision).toBe(2)
+    expect(core.getUndoHistoryDepth()).toBe(before + 1)
+    await features.history.undo()
+    expect(readExperiment(core, experimentId).definition.rule).toEqual({
+      version: 1,
+      revision: 1,
+      minimumClearance: 0.02
+    })
+  })
+
+  it('rejects stale experiment writes without a partial canonical change', async () => {
+    const candidate = await features.edit.createCandidate('A', model)
+    const experimentId = await features.edit.createExperiment(
+      candidate,
+      'Clearance study',
+      experiment()
+    )
+    const changed = experiment()
+    changed.budget.maxIntervals = 3000
+    await features.edit.updateExperiment(experimentId, 1, changed)
+    const before = core.getUndoHistoryDepth()
+    await expect(
+      features.edit.updateExperiment(experimentId, 1, experiment())
+    ).rejects.toThrow('revision')
+    expect(
+      readExperiment(core, experimentId).definition.budget.maxIntervals
+    ).toBe(3000)
+    expect(core.getUndoHistoryDepth()).toBe(before)
+  })
+
+  it('roundtrips canonical experiment definitions through project save/load', async () => {
+    const candidate = await features.edit.createCandidate('A', model)
+    const experimentId = await features.edit.createExperiment(
+      candidate,
+      'Clearance study',
+      experiment()
+    )
+    const saved = await core.save()
+    core.load(empty)
+    core.load(saved)
+    expect(readExperiment(core, experimentId)).toMatchObject({
+      candidateId: candidate,
+      name: 'Clearance study',
+      definition: { version: 1, revision: 1 }
+    })
+  })
+
+  it('retains an analysis blocker when experiment data requires load recovery', async () => {
+    const candidate = await features.edit.createCandidate('A', model)
+    const experimentId = await features.edit.createExperiment(
+      candidate,
+      'Clearance study',
+      experiment()
+    )
+    const saved = await core.save()
+    const propertyId = core.getElementData(experimentId)?.props?.experiment
+    if (!propertyId) throw new Error('Missing experiment property')
+    ;(saved.props[propertyId] as Record<string, unknown>)[
+      PropertyFields.EXPERIMENT
+    ] = { invalid: true }
+
+    const issues = loadCanonicalDocument(core, saved)
+    expect(
+      issues.some((issue) => issue.path.endsWith(PropertyFields.EXPERIMENT))
+    ).toBe(true)
+    expect(
+      readExperiment(core, experimentId).definition.scope.primaryBodyIds
+    ).toEqual([])
+  })
+
   it('captures one consistent revision and applies canonical data without resetting history', async () => {
     const candidate = await features.edit.createCandidate('Saved', model)
     const captured = features.edit.captureDocument()
