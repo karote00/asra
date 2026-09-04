@@ -103,6 +103,12 @@ with independent state is untouched. Cleanup failure is reported after all
 completion attempts and blocks reconstruction. Normal load/set/unregister
 validation semantics are unchanged.
 
+UI Context reset removes derived registrations and filters, unsubscribes owned
+source bindings and completes managed UI observables. It does not complete
+caller-owned source observables or mutate canonical data. Every cleanup is
+attempted before reporting failure; old sources cannot update new subjects.
+Legacy clear/unregister behavior is unchanged.
+
 After successful termination, composition creates fresh runtime objects with
 the same trusted modules; it does not unlock and reuse retired objects. B starts
 with its own document, empty Undo/Redo, reset camera/selection/playback, and only

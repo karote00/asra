@@ -51,6 +51,14 @@ the framework creates no automatic control, formatter, or field mapping.
 
 - ui-context can be removed/replaced without changing domain state ownership
 
+## Explicit Runtime Reset
+
+`propertyRegistry.resetRuntime(): void` retires derived registrations and
+filters, unsubscribes every owned source binding and completes owned UI
+observables after quiescence. It leaves caller-owned sources and canonical data
+untouched. Every cleanup is attempted before failure is reported. Core owns
+orchestration; ordinary clear/unregister behavior is unchanged.
+
 ## Validation Checklist
 
 - Derived values update after selection/system/data changes.

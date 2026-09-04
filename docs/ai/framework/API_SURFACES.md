@@ -908,6 +908,13 @@ Feature runtime lifecycle (`@asyra/feature-system`, not yet Core facade):
   Cleanup attempts continue after failure and report it to Core. Independently
   owned state and ordinary load/set/unregister semantics remain unchanged.
 
+## UI Context Runtime Lifecycle
+
+- `propertyRegistry.resetRuntime(): void` (`@asyra/ui-context`) retires derived
+  registrations, filters, source subscriptions and managed UI observables.
+  Caller-owned sources and canonical state remain separate owners. Cleanup
+  attempts continue on failure and report it to the Core lifecycle.
+
 ## API Usage Rules
 
 - App-level code should prefer `core.xxx` when surface exists.

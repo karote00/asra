@@ -46,3 +46,9 @@
   managed-property registrations and completes every observable. It reports
   completion failures after attempting all resources, preserving Core's
   fail-closed reconstruction rule. Ordinary validation is unchanged.
+
+## 2026-09-04 — Retire Derived UI State Without Destroying Sources
+
+- UI Context reset owns managed UI observables and acquired source bindings,
+  not caller-owned sources or canonical state. It retires registrations and
+  attempts all unsubscribe/completion hooks before reporting failure.

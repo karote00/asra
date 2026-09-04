@@ -302,6 +302,39 @@
         failureOwnerStepId: 'reset-system-context'
       },
       {
+        id: 'reset-ui-context',
+        order: 0.9,
+        laneId: 'compose',
+        title: 'Release derived UI runtime state',
+        ownerPackage: '@asyra/ui-context',
+        purpose: 'Retire derived subscriptions and registrations',
+        inputs: [
+          'artifact:system-context-reset',
+          'Core lifecycle reset request'
+        ],
+        outputs: ['artifact:ui-context-reset'],
+        conditions: [
+          'Remove derived registrations and filters, unsubscribe sources and complete owned observables after quiescence.',
+          'Attempt every cleanup and report failure; caller-owned sources stay alive.'
+        ],
+        bypasses: ['Legacy clear/unregister semantics are unchanged.'],
+        allowedContributors: [
+          'UI property registry and its owned subscriptions'
+        ],
+        forbiddenContributors: [
+          'Canonical data mutation',
+          'caller-owned source destruction',
+          'App history manipulation'
+        ],
+        cacheDimensions: [],
+        implementationBoundary: [
+          'packages/ui-context/src/property-registry.ts',
+          'packages/ui-context/src/__tests__/**'
+        ],
+        specRefs: ['#11-interaction-cancellation-and-resources'],
+        failureOwnerStepId: 'reset-ui-context'
+      },
+      {
         id: 'compose',
         order: 1,
         laneId: 'compose',
@@ -845,12 +878,21 @@
         producedArtifacts: ['artifact:selection-reset']
       },
       {
-        id: 'system-context-reset-terminal',
+        id: 'system-context-reset-to-ui-context',
         from: 'reset-system-context',
+        to: 'reset-ui-context',
+        kind: 'normal',
+        predicate:
+          'Managed state is retired; derived UI registrations are next.',
+        producedArtifacts: ['artifact:system-context-reset']
+      },
+      {
+        id: 'ui-context-reset-terminal',
+        from: 'reset-ui-context',
         kind: 'terminal',
         predicate:
-          'Managed state is retired; remaining owner cleanup and fresh Core composition are still required.',
-        producedArtifacts: ['artifact:system-context-reset']
+          'UI state is retired; remaining owner cleanup and fresh Core composition are still required.',
+        producedArtifacts: ['artifact:ui-context-reset']
       },
       {
         id: 'runtime-to-edit',
@@ -1107,6 +1149,13 @@
         id: 'artifact:system-context-reset',
         ownerStepId: 'reset-system-context',
         channel: 'synchronous lifecycle completion',
+        consumerStepIds: ['reset-ui-context'],
+        terminal: false
+      },
+      {
+        id: 'artifact:ui-context-reset',
+        ownerStepId: 'reset-ui-context',
+        channel: 'synchronous lifecycle completion',
         consumerStepIds: [],
         terminal: true
       },
@@ -1232,6 +1281,7 @@
           'reset-props',
           'reset-selection',
           'reset-system-context',
+          'reset-ui-context',
           'compose',
           'domain',
           'edit',
