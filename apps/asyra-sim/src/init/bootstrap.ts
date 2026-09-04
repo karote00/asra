@@ -1,4 +1,4 @@
-import core from '@asyra/core'
+import currentCore from '@asyra/core'
 import type { RenderEngineProvider } from '@asyra/render-engine'
 import { ComponentTypes } from '../constants'
 import { readWorkcell } from '../common-apis/workcell'
@@ -11,33 +11,98 @@ import { installModelComponents } from './components'
 import { installCustomRenderer } from './custom-renderer'
 import type { SpatialFrame } from '../render-app/spatial-layer'
 import { createSyntheticExample } from '../../samples/synthetic-workcell'
+import type { ProjectSnapshot } from '../storage/project-format'
+
+function guardCommands<
+  T extends { [K in keyof T]: (...args: never[]) => unknown }
+>(commands: T, assertAccepting: () => void): T {
+  return Object.fromEntries(
+    Object.entries(commands).map(([name, command]) => [
+      name,
+      (...args: unknown[]) => {
+        assertAccepting()
+        return Reflect.apply(
+          command as (...args: unknown[]) => unknown,
+          commands,
+          args
+        )
+      }
+    ])
+  ) as unknown as T
+}
 
 export async function bootstrap(
   host: HTMLElement,
-  provider?: RenderEngineProvider
+  provider?: RenderEngineProvider,
+  snapshot?: ProjectSnapshot
 ) {
-  const rendering = installCustomRenderer(core, provider)
+  const core = currentCore
+  if (!core.isCompositionOpen()) throw new Error('Runtime already started')
+  let rendering: ReturnType<typeof installCustomRenderer> | undefined
   let observer: ResizeObserver | null = null,
     disposed = false
+  let disposal: Promise<void> | undefined
   const subscriptions = new Set<() => void>()
+  const pauses = new Set<object>()
   let loadIssues: readonly ModelLoadIssue[] = []
-  const dispose = async () => {
-    if (disposed) return
+  const assertLive = () => {
+    if (disposed) throw new Error('Runtime is closed')
+  }
+  const assertAccepting = () => {
+    assertLive()
+    if (pauses.size) throw new Error('Runtime editing is paused')
+  }
+  const dispose = () => {
+    if (disposal) return disposal
     disposed = true
-    observer?.disconnect()
-    subscriptions.forEach((unsubscribe) => unsubscribe())
-    subscriptions.clear()
-    rendering.dispose()
-    await core.destroy()
+    pauses.clear()
+    // Defer teardown so reentrant cleanup observes the same terminal promise.
+    disposal = Promise.resolve().then(async () => {
+      const errors: unknown[] = []
+      const attempt = (cleanup: () => void) => {
+        try {
+          cleanup()
+        } catch (error) {
+          errors.push(error)
+        }
+      }
+      attempt(() => observer?.disconnect())
+      subscriptions.forEach(attempt)
+      subscriptions.clear()
+      attempt(() => rendering?.dispose())
+      try {
+        await core.resetRuntime()
+      } catch (error) {
+        errors.push(error)
+      }
+      if (errors.length === 1) throw errors[0]
+      if (errors.length)
+        throw new AggregateError(errors, 'Runtime cleanup failed')
+    })
+    return disposal
   }
   try {
+    rendering = installCustomRenderer(core, provider)
+    const layer = rendering.layer
     installModelComponents(core)
-    const features = installEditingFeatures(core)
-    loadIssues = loadCanonicalDocument(core, {
-      version: '1.0.0',
-      sceneTree: { workspace: '', workspaceList: [], elements: {} },
-      props: {}
-    })
+    const editing = installEditingFeatures(core)
+    const features = {
+      edit: guardCommands(editing.edit, assertAccepting),
+      history: guardCommands(editing.history, assertAccepting)
+    }
+    loadIssues = [
+      ...structuredClone(snapshot?.loadIssues ?? []),
+      ...loadCanonicalDocument(
+        core,
+        snapshot
+          ? snapshot.document
+          : {
+              version: '1.0.0',
+              sceneTree: { workspace: '', workspaceList: [], elements: {} },
+              props: {}
+            }
+      )
+    ]
     const rect = host.getBoundingClientRect()
     let width = Math.max(1, rect.width),
       height = Math.max(1, rect.height)
@@ -46,11 +111,13 @@ export async function bootstrap(
       height,
       backgroundColor: 0x101f2a
     })
-    const example = createSyntheticExample()
-    await features.edit.createCandidate(
-      'A · Baseline workcell',
-      example.workcell
-    )
+    if (!snapshot) {
+      const example = createSyntheticExample()
+      await features.edit.createCandidate(
+        'A · Baseline workcell',
+        example.workcell
+      )
+    }
     observer = new ResizeObserver((entries) => {
       if (disposed) return
       const box = entries[0]?.contentRect
@@ -61,24 +128,57 @@ export async function bootstrap(
       }
     })
     observer.observe(host)
+    const save = async () => {
+      assertLive()
+      const document = await editing.edit.captureDocument()
+      assertLive()
+      return document
+    }
     return {
       features,
-      getCandidates: () =>
-        core
+      pauseEditing: () => {
+        assertLive()
+        const token = {}
+        pauses.add(token)
+        return () => {
+          pauses.delete(token)
+        }
+      },
+      captureSnapshot: async () => ({
+        document: await save(),
+        loadIssues: structuredClone(loadIssues)
+      }),
+      preflight: (data: unknown) => {
+        assertLive()
+        return core.preflightLoad(data)
+      },
+      getCandidates: () => {
+        assertLive()
+        return core
           .getAllElementData()
           .filter((item) => item.data.type === ComponentTypes.CANDIDATE)
-          .map((item) => ({ id: item.data.id, name: item.data.name })),
-      getWorkcell: (id: string) => readWorkcell(core, id),
-      getLoadIssues: () => loadIssues,
-      getHistoryDepth: () => core.getUndoHistoryDepth(),
+          .map((item) => ({ id: item.data.id, name: item.data.name }))
+      },
+      getWorkcell: (id: string) => {
+        assertLive()
+        return readWorkcell(core, id)
+      },
+      getLoadIssues: () => {
+        assertLive()
+        return structuredClone(loadIssues)
+      },
+      getHistoryDepth: () => {
+        assertLive()
+        return core.getUndoHistoryDepth()
+      },
       setFrame: (frame: SpatialFrame) => {
-        if (disposed) throw new Error('Runtime disposed')
-        rendering.layer.submit(frame)
+        assertLive()
+        layer.submit(frame)
       },
       pick: (x: number, y: number) => {
+        if (disposed) return null
         const bounds = core.getCanvasBounds()
         if (
-          disposed ||
           !bounds ||
           bounds.width <= 0 ||
           bounds.height <= 0 ||
@@ -93,14 +193,19 @@ export async function bootstrap(
           y: ((y - bounds.top) * height) / bounds.height
         })
       },
-      save: () => core.save(),
+      save,
       load: (data: unknown) => {
+        assertAccepting()
         loadIssues = loadCanonicalDocument(core, data)
-        return loadIssues
+        return structuredClone(loadIssues)
       },
       subscribe: (listener: () => void) => {
+        assertLive()
         const unsubscribe = core.subscribeToTransactionStatus((event) => {
-          if (event.status === 'committed' || event.status === 'rolled-back')
+          if (
+            !disposed &&
+            (event.status === 'committed' || event.status === 'rolled-back')
+          )
             listener()
         })
         subscriptions.add(unsubscribe)
@@ -112,7 +217,14 @@ export async function bootstrap(
       dispose
     }
   } catch (error) {
-    await dispose()
+    try {
+      await dispose()
+    } catch (cleanupError) {
+      throw new AggregateError(
+        [error, cleanupError],
+        'Runtime startup and cleanup failed'
+      )
+    }
     throw error
   }
 }

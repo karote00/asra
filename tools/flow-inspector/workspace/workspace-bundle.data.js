@@ -10261,14 +10261,18 @@
             "purpose": "Create the CUSTOM runtime",
             "inputs": [
               "trusted pre-start modules",
-              "validated startup configuration"
+              "validated startup configuration",
+              "optional validated saved document with retained diagnostics"
             ],
             "outputs": [
               "artifact:runtime"
             ],
             "conditions": [
               "Composition is open; explicitly select CUSTOM defaults and bind the provider through Core.",
-              "One runtime owns one surface; startup must succeed before UI reports ready."
+              "One runtime owns one surface; startup must succeed before UI reports ready.",
+              "Capture one Core per lifetime; saved startup loads its snapshot/diagnostics without an extra example or Undo entry.",
+              "App admission can pause before retirement while queued snapshot capture remains available.",
+              "Disposal attempts all App resources and awaits Core reset; old callbacks/resume handles cannot operate on a successor."
             ],
             "bypasses": [
               "No runtime construction during catalog inspection."
@@ -10288,6 +10292,7 @@
               "apps/asyra-sim/src/init/bootstrap.ts",
               "apps/asyra-sim/src/init/__tests__/custom-renderer.test.ts",
               "apps/asyra-sim/src/init/__tests__/bootstrap.test.ts",
+              "apps/asyra-sim/src/init/__tests__/bootstrap-lifecycle.test.ts",
               "apps/asyra-sim/src/init/__tests__/app-environment.test.ts",
               "apps/asyra-sim/app-environment.mjs",
               "apps/asyra-sim/app-environment.d.mts",

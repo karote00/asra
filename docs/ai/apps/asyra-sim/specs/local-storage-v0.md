@@ -203,6 +203,25 @@ Core may apply the same profile/defaults once; the old Core remains retired.
 Older composition adapters without lifecycle registration keep their existing
 apply behavior but do not claim complete runtime replacement support.
 
+### App Composition Lifetime
+
+Each Sim bootstrap captures one composition-open Core and owns its surface
+observer, App subscriptions and spatial layer. It can start from the synthetic
+example or an already validated saved snapshot. Saved startup loads only that
+snapshot and its retained recovery diagnostics; it does not create an extra
+example or an Undo entry. Storage and confirmation remain outside bootstrap.
+
+The runtime can pause new App editing calls while retaining the old view and
+queued capture capability. It exposes Core preflight and a consistent queued
+snapshot, not another editable document. A pause can resume only before
+disposal; old release/resume handles cannot enable a retired runtime. Complete
+disposal closes App admission, attempts every owned observer/subscription/layer
+cleanup, awaits Core reset and preserves its shared terminal result. Failure is
+reported rather than activating another App runtime. Startup failure follows the
+same cleanup boundary. A second bootstrap must not take ownership of an already
+started Core. Old callbacks retain the old Core and cannot operate on the new
+default export.
+
 Formal cases for Feature quiescence: empty and repeated disposal; reject queued
 and new operations; await a running command; abort and await tasks; force active
 session rollback; await timed-out handlers; detach input and late renderer-event
