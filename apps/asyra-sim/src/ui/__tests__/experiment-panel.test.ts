@@ -98,6 +98,19 @@ it('exposes a new experiment draft even when a saved experiment exists', async (
     )
   )
   expect(button('New experiment')).toBeDefined()
+  expect(
+    host.querySelector<HTMLInputElement>(
+      '[aria-label="Global interval budget"]'
+    )?.max
+  ).toBe('1000000')
+  expect(
+    host.querySelector<HTMLInputElement>('[aria-label="Wall-time budget (ms)"]')
+      ?.min
+  ).toBe('100')
+  expect(
+    host.querySelector<HTMLInputElement>('[aria-label="Wall-time budget (ms)"]')
+      ?.max
+  ).toBe('120000')
   await act(() => button('New experiment')?.click())
   expect(button('Create experiment')).toBeDefined()
 })

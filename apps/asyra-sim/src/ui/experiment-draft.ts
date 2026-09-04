@@ -1,6 +1,7 @@
-import type {
-  ExcludedBodyPair,
-  ExperimentDefinition
+import {
+  DEFAULT_EXPERIMENT_BUDGET,
+  type ExcludedBodyPair,
+  type ExperimentDefinition
 } from '../analysis/contracts'
 import type { ExperimentDraft } from '../common-apis/experiment'
 import { MethodIds, MethodVersions } from '../constants'
@@ -73,7 +74,7 @@ export function createDefaultExperimentDraft(
       }
     },
     rule: { version: 1, minimumClearance: 0.02 },
-    budget: { maxIntervals: 2000, maxDurationMs: 15000 }
+    budget: { ...DEFAULT_EXPERIMENT_BUDGET }
   }
 }
 

@@ -38,6 +38,10 @@ it('provides an explicit six-axis model, complete trajectory and visible exclusi
   ).toBe(false)
 
   const experiment = createSyntheticExperimentDraft(example)
+  expect(experiment.budget).toEqual({
+    maxIntervals: 100000,
+    maxDurationMs: 30000
+  })
   expect(experiment.trajectory).toEqual(example.trajectory)
   expect(experiment.sourceUnits.joints).toEqual(
     Object.fromEntries(

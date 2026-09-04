@@ -1,5 +1,8 @@
 import type { ExperimentDraft } from '../common-apis/experiment'
-import type { MethodDescriptor } from '../analysis/contracts'
+import {
+  EXPERIMENT_RESOURCE_PROFILE,
+  type MethodDescriptor
+} from '../analysis/contracts'
 import type { Workcell } from '../domain/workcell'
 
 export function ExperimentFields({
@@ -105,8 +108,8 @@ export function ExperimentFields({
           <input
             aria-label="Wall-time budget (ms)"
             type="number"
-            min="100"
-            max="120000"
+            min={EXPERIMENT_RESOURCE_PROFILE.minDurationMs}
+            max={EXPERIMENT_RESOURCE_PROFILE.maxDurationMs}
             value={draft.budget.maxDurationMs}
             onChange={(event) =>
               onChange({
@@ -149,7 +152,7 @@ export function ExperimentFields({
             aria-label="Global interval budget"
             type="number"
             min="1"
-            max="20000"
+            max={EXPERIMENT_RESOURCE_PROFILE.maxIntervals}
             value={draft.budget.maxIntervals}
             onChange={(event) =>
               onChange({

@@ -97,6 +97,16 @@ not a narrower undisclosed test fixture.
 
 ## Evidence and Advancement
 
+The permanent production-Worker budget baseline uses the unchanged public
+six-axis example (11 bodies, 3 keyframes, 46 selected collider pairs). On the
+local Chrome validation host, 2,000 evaluations left 23 pairs unresolved in
+about 0.7 seconds; the published 100,000 cap allowed complete method coverage
+after 5,768 evaluations in about 1.7 seconds. Browser event-loop samples remained
+active during both runs. The formal browser test retains the measured counts,
+budgets, timing, and completion state in its report. These observations justify
+using the already published defaults, not a new accuracy or reference-hardware
+claim. They do not replace the larger M5 workload above.
+
 M0 feasibility tests cover normal CUSTOM startup, public picking/resizing,
 canonical edits and raw save/load, independent geometric cases, browser
 arithmetic, and restricted GLB Worker decoding. They do not prove the production

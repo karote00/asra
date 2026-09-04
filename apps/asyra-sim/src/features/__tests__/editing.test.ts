@@ -178,7 +178,7 @@ describe('normal canonical editing and replay', () => {
     expect(readExperiment(core, experimentId)).toMatchObject({
       candidateId: candidate,
       name: 'Clearance study',
-      definition: { version: 1, revision: 1 }
+      definition: { version: 1, revision: 1, budget: experiment().budget }
     })
   })
 
@@ -203,6 +203,10 @@ describe('normal canonical editing and replay', () => {
     expect(
       readExperiment(core, experimentId).definition.scope.primaryBodyIds
     ).toEqual([])
+    expect(readExperiment(core, experimentId).definition.budget).toEqual({
+      maxIntervals: 100000,
+      maxDurationMs: 30000
+    })
   })
 
   it('captures one consistent revision and applies canonical data without resetting history', async () => {

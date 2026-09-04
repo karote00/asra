@@ -1,7 +1,8 @@
 import { MethodIds, MethodVersions } from '../src/constants'
-import type {
-  ExperimentDefinition,
-  ExperimentRule
+import {
+  DEFAULT_EXPERIMENT_BUDGET,
+  type ExperimentDefinition,
+  type ExperimentRule
 } from '../src/analysis/contracts'
 import type { SyntheticExample } from './synthetic-workcell'
 
@@ -59,6 +60,6 @@ export function createSyntheticExperimentDraft(
       }
     },
     rule: { version: 1, minimumClearance: 0.02 },
-    budget: { maxIntervals: 2000, maxDurationMs: 15000 }
+    budget: { ...DEFAULT_EXPERIMENT_BUDGET }
   }
 }

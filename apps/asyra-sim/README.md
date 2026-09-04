@@ -92,6 +92,9 @@ Every source is decoded and its digest verified before document replacement
 pauses the current runtime. Missing, corrupted or unsupported sources reject the
 replacement; historical-only references still render after a successful reopen.
 
+New studies use the published 100,000-interval / 30-second budget. Existing saved
+studies keep their explicit settings; updating the App does not rewrite them.
+
 The sampled pose slider changes only the view. Formal analysis freezes inputs,
 runs in an owned Worker, and separates execution, coverage, findings, bounds,
 and the rule verdict. Partial or cancelled results retain their unknowns.

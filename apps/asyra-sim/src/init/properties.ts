@@ -10,6 +10,7 @@ import {
   PropertyTypes
 } from '../constants'
 import {
+  DEFAULT_EXPERIMENT_BUDGET,
   validExperimentDefinition,
   type ExperimentDefinition
 } from '../analysis/contracts'
@@ -53,7 +54,7 @@ export const DEFAULT_EXPERIMENT_DEFINITION: ExperimentDefinition = {
     }
   },
   rule: { version: 1, revision: 1, minimumClearance: 0.02 },
-  budget: { maxIntervals: 2000, maxDurationMs: 15000 }
+  budget: { ...DEFAULT_EXPERIMENT_BUDGET }
 }
 export interface CandidateParameters {
   robotRootId: string | null

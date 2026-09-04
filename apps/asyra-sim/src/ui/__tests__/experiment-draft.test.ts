@@ -51,6 +51,7 @@ const workcell: Workcell = {
 describe('experiment UI draft helpers', () => {
   it('creates a static explicit draft from a current workcell', () => {
     const draft = createDefaultExperimentDraft(workcell)
+    expect(draft.budget).toEqual({ maxIntervals: 100000, maxDurationMs: 30000 })
     expect(draft.trajectory.keyframes).toEqual([
       { time: 0, joints: { joint: 0.5 } }
     ])
