@@ -68,6 +68,15 @@ old browser callbacks and clears timers, transient state and input mappings.
 It attempts every listener removal before reporting failure, without clearing
 another Input instance. Normal reset/dispose retain their attachment semantics.
 
+Render instance reset requires initialization and frame evaluation to be idle.
+It invalidates old frame/engine/pointer callbacks, stops scheduling, attempts all
+teardown, interaction, resource-binding and engine cleanup, and retires the old
+viewport, layers, frame subscribers and provider selection. It reports cleanup
+failure and cannot activate a successor. Ordinary dispose retains its existing
+retry semantics. Shared projection/interaction/strategy registrations remain
+separate owners and must also be retired by the complete lifecycle; resetting
+one independently constructed Render does not clear those shared registrations.
+
 After quiescence, Core requests Factory runtime reset only when its transaction,
 replay and delivery settlement are idle. Busy reset rejects before changing any
 history or registration. Factory clears its journal, Undo/Redo, staged delivery,

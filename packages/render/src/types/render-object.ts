@@ -438,6 +438,20 @@ export class RenderObjectRuntime {
     this.resourceReleaseSubscriptions.clear()
   }
 
+  resetResourceLifecycles(): void {
+    const subscriptions = [...this.resourceReleaseSubscriptions]
+    this.resourceReleaseSubscriptions.clear()
+    const failures: unknown[] = []
+    subscriptions.forEach((unsubscribe) => {
+      try {
+        unsubscribe()
+      } catch (error) {
+        failures.push(error)
+      }
+    })
+    if (failures.length > 0) throw failures[0]
+  }
+
   private destroyResourceRecord(
     style: object,
     record: RenderRuntimeResourceRecord

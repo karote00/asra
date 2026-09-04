@@ -71,8 +71,8 @@ class Render {
   private attachedCustomLayers = new Set<RenderContainer>()
   private started = false
   private frameScheduled = false
-  private readonly _animateHandler: () => void
-  private readonly interactionBridge: RenderInteractionBridge
+  private _animateHandler: () => void
+  private interactionBridge: RenderInteractionBridge
   private readonly engineInteractionBridge: RenderEngineInteractionBridge
   private unsubscribeEngineInteraction: (() => void) | null = null
   private engine: RenderEngine | null = null
@@ -89,6 +89,9 @@ class Render {
   private readonly renderLayerRegistry = new RenderLayerRegistry()
   private readonly teardownCleanups = new Set<() => void>()
   private readonly frameCompleteSubscribers = new Set<() => void>()
+  private runtimeGeneration = 0
+  private pendingInitializations = 0
+  private resettingRuntime = false
 
   constructor(options: RenderEngineProviderOptions = {}) {
     if (options.engine && options.engineProvider) {
@@ -99,16 +102,8 @@ class Render {
     this.providedEngine = options.engine ?? null
     this.engineProvider = options.engineProvider ?? null
     this.viewport = new ViewportLayer()
-    this._animateHandler = () => {
-      if (!this.frameScheduled) {
-        return
-      }
-      this.frameScheduled = false
-      this.flushFrame()
-    }
-    this.interactionBridge = new RenderInteractionBridge((event) =>
-      this.getPointerPositions(event)
-    )
+    this._animateHandler = this.createAnimateHandler()
+    this.interactionBridge = this.createInteractionBridge()
     this.engineInteractionBridge = new RenderEngineInteractionBridge((handle) =>
       this.resolveEngineInteractionTarget(handle)
     )
@@ -191,8 +186,10 @@ class Render {
   }
 
   subscribeToFrameComplete(subscriber: () => void): () => void {
+    const generation = this.runtimeGeneration
     this.frameCompleteSubscribers.add(subscriber)
     return () => {
+      if (generation !== this.runtimeGeneration) return
       this.frameCompleteSubscribers.delete(subscriber)
     }
   }
@@ -243,7 +240,9 @@ class Render {
       }
     }
     if (completedFrame) {
+      const generation = this.runtimeGeneration
       ;[...this.frameCompleteSubscribers].forEach((subscriber) => {
+        if (generation !== this.runtimeGeneration) return
         try {
           subscriber()
         } catch {
@@ -303,8 +302,10 @@ class Render {
   }
 
   registerTeardownCleanup(cleanup: () => void): () => void {
+    const generation = this.runtimeGeneration
     this.teardownCleanups.add(cleanup)
     return () => {
+      if (generation !== this.runtimeGeneration) return
       this.teardownCleanups.delete(cleanup)
     }
   }
@@ -314,6 +315,20 @@ class Render {
     height: number,
     backgroundColor: number,
     host: unknown = {}
+  ): Promise<RenderApplication> {
+    this.pendingInitializations += 1
+    try {
+      return await this.initializeRuntime(width, height, backgroundColor, host)
+    } finally {
+      this.pendingInitializations -= 1
+    }
+  }
+
+  private async initializeRuntime(
+    width: number,
+    height: number,
+    backgroundColor: number,
+    host: unknown
   ): Promise<RenderApplication> {
     if (this.app) {
       throw new Error('Render adapter is already initialized')
@@ -351,8 +366,12 @@ class Render {
         }
       }
       this.syncCustomLayers()
+      const generation = this.runtimeGeneration
       this.unsubscribeEngineInteraction = engine.subscribeToInteraction(
-        (event) => this.engineInteractionBridge.handle(event)
+        (event) => {
+          if (generation === this.runtimeGeneration)
+            this.engineInteractionBridge.handle(event)
+        }
       )
       if (isPointerSurface(initialized.inputTarget)) {
         this.interactionBridge.attach(initialized.inputTarget)
@@ -776,6 +795,84 @@ class Render {
 
   reset(): void {
     this.dispose()
+  }
+
+  /** Retire this instance's resources; shared registries have separate owners. */
+  resetRuntime(): void {
+    if (
+      this.pendingInitializations > 0 ||
+      this.flushingFrame ||
+      this.updatingLayers ||
+      this.resettingRuntime
+    ) {
+      throw new Error(
+        'Render runtime reset requires idle initialization and frame work'
+      )
+    }
+    this.resettingRuntime = true
+    this.runtimeGeneration += 1
+    const failures: unknown[] = []
+    const attempt = (cleanup: () => void): void => {
+      try {
+        cleanup()
+      } catch (error) {
+        failures.push(error)
+      }
+    }
+    try {
+      attempt(() => this.stop())
+      const cleanups = [...this.teardownCleanups]
+      this.teardownCleanups.clear()
+      cleanups.forEach(attempt)
+      attempt(() => this.interactionBridge.resetRuntime())
+      attempt(() => this.unsubscribeEngineInteraction?.())
+      this.unsubscribeEngineInteraction = null
+      attempt(() => this.runtime?.resetResourceLifecycles())
+      attempt(() => this.engine?.destroy())
+      attempt(() => this.viewport.view.releaseRuntime())
+      this.customLayerContainers.forEach((layer) =>
+        attempt(() => layer.releaseRuntime())
+      )
+      this.attachedCustomLayers.clear()
+      this.customLayerContainers = []
+      this.renderLayerRegistry.clear()
+      this.frameCompleteSubscribers.clear()
+      this.runtime = null
+      this.engine = null
+      this.app = null
+      this.providedEngine = null
+      this.engineProvider = null
+      this.providerToken = Symbol('render-engine-provider')
+      this.viewport = new ViewportLayer()
+      this.frameScheduled = false
+      this.renderDirty = true
+      this.nextFrameRenderDirty = false
+      this.renderFrameId = 0
+      this.currentFrameHandoffCount = 0
+      this._animateHandler = this.createAnimateHandler()
+      this.interactionBridge = this.createInteractionBridge()
+    } finally {
+      this.resettingRuntime = false
+    }
+    if (failures.length > 0) throw failures[0]
+  }
+
+  private createAnimateHandler(): () => void {
+    const generation = this.runtimeGeneration
+    return () => {
+      if (generation !== this.runtimeGeneration || !this.frameScheduled) return
+      this.frameScheduled = false
+      this.flushFrame()
+    }
+  }
+
+  private createInteractionBridge(): RenderInteractionBridge {
+    const generation = this.runtimeGeneration
+    return new RenderInteractionBridge((event) =>
+      generation === this.runtimeGeneration
+        ? this.getPointerPositions(event)
+        : null
+    )
   }
 
   registerInteractionTargets(

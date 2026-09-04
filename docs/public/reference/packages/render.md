@@ -41,6 +41,13 @@ on direct `Render.init()` fails. Provider, capability, strategy, layer,
 interaction, or cleanup failure remains explicit and cannot fall back to
 another engine.
 
+`Render.resetRuntime()` is the explicit instance-retirement boundary. It
+requires idle initialization/frame work, invalidates old callbacks and attempts
+all owned cleanup before reporting failures. Layers, viewport and provider
+selection are retired; shared projection/interaction/strategy registries remain
+separate owners. Core coordinates complete replacement and must remain closed
+after cleanup failure. Ordinary `dispose()` keeps its existing retry behavior.
+
 ## Relationships
 
 Scene Tree/Props own canonical and computed information. Selection supplies

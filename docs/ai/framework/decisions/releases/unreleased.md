@@ -59,3 +59,12 @@
   listener removals and clears runtime mappings/transient state. This prevents
   retained A callbacks from dispatching B commands after reconstruction.
   Ordinary reset/dispose attachment behavior remains unchanged.
+
+## 2026-09-04 — Retire Render Instance Resources and Callback Generations
+
+- Complete Render reset is separate from ordinary retryable disposal. It
+  requires idle initialization/frame work, attempts all owned cleanup and
+  retires viewport/layer/provider state while fencing old frame, engine and
+  pointer callbacks. Failure blocks Core reconstruction.
+- Shared projection/interaction/strategy registrations remain separate owners;
+  this instance API is not a global renderer reset or App reset by itself.

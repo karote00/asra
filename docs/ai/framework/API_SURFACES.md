@@ -922,6 +922,14 @@ Feature runtime lifecycle (`@asyra/feature-system`, not yet Core facade):
   timers and mappings. It attempts every listener removal and reports failure
   to Core; other instances and legacy reset/dispose semantics are unchanged.
 
+## Render Runtime Lifecycle
+
+- `Render.resetRuntime(): void` (`@asyra/render`) retires instance-owned engine,
+  viewport, layer, callback and provider lifetimes after initialization/frame
+  work is idle. It attempts all cleanup and reports failure to Core. Shared
+  render registrations/stores remain separate owners; ordinary disposal is
+  unchanged. Old callbacks and cleanup handles cannot affect new generations.
+
 ## API Usage Rules
 
 - App-level code should prefer `core.xxx` when surface exists.

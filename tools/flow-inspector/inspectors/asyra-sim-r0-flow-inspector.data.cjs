@@ -167,6 +167,42 @@
         failureOwnerStepId: 'reset-input'
       },
       {
+        id: 'reset-render',
+        order: 0.2,
+        laneId: 'compose',
+        title: 'Release the Render instance runtime',
+        ownerPackage: '@asyra/render',
+        purpose: 'Retire owned engine resources and stale callbacks',
+        inputs: ['artifact:input-reset', 'Core lifecycle reset request'],
+        outputs: ['artifact:render-reset'],
+        conditions: [
+          'Reject reset during initialization or active frame evaluation before mutation.',
+          'Invalidate old callbacks, attempt all teardown/resource/engine cleanup and retire viewport, layers, subscribers and provider selection.',
+          'Report failure; shared projection/interaction/strategy registrations remain separate owners.'
+        ],
+        bypasses: [
+          'Ordinary dispose/reset retains its cleanup retry semantics.'
+        ],
+        allowedContributors: [
+          'Render instance, interaction bridge and abstract resource lifecycle owners'
+        ],
+        forbiddenContributors: [
+          'Concrete engine internals',
+          'canonical data mutation',
+          'App history manipulation',
+          'shared registration clearing'
+        ],
+        cacheDimensions: [],
+        implementationBoundary: [
+          'packages/render/src/render.ts',
+          'packages/render/src/interaction/interaction-bridge.ts',
+          'packages/render/src/types/render-object.ts',
+          'packages/render/src/__tests__/**'
+        ],
+        specRefs: ['#11-interaction-cancellation-and-resources'],
+        failureOwnerStepId: 'reset-render'
+      },
+      {
         id: 'reset-factory',
         order: 0.5,
         laneId: 'compose',
@@ -174,7 +210,7 @@
         ownerPackage: '@asyra/factory',
         purpose:
           'Release transaction, history and owned delivery resources after quiescence',
-        inputs: ['artifact:input-reset', 'Core lifecycle reset request'],
+        inputs: ['artifact:render-reset', 'Core lifecycle reset request'],
         outputs: ['artifact:factory-reset'],
         conditions: [
           'Reject before mutation while any transaction, replay or delivery settlement is active.',
@@ -874,13 +910,22 @@
         producedArtifacts: ['artifact:feature-quiescence']
       },
       {
-        id: 'input-reset-to-factory',
+        id: 'input-reset-to-render',
         from: 'reset-input',
+        to: 'reset-render',
+        kind: 'normal',
+        predicate:
+          'The old input surface is retired; Render owns engine resource termination.',
+        producedArtifacts: ['artifact:input-reset']
+      },
+      {
+        id: 'render-reset-to-factory',
+        from: 'reset-render',
         to: 'reset-factory',
         kind: 'normal',
         predicate:
           'Feature work has actually settled; this alone does not complete App reset.',
-        producedArtifacts: ['artifact:input-reset']
+        producedArtifacts: ['artifact:render-reset']
       },
       {
         id: 'factory-reset-to-scene',
@@ -1161,6 +1206,13 @@
         id: 'artifact:input-reset',
         ownerStepId: 'reset-input',
         channel: 'synchronous lifecycle completion',
+        consumerStepIds: ['reset-render'],
+        terminal: false
+      },
+      {
+        id: 'artifact:render-reset',
+        ownerStepId: 'reset-render',
+        channel: 'synchronous lifecycle completion',
         consumerStepIds: ['reset-factory'],
         terminal: false
       },
@@ -1324,6 +1376,7 @@
         stepIds: [
           'quiesce',
           'reset-input',
+          'reset-render',
           'reset-factory',
           'reset-scene',
           'reset-props',
