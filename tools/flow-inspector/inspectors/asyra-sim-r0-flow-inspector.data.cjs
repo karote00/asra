@@ -238,6 +238,37 @@
         failureOwnerStepId: 'reset-props'
       },
       {
+        id: 'reset-selection',
+        order: 0.8,
+        laneId: 'compose',
+        title: 'Release selection runtime channels',
+        ownerPackage: '@asyra/selection',
+        purpose:
+          'Retire selected IDs and channel instances before new composition',
+        inputs: ['artifact:props-reset', 'Core lifecycle reset request'],
+        outputs: ['artifact:selection-reset'],
+        conditions: [
+          'Remove channel registrations and attempt every owned cleanup without canonical events.',
+          'Report cleanup failure; keep other manager instances unchanged.'
+        ],
+        bypasses: ['Ordinary clear/unregister keeps its current semantics.'],
+        allowedContributors: [
+          'Selection Manager and registered channel lifecycle hooks'
+        ],
+        forbiddenContributors: [
+          'Scene mutation',
+          'App history manipulation',
+          'renderer internals'
+        ],
+        cacheDimensions: [],
+        implementationBoundary: [
+          'packages/selection/src/selection-manager.ts',
+          'packages/selection/src/__tests__/**'
+        ],
+        specRefs: ['#11-interaction-cancellation-and-resources'],
+        failureOwnerStepId: 'reset-selection'
+      },
+      {
         id: 'compose',
         order: 1,
         laneId: 'compose',
@@ -764,12 +795,20 @@
         producedArtifacts: ['artifact:scene-reset']
       },
       {
-        id: 'props-reset-terminal',
+        id: 'props-reset-to-selection',
         from: 'reset-props',
+        to: 'reset-selection',
+        kind: 'normal',
+        predicate: 'Props state is retired; selection channels are next.',
+        producedArtifacts: ['artifact:props-reset']
+      },
+      {
+        id: 'selection-reset-terminal',
+        from: 'reset-selection',
         kind: 'terminal',
         predicate:
-          'Props state is retired; remaining owner cleanup and fresh Core composition are still required.',
-        producedArtifacts: ['artifact:props-reset']
+          'Selection channels are retired; remaining owner cleanup and fresh Core composition are still required.',
+        producedArtifacts: ['artifact:selection-reset']
       },
       {
         id: 'runtime-to-edit',
@@ -1012,6 +1051,13 @@
         id: 'artifact:props-reset',
         ownerStepId: 'reset-props',
         channel: 'synchronous lifecycle completion',
+        consumerStepIds: ['reset-selection'],
+        terminal: false
+      },
+      {
+        id: 'artifact:selection-reset',
+        ownerStepId: 'reset-selection',
+        channel: 'synchronous lifecycle completion',
         consumerStepIds: [],
         terminal: true
       },
@@ -1135,6 +1181,7 @@
           'reset-factory',
           'reset-scene',
           'reset-props',
+          'reset-selection',
           'compose',
           'domain',
           'edit',

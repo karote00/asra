@@ -894,6 +894,13 @@ Feature runtime lifecycle (`@asyra/feature-system`, not yet Core facade):
   other owner instances remain unchanged. Apps enter the Core lifecycle instead
   of invoking this owner handoff directly.
 
+## Selection Runtime Lifecycle
+
+- `SelectionManager.resetRuntime(): void` (`@asyra/selection`) retires all
+  channel registrations and attempts each instance's cleanup without publishing
+  selection mutations. Failure is reported after cleanup attempts; other
+  manager instances are unaffected. Core orchestrates runtime reconstruction.
+
 ## API Usage Rules
 
 - App-level code should prefer `core.xxx` when surface exists.

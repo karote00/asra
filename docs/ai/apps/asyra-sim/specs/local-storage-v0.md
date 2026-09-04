@@ -91,6 +91,12 @@ Scene Tree and other Props Manager instances are not disposed by this step.
 Owner cleanup hooks release resources synchronously; they must not create new
 canonical work during termination.
 
+Selection reset removes the old registered channels and attempts every channel
+cleanup without publishing selection changes or creating history. Fresh
+composition can register the same channel names with new instances. Cleanup
+failure is reported after retiring registrations, and another manager remains
+untouched. Normal clear/unregister behavior is unchanged.
+
 After successful termination, composition creates fresh runtime objects with
 the same trusted modules; it does not unlock and reuse retired objects. B starts
 with its own document, empty Undo/Redo, reset camera/selection/playback, and only

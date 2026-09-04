@@ -32,3 +32,10 @@
   property graph. Cleanup failure retires state but blocks reconstruction.
 - Property type definitions remain composition-owned. Ordinary load and legacy
   disposal keep their contracts; this handoff is not an App-side reset shortcut.
+
+## 2026-09-04 — Retire Selection Channels at Complete Runtime Reset
+
+- Selection Manager owns disposal and removal of old channel instances without
+  publishing selection mutations. New composition registers new instances;
+  cleanup errors block successful reconstruction rather than hiding partial
+  termination. Ordinary clear/unregister semantics are unchanged.

@@ -33,6 +33,11 @@ operations produce deterministic selected-id sets. Duplicate/unknown
 registration or invalid operation input fails through the declared boundary.
 Cleanup releases channel state/subscriptions without mutating scene entities.
 
+`SelectionManager.resetRuntime()` is the lifecycle-owner boundary: it retires
+all registered channels and attempts their cleanup, reporting failure after all
+attempts. It does not publish selection changes or touch scene entities. New
+composition uses new channel instances; other managers are unaffected.
+
 ## Relationships
 
 Preset installs default selection registrations and shared apply wiring. Core
