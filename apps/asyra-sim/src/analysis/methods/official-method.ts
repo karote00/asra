@@ -62,7 +62,8 @@ function deepFreeze<T>(input: T, seen = new WeakSet<object>()): T {
 
 export function runOfficialClearanceMethod(
   snapshot: ExperimentSnapshot,
-  checkpoint: () => void = () => undefined
+  checkpoint: () => void = () => undefined,
+  onPair: (evidence: OfficialPairEvidence) => void = () => undefined
 ): OfficialMethodEvidence {
   if (
     snapshot.method.id !== OFFICIAL_CLEARANCE_METHOD.id ||
@@ -103,7 +104,9 @@ export function runOfficialClearanceMethod(
       remaining -= evidence.evaluations
       evaluations += evidence.evaluations
     }
-    pairs.push({ pairId: pair.id, evidence })
+    const completed = deepFreeze({ pairId: pair.id, evidence })
+    pairs.push(completed)
+    onPair(completed)
   }
   return deepFreeze({
     version: 1,

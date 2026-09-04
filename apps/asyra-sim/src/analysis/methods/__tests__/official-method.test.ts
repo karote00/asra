@@ -129,4 +129,14 @@ describe('M3 official clearance method aggregation', () => {
       })
     ).toThrow('cancelled')
   })
+
+  it('publishes detached pair progress without changing final evidence', () => {
+    const progress: string[] = []
+    const evidence = runOfficialClearanceMethod(
+      snapshot([1, 2]),
+      () => undefined,
+      (pair) => progress.push(pair.pairId)
+    )
+    expect(progress).toEqual(evidence.pairs.map((pair) => pair.pairId))
+  })
 })
