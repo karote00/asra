@@ -9876,6 +9876,46 @@
             "failureOwnerStepId": "reset-selection"
           },
           {
+            "id": "reset-system-context",
+            "order": 0.85,
+            "laneId": "compose",
+            "title": "Release managed runtime state",
+            "ownerPackage": "@asyra/system-context",
+            "purpose": "Retire managed properties, subscriptions and load artifacts",
+            "inputs": [
+              "artifact:selection-reset",
+              "Core lifecycle reset request"
+            ],
+            "outputs": [
+              "artifact:system-context-reset"
+            ],
+            "conditions": [
+              "After quiescence, remove registrations, invalidate prepared artifacts and attempt every observable completion.",
+              "Report cleanup failure; keep independently owned instances untouched."
+            ],
+            "bypasses": [
+              "Ordinary load/set/unregister keeps its validation semantics."
+            ],
+            "allowedContributors": [
+              "System Context and its managed-property state owner"
+            ],
+            "forbiddenContributors": [
+              "Scene/Props mutation",
+              "history manipulation",
+              "App UI state"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/system-context/src/system-context.ts",
+              "packages/system-context/src/states/managed-property-state.ts",
+              "packages/system-context/src/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "reset-system-context"
+          },
+          {
             "id": "compose",
             "order": 1,
             "laneId": "compose",
@@ -10463,12 +10503,22 @@
             ]
           },
           {
-            "id": "selection-reset-terminal",
+            "id": "selection-reset-to-system-context",
             "from": "reset-selection",
-            "kind": "terminal",
-            "predicate": "Selection channels are retired; remaining owner cleanup and fresh Core composition are still required.",
+            "to": "reset-system-context",
+            "kind": "normal",
+            "predicate": "Selection channels are retired; managed runtime properties are next.",
             "producedArtifacts": [
               "artifact:selection-reset"
+            ]
+          },
+          {
+            "id": "system-context-reset-terminal",
+            "from": "reset-system-context",
+            "kind": "terminal",
+            "predicate": "Managed state is retired; remaining owner cleanup and fresh Core composition are still required.",
+            "producedArtifacts": [
+              "artifact:system-context-reset"
             ]
           },
           {
@@ -10752,6 +10802,15 @@
             "id": "artifact:selection-reset",
             "ownerStepId": "reset-selection",
             "channel": "synchronous lifecycle completion",
+            "consumerStepIds": [
+              "reset-system-context"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:system-context-reset",
+            "ownerStepId": "reset-system-context",
+            "channel": "synchronous lifecycle completion",
             "consumerStepIds": [],
             "terminal": true
           },
@@ -10923,6 +10982,7 @@
               "reset-scene",
               "reset-props",
               "reset-selection",
+              "reset-system-context",
               "compose",
               "domain",
               "edit",

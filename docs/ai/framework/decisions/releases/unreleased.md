@@ -39,3 +39,10 @@
   publishing selection mutations. New composition registers new instances;
   cleanup errors block successful reconstruction rather than hiding partial
   termination. Ordinary clear/unregister semantics are unchanged.
+
+## 2026-09-04 — Retire Managed State and Observable Lifetimes
+
+- Complete System Context reset invalidates old validated loads, removes
+  managed-property registrations and completes every observable. It reports
+  completion failures after attempting all resources, preserving Core's
+  fail-closed reconstruction rule. Ordinary validation is unchanged.

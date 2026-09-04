@@ -97,6 +97,12 @@ composition can register the same channel names with new instances. Cleanup
 failure is reported after retiring registrations, and another manager remains
 untouched. Normal clear/unregister behavior is unchanged.
 
+System Context reset removes all managed-property registrations, invalidates old
+validated load artifacts and completes every old observable. Another instance
+with independent state is untouched. Cleanup failure is reported after all
+completion attempts and blocks reconstruction. Normal load/set/unregister
+validation semantics are unchanged.
+
 After successful termination, composition creates fresh runtime objects with
 the same trusted modules; it does not unlock and reuse retired objects. B starts
 with its own document, empty Undo/Redo, reset camera/selection/playback, and only

@@ -297,6 +297,21 @@ export class ManagedPropertyState {
   getAllKeys(): string[] {
     return Array.from(this.properties.keys())
   }
+
+  resetRuntime(): void {
+    const properties = [...this.properties.values()]
+    this.properties.clear()
+    this.validatedLoadArtifacts = new WeakMap()
+    const failures: unknown[] = []
+    properties.forEach(({ state }) => {
+      try {
+        state.complete()
+      } catch (error) {
+        failures.push(error)
+      }
+    })
+    if (failures.length > 0) throw failures[0]
+  }
 }
 
 export default new ManagedPropertyState()

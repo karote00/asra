@@ -901,6 +901,13 @@ Feature runtime lifecycle (`@asyra/feature-system`, not yet Core facade):
   selection mutations. Failure is reported after cleanup attempts; other
   manager instances are unaffected. Core orchestrates runtime reconstruction.
 
+## System Context Runtime Lifecycle
+
+- `SystemContext.resetRuntime(): void` (`@asyra/system-context`) retires managed
+  registrations and validated artifacts and completes all owned observables.
+  Cleanup attempts continue after failure and report it to Core. Independently
+  owned state and ordinary load/set/unregister semantics remain unchanged.
+
 ## API Usage Rules
 
 - App-level code should prefer `core.xxx` when surface exists.

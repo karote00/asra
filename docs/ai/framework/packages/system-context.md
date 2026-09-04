@@ -40,6 +40,14 @@ Own global runtime state for modes and interaction/system flags.
   - `runtime: true` (default) => runtime-only, not persisted
   - `runtime: false` => persisted by core save/load
 
+## Explicit Runtime Reset
+
+`SystemContext.resetRuntime(): void` delegates to its managed-property owner
+after quiescence: retire registrations and validation artifacts, then attempt
+every observable completion. Cleanup failure blocks successful reconstruction.
+Contexts with independent state are unaffected. Normal load/set/unregister
+validation semantics are unchanged; Apps use Core lifecycle orchestration.
+
 ## Validation Checklist
 
 - Managed property registration is idempotent and stable.
