@@ -1053,6 +1053,7 @@
         outputs: ['artifact:retained-data'],
         conditions: [
           'Preview imports before Feature acceptance; failed import leaves no partial state.',
+          'Visual preparation is a noncanonical Feature task with owned cancellation; completed preview discard revokes the receipt, and retention invokes the separate editing Feature without holding a transaction across decoding.',
           'Retain immutable original visual sources only through archive-scoped prepared receipts; source collections are byte/count bounded and fully decoded with verified digests before hydration succeeds.',
           'Resolve every visual reference before use and bound decoded archive geometry and repeated workcell instances independently of source bytes.',
           'Save acknowledgement is independent of runtime commit; historical evidence stays immutable.',
@@ -1065,6 +1066,7 @@
         allowedContributors: [
           'local IndexedDB and portable bundles',
           'owned asset decoder service returning detached artifacts only',
+          'Core Feature task and runtime-cleanup facades',
           'safe CSV/JSON/HTML serializers'
         ],
         forbiddenContributors: [

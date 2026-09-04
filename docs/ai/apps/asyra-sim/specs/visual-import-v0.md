@@ -81,6 +81,16 @@ Missing or malformed sources reject native replacement; they do not destroy the
 current document or rewrite independently exported historical reports. Missing
 private method binaries remain a separate read-only-history condition.
 
+Programmatic `PREPARE_VISUAL` work uses a noncanonical Feature task at priority
+90, exclusive, with one active invocation per Feature and a Feature-owned abort
+signal. The owned decoder enforces its deadline. `RETAIN_VISUAL` at priority 100,
+exclusive, retains the original receipt and invokes the editing Feature for one
+binding transaction. No transaction spans decoding. After task completion,
+discarding a preview explicitly revokes its receipt; it is not implemented by
+trying to cancel an already-settled task. Runtime cleanup disposes the archive
+and invalidates all receipts. A failed canonical binding remains retryable but
+does not claim persistence or create a partial reference.
+
 Decoded resources are additionally bounded to 1,000,000 vertices and 3,000,000
 indices per lifetime archive. Resolving a workcell applies the same aggregate
 limits to all binding instances, including hidden bodies and repeated sources.

@@ -6,7 +6,9 @@ export const AnalysisFeatureNames = {
   ANALYZE_EXPERIMENT: 'asyra-sim.analyze-experiment'
 } as const
 export const StorageFeatureNames = {
-  RETAIN_RUN: 'asyra-sim.retain-run'
+  RETAIN_RUN: 'asyra-sim.retain-run',
+  PREPARE_VISUAL: 'asyra-sim.prepare-visual',
+  RETAIN_VISUAL: 'asyra-sim.retain-visual'
 } as const
 type ExistingFeatureNames = typeof EditingFeatureNames &
   typeof HistoryFeatureNames

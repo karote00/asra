@@ -145,6 +145,11 @@ export class VisualAssetArchive {
     return this.records.get(assetId)?.asset
   }
 
+  discard(prepared: PreparedVisualImport): void {
+    this.assertLive()
+    this.receipts.delete(prepared)
+  }
+
   /** Resolve every declared reference; repeated instances count toward projection admission. */
   resolveWorkcell(
     workcell: Workcell,
