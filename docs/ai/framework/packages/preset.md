@@ -119,6 +119,21 @@ new validation or mutation.
 A successful apply is permanent for that Core composition. A second apply
 fails; apps customize successful defaults through ordinary Core APIs.
 
+When Core exposes `registerRuntimeCleanup`, successful apply transfers its
+retained cleanup entries to that lifecycle owner. Core invokes them after
+canonical/graph retirement. Preset attempts every remaining resource in reverse
+order, skips completed entries, and reports `CLEANUP_FAILED` with the first
+cleanup cause and frozen completed/pending keys. The apply result stays a frozen
+description, not a disposer. Complete reset may leave an already-retired layer
+unregister as an idempotent no-op; no old resource is reactivated.
+
+The old Core is never reopened or removed from the successful-apply guard. A
+fresh successor may apply the same profile/defaults once. Failure to register the
+lifecycle handoff follows ordinary failed-apply rollback. Older adapters without
+this capability preserve existing apply behavior, but do not claim complete
+runtime replacement support. Preset does not coordinate Core reset or own App
+recovery policy.
+
 ## Ownership Boundary
 
 - Core owns composition lock, registration graph, provider facade, startup,
@@ -126,7 +141,8 @@ fails; apps customize successful defaults through ordinary Core APIs.
 - Render owns instance-local abstract provider storage and engine orchestration.
 - The concrete engine package owns SDK runtime and resources.
 - Preset owns the fixed catalog, official module installers, private
-  prerequisites, profile policy, apply result, and failed-apply rollback.
+  prerequisites, profile policy, apply result, failed-apply rollback, and
+  retained cleanup of successful installation resources.
 - App owns which preset choices to request and any later Core customization.
 - The preset-owned Scene Tree shared-channel observer routes committed add,
   remove, scalar, ordered batch, and record-patch envelopes to the matching

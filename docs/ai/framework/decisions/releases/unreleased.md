@@ -95,3 +95,12 @@
   original payload/batch identity and order; internal callback wrappers are not
   a public identity guarantee. Composition cleanup is retained through a
   neutral Core API, without a Core dependency on Preset or App internals.
+
+## 2026-09-05 — Retain Successful Preset Installation Cleanup
+
+- Preset hands successful installation cleanup to the neutral Core lifecycle.
+  Complete reset releases its remaining subscriptions and resources after
+  canonical/graph retirement, without unlocking old composition or changing the
+  frozen apply result. A fresh Core may apply again.
+- Failed-apply rollback/retry and legacy adapter behavior remain unchanged.
+  Missing lifecycle support is not a complete-replacement guarantee.

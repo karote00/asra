@@ -182,6 +182,15 @@ startup rejection, active-work settlement, partial observer initialization,
 cleanup failure, stale facade/Feature/event/cleanup handles, preserved ordinary
 load/destroy semantics, and unchanged independent dependencies.
 
+Preset retains successful installation cleanup through Core's neutral lifecycle
+registration. On complete termination, it attempts all retained cleanup in
+reverse order and reports pending/completed keys and the first cleanup cause.
+It does not reopen the old composition or expose a disposer on its frozen apply
+result. Failed-apply rollback/retry remains separate and unchanged. A successor
+Core may apply the same profile/defaults once; the old Core remains retired.
+Older composition adapters without lifecycle registration keep their existing
+apply behavior but do not claim complete runtime replacement support.
+
 Formal cases for Feature quiescence: empty and repeated disposal; reject queued
 and new operations; await a running command; abort and await tasks; force active
 session rollback; await timed-out handlers; detach input and late renderer-event

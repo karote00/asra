@@ -10167,6 +10167,49 @@
             "failureOwnerStepId": "reset-core"
           },
           {
+            "id": "retain-preset-lifecycle",
+            "order": 0.99,
+            "laneId": "compose",
+            "title": "Retain successful Preset cleanup with Core",
+            "ownerPackage": "@asyra/preset",
+            "purpose": "Make selected official defaults participate in terminal runtime cleanup",
+            "inputs": [
+              "Successful trusted Preset installation cleanup entries",
+              "Core registerRuntimeCleanup capability",
+              "Core completion of canonical and graph retirement before cleanup invocation"
+            ],
+            "outputs": [
+              "artifact:preset-lifecycle"
+            ],
+            "conditions": [
+              "Register successful installation cleanup through Core without changing the frozen apply result.",
+              "Attempt retained cleanup in reverse order, skip completed entries, and report failed keys/causes.",
+              "Only a fresh Core can apply again; ordinary failed-apply rollback/retry and startup locks remain unchanged."
+            ],
+            "bypasses": [
+              "Legacy adapters without the lifecycle capability keep existing apply behavior, not complete reset support."
+            ],
+            "allowedContributors": [
+              "Existing Preset cleanup entries",
+              "Core neutral lifecycle registration"
+            ],
+            "forbiddenContributors": [
+              "Core lifecycle orchestration",
+              "private canonical state clearing",
+              "reopening composition",
+              "new profiles or App installers"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/preset/src/preset.ts",
+              "packages/preset/src/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "retain-preset-lifecycle"
+          },
+          {
             "id": "compose",
             "order": 1,
             "laneId": "compose",
@@ -10714,6 +10757,15 @@
         ],
         "routes": [
           {
+            "id": "preset-lifecycle-terminal",
+            "from": "retain-preset-lifecycle",
+            "kind": "terminal",
+            "predicate": "Successful Preset resources are retained for Core cleanup; App replacement remains separate.",
+            "producedArtifacts": [
+              "artifact:preset-lifecycle"
+            ]
+          },
+          {
             "id": "feature-quiescence-to-input",
             "from": "quiesce",
             "to": "reset-input",
@@ -11074,6 +11126,13 @@
         ],
         "artifacts": [
           {
+            "id": "artifact:preset-lifecycle",
+            "ownerStepId": "retain-preset-lifecycle",
+            "channel": "Core-owned cleanup registration",
+            "consumerStepIds": [],
+            "terminal": true
+          },
+          {
             "id": "artifact:feature-quiescence",
             "ownerStepId": "quiesce",
             "channel": "awaited lifecycle completion",
@@ -11354,6 +11413,7 @@
               "reset-ui-context",
               "retire-registrations",
               "reset-core",
+              "retain-preset-lifecycle",
               "compose",
               "domain",
               "edit",

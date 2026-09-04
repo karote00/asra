@@ -965,6 +965,12 @@ Feature runtime lifecycle (`@asyra/feature-system`, not yet Core facade):
   isolation or cancellation of arbitrary JavaScript. Old cleanup handles and
   observer/event callbacks cannot operate in its successor.
 
+Preset successful apply registers its retained cleanup with this neutral Core
+lifecycle when available. It exposes no new result fields/disposer, does not
+reopen composition, and leaves failed-apply rollback/retry unchanged. Runtime
+cleanup reports `CLEANUP_FAILED` with completed/pending keys and the first cause.
+Only a fresh Core may reapply after complete reset.
+
 ## API Usage Rules
 
 - App-level code should prefer `core.xxx` when surface exists.
