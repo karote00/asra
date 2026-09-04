@@ -95,6 +95,25 @@ record the complete requested range as unevaluated, with no witness and an
 explicit evidence-capacity reason. Never discard an established finding to
 make room or silently present omitted time as covered.
 
+## Independent Static-Sphere Extension Example
+
+`example-static-spheres-v0@0.1.0` is an independently implemented SDK example,
+not an alternative continuous solver or an official endorsement of private
+modules. It accepts one static keyframe and sphere pairs only, within the same
+domain envelope. Shared outward kinematics enclose sphere centers. The method
+subtracts the outward radius sum from an outward center-distance norm, then
+clamps unsigned clearance to zero. A strictly negative upper signed gap proves
+penetration; a zero-crossing interval does not.
+
+The optional method parameter `additionalError` is an explicitly configured
+extra absolute uncertainty in meters (0 to 0.001). It widens the signed gap in
+both directions before any conclusion and is not an estimated metrology error
+or an accuracy guarantee. The common iterative/time-convergence controls are
+retained in the protocol but unused by this noniterative static method. Each
+queried pair consumes one evaluation; unevaluated pairs remain unresolved.
+The same result validator, worker lifetime, persistence, comparison and generic
+views apply. Analytical method tests and SDK conformance are separate evidence.
+
 ## Decisions and Verification
 
 Unsigned clearance is nonnegative. A strict upper bound below a positive user

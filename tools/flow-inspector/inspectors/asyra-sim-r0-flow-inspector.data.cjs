@@ -977,6 +977,7 @@
         outputs: ['artifact:method-evidence'],
         conditions: [
           'Use only validated detached inputs and shared kinematics.',
+          'The independent static-sphere example uses analytical outward distance bounds, declares its narrower capability and optional added uncertainty, and emits the same geometry evidence contract without official-endorsement inference.',
           'Bound the full requested interval or mark unresolved; retain numerical uncertainty.',
           'Distance bounds and contact witnesses are distinct from user verdicts.'
         ],
@@ -994,7 +995,10 @@
           'silent method fallback'
         ],
         cacheDimensions: [],
-        implementationBoundary: ['apps/asyra-sim/src/analysis/methods/**'],
+        implementationBoundary: [
+          'apps/asyra-sim/src/analysis/methods/**',
+          'apps/asyra-sim/src/constants/methods.ts'
+        ],
         specRefs: [
           '#7-methods-and-completeness',
           '#8-results-are-not-a-single-green-check'
