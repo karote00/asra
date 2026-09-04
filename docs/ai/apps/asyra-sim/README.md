@@ -13,7 +13,7 @@ single robot workcell**, not a complete factory simulator.
 - App workspace: `apps/asyra-sim/`, alongside `apps/asyra-design/`.
 - The normal CUSTOM workbench renders and edits a synthetic six-axis model.
   Canonical editing, analytical numerical kernels, and basic browser proofs
-  exist. Typed acceptance groups, field observations, distribution, and pilots remain pending.
+  exist. Field observations, distribution, and pilots remain pending.
 - At the user's request, this plan supersedes the former Asyra CAD roadmap.
   Useful content has been integrated without retaining its phase numbering or
   claiming that the old plan was implemented. See the roadmap's replacement
@@ -82,7 +82,9 @@ are frozen. Trusted pre-start methods share one catalog and Worker protocol;
 an independent analytical sphere example, typed parameters, retained declarations,
 missing-module history and declaration-aware comparison are implemented. New
 studies use measured 100,000-evaluation/30-second defaults without rewriting saved
-budgets. Typed acceptance groups, field observations, independent distribution,
+budgets. Typed acceptance predicates and nested AND/OR groups now retain separate
+evidence-based evaluations through editing, Worker execution, reports, comparison
+and portable history. Field observations, independent distribution,
 reference-hardware performance, and pilot acceptance remain unfinished.
 The [numerical contract](specs/numerical-method-v0.md) defines the method's support
 limits; passing local tests is not an independent numerical review or a

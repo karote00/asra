@@ -6,6 +6,7 @@ import type { ExperimentDraft } from '../common-apis/experiment'
 import type { Workcell } from '../domain/workcell'
 import { definitionToDraft } from './experiment-draft'
 import { MethodDetails } from './method-details'
+import { RuleEvaluationView } from './rule-evaluation-view'
 
 export interface PresentedRun {
   snapshot: ExperimentSnapshot
@@ -107,7 +108,11 @@ export function AnalysisResultView({
           <span className="eyebrow">FORMAL RESULT</span>
           <h3>{summaryLabels[result.summary]}</h3>
         </div>
-        <span className={`result-state ${result.verdict}`}>
+        <span
+          className={`result-state ${result.verdict}`}
+          aria-label="User verdict"
+        >
+          {result.decision ? 'User: ' : ''}
           {result.verdict.replaceAll('-', ' ')}
         </span>
       </div>
@@ -156,6 +161,7 @@ export function AnalysisResultView({
         {result.source.experimentRevision} · rule r{result.rule.revision}
       </p>
       <MethodDetails descriptor={snapshot.methodDescriptor} historical />
+      {result.decision && <RuleEvaluationView value={result.decision} />}
       <details>
         <summary>
           Scope and assumptions <span>{snapshot.pairs.length} pairs</span>

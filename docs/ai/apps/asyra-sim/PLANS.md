@@ -13,8 +13,9 @@
   reports, portable project reopening, and independent candidate duplication with
   lineage-aware comparison are implemented. Restricted visual attachment and trusted
   pre-start method extensions, including an independent analytical example and
-  retained method provenance, are implemented. Typed acceptance groups, field
-  observations, and full resource gates remain. Admission,
+  retained method provenance, are implemented. Typed acceptance groups preserve
+  raw findings and unknowns across the same result/report/history path. Field
+  observations and full resource gates remain. Admission,
   retained-evidence caps, Worker deadlines/cancellation, and bounded visible
   progress now have focused regressions and ordinary browser coverage.
 - R0 first public release: not ready; no gate is claimed to have passed.
@@ -29,7 +30,7 @@ This index is a concise checkpoint, not a replacement for the roadmap or product
      extensions -> M5 quality and delivery -> M6 independent pilot and R0
      release review.
    - The first release requires M0-M6. It does not wait for M7 domain expansion.
-   - Current work: remaining M2-M4 typed rules, feedback and resource flows.
+   - Current work: remaining M2-M4 feedback and resource flows.
      The approved reset scope and owner sequence are recorded in the roadmap.
      The user approved Three.js, its types and necessary dependencies, and the
      necessary Framework lifecycle extensions.

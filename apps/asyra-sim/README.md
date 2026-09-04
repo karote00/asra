@@ -144,6 +144,30 @@ configure reviewed modules before building/starting the App, using the
 [local extension guide](../../docs/ai/apps/asyra-sim/specs/extensions-sdk-v0.md).
 No hot swapping, plugin marketplace or untrusted-code sandbox is provided.
 
+## Your acceptance rules
+
+Open **User acceptance rules** in Experiments to add minimum-clearance or
+penetration-evidence conditions and combine them with nested AND/OR groups.
+Thresholds are shown in millimeters; stored inputs use meters. Groups allow
+two to eight children, up to four levels and 31 total nodes. Save the draft
+through **Create experiment** or **Save experiment**; the complete edit is one
+Undo action. **Use baseline verdict only** removes the optional expression.
+
+The ordinary minimum-clearance field still controls the method's baseline
+finding/refinement threshold. Extra conditions do not silently retune the solver.
+Insufficient bounds remain unknown. Conditions apply to the full selected pair
+scope; use separate experiments for different scopes. Arbitrary scripts, force
+metrics and per-condition pair selectors are not provided.
+
+Results show the original method summary, the separate **User** verdict and
+each retained condition's truth value and reason. For example, a study deliberately
+requiring penetration can meet your condition while still showing **Issue found**.
+This never means equipment is safe to operate. Incomplete execution or coverage
+prevents a successful user verdict even when an OR branch is true. Changing
+conditions creates new rule/run provenance, and comparisons disclose the change.
+JSON, CSV and HTML exports preserve the same evaluation without recomputing it.
+See the [typed acceptance contract](../../docs/ai/apps/asyra-sim/specs/decision-rules-v0.md).
+
 ## Retained evidence and comparison
 
 Use **Duplicate candidate** beneath the candidate selector to copy committed model

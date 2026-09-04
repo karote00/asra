@@ -17,6 +17,13 @@ it('tracks geometric input changes while preserving frozen replay and partial lo
   const example = createSyntheticExample(),
     draft = createSyntheticExperimentDraft(example)
   const descriptor = structuredClone(INSTALLED_METHOD_CATALOG.descriptors[0])
+  draft.rule.acceptance = {
+    kind: 'all',
+    conditions: [
+      { kind: 'clearance', operator: 'above', value: 0.02 },
+      { kind: 'penetration', expected: 'absent' }
+    ]
+  }
   descriptor.manifest.validation.evidence = 'Retained local validation evidence'
   const snapshot = createExperimentSnapshot({
     snapshotId: 'snapshot',
@@ -86,6 +93,12 @@ it('tracks geometric input changes while preserving frozen replay and partial lo
     expect(host.textContent).toContain('Retained method declaration')
     expect(host.textContent).toContain('Retained local validation evidence')
     expect(host.textContent).not.toContain('Changed after the run')
+    expect(host.textContent).toContain('User acceptance evaluation')
+    expect(host.textContent).toContain('Condition 1.1 · unknown')
+    expect(host.textContent).toContain('not a safety approval')
+    expect(host.querySelector('[aria-label="User verdict"]')?.textContent).toBe(
+      'User: cannot determine'
+    )
     expect(host.textContent).toContain('Minimum lower bound0.000 mm')
     const a = snapshot.workcell.bodies.find(
         (body) => body.id === snapshot.pairs[0].a.bodyId

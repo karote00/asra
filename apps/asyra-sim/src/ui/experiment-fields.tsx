@@ -5,6 +5,7 @@ import {
 } from '../analysis/contracts'
 import type { Workcell } from '../domain/workcell'
 import { MethodFields } from './method-fields'
+import { AcceptanceFields } from './acceptance-fields'
 
 export function ExperimentFields({
   draft,
@@ -90,6 +91,17 @@ export function ExperimentFields({
           />
         </label>
       </div>
+      <AcceptanceFields
+        value={draft.rule.acceptance}
+        baseline={draft.rule.minimumClearance}
+        onChange={(acceptance) => {
+          const { acceptance: _previous, ...rule } = draft.rule
+          onChange({
+            ...draft,
+            rule: { ...rule, ...(acceptance ? { acceptance } : {}) }
+          })
+        }}
+      />
       <div className="field-pair">
         {(['Start', 'End'] as const).map((label, index) => (
           <label key={label}>

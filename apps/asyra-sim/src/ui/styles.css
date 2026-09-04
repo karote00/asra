@@ -1,6 +1,7 @@
 @import url('./workbench-layout.css');
 @import url('./project-controls.css');
 @import url('./experiment-panel.css');
+@import url('./acceptance-rules.css');
 
 :root {
   font-family:
