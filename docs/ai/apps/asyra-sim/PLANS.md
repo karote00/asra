@@ -11,14 +11,15 @@
 - M2-M4 implementation: in progress. Experiment authoring, mapped trajectory
   import, preflight, Worker execution, immutable run retention/comparison,
   reports, portable project reopening, and independent candidate duplication with
-  lineage-aware comparison are implemented. Visual-asset attachment, private
-  extensions, field observations, and full resource gates remain. Admission,
+  lineage-aware comparison are implemented. Restricted visual attachment and trusted
+  pre-start method extensions, including an independent analytical example and
+  retained method provenance, are implemented. Typed acceptance groups, field
+  observations, and full resource gates remain. Admission,
   retained-evidence caps, Worker deadlines/cancellation, and bounded visible
   progress now have focused regressions and ordinary browser coverage.
 - R0 first public release: not ready; no gate is claimed to have passed.
 
-This index does not record completed implementation or replace the roadmap and
-product contract.
+This index is a concise checkpoint, not a replacement for the roadmap or product contract.
 
 ## Active Work
 
@@ -28,7 +29,7 @@ product contract.
      extensions -> M5 quality and delivery -> M6 independent pilot and R0
      release review.
    - The first release requires M0-M6. It does not wait for M7 domain expansion.
-   - Current work: remaining M2-M4 visual-asset, extension, feedback and resource flows.
+   - Current work: remaining M2-M4 typed rules, feedback and resource flows.
      The approved reset scope and owner sequence are recorded in the roadmap.
      The user approved Three.js, its types and necessary dependencies, and the
      necessary Framework lifecycle extensions.

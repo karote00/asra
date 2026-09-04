@@ -8,12 +8,12 @@ single robot workcell**, not a complete factory simulator.
 
 ## Status and Location
 
-- Implementation is active. M0 feasibility is established; M1 is next. The R0
+- Implementation is active. M0 feasibility and M1 foundations are complete. The R0
   release gates are not complete.
 - App workspace: `apps/asyra-sim/`, alongside `apps/asyra-design/`.
 - The normal CUSTOM workbench renders and edits a synthetic six-axis model.
   Canonical editing, analytical numerical kernels, and basic browser proofs
-  exist. Complete experiment workflows, distribution, and pilots remain pending.
+  exist. Typed acceptance groups, field observations, distribution, and pilots remain pending.
 - At the user's request, this plan supersedes the former Asyra CAD roadmap.
   Useful content has been integrated without retaining its phase numbering or
   claiming that the old plan was implemented. See the roadmap's replacement
@@ -78,7 +78,11 @@ experiment edits, isolated interval-geometry runs, immutable evidence, A/B/C
 comparison, portable projects, and restricted GLB references. Ordinary browser
 tests cover visual placement, Undo/Redo, damaged-source rejection, and historical
 replay through complete App replacement. Initial resource/environment choices
-are frozen; private extensions, field observations, independent distribution,
+are frozen. Trusted pre-start methods share one catalog and Worker protocol;
+an independent analytical sphere example, typed parameters, retained declarations,
+missing-module history and declaration-aware comparison are implemented. New
+studies use measured 100,000-evaluation/30-second defaults without rewriting saved
+budgets. Typed acceptance groups, field observations, independent distribution,
 reference-hardware performance, and pilot acceptance remain unfinished.
 The [numerical contract](specs/numerical-method-v0.md) defines the method's support
 limits; passing local tests is not an independent numerical review or a

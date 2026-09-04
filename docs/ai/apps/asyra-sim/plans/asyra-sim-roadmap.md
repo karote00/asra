@@ -11,7 +11,7 @@ trajectory previews, preflight, isolated formal runs, frozen evidence replay,
 explicit run retention with Undo/Redo, two/three-run comparison, reports, and
 portable project import/export, and independent candidate duplication with frozen
 body lineage, bounded progress/cancellation, and restricted GLB attachment with
-independent body-local placement. Its local gate passes the App suite and 19 normal
+independent body-local placement. Its local gate passes the App suite and 22 normal
 browser journeys plus type/lint/build; comparison, import, visual placement and
 replay screenshots were inspected. Visual sources survive Undo/Redo and native
 replacement, including historical-only references. Invalid source content is
@@ -19,9 +19,13 @@ rejected before pausing the current runtime. CSV/JSON resource admission and
 stale-preview cancellation have formal regression coverage.
 Admission now enforces collider/pair/segment caps, and the method/runner enforce
 global retained evidence, encoded payloads, deadlines, and 250 ms cancellation
-grace. This is not M2-M4 completion: private
-methods, field observations, remaining resource defaults and
-numerical usability benchmarks still need implementation or validation. M5
+grace. Trusted pre-start method composition, an independent static-sphere example,
+typed method parameters, immutable declarations and missing-module history now
+share the production Worker and generic result path. Declaration differences are
+disclosed in comparison and every report; CSV stops assembly at its byte limit.
+New studies use measured 100,000-evaluation/30-second defaults; saved budgets are
+unchanged. This is not M2-M4 completion: typed acceptance groups, field observations,
+and larger numerical usability benchmarks still need implementation or validation. M5
 distribution/reference-hardware evidence and M6 independent acceptance remain.
 
 The goal is a free, pluggable, trustworthy experiment workbench. Its first bounded

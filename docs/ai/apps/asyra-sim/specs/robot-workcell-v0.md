@@ -192,6 +192,10 @@ User-facing summaries:
 - **Cannot determine / analysis incomplete**: unresolved areas, unsupported
   inputs, timeout, failure, or cancellation remain.
 
+Optional [typed acceptance rules](decision-rules-v0.md) evaluate only retained
+geometry evidence and change the user verdict, never the method summary or
+findings. Incomplete execution or coverage cannot become a successful verdict.
+
 Rules cannot turn unknown into clear. Changing a decision threshold creates a
 new rule version and records its difference from the previous result. Preserve
 raw method evidence and do not rewrite old runs.

@@ -29,6 +29,8 @@ below a specified length, which findings require attention, and AND/OR groups
 of conditions. Rules may consume only metrics/evidence declared by the method.
 Missing inputs remain unknown. Arbitrary string `eval`, arbitrary JavaScript,
 and rules that automatically convert unknown into success are not supported.
+The bounded geometry expression schema and evaluation semantics are defined in
+[Typed Acceptance Rules v0](decision-rules-v0.md).
 
 ### Developer-Supplied Capabilities
 
