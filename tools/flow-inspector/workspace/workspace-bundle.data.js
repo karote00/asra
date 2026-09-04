@@ -9714,6 +9714,48 @@
             "failureOwnerStepId": "quiesce"
           },
           {
+            "id": "reset-factory",
+            "order": 0.5,
+            "laneId": "compose",
+            "title": "Release Factory runtime state",
+            "ownerPackage": "@asyra/factory",
+            "purpose": "Release transaction, history and owned delivery resources after quiescence",
+            "inputs": [
+              "artifact:feature-quiescence",
+              "Core lifecycle reset request"
+            ],
+            "outputs": [
+              "artifact:factory-reset"
+            ],
+            "conditions": [
+              "Reject before mutation while any transaction, replay or delivery settlement is active.",
+              "Clear Factory-owned runtime history, registrations, observers and pending delivery without replacing canonical state.",
+              "Keep the default transaction-owner bridge; isolate other Factory instances; report cleanup failure."
+            ],
+            "bypasses": [
+              "Ordinary load, replay, transaction completion and destroy do not request full reset."
+            ],
+            "allowedContributors": [
+              "Factory transaction and shared-channel owners"
+            ],
+            "forbiddenContributors": [
+              "App history management",
+              "canonical model replacement",
+              "Feature cancellation policy"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/factory/src/factory.ts",
+              "packages/factory/src/data-transact.ts",
+              "packages/factory/src/shared-data-channel.ts",
+              "packages/factory/src/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "reset-factory"
+          },
+          {
             "id": "compose",
             "order": 1,
             "laneId": "compose",
@@ -10261,12 +10303,22 @@
         ],
         "routes": [
           {
-            "id": "feature-quiescence-terminal",
+            "id": "feature-quiescence-to-factory",
             "from": "quiesce",
-            "kind": "terminal",
+            "to": "reset-factory",
+            "kind": "normal",
             "predicate": "Feature work has actually settled; this alone does not complete App reset.",
             "producedArtifacts": [
               "artifact:feature-quiescence"
+            ]
+          },
+          {
+            "id": "factory-reset-terminal",
+            "from": "reset-factory",
+            "kind": "terminal",
+            "predicate": "Factory reset has completed; other runtime owners must still finish before reconstruction.",
+            "producedArtifacts": [
+              "artifact:factory-reset"
             ]
           },
           {
@@ -10514,6 +10566,15 @@
             "id": "artifact:feature-quiescence",
             "ownerStepId": "quiesce",
             "channel": "awaited lifecycle completion",
+            "consumerStepIds": [
+              "reset-factory"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:factory-reset",
+            "ownerStepId": "reset-factory",
+            "channel": "synchronous lifecycle completion",
             "consumerStepIds": [],
             "terminal": true
           },
@@ -10681,6 +10742,7 @@
             "title": "Complete ordinary user journey",
             "stepIds": [
               "quiesce",
+              "reset-factory",
               "compose",
               "domain",
               "edit",

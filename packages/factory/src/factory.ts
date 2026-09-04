@@ -82,6 +82,7 @@ class Factory {
     TransactionReplayHandler
   >()
   transact: DataTransact
+  private resettingRuntime = false
 
   constructor(options: FactoryOptions = {}) {
     this.bridgeToReactiveEvents = options.bridgeToReactiveEvents === true
@@ -302,6 +303,26 @@ class Factory {
 
   getUndoHistoryDepth(): number {
     return this.transact.getUndoHistoryDepth()
+  }
+
+  /** Lifecycle owner only, after external work has quiesced. Never canonical load. */
+  resetRuntime(): void {
+    if (this.resettingRuntime)
+      throw new Error('Factory runtime reset is already active')
+    // The transaction owner rejects before any Factory registration is changed.
+    this.sharedDataChannels.assertRuntimeResetAllowed()
+    this.transact.resetRuntime()
+    this.resettingRuntime = true
+    try {
+      this.transactionReplayHandlers.clear()
+      this.transactionStatusSubscribers.clear()
+      this.commitCaptureSubscribers.clear()
+      this.sharedDeliveryBatchSubscribers.clear()
+      this.sharedPublicationSubscribers.clear()
+      this.sharedDataChannels.clear()
+    } finally {
+      this.resettingRuntime = false
+    }
   }
 
   isInUndoRedo() {

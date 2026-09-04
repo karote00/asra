@@ -867,6 +867,16 @@ Feature runtime lifecycle (`@asyra/feature-system`, not yet Core facade):
 - `FeatureRuntimeClosedError` exposes stable `FEATURE_RUNTIME_CLOSED` for
   closed admission and stale SessionManager/queue-runner generations.
 
+## Factory Runtime Lifecycle
+
+- `Factory.resetRuntime(): void` (`@asyra/factory`) clears Factory-owned runtime
+  history, registrations, subscriptions and delivery evidence after quiescence.
+  Active transaction/replay/settlement rejects before mutation. Canonical state,
+  external channel resources and other Factory instances remain untouched.
+- The default transaction-owner bridge remains installed. Channel cleanup
+  attempts every owned disposer and reports failure; Core must not activate a
+  successor on that failure. This is not a standalone document reset API.
+
 ## API Usage Rules
 
 - App-level code should prefer `core.xxx` when surface exists.

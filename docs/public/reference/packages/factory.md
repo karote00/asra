@@ -39,6 +39,16 @@ rollback failure; it is never treated as success. Undo reverses committed
 evidence; Redo restores forward order without creating another ordinary
 history entry.
 
+For complete runtime reconstruction, the lifecycle owner calls
+`factory.resetRuntime()` only after external work has quiesced. It releases
+Factory history, registrations, owned observers and pending delivery evidence,
+without replaying or clearing the canonical model. Busy transactions, replay or
+settlement reject before mutation. The default transaction bridge remains
+installed and other Factory instances are unaffected. Channel cleanup attempts
+all owned disposers and reports failure; a successor must not start after failed
+cleanup. Creator-owned channels and direct external subscriptions remain their
+creator's responsibility. Ordinary load does not invoke this boundary.
+
 ## Relationships
 
 Canonical packages contribute owner-issued changes. Feature sessions bound one

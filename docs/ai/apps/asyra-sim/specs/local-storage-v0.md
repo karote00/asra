@@ -63,6 +63,18 @@ queued callback cannot become work in that successor. Repeated disposal joins
 the same operation. Normal cancel/unregister semantics remain unchanged outside
 this explicit lifecycle.
 
+After quiescence, Core requests Factory runtime reset only when its transaction,
+replay and delivery settlement are idle. Busy reset rejects before changing any
+history or registration. Factory clears its journal, Undo/Redo, staged delivery,
+pending publication evidence, custom validators/inverters/replay handlers,
+owned shared-channel observers and subscriptions. Its default transaction-owner
+bridge remains connected for the successor; another Factory instance is
+unaffected. This is Factory's part of complete reset, not a document-load helper.
+Attempt every owned channel cleanup even when one disposer fails, invalidate late
+observer callbacks, and report failure so Core cannot activate a successor.
+Channel objects and arbitrary direct subscriptions remain their creator's
+responsibility; Factory releases only resources acquired through its boundary.
+
 After successful termination, composition creates fresh runtime objects with
 the same trusted modules; it does not unlock and reuse retired objects. B starts
 with its own document, empty Undo/Redo, reset camera/selection/playback, and only

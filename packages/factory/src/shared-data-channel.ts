@@ -85,6 +85,7 @@ const assertSharedDataChannel = (
 }
 
 export class SharedDataChannelRegistry {
+  private activeOperations = 0
   private readonly channels = new MapRegistry<
     SharedDataChannelName,
     SharedDataChannel
@@ -106,6 +107,38 @@ export class SharedDataChannelRegistry {
     observerState?.dispose()
     this.batchObserverStates.delete(name)
     return this.channels.delete(name)
+  }
+
+  /** Release only observations acquired here, not creator-owned channel resources. */
+  clear(): void {
+    this.assertRuntimeResetAllowed()
+    const states = [...this.batchObserverStates.values()]
+    this.batchObserverStates.clear()
+    this.channels.clear()
+    states.forEach((state) => {
+      state.handlers.clear()
+    })
+    let failed = false
+    let firstError: unknown
+    states.forEach((state) => {
+      try {
+        state.dispose()
+      } catch (error) {
+        if (!failed) {
+          failed = true
+          firstError = error
+        }
+      }
+    })
+    if (failed) throw firstError
+  }
+
+  assertRuntimeResetAllowed(): void {
+    if (this.activeOperations > 0) {
+      throw new Error(
+        'Factory runtime cannot reset during active shared-channel observation or delivery'
+      )
+    }
   }
 
   has(name: SharedDataChannelName): boolean {
@@ -172,21 +205,29 @@ export class SharedDataChannelRegistry {
         dispose: noop
       }
       this.batchObserverStates.set(name, nextState)
+      this.activeOperations += 1
       try {
         nextState.dispose = Reflect.apply(channel.observeBatch, channel, [
           (changes: readonly unknown[]) => {
-            ;[...handlers].forEach((registeredHandler) => {
-              try {
-                registeredHandler(changes)
-              } catch {
-                // Projection observers cannot invalidate a received batch.
-              }
-            })
+            this.activeOperations += 1
+            try {
+              ;[...handlers].forEach((registeredHandler) => {
+                try {
+                  registeredHandler(changes)
+                } catch {
+                  // Projection observers cannot invalidate a received batch.
+                }
+              })
+            } finally {
+              this.activeOperations -= 1
+            }
           }
         ])
       } catch (error) {
         this.batchObserverStates.delete(name)
         throw error
+      } finally {
+        this.activeOperations -= 1
       }
       state = nextState
     } else {

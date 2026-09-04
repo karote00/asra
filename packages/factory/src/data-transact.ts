@@ -4556,6 +4556,31 @@ class DataTransact {
     return this.inRedo
   }
 
+  /** Full lifecycle reset; ordinary dispose/reset keep their legacy scope. */
+  resetRuntime(): void {
+    if (
+      this.isTransacting !== 0 ||
+      this.inUndo ||
+      this.inRedo ||
+      this.transactionSettlementDepth !== 0 ||
+      this.emittingSharedPublications ||
+      this.emittingTransactionStatuses ||
+      this.sharedEvidenceNotificationDepth !== 0 ||
+      this.applyingReplayEvent ||
+      this.restoringNestedReplay
+    ) {
+      throw new Error(
+        'Factory runtime cannot reset during active transaction or delivery settlement'
+      )
+    }
+    this.dispose()
+    this.replaceLatestHistoryStages.clear()
+    this.preparedActionHistoryEntries = null
+    this.pendingTransactionStatuses.length = 0
+    this.inverters.clear()
+    this.validators.clear()
+  }
+
   dispose() {
     this.discardPendingImmediatePublication()
     this.pendingSharedPublications.length = 0
