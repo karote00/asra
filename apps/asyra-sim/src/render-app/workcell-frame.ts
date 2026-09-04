@@ -1,12 +1,15 @@
 import { IDENTITY_POSE, compose, type Vec3 } from '../domain/math'
 import { forwardKinematics, type Body, type Workcell } from '../domain/workcell'
 import type { SpatialCamera, SpatialFrame, SpatialMesh } from './spatial-layer'
+import type { VisualAsset } from '../engine/glb/decode'
 
 export interface WorkcellView {
   camera: SpatialCamera
   selectedId: string | null
   joints?: Readonly<Record<string, number>>
   grid: boolean
+  visuals?: boolean
+  proxies?: boolean
 }
 export const DEFAULT_CAMERA: SpatialCamera = {
   kind: 'camera',
@@ -19,11 +22,16 @@ export const DEFAULT_CAMERA: SpatialCamera = {
 
 export function createWorkcellFrame(
   workcell: Workcell,
-  view: WorkcellView
+  view: WorkcellView,
+  visualAssets: ReadonlyMap<string, VisualAsset> = new Map()
 ): SpatialFrame {
   const poses = forwardKinematics(workcell, view.joints),
     meshes: SpatialFrame['meshes'][number][] = []
   const bodies = new Map(workcell.bodies.map((body) => [body.id, body]))
+  for (const body of workcell.bodies)
+    for (const binding of body.visuals ?? [])
+      if (!visualAssets.has(binding.assetId))
+        throw new Error(`Missing visual source ${binding.assetId}`)
   const visible = (body: Body): boolean => {
     let current: Body | undefined = body
     while (current) {
@@ -74,7 +82,7 @@ export function createWorkcellFrame(
   for (const body of workcell.bodies) {
     const bodyPose = poses.get(body.id)
     if (!bodyPose) throw new Error('Missing domain pose for projection')
-    for (const collider of body.colliders) {
+    for (const collider of view.proxies === false ? [] : body.colliders) {
       const pose = compose(bodyPose, collider.pose)
       const descriptor: SpatialMesh = {
         kind: 'mesh',
@@ -83,7 +91,7 @@ export function createWorkcellFrame(
         shape: collider.geometry,
         color: body.id === view.selectedId ? 0x62e6c1 : body.color,
         opacity: 1,
-        wireframe: false,
+        wireframe: view.visuals !== false && Boolean(body.visuals?.length),
         selectable: true
       }
       meshes.push({
@@ -91,6 +99,35 @@ export function createWorkcellFrame(
         elementId: body.id,
         descriptor,
         visible: visible(body)
+      })
+    }
+    if (view.visuals === false) continue
+    for (const binding of body.visuals ?? []) {
+      const asset = visualAssets.get(binding.assetId)
+      if (!asset) throw new Error(`Missing visual source ${binding.assetId}`)
+      const pose = compose(bodyPose, binding.pose)
+      asset.meshes.forEach((mesh, index) => {
+        meshes.push({
+          id: `${body.id}/visual/${binding.id}/${index}`,
+          elementId: body.id,
+          visible: visible(body),
+          descriptor: {
+            kind: 'mesh',
+            position: pose.position,
+            rotation: pose.rotation,
+            shape: {
+              kind: 'triangles',
+              positions: mesh.positions.map(
+                (value, axis) => value * binding.scale[axis % 3]
+              ),
+              indices: mesh.indices
+            },
+            color: body.id === view.selectedId ? 0x62e6c1 : mesh.color,
+            opacity: mesh.opacity,
+            wireframe: false,
+            selectable: true
+          }
+        })
       })
     }
   }

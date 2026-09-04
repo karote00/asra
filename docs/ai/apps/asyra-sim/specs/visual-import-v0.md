@@ -121,6 +121,15 @@ the referenced source union. Failed startup and terminal teardown release the
 archive even when Feature installation did not finish. Retired facades cannot
 prepare, accept, or resolve references in a successor's lifetime.
 
+Projection uses the existing Core-registered spatial layer at z-index 0 and
+the same demand-driven update/teardown path as proxy display. Decoded arrays
+become engine-neutral triangle descriptors; no SDK object leaves the engine.
+Visual and proxy visibility controls are transient. Proxies on a body with a
+displayed visual are drawn as wireframes, without changing their formal shape.
+Every mesh preserves the owning body identity for picking. Missing references
+remain errors even when the body or visual display is hidden. Source arrays,
+canonical data, and immutable replay snapshots are never modified by projection.
+
 ### Supported GLB content
 
 - GLB container version 2 and glTF asset version 2.0, with exactly one JSON chunk

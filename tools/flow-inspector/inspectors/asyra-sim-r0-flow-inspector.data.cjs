@@ -805,11 +805,14 @@
           'artifact:committed-model',
           'artifact:domain',
           'artifact:result',
-          'transient camera and playback time'
+          'transient camera and playback time',
+          'storage-admitted decoded visual artifacts and transient visibility controls'
         ],
         outputs: ['artifact:spatial-projection'],
         conditions: [
           'Use shared domain poses; replay and camera never overwrite canonical geometry.',
+          'Project visual vertices using explicit binding scale and body-local pose through the shared body world pose; missing source references fail even when display is hidden.',
+          'Visual and proxy display controls change projection only; imported surfaces never become analysis colliders or a second kinematic hierarchy.',
           'Register through Core; findings are projections of accepted evidence.'
         ],
         bypasses: [
