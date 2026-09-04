@@ -57,6 +57,15 @@ Normalize raw keyboard/mouse/pointer input into framework input events.
 
 - `keyMap` is also re-exported by `@asyra/core` for app-level convenience.
 
+## Explicit Runtime Reset
+
+`InputSystem.resetRuntime(): void` is the complete lifecycle handoff after
+Feature work is quiescent. It invalidates old browser callbacks, attempts every
+owned listener removal, clears timers/transient state and removes input mapping
+registrations. Cleanup failure is reported to Core, preventing successful
+reconstruction. Other instances are unaffected. Ordinary reset/dispose retain
+their attachment semantics; the App must not enumerate private listeners.
+
 ## Validation Checklist
 
 - Keyboard shortcuts resolve consistently across supported platforms.

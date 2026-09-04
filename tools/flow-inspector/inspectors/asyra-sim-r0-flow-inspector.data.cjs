@@ -135,6 +135,38 @@
         failureOwnerStepId: 'quiesce'
       },
       {
+        id: 'reset-input',
+        order: 0.1,
+        laneId: 'compose',
+        title: 'Release browser input runtime',
+        ownerPackage: '@asyra/input-system',
+        purpose: 'Detach old input surface and invalidate its callbacks',
+        inputs: ['artifact:feature-quiescence', 'Core lifecycle reset request'],
+        outputs: ['artifact:input-reset'],
+        conditions: [
+          'After quiescence, invalidate old browser callbacks and attempt every owned listener removal.',
+          'Clear mappings, timers and transient state; report failure and leave other Input instances untouched.'
+        ],
+        bypasses: [
+          'Normal reset preserves attachment; normal dispose preserves its existing semantics.'
+        ],
+        allowedContributors: [
+          'Input browser attachment and runtime state owners'
+        ],
+        forbiddenContributors: [
+          'Feature decisions',
+          'canonical state mutation',
+          'App history manipulation'
+        ],
+        cacheDimensions: [],
+        implementationBoundary: [
+          'packages/input-system/src/input-system.ts',
+          'packages/input-system/src/__tests__/**'
+        ],
+        specRefs: ['#11-interaction-cancellation-and-resources'],
+        failureOwnerStepId: 'reset-input'
+      },
+      {
         id: 'reset-factory',
         order: 0.5,
         laneId: 'compose',
@@ -142,7 +174,7 @@
         ownerPackage: '@asyra/factory',
         purpose:
           'Release transaction, history and owned delivery resources after quiescence',
-        inputs: ['artifact:feature-quiescence', 'Core lifecycle reset request'],
+        inputs: ['artifact:input-reset', 'Core lifecycle reset request'],
         outputs: ['artifact:factory-reset'],
         conditions: [
           'Reject before mutation while any transaction, replay or delivery settlement is active.',
@@ -834,13 +866,21 @@
     ],
     routes: [
       {
-        id: 'feature-quiescence-to-factory',
+        id: 'feature-quiescence-to-input',
         from: 'quiesce',
+        to: 'reset-input',
+        kind: 'normal',
+        predicate: 'Feature work is quiescent; retire the old input surface.',
+        producedArtifacts: ['artifact:feature-quiescence']
+      },
+      {
+        id: 'input-reset-to-factory',
+        from: 'reset-input',
         to: 'reset-factory',
         kind: 'normal',
         predicate:
           'Feature work has actually settled; this alone does not complete App reset.',
-        producedArtifacts: ['artifact:feature-quiescence']
+        producedArtifacts: ['artifact:input-reset']
       },
       {
         id: 'factory-reset-to-scene',
@@ -1114,6 +1154,13 @@
         id: 'artifact:feature-quiescence',
         ownerStepId: 'quiesce',
         channel: 'awaited lifecycle completion',
+        consumerStepIds: ['reset-input'],
+        terminal: false
+      },
+      {
+        id: 'artifact:input-reset',
+        ownerStepId: 'reset-input',
+        channel: 'synchronous lifecycle completion',
         consumerStepIds: ['reset-factory'],
         terminal: false
       },
@@ -1276,6 +1323,7 @@
         title: 'Complete ordinary user journey',
         stepIds: [
           'quiesce',
+          'reset-input',
           'reset-factory',
           'reset-scene',
           'reset-props',

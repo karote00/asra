@@ -63,6 +63,11 @@ queued callback cannot become work in that successor. Repeated disposal joins
 the same operation. Normal cancel/unregister semantics remain unchanged outside
 this explicit lifecycle.
 
+After quiescence, Input reset detaches every owned browser listener, invalidates
+old browser callbacks and clears timers, transient state and input mappings.
+It attempts every listener removal before reporting failure, without clearing
+another Input instance. Normal reset/dispose retain their attachment semantics.
+
 After quiescence, Core requests Factory runtime reset only when its transaction,
 replay and delivery settlement are idle. Busy reset rejects before changing any
 history or registration. Factory clears its journal, Undo/Redo, staged delivery,

@@ -52,3 +52,10 @@
 - UI Context reset owns managed UI observables and acquired source bindings,
   not caller-owned sources or canonical state. It retires registrations and
   attempts all unsubscribe/completion hooks before reporting failure.
+
+## 2026-09-04 — Retire Input Attachments and Callback Generations
+
+- Complete Input reset invalidates old browser/timer callbacks, attempts all
+  listener removals and clears runtime mappings/transient state. This prevents
+  retained A callbacks from dispatching B commands after reconstruction.
+  Ordinary reset/dispose attachment behavior remains unchanged.

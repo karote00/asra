@@ -915,6 +915,13 @@ Feature runtime lifecycle (`@asyra/feature-system`, not yet Core facade):
   Caller-owned sources and canonical state remain separate owners. Cleanup
   attempts continue on failure and report it to the Core lifecycle.
 
+## Input Runtime Lifecycle
+
+- `InputSystem.resetRuntime(): void` (`@asyra/input-system`) detaches all owned
+  browser listeners, invalidates old callbacks, and clears transient state,
+  timers and mappings. It attempts every listener removal and reports failure
+  to Core; other instances and legacy reset/dispose semantics are unchanged.
+
 ## API Usage Rules
 
 - App-level code should prefer `core.xxx` when surface exists.
