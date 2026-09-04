@@ -170,6 +170,17 @@ composition bypass. Apps use the Core public facade. Constructor-mode behavior,
 semantic field migration, relation changes, render, and UI remain outside this
 owner; constructor-mode customization keeps the unregister-then-define flow.
 
+## Explicit Runtime Reset
+
+`PropsManager.resetRuntime(): void` is the explicit Core lifecycle handoff after
+work is quiescent. It rejects active creation/reuse/mutation batches before any
+change, attempts every live/deleted component cleanup hook, clears canonical
+state and relationship indexes, and invalidates all prepared artifacts. A
+cleanup failure is reported after state is retired; Core must remain closed.
+Hooks release resources synchronously without creating new canonical work.
+Schemas, constructors, Scene and other manager instances remain separate owners.
+Ordinary `load`, `dispose` and `reset` retain their compatibility semantics.
+
 ## Notes
 
 - `manager/props-manager.ts` is the runtime center for add/remove/update/load/save.

@@ -885,6 +885,15 @@ Feature runtime lifecycle (`@asyra/feature-system`, not yet Core facade):
   component definitions and other Scene Tree instances to their own owners.
   Cleanup failure prevents successful Core/App reconstruction.
 
+## Props Manager Runtime Lifecycle
+
+- `PropsManager.resetRuntime(): void` (`@asyra/props-manager`) retires property
+  instances, relation indexes and all prepared artifacts after quiescence.
+  Active canonical batches reject before mutation. Cleanup attempts every
+  component and retires state before reporting failure; type definitions and
+  other owner instances remain unchanged. Apps enter the Core lifecycle instead
+  of invoking this owner handoff directly.
+
 ## API Usage Rules
 
 - App-level code should prefer `core.xxx` when surface exists.

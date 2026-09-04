@@ -24,3 +24,11 @@
   lifecycle hook receives cleanup, and failures block successful reconstruction.
 - Props, component definitions and other Scene Tree instances remain separate
   owners. Ordinary load and legacy disposal keep their existing contracts.
+
+## 2026-09-04 — Retire Property Instances and Prepared Artifacts Together
+
+- Complete runtime reset rejects active canonical batches, attempts every
+  component cleanup and invalidates all prepared artifacts while clearing the
+  property graph. Cleanup failure retires state but blocks reconstruction.
+- Property type definitions remain composition-owned. Ordinary load and legacy
+  disposal keep their contracts; this handoff is not an App-side reset shortcut.

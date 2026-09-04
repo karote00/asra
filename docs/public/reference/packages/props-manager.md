@@ -36,6 +36,13 @@ Prepared mutations are instance/registration-bound and one-shot; foreign,
 stale, reused, or invalid artifacts fail before apply. Active registrations can
 block incompatible redefinition/unregister.
 
+The lifecycle owner may call `resetRuntime()` after work is quiescent. It
+releases runtime instances and relationship indexes and invalidates old prepared
+artifacts without unregistering property types. Active batches reject reset.
+Every component cleanup is attempted; failure is reported after state is
+retired, preventing a successful runtime replacement. Apps use the Core/App
+lifecycle boundary rather than directly resetting property internals.
+
 ## Relationships
 
 Scene Tree owns element hierarchy and element-to-root-property relations, then

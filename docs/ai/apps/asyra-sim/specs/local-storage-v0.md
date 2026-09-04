@@ -83,6 +83,14 @@ owners; another Scene Tree instance is unaffected. Attempt all computed cleanup
 hooks and report failure after retiring state, so Core cannot treat partial
 cleanup as a successful App reset.
 
+Props Manager reset releases live/deleted property instances, changes, batches,
+relationship indexes and all old prepared artifacts. Active canonical batch
+application rejects reset before mutation. Attempt every component cleanup hook,
+then retire state and report the first failure. Schema/constructor definitions,
+Scene Tree and other Props Manager instances are not disposed by this step.
+Owner cleanup hooks release resources synchronously; they must not create new
+canonical work during termination.
+
 After successful termination, composition creates fresh runtime objects with
 the same trusted modules; it does not unlock and reuse retired objects. B starts
 with its own document, empty Undo/Redo, reset camera/selection/playback, and only

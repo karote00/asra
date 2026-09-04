@@ -204,6 +204,40 @@
         failureOwnerStepId: 'reset-scene'
       },
       {
+        id: 'reset-props',
+        order: 0.7,
+        laneId: 'compose',
+        title: 'Release Props Manager runtime state',
+        ownerPackage: '@asyra/props-manager',
+        purpose:
+          'Retire canonical property instances and old prepared artifacts',
+        inputs: ['artifact:scene-reset', 'Core lifecycle reset request'],
+        outputs: ['artifact:props-reset'],
+        conditions: [
+          'Reject active canonical batch reset before mutation.',
+          'Attempt every component cleanup and clear instances, changes, batches, relationships and prepared artifacts.',
+          'Keep schema/constructor definitions, Scene and other Props Managers separate; report cleanup failure.'
+        ],
+        bypasses: [
+          'Ordinary load and legacy dispose/reset retain their existing scope.'
+        ],
+        allowedContributors: [
+          'Props Manager component, relation and validation-artifact owners'
+        ],
+        forbiddenContributors: [
+          'Scene cleanup',
+          'type unregistration',
+          'App history or renderer state'
+        ],
+        cacheDimensions: [],
+        implementationBoundary: [
+          'packages/props-manager/src/manager/props-manager.ts',
+          'packages/props-manager/src/__tests__/**'
+        ],
+        specRefs: ['#11-interaction-cancellation-and-resources'],
+        failureOwnerStepId: 'reset-props'
+      },
+      {
         id: 'compose',
         order: 1,
         laneId: 'compose',
@@ -721,12 +755,21 @@
         producedArtifacts: ['artifact:factory-reset']
       },
       {
-        id: 'scene-reset-terminal',
+        id: 'scene-reset-to-props',
         from: 'reset-scene',
-        kind: 'terminal',
+        to: 'reset-props',
+        kind: 'normal',
         predicate:
           'Scene reset has completed; other owners and fresh Core composition are still required.',
         producedArtifacts: ['artifact:scene-reset']
+      },
+      {
+        id: 'props-reset-terminal',
+        from: 'reset-props',
+        kind: 'terminal',
+        predicate:
+          'Props state is retired; remaining owner cleanup and fresh Core composition are still required.',
+        producedArtifacts: ['artifact:props-reset']
       },
       {
         id: 'runtime-to-edit',
@@ -962,6 +1005,13 @@
         id: 'artifact:scene-reset',
         ownerStepId: 'reset-scene',
         channel: 'synchronous lifecycle completion',
+        consumerStepIds: ['reset-props'],
+        terminal: false
+      },
+      {
+        id: 'artifact:props-reset',
+        ownerStepId: 'reset-props',
+        channel: 'synchronous lifecycle completion',
         consumerStepIds: [],
         terminal: true
       },
@@ -1084,6 +1134,7 @@
           'quiesce',
           'reset-factory',
           'reset-scene',
+          'reset-props',
           'compose',
           'domain',
           'edit',
