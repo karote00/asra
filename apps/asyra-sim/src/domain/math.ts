@@ -33,10 +33,14 @@ export const cross = (a: Vec3, b: Vec3): Vec3 => [
 export const magnitude = (a: Vec3): number => Math.hypot(...a)
 export const distance = (a: Vec3, b: Vec3): number => magnitude(subtract(a, b))
 export function normalize(a: Vec3): Vec3 {
-  const length = magnitude(a)
-  if (!Number.isFinite(length) || length < 1e-12)
+  const largest = Math.max(...a.map(Math.abs))
+  if (!a.every(Number.isFinite) || largest === 0)
     throw new Error('Axis must be finite and nonzero')
-  return scale(a, 1 / length)
+  const reduced: Vec3 = [a[0] / largest, a[1] / largest, a[2] / largest]
+  const length = magnitude(reduced)
+  if (largest < 1e-12 && largest * length < 1e-12)
+    throw new Error('Axis must be finite and nonzero')
+  return scale(reduced, 1 / length)
 }
 export function normalizeQuaternion(q: Quaternion): Quaternion {
   const length = Math.hypot(...q)

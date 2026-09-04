@@ -28,6 +28,9 @@ unique in their respective scopes. Missing analysis geometry blocks the run.
 The domain owns one algebra-parameterized pose/interpolation implementation.
 Ordinary binary64 evaluation serves playback; outward interval evaluation serves
 formal evidence. Neither the renderer nor the method redefines kinematics.
+Scale finite axis components by their largest absolute component before
+normalizing their norm. Positive rescaling preserves the exact direction and
+prevents an overflowing squared norm from turning a valid translation into zero.
 
 Basic interval operations enclose IEEE-754 binary64 arithmetic using adjacent
 representable values. Overflow, division across zero, or nonfinite inputs fail

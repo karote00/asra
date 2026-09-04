@@ -87,6 +87,18 @@ export function poseOperations<S>(a: Algebra<S>) {
   ]
   const normalize = (v: Vector<S>): Vector<S> =>
     scale(v, a.div(scalar(1), norm(v)))
+  // Scaling by a finite positive component bound preserves the exact direction
+  // while preventing overflow of the unnormalized squared norm.
+  const direction = (axis: Vec3): Vector<S> => {
+    const largest = Math.max(...axis.map(Math.abs))
+    if (!axis.every(Number.isFinite) || largest === 0)
+      throw new Error('Invalid axis')
+    return normalize([
+      a.div(scalar(axis[0]), scalar(largest)),
+      a.div(scalar(axis[1]), scalar(largest)),
+      a.div(scalar(axis[2]), scalar(largest))
+    ])
+  }
   const normalizeRotation = (q: Rotation<S>): Rotation<S> => {
     const length = norm(q)
     return [
@@ -139,7 +151,7 @@ export function poseOperations<S>(a: Algebra<S>) {
     rotation: multiply(parent.rotation, local.rotation)
   })
   const axisAngle = (axis: Vec3, angle: S): Rotation<S> => {
-    const unit = normalize(vector(axis)),
+    const unit = direction(axis),
       [sin, cos] = a.sinCos(a.div(angle, scalar(2)))
     return [a.mul(unit[0], sin), a.mul(unit[1], sin), a.mul(unit[2], sin), cos]
   }
@@ -152,6 +164,7 @@ export function poseOperations<S>(a: Algebra<S>) {
     norm,
     cross,
     normalize,
+    direction,
     rotate,
     rotation,
     multiply,
@@ -188,7 +201,7 @@ export function evaluateKinematics<S>(
       }
     if (body.joint.kind === 'prismatic')
       motion = {
-        position: ops.scale(ops.normalize(ops.vector(body.joint.axis)), value),
+        position: ops.scale(ops.direction(body.joint.axis), value),
         rotation: motion.rotation
       }
     const pose = ops.compose(
