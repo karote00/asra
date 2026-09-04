@@ -209,6 +209,16 @@ describe('App composition lifetime', () => {
     const candidate = first.getCandidates()[0],
       experiment = first.getExperiments(candidate.id)[0]
     const snapshot = first.createExperimentSnapshot(experiment.id, [])
+    const methods = first.getMethodDescriptors()
+    expect(methods).toHaveLength(2)
+    expect(snapshot.methodDescriptor).toEqual(methods[0])
+    if (!methods[0].manifest)
+      throw new Error('Missing installed method manifest')
+    methods[0].manifest.name = 'Caller mutation'
+    expect(first.getMethodDescriptors()[0].manifest?.name).not.toBe(
+      'Caller mutation'
+    )
+    expect(first.preflightExperiment(experiment.id).blockers).toEqual([])
     const record = {
       version: 1 as const,
       name: 'Retained cancellation',

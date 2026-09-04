@@ -19,7 +19,7 @@ import {
   type ProjectSnapshot
 } from '../storage/project-format'
 import { AnalysisRunner } from '../analysis/runner'
-import { OFFICIAL_CLEARANCE_METHOD } from '../analysis/methods/official-method'
+import { INSTALLED_METHOD_CATALOG } from '../extensions/installed-methods'
 import { preflightExperiment as checkExperiment } from '../analysis/preflight'
 import { createExperimentSnapshot as freezeExperiment } from '../analysis/snapshot'
 import { RunArchive } from '../storage/run-record'
@@ -316,16 +316,18 @@ export async function bootstrap(
       },
       getMethodDescriptors: () => {
         assertLive()
-        return structuredClone([OFFICIAL_CLEARANCE_METHOD])
+        return structuredClone(INSTALLED_METHOD_CATALOG.descriptors)
       },
       preflightExperiment: (experimentId: string) => {
         assertLive()
         const experiment = readExperiment(core, experimentId)
         const workcell = readWorkcell(core, experiment.candidateId)
         visuals.resolveWorkcell(workcell)
-        const report = checkExperiment(workcell, experiment.definition, [
-          OFFICIAL_CLEARANCE_METHOD
-        ])
+        const report = checkExperiment(
+          workcell,
+          experiment.definition,
+          INSTALLED_METHOD_CATALOG.descriptors
+        )
         if (!loadIssues.length) return report
         return {
           ...report,
@@ -357,7 +359,7 @@ export async function bootstrap(
           experimentId,
           workcell,
           definition: experiment.definition,
-          methods: [OFFICIAL_CLEARANCE_METHOD],
+          methods: INSTALLED_METHOD_CATALOG.descriptors,
           acknowledgedWarningCodes
         })
       },
