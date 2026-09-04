@@ -1,4 +1,5 @@
 import { validIdentifier } from '../domain/workcell'
+import { hasExactOwnKeys } from '../domain/records'
 import type { ExperimentSnapshot } from './contracts'
 import type {
   OfficialMethodEvidence,
@@ -70,7 +71,18 @@ export function validatePairProgress(
 ): OfficialPairEvidence {
   const expected = snapshot.pairs.find((item) => item.id === pair?.pairId),
     evidence = pair?.evidence
-  if (!expected || !evidence || !Array.isArray(evidence.leaves))
+  if (
+    !expected ||
+    !hasExactOwnKeys(pair, ['pairId', 'evidence']) ||
+    !hasExactOwnKeys(evidence, [
+      'leaves',
+      'lower',
+      'upper',
+      'coverage',
+      'evaluations'
+    ]) ||
+    !Array.isArray(evidence.leaves)
+  )
     throw new Error('Invalid analysis pair identity')
   if (
     !Number.isInteger(evidence.evaluations) ||
@@ -78,13 +90,24 @@ export function validatePairProgress(
     evidence.evaluations > snapshot.budget.maxIntervals ||
     !finiteNonnegative(evidence.lower) ||
     !['complete', 'partial'].includes(evidence.coverage) ||
-    evidence.leaves.length < 1
+    evidence.leaves.length < 1 ||
+    evidence.leaves.length > 200000
   )
     throw new Error('Invalid analysis pair evidence')
   let cursor = snapshot.interval[0],
     unresolved = false
   for (const leaf of evidence.leaves) {
     if (
+      !hasExactOwnKeys(leaf, [
+        'start',
+        'end',
+        'lower',
+        'upper',
+        'witnessTime',
+        'penetration',
+        'state',
+        'reason'
+      ]) ||
       !finiteNonnegative(leaf.start) ||
       !finiteNonnegative(leaf.end) ||
       leaf.start !== cursor ||
@@ -98,9 +121,11 @@ export function validatePairProgress(
           leaf.witnessTime < leaf.start ||
           leaf.witnessTime > leaf.end)) ||
       typeof leaf.penetration !== 'boolean' ||
+      typeof leaf.state !== 'string' ||
       !['clear', 'finding', 'unresolved'].includes(leaf.state) ||
       typeof leaf.reason !== 'string' ||
-      !leaf.reason
+      !leaf.reason ||
+      leaf.reason.length > 4000
     )
       throw new Error('Invalid analysis interval bound or coverage')
     if (
@@ -125,11 +150,19 @@ export function validatePairProgress(
   if (cursor !== snapshot.interval[1])
     throw new Error('Incomplete analysis interval coverage')
   const expectedCoverage = unresolved ? 'partial' : 'complete',
-    expectedLower = Math.min(...evidence.leaves.map((leaf) => leaf.lower)),
+    expectedLower = evidence.leaves.reduce(
+      (minimum, leaf) => Math.min(minimum, leaf.lower),
+      Infinity
+    ),
     finiteUppers = evidence.leaves
       .map((leaf) => leaf.upper)
       .filter((value): value is number => value !== null),
-    expectedUpper = finiteUppers.length ? Math.min(...finiteUppers) : null
+    expectedUpper = finiteUppers.length
+      ? finiteUppers.reduce(
+          (minimum, value) => Math.min(minimum, value),
+          Infinity
+        )
+      : null
   if (
     evidence.coverage !== expectedCoverage ||
     evidence.lower !== expectedLower ||
@@ -155,6 +188,12 @@ function summarize(
     unresolvedPairCount = pairs.filter(
       (pair) => pair.evidence.coverage === 'partial'
     ).length
+  if (
+    pairs.reduce((sum, pair) => sum + pair.evidence.evaluations, 0) >
+      snapshot.budget.maxIntervals ||
+    pairs.reduce((sum, pair) => sum + pair.evidence.leaves.length, 0) > 200000
+  )
+    throw new Error('Analysis evidence exceeds its global budget')
   let summary: AnalysisSummary = 'cannot-determine'
   if (findingPairCount) summary = 'issue-found'
   else if (execution === 'completed' && coverage === 'complete')
@@ -240,4 +279,85 @@ export function terminalAnalysisResult(
     terminal,
     [terminal.error]
   )
+}
+
+/** Revalidates saved evidence; never trusts serialized summaries or verdicts. */
+export function validateHistoricalResult(
+  snapshot: ExperimentSnapshot,
+  input: unknown
+): AnalysisResult {
+  if (
+    !hasExactOwnKeys(input, [
+      'version',
+      'runId',
+      'snapshotId',
+      'source',
+      'method',
+      'rule',
+      'startedAt',
+      'endedAt',
+      'execution',
+      'coverage',
+      'verdict',
+      'summary',
+      'pairEvidence',
+      'totalPairCount',
+      'coveredPairCount',
+      'findingPairCount',
+      'unresolvedPairCount',
+      'errors'
+    ]) ||
+    input.version !== 1 ||
+    !Array.isArray(input.pairEvidence) ||
+    input.pairEvidence.length > snapshot.pairs.length ||
+    !Array.isArray(input.errors) ||
+    input.errors.length > 1 ||
+    !input.errors.every(
+      (error) =>
+        typeof error === 'string' && error.length > 0 && error.length <= 2000
+    )
+  )
+    throw new Error('Invalid historical result envelope')
+  const result = input as unknown as AnalysisResult
+  const timing = {
+    runId: result.runId,
+    startedAt: result.startedAt,
+    endedAt: result.endedAt
+  }
+  let validated: AnalysisResult
+  if (result.execution === 'completed') {
+    validated = completeAnalysisResult(
+      snapshot,
+      {
+        version: 1,
+        snapshotId: result.snapshotId,
+        method: result.method,
+        coverage: result.coverage,
+        pairs: result.pairEvidence,
+        evaluations: result.pairEvidence.reduce(
+          (sum, pair) => sum + pair.evidence.evaluations,
+          0
+        )
+      },
+      timing
+    )
+  } else if (['failed', 'cancelled', 'timed-out'].includes(result.execution)) {
+    validated = terminalAnalysisResult(snapshot, result.pairEvidence, {
+      ...timing,
+      execution: result.execution,
+      error: result.errors[0]
+    })
+  } else throw new Error('Invalid historical execution state')
+  const stable = (value: unknown) =>
+    JSON.stringify(value, (_key, item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return item
+      return Object.fromEntries(
+        Object.keys(item)
+          .sort()
+          .map((key) => [key, item[key]])
+      )
+    })
+  if (stable(validated) !== stable(result))
+    throw new Error('Historical result disagrees with its source or evidence')
+  return validated
 }

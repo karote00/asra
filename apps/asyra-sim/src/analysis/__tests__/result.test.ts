@@ -7,6 +7,7 @@ import { runOfficialClearanceMethod } from '../methods/official-method'
 import {
   completeAnalysisResult,
   terminalAnalysisResult,
+  validateHistoricalResult,
   validatePairProgress
 } from '../result'
 
@@ -80,6 +81,49 @@ function snapshot(distance: number): ExperimentSnapshot {
 const timing = { runId: 'run-1', startedAt: 100, endedAt: 120 }
 
 describe('M3 result validation and rule evaluation', () => {
+  it('rejects a forged historical verdict, source identity, or extra fields', () => {
+    const input = snapshot(1)
+    const valid = terminalAnalysisResult(input, [], {
+      ...timing,
+      execution: 'cancelled',
+      error: 'Cancelled'
+    })
+    expect(validateHistoricalResult(input, valid)).toEqual(valid)
+    for (const patch of [
+      { verdict: 'meets' },
+      { coverage: 'complete' },
+      { summary: 'no-issue-within-scope' },
+      { snapshotId: 'other' },
+      { source: { ...valid.source, experimentRevision: 99 } },
+      { privateExtra: true }
+    ])
+      expect(() =>
+        validateHistoricalResult(input, { ...valid, ...patch })
+      ).toThrow()
+  })
+
+  it('rejects a run whose individually valid pairs exceed the global evaluation budget', () => {
+    const input = snapshot(1)
+    const evidence = runOfficialClearanceMethod(input)
+    const first = evidence.pairs[0]
+    input.budget.maxIntervals = 1
+    input.pairs = [...input.pairs, { ...input.pairs[0], id: 'second-pair' }]
+    const pairs = [first, { ...first, pairId: 'second-pair' }]
+    expect(() =>
+      completeAnalysisResult(
+        input,
+        { ...evidence, pairs, evaluations: 2 },
+        timing
+      )
+    ).toThrow('budget')
+    expect(() =>
+      terminalAnalysisResult(input, pairs, {
+        ...timing,
+        execution: 'cancelled',
+        error: 'Cancelled'
+      })
+    ).toThrow('budget')
+  })
   it('reports no issue only when completed evidence covers every pair', () => {
     const input = snapshot(1)
     const result = completeAnalysisResult(
