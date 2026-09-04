@@ -1,9 +1,11 @@
 import type { ModelLoadIssue } from '../common-apis/document'
+import { validateRunRecords, type RunRecord } from './run-record'
 
 export const PROJECT_BYTE_LIMIT = 64 * 1024 * 1024
 export interface ProjectSnapshot {
   document: unknown
   loadIssues: readonly ModelLoadIssue[]
+  runs?: readonly RunRecord[]
 }
 export interface ProjectSummary {
   id: string
@@ -74,6 +76,7 @@ function validateSnapshot(value: unknown): asserts value is ProjectSnapshot {
     !record(scene.elements)
   )
     throw new Error('Invalid saved scene envelope')
+  if (Object.hasOwn(value, 'runs')) validateRunRecords(value.runs)
 }
 
 export function encodeProject(snapshot: ProjectSnapshot): string {
@@ -114,6 +117,7 @@ export function decodeProject(text: string): ProjectSnapshot {
   validateSnapshot(value)
   return {
     document: value.document,
-    loadIssues: value.loadIssues.map((issue) => ({ ...issue }))
+    loadIssues: value.loadIssues.map((issue) => ({ ...issue })),
+    ...(value.runs ? { runs: validateRunRecords(value.runs) } : {})
   }
 }
