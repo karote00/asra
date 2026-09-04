@@ -1,9 +1,16 @@
 # R0: Pluggable Methods and User Configuration
 
-This document defines first-release extension direction, not a released SDK.
-M0 and the relevant implementation owner will freeze API names, serialized
-fields, and compatibility versions. Conceptual names below are not existing
-functions.
+This document defines the R0 extension contract. The local SDK is not yet a
+released package; public distribution still requires the release gates.
+
+The R0 geometry protocol retains common distance/time convergence controls and
+an iteration limit. A method declares which controls it uses. Method-specific
+`settings.parameters` are bounded scalar data, validated by a declarative
+number, boolean, or enum schema; they are never executable source. Old
+experiments without this optional field retain their original representation.
+New snapshots retain the installed descriptor as inert provenance. Historical
+snapshots without descriptors remain readable, without inferred metadata or
+permission to rerun.
 
 ## 1. Two Different Forms of Extension
 

@@ -4,6 +4,7 @@ import {
   type Workcell
 } from '../domain/workcell'
 import { hasExactOwnKeys } from '../domain/records'
+import { validParameterValues } from '../extensions/descriptor'
 import type { TrajectoryJointUnit } from '../domain/trajectory-source'
 import {
   EXPERIMENT_RESOURCE_PROFILE,
@@ -120,6 +121,18 @@ function inspectExperiment(
       )
     )
   else if (method) {
+    if (
+      !validParameterValues(
+        method.parameterSchema ?? {},
+        definition.method.settings.parameters ?? {}
+      )
+    )
+      blockers.push(
+        issue(
+          'method-parameters',
+          'Method parameters do not match the installed schema. Review the required fields and limits.'
+        )
+      )
     const moving = definition.trajectory.keyframes.length > 1
     if (
       (moving && !method.supportsMotion) ||

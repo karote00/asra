@@ -1,6 +1,10 @@
 import { validIdentifier } from '../domain/workcell'
 import { inspectHistoricalExperiment, preflightExperiment } from './preflight'
-import { hasExactOwnKeys } from '../domain/records'
+import { hasExactOwnKeys, isPlainRecord } from '../domain/records'
+import {
+  validateInstalledDescriptor,
+  validParameterValues
+} from '../extensions/descriptor'
 import type {
   ExperimentDefinition,
   ExperimentSnapshot,
@@ -54,6 +58,17 @@ export function createExperimentSnapshot(
   if (unexpected.length)
     throw new Error('Unknown preflight warning acknowledgement')
 
+  const selected = input.methods.find(
+    (method) =>
+      method.id === definition.method.id &&
+      method.version === definition.method.version
+  )
+  let methodDescriptor: ExperimentSnapshot['methodDescriptor']
+  if (selected?.manifest) {
+    validateInstalledDescriptor(selected)
+    methodDescriptor = structuredClone(selected)
+  }
+
   return deepFreeze({
     version: 1,
     snapshotId: input.snapshotId,
@@ -71,6 +86,7 @@ export function createExperimentSnapshot(
     method: definition.method,
     rule: definition.rule,
     budget: definition.budget,
+    ...(methodDescriptor ? { methodDescriptor } : {}),
     acknowledgedWarnings: [...input.acknowledgedWarningCodes]
   })
 }
@@ -91,7 +107,10 @@ export function validateHistoricalSnapshot(input: unknown): ExperimentSnapshot {
       'method',
       'rule',
       'budget',
-      'acknowledgedWarnings'
+      'acknowledgedWarnings',
+      ...(isPlainRecord(input) && Object.hasOwn(input, 'methodDescriptor')
+        ? ['methodDescriptor']
+        : [])
     ]) ||
     input.version !== 1 ||
     !validIdentifier(input.snapshotId) ||
@@ -115,6 +134,23 @@ export function validateHistoricalSnapshot(input: unknown): ExperimentSnapshot {
   )
     throw new Error('Invalid historical snapshot envelope')
   const snapshot = structuredClone(input) as unknown as ExperimentSnapshot
+  if (Object.hasOwn(snapshot, 'methodDescriptor')) {
+    validateInstalledDescriptor(snapshot.methodDescriptor)
+    if (
+      snapshot.methodDescriptor.id !== snapshot.method.id ||
+      snapshot.methodDescriptor.version !== snapshot.method.version
+    )
+      throw new Error('Historical method descriptor identity mismatch')
+    if (
+      !validParameterValues(
+        snapshot.methodDescriptor.parameterSchema,
+        snapshot.method.settings.parameters ?? {}
+      )
+    )
+      throw new Error(
+        'Historical method parameters do not match the retained declaration'
+      )
+  }
   const report = inspectHistoricalExperiment(snapshot.workcell, {
     version: snapshot.version,
     revision: snapshot.source.experimentRevision,

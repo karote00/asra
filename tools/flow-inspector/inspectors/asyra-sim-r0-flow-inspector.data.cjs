@@ -930,6 +930,8 @@
         outputs: ['artifact:snapshot'],
         conditions: [
           'Freeze detached complete inputs and source identities.',
+          'Admit only immutable pre-start catalogs with unique method IDs and names, compatible contracts, bounded settings schemas, provenance and explicit trust/resource declarations.',
+          'Validate installed method parameters before execution and freeze its declaration with new snapshots; historical declarations grant no executable capability and missing modules never trigger installation or substitution.',
           'Reject unsupported data before allocating a worker; separate resource warnings from validity.',
           'No valid pairs is not a pass.'
         ],

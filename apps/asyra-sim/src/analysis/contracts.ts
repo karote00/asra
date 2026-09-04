@@ -8,6 +8,7 @@ import type {
   TrajectorySourceUnits
 } from '../domain/trajectory-source'
 import { hasExactOwnKeys, isPlainRecord } from '../domain/records'
+import { METHOD_CATALOG_LIMITS } from '../extensions/contracts'
 
 export interface ExcludedBodyPair {
   version: 1
@@ -33,6 +34,7 @@ export interface ExperimentMethodSelection {
     distanceTolerance: number
     timeTolerance: number
     maxIterations: number
+    parameters?: Readonly<Record<string, number | boolean | string>>
   }
 }
 
@@ -88,6 +90,8 @@ export interface MethodDescriptor {
   supportsMotion: boolean
   maxPairs: number
   warningWorkUnits?: number
+  manifest?: import('../extensions/contracts').MethodManifest
+  parameterSchema?: import('../extensions/contracts').MethodParameterSchema
 }
 
 export interface AnalysisColliderReference {
@@ -138,6 +142,7 @@ export interface ExperimentSnapshot {
   rule: ExperimentRule
   budget: ExperimentBudget
   acknowledgedWarnings: readonly string[]
+  methodDescriptor?: import('../extensions/contracts').InstalledMethodDescriptor
 }
 
 const definitionFields = [
@@ -273,12 +278,40 @@ export function validateExperimentDefinition(
     !hasExactOwnKeys(method, methodFields) ||
     !validIdentifier(method.id) ||
     !validText(method.version, 96) ||
-    !hasExactOwnKeys(method.settings, settingsFields) ||
+    !hasExactOwnKeys(method.settings, [
+      ...settingsFields,
+      ...(isPlainRecord(method.settings) &&
+      Object.hasOwn(method.settings, 'parameters')
+        ? ['parameters']
+        : [])
+    ]) ||
     !finiteIn(method.settings.distanceTolerance, 0.000000001, 1) ||
     !finiteIn(method.settings.timeTolerance, 0.000000001, 1) ||
     !integerIn(method.settings.maxIterations, 1, 256)
   )
     throw new Error('Invalid experiment method')
+  if (Object.hasOwn(method.settings, 'parameters')) {
+    const parameters = method.settings.parameters
+    if (
+      !isPlainRecord(parameters) ||
+      Object.keys(parameters).length > METHOD_CATALOG_LIMITS.parameters ||
+      !Object.entries(parameters).every(
+        ([key, value]) =>
+          validIdentifier(key) &&
+          !['__proto__', 'constructor', 'prototype'].includes(key) &&
+          (typeof value === 'boolean' ||
+            (typeof value === 'number' && Number.isFinite(value)) ||
+            (typeof value === 'string' &&
+              value.length <= METHOD_CATALOG_LIMITS.scalarText &&
+              [...value].every(
+                (character) =>
+                  character.charCodeAt(0) >= 32 &&
+                  character.charCodeAt(0) !== 127
+              )))
+      )
+    )
+      throw new Error('Invalid experiment method parameters')
+  }
 
   const rule = input.rule
   if (
