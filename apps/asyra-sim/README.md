@@ -34,7 +34,11 @@ tests use an existing Google Chrome installation and one worker, with browser
 temporary files inside this App's `.artifacts/`. They do not install browsers.
 The current visual suite uses SwiftShader for reproducible WebGL evidence;
 this is not a hardware-GPU performance certification. Screenshots and traces
-are written to `test-results/` and are not committed.
+are written to `test-results/` and are not committed. The JSON report at
+`.artifacts/browser-report.json` retains successful numerical, Worker, and
+visual-state metadata. Browser proofs complement rather than replace complete
+product E2E. See the [initial runtime profile](../../docs/ai/apps/asyra-sim/specs/runtime-profile-v0.md)
+for the unverified ordinary-hardware target and delivery limits.
 
 ## Architecture
 

@@ -2,7 +2,7 @@
 
 ## 1. Status and Task Contract
 
-Implementation is authorized and M0 is active. No milestone or release gate is
+Implementation is authorized; M0 feasibility is established and M1 is next. No milestone or release gate is
 claimed complete merely because its contract or source files exist.
 
 The goal is a free, pluggable, trustworthy experiment workbench. Its first bounded
@@ -122,6 +122,24 @@ or large collections of governance documents.
   implementation readiness. They cannot be deferred to release wording.
 
 ## 4. M1: Workcell Editing Vertical Slice
+
+M0 now establishes the public-boundary CUSTOM path, canonical editing and raw
+save/load, analytical and continuous interval kernels in Node and Chrome, and
+restricted GLB decoding in a module Worker. Initial environment, ordinary
+reference hardware, local delivery, and aggregate budgets are selected in
+[runtime-profile-v0.md](../specs/runtime-profile-v0.md). Reference-hardware
+performance, production cancellation, and complete import/save journeys are
+not claimed by these small proofs.
+
+The next bounded milestone retains the existing App/custom-engine boundaries
+and completes acknowledged local persistence and the ordinary blank/synthetic
+workcell save/reopen journey. Edit, storage, composition, and UI changes advance
+as separate Inspector owner segments. Gates include native IndexedDB commit and
+abort, unsaved/saving/saved/error state, edit-during-save freshness, source-load
+diagnostics, App unit/type/lint/build, and real-App save/reopen E2E. Stop for
+required new dependencies, unsupported storage semantics, or canonical-owner
+bypasses. Formal analysis, comparison, and new renderer capabilities are not
+part of this M1 slice.
 
 The M0 editing proof now uses canonical identity reconciliation rather than
 remove/recreate replacement, and the App load check reuses registered complete

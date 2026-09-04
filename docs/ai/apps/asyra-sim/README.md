@@ -8,7 +8,8 @@ single robot workcell**, not a complete factory simulator.
 
 ## Status and Location
 
-- Implementation is active. M0 and the R0 release gates are not complete.
+- Implementation is active. M0 feasibility is established; M1 is next. The R0
+  release gates are not complete.
 - App workspace: `apps/asyra-sim/`, alongside `apps/asyra-design/`.
 - The normal CUSTOM workbench renders and edits a synthetic six-axis model.
   Canonical editing, analytical numerical kernels, and basic browser proofs
@@ -22,9 +23,10 @@ single robot workcell**, not a complete factory simulator.
 - Implementation follows the dedicated
   [R0 Inspector](../../../../tools/flow-inspector/inspectors/asyra-sim-r0-flow-inspector.html)
   and each bounded owner contract. The [CUSTOM engine contract](specs/custom-engine-v0.md)
-  defines the current adapter boundary. M0 still requires restricted import and
-  resource/environment decisions before the complete workcell implementation
-  advances. A working viewport does not establish R0 readiness.
+  defines the current adapter boundary. The
+  [runtime profile](specs/runtime-profile-v0.md) freezes initial environment,
+  distribution, and resource choices. A working viewport does not establish
+  R0 readiness.
 
 ## Reading Guide
 
@@ -72,8 +74,9 @@ local method extensions. These are implementation targets, not available
 features.
 
 The current proofs cover public-boundary 3D, canonical edits, interval geometry
-kernels, and a real Chrome path. M0 must still establish restricted import and
-resource/environment baselines. The [numerical contract](specs/numerical-method-v0.md)
+kernels, a real Chrome path, and isolated restricted GLB decoding. Initial
+resource/environment choices are frozen; reference-hardware performance and
+complete user workflows remain unverified. The [numerical contract](specs/numerical-method-v0.md)
 defines the kernels' support limits; a tested kernel is not yet a complete
 experiment runner or a real-world accuracy claim.
 

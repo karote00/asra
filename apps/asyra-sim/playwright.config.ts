@@ -3,14 +3,19 @@ import { resolveAppEnvironment } from './app-environment.mjs'
 
 const environment = resolveAppEnvironment()
 export default defineConfig({
-  testDir: './e2e',
+  testDir: '.',
+  testMatch: ['**/e2e/**/*.spec.ts', '**/src/**/__tests__/*.browser.spec.ts'],
+  testIgnore: ['**/node_modules/**', '**/dist/**'],
   outputDir: './test-results',
   fullyParallel: false,
   workers: 1,
   retries: 0,
   timeout: 30_000,
   globalTimeout: 180_000,
-  reporter: 'line',
+  reporter: [
+    ['line'],
+    ['json', { outputFile: '.artifacts/browser-report.json' }]
+  ],
   use: {
     baseURL: environment.url,
     viewport: { width: 1440, height: 960 },
