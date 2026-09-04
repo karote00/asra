@@ -104,3 +104,12 @@
   frozen apply result. A fresh Core may apply again.
 - Failed-apply rollback/retry and legacy adapter behavior remain unchanged.
   Missing lifecycle support is not a complete-replacement guarantee.
+
+## 2026-09-05 — Preflight Canonical Load Before Runtime Retirement
+
+- Core exposes the existing load preparation checks without package apply or
+  load notifications. App replacement can reject an invalid target before
+  terminating the current document, without duplicating canonical validation.
+- The preflight result is detached diagnostic data, not an artifact for another
+  Core. Schema recovery and ordinary load semantics remain unchanged; trusted
+  migration hooks must be pure and successor load validates again.

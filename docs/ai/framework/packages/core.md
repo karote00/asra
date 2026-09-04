@@ -97,6 +97,14 @@ System orchestrator and lifecycle coordinator.
 
 ## Complete Runtime Handoff
 
+`preflightLoad(data)` checks a detached target against the current trusted
+composition before retirement. It shares ordinary load's synchronous migration,
+normalization, schema, hierarchy and relation checks, returning detached readonly
+diagnostics without package apply, version/history changes or load/diagnostic
+notifications. Null remains a no-op. This is not a transferable prepared artifact
+or a sandbox for hooks; trusted hooks must be pure deterministic migrations.
+The successor installs the same trusted modules and validates again on load.
+
 `resetRuntime(): Promise<Core>` terminates an exclusive Framework runtime and
 returns a fresh, unstarted Core. It never reopens the old composition. Ordinary
 `load()` remains canonical replacement with existing history; `destroy()` keeps

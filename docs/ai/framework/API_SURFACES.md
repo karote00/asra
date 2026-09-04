@@ -947,6 +947,12 @@ Feature runtime lifecycle (`@asyra/feature-system`, not yet Core facade):
 
 ## Core Runtime Handoff
 
+- `core.preflightLoad(data: unknown): readonly Readonly<LoadValidationDiagnostic>[]`
+  reuses ordinary synchronous load checks without applying package artifacts,
+  changing version/history or emitting load/diagnostic-hook notifications. It
+  checks the current trusted composition and returns detached readonly
+  diagnostics, not a transferable prepared token. The successor validates again;
+  trusted migration hooks must be pure and deterministic. Null remains a no-op.
 - `core.resetRuntime(): Promise<Core>` coordinates terminal owner cleanup and
   returns a fresh unstarted Core, never unlocking the retired Core. The App
   stops admission and calls outside old Feature work; pending startup rejects

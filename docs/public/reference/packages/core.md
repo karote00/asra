@@ -52,6 +52,12 @@ rejects reset; cleanup failure prevents a successor and identifies its owner
 phase. The default export becomes the successor only on success, so callbacks
 must capture their own runtime's Core instead of reading that live export later.
 
+Before retirement, `current.preflightLoad(document)` runs the normal canonical
+checks without applying data or emitting load notifications. It returns readonly
+diagnostics and rejects invalid hierarchy while the current document remains
+intact. Trusted migration hooks must be pure and deterministic; this check does
+not replace validation when the successor loads the document.
+
 `getRuntimeState()` exposes handoff state. Old facade/Feature calls reject after
 retirement. Composition integrations retain owned cleanup through
 `registerRuntimeCleanup(key, cleanup)`, which Core awaits after canonical and

@@ -9671,6 +9671,49 @@
         ],
         "steps": [
           {
+            "id": "preflight-document",
+            "order": -0.1,
+            "laneId": "compose",
+            "title": "Check canonical load compatibility before retiring the current runtime",
+            "ownerPackage": "@asyra/core",
+            "purpose": "Reject an invalid target without changing the active document",
+            "inputs": [
+              "Detached target document",
+              "Current trusted composition and synchronous migration hooks"
+            ],
+            "outputs": [
+              "artifact:document-preflight"
+            ],
+            "conditions": [
+              "Use the same migration, normalization, schema, hierarchy and relation checks as ordinary load.",
+              "Apply no owner artifact, change no canonical state/history/version, and emit no load or diagnostic-hook notification.",
+              "Return detached readonly diagnostics, not a transferable load artifact; successor load validates again."
+            ],
+            "bypasses": [
+              "Null follows ordinary no-op load semantics; property recovery remains schema-owned."
+            ],
+            "allowedContributors": [
+              "Existing canonical load validators",
+              "Trusted pure synchronous migration hooks"
+            ],
+            "forbiddenContributors": [
+              "App duplicate canonical validation",
+              "package apply operations",
+              "runtime reset",
+              "new schemas or fallback behavior"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/core/src/core.ts",
+              "packages/core/src/index.ts",
+              "packages/core/src/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "preflight-document"
+          },
+          {
             "id": "quiesce",
             "order": 0,
             "laneId": "compose",
@@ -10757,6 +10800,15 @@
         ],
         "routes": [
           {
+            "id": "document-preflight-terminal",
+            "from": "preflight-document",
+            "kind": "terminal",
+            "predicate": "Target compatibility is checked without mutation; App acceptance and reset remain separate.",
+            "producedArtifacts": [
+              "artifact:document-preflight"
+            ]
+          },
+          {
             "id": "preset-lifecycle-terminal",
             "from": "retain-preset-lifecycle",
             "kind": "terminal",
@@ -11126,6 +11178,13 @@
         ],
         "artifacts": [
           {
+            "id": "artifact:document-preflight",
+            "ownerStepId": "preflight-document",
+            "channel": "detached readonly diagnostics",
+            "consumerStepIds": [],
+            "terminal": true
+          },
+          {
             "id": "artifact:preset-lifecycle",
             "ownerStepId": "retain-preset-lifecycle",
             "channel": "Core-owned cleanup registration",
@@ -11401,6 +11460,7 @@
             "id": "full-user-journey",
             "title": "Complete ordinary user journey",
             "stepIds": [
+              "preflight-document",
               "quiesce",
               "reset-input",
               "reset-render",

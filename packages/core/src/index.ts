@@ -306,6 +306,7 @@ type CoreBasicApiKeys =
   | 'registerLoadDiagnosticsHook'
   | 'start'
   | 'load'
+  | 'preflightLoad'
   | 'save'
   | 'registerCollaborationSession'
   | 'registerInputKeyCombinations'

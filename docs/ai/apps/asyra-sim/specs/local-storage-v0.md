@@ -149,6 +149,18 @@ data; it must not pretend that A remains a live, editable runtime.
 
 ### Core Handoff Boundary
 
+Before accepting retirement, the App calls `Core.preflightLoad(document)` using
+the current trusted composition. This runs the same synchronous migration,
+normalization, property, hierarchy and relation checks as ordinary load, but
+applies no package artifact, changes no history/version, and emits no load or
+diagnostic-hook notification. It returns detached readonly diagnostics; these
+are not a prepared artifact transferable to another Core. Ordinary load still
+validates and applies through the canonical owners. Trusted load hooks must be
+pure deterministic migrations; preflight is not a sandbox for their code. The
+successor must install the same trusted modules and validate again during load.
+Malformed envelopes remain the App format owner's responsibility, and property
+recovery remains the existing schema/default contract.
+
 `Core.resetRuntime(): Promise<Core>` coordinates the ordered owner operations
 above and returns a fresh, unstarted Core over the exclusive Framework runtime.
 It is not support for concurrent Core runtimes. App admission must already be

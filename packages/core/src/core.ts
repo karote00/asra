@@ -2127,6 +2127,13 @@ class Core implements CoreAPIs {
     this.applyLoadedData(data)
   }
 
+  /** Validate against the current composition without applying a document. */
+  preflightLoad(data: unknown): readonly Readonly<LoadValidationDiagnostic>[] {
+    if (data == null) return Object.freeze([])
+    const { diagnostics } = this.prepareLoadedData(data)
+    return Object.freeze(diagnostics.map((item) => Object.freeze({ ...item })))
+  }
+
   async save(): Promise<CoreRawData> {
     const sceneTreeData = await this.sceneTreeSaveData()
     const systemContextData = this.deps.systemContext.saveManagedProperties()
@@ -2242,7 +2249,7 @@ class Core implements CoreAPIs {
     return nextData
   }
 
-  private applyLoadedData(rawData: unknown): void {
+  private prepareLoadedData(rawData: unknown) {
     const diagnostics: LoadValidationDiagnostic[] = []
 
     const migrated = this.runLoadHooks(rawData)
@@ -2294,6 +2301,24 @@ class Core implements CoreAPIs {
       sceneValidation,
       propsValidation.data
     )
+
+    return {
+      normalizedAfterHooks,
+      diagnostics,
+      propsValidation,
+      sceneValidation,
+      systemValidation
+    }
+  }
+
+  private applyLoadedData(rawData: unknown): void {
+    const {
+      normalizedAfterHooks,
+      diagnostics,
+      propsValidation,
+      sceneValidation,
+      systemValidation
+    } = this.prepareLoadedData(rawData)
 
     this.deps.props.applyValidatedLoad(propsValidation)
     this.deps.sceneTree.applyValidatedLoad(sceneValidation)

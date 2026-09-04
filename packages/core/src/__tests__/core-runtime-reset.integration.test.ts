@@ -56,6 +56,14 @@ describe('Core runtime handoff with real Framework owners', () => {
     first.load(snapshot)
     expect(first.getElementData(id)?.name).toBe('A element')
     expect(first.getUndoHistoryDepth()).toBe(2)
+    const invalidTarget = structuredClone(snapshot)
+    invalidTarget.sceneTree.elements[id].parentId = id
+    expect(() => first.preflightLoad(invalidTarget)).toThrow(
+      'invalid hierarchy'
+    )
+    expect(first.preflightLoad(snapshot)).toEqual([])
+    expect(first.getElementData(id)?.name).toBe('A element')
+    expect(first.getUndoHistoryDepth()).toBe(2)
     expect(host.querySelectorAll('canvas')).toHaveLength(1)
 
     const second = await first.resetRuntime()
