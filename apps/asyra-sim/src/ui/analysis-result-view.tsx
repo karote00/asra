@@ -5,6 +5,7 @@ import type { OfficialPairEvidence } from '../analysis/methods/official-method'
 import type { ExperimentDraft } from '../common-apis/experiment'
 import type { Workcell } from '../domain/workcell'
 import { definitionToDraft } from './experiment-draft'
+import { MethodDetails } from './method-details'
 
 export interface PresentedRun {
   snapshot: ExperimentSnapshot
@@ -154,6 +155,7 @@ export function AnalysisResultView({
         {result.method.id}@{result.method.version} · experiment r
         {result.source.experimentRevision} · rule r{result.rule.revision}
       </p>
+      <MethodDetails descriptor={snapshot.methodDescriptor} historical />
       <details>
         <summary>
           Scope and assumptions <span>{snapshot.pairs.length} pairs</span>

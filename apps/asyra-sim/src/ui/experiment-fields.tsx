@@ -4,6 +4,7 @@ import {
   type MethodDescriptor
 } from '../analysis/contracts'
 import type { Workcell } from '../domain/workcell'
+import { MethodFields } from './method-fields'
 
 export function ExperimentFields({
   draft,
@@ -43,45 +44,11 @@ export function ExperimentFields({
   }
   return (
     <>
-      <label>
-        Method
-        <select
-          aria-label="Analysis method"
-          value={`${draft.method.id}@${draft.method.version}`}
-          onChange={(event) => {
-            const method = methods.find(
-              (item) => `${item.id}@${item.version}` === event.target.value
-            )
-            if (method)
-              onChange({
-                ...draft,
-                method: {
-                  ...draft.method,
-                  id: method.id,
-                  version: method.version
-                }
-              })
-          }}
-        >
-          {!methods.some(
-            (item) =>
-              item.id === draft.method.id &&
-              item.version === draft.method.version
-          ) && (
-            <option value={`${draft.method.id}@${draft.method.version}`}>
-              {draft.method.id}@{draft.method.version} (unavailable)
-            </option>
-          )}
-          {methods.map((item) => (
-            <option
-              key={`${item.id}@${item.version}`}
-              value={`${item.id}@${item.version}`}
-            >
-              {item.id}@{item.version}
-            </option>
-          ))}
-        </select>
-      </label>
+      <MethodFields
+        value={draft.method}
+        methods={methods}
+        onChange={(method) => onChange({ ...draft, method })}
+      />
       <div className="field-pair">
         <label>
           Minimum clearance (mm)

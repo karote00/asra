@@ -5,7 +5,7 @@ import { expect, it, vi } from 'vitest'
 import { createSyntheticExample } from '../../../samples/synthetic-workcell'
 import { createSyntheticExperimentDraft } from '../../../samples/synthetic-experiment'
 import { createExperimentSnapshot } from '../../analysis/snapshot'
-import { OFFICIAL_CLEARANCE_METHOD } from '../../analysis/methods/official-method'
+import { INSTALLED_METHOD_CATALOG } from '../../extensions/installed-methods'
 import { terminalAnalysisResult } from '../../analysis/result'
 import {
   AnalysisResultView,
@@ -16,15 +16,18 @@ it('tracks geometric input changes while preserving frozen replay and partial lo
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   const example = createSyntheticExample(),
     draft = createSyntheticExperimentDraft(example)
+  const descriptor = structuredClone(INSTALLED_METHOD_CATALOG.descriptors[0])
+  descriptor.manifest.validation.evidence = 'Retained local validation evidence'
   const snapshot = createExperimentSnapshot({
     snapshotId: 'snapshot',
     candidateId: 'candidate',
     experimentId: 'experiment',
     workcell: example.workcell,
     definition: { ...draft, revision: 1, rule: { ...draft.rule, revision: 1 } },
-    methods: [OFFICIAL_CLEARANCE_METHOD],
+    methods: [descriptor],
     acknowledgedWarningCodes: []
   })
+  descriptor.manifest.validation.evidence = 'Changed after the run'
   const result = terminalAnalysisResult(
     snapshot,
     [
@@ -80,6 +83,9 @@ it('tracks geometric input changes while preserving frozen replay and partial lo
       )
     )
     expect(host.textContent).toContain('Historical inputs differ')
+    expect(host.textContent).toContain('Retained method declaration')
+    expect(host.textContent).toContain('Retained local validation evidence')
+    expect(host.textContent).not.toContain('Changed after the run')
     expect(host.textContent).toContain('Minimum lower bound0.000 mm')
     const a = snapshot.workcell.bodies.find(
         (body) => body.id === snapshot.pairs[0].a.bodyId

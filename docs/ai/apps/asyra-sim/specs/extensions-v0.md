@@ -12,6 +12,9 @@ New snapshots retain the installed descriptor as inert provenance. Historical
 snapshots without descriptors remain readable, without inferred metadata or
 permission to rerun.
 
+See the [local SDK guide](extensions-sdk-v0.md) for the implemented source-level
+composition, schemas, Worker protocol, independent example and verification commands.
+
 ## 1. Two Different Forms of Extension
 
 ### User Configuration Through the UI

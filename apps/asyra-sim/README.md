@@ -120,6 +120,30 @@ GLB preview rejects files above 16 MiB before reading and terminates decoding
 after its five-second deadline. See the runtime profile for remaining validation
 targets; these input caps are not a total-memory guarantee.
 
+## Installed methods and trust
+
+The method selector lists the trusted modules compiled into this local deployment.
+The built-in continuous proxy method supports boxes, spheres and capsules. The
+independent analytical sphere example supports one static keyframe and sphere
+pairs only; it is not a replacement for the continuous method. **Method capabilities
+and trust** shows origin, units, bounds, limits, declared validation and services.
+Registration is not numerical validation or a safety endorsement.
+
+Select a method, review its parameter defaults and edit the draft, then **Save
+experiment**. Switching methods resets method-specific parameters, not historical
+results. The sphere example's `additionalError` widens its distance bounds; it
+does not estimate measurement error or improve accuracy. Numerical uncertainty
+and unsupported inputs remain visible. A new empty-workcell draft may still have
+an empty scope after bodies are added: explicitly select primary/influencing
+roles and the pair policy, or start **New experiment** from the completed model.
+
+Results retain the method declaration used for that snapshot. A missing module
+blocks only dependent execution; its existing results remain readable and
+exportable. Project files cannot install executable code. Private developers
+configure reviewed modules before building/starting the App, using the
+[local extension guide](../../docs/ai/apps/asyra-sim/specs/extensions-sdk-v0.md).
+No hot swapping, plugin marketplace or untrusted-code sandbox is provided.
+
 ## Retained evidence and comparison
 
 Use **Duplicate candidate** beneath the candidate selector to copy committed model
