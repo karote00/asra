@@ -936,6 +936,15 @@ Feature runtime lifecycle (`@asyra/feature-system`, not yet Core facade):
   visual ownership and an idle projection flush. Core must finish every other
   owner before begin. Canonical data and strategy definitions are unchanged.
 
+## Terminal Registration Lifecycle
+
+- `RegistrationGraph.disposeRuntime(): void` (`@asyra/utils`) permanently
+  retires one graph after its coordinating owner clears live data. It attempts
+  remaining resource cleanup without relation rewrites, skips completed
+  resources and reports terminal `UNREGISTER_FAILED` (`dispose-runtime`).
+  Reentrant disposal rejects with `COMPOSITION_CLOSED`; ordinary unregister
+  remains locked/retryable and another graph is unaffected.
+
 ## API Usage Rules
 
 - App-level code should prefer `core.xxx` when surface exists.

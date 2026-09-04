@@ -131,6 +131,15 @@ caller-owned source observables or mutate canonical data. Every cleanup is
 attempted before reporting failure; old sources cannot update new subjects.
 Legacy clear/unregister behavior is unchanged.
 
+After canonical state retires, Core terminates its registration graph. This
+explicit terminal operation works while composition is locked, releases remaining
+owned resources in reverse registration order without structural relation
+rewrites, and clears graph metadata. It attempts every pending resource, skips
+already-completed cleanup and reports structured failures. A retired graph never
+reopens; repeated termination returns the same failure or completed result.
+Ordinary unregister remains composition-locked and retryable. Resource callbacks
+release their definitions/resources; they do not create new canonical state.
+
 After successful termination, composition creates fresh runtime objects with
 the same trusted modules; it does not unlock and reuse retired objects. B starts
 with its own document, empty Undo/Redo, reset camera/selection/playback, and only

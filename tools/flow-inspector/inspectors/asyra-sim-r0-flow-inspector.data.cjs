@@ -442,6 +442,43 @@
         failureOwnerStepId: 'reset-ui-context'
       },
       {
+        id: 'retire-registrations',
+        order: 0.95,
+        laneId: 'compose',
+        title: 'Retire the Core-owned registration graph',
+        ownerPackage: '@asyra/utils RegistrationGraph',
+        purpose:
+          'Release remaining definition resources without reopening composition',
+        inputs: [
+          'artifact:ui-context-reset',
+          'Core terminal registration cleanup request after canonical retirement'
+        ],
+        outputs: ['artifact:registrations-retired'],
+        conditions: [
+          'Permanently close graph mutation and release remaining resources in reverse registration order.',
+          'Skip completed cleanup, attempt all remaining resources, clear metadata and report structured failure without relation rewrites.',
+          'Repeated terminal disposal preserves its result; ordinary unregister remains locked/retryable.'
+        ],
+        bypasses: [
+          'Ordinary unregister still uses canonical active-use checks and relation semantics.'
+        ],
+        allowedContributors: [
+          'Registration graph resource/metadata owner and registered cleanup callbacks'
+        ],
+        forbiddenContributors: [
+          'Canonical state mutation',
+          'reopening old composition',
+          'App private registry access'
+        ],
+        cacheDimensions: [],
+        implementationBoundary: [
+          'packages/utils/src/registry/registration-graph.ts',
+          'packages/utils/src/registry/__tests__/**'
+        ],
+        specRefs: ['#11-interaction-cancellation-and-resources'],
+        failureOwnerStepId: 'retire-registrations'
+      },
+      {
         id: 'compose',
         order: 1,
         laneId: 'compose',
@@ -1020,12 +1057,21 @@
         producedArtifacts: ['artifact:system-context-reset']
       },
       {
-        id: 'ui-context-reset-terminal',
+        id: 'ui-context-reset-to-registrations',
         from: 'reset-ui-context',
+        to: 'retire-registrations',
+        kind: 'normal',
+        predicate:
+          'Canonical and derived owners are retired; release definition resources.',
+        producedArtifacts: ['artifact:ui-context-reset']
+      },
+      {
+        id: 'registrations-retired-terminal',
+        from: 'retire-registrations',
         kind: 'terminal',
         predicate:
-          'UI state is retired; remaining owner cleanup and fresh Core composition are still required.',
-        producedArtifacts: ['artifact:ui-context-reset']
+          'Registration resources are retired; Core/App lifecycle integration is still required.',
+        producedArtifacts: ['artifact:registrations-retired']
       },
       {
         id: 'runtime-to-edit',
@@ -1310,6 +1356,13 @@
         id: 'artifact:ui-context-reset',
         ownerStepId: 'reset-ui-context',
         channel: 'synchronous lifecycle completion',
+        consumerStepIds: ['retire-registrations'],
+        terminal: false
+      },
+      {
+        id: 'artifact:registrations-retired',
+        ownerStepId: 'retire-registrations',
+        channel: 'synchronous lifecycle completion',
         consumerStepIds: [],
         terminal: true
       },
@@ -1439,6 +1492,7 @@
           'reset-selection',
           'reset-system-context',
           'reset-ui-context',
+          'retire-registrations',
           'compose',
           'domain',
           'edit',

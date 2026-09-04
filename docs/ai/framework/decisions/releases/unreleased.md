@@ -75,3 +75,12 @@
   ownership is released. Pending microtasks and retained layer callbacks are
   generation-bound; Core explicitly reinstalls projection wiring after every
   old runtime owner finishes. Strategy definitions remain composition-owned.
+
+## 2026-09-04 — Terminal Registration Cleanup Without Reopening Composition
+
+- The coordinating owner may retire a registration graph after canonical state
+  cleanup. This releases remaining resources without relation rewrites or
+  unlocking ordinary mutations. All cleanup is attempted; failures and success
+  are terminal, and completed resources are never repeated.
+- New composition uses a new graph. Ordinary unregister keeps its active-use,
+  composition-lock and retry contracts.
