@@ -1,5 +1,11 @@
 import type { VisualAsset } from '../engine/glb/decode'
-import { validateWorkcell, type Workcell } from '../domain/workcell'
+import {
+  validateWorkcell,
+  validVisualBinding,
+  VISUAL_BINDING_PROFILE,
+  type VisualBinding,
+  type Workcell
+} from '../domain/workcell'
 import { RestrictedGlbPreviewWorker } from '../engine/glb/preview-worker'
 import {
   encodeVisualBytes,
@@ -155,22 +161,37 @@ export class VisualAssetArchive {
     workcell: Workcell,
     pending?: PreparedVisualImport
   ): ReadonlyMap<string, VisualAsset> {
+    validateWorkcell(workcell)
+    return this.resolveBindings(
+      workcell.bodies.flatMap((body) => body.visuals ?? []),
+      pending
+    )
+  }
+
+  resolveBindings(
+    bindings: readonly VisualBinding[],
+    pending?: PreparedVisualImport
+  ): ReadonlyMap<string, VisualAsset> {
     this.assertLive()
     if (pending) this.assertReceipt(pending)
-    validateWorkcell(workcell)
+    if (
+      !Array.isArray(bindings) ||
+      bindings.length > VISUAL_BINDING_PROFILE.maxPerWorkcell ||
+      !bindings.every(validVisualBinding)
+    )
+      throw new Error('Invalid or excessive workcell visual bindings')
     const resolved = new Map<string, VisualAsset>(),
       geometry = { vertices: 0, indices: 0 }
-    for (const body of workcell.bodies)
-      for (const binding of body.visuals ?? []) {
-        const asset =
-          this.records.get(binding.assetId)?.asset ??
-          (pending?.source.assetId === binding.assetId
-            ? pending.asset
-            : undefined)
-        if (!asset) throw new Error(`Missing visual source ${binding.assetId}`)
-        addGeometry(geometry, asset)
-        resolved.set(binding.assetId, asset)
-      }
+    for (const binding of bindings) {
+      const asset =
+        this.records.get(binding.assetId)?.asset ??
+        (pending?.source.assetId === binding.assetId
+          ? pending.asset
+          : undefined)
+      if (!asset) throw new Error(`Missing visual source ${binding.assetId}`)
+      addGeometry(geometry, asset)
+      resolved.set(binding.assetId, asset)
+    }
     return resolved
   }
 

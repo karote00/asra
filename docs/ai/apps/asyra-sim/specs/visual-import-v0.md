@@ -103,6 +103,12 @@ returns only available decoded artifacts; missing references or excess geometry
 fail explicitly before projection or formal snapshot admission. A valid pending
 preview receipt may participate in a read-only admission check without retention.
 
+Project preparation captures the current candidate binding groups and every
+retained run's bindings before asynchronous source hydration. Each group has
+its own expanded-workcell budget; shared source retention still has one
+archive-wide budget. Any missing source, digest/profile error, excessive group,
+or abort releases the prepared archive instead of returning partial resources.
+
 ### Supported GLB content
 
 - GLB container version 2 and glTF asset version 2.0, with exactly one JSON chunk

@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { ComponentTypes, PropertyFields, PropertyNames } from '../../constants'
 import { IDENTITY_POSE } from '../../domain/math'
 import { decodeRestrictedGlb } from '../../engine/glb/decode'
@@ -15,6 +15,7 @@ import {
 } from '../project-format'
 import { VisualAssetArchive } from '../visual-archive'
 import type { VisualSourceRecord } from '../visual-source'
+import { prepareProjectVisuals } from '../project-visuals'
 
 async function retainedSource(): Promise<VisualSourceRecord> {
   const archive = new VisualAssetArchive({
@@ -143,4 +144,15 @@ it('requires visual sources used only by immutable historical runs', async () =>
   expect(() => encodeProject({ ...input, visualSources: [] })).toThrow(
     'Missing visual source'
   )
+  const prepared = await prepareProjectVisuals(input, {
+    decode: decodeRestrictedGlb,
+    dispose: () => undefined
+  })
+  expect(prepared.get(source.assetId)).toBeDefined()
+  prepared.dispose()
+  const rejected = { decode: decodeRestrictedGlb, dispose: vi.fn() }
+  await expect(
+    prepareProjectVisuals({ ...input, visualSources: [] }, rejected)
+  ).rejects.toThrow('Missing visual source')
+  expect(rejected.dispose).toHaveBeenCalledOnce()
 })

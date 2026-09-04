@@ -4,6 +4,8 @@ import { encodeGlb, triangleFixture } from '../../engine/glb/__tests__/fixtures'
 import { createSyntheticExample } from '../../../samples/synthetic-workcell'
 import { IDENTITY_POSE } from '../../domain/math'
 import { VisualAssetArchive } from '../visual-archive'
+import { prepareProjectVisuals } from '../project-visuals'
+import { ComponentTypes, PropertyFields, PropertyNames } from '../../constants'
 
 vi.mock('../visual-source', async (load) => {
   const actual = await load<typeof import('../visual-source')>()
@@ -34,6 +36,67 @@ function fixture(name: string, instances = 1, padding = '') {
     binary
   )
 }
+
+it('prepares every candidate independently and closes resources when an expanded workcell is excessive', async () => {
+  const origin = new VisualAssetArchive(service())
+  try {
+    const receipt = await origin.prepare(fixture('ten', 10), 'ten.glb')
+    const bindings = Array.from({ length: 3 }, (_, i) => ({
+      version: 1 as const,
+      id: `binding${i}`,
+      assetId: receipt.source.assetId,
+      pose: IDENTITY_POSE,
+      scale: [1, 1, 1] as const
+    }))
+    const document = {
+      version: '1.0.0',
+      sceneTree: {
+        workspace: '',
+        workspaceList: [],
+        elements: {
+          a: { id: 'a', type: ComponentTypes.CANDIDATE },
+          b: { id: 'b', type: ComponentTypes.CANDIDATE },
+          first: {
+            id: 'first',
+            type: ComponentTypes.BODY,
+            parentId: 'a',
+            props: { [PropertyNames.BODY]: 'first-props' }
+          },
+          second: {
+            id: 'second',
+            type: ComponentTypes.BODY,
+            parentId: 'b',
+            props: { [PropertyNames.BODY]: 'second-props' }
+          }
+        }
+      },
+      props: {
+        'first-props': { [PropertyFields.BODY]: { visuals: bindings } },
+        'second-props': { [PropertyFields.BODY]: { visuals: bindings } }
+      }
+    }
+    const snapshot = {
+      document,
+      loadIssues: [],
+      visualSources: [receipt.source]
+    }
+    const prepared = await prepareProjectVisuals(snapshot, service())
+    expect(prepared.get(receipt.source.assetId)).toBeDefined()
+    prepared.dispose()
+    const excessive = structuredClone(snapshot)
+    excessive.document.props['first-props'][PropertyFields.BODY].visuals.push({
+      ...bindings[0],
+      id: 'fourth'
+    })
+    const rejected = service()
+    await expect(prepareProjectVisuals(excessive, rejected)).rejects.toThrow(
+      'geometry'
+    )
+    expect(rejected.dispose).toHaveBeenCalledOnce()
+  } finally {
+    origin.dispose()
+  }
+})
 
 it('bounds retained sources by count, raw bytes and expanded geometry without erasing prior assets', async () => {
   const archive = new VisualAssetArchive(service())
