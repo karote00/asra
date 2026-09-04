@@ -1,12 +1,26 @@
 import type { ModelLoadIssue } from '../common-apis/document'
 import { validateRunRecords, type RunRecord } from './run-record'
 import { readCapturedRunReferences } from '../common-apis/run-reference'
+import { readCapturedVisualAssetIds } from '../common-apis/visual-reference'
+import { validateVisualSources, type VisualSourceRecord } from './visual-source'
 
 export const PROJECT_BYTE_LIMIT = 64 * 1024 * 1024
 export interface ProjectSnapshot {
   document: unknown
   loadIssues: readonly ModelLoadIssue[]
   runs?: readonly RunRecord[]
+  visualSources?: readonly VisualSourceRecord[]
+}
+
+/** Canonical membership plus immutable history determines the portable source union. */
+export function projectVisualAssetIds(
+  snapshot: Pick<ProjectSnapshot, 'document' | 'runs'>
+): readonly string[] {
+  const ids = new Set(readCapturedVisualAssetIds(snapshot.document))
+  for (const run of snapshot.runs ?? [])
+    for (const body of run.snapshot.workcell.bodies)
+      for (const binding of body.visuals ?? []) ids.add(binding.assetId)
+  return Object.freeze([...ids])
 }
 export interface ProjectSummary {
   id: string
@@ -81,6 +95,18 @@ function validateSnapshot(value: unknown): asserts value is ProjectSnapshot {
     ? validateRunRecords(value.runs)
     : []
   const records = new Map(runs.map((run) => [run.result.runId, run]))
+  const visualSources = Object.hasOwn(value, 'visualSources')
+    ? validateVisualSources(value.visualSources)
+    : []
+  const sourceIds = new Set(visualSources.map((source) => source.assetId))
+  for (const assetId of projectVisualAssetIds({
+    document: value.document,
+    runs
+  }))
+    if (!sourceIds.has(assetId))
+      throw new Error(
+        `Missing visual source ${assetId} in the portable project`
+      )
   for (const reference of readCapturedRunReferences(value.document)) {
     const run = records.get(reference.runId)
     if (
@@ -134,6 +160,9 @@ export function decodeProject(text: string): ProjectSnapshot {
   return {
     document: value.document,
     loadIssues: value.loadIssues.map((issue) => ({ ...issue })),
-    ...(value.runs ? { runs: validateRunRecords(value.runs) } : {})
+    ...(value.runs ? { runs: validateRunRecords(value.runs) } : {}),
+    ...(value.visualSources
+      ? { visualSources: validateVisualSources(value.visualSources) }
+      : {})
   }
 }

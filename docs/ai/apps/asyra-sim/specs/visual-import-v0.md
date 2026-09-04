@@ -71,6 +71,16 @@ references, excluding unrelated orphan blobs; missing references are errors.
 Reopening that capture in a new lifetime can release unreferenced undo data.
 The native 64 MiB JSON limit also applies, including Base64 expansion.
 
+The version-1 native project snapshot carries these records in optional
+`visualSources`. No field is required for older projects without references.
+Encoding and decoding require the union of current canonical body references
+and immutable retained-run references to be present in that collection. They
+validate source envelopes, not the full GLB semantics: asynchronous hydration
+still verifies every digest and decodes every source before runtime acceptance.
+Missing or malformed sources reject native replacement; they do not destroy the
+current document or rewrite independently exported historical reports. Missing
+private method binaries remain a separate read-only-history condition.
+
 Decoded resources are additionally bounded to 1,000,000 vertices and 3,000,000
 indices per lifetime archive. Resolving a workcell applies the same aggregate
 limits to all binding instances, including hidden bodies and repeated sources.

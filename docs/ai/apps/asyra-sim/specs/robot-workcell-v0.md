@@ -250,7 +250,9 @@ changes do not invalidate geometric results.
 - Project export: a portable bundle containing necessary models, assets,
   experiment definitions, method identities, and selected runs. External
   method binaries are not automatically redistributed with a project.
-  Missing dependencies permit historical-result viewing but block reruns.
+  Missing method binaries permit historical-result viewing but block reruns.
+  A native bundle missing referenced visual sources is incomplete and must not
+  replace the active document; independently exported reports remain readable.
 - Reports: machine-readable JSON/CSV and human-readable self-contained HTML,
   with limitations and unknowns. Handle spreadsheet formula injection and HTML
   injection; do not load unknown remote resources.
