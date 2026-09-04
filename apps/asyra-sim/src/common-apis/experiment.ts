@@ -181,10 +181,12 @@ export function updateExperiment(
     throw new Error('Experiment revision is stale')
   if (sameValue(draftFromDefinition(current.definition), draft))
     return current.definition
-  const ruleRevision =
-    current.definition.rule.minimumClearance === draft.rule.minimumClearance
-      ? current.definition.rule.revision
-      : current.definition.rule.revision + 1
+  const ruleRevision = sameValue(
+    draftFromDefinition(current.definition).rule,
+    draft.rule
+  )
+    ? current.definition.rule.revision
+    : current.definition.rule.revision + 1
   const next = definitionFromDraft(
     draft,
     current.definition.revision + 1,

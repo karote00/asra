@@ -763,6 +763,7 @@
         outputs: ['artifact:committed-model', 'artifact:canonical-capture'],
         conditions: [
           'Mutating edit intents use Feature -> common API -> Core canonical state under one transaction.',
+          'Material changes to baseline or typed acceptance conditions advance rule and experiment revisions together; non-rule edits preserve rule revision, and Undo or duplication uses the same canonical contract.',
           'Candidate duplication remaps independent body/experiment identities and all references atomically, preserves explicit body lineage, and never copies historical run references.',
           'Reject invalid edits; explicit rollback cancellation produces no partial scene.',
           'Preserve body-local visual metadata through edits and duplication; admit all declared sources and expanded instances before writing. Visual binding uses previously retained source bytes in one canonical transaction; source retention and durable saving remain separate storage operations.',

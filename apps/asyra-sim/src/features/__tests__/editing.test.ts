@@ -14,6 +14,7 @@ import { readWorkcell } from '../../common-apis/workcell'
 import { loadCanonicalDocument } from '../../common-apis/document'
 import {
   readExperiment,
+  readExperiments,
   type ExperimentDraft
 } from '../../common-apis/experiment'
 import { installEditingFeatures } from '../edit-workcell'
@@ -163,6 +164,65 @@ describe('normal canonical editing and replay', () => {
       readExperiment(core, experimentId).definition.budget.maxIntervals
     ).toBe(3000)
     expect(core.getUndoHistoryDepth()).toBe(before)
+  })
+
+  it('versions typed acceptance changes in one Undo action and preserves independent candidate copies', async () => {
+    const candidate = await features.edit.createCandidate('A', model)
+    const id = await features.edit.createExperiment(
+      candidate,
+      'Rules',
+      experiment()
+    )
+    const before = core.getUndoHistoryDepth(),
+      draft = experiment()
+    draft.rule.acceptance = {
+      kind: 'all',
+      conditions: [
+        { kind: 'clearance', operator: 'above', value: 0.03 },
+        { kind: 'penetration', expected: 'absent' }
+      ]
+    }
+    const updated = await features.edit.updateExperiment(id, 1, draft)
+    expect(updated.rule.revision).toBe(2)
+    expect(updated.revision).toBe(2)
+    expect(core.getUndoHistoryDepth()).toBe(before + 1)
+    await features.history.undo()
+    expect(readExperiment(core, id).definition.rule).toEqual({
+      ...experiment().rule,
+      revision: 1
+    })
+    await features.history.redo()
+    expect(readExperiment(core, id).definition.rule.acceptance).toEqual(
+      draft.rule.acceptance
+    )
+    const stable = await features.edit.updateExperiment(
+      id,
+      2,
+      structuredClone(draft)
+    )
+    expect(stable.revision).toBe(2)
+    expect(core.getUndoHistoryDepth()).toBe(before + 1)
+    draft.budget.maxIntervals++
+    expect(
+      (await features.edit.updateExperiment(id, 2, draft)).rule.revision
+    ).toBe(2)
+    const duplicate = await features.edit.duplicateCandidate(candidate, 'B')
+    const copied = readExperiments(core, duplicate)[0]
+    expect(copied.definition.rule).toEqual({ ...draft.rule, revision: 1 })
+    const without = experiment()
+    without.budget = draft.budget
+    const removed = await features.edit.updateExperiment(id, 3, without)
+    expect(removed.rule.revision).toBe(3)
+    expect(
+      readExperiments(core, duplicate)[0].definition.rule.acceptance
+    ).toEqual(draft.rule.acceptance)
+    const depth = core.getUndoHistoryDepth()
+    Object.assign(without.rule, { acceptance: { kind: 'all', conditions: [] } })
+    await expect(
+      features.edit.updateExperiment(id, 4, without)
+    ).rejects.toThrow('acceptance')
+    expect(core.getUndoHistoryDepth()).toBe(depth)
+    expect(readExperiment(core, id).definition).toEqual(removed)
   })
 
   it('roundtrips canonical experiment definitions through project save/load', async () => {
