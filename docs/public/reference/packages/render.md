@@ -48,6 +48,11 @@ selection are retired; shared projection/interaction/strategy registries remain
 separate owners. Core coordinates complete replacement and must remain closed
 after cleanup failure. Ordinary `dispose()` keeps its existing retry behavior.
 
+The separate `resetSharedRenderRuntime()` handoff clears shared projection,
+selection and interaction state after visual retirement. Core later calls
+`beginSharedRenderRuntime()` to reinstall projection wiring; these shared
+functions are not an independent App reset or multi-runtime isolation API.
+
 ## Relationships
 
 Scene Tree/Props own canonical and computed information. Selection supplies

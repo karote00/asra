@@ -68,3 +68,10 @@
   pointer callbacks. Failure blocks Core reconstruction.
 - Shared projection/interaction/strategy registrations remain separate owners;
   this instance API is not a global renderer reset or App reset by itself.
+
+## 2026-09-04 — Explicit Shared Projection Runtime Handoff
+
+- Shared projection/selection/interaction state retires only after visual
+  ownership is released. Pending microtasks and retained layer callbacks are
+  generation-bound; Core explicitly reinstalls projection wiring after every
+  old runtime owner finishes. Strategy definitions remain composition-owned.

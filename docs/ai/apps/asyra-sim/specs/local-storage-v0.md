@@ -77,6 +77,14 @@ retry semantics. Shared projection/interaction/strategy registrations remain
 separate owners and must also be retired by the complete lifecycle; resetting
 one independently constructed Render does not clear those shared registrations.
 
+After successful Render instance retirement, the shared Render owner clears
+projection/selection mirrors and interaction target/handler registrations.
+Projection reset rejects unreleased visual ownership or an active flush.
+Old queued microtasks and retained pending-layer callbacks are invalidated.
+Only after all runtime owners finish does Core explicitly begin shared projection
+wiring for the successor. Strategy definitions remain composition-owned, and
+canonical data is never changed by this derived-state lifecycle.
+
 After quiescence, Core requests Factory runtime reset only when its transaction,
 replay and delivery settlement are idle. Busy reset rejects before changing any
 history or registration. Factory clears its journal, Undo/Redo, staged delivery,

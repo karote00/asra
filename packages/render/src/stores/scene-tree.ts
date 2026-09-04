@@ -782,6 +782,7 @@ class RenderSceneTree {
   private pendingFlush = false
   private frameAlignedFlush = false
   private flushingPendingChanges = false
+  private runtimeGeneration = 0
 
   constructor() {
     this.frameAlignedFlush = installPendingRenderLayer(this)
@@ -1789,7 +1790,9 @@ class RenderSceneTree {
             Promise.resolve().then(callback)
           }
 
+    const generation = this.runtimeGeneration
     schedule(() => {
+      if (generation !== this.runtimeGeneration) return
       this.flushPendingChanges()
     })
   }
@@ -1811,6 +1814,32 @@ class RenderSceneTree {
       'computed-mirror-reset-entry-count',
       clearedEntryCount
     )
+  }
+
+  resetRuntime(): void {
+    if (
+      this.flushingPendingChanges ||
+      this.projectedElementIds.size > 0 ||
+      (activeRenderSceneTree !== null && activeRenderSceneTree !== this)
+    ) {
+      throw new Error(
+        'Shared Render reset requires idle, released projection ownership'
+      )
+    }
+    this.runtimeGeneration += 1
+    this.resetProjection()
+    this.frameAlignedFlush = false
+    activeRenderSceneTree = null
+    pendingRenderLayerInstalled = false
+    pendingRenderTeardownInstalled = false
+    pendingRenderRuntimeToken = Symbol('render-projection-runtime')
+  }
+
+  beginRuntime(): void {
+    if (activeRenderSceneTree !== null && activeRenderSceneTree !== this) {
+      throw new Error('Another store owns shared Render projection')
+    }
+    this.frameAlignedFlush = installPendingRenderLayer(this)
   }
 
   clearProjection() {
@@ -1918,8 +1947,10 @@ class RenderSceneTree {
 let activeRenderSceneTree: RenderSceneTree | null = null
 let pendingRenderLayerInstalled = false
 let pendingRenderTeardownInstalled = false
+let pendingRenderRuntimeToken = Symbol('render-projection-runtime')
 
 const installPendingRenderLayer = (store: RenderSceneTree) => {
+  const token = pendingRenderRuntimeToken
   activeRenderSceneTree = store
   const renderWithLayer = render as typeof render & {
     registerLayer?: (
@@ -1940,6 +1971,7 @@ const installPendingRenderLayer = (store: RenderSceneTree) => {
     typeof renderWithLifecycle.registerTeardownCleanup === 'function'
   ) {
     renderWithLifecycle.registerTeardownCleanup(() => {
+      if (token !== pendingRenderRuntimeToken) return
       activeRenderSceneTree?.clearProjection()
     })
     pendingRenderTeardownInstalled = true
@@ -1949,9 +1981,12 @@ const installPendingRenderLayer = (store: RenderSceneTree) => {
     renderWithLayer.registerLayer({
       name: SCENE_TREE_PENDING_RENDER_LAYER,
       layer: {},
-      shouldUpdate: () => activeRenderSceneTree?.hasPendingChanges() ?? false,
+      shouldUpdate: () =>
+        token === pendingRenderRuntimeToken &&
+        (activeRenderSceneTree?.hasPendingChanges() ?? false),
       update: () =>
-        activeRenderSceneTree?.flushPendingChangesForFrame() ?? false
+        token === pendingRenderRuntimeToken &&
+        (activeRenderSceneTree?.flushPendingChangesForFrame() ?? false)
     })
     pendingRenderLayerInstalled = true
   }

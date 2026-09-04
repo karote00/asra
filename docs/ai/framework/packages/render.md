@@ -275,6 +275,15 @@ registrations. Shared projection stores and interaction/strategy registries
 remain separate owners; independently constructed Render instances are unchanged.
 Ordinary `dispose`/`reset` retains its existing retry semantics.
 
+`resetSharedRenderRuntime()` is the separate shared-runtime handoff after
+successful instance retirement. It clears the default projection and selection
+mirrors plus interaction target/handler registries, preserving canonical data
+and strategy definitions. Projection reset rejects active flushes or unreleased
+visual ownership. It invalidates old queued work and pending-layer callbacks.
+Core calls `beginSharedRenderRuntime()` only after every owner has finished,
+reinstalling projection frame/teardown wiring for the successor. This shared
+boundary does not claim multiple concurrently active default runtimes.
+
 ## Renderer Facade Compatibility
 
 - `RenderAdapter` is the engine-neutral Core-facing renderer and is owned by

@@ -203,6 +203,42 @@
         failureOwnerStepId: 'reset-render'
       },
       {
+        id: 'reset-render-shared',
+        order: 0.3,
+        laneId: 'compose',
+        title: 'Retire shared Render projections and interactions',
+        ownerPackage: '@asyra/render',
+        purpose: 'Clear derived shared state and fence old pending work',
+        inputs: ['artifact:render-reset', 'Core lifecycle reset request'],
+        outputs: ['artifact:render-shared-reset'],
+        conditions: [
+          'Reject active projection flush or unreleased visual ownership.',
+          'Retire shared projection/selection mirrors and interaction registries; invalidate pending callbacks.',
+          'Only Core may begin successor projection wiring after all owners finish; preserve strategy definitions and canonical data.'
+        ],
+        bypasses: [
+          'Ordinary projection clear/reload and independent Render instance disposal keep their scope.'
+        ],
+        allowedContributors: [
+          'Shared Render projection/selection stores and interaction registries'
+        ],
+        forbiddenContributors: [
+          'Canonical data mutation',
+          'strategy definition removal',
+          'App history manipulation'
+        ],
+        cacheDimensions: [],
+        implementationBoundary: [
+          'packages/render/src/runtime-lifecycle.ts',
+          'packages/render/src/index.ts',
+          'packages/render/src/stores/scene-tree.ts',
+          'packages/render/src/stores/selection.ts',
+          'packages/render/src/__tests__/**'
+        ],
+        specRefs: ['#11-interaction-cancellation-and-resources'],
+        failureOwnerStepId: 'reset-render-shared'
+      },
+      {
         id: 'reset-factory',
         order: 0.5,
         laneId: 'compose',
@@ -210,7 +246,10 @@
         ownerPackage: '@asyra/factory',
         purpose:
           'Release transaction, history and owned delivery resources after quiescence',
-        inputs: ['artifact:render-reset', 'Core lifecycle reset request'],
+        inputs: [
+          'artifact:render-shared-reset',
+          'Core lifecycle reset request'
+        ],
         outputs: ['artifact:factory-reset'],
         conditions: [
           'Reject before mutation while any transaction, replay or delivery settlement is active.',
@@ -919,13 +958,22 @@
         producedArtifacts: ['artifact:input-reset']
       },
       {
-        id: 'render-reset-to-factory',
+        id: 'render-reset-to-shared',
         from: 'reset-render',
+        to: 'reset-render-shared',
+        kind: 'normal',
+        predicate:
+          'Instance resources are retired; retire shared derived state.',
+        producedArtifacts: ['artifact:render-reset']
+      },
+      {
+        id: 'render-shared-reset-to-factory',
+        from: 'reset-render-shared',
         to: 'reset-factory',
         kind: 'normal',
         predicate:
           'Feature work has actually settled; this alone does not complete App reset.',
-        producedArtifacts: ['artifact:render-reset']
+        producedArtifacts: ['artifact:render-shared-reset']
       },
       {
         id: 'factory-reset-to-scene',
@@ -1213,6 +1261,13 @@
         id: 'artifact:render-reset',
         ownerStepId: 'reset-render',
         channel: 'synchronous lifecycle completion',
+        consumerStepIds: ['reset-render-shared'],
+        terminal: false
+      },
+      {
+        id: 'artifact:render-shared-reset',
+        ownerStepId: 'reset-render-shared',
+        channel: 'synchronous lifecycle completion',
         consumerStepIds: ['reset-factory'],
         terminal: false
       },
@@ -1377,6 +1432,7 @@
           'quiesce',
           'reset-input',
           'reset-render',
+          'reset-render-shared',
           'reset-factory',
           'reset-scene',
           'reset-props',

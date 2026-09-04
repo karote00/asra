@@ -86,6 +86,10 @@ export type {
   RenderInteractionEvent
 } from './types/render-interaction.js'
 export { renderSceneTreeStore, renderSelectionStore }
+export {
+  resetSharedRenderRuntime,
+  beginSharedRenderRuntime
+} from './runtime-lifecycle.js'
 
 export default render
 export { Render }

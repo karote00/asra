@@ -930,6 +930,12 @@ Feature runtime lifecycle (`@asyra/feature-system`, not yet Core facade):
   render registrations/stores remain separate owners; ordinary disposal is
   unchanged. Old callbacks and cleanup handles cannot affect new generations.
 
+- `resetSharedRenderRuntime(): void` and `beginSharedRenderRuntime(): void`
+  (`@asyra/render`) retire default projection/selection/interaction state and
+  explicitly reinstall successor projection wiring. Reset requires released
+  visual ownership and an idle projection flush. Core must finish every other
+  owner before begin. Canonical data and strategy definitions are unchanged.
+
 ## API Usage Rules
 
 - App-level code should prefer `core.xxx` when surface exists.
