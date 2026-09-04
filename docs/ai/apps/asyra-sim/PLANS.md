@@ -6,7 +6,10 @@
 - App implementation: authorized through the first local candidate; not complete.
 - M0 technical feasibility: established; initial environment/resource choices
   are frozen in the runtime profile. This is not a full workflow or release gate.
-- M1 workcell foundations: next, beginning with acknowledged local persistence.
+- M1 workcell foundations: active. The local storage owner is implemented.
+  The user approved the complete App runtime reset boundary needed for opening
+  another project. Implement owner cleanup and reconstruction, not a load-time
+  history-clear workaround. This integration is not complete.
 - R0 first public release: not ready; no gate is claimed to have passed.
 
 This index does not record completed implementation or replace the roadmap and
@@ -21,8 +24,9 @@ product contract.
      release review.
    - The first release requires M0-M6. It does not wait for M7 domain expansion.
    - Current work: local persistence after CUSTOM, numerical, browser, and GLB
-     Worker feasibility proofs. The user approved Three.js, its types
-     and necessary dependencies, and minimal necessary Framework extensions.
+     Worker feasibility proofs. The approved reset scope and owner sequence are
+     recorded in the roadmap. The user approved Three.js, its types and necessary
+     dependencies, and the necessary Framework lifecycle extensions.
    - Keep the engine App-owned for now. Future extraction of generic defaults
      into Preset is a separate task; do not enable the official 3D profile here.
 

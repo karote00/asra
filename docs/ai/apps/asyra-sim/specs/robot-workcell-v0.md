@@ -269,6 +269,10 @@ Replacement defaults must not masquerade as original experiment inputs.
   must not damage the original project.
 - Closing, restarting, and switching methods must prevent late results from
   mutating a new session.
+- Project replacement uses the complete App runtime termination/reconstruction
+  boundary in [Local Storage](local-storage-v0.md#complete-runtime-reset), not
+  canonical load plus a history-clear patch. Feature admission closes before
+  draining work; owner cleanup must complete before the successor starts.
 
 ## 12. Representative Product Cases and Definition of Done
 

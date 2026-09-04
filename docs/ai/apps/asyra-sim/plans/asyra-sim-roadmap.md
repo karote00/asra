@@ -19,7 +19,39 @@ engine-contract/Render/Core extensions and their tests/docs if a formal proof
 identifies a missing public boundary. Do not make those changes preemptively.
 Preset extraction, enabling official 3D/HYBRID profiles, changes to other Apps,
 publication, live equipment, external outreach, and broader Framework work are
-excluded. Preserve existing 2D and startup-lock semantics.
+excluded except for the explicitly approved runtime reset scope below. Preserve
+existing 2D and startup-lock semantics.
+
+### Approved Runtime Reset Scope
+
+The user approved complete App runtime termination and reconstruction for
+document replacement. This is not permission to change ordinary `Core.load()`
+into a reset or to replace Framework history with an App-owned stack. Ordinary
+`destroy()` retains its compatibility behavior. A retired Core composition must
+not be reopened and mixed with old Feature, engine, or subscription instances.
+
+The bounded extension covers Core lifecycle orchestration and only the necessary
+Feature System, Factory, canonical state, input, render, registration, and Preset
+cleanup owners, their public boundaries, direct tests and documentation. The App
+orchestrates acceptance, its own resources and UI replacement through Core.
+Do not introduce multiple concurrently active default runtimes, a second state
+graph, an iframe runtime, a page-reload workaround, or changes to other Apps.
+
+Advance one owner segment at a time: stop Feature admission and drain work;
+release owner resources and canonical state/history; retire the old composition
+and expose a clean successor; connect the App replacement and storage UI. Define
+each downstream Inspector step before implementing it. The first Feature slice
+is the `quiesce` step; its formal cases are defined in the storage reset contract.
+
+The previous editing test incorrectly assigned history reset to canonical load.
+Keep load round-trip/validation coverage and move the A-to-B empty-history oracle
+to the full App reset integration. That regression must pass before normal Open
+is claimed complete. Gates are focused owner regressions, existing owner suites,
+type/lint/build, Inspector validation, and repeated normal-path browser open and
+teardown. Old queued work, late handlers, active cancellation, cleanup failure,
+invalid target preservation, and A/B/A reconstruction are required cases.
+Do not activate a successor after incomplete cleanup or an uncooperative handler;
+report the reset failure and preserve detached recovery data.
 
 The bounded `surface` proof adds only Core's validated `resizeRenderer` delegate,
 its basic API tier, focused startup/facade tests, and API/package documentation.

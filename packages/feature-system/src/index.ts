@@ -12,6 +12,8 @@
 // Main API
 export {
   defineFeature,
+  disposeFeatureSystem,
+  beginFeatureSystemRuntime,
   FeatureUnregisterError,
   getFeature,
   invokeFeatureTask,
@@ -27,7 +29,11 @@ export {
   FeatureHandlerTimeoutError,
   SessionManager
 } from './core/session-manager.js'
-export { InteractionQueue, interactionQueue } from './core/interaction-queue.js'
+export {
+  FeatureRuntimeClosedError,
+  InteractionQueue,
+  interactionQueue
+} from './core/interaction-queue.js'
 export {
   FeatureTaskActiveError,
   FeatureTaskNotFoundError

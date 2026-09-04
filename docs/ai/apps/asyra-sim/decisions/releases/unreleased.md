@@ -91,3 +91,16 @@ as superseding entries; do not overwrite released history.
   This supersedes a product direction; it does not mark the old plan as
   implemented.
 - Reference: [Roadmap replacement notes](../../plans/asyra-sim-roadmap.md).
+
+## 2026-09-04 — Replace Projects Through Complete App Runtime Reset
+
+- The user approved necessary Framework lifecycle changes for terminating and
+  rebuilding the App runtime when opening another project. Clearing Undo inside
+  canonical load is not the chosen architecture; ordinary load and destroy keep
+  their existing semantics.
+- App acceptance, storage, Workers and UI remain App-owned. Framework owners
+  stop work, release their resources/state/history and retire composition before
+  a successor starts. An uncooperative handler or failed cleanup cannot count as
+  successful reset.
+- The first implementation slice adds Feature quiescence. Complete Core/App
+  replacement and the normal storage UI remain unfinished M1 work.

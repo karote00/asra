@@ -3,6 +3,7 @@ import type {
   FeatureTaskRegistration,
   InvokeFeatureTaskOptions
 } from '../types/task.js'
+import { FeatureRuntimeClosedError } from './interaction-queue.js'
 
 export class FeatureTaskNotFoundError extends Error {
   readonly code = 'FEATURE_TASK_NOT_FOUND'
@@ -34,8 +35,10 @@ interface ActiveFeatureTask {
 export class FeatureTaskRegistry {
   private readonly registrations = new Map<string, FeatureTaskRegistration>()
   private readonly activeTasks = new Map<string, ActiveFeatureTask>()
+  private accepting = true
 
   register(featureName: string, registration: FeatureTaskRegistration): void {
+    if (!this.accepting) throw new FeatureRuntimeClosedError()
     if (this.registrations.has(featureName)) {
       throw new Error(`Feature task "${featureName}" is already registered`)
     }
@@ -47,6 +50,7 @@ export class FeatureTaskRegistry {
     input: Input,
     options: InvokeFeatureTaskOptions = {}
   ): Promise<Result> {
+    if (!this.accepting) return Promise.reject(new FeatureRuntimeClosedError())
     const registration = this.registrations.get(featureName)
     if (!registration) {
       return Promise.reject(new FeatureTaskNotFoundError(featureName))
@@ -68,11 +72,15 @@ export class FeatureTaskRegistry {
     }
 
     const invocation: Promise<unknown> = Promise.resolve()
-      .then(() =>
-        (registration.handler as FeatureTaskHandler<Input, Result>)(input, {
-          signal: abortController.signal
-        })
-      )
+      .then(() => {
+        if (!this.accepting) throw new FeatureRuntimeClosedError()
+        return (registration.handler as FeatureTaskHandler<Input, Result>)(
+          input,
+          {
+            signal: abortController.signal
+          }
+        )
+      })
       .finally(() => {
         externalSignal?.removeEventListener('abort', forwardAbort)
         if (this.activeTasks.get(featureName)?.invocation === invocation) {
@@ -106,6 +114,26 @@ export class FeatureTaskRegistry {
       throw new FeatureTaskActiveError(featureName)
     }
     return this.registrations.delete(featureName)
+  }
+
+  dispose(): Promise<void> {
+    this.accepting = false
+    const tasks = [...this.activeTasks.values()]
+    tasks.forEach((task) => task.abortController.abort())
+    return Promise.allSettled(tasks.map((task) => task.invocation)).then(() => {
+      this.registrations.clear()
+    })
+  }
+
+  beginRuntime(): void {
+    if (
+      this.accepting ||
+      this.activeTasks.size > 0 ||
+      this.registrations.size > 0
+    ) {
+      throw new FeatureRuntimeClosedError()
+    }
+    this.accepting = true
   }
 }
 

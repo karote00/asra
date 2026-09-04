@@ -107,6 +107,15 @@ Canonical shorthand:
 
 `Load / Replay / Remote Update -> Validate / Resolve -> Apply API -> State Owner -> Projections`
 
+## Explicit Runtime Disposal
+
+Explicit runtime disposal is distinct from canonical load. Feature System's
+disposal boundary closes admission, aborts and drains owned work, and releases
+Feature transport/registration resources. Real handler settlement, not a timeout
+race, is the quiescence condition. Core lifecycle orchestration must finish the
+remaining owners before starting a successor Feature generation. This Feature
+boundary alone does not reset an App, canonical model, renderer, or History.
+
 ## Architecture Invariants
 
 - Single runtime owner for user-action execution/session/programmatic-task/cancel:

@@ -9671,6 +9671,49 @@
         ],
         "steps": [
           {
+            "id": "quiesce",
+            "order": 0,
+            "laneId": "compose",
+            "title": "Stop and drain Feature runtime work",
+            "ownerPackage": "@asyra/feature-system",
+            "purpose": "Prevent old project work from crossing a runtime reset",
+            "inputs": [
+              "explicit Core lifecycle termination",
+              "current context snapshot"
+            ],
+            "outputs": [
+              "artifact:feature-quiescence"
+            ],
+            "conditions": [
+              "Close admission and detach Feature transport bindings before awaiting active work.",
+              "Reject queued work, abort tasks/sessions, and await real handler settlement, including timed-out handlers.",
+              "Force provisional session rollback; remain closed on cleanup failure or until explicit successor initialization."
+            ],
+            "bypasses": [
+              "Ordinary load, cancel, unregister and destroy do not invoke full reset."
+            ],
+            "allowedContributors": [
+              "Feature interaction queue, session and task owners",
+              "ordinary transaction rollback boundary"
+            ],
+            "forbiddenContributors": [
+              "App-owned history",
+              "canonical state clearing",
+              "renderer resource cleanup",
+              "automatic restart after timeout"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/feature-system/src/core/**",
+              "packages/feature-system/src/index.ts",
+              "packages/feature-system/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "quiesce"
+          },
+          {
             "id": "compose",
             "order": 1,
             "laneId": "compose",
@@ -10218,6 +10261,15 @@
         ],
         "routes": [
           {
+            "id": "feature-quiescence-terminal",
+            "from": "quiesce",
+            "kind": "terminal",
+            "predicate": "Feature work has actually settled; this alone does not complete App reset.",
+            "producedArtifacts": [
+              "artifact:feature-quiescence"
+            ]
+          },
+          {
             "id": "runtime-to-edit",
             "from": "compose",
             "to": "edit",
@@ -10459,6 +10511,13 @@
         ],
         "artifacts": [
           {
+            "id": "artifact:feature-quiescence",
+            "ownerStepId": "quiesce",
+            "channel": "awaited lifecycle completion",
+            "consumerStepIds": [],
+            "terminal": true
+          },
+          {
             "id": "artifact:visual-asset",
             "ownerStepId": "asset",
             "channel": "detached handoff",
@@ -10621,6 +10680,7 @@
             "id": "full-user-journey",
             "title": "Complete ordinary user journey",
             "stepIds": [
+              "quiesce",
               "compose",
               "domain",
               "edit",

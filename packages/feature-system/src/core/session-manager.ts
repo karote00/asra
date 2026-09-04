@@ -40,12 +40,15 @@ interface CapturedFailure {
 }
 
 let activeSessionManager: SessionManager | undefined
+// Track the actual handler, not its timeout race: timed-out code can still run.
+const pendingHandlers = new Map<Promise<unknown>, AbortController | undefined>()
 
 const setActiveSessionManager = (manager: SessionManager | undefined): void => {
   activeSessionManager = manager
 }
 
 export class SessionManager {
+  private readonly enqueue = interactionQueue.createRunner()
   private activeSessions = new Map<string, ActiveSession>()
   private sessionHandlers = new Map<string, SessionParticipant[]>()
   private startingFeatureCounts = new Map<string, number>()
@@ -78,10 +81,16 @@ export class SessionManager {
       return
     }
 
+    const invocation = Promise.resolve().then(handler)
+    pendingHandlers.set(invocation, abortController)
+    void invocation.then(
+      () => pendingHandlers.delete(invocation),
+      () => pendingHandlers.delete(invocation)
+    )
     let timeoutId: ReturnType<typeof setTimeout> | undefined
     try {
       return (await Promise.race([
-        Promise.resolve().then(handler),
+        invocation,
         new Promise<never>((_, reject) => {
           timeoutId = setTimeout(() => {
             abortController?.abort()
@@ -184,7 +193,8 @@ export class SessionManager {
   private async cancelSession(
     sessionName: string,
     snapshot: SystemContextSnapshotWithDetail,
-    forcedFailure?: CapturedFailure
+    forcedFailure?: CapturedFailure,
+    forcedRollback = false
   ): Promise<CapturedFailure> {
     const session = this.activeSessions.get(sessionName)
     if (!session) {
@@ -206,13 +216,14 @@ export class SessionManager {
       session.states,
       cleanupSnapshot,
       session.abortController,
-      forcedFailure?.failed === true
+      forcedRollback || forcedFailure?.failed === true
     )
     this.activeSessions.delete(sessionName)
     this.releaseRuntimeOwnershipIfIdle()
 
     const failure = forcedFailure?.failed ? forcedFailure : cleanup.failure
-    const shouldRollback = failure.failed || cleanup.outcome === 'rollback'
+    const shouldRollback =
+      forcedRollback || failure.failed || cleanup.outcome === 'rollback'
     endTransaction(
       shouldRollback
         ? {
@@ -289,7 +300,7 @@ export class SessionManager {
     sessionName: string,
     snapshot: SystemContextSnapshot
   ): Promise<boolean> {
-    return interactionQueue.run(async () => {
+    return this.enqueue(async () => {
       if (!this.sessionHandlers.has(sessionName)) {
         return false
       }
@@ -309,7 +320,7 @@ export class SessionManager {
     getSnapshot: () => SystemContextSnapshotWithDetail,
     cancelledBy: string
   ): Promise<boolean | undefined> {
-    return interactionQueue.run(async () => {
+    return this.enqueue(async () => {
       const snapshot = getSnapshot()
       if (phase === 'start') {
         await this.cancelRuntimeActiveSessionsNow({
@@ -335,24 +346,20 @@ export class SessionManager {
     sessionName: string,
     snapshot: SystemContextSnapshot
   ): Promise<void> {
-    return interactionQueue.run(() =>
-      this.handleUpdateNow(sessionName, snapshot)
-    )
+    return this.enqueue(() => this.handleUpdateNow(sessionName, snapshot))
   }
 
   handleEnd(
     sessionName: string,
     snapshot: SystemContextSnapshot
   ): Promise<void> {
-    return interactionQueue.run(() => this.handleEndNow(sessionName, snapshot))
+    return this.enqueue(() => this.handleEndNow(sessionName, snapshot))
   }
 
   cancelActiveSessions(
     snapshot: SystemContextSnapshotWithDetail
   ): Promise<void> {
-    return interactionQueue.run(() =>
-      this.cancelRuntimeActiveSessionsNow(snapshot)
-    )
+    return this.enqueue(() => this.cancelRuntimeActiveSessionsNow(snapshot))
   }
 
   runAfterCancellingActiveSessions<T>(
@@ -360,7 +367,7 @@ export class SessionManager {
     operation: (snapshot: SystemContextSnapshotWithDetail) => T | Promise<T>,
     cancelledBy: string
   ): Promise<T> {
-    return interactionQueue.run(async () => {
+    return this.enqueue(async () => {
       const snapshot = getSnapshot()
       await this.cancelRuntimeActiveSessionsNow({
         ...snapshot,
@@ -590,6 +597,48 @@ export class SessionManager {
   private releaseRuntimeOwnershipIfIdle(): void {
     if (activeSessionManager === this && this.activeSessions.size === 0) {
       setActiveSessionManager(undefined)
+    }
+  }
+
+  /** Lifecycle owner only: admission must close before this synchronous abort. */
+  static abortRuntime(): void {
+    for (const controller of pendingHandlers.values()) controller?.abort()
+    for (const session of activeSessionManager?.activeSessions.values() ?? []) {
+      session.abortController?.abort()
+    }
+  }
+
+  /** Called after the queue drains; never admits another interaction. */
+  static async disposeRuntime(
+    getSnapshot: () => SystemContextSnapshot
+  ): Promise<void> {
+    try {
+      const manager = activeSessionManager
+      if (manager) {
+        const snapshot = getSnapshot()
+        let failed = false
+        let firstError: unknown
+        for (const sessionName of [...manager.activeSessions.keys()]) {
+          const result = await manager.cancelSession(
+            sessionName,
+            {
+              ...snapshot,
+              detail: { cancelled: true, cancelledBy: 'runtime-disposal' }
+            },
+            undefined,
+            true
+          )
+          if (result.failed && !failed) {
+            failed = true
+            firstError = result.error
+          }
+        }
+        if (failed) throw firstError
+      }
+    } finally {
+      // Cleanup itself can time out. Do not signal quiescence until its actual
+      // promises settle, even when the reset will ultimately report failure.
+      await Promise.allSettled([...pendingHandlers.keys()])
     }
   }
 

@@ -853,6 +853,20 @@ Programmatic task mode:
   canonical mutation still requires the ordinary app transaction/common-API
   path
 
+## Feature Runtime Lifecycle
+
+Feature runtime lifecycle (`@asyra/feature-system`, not yet Core facade):
+
+- `disposeFeatureSystem(getSnapshot: () => SystemContextSnapshot): Promise<void>`
+  closes admission, detaches Feature bindings, forces active-session rollback,
+  and awaits all actual handler/task work, including timed-out handlers. Repeated
+  calls share one completion; cleanup failure remains closed.
+- `beginFeatureSystemRuntime(): void` explicitly begins a fresh Feature
+  generation only after successful disposal. Core lifecycle orchestration must
+  finish other owner cleanup first; this call alone is not App reset.
+- `FeatureRuntimeClosedError` exposes stable `FEATURE_RUNTIME_CLOSED` for
+  closed admission and stale SessionManager/queue-runner generations.
+
 ## API Usage Rules
 
 - App-level code should prefer `core.xxx` when surface exists.
