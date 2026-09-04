@@ -124,7 +124,7 @@ describe('M2 trajectory import preview', () => {
   it('rejects oversized input and duplicate headers before row allocation', () => {
     expect(
       previewTrajectoryCsv(
-        `clock,axis a,linear\n${'0'.repeat(1_100_000)}`,
+        `clock,axis a,linear\n${'0'.repeat(8 * 1024 * 1024)}`,
         workcell,
         mapping
       ).diagnostics[0]?.code
@@ -133,6 +133,56 @@ describe('M2 trajectory import preview', () => {
       previewTrajectoryCsv('clock,axis a,axis a\n0,0,0', workcell, mapping)
         .diagnostics[0]?.code
     ).toBe('duplicate-header')
+  })
+
+  it('admits CSV input above 1 MiB within the declared 8 MiB cap', () => {
+    const preview = previewTrajectoryCsv(
+      `note,clock,axis a,linear\n${'x'.repeat(1024 * 1024)},0,0,0`,
+      workcell,
+      mapping
+    )
+    expect(preview.diagnostics).toEqual([])
+    expect(preview.value?.trajectory.keyframes).toHaveLength(1)
+  })
+
+  it('stops at the row cap before parsing an unbounded or malformed tail', () => {
+    const preview = previewTrajectoryCsv(
+      `clock,axis a,linear\n${'0,0,0\n'.repeat(2000)}"unterminated`,
+      workcell,
+      mapping
+    )
+    expect(preview.value).toBeNull()
+    expect(preview.diagnostics[0]?.code).toBe('too-many-rows')
+  })
+
+  it('stops at the column cap before parsing a malformed tail', () => {
+    const preview = previewTrajectoryCsv(
+      `${'column,'.repeat(256)}"unterminated`,
+      workcell,
+      mapping
+    )
+    expect(preview.value).toBeNull()
+    expect(preview.diagnostics[0]?.code).toBe('too-many-columns')
+  })
+
+  it('accepts exactly 2000 rows and 256 columns', () => {
+    const headers = [
+      'clock',
+      'axis a',
+      'linear',
+      ...Array.from({ length: 253 }, (_, i) => `extra${i}`)
+    ]
+    const rows = Array.from({ length: 2000 }, (_, i) =>
+      [String(i), '0', '0', ...Array<string>(253).fill('')].join(',')
+    )
+    const preview = previewTrajectoryCsv(
+      [headers.join(','), ...rows].join('\n'),
+      workcell,
+      mapping
+    )
+    expect(preview.diagnostics).toEqual([])
+    expect(preview.value?.trajectory.keyframes).toHaveLength(2000)
+    expect(preview.columns).toHaveLength(256)
   })
 
   it('accepts only the strict versioned JSON trajectory envelope', () => {

@@ -65,6 +65,27 @@ const source = (): TrajectorySource => ({
 })
 
 describe('M2 explicit trajectory source normalization', () => {
+  it('rejects an excessive frame count before inspecting or converting frames', () => {
+    const keyframes = Array.from({ length: 2001 }, () => null)
+    expect(() =>
+      normalizeTrajectorySource(workcell(), { ...source(), keyframes })
+    ).toThrow('Trajectory must contain 1 to 2000 keyframes')
+    expect(() =>
+      normalizeTrajectorySource(workcell(), { ...source(), keyframes: [] })
+    ).toThrow('Trajectory must contain 1 to 2000 keyframes')
+  })
+
+  it('accepts the exact frame limit before canonical validation', () => {
+    const keyframes = Array.from({ length: 2000 }, (_, time) => ({
+      time,
+      joints: { turn: 0, slide: 0 }
+    }))
+    expect(
+      normalizeTrajectorySource(workcell(), { ...source(), keyframes })
+        .trajectory.keyframes
+    ).toHaveLength(2000)
+  })
+
   it('normalizes ms/deg/mm to detached s/rad/m values without wrapping rotation', () => {
     const input = source()
     const normalized = normalizeTrajectorySource(workcell(), input)

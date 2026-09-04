@@ -1,6 +1,7 @@
 import { angleInRadians, lengthInMeters } from './math'
 import { hasExactOwnKeys } from './records'
 import {
+  GEOMETRY_PROFILE,
   validateTrajectory,
   validateWorkcell,
   type Trajectory,
@@ -54,6 +55,13 @@ export function normalizeTrajectorySource(
     throw new Error('An explicit supported time unit is required')
   if (!Array.isArray(input.keyframes))
     throw new Error('Trajectory keyframes must be an array')
+  if (
+    !input.keyframes.length ||
+    input.keyframes.length > GEOMETRY_PROFILE.maxKeyframes
+  )
+    throw new Error(
+      `Trajectory must contain 1 to ${GEOMETRY_PROFILE.maxKeyframes} keyframes`
+    )
 
   const actuated = workcell.bodies.filter((body) => body.joint.kind !== 'fixed')
   const jointIds = actuated.map((body) => body.id)

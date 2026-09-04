@@ -66,7 +66,10 @@ Choose **Experiments** to configure a saved study or create a new one. Expand
 **Analysis scope** to select primary and influencing bodies and describe any
 excluded pairs. Edit clearance thresholds and time ranges, or preview a CSV or
 versioned JSON trajectory before accepting it into the draft. Each CSV joint
-column has an explicit angle or length unit. Save the draft before preflight
+column has an explicit angle or length unit. CSV accepts up to 8 MiB and JSON
+up to 1 MiB; both require 1–2,000 keyframes. CSV parsing stops at 256 columns or
+2,000 data rows. Selecting another file invalidates the previous preview
+immediately, including when the new file cannot be read. Save the draft before preflight
 or formal analysis. A GLB decode preview currently reports restricted visual
 asset metadata; attaching it to the workcell is a separate unfinished step.
 

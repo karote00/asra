@@ -4,6 +4,7 @@ import type { Trajectory, Workcell } from '../domain/workcell'
 import {
   previewTrajectoryCsv,
   previewTrajectoryJson,
+  TRAJECTORY_IMPORT_LIMITS,
   type TrajectoryCsvMapping,
   type TrajectoryImportPreview
 } from '../storage/trajectory-import'
@@ -32,6 +33,7 @@ export function TrajectoryImportPanel({
     () => previewTrajectoryCsv(text, workcell, mapping).columns
   )
   const [error, setError] = useState('')
+  const [reading, setReading] = useState(false)
   const generation = useRef(0)
   const workcellKey = JSON.stringify(workcell)
   useEffect(() => {
@@ -56,16 +58,27 @@ export function TrajectoryImportPanel({
   const load = async (file: File, nextKind: 'csv' | 'json') => {
     const token = ++generation.current
     setError('')
-    if (file.size > 1024 * 1024) {
-      setError('Trajectory input exceeds the current 1 MiB import limit.')
+    setPreview(null)
+    setReading(false)
+    const limit =
+      nextKind === 'csv'
+        ? TRAJECTORY_IMPORT_LIMITS.csvBytes
+        : TRAJECTORY_IMPORT_LIMITS.jsonBytes
+    if (file.size > limit) {
+      setError(
+        `Trajectory ${nextKind.toUpperCase()} exceeds the ${limit / 1024 / 1024} MiB import limit.`
+      )
       return
     }
+    setReading(true)
     let nextText: string
     try {
       nextText = await file.text()
     } catch (reason) {
       if (token === generation.current) setError(String(reason))
       return
+    } finally {
+      if (token === generation.current) setReading(false)
     }
     if (token !== generation.current) return
     setText(nextText)
@@ -142,6 +155,8 @@ export function TrajectoryImportPanel({
           spellCheck={false}
           onChange={(event) => {
             generation.current++
+            setReading(false)
+            setError('')
             setText(event.target.value)
             setPreview(null)
           }}
@@ -239,7 +254,8 @@ export function TrajectoryImportPanel({
           })}
         </div>
       )}
-      <button className="wide" onClick={() => inspect()}>
+      {reading && <p className="hint">Reading trajectory file…</p>}
+      <button className="wide" disabled={reading} onClick={() => inspect()}>
         Preview trajectory
       </button>
       {preview && preview.diagnostics.length > 0 && (

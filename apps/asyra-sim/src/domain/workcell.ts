@@ -58,6 +58,7 @@ export const GEOMETRY_PROFILE = Object.freeze({
   maxCollidersPerBody: 16,
   maxColliders: 256,
   maxJoints: 12,
+  maxKeyframes: 2000,
   maxAngle: 100,
   maxTime: 3600,
   minSegmentDuration: 0.000001
@@ -232,9 +233,11 @@ export function validateTrajectory(
     trajectory.version !== 1 ||
     !Array.isArray(trajectory.keyframes) ||
     !trajectory.keyframes.length ||
-    trajectory.keyframes.length > 2000
+    trajectory.keyframes.length > GEOMETRY_PROFILE.maxKeyframes
   )
-    throw new Error('Trajectory must contain 1 to 2000 keyframes')
+    throw new Error(
+      `Trajectory must contain 1 to ${GEOMETRY_PROFILE.maxKeyframes} keyframes`
+    )
   const joints = workcell.bodies.filter((b) => b.joint.kind !== 'fixed')
   let previous = -Infinity
   for (const frame of trajectory.keyframes) {

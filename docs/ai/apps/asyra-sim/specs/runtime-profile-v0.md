@@ -58,6 +58,7 @@ respective specifications. The following aggregate limits apply in addition:
 | Progress delivery              | At most 10 updates/s; terminal evidence is not throttled away |
 | GLB import deadline            | 5 s, including bounded decoding; terminate on expiry          |
 | CSV input                      | 8 MiB before parsing, with the trajectory's 2,000-frame cap   |
+| Trajectory JSON input          | 1 MiB before parsing, with the same 2,000-frame cap          |
 | Project JSON / portable bundle | 64 MiB before parsing                                         |
 | Individual visual source       | 16 MiB, plus the restricted GLB structural caps               |
 | Referenced visual source bytes | 64 MiB per project                                            |
@@ -70,6 +71,13 @@ coverage or explicit failure, never omitted pairs presented as complete. Retain
 already established findings when possible; otherwise explicitly state that
 no evidence could be retained. Wall-clock deadlines include startup and method
 execution and are enforced by the Worker owner, not solely by method callbacks.
+
+Trajectory source normalization rejects excessive frame counts before
+conversion. CSV parsing stops as soon as it encounters an excessive data row
+or column (maximum 256), rather than materializing the full input first.
+The file picker checks the format-specific byte cap before reading. Starting
+another file read invalidates prior acceptance; late reads cannot overwrite a
+newer selection or a manual source edit.
 
 Warn and request explicit acknowledgement above 256 expanded pairs, 10,000
 pair/segment combinations, or 8 MiB of visual source data. Display the actual

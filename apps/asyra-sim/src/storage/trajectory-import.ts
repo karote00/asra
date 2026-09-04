@@ -5,7 +5,7 @@ import {
   type TrajectoryJointUnit,
   type TrajectoryTimeUnit
 } from '../domain/trajectory-source'
-import type { Workcell } from '../domain/workcell'
+import { GEOMETRY_PROFILE, type Workcell } from '../domain/workcell'
 
 export interface TrajectoryCsvMapping {
   time: { column: string; unit: TrajectoryTimeUnit }
@@ -34,9 +34,12 @@ interface CsvRow {
   cells: string[]
 }
 
-const MAX_IMPORT_BYTES = 1024 * 1024
-const MAX_COLUMNS = 256
-const MAX_KEYFRAMES = 2000
+export const TRAJECTORY_IMPORT_LIMITS = Object.freeze({
+  csvBytes: 8 * 1024 * 1024,
+  jsonBytes: 1024 * 1024,
+  columns: 256,
+  keyframes: GEOMETRY_PROFILE.maxKeyframes
+})
 const mappingFields = ['time', 'joints'] as const
 const mappingEntryFields = ['column', 'unit'] as const
 const envelopeFields = ['format', 'version', 'source'] as const
@@ -66,6 +69,15 @@ const emptyPreview = (
 const byteLength = (text: string): number =>
   new TextEncoder().encode(text).length
 
+class CsvResourceError extends Error {
+  constructor(
+    readonly code: string,
+    message: string
+  ) {
+    super(message)
+  }
+}
+
 function parseCsv(text: string): CsvRow[] {
   const rows: CsvRow[] = []
   let cells: string[] = [],
@@ -74,7 +86,20 @@ function parseCsv(text: string): CsvRow[] {
     rowLine = 1,
     quoted = false,
     closedQuote = false
+  const checkCapacity = () => {
+    if (rows.length >= TRAJECTORY_IMPORT_LIMITS.keyframes + 1)
+      throw new CsvResourceError(
+        'too-many-rows',
+        `CSV exceeds ${TRAJECTORY_IMPORT_LIMITS.keyframes} trajectory rows.`
+      )
+    if (cells.length >= TRAJECTORY_IMPORT_LIMITS.columns)
+      throw new CsvResourceError(
+        'too-many-columns',
+        `CSV exceeds ${TRAJECTORY_IMPORT_LIMITS.columns} columns.`
+      )
+  }
   const finishField = () => {
+    checkCapacity()
     cells.push(field.trim())
     field = ''
     closedQuote = false
@@ -86,6 +111,7 @@ function parseCsv(text: string): CsvRow[] {
     rowLine = line + 1
   }
   for (let index = 0; index < text.length; index++) {
+    checkCapacity()
     const character = text[index]
     if (quoted) {
       if (character === '"') {
@@ -182,9 +208,9 @@ export function previewTrajectoryCsv(
   workcell: Workcell,
   mapping: TrajectoryCsvMapping
 ): TrajectoryImportPreview {
-  if (byteLength(text) > MAX_IMPORT_BYTES)
+  if (byteLength(text) > TRAJECTORY_IMPORT_LIMITS.csvBytes)
     return emptyPreview(
-      diagnostic('file-too-large', 'Trajectory CSV exceeds the 1 MiB limit.')
+      diagnostic('file-too-large', 'Trajectory CSV exceeds the 8 MiB limit.')
     )
   let rows: CsvRow[]
   try {
@@ -192,7 +218,7 @@ export function previewTrajectoryCsv(
   } catch (error) {
     return emptyPreview(
       diagnostic(
-        'csv-syntax',
+        error instanceof CsvResourceError ? error.code : 'csv-syntax',
         error instanceof Error ? error.message : 'Invalid CSV syntax'
       )
     )
@@ -203,11 +229,6 @@ export function previewTrajectoryCsv(
     return emptyPreview(
       diagnostic('missing-header', 'CSV requires a header row.')
     )
-  if (columns.length > MAX_COLUMNS)
-    return emptyPreview(
-      diagnostic('too-many-columns', `CSV exceeds ${MAX_COLUMNS} columns.`),
-      columns
-    )
   if (new Set(columns).size !== columns.length)
     return emptyPreview(
       diagnostic('duplicate-header', 'CSV column names must be unique.'),
@@ -216,14 +237,6 @@ export function previewTrajectoryCsv(
   if (!rows.length)
     return emptyPreview(
       diagnostic('empty-trajectory', 'CSV requires at least one data row.'),
-      columns
-    )
-  if (rows.length > MAX_KEYFRAMES)
-    return emptyPreview(
-      diagnostic(
-        'too-many-rows',
-        `CSV exceeds ${MAX_KEYFRAMES} trajectory rows.`
-      ),
       columns
     )
   const mappingError = validateMapping(mapping, workcell, columns)
@@ -346,7 +359,7 @@ export function previewTrajectoryJson(
   text: string,
   workcell: Workcell
 ): TrajectoryImportPreview {
-  if (byteLength(text) > MAX_IMPORT_BYTES)
+  if (byteLength(text) > TRAJECTORY_IMPORT_LIMITS.jsonBytes)
     return emptyPreview(
       diagnostic('file-too-large', 'Trajectory JSON exceeds the 1 MiB limit.')
     )
