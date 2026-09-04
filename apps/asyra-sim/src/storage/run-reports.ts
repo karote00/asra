@@ -57,7 +57,9 @@ export function exportRunCsv(input: RunRecord): string {
     JSON.stringify(snapshot.budget),
     JSON.stringify(run.environment),
     JSON.stringify(run.lineage ?? null),
-    JSON.stringify(snapshot.methodDescriptor ?? null)
+    JSON.stringify(snapshot.methodDescriptor ?? null),
+    JSON.stringify(snapshot.rule),
+    JSON.stringify(result.decision ?? null)
   ]
   const encodedPrefix = prefix.map(csvCell).join(',')
   function* rows() {
@@ -83,6 +85,8 @@ export function exportRunCsv(input: RunRecord): string {
       'environment_json',
       'lineage_json',
       'method_descriptor_json',
+      'rule_json',
+      'rule_evaluation_json',
       'pair_id',
       'start_s',
       'end_s',
@@ -181,6 +185,7 @@ export function exportRunHtml(input: RunRecord): string {
 <p>Run ${escapeHtml(result.runId)} · snapshot ${escapeHtml(snapshot.snapshotId)} · experiment revision ${snapshot.source.experimentRevision}</p>
 <p>Method ${escapeHtml(result.method.id)}@${escapeHtml(result.method.version)} · rule revision ${result.rule.revision} · minimum clearance ${result.rule.minimumClearance} m</p>
 <p>Pairs with evidence ${result.coveredPairCount}/${result.totalPairCount} · findings ${result.findingPairCount} · unresolved or absent ${result.unresolvedPairCount + result.totalPairCount - result.coveredPairCount}</p>
+${result.decision ? `<details open><summary>User acceptance evaluation</summary><p>The verdict does not erase method findings or establish real-world safety. Incomplete execution or coverage prevents acceptance.</p><pre>${escapeHtml(JSON.stringify({ acceptance: snapshot.rule.acceptance, evaluation: result.decision }, null, 2))}</pre></details>` : ''}
 <p>${escapeHtml(snapshot.scope.backgroundNote)}</p><p>${escapeHtml(result.errors.join('; '))}</p>
 <table><thead><tr><th>Pair</th><th>Interval (s)</th><th>Lower (m)</th><th>Upper (m)</th><th>Evidence</th><th>Reason</th></tr></thead><tbody>${pairRows}</tbody></table>
 <details><summary>Frozen inputs, source units, exclusions, method settings, environment and lineage</summary><pre>${escapeHtml(JSON.stringify({ snapshot, environment: run.environment, lineage: run.lineage ?? null }, null, 2))}</pre></details>

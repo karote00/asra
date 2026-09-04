@@ -1081,7 +1081,8 @@
           'Resolve every visual reference before use and bound decoded archive geometry and repeated workcell instances independently of source bytes.',
           'Save acknowledgement is independent of runtime commit; historical evidence stays immutable.',
           'Retained runs freeze optional validated candidate lineage; comparison uses explicit body correspondence without suppressing geometry or setting changes or rewriting evidence.',
-          'UI, export, comparison and replay consume the same result; incompatible comparisons are disclosed.'
+          'UI, export, comparison and replay consume the same result; incompatible comparisons are disclosed.',
+          'Compare actual acceptance conditions independently of revision labels; every report preserves the retained result-owner evaluation without recomputing a verdict.'
         ],
         bypasses: [
           'Missing methods allow historical reading, not automatic reruns.'

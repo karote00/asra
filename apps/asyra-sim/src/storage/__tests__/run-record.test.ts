@@ -172,4 +172,43 @@ describe('retained runs and portable reporting', () => {
       '&lt;private source &amp; evidence&gt;'
     )
   })
+
+  it('compares acceptance content and exports the exact retained evaluation in every format', () => {
+    const runs = [record('a'), record('b'), record('c')]
+    for (const [index, run] of runs.entries()) {
+      run.snapshot = structuredClone(run.snapshot)
+      run.snapshot.rule.acceptance = {
+        kind: 'clearance',
+        operator: 'above',
+        value: index === 1 ? 0.04 : 0.03
+      }
+      run.snapshot.rule.revision = index + 1
+      run.result = terminalAnalysisResult(run.snapshot, [], {
+        runId: run.result.runId,
+        startedAt: 0,
+        endedAt: 1,
+        execution: 'cancelled',
+        error: 'Cancelled'
+      })
+    }
+    expect(compareRuns(runs).incompatibilities).toContain(
+      'Decision rules differ'
+    )
+    expect(compareRuns([runs[0], runs[2]]).directlyComparable).toBe(true)
+    expect(compareRuns(runs).differences.map((item) => item.path)).toContain(
+      'rule.acceptance.value'
+    )
+    const run = runs[0],
+      csv = exportRunCsv(run),
+      html = exportRunHtml(run)
+    expect(csv).toContain('"rule_json"')
+    expect(csv).toContain('"rule_evaluation_json"')
+    expect(csv).toContain('""acceptance""')
+    expect(csv).toContain('""value"":""unknown""')
+    expect(html).toContain('User acceptance evaluation')
+    expect(html).toContain(run.result.decision?.reason)
+    expect(JSON.parse(exportRunJson(run)).run.result.decision).toEqual(
+      run.result.decision
+    )
+  })
 })

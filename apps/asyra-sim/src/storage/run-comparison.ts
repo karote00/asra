@@ -104,7 +104,10 @@ export function compareRuns(input: readonly RunRecord[]): RunComparison {
     ],
     [
       'Decision rules differ',
-      inputs.map((input) => input.rule.minimumClearance)
+      inputs.map((input) => {
+        const { revision: _revision, ...conditions } = input.rule
+        return conditions
+      })
     ],
     ['Analysis intervals differ', inputs.map((input) => input.interval)],
     ['Source units differ', inputs.map((input) => input.sourceUnits)]
