@@ -87,6 +87,11 @@
         id: 'ui',
         title: 'Workbench and delivery',
         order: 11
+      },
+      {
+        id: 'asset',
+        title: 'Restricted visual assets',
+        order: 12
       }
     ],
     steps: [
@@ -291,7 +296,12 @@
           'Preset modifications'
         ],
         cacheDimensions: [],
-        implementationBoundary: ['apps/asyra-sim/src/engine/**'],
+        implementationBoundary: [
+          'apps/asyra-sim/src/engine/three-engine.ts',
+          'apps/asyra-sim/src/engine/spatial-contract.ts',
+          'apps/asyra-sim/src/engine/graphics.ts',
+          'apps/asyra-sim/src/engine/__tests__/**'
+        ],
         specRefs: [
           '#2-visual-and-analysis-geometry',
           '#11-interaction-cancellation-and-resources'
@@ -468,7 +478,8 @@
         inputs: [
           'artifact:committed-model',
           'artifact:result',
-          'validated import or explicit save/compare intent'
+          'validated import or explicit save/compare intent',
+          'artifact:visual-asset'
         ],
         outputs: ['artifact:retained-data'],
         conditions: [
@@ -511,7 +522,8 @@
           'artifact:committed-model',
           'artifact:visual-output',
           'artifact:result',
-          'artifact:retained-data'
+          'artifact:retained-data',
+          'artifact:visual-asset'
         ],
         outputs: ['artifact:user-workbench'],
         conditions: [
@@ -542,6 +554,43 @@
         ],
         specRefs: ['#12-representative-product-cases-and-definition-of-done'],
         failureOwnerStepId: 'ui'
+      },
+      {
+        id: 'asset',
+        order: 12,
+        laneId: 'asset',
+        title: 'Decode a restricted visual reference',
+        ownerPackage: '@asyra/asyra-sim asset adapter',
+        purpose: 'Decode a restricted visual reference',
+        inputs: [
+          'locally selected GLB bytes within the published resource profile'
+        ],
+        outputs: ['artifact:visual-asset'],
+        conditions: [
+          'Validate the complete supported GLB profile before returning detached geometry and source identity.',
+          'Never fetch, execute file content, create colliders, or mutate a document.'
+        ],
+        bypasses: [
+          'Decoding needs no Core or renderer instance; unsupported files remain explicit errors.'
+        ],
+        allowedContributors: [
+          'Three.js math types inside the decoder',
+          'bounded byte and schema validation',
+          'Web Crypto source digest'
+        ],
+        forbiddenContributors: [
+          'Core and canonical state',
+          'network loaders',
+          'solver inputs',
+          'implicit analysis geometry'
+        ],
+        cacheDimensions: [],
+        implementationBoundary: ['apps/asyra-sim/src/engine/glb/**'],
+        specRefs: [
+          '#2-visual-and-analysis-geometry',
+          '#10-import-persistence-and-field-feedback'
+        ],
+        failureOwnerStepId: 'asset'
       }
     ],
     routes: [
@@ -740,9 +789,34 @@
         predicate:
           'The validated size is forwarded through the active renderer to its engine.',
         producedArtifacts: ['artifact:surface-size-request']
+      },
+      {
+        id: 'visual-asset-to-preview',
+        from: 'asset',
+        to: 'ui',
+        kind: 'normal',
+        predicate:
+          'Validated visual data is available for preview before acceptance.',
+        producedArtifacts: ['artifact:visual-asset']
+      },
+      {
+        id: 'visual-asset-to-storage',
+        from: 'asset',
+        to: 'storage',
+        kind: 'normal',
+        predicate:
+          'The user explicitly accepts the decoded asset for local retention.',
+        producedArtifacts: ['artifact:visual-asset']
       }
     ],
     artifacts: [
+      {
+        id: 'artifact:visual-asset',
+        ownerStepId: 'asset',
+        channel: 'detached handoff',
+        consumerStepIds: ['ui', 'storage'],
+        terminal: false
+      },
       {
         id: 'artifact:runtime',
         ownerStepId: 'compose',
@@ -861,7 +935,9 @@
           'method',
           'run',
           'storage',
-          'ui'
+          'ui',
+          'surface',
+          'asset'
         ],
         specRefs: ['#12-representative-product-cases-and-definition-of-done'],
         assertions: [
