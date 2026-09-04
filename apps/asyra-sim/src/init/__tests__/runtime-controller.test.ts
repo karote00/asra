@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { SimRuntime } from '../bootstrap'
 import { RuntimeController } from '../runtime-controller'
+import { VisualAssetArchive } from '../../storage/visual-archive'
+import { prepareProjectVisuals } from '../../storage/project-visuals'
+import { decodeRestrictedGlb } from '../../engine/glb/decode'
 
 const snapshot = () => ({
   document: {
@@ -79,6 +82,126 @@ async function setup() {
 }
 
 describe('App document replacement controller', () => {
+  it('rejects damaged source content before pausing or retiring the current document', async () => {
+    const a = runtime(),
+      b = runtime(),
+      factory = vi.fn(async () => a.value)
+    const prepare = vi.fn(
+      (target: Parameters<typeof prepareProjectVisuals>[0]) =>
+        prepareProjectVisuals(target, {
+          decode: decodeRestrictedGlb,
+          dispose: vi.fn()
+        })
+    )
+    const controller = new RuntimeController(factory, prepare)
+    await controller.start()
+    factory.mockResolvedValue(b.value)
+    await expect(
+      controller.replace(
+        {
+          ...snapshot(),
+          visualSources: [
+            {
+              version: 1,
+              assetId: 'a'.repeat(64),
+              filename: 'damaged.glb',
+              byteLength: 3,
+              base64: 'AAAA'
+            }
+          ]
+        },
+        () => undefined
+      )
+    ).rejects.toThrow()
+    expect(prepare).toHaveBeenCalledOnce()
+    expect(a.value.pauseEditing).not.toHaveBeenCalled()
+    expect(a.value.captureSnapshot).not.toHaveBeenCalled()
+    expect(a.value.dispose).not.toHaveBeenCalled()
+    expect(controller.getState().runtime).toBe(a.value)
+    await controller.dispose()
+  })
+
+  it('transfers prepared sources exactly once and leaves successful resource disposal to the successor', async () => {
+    const a = runtime(),
+      b = runtime()
+    const resources = new VisualAssetArchive({
+      decode: decodeRestrictedGlb,
+      dispose: vi.fn()
+    })
+    const prepare = vi.fn(async () => resources),
+      factory = vi.fn(
+        async (_snapshot?: unknown, _resources?: VisualAssetArchive) => a.value
+      )
+    const controller = new RuntimeController(factory, prepare)
+    await controller.start()
+    factory.mockResolvedValue(b.value)
+    await controller.replace(snapshot(), () => undefined)
+    expect(factory).toHaveBeenLastCalledWith(snapshot(), resources)
+    expect(prepare).toHaveBeenCalledOnce()
+    expect(() => resources.capture([])).not.toThrow()
+    await controller.dispose()
+    resources.dispose()
+  })
+
+  it('aborts pending preparation and disposes a late resource without pausing A or starting B', async () => {
+    const a = runtime(),
+      factory = vi.fn(async () => a.value)
+    const wait = deferred<VisualAssetArchive>()
+    let signal: AbortSignal | undefined
+    const prepare = vi.fn(
+      async (_target: unknown, ownedSignal: AbortSignal) => {
+        signal = ownedSignal
+        return wait.promise
+      }
+    )
+    const controller = new RuntimeController(factory, prepare)
+    await controller.start()
+    const replacing = controller.replace(snapshot(), () => undefined)
+    const rejected = expect(replacing).rejects.toThrow('closed')
+    await vi.waitFor(() => expect(prepare).toHaveBeenCalledOnce())
+    expect(controller.getState().runtime).toBe(a.value)
+    expect(a.value.pauseEditing).not.toHaveBeenCalled()
+    const closing = controller.dispose()
+    expect(signal?.aborted).toBe(true)
+    const resources = new VisualAssetArchive({
+      decode: decodeRestrictedGlb,
+      dispose: vi.fn()
+    })
+    wait.resolve(resources)
+    await rejected
+    await closing
+    expect(() => resources.capture([])).toThrow('closed')
+    expect(factory).toHaveBeenCalledOnce()
+    expect(a.value.dispose).toHaveBeenCalledOnce()
+  })
+
+  it.each(['stale preparation', 'startup failure'])(
+    'disposes untransferred sources after %s',
+    async (failure) => {
+      const a = runtime(),
+        decoder = { decode: decodeRestrictedGlb, dispose: vi.fn() }
+      const resources = new VisualAssetArchive(decoder),
+        factory = vi.fn(async () => a.value)
+      const controller = new RuntimeController(factory, async () => resources)
+      await controller.start()
+      factory.mockRejectedValue(new Error('startup failure'))
+      let checks = 0
+      await expect(
+        controller.replace(snapshot(), () => {
+          if (++checks === 2 && failure === 'stale preparation')
+            throw new Error(failure)
+        })
+      ).rejects.toThrow(failure)
+      expect(decoder.dispose).toHaveBeenCalledOnce()
+      expect(() => resources.capture([])).toThrow('closed')
+      if (failure === 'stale preparation') {
+        expect(a.value.pauseEditing).not.toHaveBeenCalled()
+        expect(controller.getState().runtime).toBe(a.value)
+      }
+      await controller.dispose()
+    }
+  )
+
   it('preflights, freezes, captures and retires A before publishing B', async () => {
     const { a, b, factory, controller } = await setup(),
       order: string[] = []
@@ -120,6 +243,7 @@ describe('App document replacement controller', () => {
     expect(order).toEqual([
       'guard',
       'preflight',
+      'guard',
       'pause',
       'capture',
       'guard',
@@ -128,7 +252,10 @@ describe('App document replacement controller', () => {
       'bootstrap',
       'guard'
     ])
-    expect(factory).toHaveBeenLastCalledWith(snapshot())
+    expect(factory).toHaveBeenLastCalledWith(
+      snapshot(),
+      expect.any(VisualAssetArchive)
+    )
     expect(controller.getState()).toMatchObject({
       runtime: b.value,
       status: 'ready',
@@ -213,7 +340,7 @@ describe('App document replacement controller', () => {
         })
       let calls = 0
       const guard = () => {
-        if (failure === 'stale' && ++calls > 1)
+        if (failure === 'stale' && ++calls > 2)
           throw new Error('stale acceptance')
       }
       await expect(controller.replace(snapshot(), guard)).rejects.toThrow(
@@ -359,7 +486,7 @@ describe('App document replacement controller', () => {
     let checks = 0
     await expect(
       controller.replace(snapshot(), () => {
-        if (++checks === 4) throw new Error('Storage session closed')
+        if (++checks === 5) throw new Error('Storage session closed')
       })
     ).rejects.toThrow('Storage session closed')
     expect(b.value.dispose).toHaveBeenCalledOnce()

@@ -1,5 +1,7 @@
 import type { SimRuntime } from './bootstrap'
 import { encodeProject, type ProjectSnapshot } from '../storage/project-format'
+import type { VisualAssetArchive } from '../storage/visual-archive'
+import { prepareProjectVisuals } from '../storage/project-visuals'
 
 export interface RuntimeState {
   readonly status:
@@ -23,11 +25,20 @@ export class RuntimeController {
   private recovery: ProjectSnapshot | null = null
   private operation: Promise<unknown> | null = null
   private closing: Promise<void> | undefined
+  private preparation: AbortController | null = null
   private closed = false
   private listeners = new Set<() => void>()
 
   constructor(
-    private readonly create: (snapshot?: ProjectSnapshot) => Promise<SimRuntime>
+    private readonly create: (
+      snapshot?: ProjectSnapshot,
+      prepared?: VisualAssetArchive
+    ) => Promise<SimRuntime>,
+    private readonly prepareVisuals: (
+      snapshot: ProjectSnapshot,
+      signal: AbortSignal
+    ) => Promise<VisualAssetArchive> = (snapshot, signal) =>
+      prepareProjectVisuals(snapshot, undefined, signal)
   ) {}
 
   getState = (): RuntimeState => this.state
@@ -114,11 +125,18 @@ export class RuntimeController {
       assertCurrent()
       encodeProject(target)
       previous.preflight(target.document)
-      const resume = previous.pauseEditing()
-      this.publish({ status: 'replacing', error: '' })
       let retired = false,
-        successor: SimRuntime | undefined
+        successor: SimRuntime | undefined,
+        prepared: VisualAssetArchive | undefined,
+        resume: (() => void) | undefined
+      const preparation = new AbortController()
+      this.preparation = preparation
       try {
+        prepared = await this.prepareVisuals(target, preparation.signal)
+        this.assertOpen()
+        assertCurrent()
+        resume = previous.pauseEditing()
+        this.publish({ status: 'replacing', error: '' })
         const recovery = await previous.captureSnapshot()
         this.assertOpen()
         assertCurrent()
@@ -131,7 +149,9 @@ export class RuntimeController {
         this.owned = null
         this.assertOpen()
         assertCurrent()
-        successor = await this.create(target)
+        successor = await this.create(target, prepared)
+        // A successful successor owns the prepared archive through its teardown.
+        prepared = undefined
         this.owned = successor
         this.assertOpen()
         assertCurrent()
@@ -141,7 +161,7 @@ export class RuntimeController {
       } catch (error) {
         let failure = error
         if (!retired) {
-          if (!this.closed) resume()
+          if (!this.closed) resume?.()
           this.publish({
             status: 'ready',
             runtime: previous,
@@ -167,6 +187,9 @@ export class RuntimeController {
           })
         }
         throw failure
+      } finally {
+        this.preparation = null
+        prepared?.dispose()
       }
     })
   }
@@ -174,6 +197,7 @@ export class RuntimeController {
   dispose(): Promise<void> {
     if (this.closing) return this.closing
     this.closed = true
+    this.preparation?.abort()
     const pending = this.operation
     this.state = Object.freeze({
       ...this.state,
