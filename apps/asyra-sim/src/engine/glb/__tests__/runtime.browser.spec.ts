@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 import { encodeGlb, triangleFixture } from './fixtures'
 import type { VisualAsset } from '../decode'
 
-test('a local worker decodes GLB without Core, GPU initialization, or external requests', async ({
+test('the production preview worker decodes GLB without Core, GPU initialization, or external requests', async ({
   page
 }, testInfo) => {
   const requests: string[] = []
@@ -11,33 +11,29 @@ test('a local worker decodes GLB without Core, GPU initialization, or external r
   await page.goto('/')
   const { json, binary } = triangleFixture(),
     bytes = encodeGlb(json, binary)
-  const output = await page.evaluate(async (data) => {
-    const worker = new Worker(
-      '/src/engine/glb/__tests__/decode-proof.worker.ts',
-      { type: 'module' }
-    )
-    let timeout: ReturnType<typeof setTimeout> | undefined
-    try {
-      return await new Promise<{ asset: VisualAsset; elapsedMs: number }>(
-        (resolve, reject) => {
-          timeout = setTimeout(
-            () => reject(new Error('Worker proof deadline exceeded')),
-            5000
-          )
-          worker.onmessage = (event) =>
-            event.data.error
-              ? reject(new Error(event.data.error))
-              : resolve(event.data)
-          worker.onerror = (event) => reject(new Error(event.message))
-          const buffer = new Uint8Array(data)
-          worker.postMessage(buffer, [buffer.buffer])
-        }
-      )
-    } finally {
-      clearTimeout(timeout)
-      worker.terminate()
+  const output = await page.evaluate(
+    async ({ data, moduleUrl }) => {
+      const { RestrictedGlbPreviewWorker } = await import(moduleUrl)
+      const worker = new RestrictedGlbPreviewWorker(),
+        start = performance.now(),
+        timeoutController = new AbortController(),
+        timeout = setTimeout(() => timeoutController.abort(), 5000)
+      try {
+        const asset: VisualAsset = await worker.decode(
+          new Uint8Array(data),
+          timeoutController.signal
+        )
+        return { asset, elapsedMs: performance.now() - start }
+      } finally {
+        clearTimeout(timeout)
+        worker.dispose()
+      }
+    },
+    {
+      data: Array.from(bytes),
+      moduleUrl: '/src/engine/glb/preview-worker.ts'
     }
-  }, Array.from(bytes))
+  )
   expect(output.asset.meshes[0].positions).toEqual([0, 0, 0, 1, 0, 0, 0, 1, 0])
   expect(output.asset.source.sha256).toBe(
     createHash('sha256').update(bytes).digest('hex')
