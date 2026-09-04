@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import type { VisualAsset } from '../engine/glb/decode'
 import { RestrictedGlbPreviewWorker } from '../engine/glb/preview-worker'
+import { GLB_LIMITS } from '../engine/glb/schema'
 
 export function GlbPreview() {
   const worker = useRef<RestrictedGlbPreviewWorker | null>(null)
   const controller = useRef<AbortController | null>(null)
   const [asset, setAsset] = useState<VisualAsset | null>(null)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   useEffect(
     () => () => {
       controller.current?.abort()
+      controller.current = null
       void worker.current?.dispose()
     },
     []
@@ -22,8 +25,11 @@ export function GlbPreview() {
     worker.current ??= new RestrictedGlbPreviewWorker()
     setBusy(true)
     setError('')
+    setNotice('')
     setAsset(null)
     try {
+      if (file.size < 1 || file.size > GLB_LIMITS.bytes)
+        throw new Error('Choose a nonempty GLB file no larger than 16 MiB.')
       const bytes = new Uint8Array(await file.arrayBuffer())
       if (nextController.signal.aborted) return
       const next = await worker.current.decode(bytes, nextController.signal)
@@ -34,6 +40,12 @@ export function GlbPreview() {
     } finally {
       if (controller.current === nextController) setBusy(false)
     }
+  }
+  const cancel = () => {
+    controller.current?.abort()
+    controller.current = null
+    setBusy(false)
+    setNotice('Preview cancelled. No asset was accepted.')
   }
   return (
     <details className="glb-preview">
@@ -59,13 +71,10 @@ export function GlbPreview() {
             }}
           />
         </label>
-        {busy && (
-          <button onClick={() => controller.current?.abort()}>
-            Cancel preview
-          </button>
-        )}
+        {busy && <button onClick={cancel}>Cancel preview</button>}
       </div>
       {error && <p className="inline-error">{error}</p>}
+      {notice && <p role="status">{notice}</p>}
       {asset && (
         <dl className="asset-summary">
           <div>
