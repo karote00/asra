@@ -19,6 +19,9 @@ import { AnalysisRunner } from '../analysis/runner'
 import { OFFICIAL_CLEARANCE_METHOD } from '../analysis/methods/official-method'
 import { preflightExperiment as checkExperiment } from '../analysis/preflight'
 import { createExperimentSnapshot as freezeExperiment } from '../analysis/snapshot'
+import { RunArchive } from '../storage/run-record'
+import { readCapturedRunReferences } from '../common-apis/run-reference'
+import { installRunStorageFeature } from '../features/storage-runs'
 
 function guardCommands<
   T extends { [K in keyof T]: (...args: never[]) => unknown }
@@ -89,15 +92,47 @@ export async function bootstrap(
     return disposal
   }
   try {
+    const archive = new RunArchive(snapshot?.runs)
+    const captureRuns = (document: unknown) =>
+      readCapturedRunReferences(document).map((reference) => {
+        const run = archive.get(reference.runId)
+        if (
+          !run ||
+          run.snapshot.snapshotId !== reference.snapshotId ||
+          run.snapshot.source.candidateId !== reference.candidateId ||
+          run.snapshot.source.experimentId !== reference.experimentId
+        )
+          throw new Error(
+            `Retained evidence is missing or mismatched: ${reference.runId}`
+          )
+        return run
+      })
     rendering = installCustomRenderer(core, provider)
     const layer = rendering.layer
     installModelComponents(core)
-    const editing = installEditingFeatures(core)
+    const editing = installEditingFeatures(core, {
+      readRun: (runId) => {
+        const run = archive.get(runId)
+        if (!run) return
+        return {
+          runId,
+          snapshotId: run.snapshot.snapshotId,
+          candidateId: run.snapshot.source.candidateId,
+          experimentId: run.snapshot.source.experimentId,
+          name: run.name
+        }
+      }
+    })
+    const storage = installRunStorageFeature(core, archive, (runId) => {
+      assertAccepting()
+      return editing.edit.attachRun(runId)
+    })
     const analysisRunner = new AnalysisRunner()
     const analysis = installAnalysisFeature(core, analysisRunner)
     const features = {
       edit: guardCommands(editing.edit, assertAccepting),
       history: guardCommands(editing.history, assertAccepting),
+      storage: guardCommands(storage, assertAccepting),
       analysis: {
         run: (...args: Parameters<typeof analysis.run>) => {
           assertAccepting()
@@ -126,6 +161,7 @@ export async function bootstrap(
             }
       )
     ]
+    if (snapshot) captureRuns(core.getCanonicalOwnerSnapshot())
     const rect = host.getBoundingClientRect()
     let width = Math.max(1, rect.width),
       height = Math.max(1, rect.height)
@@ -172,10 +208,19 @@ export async function bootstrap(
           pauses.delete(token)
         }
       },
-      captureSnapshot: async () => ({
-        document: await save(),
-        loadIssues: structuredClone(loadIssues)
-      }),
+      captureSnapshot: async () => {
+        const document = await save()
+        const runs = captureRuns(document)
+        return {
+          document,
+          loadIssues: structuredClone(loadIssues),
+          ...(runs.length ? { runs } : {})
+        }
+      },
+      getRuns: () => {
+        assertLive()
+        return captureRuns(core.getCanonicalOwnerSnapshot())
+      },
       preflight: (data: unknown) => {
         assertLive()
         return core.preflightLoad(data)

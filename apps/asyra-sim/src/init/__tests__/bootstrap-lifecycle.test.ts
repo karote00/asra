@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import core from '@asyra/core'
 import { bootstrap, type SimRuntime } from '../bootstrap'
 import { ThreeEngine, type GraphicsDriver } from '../../engine/three-engine'
+import { terminalAnalysisResult } from '../../analysis/result'
+import { encodeProject, decodeProject } from '../../storage/project-format'
 
 const runtimes: SimRuntime[] = []
 const callbacks: ResizeObserverCallback[] = []
@@ -63,6 +65,46 @@ const environment = () => {
 }
 
 describe('App composition lifetime', () => {
+  it('retains immutable runs with canonical references across capture, Undo/Redo, and a new lifetime', async () => {
+    const { start } = environment(),
+      first = await start()
+    const candidate = first.getCandidates()[0],
+      experiment = first.getExperiments(candidate.id)[0]
+    const snapshot = first.createExperimentSnapshot(experiment.id, [])
+    const record = {
+      version: 1 as const,
+      name: 'Retained cancellation',
+      retainedAt: '2026-09-05T00:00:00.000Z',
+      environment: {
+        appVersion: '0.1.0-alpha.0',
+        userAgent: 'Test',
+        hardwareConcurrency: 8
+      },
+      snapshot,
+      result: terminalAnalysisResult(snapshot, [], {
+        runId: 'retained-run',
+        startedAt: 0,
+        endedAt: 1,
+        execution: 'cancelled',
+        error: 'Cancelled'
+      })
+    }
+    await first.features.storage.retain(record)
+    expect(first.getRuns()).toEqual([record])
+    await first.features.history.undo()
+    expect(first.getRuns()).toEqual([])
+    expect((await first.captureSnapshot()).runs).toBeUndefined()
+    await first.features.history.redo()
+    const saved = decodeProject(encodeProject(await first.captureSnapshot()))
+    expect(saved.runs).toEqual([record])
+    const missing = { ...saved, runs: [] }
+    expect(() => encodeProject(missing)).toThrow('Missing or mismatched')
+    await first.dispose()
+    const second = await start(saved)
+    expect(second.getRuns()).toEqual([record])
+    expect(second.getHistoryDepth()).toBe(0)
+    expect(() => first.features.storage.retain(record)).toThrow('closed')
+  })
   it('reconstructs saved A/B/A with fresh engines and empty history, retaining load issues', async () => {
     const { host, drivers, start } = environment()
     const first = await start(),

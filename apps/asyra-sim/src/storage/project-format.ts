@@ -1,5 +1,6 @@
 import type { ModelLoadIssue } from '../common-apis/document'
 import { validateRunRecords, type RunRecord } from './run-record'
+import { readCapturedRunReferences } from '../common-apis/run-reference'
 
 export const PROJECT_BYTE_LIMIT = 64 * 1024 * 1024
 export interface ProjectSnapshot {
@@ -76,7 +77,22 @@ function validateSnapshot(value: unknown): asserts value is ProjectSnapshot {
     !record(scene.elements)
   )
     throw new Error('Invalid saved scene envelope')
-  if (Object.hasOwn(value, 'runs')) validateRunRecords(value.runs)
+  const runs = Object.hasOwn(value, 'runs')
+    ? validateRunRecords(value.runs)
+    : []
+  const records = new Map(runs.map((run) => [run.result.runId, run]))
+  for (const reference of readCapturedRunReferences(value.document)) {
+    const run = records.get(reference.runId)
+    if (
+      !run ||
+      run.snapshot.snapshotId !== reference.snapshotId ||
+      run.snapshot.source.candidateId !== reference.candidateId ||
+      run.snapshot.source.experimentId !== reference.experimentId
+    )
+      throw new Error(
+        `Missing or mismatched evidence for retained run ${reference.runId}`
+      )
+  }
 }
 
 export function encodeProject(snapshot: ProjectSnapshot): string {

@@ -34,6 +34,7 @@ function runtime() {
         removeExperiment: vi.fn()
       },
       history: { undo: vi.fn(), redo: vi.fn() },
+      storage: { retain: vi.fn() },
       analysis: {
         run: vi.fn(),
         cancel: vi.fn(),
@@ -44,6 +45,7 @@ function runtime() {
     captureSnapshot: vi.fn(async () => snapshot()),
     preflight: vi.fn(() => []),
     getCandidates: vi.fn(() => []),
+    getRuns: vi.fn(() => []),
     getWorkcell: vi.fn(),
     getExperiments: vi.fn(() => []),
     getExperiment: vi.fn(),
