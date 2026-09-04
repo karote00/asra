@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ProjectSession, type DocumentPorts } from '../project-session'
 import {
+  decodeProject,
   encodeProject,
   type ProjectRepository,
   type ProjectSnapshot,
@@ -50,6 +51,90 @@ function fixture() {
 }
 
 describe('project persistence acknowledgement', () => {
+  it('exports a validated portable capture without claiming a database save', async () => {
+    const { session, repository } = fixture()
+    const text = await session.exportProject()
+    expect(decodeProject(text)).toEqual(snapshot())
+    expect(repository.write).not.toHaveBeenCalled()
+    expect(session.getState()).toMatchObject({
+      project: null,
+      dirty: true,
+      status: 'unsaved',
+      busy: null
+    })
+    await session.save('Local')
+    const before = session.getState()
+    await session.exportProject()
+    expect(session.getState()).toEqual(before)
+    session.close()
+  })
+
+  it('requires explicit portable import acceptance and keeps imported data unsaved under a new identity', async () => {
+    const { session, document, repository } = fixture()
+    await session.save('Original')
+    const payload = encodeProject(snapshot())
+    await expect(session.importProject(payload, false)).rejects.toThrow(
+      'acceptance'
+    )
+    expect(document.apply).not.toHaveBeenCalled()
+    await session.importProject(payload, true)
+    expect(document.apply).toHaveBeenCalledWith(
+      snapshot(),
+      expect.any(Function)
+    )
+    expect(repository.write).toHaveBeenCalledOnce()
+    expect(session.getState()).toMatchObject({
+      project: null,
+      dirty: true,
+      status: 'unsaved',
+      busy: null
+    })
+    await session.save('Imported')
+    expect(repository.write).toHaveBeenLastCalledWith(
+      expect.anything(),
+      null,
+      expect.any(AbortSignal)
+    )
+    session.close()
+  })
+
+  it('preserves the original acknowledgement for a rejected portable target', async () => {
+    const { session, document } = fixture()
+    await session.save('Original')
+    const before = session.getState()
+    await expect(
+      session.importProject('{"version":999}', true)
+    ).rejects.toThrow('Unsupported')
+    expect(document.apply).not.toHaveBeenCalled()
+    expect(session.getState()).toEqual(before)
+    session.close()
+  })
+
+  it('guards portable operations against overlap, new edits, and closed sessions', async () => {
+    const { session, document } = fixture(),
+      capture = deferred<ProjectSnapshot>()
+    document.capture = vi.fn(() => capture.promise)
+    const exporting = session.exportProject()
+    await expect(session.save('Other')).rejects.toThrow('still running')
+    session.markEdited()
+    capture.resolve(snapshot())
+    await expect(exporting).rejects.toThrow('model changed')
+    document.apply = vi.fn(async (_target, guard) => {
+      session.markEdited()
+      guard()
+      return []
+    })
+    await expect(
+      session.importProject(encodeProject(snapshot()), true)
+    ).rejects.toThrow('model changed')
+    expect(session.getState().project).toBeNull()
+    session.close()
+    await expect(session.exportProject()).rejects.toThrow('closed')
+    await expect(
+      session.importProject(encodeProject(snapshot()), true)
+    ).rejects.toThrow('closed')
+  })
+
   it('reports saved only after write acknowledgement and passes the expected saved revision on replacement', async () => {
     const { session, repository } = fixture(),
       write = deferred<undefined>()

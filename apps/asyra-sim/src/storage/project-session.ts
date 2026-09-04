@@ -17,7 +17,7 @@ export interface DocumentPorts {
 export interface PersistenceState {
   project: Readonly<ProjectSummary> | null
   status: 'unsaved' | 'saving' | 'saved' | 'error'
-  busy: 'save' | 'open' | null
+  busy: 'save' | 'open' | 'export' | null
   dirty: boolean
   error: string
 }
@@ -63,10 +63,10 @@ export class ProjectSession {
     if (this.disposed) throw new Error('Project session is closed')
     this.lifetime.signal.throwIfAborted()
   }
-  private start(busy: 'save' | 'open'): number {
+  private start(busy: NonNullable<PersistenceState['busy']>): number {
     this.assertLive()
     if (this.state.busy)
-      throw new Error('Another save or open operation is still running')
+      throw new Error('Another project operation is still running')
     this.publish({
       busy,
       error: '',
@@ -146,6 +146,53 @@ export class ProjectSession {
     } catch (error) {
       this.fail(error)
     }
+  }
+
+  async exportProject(): Promise<string> {
+    const revision = this.start('export')
+    try {
+      const snapshot = await this.document.capture()
+      this.assertRevision(revision)
+      const payload = encodeProject(snapshot)
+      this.publish({ busy: null, error: '' })
+      return payload
+    } catch (error) {
+      this.fail(error)
+    }
+  }
+
+  async importProject(
+    payload: string,
+    replacementAccepted: boolean
+  ): Promise<void> {
+    this.assertLive()
+    if (!replacementAccepted)
+      throw new Error('Importing requires explicit replacement acceptance')
+    // Revalidate the exact previewed text before any retirement or acknowledgement.
+    const snapshot = decodeProject(payload),
+      revision = this.start('open'),
+      assertCurrent = () => this.assertRevision(revision)
+    try {
+      await this.document.apply(snapshot, assertCurrent)
+      this.assertLive()
+      this.publish({
+        project: null,
+        status: 'unsaved',
+        dirty: true,
+        busy: null,
+        error: ''
+      })
+    } catch (error) {
+      this.fail(error)
+    }
+  }
+
+  private assertRevision(revision: number): void {
+    this.assertLive()
+    if (this.revision !== revision)
+      throw new Error(
+        'The model changed during the project operation; retry without editing'
+      )
   }
 
   list() {
