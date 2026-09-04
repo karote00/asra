@@ -218,6 +218,17 @@ finding and unresolved counts; clearance evidence; and execution state.
 Analysis runtime is not robot cycle time. Results with different scales,
 methods, or scopes must not be ranked without disclosure.
 
+Duplicating a candidate creates independent body and experiment identities and
+remaps every parent, robot root, trajectory joint, source-unit key, and scope
+reference in one Undo action. Historical run references are not copied or relabeled
+as new runs. Explicit lineage records each copied body's original candidate/body
+identity, including copies of copies. Newly added bodies have their own origins.
+Lineage is correspondence metadata, not proof that geometry is still unchanged.
+Run retention freezes this metadata alongside evidence. Comparison may normalize
+identities using validated lineage, but must still compare actual geometry,
+trajectories, units, methods, scope and rules; it must not infer correspondence
+from object names or suppress material differences.
+
 The comparator may display incompatible results side by side, explicitly
 marked "not directly comparable." It does not automatically choose the best
 candidate. Users select a candidate; the App sends no control command.

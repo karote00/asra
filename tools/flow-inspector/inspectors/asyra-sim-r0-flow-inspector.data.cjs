@@ -753,6 +753,7 @@
         outputs: ['artifact:committed-model', 'artifact:canonical-capture'],
         conditions: [
           'Mutating edit intents use Feature -> common API -> Core canonical state under one transaction.',
+          'Candidate duplication remaps independent body/experiment identities and all references atomically, preserves explicit body lineage, and never copies historical run references.',
           'Reject invalid edits; explicit rollback cancellation produces no partial scene.',
           'Capture awaits Core serialization inside the interaction queue without opening a transaction; storage I/O occurs afterward.',
           'Guarded canonical apply checks freshness inside the queue immediately before Core load and does not clear history.'
@@ -776,6 +777,7 @@
           'apps/asyra-sim/src/init/components*'
         ],
         specRefs: [
+          '#9-comparable-and-traceable-experiments',
           '#10-import-persistence-and-field-feedback',
           '#11-interaction-cancellation-and-resources'
         ],
@@ -1044,6 +1046,7 @@
         conditions: [
           'Preview imports before Feature acceptance; failed import leaves no partial state.',
           'Save acknowledgement is independent of runtime commit; historical evidence stays immutable.',
+          'Retained runs freeze optional validated candidate lineage; comparison uses explicit body correspondence without suppressing geometry or setting changes or rewriting evidence.',
           'UI, export, comparison and replay consume the same result; incompatible comparisons are disclosed.'
         ],
         bypasses: [

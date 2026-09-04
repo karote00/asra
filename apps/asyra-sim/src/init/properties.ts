@@ -1,5 +1,9 @@
 import type { Core } from '@asyra/core'
 import {
+  validCandidateLineage,
+  type CandidateLineage
+} from '../common-apis/candidate-lineage'
+import {
   MethodIds,
   MethodVersions,
   PropertyFields,
@@ -53,6 +57,7 @@ export const DEFAULT_EXPERIMENT_DEFINITION: ExperimentDefinition = {
 }
 export interface CandidateParameters {
   robotRootId: string | null
+  lineage?: CandidateLineage
 }
 export interface RunReference {
   version: 1
@@ -91,7 +96,10 @@ export function validCandidateParameters(
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const candidate = value as CandidateParameters
   return (
-    candidate.robotRootId === null || validIdentifier(candidate.robotRootId)
+    (candidate.robotRootId === null ||
+      validIdentifier(candidate.robotRootId)) &&
+    (!Object.hasOwn(candidate, 'lineage') ||
+      validCandidateLineage(candidate.lineage))
   )
 }
 export function installModelProperties(core: Core): void {

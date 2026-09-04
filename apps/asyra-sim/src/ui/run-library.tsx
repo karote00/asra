@@ -279,6 +279,11 @@ export function RunComparisonView({
         selection. Matching comparison conditions do not prove real-world
         feasibility.
       </p>
+      <p className="hint">
+        Body correspondence uses explicit candidate lineage where available,
+        otherwise original canonical identities. Names do not establish
+        correspondence. Raw identities remain in each report.
+      </p>
       {comparison.incompatibilities.length > 0 && (
         <ul className="diagnostic-list">
           {comparison.incompatibilities.map((reason) => (

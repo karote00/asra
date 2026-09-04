@@ -254,15 +254,24 @@ function PairEvidenceView({
     leaf = finding ?? unknown ?? leaves[0],
     pages = Math.max(1, Math.ceil(leaves.length / 20)),
     bodyIds = [source.a.bodyId, source.b.bodyId]
+  const bodyA = snapshot.workcell.bodies.find(
+      (body) => body.id === source.a.bodyId
+    ),
+    bodyB = snapshot.workcell.bodies.find((body) => body.id === source.b.bodyId)
+  if (!bodyA || !bodyB)
+    throw new Error('Frozen pair body is missing from the snapshot')
   return (
     <details
       className="evidence-pair"
       onToggle={(event) => setExpanded(event.currentTarget.open)}
     >
       <summary>
-        {source.a.bodyId} / {source.b.bodyId}
+        {bodyA.name} / {bodyB.name}
         <span>{pair.evidence.coverage}</span>
       </summary>
+      <p className="method-line">
+        {source.a.bodyId} / {source.b.bodyId}
+      </p>
       <p className="hint">
         Lower {distance(pair.evidence.lower)} · upper{' '}
         {distance(pair.evidence.upper)} · {leaves.length} intervals

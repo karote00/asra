@@ -12,11 +12,77 @@ export interface RunComparison {
 }
 const record = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value)
+const lexical = (a: string, b: string) => {
+  if (a === b) return 0
+  return a < b ? -1 : 1
+}
+
+/** Correspondence changes identity labels only, never modeled quantities. */
+function comparableInputs(run: RunRecord) {
+  const { snapshot } = run
+  const id = (bodyId: string) => {
+    const origin = run.lineage?.bodyOrigins[bodyId] ?? {
+      candidateId: snapshot.source.candidateId,
+      bodyId
+    }
+    return JSON.stringify([origin.candidateId, origin.bodyId])
+  }
+  const remapRecord = <T>(value: Readonly<Record<string, T>>) =>
+    Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [id(key), item])
+    )
+  return {
+    workcell: {
+      ...snapshot.workcell,
+      robotRootId:
+        snapshot.workcell.robotRootId === null
+          ? null
+          : id(snapshot.workcell.robotRootId),
+      bodies: snapshot.workcell.bodies
+        .map((body) => ({
+          ...body,
+          id: id(body.id),
+          parentId: body.parentId === null ? null : id(body.parentId)
+        }))
+        .sort((a, b) => lexical(a.id, b.id))
+    },
+    trajectory: {
+      ...snapshot.trajectory,
+      keyframes: snapshot.trajectory.keyframes.map((frame) => ({
+        ...frame,
+        joints: remapRecord(frame.joints)
+      }))
+    },
+    sourceUnits: {
+      ...snapshot.sourceUnits,
+      joints: remapRecord(snapshot.sourceUnits.joints)
+    },
+    interval: snapshot.interval,
+    scope: {
+      ...snapshot.scope,
+      primaryBodyIds: snapshot.scope.primaryBodyIds.map(id).sort(),
+      influencingBodyIds: snapshot.scope.influencingBodyIds.map(id).sort(),
+      acknowledgedExcludedVisibleBodyIds:
+        snapshot.scope.acknowledgedExcludedVisibleBodyIds.map(id).sort(),
+      excludedPairs: snapshot.scope.excludedPairs
+        .map((pair) => {
+          const [a, b] = [id(pair.a), id(pair.b)].sort()
+          return { ...pair, a, b }
+        })
+        .sort((a, b) => lexical(stableJson(a), stableJson(b)))
+    },
+    method: snapshot.method,
+    rule: snapshot.rule,
+    budget: snapshot.budget,
+    acknowledgedWarnings: snapshot.acknowledgedWarnings
+  }
+}
 
 export function compareRuns(input: readonly RunRecord[]): RunComparison {
   if (input.length < 2 || input.length > 3)
     throw new Error('Select two or three runs for comparison')
   const runs = input.map(validateRunRecord)
+  const inputs = runs.map(comparableInputs)
   if (new Set(runs.map((run) => run.result.runId)).size !== runs.length)
     throw new Error('Select distinct runs')
   const differs = (values: readonly unknown[]) =>
@@ -25,17 +91,18 @@ export function compareRuns(input: readonly RunRecord[]): RunComparison {
   for (const [label, values] of [
     [
       'Methods or numerical settings differ',
-      runs.map((run) => run.snapshot.method)
+      inputs.map((input) => input.method)
     ],
     [
       'Analysis scopes or exclusions differ',
-      runs.map((run) => run.snapshot.scope)
+      inputs.map((input) => input.scope)
     ],
     [
       'Decision rules differ',
-      runs.map((run) => run.snapshot.rule.minimumClearance)
+      inputs.map((input) => input.rule.minimumClearance)
     ],
-    ['Analysis intervals differ', runs.map((run) => run.snapshot.interval)]
+    ['Analysis intervals differ', inputs.map((input) => input.interval)],
+    ['Source units differ', inputs.map((input) => input.sourceUnits)]
   ] as const)
     if (differs(values)) incompatibilities.push(label)
   const differences: RunDifference[] = []
@@ -52,20 +119,7 @@ export function compareRuns(input: readonly RunRecord[]): RunComparison {
         )
     } else differences.push({ path, values })
   }
-  walk(
-    '',
-    runs.map(({ snapshot }) => ({
-      workcell: snapshot.workcell,
-      trajectory: snapshot.trajectory,
-      sourceUnits: snapshot.sourceUnits,
-      interval: snapshot.interval,
-      scope: snapshot.scope,
-      method: snapshot.method,
-      rule: snapshot.rule,
-      budget: snapshot.budget,
-      acknowledgedWarnings: snapshot.acknowledgedWarnings
-    }))
-  )
+  walk('', inputs)
   return {
     runs,
     directlyComparable: !incompatibilities.length,

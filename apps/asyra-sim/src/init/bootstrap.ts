@@ -1,7 +1,7 @@
 import currentCore from '@asyra/core'
 import type { RenderEngineProvider } from '@asyra/render-engine'
 import { ComponentTypes } from '../constants'
-import { readWorkcell } from '../common-apis/workcell'
+import { readWorkcell, readCandidateLineage } from '../common-apis/workcell'
 import { readExperiment, readExperiments } from '../common-apis/experiment'
 import {
   loadCanonicalDocument,
@@ -235,6 +235,10 @@ export async function bootstrap(
       getWorkcell: (id: string) => {
         assertLive()
         return readWorkcell(core, id)
+      },
+      getCandidateLineage: (id: string) => {
+        assertLive()
+        return readCandidateLineage(core, id)
       },
       getExperiments: (candidateId: string) => {
         assertLive()

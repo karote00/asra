@@ -9,8 +9,8 @@ six-axis model and geometric proxies, navigate in 3D, Undo/Redo, and explicitly
 save and reopen local projects. The experiment panel accepts explicitly mapped
 trajectories, runs preflight and isolated continuous-time analysis, and replays
 frozen evidence. Runs can be explicitly retained, compared, exported, and reopened
-with portable projects. Candidate duplication, attached visual assets, extension
-delivery, and independent validation remain under development. Do not use this
+with portable projects. Independent A/B/C workcells can be duplicated and compared.
+Attached visual assets, extension delivery, and independent validation remain under development. Do not use this
 checkpoint to approve production operations.
 
 ## Local development
@@ -82,6 +82,13 @@ page close; the UI warns before replacement and navigation.
 
 ## Retained evidence and comparison
 
+Use **Duplicate candidate** beneath the candidate selector to copy committed model
+and experiment inputs into an independently editable workcell. Enter a name for B
+or C. Copies get new canonical identities, remap all references, and preserve
+explicit body correspondence for comparison. Historical runs and unsaved drafts
+are not copied. Each complete duplication is one Undo action. Numeric property
+fields accept a value on Enter or blur before **Apply changes** commits it.
+
 **Runs & compare** lists temporary and retained results across the current project.
 Inspect a run, export JSON/CSV/self-contained HTML, replay its frozen geometry, or
 select its source candidate. Missing method modules do not prevent reading history;
@@ -92,6 +99,10 @@ Select two or three run checkboxes to compare their execution, findings, unknown
 scope, method, rule and input differences. Incompatible settings are disclosed as
 not directly comparable. No automatic winner is chosen. Changed current inputs do
 not rewrite earlier evidence, including cancelled and partial results.
+Comparison uses recorded body origins across A/B/C copies, not name matching;
+changes to geometry and parameters still appear. Original identities and lineage
+are retained in reports. Pair labels use the frozen model's names, with raw IDs
+available in the expanded evidence.
 
 ## Architecture
 

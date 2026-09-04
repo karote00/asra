@@ -196,6 +196,13 @@ export function ExperimentPanel({
       inspect()
       if (!canonical) return
       const snapshot = runtime.createExperimentSnapshot(canonical.id, warnings)
+      const lineage = runtime.getCandidateLineage(candidateId)
+      const candidateName =
+        runtime
+          .getCandidates()
+          .find((candidate) => candidate.id === candidateId)?.name ??
+        candidateId
+      const runName = `${candidateName.slice(0, 60)} / ${canonical.name.slice(0, 90)} · r${canonical.definition.revision}`
       const controller = new AbortController()
       const environment = {
         appVersion,
@@ -211,11 +218,12 @@ export function ExperimentPanel({
       if (live.current)
         onRun({
           version: 1,
-          name: `${canonical.name.slice(0, 150)} · r${canonical.definition.revision}`,
+          name: runName,
           retainedAt: new Date().toISOString(),
           environment,
           snapshot,
-          result
+          result,
+          ...(lineage ? { lineage } : {})
         })
     } catch (reason) {
       fail(reason)

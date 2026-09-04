@@ -93,6 +93,9 @@ export function Workbench() {
   let workcell: Workcell | null = null
   let modelError = ''
   const candidates = runtime?.getCandidates() ?? []
+  const hasSelectedCandidate = candidates.some(
+    (candidate) => candidate.id === candidateId
+  )
   const loadIssues = runtime?.getLoadIssues() ?? []
   let retainedRuns: readonly RunRecord[] = [],
     runError = ''
@@ -382,7 +385,7 @@ export function Workbench() {
               <select
                 aria-label="Candidate"
                 disabled={!ready}
-                value={candidateId ?? ''}
+                value={hasSelectedCandidate ? (candidateId ?? '') : ''}
                 onChange={(event) => {
                   setCandidateId(event.target.value)
                   setSelectedId(null)
@@ -396,6 +399,11 @@ export function Workbench() {
                       : 'No active document'}
                   </option>
                 )}
+                {candidates.length > 0 && !hasSelectedCandidate && (
+                  <option value="">
+                    No active candidate — select one or Redo
+                  </option>
+                )}
                 {candidates.map((candidate) => (
                   <option key={candidate.id} value={candidate.id}>
                     {candidate.name}
@@ -403,6 +411,30 @@ export function Workbench() {
                 ))}
               </select>
             </label>
+            <button
+              className="duplicate-candidate"
+              disabled={!ready || !workcell}
+              onClick={() => {
+                if (!runtime || !candidateId) return
+                const name = window.prompt(
+                  'Name the independent candidate. Copies committed model and experiment inputs only; unsaved drafts and historical runs are not copied.',
+                  'New candidate'
+                )
+                if (name === null) return
+                void perform(async (assertCurrent) => {
+                  const id = await runtime.features.edit.duplicateCandidate(
+                    candidateId,
+                    name
+                  )
+                  assertCurrent()
+                  setCandidateId(id)
+                  setSelectedId(null)
+                  setPlayback(null)
+                }, 'Candidate duplicated · one Undo action')
+              }}
+            >
+              Duplicate candidate
+            </button>
           </div>
           {workcell && (
             <Hierarchy

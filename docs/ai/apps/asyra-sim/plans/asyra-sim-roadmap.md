@@ -3,8 +3,19 @@
 ## 1. Status and Task Contract
 
 Implementation is authorized; M0 feasibility and the bounded M1 local-workcell
-slice are complete. M2 has not started. No milestone or release gate is
+slice are complete. M2-M4 are in progress. No milestone or release gate is
 claimed complete merely because its contract or source files exist.
+
+The current implementation includes canonical experiment drafts, mapped
+trajectory previews, preflight, isolated formal runs, frozen evidence replay,
+explicit run retention with Undo/Redo, two/three-run comparison, reports, and
+portable project import/export, and independent candidate duplication with frozen
+body lineage. Its local gate passes 205 App tests and 14 normal
+browser journeys plus type/lint/build; comparison, import and replay screenshots
+were inspected. This is not M2-M4 completion: visual-asset attachment, private
+methods, field observations, full resource enforcement and
+numerical usability benchmarks still need implementation or validation. M5
+distribution/reference-hardware evidence and M6 independent acceptance remain.
 
 The goal is a free, pluggable, trustworthy experiment workbench. Its first bounded
 product is [robot workcell geometry experiments](../specs/robot-workcell-v0.md).

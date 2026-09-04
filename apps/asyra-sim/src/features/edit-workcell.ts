@@ -6,6 +6,7 @@ import {
 } from '@asyra/core'
 import { FeatureNames } from '../constants'
 import * as model from '../common-apis/workcell'
+import { duplicateCandidate } from '../common-apis/duplicate-candidate'
 import {
   captureCanonicalDocument,
   loadCanonicalDocument
@@ -52,6 +53,8 @@ export function installEditingFeatures(
       const input = structuredClone(workcell)
       return execute(() => model.createCandidate(core, name, input))
     },
+    duplicateCandidate: (sourceId: string, name: string) =>
+      execute(() => duplicateCandidate(core, sourceId, name)),
     replace: (candidateId: string, workcell: Workcell) => {
       const input = structuredClone(workcell)
       return execute(() => model.replaceWorkcell(core, candidateId, input))

@@ -12,6 +12,7 @@
 .experiment-picker { display: flex; align-items: flex-end; gap: 8px; }
 .experiment-picker label { flex: 1; min-width: 0; }
 .experiment-picker button { max-width: 100px; }
+.duplicate-candidate { margin-top: 10px; width: 100%; font-size: 10px; }
 .experiment-scroll textarea { resize: vertical; font-size: 11px; line-height: 1.6; }
 .experiment-scroll summary { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .experiment-scroll summary > span { float: none; text-align: right; }

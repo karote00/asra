@@ -56,7 +56,8 @@ export function exportRunCsv(input: RunRecord): string {
     JSON.stringify(snapshot.scope),
     JSON.stringify(snapshot.method.settings),
     JSON.stringify(snapshot.budget),
-    JSON.stringify(run.environment)
+    JSON.stringify(run.environment),
+    JSON.stringify(run.lineage ?? null)
   ]
   const rows: unknown[][] = [
     [
@@ -79,6 +80,7 @@ export function exportRunCsv(input: RunRecord): string {
       'method_settings_json',
       'budget_json',
       'environment_json',
+      'lineage_json',
       'pair_id',
       'start_s',
       'end_s',
@@ -169,7 +171,7 @@ export function exportRunHtml(input: RunRecord): string {
 <p>Pairs with evidence ${result.coveredPairCount}/${result.totalPairCount} · findings ${result.findingPairCount} · unresolved or absent ${result.unresolvedPairCount + result.totalPairCount - result.coveredPairCount}</p>
 <p>${escapeHtml(snapshot.scope.backgroundNote)}</p><p>${escapeHtml(result.errors.join('; '))}</p>
 <table><thead><tr><th>Pair</th><th>Interval (s)</th><th>Lower (m)</th><th>Upper (m)</th><th>Evidence</th><th>Reason</th></tr></thead><tbody>${pairRows}</tbody></table>
-<details><summary>Frozen inputs, source units, exclusions, method settings and environment</summary><pre>${escapeHtml(JSON.stringify({ snapshot, environment: run.environment }, null, 2))}</pre></details>
+<details><summary>Frozen inputs, source units, exclusions, method settings, environment and lineage</summary><pre>${escapeHtml(JSON.stringify({ snapshot, environment: run.environment, lineage: run.lineage ?? null }, null, 2))}</pre></details>
 <details><summary>Complete immutable result (including witness times)</summary><pre>${escapeHtml(JSON.stringify(result, null, 2))}</pre></details>
 </body></html>`)
 }

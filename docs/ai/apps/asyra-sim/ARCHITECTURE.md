@@ -148,6 +148,17 @@ change to the UI document. R0 does not assume a result cache. Do not design
 memoization or cross-method result reuse without profiling and an equivalence
 oracle. Provenance identity is not a cache design.
 
+Candidate duplication is an App common API invoked through the editing Feature.
+It creates independent canonical body/experiment IDs and remaps references inside
+one transaction. Optional candidate lineage stores only body-origin correspondence,
+not a second hierarchy or geometry model. The runtime's read-only lineage projection
+includes newly added bodies under their own identities and omits removed bodies.
+Retained runs freeze a complete, one-to-one lineage map for their snapshot when
+present. Comparison normalizes identity labels using this explicit map, compares
+actual input values, and preserves raw snapshots unchanged. Original projects and
+runs without lineage keep their existing canonical identities; names never imply
+correspondence. Historical run references remain with their original candidate.
+
 ## 6. Compute Isolation and Replacement
 
 The first-version direction is a local browser UI with an owned compute worker.

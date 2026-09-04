@@ -65,6 +65,26 @@ const environment = () => {
 }
 
 describe('App composition lifetime', () => {
+  it('exposes detached candidate lineage across replacement and rejects retired readers', async () => {
+    const { start } = environment(),
+      first = await start()
+    const a = first.getCandidates()[0].id,
+      b = await first.features.edit.duplicateCandidate(a, 'B')
+    expect(first.getCandidateLineage(a)).toBeUndefined()
+    const lineage = first.getCandidateLineage(b)
+    expect(lineage?.copiedFromCandidateId).toBe(a)
+    if (!lineage) throw new Error('Missing lineage')
+    const source = first.getCandidateLineage(b)
+    Object.values(lineage.bodyOrigins)[0].bodyId = 'external-change'
+    expect(first.getCandidateLineage(b)).toEqual(source)
+    const saved = await first.captureSnapshot()
+    await first.dispose()
+    const second = await start(saved)
+    expect(second.getCandidateLineage(b)).toEqual(source)
+    expect(second.getHistoryDepth()).toBe(0)
+    expect(() => first.getCandidateLineage(b)).toThrow('closed')
+  })
+
   it('retains immutable runs with canonical references across capture, Undo/Redo, and a new lifetime', async () => {
     const { start } = environment(),
       first = await start()

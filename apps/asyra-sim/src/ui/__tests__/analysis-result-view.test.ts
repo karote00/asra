@@ -81,6 +81,15 @@ it('tracks geometric input changes while preserving frozen replay and partial lo
     )
     expect(host.textContent).toContain('Historical inputs differ')
     expect(host.textContent).toContain('Minimum lower bound0.000 mm')
+    const a = snapshot.workcell.bodies.find(
+        (body) => body.id === snapshot.pairs[0].a.bodyId
+      ),
+      b = snapshot.workcell.bodies.find(
+        (body) => body.id === snapshot.pairs[0].b.bodyId
+      )
+    expect(
+      host.querySelector('.evidence-pair > summary')?.textContent
+    ).toContain(`${a?.name} / ${b?.name}`)
     const button = [...host.querySelectorAll('button')].find(
       (item) => item.textContent === 'Replay pair'
     )

@@ -5,6 +5,10 @@ import {
   type AnalysisResult
 } from '../analysis/result'
 import { hasExactOwnKeys } from '../domain/records'
+import {
+  validCandidateLineage,
+  type CandidateLineage
+} from '../common-apis/candidate-lineage'
 
 export interface RunRecord {
   version: 1
@@ -17,6 +21,7 @@ export interface RunRecord {
   }
   snapshot: ExperimentSnapshot
   result: AnalysisResult
+  lineage?: CandidateLineage
 }
 
 export function stableJson(value: unknown): string {
@@ -37,6 +42,8 @@ function freeze<T>(value: T): T {
   return value
 }
 export function validateRunRecord(input: unknown): RunRecord {
+  const hasLineage =
+    !!input && typeof input === 'object' && Object.hasOwn(input, 'lineage')
   if (
     !hasExactOwnKeys(input, [
       'version',
@@ -44,7 +51,8 @@ export function validateRunRecord(input: unknown): RunRecord {
       'retainedAt',
       'environment',
       'snapshot',
-      'result'
+      'result',
+      ...(hasLineage ? ['lineage'] : [])
     ]) ||
     input.version !== 1 ||
     typeof input.name !== 'string' ||
@@ -70,13 +78,25 @@ export function validateRunRecord(input: unknown): RunRecord {
     throw new Error('Invalid retained run metadata')
   const snapshot = validateHistoricalSnapshot(input.snapshot)
   const result = validateHistoricalResult(snapshot, input.result)
+  if (
+    hasLineage &&
+    (!validCandidateLineage(input.lineage) ||
+      !hasExactOwnKeys(
+        input.lineage.bodyOrigins,
+        snapshot.workcell.bodies.map((body) => body.id)
+      ))
+  )
+    throw new Error('Invalid or incomplete retained candidate lineage')
   return freeze({
     version: 1,
     name: input.name,
     retainedAt: input.retainedAt,
     environment: { ...input.environment } as RunRecord['environment'],
     snapshot,
-    result
+    result,
+    ...(hasLineage
+      ? { lineage: structuredClone(input.lineage) as CandidateLineage }
+      : {})
   })
 }
 

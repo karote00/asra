@@ -6,7 +6,11 @@ import {
   type BodyParameters,
   type Workcell
 } from '../domain/workcell'
-import { validCandidateParameters } from '../init/properties'
+import {
+  validCandidateParameters,
+  type CandidateParameters
+} from '../init/properties'
+import type { CandidateLineage } from './candidate-lineage'
 
 const parameters = (body: Body): BodyParameters => ({
   role: body.role,
@@ -15,7 +19,10 @@ const parameters = (body: Body): BodyParameters => ({
   colliders: body.colliders,
   color: body.color
 })
-export function readWorkcell(core: Core, candidateId: string): Workcell {
+export function readCandidateParameters(
+  core: Core,
+  candidateId: string
+): CandidateParameters {
   const snapshot = core.getCanonicalOwnerSnapshot(),
     candidate = snapshot.sceneTree.elements[candidateId]
   if (!candidate || candidate.type !== ComponentTypes.CANDIDATE)
@@ -26,6 +33,12 @@ export function readWorkcell(core: Core, candidateId: string): Workcell {
   const config = candidateProperty?.[PropertyFields.CANDIDATE]
   if (!validCandidateParameters(config))
     throw new Error('Invalid canonical candidate parameters')
+  return structuredClone(config)
+}
+
+export function readWorkcell(core: Core, candidateId: string): Workcell {
+  const config = readCandidateParameters(core, candidateId),
+    snapshot = core.getCanonicalOwnerSnapshot()
   const belongs = (id: string): boolean => {
     const visited = new Set<string>()
     let current: string | undefined = id
@@ -63,6 +76,23 @@ export function readWorkcell(core: Core, candidateId: string): Workcell {
   return workcell
 }
 
+export function readCandidateLineage(
+  core: Core,
+  candidateId: string
+): CandidateLineage | undefined {
+  const config = readCandidateParameters(core, candidateId)
+  if (!config.lineage) return undefined
+  return {
+    ...config.lineage,
+    bodyOrigins: Object.fromEntries(
+      readWorkcell(core, candidateId).bodies.map((body) => [
+        body.id,
+        config.lineage?.bodyOrigins[body.id] ?? { candidateId, bodyId: body.id }
+      ])
+    )
+  }
+}
+
 function writeRoot(
   core: Core,
   candidateId: string,
@@ -71,7 +101,12 @@ function writeRoot(
   core.updateElementProperties([
     {
       elementId: candidateId,
-      values: { [PropertyFields.CANDIDATE]: { robotRootId } }
+      values: {
+        [PropertyFields.CANDIDATE]: {
+          ...readCandidateParameters(core, candidateId),
+          robotRootId
+        }
+      }
     }
   ])
 }
