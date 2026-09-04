@@ -38,6 +38,15 @@ pose, scale, and aggregate validation belong to the domain; existence, digest
 verification, and decoded source ownership belong to the asset/storage flow.
 These are admission bounds, not a measured rendering-capacity claim.
 
+The editing Feature passes visual-resource admission to common APIs. Creating,
+replacing, duplicating, or updating a workcell with visual references requires
+that admission; an unconfigured service cannot silently accept unresolved
+sources. Editing only visual bindings preserves every collider and body/joint
+pose. An explicit prepared-source acceptance and the resulting binding update
+produce one canonical Undo action. Rejection produces no partial binding;
+immutable source retention may outlive a rejected write and remains unsaved.
+Undo removes/reverts the binding, while Redo can resolve the retained source.
+
 ### Retained source ownership
 
 The local archive retains version-1 records with exact fields `version`,

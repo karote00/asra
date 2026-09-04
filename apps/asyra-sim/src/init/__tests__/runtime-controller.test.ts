@@ -29,6 +29,8 @@ function runtime() {
         duplicateCandidate: vi.fn(),
         replace: vi.fn(),
         upsert: vi.fn(),
+        setVisuals: vi.fn(),
+        upsertVisual: vi.fn(),
         remove: vi.fn(),
         createExperiment: vi.fn(),
         updateExperiment: vi.fn(),

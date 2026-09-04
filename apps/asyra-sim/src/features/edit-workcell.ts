@@ -11,7 +11,11 @@ import {
   captureCanonicalDocument,
   loadCanonicalDocument
 } from '../common-apis/document'
-import type { Body, Workcell } from '../domain/workcell'
+import type { Body, VisualBinding, Workcell } from '../domain/workcell'
+import {
+  setBodyVisuals,
+  upsertVisualBinding
+} from '../common-apis/visual-reference'
 import {
   createExperiment,
   removeExperiment,
@@ -25,7 +29,10 @@ import {
 
 export function installEditingFeatures(
   core: Core,
-  artifacts?: { readRun(runId: string): ArchivedRunIdentity | undefined }
+  artifacts?: {
+    readRun?(runId: string): ArchivedRunIdentity | undefined
+    validateVisuals?: model.WorkcellResourceAdmission
+  }
 ) {
   const execute = <T>(operation: () => T): Promise<T> =>
     getSessionManager().runAfterCancellingActiveSessions(
@@ -36,7 +43,7 @@ export function installEditingFeatures(
   const api = {
     attachRun: (runId: string) =>
       execute(() => {
-        const run = artifacts?.readRun(runId)
+        const run = artifacts?.readRun?.(runId)
         if (!run || run.runId !== runId)
           throw new Error('Validated run evidence is unavailable')
         return attachRunReference(core, run)
@@ -51,18 +58,67 @@ export function installEditingFeatures(
     },
     createCandidate: (name: string, workcell: Workcell) => {
       const input = structuredClone(workcell)
-      return execute(() => model.createCandidate(core, name, input))
+      return execute(() =>
+        model.createCandidate(core, name, input, artifacts?.validateVisuals)
+      )
     },
     duplicateCandidate: (sourceId: string, name: string) =>
-      execute(() => duplicateCandidate(core, sourceId, name)),
+      execute(() =>
+        duplicateCandidate(core, sourceId, name, artifacts?.validateVisuals)
+      ),
     replace: (candidateId: string, workcell: Workcell) => {
       const input = structuredClone(workcell)
-      return execute(() => model.replaceWorkcell(core, candidateId, input))
+      return execute(() =>
+        model.replaceWorkcell(
+          core,
+          candidateId,
+          input,
+          artifacts?.validateVisuals
+        )
+      )
     },
     upsert: (candidateId: string, body: Body, robotRootId?: string | null) => {
       const input = structuredClone(body)
       return execute(() =>
-        model.upsertBody(core, candidateId, input, robotRootId)
+        model.upsertBody(
+          core,
+          candidateId,
+          input,
+          robotRootId,
+          artifacts?.validateVisuals
+        )
+      )
+    },
+    setVisuals: (
+      candidateId: string,
+      bodyId: string,
+      visuals: readonly VisualBinding[]
+    ) => {
+      const input = structuredClone(visuals)
+      return execute(() =>
+        setBodyVisuals(
+          core,
+          candidateId,
+          bodyId,
+          input,
+          artifacts?.validateVisuals
+        )
+      )
+    },
+    upsertVisual: (
+      candidateId: string,
+      bodyId: string,
+      binding: VisualBinding
+    ) => {
+      const input = structuredClone(binding)
+      return execute(() =>
+        upsertVisualBinding(
+          core,
+          candidateId,
+          bodyId,
+          input,
+          artifacts?.validateVisuals
+        )
       )
     },
     remove: (candidateId: string, bodyId: string) =>

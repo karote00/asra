@@ -750,6 +750,7 @@
         inputs: [
           'artifact:runtime',
           'artifact:domain',
+          'validated visual source admission callback',
           'validated edit intent or canonical capture/guarded-apply request'
         ],
         outputs: ['artifact:committed-model', 'artifact:canonical-capture'],
@@ -757,6 +758,7 @@
           'Mutating edit intents use Feature -> common API -> Core canonical state under one transaction.',
           'Candidate duplication remaps independent body/experiment identities and all references atomically, preserves explicit body lineage, and never copies historical run references.',
           'Reject invalid edits; explicit rollback cancellation produces no partial scene.',
+          'Preserve body-local visual metadata through edits and duplication; admit all declared sources and expanded instances before writing. Visual binding uses previously retained source bytes in one canonical transaction; source retention and durable saving remain separate storage operations.',
           'Capture awaits Core serialization inside the interaction queue without opening a transaction; storage I/O occurs afterward.',
           'Guarded canonical apply checks freshness inside the queue immediately before Core load and does not clear history.'
         ],

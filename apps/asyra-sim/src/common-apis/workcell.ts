@@ -17,8 +17,19 @@ const parameters = (body: Body): BodyParameters => ({
   pose: body.pose,
   joint: body.joint,
   colliders: body.colliders,
+  ...(body.visuals !== undefined ? { visuals: body.visuals } : {}),
   color: body.color
 })
+
+export type WorkcellResourceAdmission = (workcell: Workcell) => void
+function admitResources(
+  workcell: Workcell,
+  admit?: WorkcellResourceAdmission
+): void {
+  if (!workcell.bodies.some((body) => body.visuals?.length)) return
+  if (!admit) throw new Error('Visual resource admission is unavailable')
+  admit(workcell)
+}
 export function readCandidateParameters(
   core: Core,
   candidateId: string
@@ -127,9 +138,11 @@ function insertBody(core: Core, candidateId: string, body: Body): void {
 export function replaceWorkcell(
   core: Core,
   candidateId: string,
-  workcell: Workcell
+  workcell: Workcell,
+  admit?: WorkcellResourceAdmission
 ): void {
   validateWorkcell(workcell)
+  admitResources(workcell, admit)
   const current = readWorkcell(core, candidateId)
   const owned = new Set(current.bodies.map((body) => body.id))
   for (const body of workcell.bodies)
@@ -194,9 +207,11 @@ export function replaceWorkcell(
 export function createCandidate(
   core: Core,
   name: string,
-  workcell: Workcell
+  workcell: Workcell,
+  admit?: WorkcellResourceAdmission
 ): string {
   validateWorkcell(workcell)
+  admitResources(workcell, admit)
   if (!name.trim() || name.length > 200)
     throw new Error('Candidate name must contain 1 to 200 characters')
   return runTransaction(() => {
@@ -206,7 +221,7 @@ export function createCandidate(
       x: 0,
       y: 0
     })
-    replaceWorkcell(core, id, workcell)
+    replaceWorkcell(core, id, workcell, admit)
     return id
   })
 }
@@ -214,7 +229,8 @@ export function upsertBody(
   core: Core,
   candidateId: string,
   body: Body,
-  robotRootId?: string | null
+  robotRootId?: string | null,
+  admit?: WorkcellResourceAdmission
 ): void {
   const current = readWorkcell(core, candidateId),
     existing = current.bodies.find((item) => item.id === body.id)
@@ -228,6 +244,7 @@ export function upsertBody(
       : [...current.bodies, body]
   }
   validateWorkcell(next)
+  admitResources(next, admit)
   runTransaction(() => {
     if (existing) {
       core.updateElementProperties([

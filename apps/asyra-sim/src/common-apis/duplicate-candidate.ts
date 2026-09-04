@@ -1,6 +1,11 @@
 import { runTransaction, type Core } from '@asyra/core'
 import { PropertyFields } from '../constants'
-import { createCandidate, readCandidateLineage, readWorkcell } from './workcell'
+import {
+  createCandidate,
+  readCandidateLineage,
+  readWorkcell,
+  type WorkcellResourceAdmission
+} from './workcell'
 import {
   createExperiment,
   readExperiments,
@@ -12,7 +17,8 @@ import type { CandidateLineage } from './candidate-lineage'
 export function duplicateCandidate(
   core: Core,
   sourceId: string,
-  name: string
+  name: string,
+  admit?: WorkcellResourceAdmission
 ): string {
   const source = readWorkcell(core, sourceId),
     lineage = readCandidateLineage(core, sourceId)
@@ -86,7 +92,7 @@ export function duplicateCandidate(
     )
   }
   return runTransaction(() => {
-    const id = createCandidate(core, name, workcell)
+    const id = createCandidate(core, name, workcell, admit)
     core.updateElementProperties([
       {
         elementId: id,
