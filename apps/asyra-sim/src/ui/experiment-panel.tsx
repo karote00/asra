@@ -12,7 +12,7 @@ import {
 import { ExperimentFields } from './experiment-fields'
 import { AnalysisResultView, isPresentedRunStale } from './analysis-result-view'
 import { TrajectoryImportPanel } from './trajectory-import-panel'
-import { GlbPreview } from './glb-preview'
+import { GlbPreview, type VisualPreview } from './glb-preview'
 import { RunProgress } from './run-progress'
 import type { RunRecord } from '../storage/run-record'
 import { version as appVersion } from '../../package.json'
@@ -39,7 +39,10 @@ export function ExperimentPanel({
   runs,
   retainedIds,
   onRun,
-  onOpenRuns
+  onOpenRuns,
+  onVisualPreview,
+  isCurrent,
+  visualImportActive
 }: {
   runtime: SimRuntime
   candidateId: string
@@ -51,6 +54,9 @@ export function ExperimentPanel({
   retainedIds: ReadonlySet<string>
   onRun: (run: RunRecord) => void
   onOpenRuns: () => void
+  onVisualPreview: (preview: VisualPreview | null) => void
+  isCurrent: (runtime: SimRuntime) => boolean
+  visualImportActive: boolean
 }) {
   const experiments = runtime.getExperiments(candidateId)
   const [experimentId, setExperimentId] = useState(experiments[0]?.id ?? '')
@@ -314,7 +320,14 @@ export function ExperimentPanel({
             })
           }}
         />
-        <GlbPreview />
+        <GlbPreview
+          runtime={runtime}
+          candidateId={candidateId}
+          workcell={workcell}
+          onPreview={onVisualPreview}
+          isCurrent={isCurrent}
+          active={visualImportActive}
+        />
         <div className="draft-actions">
           <span>
             {dirty ? 'Unsaved experiment draft' : 'Experiment unchanged'}

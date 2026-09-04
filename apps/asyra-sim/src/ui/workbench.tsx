@@ -15,6 +15,7 @@ import type { RunRecord } from '../storage/run-record'
 import { RunLibrary } from './run-library'
 import { isPresentedRunStale } from './analysis-result-view'
 import { definitionToDraft } from './experiment-draft'
+import type { VisualPreview } from './glb-preview'
 
 function Hierarchy({
   workcell,
@@ -60,6 +61,16 @@ export function Workbench() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [inspector, setInspector] = useState<'object' | 'experiment'>('object')
   const [playback, setPlayback] = useState<PlaybackView | null>(null)
+  const [visualPreview, setVisualPreview] = useState<VisualPreview | null>(null)
+  const [visuals, setVisuals] = useState(true),
+    [proxies, setProxies] = useState(true)
+  const onVisualPreview = useCallback((value: VisualPreview | null) => {
+    setVisualPreview(value)
+    if (value) {
+      setPlayback(null)
+      setVisuals(true)
+    }
+  }, [])
   const [pendingRuns, setPendingRuns] = useState<RunRecord[]>([])
   const [showRuns, setShowRuns] = useState(false)
   const [camera, setCamera] = useState<SpatialCamera>(() =>
@@ -73,6 +84,9 @@ export function Workbench() {
     setSelectedId(null)
     setInspector('object')
     setPlayback(null)
+    setVisualPreview(null)
+    setVisuals(true)
+    setProxies(true)
     if (value) setPendingRuns([])
     setShowRuns(false)
     setCamera(structuredClone(DEFAULT_CAMERA))
@@ -145,12 +159,15 @@ export function Workbench() {
   )
   useViewport(
     runtime,
-    playback?.workcell ?? workcell,
+    visualPreview?.workcell ?? playback?.workcell ?? workcell,
     playback?.bodyIds[0] ?? selectedId,
     camera,
     grid,
     isCurrent,
-    playback?.joints
+    playback?.joints,
+    visuals,
+    proxies,
+    visualPreview?.prepared
   )
   const perform = async (
     action: (assertCurrent: () => void) => Promise<unknown>,
@@ -470,6 +487,24 @@ export function Workbench() {
               />
               Grid
             </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={visuals}
+                disabled={!ready}
+                onChange={(event) => setVisuals(event.target.checked)}
+              />
+              Visuals
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={proxies}
+                disabled={!ready}
+                onChange={(event) => setProxies(event.target.checked)}
+              />
+              Proxies
+            </label>
           </div>
           <div
             className="canvas-host"
@@ -485,6 +520,7 @@ export function Workbench() {
             isCurrent={isCurrent}
           />
           <div className="viewport-summary">
+            {visualPreview && <strong>Visual preview · not accepted</strong>}
             <span>
               {playback
                 ? `${playback.historical ? 'Historical run replay' : 'Sampled preview'} · ${playback.time.toFixed(4)} s`
@@ -513,6 +549,9 @@ export function Workbench() {
                 revision={revision}
                 perform={perform}
                 onPlayback={setPlayback}
+                onVisualPreview={onVisualPreview}
+                isCurrent={isCurrent}
+                visualImportActive={inspector === 'experiment' && !playback}
                 runs={runs}
                 retainedIds={retainedIds}
                 onRun={(run) => {

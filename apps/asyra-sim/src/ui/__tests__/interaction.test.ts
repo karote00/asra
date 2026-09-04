@@ -49,7 +49,10 @@ it('removing the active canonical model removes its old visible projection', asy
   const host = document.createElement('div'),
     root = createRoot(host)
   const setFrame = vi.fn(),
-    runtime = { setFrame } as unknown as SimRuntime
+    runtime = {
+      setFrame,
+      getVisualAssets: () => new Map()
+    } as unknown as SimRuntime
   const View = ({ workcell }: { workcell: Workcell | null }) => {
     useViewport(runtime, workcell, null, DEFAULT_CAMERA, false, () => true)
     return null

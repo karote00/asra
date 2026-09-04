@@ -10,14 +10,17 @@ The current implementation includes canonical experiment drafts, mapped
 trajectory previews, preflight, isolated formal runs, frozen evidence replay,
 explicit run retention with Undo/Redo, two/three-run comparison, reports, and
 portable project import/export, and independent candidate duplication with frozen
-body lineage, bounded progress/cancellation, and guarded GLB preview. Its local
-gate passes 236 App tests and 16 normal
-browser journeys plus type/lint/build; comparison, import and replay screenshots
-were inspected, including the visible progress/cancel and oversized-file paths.
+body lineage, bounded progress/cancellation, and restricted GLB attachment with
+independent body-local placement. Its local gate passes the App suite and 19 normal
+browser journeys plus type/lint/build; comparison, import, visual placement and
+replay screenshots were inspected. Visual sources survive Undo/Redo and native
+replacement, including historical-only references. Invalid source content is
+rejected before pausing the current runtime. CSV/JSON resource admission and
+stale-preview cancellation have formal regression coverage.
 Admission now enforces collider/pair/segment caps, and the method/runner enforce
 global retained evidence, encoded payloads, deadlines, and 250 ms cancellation
-grace. This is not M2-M4 completion: visual-asset attachment, private
-methods, field observations, remaining resource defaults/import limits and
+grace. This is not M2-M4 completion: private
+methods, field observations, remaining resource defaults and
 numerical usability benchmarks still need implementation or validation. M5
 distribution/reference-hardware evidence and M6 independent acceptance remain.
 

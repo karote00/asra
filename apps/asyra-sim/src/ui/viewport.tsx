@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { SimRuntime } from '../init/bootstrap'
 import type { SpatialCamera } from '../render-app/spatial-layer'
 import type { Workcell } from '../domain/workcell'
+import type { PreparedVisualImport } from '../storage/visual-archive'
 import {
   createWorkcellFrame,
   DEFAULT_CAMERA
@@ -15,16 +16,34 @@ export function useViewport(
   camera: SpatialCamera,
   grid: boolean,
   isCurrent: (runtime: SimRuntime) => boolean,
-  joints?: Readonly<Record<string, number>>
+  joints?: Readonly<Record<string, number>>,
+  visuals = true,
+  proxies = true,
+  pending?: PreparedVisualImport
 ) {
   useEffect(() => {
     if (runtime && isCurrent(runtime))
       runtime.setFrame(
         workcell
-          ? createWorkcellFrame(workcell, { selectedId, camera, grid, joints })
+          ? createWorkcellFrame(
+              workcell,
+              { selectedId, camera, grid, joints, visuals, proxies },
+              runtime.getVisualAssets(workcell, pending)
+            )
           : { camera, meshes: [] }
       )
-  }, [runtime, workcell, selectedId, camera, grid, joints, isCurrent])
+  }, [
+    runtime,
+    workcell,
+    selectedId,
+    camera,
+    grid,
+    joints,
+    isCurrent,
+    visuals,
+    proxies,
+    pending
+  ])
 }
 
 export function ViewportControls({

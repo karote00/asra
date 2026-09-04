@@ -71,14 +71,18 @@ This plan makes the following first-version choices concrete: a local browser
 workbench, one fixed-base serial robot, explicit joint trajectories, simple
 analysis geometry, JSON/CSV import, sequential candidate comparison, and trusted
 local method extensions. These are implementation targets, not available
-features.
+features unless the implemented checkpoint below says otherwise.
 
-The current proofs cover public-boundary 3D, canonical edits, interval geometry
-kernels, a real Chrome path, and isolated restricted GLB decoding. Initial
-resource/environment choices are frozen; reference-hardware performance and
-complete user workflows remain unverified. The [numerical contract](specs/numerical-method-v0.md)
-defines the kernels' support limits; a tested kernel is not yet a complete
-experiment runner or a real-world accuracy claim.
+The implemented checkpoint includes public-boundary 3D, canonical workcell and
+experiment edits, isolated interval-geometry runs, immutable evidence, A/B/C
+comparison, portable projects, and restricted GLB references. Ordinary browser
+tests cover visual placement, Undo/Redo, damaged-source rejection, and historical
+replay through complete App replacement. Initial resource/environment choices
+are frozen; private extensions, field observations, independent distribution,
+reference-hardware performance, and pilot acceptance remain unfinished.
+The [numerical contract](specs/numerical-method-v0.md) defines the method's support
+limits; passing local tests is not an independent numerical review or a
+real-world accuracy claim.
 
 ## Working Rules
 

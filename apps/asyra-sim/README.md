@@ -10,7 +10,8 @@ save and reopen local projects. The experiment panel accepts explicitly mapped
 trajectories, runs preflight and isolated continuous-time analysis, and replays
 frozen evidence. Runs can be explicitly retained, compared, exported, and reopened
 with portable projects. Independent A/B/C workcells can be duplicated and compared.
-Attached visual assets, extension delivery, and independent validation remain under development. Do not use this
+Restricted GLB references can be previewed, attached, edited, and preserved with
+historical runs. Extension delivery and independent validation remain under development. Do not use this
 checkpoint to approve production operations.
 
 ## Local development
@@ -70,8 +71,23 @@ column has an explicit angle or length unit. CSV accepts up to 8 MiB and JSON
 up to 1 MiB; both require 1–2,000 keyframes. CSV parsing stops at 256 columns or
 2,000 data rows. Selecting another file invalidates the previous preview
 immediately, including when the new file cannot be read. Save the draft before preflight
-or formal analysis. A GLB decode preview currently reports restricted visual
-asset metadata; attaching it to the workcell is a separate unfinished step.
+or formal analysis.
+
+Expand **GLB visual reference**, choose a self-contained static GLB, and verify its
+dimensions, source units, digest, and appearance limitations. Select the target
+body, set a body-local position/rotation and positive scale, then choose **Preview
+placement in 3D**. Only **Accept visual reference** creates an undoable binding.
+Cancellation, another source, leaving the import panel, or changed workcell inputs
+invalidates the transient preview. Accepted references can be adjusted or removed
+under the selected object's **Visual references**; **Apply changes** commits the
+draft. The viewport's **Visuals** and **Proxies** switches affect display only.
+Imported triangles never become analysis colliders automatically.
+
+Native projects include original sources referenced by current candidates or
+retained runs. Removing today's visual does not remove a historical run's source.
+Every source is decoded and its digest verified before document replacement
+pauses the current runtime. Missing, corrupted or unsupported sources reject the
+replacement; historical-only references still render after a successful reopen.
 
 The sampled pose slider changes only the view. Formal analysis freezes inputs,
 runs in an owned Worker, and separates execution, coverage, findings, bounds,

@@ -52,7 +52,10 @@ it('preserves an unapplied experiment draft when the workcell changes', async ()
         runs: [],
         retainedIds: new Set<string>(),
         onRun: vi.fn(),
-        onOpenRuns: vi.fn()
+        onOpenRuns: vi.fn(),
+        onVisualPreview: vi.fn(),
+        isCurrent: () => true,
+        visualImportActive: true
       })
     )
   await act(() => render(1))
@@ -87,7 +90,10 @@ it('exposes a new experiment draft even when a saved experiment exists', async (
         runs: [],
         retainedIds: new Set<string>(),
         onRun: vi.fn(),
-        onOpenRuns: vi.fn()
+        onOpenRuns: vi.fn(),
+        onVisualPreview: vi.fn(),
+        isCurrent: () => true,
+        visualImportActive: true
       })
     )
   )

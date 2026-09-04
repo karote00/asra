@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { IDENTITY_POSE, axisAngle, type Vec3 } from '../domain/math'
 import type { Body, Collider, Geometry, Workcell } from '../domain/workcell'
 import { NumberField, VectorField } from './fields'
+import { VisualPlacementFields } from './visual-placement-fields'
 
 function newGeometry(kind: string): Geometry {
   if (kind === 'box') return { kind: 'box', size: [0.2, 0.2, 0.2] }
@@ -53,6 +54,51 @@ export function BodyEditor({
         <span className="role-tag">{body.role}</span>
       </div>
       <div className="editor-content">
+        <details className="visual-bindings">
+          <summary>
+            Visual references <span>{draft.visuals?.length ?? 0}</span>
+          </summary>
+          <p className="hint">
+            Import a GLB in Experiments to attach a reference. Placement affects
+            appearance only; Apply properties commits these edits with one Undo
+            action.
+          </p>
+          {(draft.visuals ?? []).map((binding, index) => (
+            <fieldset
+              key={binding.id}
+              aria-label={`Visual reference ${index + 1}`}
+            >
+              <legend>Reference {index + 1}</legend>
+              <p className="asset-digest">SHA-256: {binding.assetId}</p>
+              <VisualPlacementFields
+                value={binding}
+                onChange={(placement) =>
+                  setDraft({
+                    ...draft,
+                    visuals: draft.visuals?.map((entry) =>
+                      entry.id === binding.id
+                        ? { ...entry, ...placement }
+                        : entry
+                    )
+                  })
+                }
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  setDraft({
+                    ...draft,
+                    visuals: draft.visuals?.filter(
+                      (entry) => entry.id !== binding.id
+                    )
+                  })
+                }
+              >
+                Remove visual reference {index + 1}
+              </button>
+            </fieldset>
+          ))}
+        </details>
         <label>
           Name
           <input

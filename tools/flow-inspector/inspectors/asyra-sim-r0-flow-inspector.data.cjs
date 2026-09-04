@@ -1119,6 +1119,9 @@
           'Reset transient view/selection/drafts for each successor; guard late old-runtime effects and input callbacks.',
           'Show local storage errors without blocking editing; post-retirement failure disables editing and offers detached recovery download.',
           'Expose assumptions, unknowns, saving failures, comparison differences, and method versions.',
+          'Prepare visual sources through owned Features; show dimensions, units, digest and limitations, preview explicit body-local placement, then accept one binding transaction.',
+          'Cancel or replace previews without canonical writes; invalidate transient placement when its source, target, or current workcell changes, and guard retired runtime callbacks.',
+          'Keep visual/proxy display switches transient; binding edits and removal remain ordinary undoable model edits.',
           'Use local assets; release readiness remains governed by FIRST_RELEASE gates.'
         ],
         bypasses: [
