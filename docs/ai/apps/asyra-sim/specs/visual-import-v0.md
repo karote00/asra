@@ -38,7 +38,39 @@ pose, scale, and aggregate validation belong to the domain; existence, digest
 verification, and decoded source ownership belong to the asset/storage flow.
 These are admission bounds, not a measured rendering-capacity claim.
 
-### Asset content
+### Retained source ownership
+
+The local archive retains version-1 records with exact fields `version`,
+`assetId`, `filename`, `byteLength`, and `base64`. Base64 must be canonical;
+length and digest must match the decoded original bytes. Filenames are bounded
+inert display metadata, never paths or URLs to load. Decoded triangle arrays
+are runtime resources, not the persisted authority or canonical editable data.
+
+Preparation detaches bytes before awaiting the owned decoder, validates the
+digest, and returns an immutable archive-scoped preview receipt. Preparation
+alone does not retain a source or create a binding. Acceptance rejects a
+fabricated, copied, foreign, cancelled, or retired receipt. Reusing accepted
+identical bytes shares the original immutable source, not editable placement.
+Hydration validates every source and decodes the supported profile before
+publishing an archive; it cannot return a partially hydrated archive on error.
+
+The archive retains undo-reachable orphan sources until its lifetime ends.
+Both a project source collection and the lifetime archive are bounded to
+256 unique sources and 64 MiB of raw bytes, with 16 MiB per source. Exhaustion
+is explicit. A portable capture includes the union of current and retained-run
+references, excluding unrelated orphan blobs; missing references are errors.
+Reopening that capture in a new lifetime can release unreferenced undo data.
+The native 64 MiB JSON limit also applies, including Base64 expansion.
+
+Decoded resources are additionally bounded to 1,000,000 vertices and 3,000,000
+indices per lifetime archive. Resolving a workcell applies the same aggregate
+limits to all binding instances, including hidden bodies and repeated sources.
+Source-byte caps alone cannot bound geometry amplified by instancing. Resolution
+returns only available decoded artifacts; missing references or excess geometry
+fail explicitly before projection or formal snapshot admission. A valid pending
+preview receipt may participate in a read-only admission check without retention.
+
+### Supported GLB content
 
 - GLB container version 2 and glTF asset version 2.0, with exactly one JSON chunk
   and one binary chunk, one embedded buffer, and one scene.

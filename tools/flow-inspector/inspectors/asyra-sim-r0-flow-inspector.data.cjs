@@ -1045,11 +1045,14 @@
           'artifact:canonical-capture',
           'artifact:result',
           'validated import or explicit save/compare intent',
+          'local visual source bytes and inert source metadata',
           'artifact:visual-asset'
         ],
         outputs: ['artifact:retained-data'],
         conditions: [
           'Preview imports before Feature acceptance; failed import leaves no partial state.',
+          'Retain immutable original visual sources only through archive-scoped prepared receipts; source collections are byte/count bounded and fully decoded with verified digests before hydration succeeds.',
+          'Resolve every visual reference before use and bound decoded archive geometry and repeated workcell instances independently of source bytes.',
           'Save acknowledgement is independent of runtime commit; historical evidence stays immutable.',
           'Retained runs freeze optional validated candidate lineage; comparison uses explicit body correspondence without suppressing geometry or setting changes or rewriting evidence.',
           'UI, export, comparison and replay consume the same result; incompatible comparisons are disclosed.'
@@ -1059,6 +1062,7 @@
         ],
         allowedContributors: [
           'local IndexedDB and portable bundles',
+          'owned asset decoder service returning detached artifacts only',
           'safe CSV/JSON/HTML serializers'
         ],
         forbiddenContributors: [
