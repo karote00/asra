@@ -46,6 +46,22 @@ export function preflightExperiment(
   definition: ExperimentDefinition,
   methods: readonly MethodDescriptor[]
 ): PreflightReport {
+  return inspectExperiment(workcell, definition, methods)
+}
+
+/** History validates data and scope without asserting method availability. */
+export function inspectHistoricalExperiment(
+  workcell: Workcell,
+  definition: ExperimentDefinition
+): PreflightReport {
+  return inspectExperiment(workcell, definition, null)
+}
+
+function inspectExperiment(
+  workcell: Workcell,
+  definition: ExperimentDefinition,
+  methods: readonly MethodDescriptor[] | null
+): PreflightReport {
   try {
     validateWorkcell(workcell)
     validateExperimentDefinition(definition)
@@ -90,19 +106,19 @@ export function preflightExperiment(
       )
   }
 
-  const method = methods.find(
+  const method = methods?.find(
     (candidate) =>
       candidate.id === definition.method.id &&
       candidate.version === definition.method.version
   )
-  if (!method)
+  if (!method && methods !== null)
     blockers.push(
       issue(
         'method-unavailable',
         `Method ${definition.method.id}@${definition.method.version} is unavailable.`
       )
     )
-  else {
+  else if (method) {
     const moving = definition.trajectory.keyframes.length > 1
     if (
       (moving && !method.supportsMotion) ||

@@ -1,5 +1,6 @@
 import { validIdentifier } from '../domain/workcell'
-import { preflightExperiment } from './preflight'
+import { inspectHistoricalExperiment, preflightExperiment } from './preflight'
+import { hasExactOwnKeys } from '../domain/records'
 import type {
   ExperimentDefinition,
   ExperimentSnapshot,
@@ -71,4 +72,85 @@ export function createExperimentSnapshot(
     budget: definition.budget,
     acknowledgedWarnings: [...input.acknowledgedWarningCodes]
   })
+}
+
+/** Read-only historical admission; this artifact never grants permission to rerun. */
+export function validateHistoricalSnapshot(input: unknown): ExperimentSnapshot {
+  if (
+    !hasExactOwnKeys(input, [
+      'version',
+      'snapshotId',
+      'source',
+      'workcell',
+      'trajectory',
+      'sourceUnits',
+      'interval',
+      'scope',
+      'pairs',
+      'method',
+      'rule',
+      'budget',
+      'acknowledgedWarnings'
+    ]) ||
+    input.version !== 1 ||
+    !validIdentifier(input.snapshotId) ||
+    !hasExactOwnKeys(input.source, [
+      'candidateId',
+      'experimentId',
+      'experimentRevision'
+    ]) ||
+    !validIdentifier(input.source.candidateId) ||
+    !validIdentifier(input.source.experimentId) ||
+    !Array.isArray(input.pairs) ||
+    input.pairs.length > 4096 ||
+    !Array.isArray(input.acknowledgedWarnings) ||
+    input.acknowledgedWarnings.length > 64 ||
+    !input.acknowledgedWarnings.every(
+      (value) =>
+        typeof value === 'string' && value.length > 0 && value.length <= 200
+    ) ||
+    new Set(input.acknowledgedWarnings).size !==
+      input.acknowledgedWarnings.length
+  )
+    throw new Error('Invalid historical snapshot envelope')
+  const snapshot = structuredClone(input) as unknown as ExperimentSnapshot
+  const report = inspectHistoricalExperiment(snapshot.workcell, {
+    version: snapshot.version,
+    revision: snapshot.source.experimentRevision,
+    trajectory: snapshot.trajectory,
+    sourceUnits: snapshot.sourceUnits,
+    scope: snapshot.scope,
+    interval: snapshot.interval,
+    method: snapshot.method,
+    rule: snapshot.rule,
+    budget: snapshot.budget
+  })
+  if (report.blockers.length)
+    throw new Error(
+      `Invalid historical snapshot: ${report.blockers[0]?.message}`
+    )
+  if (
+    report.assumptions.some(
+      (issue) => !snapshot.acknowledgedWarnings.includes(issue.code)
+    )
+  )
+    throw new Error('Historical snapshot has unacknowledged assumptions')
+  if (
+    snapshot.pairs.length !== report.pairs.length ||
+    snapshot.pairs.some((pair, index) => {
+      const expected = report.pairs[index]
+      return (
+        !hasExactOwnKeys(pair, ['id', 'a', 'b']) ||
+        !hasExactOwnKeys(pair.a, ['bodyId', 'colliderId']) ||
+        !hasExactOwnKeys(pair.b, ['bodyId', 'colliderId']) ||
+        pair.id !== expected?.id ||
+        pair.a.bodyId !== expected.a.bodyId ||
+        pair.a.colliderId !== expected.a.colliderId ||
+        pair.b.bodyId !== expected.b.bodyId ||
+        pair.b.colliderId !== expected.b.colliderId
+      )
+    })
+  )
+    throw new Error('Historical snapshot pairs do not match its declared scope')
+  return deepFreeze(snapshot)
 }
