@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import { createSyntheticExample } from '../../../samples/synthetic-workcell'
+import { createSyntheticExperimentDraft } from '../../../samples/synthetic-experiment'
 import { forwardKinematics, jointValuesAt } from '../workcell'
 
 it('provides an explicit six-axis model, complete trajectory and visible exclusion reasons', () => {
@@ -35,4 +36,23 @@ it('provides an explicit six-axis model, complete trajectory and visible exclusi
       example.workcell.bodies.some((original) => original.id === body.id)
     )
   ).toBe(false)
+
+  const experiment = createSyntheticExperimentDraft(example)
+  expect(experiment.trajectory).toEqual(example.trajectory)
+  expect(experiment.sourceUnits.joints).toEqual(
+    Object.fromEntries(
+      example.workcell.bodies
+        .filter((body) => body.joint.kind !== 'fixed')
+        .map((body) => [body.id, 'rad'])
+    )
+  )
+  expect(
+    new Set([
+      ...experiment.scope.primaryBodyIds,
+      ...experiment.scope.influencingBodyIds
+    ])
+  ).toEqual(new Set(example.workcell.bodies.map((body) => body.id)))
+  expect(experiment.scope.excludedPairs).toHaveLength(
+    example.excludedPairs.length
+  )
 })
