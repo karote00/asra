@@ -5,9 +5,9 @@ import {
   type ExperimentSnapshot
 } from './contracts'
 import type {
-  OfficialMethodEvidence,
-  OfficialPairEvidence
-} from './methods/official-method'
+  MethodEvidence,
+  MethodPairEvidence
+} from '../extensions/contracts'
 
 export type AnalysisExecution =
   'completed' | 'cancelled' | 'timed-out' | 'failed'
@@ -29,7 +29,7 @@ export interface AnalysisResult {
   coverage: AnalysisCoverage
   verdict: AnalysisVerdict
   summary: AnalysisSummary
-  pairEvidence: readonly OfficialPairEvidence[]
+  pairEvidence: readonly MethodPairEvidence[]
   totalPairCount: number
   coveredPairCount: number
   findingPairCount: number
@@ -70,8 +70,8 @@ function deepFreeze<T>(input: T, seen = new WeakSet<object>()): T {
 
 export function validatePairProgress(
   snapshot: ExperimentSnapshot,
-  pair: OfficialPairEvidence
-): OfficialPairEvidence {
+  pair: MethodPairEvidence
+): MethodPairEvidence {
   const expected = snapshot.pairs.find((item) => item.id === pair?.pairId),
     evidence = pair?.evidence
   if (
@@ -177,7 +177,7 @@ export function validatePairProgress(
 
 function summarize(
   snapshot: ExperimentSnapshot,
-  evidence: readonly OfficialPairEvidence[],
+  evidence: readonly MethodPairEvidence[],
   execution: AnalysisExecution,
   coverage: AnalysisCoverage,
   timing: RunTiming,
@@ -229,9 +229,23 @@ function summarize(
 
 export function completeAnalysisResult(
   snapshot: ExperimentSnapshot,
-  evidence: OfficialMethodEvidence,
+  evidence: MethodEvidence,
   timing: RunTiming
 ): AnalysisResult {
+  if (
+    !hasExactOwnKeys(evidence, [
+      'version',
+      'snapshotId',
+      'method',
+      'coverage',
+      'evaluations',
+      'pairs'
+    ]) ||
+    !hasExactOwnKeys(evidence.method, ['id', 'version']) ||
+    !Array.isArray(evidence.pairs) ||
+    evidence.pairs.length > EXPERIMENT_RESOURCE_PROFILE.maxPairs
+  )
+    throw new Error('Invalid method evidence envelope')
   if (
     evidence.version !== 1 ||
     evidence.snapshotId !== snapshot.snapshotId ||
@@ -267,7 +281,7 @@ export function completeAnalysisResult(
 
 export function terminalAnalysisResult(
   snapshot: ExperimentSnapshot,
-  evidence: readonly OfficialPairEvidence[],
+  evidence: readonly MethodPairEvidence[],
   terminal: TerminalRun
 ): AnalysisResult {
   if (!terminal.error || terminal.error.length > 2000)
@@ -335,7 +349,7 @@ export function validateHistoricalResult(
       {
         version: 1,
         snapshotId: result.snapshotId,
-        method: result.method,
+        method: { id: result.method.id, version: result.method.version },
         coverage: result.coverage,
         pairs: result.pairEvidence,
         evaluations: result.pairEvidence.reduce(

@@ -2,7 +2,10 @@ import {
   EXPERIMENT_RESOURCE_PROFILE,
   type ExperimentSnapshot
 } from './contracts'
-import type { OfficialPairEvidence } from './methods/official-method'
+import type { MethodPairEvidence } from '../extensions/contracts'
+import type { MethodCatalog } from '../extensions/catalog'
+import { INSTALLED_METHOD_CATALOG } from '../extensions/installed-methods'
+import { admitSnapshotExecution } from '../extensions/execution-admission'
 import {
   completeAnalysisResult,
   terminalAnalysisResult,
@@ -52,8 +55,8 @@ const errorMessage = (input: unknown, fallback: string): string =>
 
 /** Both inputs have passed the exact evidence schema; property order is inert. */
 function samePairEvidence(
-  a: OfficialPairEvidence,
-  b: OfficialPairEvidence
+  a: MethodPairEvidence,
+  b: MethodPairEvidence
 ): boolean {
   const left = a.evidence,
     right = b.evidence
@@ -80,7 +83,8 @@ export class AnalysisRunner {
     private readonly createWorker: WorkerFactory = defaultWorkerFactory,
     private readonly now: Clock = Date.now,
     private readonly createId: IdFactory = () => crypto.randomUUID(),
-    private readonly terminationGraceMs: number = EXPERIMENT_RESOURCE_PROFILE.terminationGraceMs
+    private readonly terminationGraceMs: number = EXPERIMENT_RESOURCE_PROFILE.terminationGraceMs,
+    private readonly methods: MethodCatalog = INSTALLED_METHOD_CATALOG
   ) {}
 
   isRunning(): boolean {
@@ -92,7 +96,7 @@ export class AnalysisRunner {
   }
 
   run(
-    snapshot: ExperimentSnapshot,
+    input: ExperimentSnapshot,
     signal?: AbortSignal
   ): Promise<AnalysisResult> {
     if (this.closed)
@@ -101,6 +105,12 @@ export class AnalysisRunner {
       return Promise.reject(new Error('A formal analysis is already running'))
     const runId = this.createId(),
       startedAt = this.now()
+    let snapshot: ExperimentSnapshot
+    try {
+      snapshot = admitSnapshotExecution(input, this.methods)
+    } catch (error) {
+      return Promise.reject(error)
+    }
     const initialProgress: AnalysisProgress = {
       runId,
       snapshotId: snapshot.snapshotId,
@@ -161,7 +171,7 @@ export class AnalysisRunner {
       timeout?: ReturnType<typeof setTimeout>
       grace?: ReturnType<typeof setTimeout>
     } = {}
-    const progress = new Map<string, OfficialPairEvidence>()
+    const progress = new Map<string, MethodPairEvidence>()
     let retainedLeaves = 0,
       retainedEvaluations = 0,
       retainedBytes = 2
@@ -170,7 +180,7 @@ export class AnalysisRunner {
         const item = progress.get(pair.id)
         return item ? [item] : []
       })
-    const acceptProgress = (pairs: readonly OfficialPairEvidence[]) => {
+    const acceptProgress = (pairs: readonly MethodPairEvidence[]) => {
       if (!Array.isArray(pairs) || pairs.length > snapshot.pairs.length)
         throw new Error('Invalid analysis progress batch')
       for (const input of pairs) {
@@ -337,8 +347,13 @@ export class AnalysisRunner {
       }
     }
     worker.onerror = (event) => {
+      event.preventDefault?.()
       if (stopping) finishTerminal(stopping.execution, stopping.reason)
-      else finishTerminal('failed', event.message || 'Analysis worker crashed')
+      else
+        finishTerminal(
+          'failed',
+          'Analysis worker crashed; raw worker error details were not retained.'
+        )
     }
     worker.onmessageerror = () =>
       finishTerminal(

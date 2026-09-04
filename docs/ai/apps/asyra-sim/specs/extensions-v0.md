@@ -95,6 +95,17 @@ interval. A nonconforming result is a method error, not something the App
 repairs into success. The platform verifies structure and internal consistency;
 a schema alone cannot prove arbitrary private algorithms mathematically correct.
 
+The App and production Worker import the same `INSTALLED_METHOD_CATALOG`.
+Snapshot-owner admission runs before Worker allocation and again at the message
+boundary. An installed declaration must match retained provenance under the
+same ID/version; object-key order is inert. Methods receive a frozen snapshot,
+an owned abort signal, checkpoints and a bounded pair-evidence emitter. Worker
+invocations settle once. Late emissions cannot reopen a completed invocation.
+Method failures retain a stage label, not raw exception text; uncaught Worker
+errors are also redacted. Cooperative cancellation is not the termination
+guarantee: formal browser tests exercise a deliberately uncooperative method
+and verify the parent runner's forced cancellation/timeout boundary.
+
 ## 5. Replacement and Versioning
 
 - Each experiment specifies a method ID/version and settings. Changes create a

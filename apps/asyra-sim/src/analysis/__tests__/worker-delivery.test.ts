@@ -1,16 +1,7 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { expect, it } from 'vitest'
 import type { OfficialPairEvidence } from '../methods/official-method'
-import type { AnalysisWorkerRequest } from '../worker-protocol'
-
-const method = vi.hoisted(() => vi.fn())
-vi.mock('../methods/official-method', () => ({
-  runOfficialClearanceMethod: method
-}))
-afterEach(() => {
-  vi.unstubAllGlobals()
-  vi.restoreAllMocks()
-  vi.resetModules()
-})
+import type { AnalysisWorkerResponse } from '../worker-protocol'
+import { WorkerEvidenceDelivery } from '../worker-delivery'
 
 const pair = (index: number): OfficialPairEvidence => ({
   pairId: `pair-${index}`,
@@ -34,59 +25,35 @@ const pair = (index: number): OfficialPairEvidence => ({
   }
 })
 
-async function setup(fail = false) {
-  let receive: (event: MessageEvent<AnalysisWorkerRequest>) => void = () =>
-    undefined
+function setup(fail = false) {
   let now = 0
-  const messages: { time: number; data: Record<string, unknown> }[] = []
-  vi.spyOn(performance, 'now').mockImplementation(() => now)
-  const close = vi.fn()
-  vi.stubGlobal('self', {
-    addEventListener: (_name: string, listener: typeof receive) => {
-      receive = listener
-    },
-    postMessage: (data: Record<string, unknown>) =>
-      messages.push({ time: now, data }),
-    close
-  })
-  method.mockImplementation(
-    (
-      _snapshot,
-      checkpoint: () => void,
-      onPair: (value: OfficialPairEvidence) => void
-    ) => {
-      const pairs = [pair(0), pair(1), pair(2), pair(3)]
-      for (const [index, time] of [0, 10, 100, 110].entries()) {
-        now = time
-        checkpoint()
-        onPair(pairs[index])
-      }
-      if (fail) throw new Error('Method stopped')
-      return {
-        version: 1,
-        snapshotId: 'snapshot',
-        method: { id: 'transport-fixture', version: '1' },
-        coverage: 'complete',
-        evaluations: 4,
-        pairs
-      }
-    }
+  const messages: { time: number; data: AnalysisWorkerResponse }[] = []
+  const delivery = new WorkerEvidenceDelivery(
+    'run',
+    (data) => messages.push({ time: now, data }),
+    () => now
   )
-  await import('../analysis.worker')
-  receive(
-    new MessageEvent('message', {
-      data: {
-        type: 'run',
-        runId: 'run',
-        snapshot: { budget: { maxDurationMs: 1000 } }
-      } as AnalysisWorkerRequest
+  const pairs = [pair(0), pair(1), pair(2), pair(3)]
+  for (const [index, time] of [0, 10, 100, 110].entries()) {
+    now = time
+    delivery.flush()
+    delivery.record(pairs[index])
+  }
+  if (fail) delivery.fail('Method stopped')
+  else
+    delivery.complete({
+      version: 1,
+      snapshotId: 'snapshot',
+      method: { id: 'transport-fixture', version: '1' },
+      coverage: 'complete',
+      evaluations: 4,
+      pairs
     })
-  )
-  return { messages, close }
+  return { messages }
 }
 
-it('batches progress to ten updates per second and delivers all terminal evidence immediately', async () => {
-  const { messages, close } = await setup()
+it('batches progress to ten updates per second and delivers all terminal evidence immediately', () => {
+  const { messages } = setup()
   const progress = messages.filter(
     (message) => message.data.type === 'progress'
   )
@@ -99,14 +66,12 @@ it('batches progress to ten updates per second and delivers all terminal evidenc
       evidence: { pairs: [pair(0), pair(1), pair(2), pair(3)] }
     }
   })
-  expect(close).toHaveBeenCalledOnce()
 })
 
-it('includes unsent partial evidence in an unthrottled terminal error', async () => {
-  const { messages, close } = await setup(true)
+it('includes unsent partial evidence in an unthrottled terminal error', () => {
+  const { messages } = setup(true)
   expect(messages.at(-1)).toMatchObject({
     time: 110,
     data: { type: 'error', error: 'Method stopped', pairs: [pair(2), pair(3)] }
   })
-  expect(close).toHaveBeenCalledOnce()
 })

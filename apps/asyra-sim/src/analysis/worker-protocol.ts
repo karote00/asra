@@ -3,9 +3,9 @@ import {
   type ExperimentSnapshot
 } from './contracts'
 import type {
-  OfficialMethodEvidence,
-  OfficialPairEvidence
-} from './methods/official-method'
+  MethodEvidence,
+  MethodPairEvidence
+} from '../extensions/contracts'
 
 export function measureWorkerPayload(input: unknown): number {
   const encoded = JSON.stringify(input)
@@ -41,16 +41,16 @@ export type AnalysisWorkerResponse =
   | {
       type: typeof AnalysisWorkerMessages.PROGRESS
       runId: string
-      pairs: readonly OfficialPairEvidence[]
+      pairs: readonly MethodPairEvidence[]
     }
   | {
       type: typeof AnalysisWorkerMessages.COMPLETE
       runId: string
-      evidence: OfficialMethodEvidence
+      evidence: MethodEvidence
     }
   | {
       type: typeof AnalysisWorkerMessages.ERROR
       runId: string
       error: string
-      pairs?: readonly OfficialPairEvidence[]
+      pairs?: readonly MethodPairEvidence[]
     }

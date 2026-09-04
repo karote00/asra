@@ -1,8 +1,8 @@
 import { EXPERIMENT_RESOURCE_PROFILE } from './contracts'
 import type {
-  OfficialMethodEvidence,
-  OfficialPairEvidence
-} from './methods/official-method'
+  MethodEvidence,
+  MethodPairEvidence
+} from '../extensions/contracts'
 import {
   AnalysisWorkerMessages,
   measureWorkerPayload,
@@ -11,7 +11,7 @@ import {
 
 /** Transport batching only. Method evidence and its numerical meaning are unchanged. */
 export class WorkerEvidenceDelivery {
-  private pending: OfficialPairEvidence[] = []
+  private pending: MethodPairEvidence[] = []
   private lastSent = -Infinity
   private totalBytes = 2
   private pairCount = 0
@@ -28,7 +28,7 @@ export class WorkerEvidenceDelivery {
     this.post(message)
   }
 
-  record(pair: OfficialPairEvidence): void {
+  record(pair: MethodPairEvidence): void {
     const bytes = measureWorkerPayload(pair) + (this.pairCount ? 1 : 0)
     if (
       this.totalBytes + bytes > EXPERIMENT_RESOURCE_PROFILE.maxEvidenceBytes ||
@@ -62,7 +62,7 @@ export class WorkerEvidenceDelivery {
     this.lastSent = now
   }
 
-  complete(evidence: OfficialMethodEvidence): void {
+  complete(evidence: MethodEvidence): void {
     this.send({
       type: AnalysisWorkerMessages.COMPLETE,
       runId: this.runId,

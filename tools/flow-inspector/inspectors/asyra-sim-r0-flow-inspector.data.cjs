@@ -1015,11 +1015,14 @@
         inputs: [
           'artifact:snapshot',
           'artifact:method-evidence',
+          'immutable trusted method catalog shared by App and Worker',
           'Feature-owned abort signal'
         ],
         outputs: ['artifact:result', 'artifact:run-progress'],
         conditions: [
           'One detached Feature task at a time; no transaction spans worker execution.',
+          'Reuse snapshot-owner execution admission before Worker allocation and inside the Worker; dispatch only the exact pre-start registration, never a hard-coded replacement or imported executable.',
+          'Private method exceptions expose only failure stage, not raw data, paths or credentials; late method emissions after settlement are rejected.',
           'Validate source identity, evidence, pair/time coverage, and terminal state.',
           'Expose only validated bounded progress counts through the analysis Feature; progress is not a final verdict or a completion-time estimate.',
           'Abort, terminate after grace, and discard late messages from an old run.'

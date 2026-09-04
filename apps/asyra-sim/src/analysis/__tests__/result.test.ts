@@ -81,6 +81,18 @@ function snapshot(distance: number): ExperimentSnapshot {
 const timing = { runId: 'run-1', startedAt: 100, endedAt: 120 }
 
 describe('M3 result validation and rule evaluation', () => {
+  it('rejects additional executable or undeclared fields in method evidence envelopes', () => {
+    const input = snapshot(1),
+      evidence = runOfficialClearanceMethod(input)
+    for (const invalid of [
+      { ...evidence, executable: 'not permitted' },
+      {
+        ...evidence,
+        method: { ...evidence.method, additionalData: 'not declared' }
+      }
+    ])
+      expect(() => completeAnalysisResult(input, invalid, timing)).toThrow()
+  })
   it('rejects a forged historical verdict, source identity, or extra fields', () => {
     const input = snapshot(1)
     const valid = terminalAnalysisResult(input, [], {

@@ -1,43 +1,12 @@
-import { runOfficialClearanceMethod } from './methods/official-method'
-import { WorkerEvidenceDelivery } from './worker-delivery'
-import {
-  AnalysisWorkerMessages,
-  type AnalysisWorkerRequest
-} from './worker-protocol'
+import { INSTALLED_METHOD_CATALOG } from '../extensions/installed-methods'
+import { AnalysisWorkerHost } from './worker-host'
 
-let activeRunId: string | null = null
-let cancelled = false
-
-self.addEventListener(
-  'message',
-  (event: MessageEvent<AnalysisWorkerRequest>) => {
-    const request = event.data
-    if (
-      request?.type === AnalysisWorkerMessages.CANCEL &&
-      request.runId === activeRunId
-    ) {
-      cancelled = true
-      return
-    }
-    if (request?.type !== AnalysisWorkerMessages.RUN || activeRunId) return
-    activeRunId = request.runId
-    const delivery = new WorkerEvidenceDelivery(request.runId, (message) =>
-      self.postMessage(message)
-    )
-    try {
-      const evidence = runOfficialClearanceMethod(
-        request.snapshot,
-        () => {
-          if (cancelled) throw new Error('Analysis cancelled')
-          delivery.flush()
-        },
-        (pair) => delivery.record(pair)
-      )
-      delivery.complete(evidence)
-    } catch (error) {
-      delivery.fail(error)
-    } finally {
-      self.close()
-    }
-  }
+const host = new AnalysisWorkerHost(
+  INSTALLED_METHOD_CATALOG,
+  (message) => self.postMessage(message),
+  () => self.close()
 )
+
+self.addEventListener('message', (event: MessageEvent<unknown>) => {
+  void host.handle(event.data)
+})

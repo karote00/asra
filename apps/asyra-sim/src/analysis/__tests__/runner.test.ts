@@ -99,6 +99,18 @@ const setup = () => {
 afterEach(() => vi.useRealTimers())
 
 describe('M3 analysis worker lifecycle', () => {
+  it('rejects an unavailable method before allocating execution resources', async () => {
+    const createWorker = vi.fn(() => {
+      throw new Error('Worker must not start')
+    })
+    const runner = new AnalysisRunner(createWorker)
+    const input = snapshot()
+    input.method.id = 'missing-private-method'
+    await expect(runner.run(input)).rejects.toThrow('unavailable')
+    expect(createWorker).not.toHaveBeenCalled()
+    expect(runner.getProgress()).toBeNull()
+    await runner.dispose()
+  })
   it('rejects contradictory terminal evidence without erasing an earlier validated finding', async () => {
     const { worker, runner } = setup(),
       input = snapshot(0),
@@ -327,10 +339,14 @@ describe('M3 analysis worker lifecycle', () => {
 
     const crashed = setup(),
       crashedPending = crashed.runner.run(input)
-    crashed.worker.onerror?.({ message: 'Worker crashed' } as ErrorEvent)
+    crashed.worker.onerror?.({
+      message: 'SECRET /private/customer-data token=123'
+    } as ErrorEvent)
     await expect(crashedPending).resolves.toMatchObject({
       execution: 'failed',
-      errors: ['Worker crashed']
+      errors: [
+        'Analysis worker crashed; raw worker error details were not retained.'
+      ]
     })
   })
 
