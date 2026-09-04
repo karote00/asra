@@ -264,6 +264,8 @@ changes do not invalidate geometric results.
   commit does not mean data has reached persistent storage.
 - Field feedback: initially text and attached observations referencing a run.
   Do not claim automated calibration, data alignment, or a yield model.
+  [Field Observations v0](field-observations-v0.md) defines separate canonical
+  annotations, bounded opaque attachments, integrity and lifecycle behavior.
 
 Import follows validation, preview, user acceptance, then the formal mutation
 boundary. Failed, cancelled, or rejected imports leave no partial canonical
