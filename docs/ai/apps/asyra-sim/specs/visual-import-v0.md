@@ -12,7 +12,11 @@ proxies. Preview discloses the source digest, dimensions, mesh/triangle counts,
 units, baked asset transforms, and appearance limitations. Decoding failure,
 cancellation, or rejected preview creates no canonical body or asset reference.
 Storage and Feature acceptance remain separate owners; this decoder does not
-claim that a result has been saved.
+claim that a result has been saved. Worker orchestration rejects oversized byte
+arrays before copying or allocating a Worker and enforces a five-second deadline
+through response validation. Success, failure, cancellation, and expiry all
+terminate the owned Worker and release its timer; a late response cannot become
+an accepted preview.
 
 ## Supported profile
 

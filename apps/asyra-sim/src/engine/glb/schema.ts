@@ -1,5 +1,6 @@
 export const GLB_LIMITS = Object.freeze({
   bytes: 16 * 1024 * 1024,
+  deadlineMs: 5000,
   jsonBytes: 2 * 1024 * 1024,
   nodes: 128,
   meshes: 64,

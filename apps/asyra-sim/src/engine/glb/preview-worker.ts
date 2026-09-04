@@ -106,6 +106,9 @@ export class RestrictedGlbPreviewWorker {
     if (this.closed)
       return Promise.reject(new Error('GLB preview worker is closed'))
     if (signal?.aborted) return Promise.reject(abortError())
+    if (input.byteLength < 1 || input.byteLength > GLB_LIMITS.bytes)
+      return Promise.reject(new Error('GLB input byte limit exceeded'))
+    const startedAt = Date.now()
     const bytes = new Uint8Array(input),
       id = this.nextId++,
       worker = this.createWorker()
@@ -115,9 +118,11 @@ export class RestrictedGlbPreviewWorker {
       const settle = (error?: Error, asset?: VisualAsset) => {
         if (settled) return
         settled = true
+        clearTimeout(deadline)
         signal?.removeEventListener('abort', abort)
         worker.onmessage = null
         worker.onerror = null
+        worker.onmessageerror = null
         worker.terminate()
         this.jobs.delete(job)
         if (error) reject(error)
@@ -125,7 +130,14 @@ export class RestrictedGlbPreviewWorker {
         else reject(new Error('GLB preview returned no asset'))
       }
       const abort = () => settle(abortError())
+      const expire = () =>
+        settle(new Error('GLB import exceeded its five-second deadline'))
       worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
+        if (settled) return
+        if (Date.now() - startedAt >= GLB_LIMITS.deadlineMs) {
+          expire()
+          return
+        }
         const response = event.data
         if (!response || response.id !== id) return
         if (!response.ok) {
@@ -140,7 +152,9 @@ export class RestrictedGlbPreviewWorker {
         }
         try {
           validateAsset(response.asset)
-          settle(undefined, deepFreeze(structuredClone(response.asset)))
+          const asset = deepFreeze(structuredClone(response.asset))
+          if (Date.now() - startedAt >= GLB_LIMITS.deadlineMs) expire()
+          else settle(undefined, asset)
         } catch (error) {
           settle(
             error instanceof Error
@@ -151,8 +165,14 @@ export class RestrictedGlbPreviewWorker {
       }
       worker.onerror = (event) =>
         settle(new Error(event.message || 'GLB preview worker crashed'))
+      worker.onmessageerror = () =>
+        settle(new Error('Cannot deserialize the GLB worker response'))
       signal?.addEventListener('abort', abort, { once: true })
       this.jobs.add(job)
+      const deadline = setTimeout(
+        expire,
+        Math.max(0, GLB_LIMITS.deadlineMs - (Date.now() - startedAt))
+      )
       try {
         worker.postMessage({ id, bytes: bytes.buffer }, [bytes.buffer])
       } catch (error) {
