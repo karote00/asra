@@ -20,6 +20,26 @@ an accepted preview.
 
 ## Supported profile
 
+### Canonical binding
+
+A body may carry optional `visuals`, an array of version-1 bindings with exact
+fields `version`, `id`, `assetId`, `pose`, and `scale`. `id` is unique within the
+body; `assetId` is the lowercase SHA-256 of the immutable original GLB bytes.
+The binding contains no decoded vertices or renderer objects. An absent array
+or an empty array means no visual reference, preserving existing workcells.
+
+`pose` follows the shared domain's body-local meters/quaternion contract.
+`scale` is an explicit positive three-axis multiplier in [0.000001, 1000].
+Scale is applied to baked asset vertices first, then the binding's local pose,
+then the shared body world pose. It never scales joints, children, or colliders.
+Initial limits are 16 bindings per body and 256 per selected workcell, in
+addition to the source-byte limits and each GLB's expanded geometry limits. Identity,
+pose, scale, and aggregate validation belong to the domain; existence, digest
+verification, and decoded source ownership belong to the asset/storage flow.
+These are admission bounds, not a measured rendering-capacity claim.
+
+### Asset content
+
 - GLB container version 2 and glTF asset version 2.0, with exactly one JSON chunk
   and one binary chunk, one embedded buffer, and one scene.
 - A static tree of nodes with rigid or positive-scale TRS/matrix transforms.

@@ -715,7 +715,8 @@
         outputs: ['artifact:domain'],
         conditions: [
           'Finite, supported dimensions and units; parent membership comes from Scene Tree.',
-          'Interpolate unwrapped joints and compute poses once for renderer and methods.'
+          'Interpolate unwrapped joints and compute poses once for renderer and methods.',
+          'Validate optional body-local visual bindings separately from colliders; source identity and explicit positive scale do not alter kinematics.'
         ],
         bypasses: [
           'Static poses bypass trajectory interpolation; empty motion input is invalid.'
@@ -733,6 +734,7 @@
         ],
         specRefs: [
           '#1-supported-workcell',
+          '#2-visual-and-analysis-geometry',
           '#3-coordinates-units-and-support-envelope',
           '#4-trajectories-and-motion-semantics'
         ],

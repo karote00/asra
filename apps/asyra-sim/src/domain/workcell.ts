@@ -22,6 +22,13 @@ export interface Joint {
   min: number
   max: number
 }
+export interface VisualBinding {
+  version: 1
+  id: string
+  assetId: string
+  pose: Pose
+  scale: Vec3
+}
 export interface Body {
   id: string
   parentId: string | null
@@ -30,6 +37,7 @@ export interface Body {
   pose: Pose
   joint: Joint
   colliders: readonly Collider[]
+  visuals?: readonly VisualBinding[]
   visible: boolean
   color: number
 }
@@ -62,6 +70,13 @@ export const GEOMETRY_PROFILE = Object.freeze({
   maxAngle: 100,
   maxTime: 3600,
   minSegmentDuration: 0.000001
+})
+
+export const VISUAL_BINDING_PROFILE = Object.freeze({
+  maxPerBody: 16,
+  maxPerWorkcell: 256,
+  minScale: 0.000001,
+  maxScale: 1000
 })
 
 const finiteVector = (v: unknown, n: number): v is number[] =>
@@ -98,6 +113,35 @@ export const validIdentifier = (value: unknown): value is string =>
   typeof value === 'string' &&
   /^[a-zA-Z0-9_.:-]{1,96}$/.test(value) &&
   !['__proto__', 'prototype', 'constructor'].includes(value)
+export const validAssetId = (value: unknown): value is string =>
+  typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
+
+export function validVisualBinding(value: unknown): value is VisualBinding {
+  return (
+    hasExactOwnKeys(value, ['version', 'id', 'assetId', 'pose', 'scale']) &&
+    value.version === 1 &&
+    validIdentifier(value.id) &&
+    validAssetId(value.assetId) &&
+    validPose(value.pose) &&
+    finiteVector(value.scale, 3) &&
+    value.scale.every(
+      (scale) =>
+        scale >= VISUAL_BINDING_PROFILE.minScale &&
+        scale <= VISUAL_BINDING_PROFILE.maxScale
+    )
+  )
+}
+
+export function validVisualBindings(
+  value: unknown
+): value is readonly VisualBinding[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= VISUAL_BINDING_PROFILE.maxPerBody &&
+    value.every(validVisualBinding) &&
+    new Set(value.map((binding) => binding.id)).size === value.length
+  )
+}
 export function validJoint(input: unknown): input is Joint {
   if (!input || typeof input !== 'object') return false
   const joint = input as Joint
@@ -136,6 +180,7 @@ export function validBodyParameters(input: unknown): input is BodyParameters {
     !validJoint(body.joint) ||
     !Array.isArray(body.colliders) ||
     body.colliders.length > GEOMETRY_PROFILE.maxCollidersPerBody ||
+    (body.visuals !== undefined && !validVisualBindings(body.visuals)) ||
     !Number.isInteger(body.color) ||
     body.color < 0 ||
     body.color > 0xffffff
@@ -165,7 +210,8 @@ export function validateWorkcell(input: unknown): asserts input is Workcell {
     workcell.bodies.length > GEOMETRY_PROFILE.maxBodies
   )
     throw new Error('Unsupported workcell version or body count')
-  let colliderCount = 0
+  let colliderCount = 0,
+    visualCount = 0
   for (const body of workcell.bodies) {
     if (
       !body ||
@@ -178,6 +224,11 @@ export function validateWorkcell(input: unknown): asserts input is Workcell {
     )
       throw new Error('Invalid body or joint data')
     colliderCount += body.colliders.length
+    visualCount += body.visuals?.length ?? 0
+    if (visualCount > VISUAL_BINDING_PROFILE.maxPerWorkcell)
+      throw new Error(
+        'Workcell exceeds the aggregate visual binding limit of 256'
+      )
     if (colliderCount > GEOMETRY_PROFILE.maxColliders)
       throw new Error('Workcell exceeds the aggregate collider limit of 256')
   }

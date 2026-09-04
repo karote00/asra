@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { IDENTITY_POSE } from '../math'
+import { createSyntheticExample } from '../../../samples/synthetic-workcell'
 import {
+  forwardKinematics,
   validBodyParameters,
   validIdentifier,
   validateWorkcell
@@ -14,6 +16,86 @@ const parameters = {
   color: 0
 }
 describe('shared body/load validation', () => {
+  const visual = (id = 'reference') => ({
+    version: 1,
+    id,
+    assetId: 'a'.repeat(64),
+    pose: IDENTITY_POSE,
+    scale: [1, 1, 1]
+  })
+  it('does not let visual placement or scale alter body kinematics or colliders', () => {
+    const original = createSyntheticExample().workcell
+    const attached = structuredClone(original)
+    attached.bodies[1].visuals = [
+      {
+        version: 1,
+        id: 'mesh',
+        assetId: 'b'.repeat(64),
+        pose: { position: [2, 3, 4], rotation: [0, 0, 0, 1] },
+        scale: [0.001, 2, 3]
+      }
+    ]
+    validateWorkcell(attached)
+    expect(forwardKinematics(attached)).toEqual(forwardKinematics(original))
+    expect(attached.bodies.map((body) => body.colliders)).toEqual(
+      original.bodies.map((body) => body.colliders)
+    )
+  })
+  it('validates optional visual metadata without creating colliders', () => {
+    const body = { ...parameters, visuals: [visual()] }
+    expect(validBodyParameters(body)).toBe(true)
+    expect(body.colliders).toEqual([])
+    expect(validBodyParameters({ ...parameters, visuals: [] })).toBe(true)
+    for (const binding of [
+      { ...visual(), version: 2 },
+      { ...visual(), assetId: 'A'.repeat(64) },
+      { ...visual(), assetId: 'https://example.test/file.glb' },
+      { ...visual(), id: '__proto__' },
+      { ...visual(), extra: true },
+      { ...visual(), pose: { ...IDENTITY_POSE, rotation: [0, 0, 0, 2] } },
+      ...[0, -1, NaN, Infinity, 0.0000001, 1001].map((value) => ({
+        ...visual(),
+        scale: [value, 1, 1]
+      }))
+    ])
+      expect(validBodyParameters({ ...parameters, visuals: [binding] })).toBe(
+        false
+      )
+    for (const visuals of [null, {}, [visual(), visual()]])
+      expect(validBodyParameters({ ...parameters, visuals })).toBe(false)
+    expect(
+      validBodyParameters({
+        ...parameters,
+        visuals: [{ ...visual(), scale: [0.000001, 1000, 1] }]
+      })
+    ).toBe(true)
+  })
+  it('enforces body and workcell visual-reference limits without truncation', () => {
+    const visuals = Array.from({ length: 16 }, (_, i) => visual(`v${i}`))
+    expect(validBodyParameters({ ...parameters, visuals })).toBe(true)
+    expect(
+      validBodyParameters({
+        ...parameters,
+        visuals: [...visuals, visual('excess')]
+      })
+    ).toBe(false)
+    const bodies = Array.from({ length: 16 }, (_, i) => ({
+      ...parameters,
+      id: `body${i}`,
+      parentId: null,
+      name: 'Body',
+      visible: true,
+      visuals
+    }))
+    const workcell = { version: 1, robotRootId: null, bodies }
+    expect(() => validateWorkcell(workcell)).not.toThrow()
+    expect(() =>
+      validateWorkcell({
+        ...workcell,
+        bodies: [...bodies, { ...bodies[0], id: 'excess', visuals: [visual()] }]
+      })
+    ).toThrow('visual')
+  })
   const colliders = (count: number) =>
     Array.from({ length: count }, (_, index) => ({
       id: `shape-${index}`,
