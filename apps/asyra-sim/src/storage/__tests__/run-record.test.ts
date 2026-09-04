@@ -8,6 +8,7 @@ import { validateRunRecord, RunArchive } from '../run-record'
 import { compareRuns } from '../run-comparison'
 import { exportRunCsv, exportRunHtml, exportRunJson } from '../run-reports'
 import { encodeProject, decodeProject } from '../project-format'
+import { INSTALLED_METHOD_CATALOG } from '../../extensions/installed-methods'
 
 function record(id = 'run-a') {
   const example = createSyntheticExample(),
@@ -117,5 +118,58 @@ describe('retained runs and portable reporting', () => {
     expect(html).toContain('partial')
     expect(html).toContain('No retained evidence')
     expect(html).not.toMatch(/<\w+[^>]+(?:src|href)=/)
+  })
+
+  it('discloses changed or missing retained declarations even when method identity matches', () => {
+    const a = record('a'),
+      b = record('b'),
+      legacy = record('legacy')
+    a.snapshot = structuredClone(a.snapshot)
+    b.snapshot = structuredClone(b.snapshot)
+    a.snapshot.methodDescriptor = structuredClone(
+      INSTALLED_METHOD_CATALOG.descriptors[0]
+    )
+    b.snapshot.methodDescriptor = structuredClone(a.snapshot.methodDescriptor)
+    expect(compareRuns([a, b]).directlyComparable).toBe(true)
+    if (!b.snapshot.methodDescriptor.manifest)
+      throw new Error('Missing test declaration')
+    b.snapshot.methodDescriptor.manifest.validation.evidence =
+      'Different private validation evidence'
+    const changed = compareRuns([a, b])
+    expect(changed.directlyComparable).toBe(false)
+    expect(changed.incompatibilities).toContain(
+      'Retained method declarations differ'
+    )
+    expect(changed.differences.map((item) => item.path)).toContain(
+      'methodDescriptor.manifest.validation.evidence'
+    )
+    expect(compareRuns([a, legacy]).incompatibilities).toContain(
+      'Retained method declarations differ'
+    )
+    b.snapshot.methodDescriptor = Object.fromEntries(
+      Object.entries(a.snapshot.methodDescriptor).reverse()
+    ) as typeof a.snapshot.methodDescriptor
+    expect(compareRuns([a, b]).directlyComparable).toBe(true)
+  })
+
+  it('exports retained declarations in every report without looking up installed code', () => {
+    const run = record()
+    run.snapshot = structuredClone(run.snapshot)
+    run.snapshot.methodDescriptor = structuredClone(
+      INSTALLED_METHOD_CATALOG.descriptors[0]
+    )
+    if (!run.snapshot.methodDescriptor.manifest)
+      throw new Error('Missing test declaration')
+    run.snapshot.methodDescriptor.manifest.source =
+      '<private source & evidence>'
+    const csv = exportRunCsv(run)
+    expect(csv.split('\r\n')[0]).toContain('"method_descriptor_json"')
+    expect(csv).toContain('""source"":""<private source & evidence>""')
+    expect(
+      JSON.parse(exportRunJson(run)).run.snapshot.methodDescriptor
+    ).toEqual(run.snapshot.methodDescriptor)
+    expect(exportRunHtml(run)).toContain(
+      '&lt;private source &amp; evidence&gt;'
+    )
   })
 })

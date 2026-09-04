@@ -125,6 +125,11 @@ and verify the parent runner's forced cancellation/timeout boundary.
   separate versions. A common App version does not imply compatibility.
 - Convert settings only through a declared migration. Preserve original
   revisions and never rewrite old evidence.
+- Comparison discloses retained declaration differences even when IDs and
+  versions match. A missing declaration is not equivalent to a present one;
+  object-key order is inert. JSON, CSV and HTML reports preserve the retained
+  declaration without consulting the current catalog. CSV assembles rows lazily
+  and stops at the 64 MiB UTF-8 report limit, including repeated provenance.
 
 ## 6. Security and Trust
 

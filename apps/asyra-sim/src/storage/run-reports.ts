@@ -1,4 +1,5 @@
 import { validateRunRecord, type RunRecord } from './run-record'
+import { collectReportText } from './report-text'
 
 const escapeHtml = (value: unknown) =>
   String(value).replace(
@@ -22,9 +23,7 @@ const csvCell = (value: unknown) => {
   return `"${text.replaceAll('"', '""')}"`
 }
 function bounded(text: string): string {
-  if (new TextEncoder().encode(text).length > 64 * 1024 * 1024)
-    throw new Error('Report exceeds 64 MiB')
-  return text
+  return collectReportText([text])
 }
 
 export function exportRunJson(input: RunRecord): string {
@@ -57,10 +56,12 @@ export function exportRunCsv(input: RunRecord): string {
     JSON.stringify(snapshot.method.settings),
     JSON.stringify(snapshot.budget),
     JSON.stringify(run.environment),
-    JSON.stringify(run.lineage ?? null)
+    JSON.stringify(run.lineage ?? null),
+    JSON.stringify(snapshot.methodDescriptor ?? null)
   ]
-  const rows: unknown[][] = [
-    [
+  const encodedPrefix = prefix.map(csvCell).join(',')
+  function* rows() {
+    yield [
       'run_name',
       'run_id',
       'snapshot_id',
@@ -81,6 +82,7 @@ export function exportRunCsv(input: RunRecord): string {
       'budget_json',
       'environment_json',
       'lineage_json',
+      'method_descriptor_json',
       'pair_id',
       'start_s',
       'end_s',
@@ -91,40 +93,50 @@ export function exportRunCsv(input: RunRecord): string {
       'state',
       'reason'
     ]
-  ]
-  const evidence = new Map(
-    result.pairEvidence.map((pair) => [pair.pairId, pair.evidence])
-  )
-  for (const pair of snapshot.pairs) {
-    const item = evidence.get(pair.id)
-    if (!item)
-      rows.push([
-        ...prefix,
-        pair.id,
-        ...snapshot.interval,
-        null,
-        null,
-        null,
-        null,
-        'no-retained-evidence',
-        result.errors.join('; ')
-      ])
-    else
-      for (const leaf of item.leaves)
-        rows.push([
-          ...prefix,
-          pair.id,
-          leaf.start,
-          leaf.end,
-          leaf.lower,
-          leaf.upper,
-          leaf.witnessTime,
-          leaf.penetration,
-          leaf.state,
-          leaf.reason
-        ])
+      .map(csvCell)
+      .join(',')
+    const evidence = new Map(
+      result.pairEvidence.map((pair) => [pair.pairId, pair.evidence])
+    )
+    for (const pair of snapshot.pairs) {
+      const item = evidence.get(pair.id)
+      if (!item)
+        yield '\r\n' +
+          encodedPrefix +
+          ',' +
+          [
+            pair.id,
+            ...snapshot.interval,
+            null,
+            null,
+            null,
+            null,
+            'no-retained-evidence',
+            result.errors.join('; ')
+          ]
+            .map(csvCell)
+            .join(',')
+      else
+        for (const leaf of item.leaves)
+          yield '\r\n' +
+            encodedPrefix +
+            ',' +
+            [
+              pair.id,
+              leaf.start,
+              leaf.end,
+              leaf.lower,
+              leaf.upper,
+              leaf.witnessTime,
+              leaf.penetration,
+              leaf.state,
+              leaf.reason
+            ]
+              .map(csvCell)
+              .join(',')
+    }
   }
-  return bounded(rows.map((row) => row.map(csvCell).join(',')).join('\r\n'))
+  return collectReportText(rows())
 }
 
 export function exportRunHtml(input: RunRecord): string {

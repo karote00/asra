@@ -72,6 +72,7 @@ function comparableInputs(run: RunRecord) {
         .sort((a, b) => lexical(stableJson(a), stableJson(b)))
     },
     method: snapshot.method,
+    methodDescriptor: snapshot.methodDescriptor ?? null,
     rule: snapshot.rule,
     budget: snapshot.budget,
     acknowledgedWarnings: snapshot.acknowledgedWarnings
@@ -92,6 +93,10 @@ export function compareRuns(input: readonly RunRecord[]): RunComparison {
     [
       'Methods or numerical settings differ',
       inputs.map((input) => input.method)
+    ],
+    [
+      'Retained method declarations differ',
+      inputs.map((input) => input.methodDescriptor)
     ],
     [
       'Analysis scopes or exclusions differ',
