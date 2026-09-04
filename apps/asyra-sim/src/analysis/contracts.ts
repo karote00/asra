@@ -9,6 +9,10 @@ import type {
 } from '../domain/trajectory-source'
 import { hasExactOwnKeys, isPlainRecord } from '../domain/records'
 import { METHOD_CATALOG_LIMITS } from '../extensions/contracts'
+import {
+  validateAcceptanceExpression,
+  type AcceptanceExpression
+} from './contracts-rules'
 
 export interface ExcludedBodyPair {
   version: 1
@@ -42,6 +46,7 @@ export interface ExperimentRule {
   version: 1
   revision: number
   minimumClearance: number
+  acceptance?: AcceptanceExpression
 }
 
 export interface ExperimentBudget {
@@ -315,12 +320,19 @@ export function validateExperimentDefinition(
 
   const rule = input.rule
   if (
-    !hasExactOwnKeys(rule, ruleFields) ||
+    !hasExactOwnKeys(rule, [
+      ...ruleFields,
+      ...(isPlainRecord(rule) && Object.hasOwn(rule, 'acceptance')
+        ? ['acceptance']
+        : [])
+    ]) ||
     rule.version !== 1 ||
     !positiveRevision(rule.revision) ||
     !finiteIn(rule.minimumClearance, 0, 20)
   )
     throw new Error('Invalid experiment rule')
+  if (Object.hasOwn(rule, 'acceptance'))
+    validateAcceptanceExpression(rule.acceptance)
 
   const budget = input.budget
   if (

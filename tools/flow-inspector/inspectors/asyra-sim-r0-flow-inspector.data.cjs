@@ -932,6 +932,7 @@
           'Freeze detached complete inputs and source identities.',
           'Admit only immutable pre-start catalogs with unique method IDs and names, compatible contracts, bounded settings schemas, provenance and explicit trust/resource declarations.',
           'Validate installed method parameters before execution and freeze its declaration with new snapshots; historical declarations grant no executable capability and missing modules never trigger installation or substitution.',
+          'Validate optional bounded typed acceptance trees as inert geometry-protocol data; freeze them with the rule without evaluating evidence or changing legacy snapshots.',
           'Reject unsupported data before allocating a worker; separate resource warnings from validity.',
           'No valid pairs is not a pass.'
         ],
@@ -958,6 +959,7 @@
         specRefs: [
           '#5-analysis-scope-and-pair-policy',
           '#6-preflight',
+          '#8-results-are-not-a-single-green-check',
           '#9-comparable-and-traceable-experiments'
         ],
         failureOwnerStepId: 'snapshot'
