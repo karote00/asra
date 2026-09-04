@@ -9,6 +9,11 @@ export interface ModelLoadIssue {
 const record = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value)
 
+/** Called inside the Feature interaction queue so async serialization cannot mix edits. */
+export function captureCanonicalDocument(core: Core) {
+  return core.save()
+}
+
 /** Core owns fallback/apply. The App retains analysis-critical source diagnostics. */
 export function loadCanonicalDocument(
   core: Core,

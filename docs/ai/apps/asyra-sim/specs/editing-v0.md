@@ -48,6 +48,19 @@ be retained as an analysis blocker until corrected or explicitly acknowledged.
 Property schema defaults are recovery values, never evidence that the user's
 original experiment is preserved.
 
+The same editing Feature exposes `captureDocument` and `applyDocument` for local
+persistence. Capture awaits Core serialization inside the public interaction
+queue, so a later edit cannot mix Scene Tree and Props revisions. Database I/O
+occurs after capture, outside that queue and outside canonical transactions.
+Apply receives detached data and a mandatory current-document guard; the guard
+runs inside the queue immediately before Core load. Core owns load validation.
+These are canonical capture/apply helpers, not complete project replacement.
+Ordinary load does not clear history. Production Open must use the approved
+complete App reset in [Local Storage](local-storage-v0.md#complete-runtime-reset).
+Its empty-history regression belongs at that lifecycle boundary, not at ordinary
+load. The caller retains both source and new recovery diagnostics; no App history
+mask or independent Undo stack is permitted.
+
 ## M0 Proof Gate
 
 Before expanding to M1 interaction, prove normal Core creation, one Undo per

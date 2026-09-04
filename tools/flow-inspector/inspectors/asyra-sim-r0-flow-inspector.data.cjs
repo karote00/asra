@@ -700,12 +700,14 @@
         inputs: [
           'artifact:runtime',
           'artifact:domain',
-          'validated edit intent'
+          'validated edit intent or canonical capture/guarded-apply request'
         ],
-        outputs: ['artifact:committed-model'],
+        outputs: ['artifact:committed-model', 'artifact:canonical-capture'],
         conditions: [
-          'Feature -> common API -> Core canonical state under one transaction.',
-          'Reject invalid edits; explicit rollback cancellation produces no partial scene.'
+          'Mutating edit intents use Feature -> common API -> Core canonical state under one transaction.',
+          'Reject invalid edits; explicit rollback cancellation produces no partial scene.',
+          'Capture awaits Core serialization inside the interaction queue without opening a transaction; storage I/O occurs afterward.',
+          'Guarded canonical apply checks freshness inside the queue immediately before Core load and does not clear history.'
         ],
         bypasses: [
           'Load and Undo/Redo use canonical apply instead of new product intent.'
@@ -985,6 +987,7 @@
         purpose: 'Retain and export immutable experiments',
         inputs: [
           'artifact:committed-model',
+          'artifact:canonical-capture',
           'artifact:result',
           'validated import or explicit save/compare intent',
           'artifact:visual-asset'
@@ -1102,6 +1105,15 @@
       }
     ],
     routes: [
+      {
+        id: 'canonical-capture-to-storage',
+        from: 'edit',
+        to: 'storage',
+        kind: 'normal',
+        predicate:
+          'A detached consistent canonical document is ready for storage outside transactions.',
+        producedArtifacts: ['artifact:canonical-capture']
+      },
       {
         id: 'document-preflight-terminal',
         from: 'preflight-document',
@@ -1439,6 +1451,13 @@
       }
     ],
     artifacts: [
+      {
+        id: 'artifact:canonical-capture',
+        ownerStepId: 'edit',
+        channel: 'detached canonical snapshot',
+        consumerStepIds: ['storage'],
+        terminal: false
+      },
       {
         id: 'artifact:document-preflight',
         ownerStepId: 'preflight-document',

@@ -53,6 +53,46 @@ beforeEach(() => {
 })
 
 describe('normal canonical editing and replay', () => {
+  it('captures one consistent revision and applies canonical data without resetting history', async () => {
+    const candidate = await features.edit.createCandidate('Saved', model)
+    const captured = features.edit.captureDocument()
+    const editing = features.edit.upsert(candidate, {
+      ...fixture,
+      name: 'Unsaved',
+      pose: { ...fixture.pose, position: [4, 1, 0] }
+    })
+    const document = await captured
+    await editing
+    const depth = core.getUndoHistoryDepth()
+    expect(depth).toBeGreaterThan(0)
+    const issues = await features.edit.applyDocument(document, () => undefined)
+    expect(issues).toEqual([])
+    expect(
+      readWorkcell(core, candidate).bodies.find((body) => body.id === 'fixture')
+        ?.name
+    ).toBe('Fixture')
+    expect(core.getUndoHistoryDepth()).toBe(depth)
+    expect(readWorkcell(core, candidate)).toEqual(model)
+  })
+  it('checks the accepted document guard inside the queue before any canonical apply', async () => {
+    const candidate = await features.edit.createCandidate('Original', model)
+    await expect(
+      features.edit.applyDocument(empty, () => {
+        throw new Error('New edit arrived')
+      })
+    ).rejects.toThrow('New edit arrived')
+    expect(readWorkcell(core, candidate)).toEqual(model)
+  })
+  it('rejects invalid loaded hierarchy before altering the current document', async () => {
+    const candidate = await features.edit.createCandidate('Original', model)
+    const saved = await features.edit.captureDocument()
+    const broken = structuredClone(saved)
+    broken.sceneTree.elements.base.parentId = 'missing-parent'
+    await expect(
+      features.edit.applyDocument(broken, () => undefined)
+    ).rejects.toThrow()
+    expect(readWorkcell(core, candidate)).toEqual(model)
+  })
   it('reconciles a parent/child reversal without losing retained identities', async () => {
     const initial: Workcell = {
       version: 1,

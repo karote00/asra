@@ -6,6 +6,10 @@ import {
 } from '@asyra/core'
 import { FeatureNames } from '../constants'
 import * as model from '../common-apis/workcell'
+import {
+  captureCanonicalDocument,
+  loadCanonicalDocument
+} from '../common-apis/document'
 import type { Body, Workcell } from '../domain/workcell'
 
 export function installEditingFeatures(core: Core) {
@@ -16,6 +20,14 @@ export function installEditingFeatures(core: Core) {
       FeatureNames.EDIT_WORKCELL
     )
   const api = {
+    captureDocument: () => execute(() => captureCanonicalDocument(core)),
+    applyDocument: (data: unknown, assertCurrent: () => void) => {
+      const input = structuredClone(data)
+      return execute(() => {
+        assertCurrent()
+        return loadCanonicalDocument(core, input)
+      })
+    },
     createCandidate: (name: string, workcell: Workcell) => {
       const input = structuredClone(workcell)
       return execute(() => model.createCandidate(core, name, input))
