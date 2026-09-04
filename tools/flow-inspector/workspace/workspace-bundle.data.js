@@ -9756,6 +9756,47 @@
             "failureOwnerStepId": "reset-factory"
           },
           {
+            "id": "reset-scene",
+            "order": 0.6,
+            "laneId": "compose",
+            "title": "Release Scene Tree runtime state",
+            "ownerPackage": "@asyra/scene-tree",
+            "purpose": "Retire canonical scene instances and their computed lifecycle",
+            "inputs": [
+              "artifact:factory-reset",
+              "Core lifecycle reset request"
+            ],
+            "outputs": [
+              "artifact:scene-reset"
+            ],
+            "conditions": [
+              "Clear live/deleted elements, hierarchy, changes and relations without canonical replay.",
+              "Invalidate old prepared artifacts and attempt every computed cleanup hook.",
+              "Keep component definitions, Props and other Scene Tree instances separate; report cleanup failure."
+            ],
+            "bypasses": [
+              "Ordinary canonical load and legacy dispose/reset do not use this full lifecycle boundary."
+            ],
+            "allowedContributors": [
+              "Scene-owned element, relation and computed lifecycle"
+            ],
+            "forbiddenContributors": [
+              "Props disposal",
+              "App state clearing",
+              "history manipulation",
+              "renderer internals"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/scene-tree/src/sceneTree.ts",
+              "packages/scene-tree/src/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "reset-scene"
+          },
+          {
             "id": "compose",
             "order": 1,
             "laneId": "compose",
@@ -10313,12 +10354,22 @@
             ]
           },
           {
-            "id": "factory-reset-terminal",
+            "id": "factory-reset-to-scene",
             "from": "reset-factory",
-            "kind": "terminal",
+            "to": "reset-scene",
+            "kind": "normal",
             "predicate": "Factory reset has completed; other runtime owners must still finish before reconstruction.",
             "producedArtifacts": [
               "artifact:factory-reset"
+            ]
+          },
+          {
+            "id": "scene-reset-terminal",
+            "from": "reset-scene",
+            "kind": "terminal",
+            "predicate": "Scene reset has completed; other owners and fresh Core composition are still required.",
+            "producedArtifacts": [
+              "artifact:scene-reset"
             ]
           },
           {
@@ -10575,6 +10626,15 @@
             "id": "artifact:factory-reset",
             "ownerStepId": "reset-factory",
             "channel": "synchronous lifecycle completion",
+            "consumerStepIds": [
+              "reset-scene"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:scene-reset",
+            "ownerStepId": "reset-scene",
+            "channel": "synchronous lifecycle completion",
             "consumerStepIds": [],
             "terminal": true
           },
@@ -10743,6 +10803,7 @@
             "stepIds": [
               "quiesce",
               "reset-factory",
+              "reset-scene",
               "compose",
               "domain",
               "edit",

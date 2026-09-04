@@ -157,6 +157,17 @@ A semantic no-op is not successful apply evidence, Scene and Props records are
 not reordered, and a later invalid entry leaves no hierarchy, map, tombstone,
 relation, transaction, or publication prefix.
 
+## Explicit Runtime Reset
+
+`SceneTree.resetRuntime(): void` retires live and replay-retained elements,
+hierarchy, changes and relation indexes, then attempts every retained computed
+cleanup hook. It also invalidates all previously issued load, restore and
+prepared-mutation artifacts. It emits no canonical mutation or replay and does
+not dispose Props or unregister component definitions. Other Scene Tree
+instances remain untouched. Cleanup failure is reported after state retirement;
+Core must not activate a successor after that failure. Repeated empty reset is
+inert. Ordinary load and legacy `dispose()` / `reset()` retain their contracts.
+
 ## Extension Points
 
 - register component/entity definitions

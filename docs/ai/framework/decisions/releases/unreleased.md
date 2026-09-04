@@ -16,3 +16,11 @@
 - This is one part of Core-orchestrated App reset, not permission to clear
   history during ordinary load. Active settlement rejects before mutation and
   channel cleanup failure cannot be treated as successful App reconstruction.
+
+## 2026-09-04 — Retire Scene State and Prepared Artifacts Together
+
+- Complete runtime reset invalidates Scene Tree's old prepared artifacts as
+  well as clearing live/deleted elements and relations. Every retained computed
+  lifecycle hook receives cleanup, and failures block successful reconstruction.
+- Props, component definitions and other Scene Tree instances remain separate
+  owners. Ordinary load and legacy disposal keep their existing contracts.

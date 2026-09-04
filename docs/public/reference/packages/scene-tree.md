@@ -38,6 +38,13 @@ one-shot and instance-bound. Valid apply emits ordered canonical evidence;
 local computed projection emits no history/publication/persistence. Invalid or
 stale operations fail without a map, hierarchy, relation, or history prefix.
 
+The lifecycle owner may call `sceneTree.resetRuntime()` after work is quiescent
+to retire live/deleted scene state, relations and old prepared artifacts. It
+attempts every computed cleanup hook and reports failure without canonical
+replay. Props, component definitions and other Scene Tree instances remain
+separate owners; complete App reset requires Core orchestration. Ordinary load
+and legacy disposal do not silently acquire these reset semantics.
+
 ## Relationships
 
 Props Manager owns property values/graphs. Core coordinates atomic cross-owner

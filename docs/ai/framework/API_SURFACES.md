@@ -877,6 +877,14 @@ Feature runtime lifecycle (`@asyra/feature-system`, not yet Core facade):
   attempts every owned disposer and reports failure; Core must not activate a
   successor on that failure. This is not a standalone document reset API.
 
+## Scene Tree Runtime Lifecycle
+
+- `SceneTree.resetRuntime(): void` (`@asyra/scene-tree`) clears live/deleted scene
+  state and relations, invalidates old prepared artifacts, and attempts every
+  retained computed cleanup hook without canonical replay. It leaves Props,
+  component definitions and other Scene Tree instances to their own owners.
+  Cleanup failure prevents successful Core/App reconstruction.
+
 ## API Usage Rules
 
 - App-level code should prefer `core.xxx` when surface exists.

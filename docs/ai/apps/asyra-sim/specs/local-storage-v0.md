@@ -75,6 +75,14 @@ observer callbacks, and report failure so Core cannot activate a successor.
 Channel objects and arbitrary direct subscriptions remain their creator's
 responsibility; Factory releases only resources acquired through its boundary.
 
+Scene Tree reset clears active and replay-retained elements, hierarchy, pending
+changes and relation indexes, invalidates previously issued load/restore/mutation
+artifacts, and releases every retained computed lifecycle hook. It emits no
+canonical mutation or replay. Component definitions and Props remain separate
+owners; another Scene Tree instance is unaffected. Attempt all computed cleanup
+hooks and report failure after retiring state, so Core cannot treat partial
+cleanup as a successful App reset.
+
 After successful termination, composition creates fresh runtime objects with
 the same trusted modules; it does not unlock and reuse retired objects. B starts
 with its own document, empty Undo/Redo, reset camera/selection/playback, and only
