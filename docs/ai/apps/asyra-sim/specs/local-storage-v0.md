@@ -232,6 +232,10 @@ exclusive: preflight B, pause new A editing, capture A through the existing
 Feature queue, and recheck acceptance/currentness before retirement. The target
 and recovery snapshot are detached from caller-owned objects.
 
+Before retirement, the captured recovery must pass the same native serialization
+and 64 MiB limit used by recovery download. An unexportable capture rejects and
+resumes A; recovery validation does not perform database I/O or acknowledge a save.
+
 Before disposal begins, publish no active runtime so the UI cannot present A as
 editable. Await complete disposal before bootstrapping B. Only successful startup
 publishes B and advances the UI lifetime generation. A rejected target, capture,

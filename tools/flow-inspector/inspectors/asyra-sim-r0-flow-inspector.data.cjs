@@ -110,6 +110,7 @@
         outputs: ['artifact:app-lifetime'],
         conditions: [
           'Preflight, pause new editing, capture detached A recovery through the Feature queue, and recheck currentness before retirement.',
+          'Validate recovery serialization and native size limits before retiring A; an unexportable capture resumes A.',
           'Publish no active runtime before disposing A; await complete disposal before composing B with the same trusted modules.',
           'Pre-retirement rejection resumes A; post-retirement failure retains detached recovery and publishes no editable runtime.',
           'Exclusive operation and close guards fence late startup/replacement; repeated close shares one terminal result.'
@@ -120,6 +121,7 @@
         allowedContributors: [
           'App bootstrap',
           'Core preflight/reset through the App runtime facade',
+          'Native project format validation without database I/O',
           'Storage currentness guard'
         ],
         forbiddenContributors: [

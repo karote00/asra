@@ -132,6 +132,27 @@ describe('App document replacement controller', () => {
     await controller.dispose()
   })
 
+  it('preserves A if its recovery capture cannot be exported under the native format contract', async () => {
+    const { a, factory, controller } = await setup(),
+      source = snapshot()
+    Object.assign(source.document.props, {
+      invalidRecovery: Number.POSITIVE_INFINITY
+    })
+    a.value.captureSnapshot = vi.fn(async () => source)
+    await expect(
+      controller.replace(snapshot(), () => undefined)
+    ).rejects.toThrow('Nonfinite project number')
+    expect(a.value.dispose).not.toHaveBeenCalled()
+    expect(a.resume).toHaveBeenCalledOnce()
+    expect(factory).toHaveBeenCalledTimes(1)
+    expect(controller.getState()).toMatchObject({
+      runtime: a.value,
+      status: 'ready',
+      recoveryAvailable: false
+    })
+    await controller.dispose()
+  })
+
   it.each(['capture', 'stale'])(
     'resumes A after a %s rejection before retirement',
     async (failure) => {

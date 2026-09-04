@@ -1,5 +1,5 @@
 import type { SimRuntime } from './bootstrap'
-import type { ProjectSnapshot } from '../storage/project-format'
+import { encodeProject, type ProjectSnapshot } from '../storage/project-format'
 
 export interface RuntimeState {
   readonly status:
@@ -121,7 +121,9 @@ export class RuntimeController {
         const recovery = await previous.captureSnapshot()
         this.assertOpen()
         assertCurrent()
-        this.recovery = structuredClone(recovery)
+        const detached = structuredClone(recovery)
+        encodeProject(detached)
+        this.recovery = detached
         retired = true
         this.publish({ runtime: null })
         await previous.dispose()
