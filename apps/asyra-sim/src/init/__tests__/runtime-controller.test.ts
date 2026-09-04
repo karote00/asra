@@ -25,6 +25,9 @@ function runtime() {
   const value: SimRuntime = {
     features: {
       edit: {
+        addObservation: vi.fn(),
+        updateObservation: vi.fn(),
+        removeObservation: vi.fn(),
         attachRun: vi.fn(),
         captureDocument: vi.fn(),
         applyDocument: vi.fn(),

@@ -8,6 +8,15 @@ import { FeatureNames } from '../constants'
 import * as model from '../common-apis/workcell'
 import { duplicateCandidate } from '../common-apis/duplicate-candidate'
 import {
+  addFieldObservation,
+  updateFieldObservation,
+  removeFieldObservation
+} from '../common-apis/field-observation'
+import type {
+  ObservationDraft,
+  ObservationAttachmentAdmission
+} from '../common-apis/observation-contract'
+import {
   captureCanonicalDocument,
   loadCanonicalDocument
 } from '../common-apis/document'
@@ -32,6 +41,7 @@ export function installEditingFeatures(
   artifacts?: {
     readRun?(runId: string): ArchivedRunIdentity | undefined
     validateVisuals?: model.WorkcellResourceAdmission
+    validateObservationAttachments?: ObservationAttachmentAdmission
   }
 ) {
   const execute = <T>(operation: () => T): Promise<T> =>
@@ -41,6 +51,37 @@ export function installEditingFeatures(
       FeatureNames.EDIT_WORKCELL
     )
   const api = {
+    addObservation: (runId: string, draft: ObservationDraft) => {
+      const input = structuredClone(draft)
+      return execute(() =>
+        addFieldObservation(
+          core,
+          runId,
+          input,
+          artifacts?.validateObservationAttachments
+        )
+      )
+    },
+    updateObservation: (
+      runId: string,
+      id: string,
+      expectedRevision: number,
+      draft: ObservationDraft
+    ) => {
+      const input = structuredClone(draft)
+      return execute(() =>
+        updateFieldObservation(
+          core,
+          runId,
+          id,
+          expectedRevision,
+          input,
+          artifacts?.validateObservationAttachments
+        )
+      )
+    },
+    removeObservation: (runId: string, id: string, expectedRevision: number) =>
+      execute(() => removeFieldObservation(core, runId, id, expectedRevision)),
     attachRun: (runId: string) =>
       execute(() => {
         const run = artifacts?.readRun?.(runId)

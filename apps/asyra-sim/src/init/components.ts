@@ -31,7 +31,10 @@ export function installModelComponents(core: Core): void {
         {
           name: PropertyNames[key],
           type: PropertyTypes[key],
-          alias: [PropertyFields[key]]
+          alias:
+            PropertyNames[key] === PropertyFields[key]
+              ? []
+              : [PropertyFields[key]]
         }
       ],
       // The registered spatial layer owns visual output; there is no 2D surrogate.

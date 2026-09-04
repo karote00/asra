@@ -758,12 +758,14 @@
           'artifact:runtime',
           'artifact:domain',
           'validated visual source admission callback',
+          'validated observation attachment admission callback and retained run identity',
           'validated edit intent or canonical capture/guarded-apply request'
         ],
         outputs: ['artifact:committed-model', 'artifact:canonical-capture'],
         conditions: [
           'Mutating edit intents use Feature -> common API -> Core canonical state under one transaction.',
           'Material changes to baseline or typed acceptance conditions advance rule and experiment revisions together; non-rule edits preserve rule revision, and Undo or duplication uses the same canonical contract.',
+          'Run-linked observations belong to canonical run references, never immutable evidence. Validate bounded metadata, project-wide counts and identities, attachment admission, and expected revisions before one transaction; creation owns identity and timestamps, unchanged content is a no-op, and removals remain undoable.',
           'Candidate duplication remaps independent body/experiment identities and all references atomically, preserves explicit body lineage, and never copies historical run references.',
           'Reject invalid edits; explicit rollback cancellation produces no partial scene.',
           'Preserve body-local visual metadata through edits and duplication; admit all declared sources and expanded instances before writing. Visual binding uses previously retained source bytes in one canonical transaction; source retention and durable saving remain separate storage operations.',
@@ -773,7 +775,11 @@
         bypasses: [
           'Load and Undo/Redo use canonical apply instead of new product intent.'
         ],
-        allowedContributors: ['Feature System', 'Core scene/property facades'],
+        allowedContributors: [
+          'Feature System',
+          'Core scene/property facades',
+          'storage-owned attachment admission without I/O inside the transaction'
+        ],
         forbiddenContributors: [
           'direct SDK mutation',
           'standalone undo stack',
@@ -786,7 +792,8 @@
           'apps/asyra-sim/src/common-apis/**',
           'apps/asyra-sim/src/constants/**',
           'apps/asyra-sim/src/init/properties*',
-          'apps/asyra-sim/src/init/components*'
+          'apps/asyra-sim/src/init/components*',
+          'apps/asyra-sim/src/init/__tests__/runtime-controller.test.ts'
         ],
         specRefs: [
           '#9-comparable-and-traceable-experiments',

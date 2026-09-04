@@ -1,5 +1,9 @@
 import type { Core } from '@asyra/core'
 import {
+  validFieldObservations,
+  type FieldObservation
+} from '../common-apis/observation-contract'
+import {
   validCandidateLineage,
   type CandidateLineage
 } from '../common-apis/candidate-lineage'
@@ -65,6 +69,7 @@ export interface RunReference {
   runId: string
   snapshotId: string
   experimentId: string
+  observations?: readonly FieldObservation[]
 }
 export function validRunReference(
   value: unknown
@@ -75,12 +80,19 @@ export function validRunReference(
       'version',
       'runId',
       'snapshotId',
-      'experimentId'
+      'experimentId',
+      ...(value &&
+      typeof value === 'object' &&
+      Object.hasOwn(value, 'observations')
+        ? ['observations']
+        : [])
     ]) &&
     value.version === 1 &&
     validIdentifier(value.runId) &&
     validIdentifier(value.snapshotId) &&
-    validIdentifier(value.experimentId)
+    validIdentifier(value.experimentId) &&
+    (!Object.hasOwn(value, 'observations') ||
+      validFieldObservations(value.observations))
   )
 }
 export function validBodyProperty(value: unknown): value is BodyParameters {

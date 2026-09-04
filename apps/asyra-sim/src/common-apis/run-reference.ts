@@ -2,6 +2,7 @@ import { runTransaction, type Core } from '@asyra/core'
 import { ComponentTypes, PropertyFields, PropertyNames } from '../constants'
 import { isPlainRecord } from '../domain/records'
 import { validRunReference, type RunReference } from '../init/properties'
+import { OBSERVATION_LIMITS } from './observation-contract'
 
 export interface ArchivedRunIdentity {
   runId: string
@@ -64,6 +65,13 @@ export function readCapturedRunReferences(
     references.length
   )
     throw new Error('Duplicate canonical run reference')
+  const observations = references.flatMap(
+    (reference) => reference.observations ?? []
+  )
+  if (observations.length > OBSERVATION_LIMITS.perProject)
+    throw new Error('Project field observation count limit exceeded')
+  if (new Set(observations.map((note) => note.id)).size !== observations.length)
+    throw new Error('Duplicate project field observation identity')
   return references
 }
 
