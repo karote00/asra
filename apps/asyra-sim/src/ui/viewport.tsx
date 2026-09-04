@@ -14,16 +14,17 @@ export function useViewport(
   selectedId: string | null,
   camera: SpatialCamera,
   grid: boolean,
+  isCurrent: (runtime: SimRuntime) => boolean,
   joints?: Readonly<Record<string, number>>
 ) {
   useEffect(() => {
-    if (runtime)
+    if (runtime && isCurrent(runtime))
       runtime.setFrame(
         workcell
           ? createWorkcellFrame(workcell, { selectedId, camera, grid, joints })
           : { camera, meshes: [] }
       )
-  }, [runtime, workcell, selectedId, camera, grid, joints])
+  }, [runtime, workcell, selectedId, camera, grid, joints, isCurrent])
 }
 
 export function ViewportControls({
@@ -31,13 +32,15 @@ export function ViewportControls({
   runtime,
   camera,
   onCamera,
-  onSelect
+  onSelect,
+  isCurrent
 }: {
   host: HTMLDivElement | null
   runtime: SimRuntime | null
   camera: SpatialCamera
   onCamera: (camera: SpatialCamera) => void
   onSelect: (id: string | null) => void
+  isCurrent: (runtime: SimRuntime) => boolean
 }) {
   const current = useRef(camera)
   current.current = camera
@@ -51,7 +54,7 @@ export function ViewportControls({
       pointerId: number
     } | null = null
     const down = (event: PointerEvent) => {
-      if (event.button !== 0) return
+      if (!isCurrent(runtime) || event.button !== 0) return
       drag = {
         x: event.clientX,
         y: event.clientY,
@@ -62,7 +65,8 @@ export function ViewportControls({
       host.setPointerCapture(event.pointerId)
     }
     const move = (event: PointerEvent) => {
-      if (!drag || drag.pointerId !== event.pointerId) return
+      if (!isCurrent(runtime) || !drag || drag.pointerId !== event.pointerId)
+        return
       const dx = event.clientX - drag.x,
         dy = event.clientY - drag.y
       if (Math.hypot(dx, dy) < 4 && !drag.moved) return
@@ -86,7 +90,7 @@ export function ViewportControls({
     }
     const up = (event: PointerEvent) => {
       if (!drag || drag.pointerId !== event.pointerId) return
-      if (!drag.moved)
+      if (isCurrent(runtime) && !drag.moved)
         onSelect(runtime.pick(event.clientX, event.clientY) ?? null)
       drag = null
       if (host.hasPointerCapture(event.pointerId))
@@ -96,6 +100,7 @@ export function ViewportControls({
       drag = null
     }
     const wheel = (event: WheelEvent) => {
+      if (!isCurrent(runtime)) return
       event.preventDefault()
       const c = current.current,
         p = c.position.map((v, i) => v - c.target[i]),
@@ -121,16 +126,25 @@ export function ViewportControls({
     host.addEventListener('pointercancel', cancel)
     host.addEventListener('wheel', wheel, { passive: false })
     return () => {
+      if (drag && host.hasPointerCapture(drag.pointerId))
+        host.releasePointerCapture(drag.pointerId)
+      drag = null
       host.removeEventListener('pointerdown', down)
       host.removeEventListener('pointermove', move)
       host.removeEventListener('pointerup', up)
       host.removeEventListener('pointercancel', cancel)
       host.removeEventListener('wheel', wheel)
     }
-  }, [host, runtime, onCamera, onSelect])
+  }, [host, runtime, onCamera, onSelect, isCurrent])
   return (
     <div className="viewport-tools">
-      <button onClick={() => onCamera(structuredClone(DEFAULT_CAMERA))}>
+      <button
+        disabled={!runtime}
+        onClick={() => {
+          if (runtime && isCurrent(runtime))
+            onCamera(structuredClone(DEFAULT_CAMERA))
+        }}
+      >
         Reset view
       </button>
       <span>Drag to orbit · Scroll to zoom · Click to select</span>

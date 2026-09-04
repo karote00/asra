@@ -28,14 +28,15 @@ retain the editable model and support retry. Post-retirement failure instead
 retains detached recovery with no editable runtime. Persistence status and
 project identity are not a second editable workcell or Undo stack.
 
-Opening first reads and validates a detached envelope. Explicit acceptance then
-passes through the App replacement boundary. Check that the document has not
-changed since the open request before accepting replacement; otherwise
+The user selects a saved summary and explicitly accepts replacement. Opening
+reads and validates a detached envelope before the App replacement boundary.
+Check that the document has not changed since the open request before accepting
+replacement; otherwise
 reject and ask the user to retry. Confirm replacement when current edits are not
 saved. Opening uses the complete runtime reset below, not load plus an isolated
-history clear. The user approved this lifecycle extension; production Open is
-not complete until its integration gates pass. Closing the App aborts owned
-database work and ignores late responses.
+history clear. The user approved this lifecycle extension; normal Open requires
+the integration gates below. Closing the App aborts owned database work and
+ignores late responses.
 
 ## Complete Runtime Reset
 
@@ -265,6 +266,29 @@ List at most the 100 most recently saved project summaries and disclose truncati
 Deleting projects and automatic migration are outside this initial slice.
 
 ## Privacy and Recovery
+
+The workbench presents explicit Save, Save copy, and Open controls in a local
+project dialog. It displays persistence acknowledgement independently from model
+editing, lists saved names/times, discloses the 100-item limit, and confirms
+replacement (including an unsaved-change warning). No project opens automatically.
+Model editing remains available during save or storage unavailability. Editing
+controls stop accepting input while the runtime controller is replacing a
+document. A new lifetime resets candidate selection, object selection, camera,
+grid, and inspector drafts; late old-runtime actions cannot update these fields.
+
+The UI owns one storage session outside individual runtime lifetimes, detaches old
+model subscriptions before retirement, and marks edits only for the current
+runtime. Browser close warns when edits are unsaved or an operation is running.
+Post-retirement failure displays the lifecycle error and offers the detached A
+snapshot as an explicit native JSON recovery download. It does not claim a save,
+hide failure behind a synthetic workcell, or enable further edits. Reloading
+remains a user decision. IndexedDB remains origin-local and browser-managed, not
+a guaranteed backup.
+
+Retained load-review diagnostics remain visible in the workbench and survive
+saving and reopening. Display at most 20 expanded entries with the full count;
+all diagnostics remain in the snapshot. This slice does not silently acknowledge
+or clear them, and they remain blockers for later formal analysis.
 
 There is no upload, login, synchronization, or automatic code installation. Saved
 projects belong to the browser origin/profile; clearing site data or changing the

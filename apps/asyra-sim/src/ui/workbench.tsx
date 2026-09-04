@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { bootstrap, type SimRuntime } from '../init/bootstrap'
+import { useCallback, useState } from 'react'
+import type { SimRuntime } from '../init/bootstrap'
 import { IDENTITY_POSE } from '../domain/math'
 import type { Body, Workcell } from '../domain/workcell'
 import type { SpatialCamera } from '../render-app/spatial-layer'
@@ -7,6 +7,9 @@ import { DEFAULT_CAMERA } from '../render-app/workcell-frame'
 import { BodyEditor } from './body-editor'
 import { ErrorNotice } from './fields'
 import { useViewport, ViewportControls } from './viewport'
+import { useProjectRuntime } from './use-project-runtime'
+import { ProjectControls } from './project-controls'
+import { downloadRecovery } from './download-project'
 
 function Hierarchy({
   workcell,
@@ -24,6 +27,7 @@ function Hierarchy({
         <div key={body.id}>
           <button
             role="treeitem"
+            data-object-id={body.id}
             aria-selected={selected === body.id}
             className={`tree-row ${selected === body.id ? 'selected' : ''}`}
             style={{ paddingLeft: 16 + depth * 13 }}
@@ -47,9 +51,7 @@ function Hierarchy({
 
 export function Workbench() {
   const [host, setHost] = useState<HTMLDivElement | null>(null)
-  const [runtime, setRuntime] = useState<SimRuntime | null>(null)
-  const [revision, setRevision] = useState(0),
-    [candidateId, setCandidateId] = useState<string | null>(null)
+  const [candidateId, setCandidateId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [camera, setCamera] = useState<SpatialCamera>(() =>
     structuredClone(DEFAULT_CAMERA)
@@ -57,38 +59,28 @@ export function Workbench() {
   const [grid, setGrid] = useState(true),
     [error, setError] = useState(''),
     [status, setStatus] = useState('Starting local runtime…')
-  useEffect(() => {
-    if (!host) return
-    let active = true,
-      loaded: SimRuntime | undefined,
-      unsubscribe: (() => void) | undefined
-    void bootstrap(host)
-      .then((value) => {
-        loaded = value
-        if (!active) {
-          void value.dispose()
-          return
-        }
-        unsubscribe = value.subscribe(() => setRevision((value) => value + 1))
-        setRuntime(value)
-        setCandidateId(value.getCandidates()[0]?.id ?? null)
-        setStatus('Local runtime ready')
-      })
-      .catch((reason) => {
-        if (active) {
-          setError(String(reason))
-          setStatus('Startup failed. Reload after correcting the error.')
-        }
-      })
-    return () => {
-      active = false
-      unsubscribe?.()
-      void loaded?.dispose()
-    }
-  }, [host])
+  const onRuntime = useCallback((value: SimRuntime | null) => {
+    setCandidateId(value?.getCandidates()[0]?.id ?? null)
+    setSelectedId(null)
+    setCamera(structuredClone(DEFAULT_CAMERA))
+    setGrid(true)
+    setError('')
+    setStatus(value ? 'Local runtime ready' : 'Replacing document…')
+  }, [])
+  const { resources, lifecycle, revision } = useProjectRuntime(host, onRuntime)
+  const runtime = lifecycle.runtime,
+    ready = lifecycle.status === 'ready'
+  const isCurrent = useCallback(
+    (value: SimRuntime) => {
+      const state = resources?.controller.getState()
+      return state?.status === 'ready' && state.runtime === value
+    },
+    [resources]
+  )
   let workcell: Workcell | null = null
   let modelError = ''
   const candidates = runtime?.getCandidates() ?? []
+  const loadIssues = runtime?.getLoadIssues() ?? []
   try {
     if (
       runtime &&
@@ -100,14 +92,29 @@ export function Workbench() {
     modelError = `Cannot project this candidate: ${reason instanceof Error ? reason.message : String(reason)}`
   }
   const selected = workcell?.bodies.find((body) => body.id === selectedId)
-  const select = useCallback((id: string | null) => setSelectedId(id), [])
-  useViewport(runtime, workcell, selectedId, camera, grid)
-  const perform = async (action: () => Promise<unknown>, message: string) => {
+  const select = useCallback(
+    (id: string | null) => {
+      if (runtime && isCurrent(runtime)) setSelectedId(id)
+    },
+    [runtime, isCurrent]
+  )
+  useViewport(runtime, workcell, selectedId, camera, grid, isCurrent)
+  const perform = async (
+    action: (assertCurrent: () => void) => Promise<unknown>,
+    message: string
+  ) => {
+    const assertCurrent = () => {
+      if (!runtime || !isCurrent(runtime))
+        throw new Error('The document is no longer active')
+    }
     try {
-      await action()
+      assertCurrent()
+      await action(assertCurrent)
+      assertCurrent()
       setError('')
       setStatus(message)
     } catch (reason) {
+      if (!runtime || !isCurrent(runtime)) return
       setError(reason instanceof Error ? reason.message : String(reason))
       setStatus('Action rejected; the model was not changed')
     }
@@ -131,11 +138,16 @@ export function Workbench() {
       visible: true,
       color: 0x8ba6b4
     }
-    void perform(async () => {
+    void perform(async (assertCurrent) => {
       await runtime.features.edit.upsert(candidateId, body)
+      assertCurrent()
       setSelectedId(body.id)
     }, 'Fixture added · one Undo action')
   }
+  let runtimeStatus = status
+  if (lifecycle.status === 'failed') runtimeStatus = 'Runtime unavailable'
+  else if (lifecycle.status === 'replacing')
+    runtimeStatus = 'Replacing document…'
   return (
     <div className="workbench">
       <header className="topbar">
@@ -151,6 +163,9 @@ export function Workbench() {
         <div className="project-title">
           Robot workcell experiments<span>Local workspace</span>
         </div>
+        {resources && (
+          <ProjectControls session={resources.session} ready={ready} />
+        )}
         <span className="local-badge">
           <i />
           Private by default
@@ -162,7 +177,7 @@ export function Workbench() {
         </div>
         <div className="commands">
           <button
-            disabled={!runtime}
+            disabled={!ready}
             onClick={() =>
               runtime &&
               void perform(
@@ -174,7 +189,7 @@ export function Workbench() {
             ↶ Undo
           </button>
           <button
-            disabled={!runtime}
+            disabled={!ready}
             onClick={() =>
               runtime &&
               void perform(
@@ -187,14 +202,15 @@ export function Workbench() {
           </button>
           <span className="divider" />
           <button
-            disabled={!runtime}
+            disabled={!ready}
             onClick={() =>
               runtime &&
-              void perform(async () => {
+              void perform(async (assertCurrent) => {
                 const id = await runtime.features.edit.createCandidate(
                   'New workcell',
                   { version: 1, robotRootId: null, bodies: [] }
                 )
+                assertCurrent()
                 setCandidateId(id)
                 setSelectedId(null)
               }, 'Blank workcell created')
@@ -202,16 +218,68 @@ export function Workbench() {
           >
             + New workcell
           </button>
-          <button disabled={!runtime || !workcell} onClick={addBody}>
+          <button disabled={!ready || !workcell} onClick={addBody}>
             + Add fixture
           </button>
         </div>
       </div>
       {error && <ErrorNotice message={error} onDismiss={() => setError('')} />}
+      {lifecycle.error && (
+        <div className="lifecycle-notice" role="alert">
+          <span>
+            {lifecycle.error}
+            {lifecycle.status === 'failed'
+              ? ' No editable runtime is available. Correct the cause before reloading.'
+              : ''}
+          </span>
+          {lifecycle.recoveryAvailable && (
+            <button
+              onClick={() => {
+                try {
+                  const snapshot = resources?.controller.getRecovery()
+                  if (snapshot) downloadRecovery(snapshot)
+                } catch (reason) {
+                  setError(String(reason))
+                }
+              }}
+            >
+              Download recovery
+            </button>
+          )}
+        </div>
+      )}
       {modelError && (
         <div className="error-notice" role="alert">
           {modelError}. Correct the model or use Undo; analysis is unavailable.
         </div>
+      )}
+      {loadIssues.length > 0 && (
+        <details
+          className="load-diagnostics"
+          data-testid="load-diagnostics"
+          key={lifecycle.generation}
+        >
+          <summary>
+            {loadIssues.length} load review requirement
+            {loadIssues.length === 1 ? '' : 's'} · source diagnostics retained
+          </summary>
+          <p>
+            Recovered fields are not proof of the original input. Formal
+            analysis must remain blocked until these requirements are resolved.
+          </p>
+          <ul>
+            {loadIssues.slice(0, 20).map((issue, index) => (
+              <li key={index}>
+                <code>{issue.path}</code>: {issue.message}
+              </li>
+            ))}
+          </ul>
+          {loadIssues.length > 20 && (
+            <p>
+              Showing the first 20 requirements; all are retained in saved data.
+            </p>
+          )}
+        </details>
       )}
       <main className="work-area">
         <aside className="hierarchy-panel">
@@ -227,6 +295,7 @@ export function Workbench() {
               Candidate
               <select
                 aria-label="Candidate"
+                disabled={!ready}
                 value={candidateId ?? ''}
                 onChange={(event) => {
                   setCandidateId(event.target.value)
@@ -234,7 +303,11 @@ export function Workbench() {
                 }}
               >
                 {candidates.length === 0 && (
-                  <option value="">No workcell — create one or Redo</option>
+                  <option value="">
+                    {ready
+                      ? 'No workcell — create one or Redo'
+                      : 'No active document'}
+                  </option>
                 )}
                 {candidates.map((candidate) => (
                   <option key={candidate.id} value={candidate.id}>
@@ -273,6 +346,7 @@ export function Workbench() {
               <input
                 type="checkbox"
                 checked={grid}
+                disabled={!ready}
                 onChange={(event) => setGrid(event.target.checked)}
               />
               Grid
@@ -289,6 +363,7 @@ export function Workbench() {
             camera={camera}
             onCamera={setCamera}
             onSelect={select}
+            isCurrent={isCurrent}
           />
           <div className="viewport-summary">
             <span>{selected?.name ?? 'Select an object to inspect'}</span>
@@ -302,7 +377,7 @@ export function Workbench() {
           </div>
         </section>
         <aside className="properties-panel">
-          {selected && workcell && runtime && candidateId ? (
+          {ready && selected && workcell && runtime && candidateId ? (
             <BodyEditor
               key={`${candidateId}:${selected.id}:${revision}`}
               body={selected}
@@ -319,8 +394,9 @@ export function Workbench() {
                     'Delete this object and all its descendants? You can Undo this action.'
                   )
                 )
-                  void perform(async () => {
+                  void perform(async (assertCurrent) => {
                     await runtime.features.edit.remove(candidateId, selected.id)
+                    assertCurrent()
                     setSelectedId(null)
                   }, 'Object removed')
               }}
@@ -329,10 +405,15 @@ export function Workbench() {
             <div className="empty-inspector">
               <span className="eyebrow">INSPECTOR</span>
               <div className="empty-icon">◇</div>
-              <h2>A closer look.</h2>
+              <h2>
+                {lifecycle.status === 'failed'
+                  ? 'Runtime unavailable.'
+                  : 'A closer look.'}
+              </h2>
               <p>
-                Select a body in the scene or hierarchy to edit its mounting,
-                joints, and analysis shapes.
+                {lifecycle.status === 'failed'
+                  ? 'Download available recovery data before reloading. No model is currently editable.'
+                  : 'Select a body in the scene or hierarchy to edit its mounting, joints, and analysis shapes.'}
               </p>
               <div className="scope-note">
                 <strong>Geometry, not guarantees.</strong>
@@ -348,7 +429,10 @@ export function Workbench() {
       <footer className="statusbar">
         <span>
           <i className={runtime ? 'ready-dot' : 'pending-dot'} />
-          <span role="status">{status}</span>
+          <span role="status">{runtimeStatus}</span>
+        </span>
+        <span data-testid="history-depth">
+          Undo steps: {runtime?.getHistoryDepth() ?? 0}
         </span>
         <span>
           Machine-scale geometry <span className="footer-dot">·</span> CUSTOM

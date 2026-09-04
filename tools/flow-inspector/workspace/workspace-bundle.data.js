@@ -10784,6 +10784,9 @@
             ],
             "conditions": [
               "Dispatch intent through Features; UI is never canonical model or solver authority.",
+              "Keep one storage session outside document lifetimes; acknowledge saves separately and confirm replacement through the App lifecycle controller.",
+              "Reset transient view/selection/drafts for each successor; guard late old-runtime effects and input callbacks.",
+              "Show local storage errors without blocking editing; post-retirement failure disables editing and offers detached recovery download.",
               "Expose assumptions, unknowns, saving failures, comparison differences, and method versions.",
               "Use local assets; release readiness remains governed by FIRST_RELEASE gates."
             ],

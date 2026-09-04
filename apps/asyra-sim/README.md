@@ -5,10 +5,11 @@ robot workcell: geometric interference and clearance, not equipment control or
 industrial safety certification.
 
 **Development checkpoint, not R0.** The current workbench can edit a synthetic
-six-axis model and geometric proxies, navigate in 3D, and Undo/Redo. Analytical
+six-axis model and geometric proxies, navigate in 3D, Undo/Redo, and explicitly
+save and reopen local projects. Analytical
 and continuous-time numerical kernels have owner tests; they are not yet a
 complete user-facing experiment workflow. Do not use this checkpoint to approve
-production operations. Saving, import, formal execution, comparison, and
+production operations. Import, formal execution, comparison, and
 distribution are still under development.
 
 ## Local development
@@ -39,6 +40,17 @@ are written to `test-results/` and are not committed. The JSON report at
 visual-state metadata. Browser proofs complement rather than replace complete
 product E2E. See the [initial runtime profile](../../docs/ai/apps/asyra-sim/specs/runtime-profile-v0.md)
 for the unverified ordinary-hardware target and delivery limits.
+
+## Local projects
+
+Use **Projects** to name and save a project, save a separate copy, or explicitly
+open a stored project. Browser-local IndexedDB is not a backup; clearing site
+data removes saves. Save acknowledgement is separate from editing, and a failed
+save never claims persistence. Opening starts a fresh App/Core lifetime with
+empty Undo/Redo and reset selection/camera; it does not clear history inside
+ordinary `Core.load()`. Invalid targets leave the current document intact.
+Failure after retirement stops editing and offers a detached native JSON
+recovery download. Load-review diagnostics remain visible and retained.
 
 ## Architecture
 

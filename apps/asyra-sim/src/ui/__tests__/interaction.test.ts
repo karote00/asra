@@ -3,7 +3,7 @@ import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { NumberField } from '../fields'
-import { useViewport } from '../viewport'
+import { useViewport, ViewportControls } from '../viewport'
 import { DEFAULT_CAMERA } from '../../render-app/workcell-frame'
 import type { SimRuntime } from '../../init/bootstrap'
 import type { Workcell } from '../../domain/workcell'
@@ -51,7 +51,7 @@ it('removing the active canonical model removes its old visible projection', asy
   const setFrame = vi.fn(),
     runtime = { setFrame } as unknown as SimRuntime
   const View = ({ workcell }: { workcell: Workcell | null }) => {
-    useViewport(runtime, workcell, null, DEFAULT_CAMERA, false)
+    useViewport(runtime, workcell, null, DEFAULT_CAMERA, false, () => true)
     return null
   }
   await act(() =>
@@ -63,5 +63,72 @@ it('removing the active canonical model removes its old visible projection', asy
   await act(() => root.render(createElement(View, { workcell: null })))
   expect(setFrame.mock.lastCall?.[0].meshes.length).toBe(0)
   expect(setFrame.mock.lastCall?.[0].camera).toEqual(DEFAULT_CAMERA)
+  await act(() => root.unmount())
+})
+
+it('does not submit a retained viewport effect after its document lifetime ended', async () => {
+  const host = document.createElement('div'),
+    root = createRoot(host)
+  const setFrame = vi.fn(),
+    runtime = { setFrame } as unknown as SimRuntime
+  const View = () => {
+    useViewport(
+      runtime,
+      createSyntheticExample().workcell,
+      null,
+      DEFAULT_CAMERA,
+      true,
+      () => false
+    )
+    return null
+  }
+  await act(() => root.render(createElement(View)))
+  expect(setFrame).not.toHaveBeenCalled()
+  await act(() => root.unmount())
+})
+
+it('ignores retained pointer, wheel and reset-view input from a retired document', async () => {
+  const host = document.createElement('div'),
+    surface = document.createElement('div'),
+    root = createRoot(host)
+  surface.setPointerCapture = vi.fn()
+  surface.hasPointerCapture = vi.fn(() => false)
+  const pick = vi.fn(() => 'old-body'),
+    runtime = { pick } as unknown as SimRuntime
+  const onCamera = vi.fn(),
+    onSelect = vi.fn()
+  let current = true
+  await act(() =>
+    root.render(
+      createElement(ViewportControls, {
+        host: surface,
+        runtime,
+        camera: DEFAULT_CAMERA,
+        onCamera,
+        onSelect,
+        isCurrent: () => current
+      })
+    )
+  )
+  surface.dispatchEvent(
+    Object.assign(
+      new MouseEvent('pointerdown', { button: 0, clientX: 10, clientY: 10 }),
+      { pointerId: 1 }
+    )
+  )
+  current = false
+  await act(() => {
+    surface.dispatchEvent(new WheelEvent('wheel', { deltaY: 80 }))
+    surface.dispatchEvent(
+      Object.assign(
+        new MouseEvent('pointerup', { button: 0, clientX: 10, clientY: 10 }),
+        { pointerId: 1 }
+      )
+    )
+    host.querySelector('button')?.click()
+  })
+  expect(pick).not.toHaveBeenCalled()
+  expect(onCamera).not.toHaveBeenCalled()
+  expect(onSelect).not.toHaveBeenCalled()
   await act(() => root.unmount())
 })
