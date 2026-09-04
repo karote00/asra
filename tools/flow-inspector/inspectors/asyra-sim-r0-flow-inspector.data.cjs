@@ -658,20 +658,25 @@
         inputs: [
           'trusted pre-start modules',
           'validated startup configuration',
-          'optional validated saved document with retained diagnostics'
+          'optional validated saved document with retained diagnostics',
+          'optional complete storage-prepared visual archive transferred by the lifecycle owner'
         ],
         outputs: ['artifact:runtime'],
         conditions: [
           'Composition is open; explicitly select CUSTOM defaults and bind the provider through Core.',
           'One runtime owns one surface; startup must succeed before UI reports ready.',
           'Capture one Core per lifetime; saved startup loads its snapshot/diagnostics without an extra example or Undo entry.',
+          'Own prepared visual resources, or prepare saved sources before startup; install storage Features and resource admission without duplicating canonical binding ownership.',
+          'Portable capture retains the source union of current candidates and immutable runs; current and historical readers resolve the same owned archive.',
+          'Failed startup and terminal disposal release owned visual resources even if Feature installation was incomplete.',
           'App admission can pause before retirement while queued snapshot capture remains available.',
           'Disposal attempts all App resources and awaits Core reset; old callbacks/resume handles cannot operate on a successor.'
         ],
         bypasses: ['No runtime construction during catalog inspection.'],
         allowedContributors: [
           'Core public facade',
-          'trusted local method catalog'
+          'trusted local method catalog',
+          'App storage resource services and canonical reference readers'
         ],
         forbiddenContributors: [
           'Preset 3D/HYBRID enablement',

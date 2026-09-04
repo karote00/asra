@@ -109,6 +109,18 @@ its own expanded-workcell budget; shared source retention still has one
 archive-wide budget. Any missing source, digest/profile error, excessive group,
 or abort releases the prepared archive instead of returning partial resources.
 
+Document replacement prepares all target resources before pausing the current
+runtime. Currentness is checked again after preparation; only then may the
+controller capture recovery and retire the old runtime. Closing aborts pending
+preparation and disposes any late, untransferred archive. Successful bootstrap
+owns the transferred archive without decoding it again. Initial saved startup
+without prepared resources uses the same complete preparation service.
+Composition connects visual-resource admission to editing and formal snapshot
+creation, exposes live current/historical resource readers, and captures only
+the referenced source union. Failed startup and terminal teardown release the
+archive even when Feature installation did not finish. Retired facades cannot
+prepare, accept, or resolve references in a successor's lifetime.
+
 ### Supported GLB content
 
 - GLB container version 2 and glTF asset version 2.0, with exactly one JSON chunk

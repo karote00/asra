@@ -14,7 +14,10 @@ import { installCustomRenderer } from './custom-renderer'
 import type { SpatialFrame } from '../render-app/spatial-layer'
 import { createSyntheticExample } from '../../samples/synthetic-workcell'
 import { createSyntheticExperimentDraft } from '../../samples/synthetic-experiment'
-import type { ProjectSnapshot } from '../storage/project-format'
+import {
+  projectVisualAssetIds,
+  type ProjectSnapshot
+} from '../storage/project-format'
 import { AnalysisRunner } from '../analysis/runner'
 import { OFFICIAL_CLEARANCE_METHOD } from '../analysis/methods/official-method'
 import { preflightExperiment as checkExperiment } from '../analysis/preflight'
@@ -22,6 +25,14 @@ import { createExperimentSnapshot as freezeExperiment } from '../analysis/snapsh
 import { RunArchive } from '../storage/run-record'
 import { readCapturedRunReferences } from '../common-apis/run-reference'
 import { installRunStorageFeature } from '../features/storage-runs'
+import { installVisualStorageFeatures } from '../features/storage-visuals'
+import {
+  VisualAssetArchive,
+  type PreparedVisualImport
+} from '../storage/visual-archive'
+import { prepareProjectVisuals } from '../storage/project-visuals'
+import { readCapturedVisualBindingGroups } from '../common-apis/visual-reference'
+import type { Workcell } from '../domain/workcell'
 
 function guardCommands<
   T extends { [K in keyof T]: (...args: never[]) => unknown }
@@ -44,11 +55,13 @@ function guardCommands<
 export async function bootstrap(
   host: HTMLElement,
   provider?: RenderEngineProvider,
-  snapshot?: ProjectSnapshot
+  snapshot?: ProjectSnapshot,
+  prepared?: VisualAssetArchive
 ) {
   const core = currentCore
   if (!core.isCompositionOpen()) throw new Error('Runtime already started')
   let rendering: ReturnType<typeof installCustomRenderer> | undefined
+  let visualResources: VisualAssetArchive | undefined
   let observer: ResizeObserver | null = null,
     disposed = false
   let disposal: Promise<void> | undefined
@@ -85,6 +98,8 @@ export async function bootstrap(
       } catch (error) {
         errors.push(error)
       }
+      // Also covers startup failure before the storage Feature cleanup was registered.
+      attempt(() => visualResources?.dispose())
       if (errors.length === 1) throw errors[0]
       if (errors.length)
         throw new AggregateError(errors, 'Runtime cleanup failed')
@@ -92,6 +107,20 @@ export async function bootstrap(
     return disposal
   }
   try {
+    const visuals =
+      prepared ??
+      (snapshot
+        ? await prepareProjectVisuals(snapshot)
+        : new VisualAssetArchive())
+    visualResources = visuals
+    if (snapshot) {
+      for (const bindings of readCapturedVisualBindingGroups(
+        snapshot.document
+      ).values())
+        visuals.resolveBindings(bindings)
+      for (const run of snapshot.runs ?? [])
+        visuals.resolveWorkcell(run.snapshot.workcell)
+    }
     const archive = new RunArchive(snapshot?.runs)
     const captureRuns = (document: unknown) =>
       readCapturedRunReferences(document).map((reference) => {
@@ -111,6 +140,9 @@ export async function bootstrap(
     const layer = rendering.layer
     installModelComponents(core)
     const editing = installEditingFeatures(core, {
+      validateVisuals: (workcell) => {
+        visuals.resolveWorkcell(workcell)
+      },
       readRun: (runId) => {
         const run = archive.get(runId)
         if (!run) return
@@ -129,10 +161,32 @@ export async function bootstrap(
     })
     const analysisRunner = new AnalysisRunner()
     const analysis = installAnalysisFeature(core, analysisRunner)
+    const visualStorage = installVisualStorageFeatures(
+      core,
+      visuals,
+      (...args) => {
+        assertAccepting()
+        return editing.edit.upsertVisual(...args)
+      }
+    )
     const features = {
       edit: guardCommands(editing.edit, assertAccepting),
       history: guardCommands(editing.history, assertAccepting),
       storage: guardCommands(storage, assertAccepting),
+      visuals: {
+        ...guardCommands(
+          { prepare: visualStorage.prepare, retain: visualStorage.retain },
+          assertAccepting
+        ),
+        cancel: () => {
+          assertLive()
+          return visualStorage.cancel()
+        },
+        discard: (receipt: PreparedVisualImport) => {
+          assertLive()
+          visualStorage.discard(receipt)
+        }
+      },
       analysis: {
         run: (...args: Parameters<typeof analysis.run>) => {
           assertAccepting()
@@ -215,11 +269,19 @@ export async function bootstrap(
       captureSnapshot: async () => {
         const document = await save()
         const runs = captureRuns(document)
+        const visualSources = visuals.capture(
+          projectVisualAssetIds({ document, runs })
+        )
         return {
           document,
           loadIssues: structuredClone(loadIssues),
-          ...(runs.length ? { runs } : {})
+          ...(runs.length ? { runs } : {}),
+          ...(visualSources.length ? { visualSources } : {})
         }
+      },
+      getVisualAssets: (workcell: Workcell, pending?: PreparedVisualImport) => {
+        assertLive()
+        return visuals.resolveWorkcell(workcell, pending)
       },
       getRuns: () => {
         assertLive()
@@ -259,11 +321,11 @@ export async function bootstrap(
       preflightExperiment: (experimentId: string) => {
         assertLive()
         const experiment = readExperiment(core, experimentId)
-        const report = checkExperiment(
-          readWorkcell(core, experiment.candidateId),
-          experiment.definition,
-          [OFFICIAL_CLEARANCE_METHOD]
-        )
+        const workcell = readWorkcell(core, experiment.candidateId)
+        visuals.resolveWorkcell(workcell)
+        const report = checkExperiment(workcell, experiment.definition, [
+          OFFICIAL_CLEARANCE_METHOD
+        ])
         if (!loadIssues.length) return report
         return {
           ...report,
@@ -287,11 +349,13 @@ export async function bootstrap(
             'Retained load recovery requirements block formal analysis'
           )
         const experiment = readExperiment(core, experimentId)
+        const workcell = readWorkcell(core, experiment.candidateId)
+        visuals.resolveWorkcell(workcell)
         return freezeExperiment({
           snapshotId: crypto.randomUUID(),
           candidateId: experiment.candidateId,
           experimentId,
-          workcell: readWorkcell(core, experiment.candidateId),
+          workcell,
           definition: experiment.definition,
           methods: [OFFICIAL_CLEARANCE_METHOD],
           acknowledgedWarningCodes

@@ -28,8 +28,8 @@ export function useProjectRuntime(
   const [revision, setRevision] = useState(0)
   useEffect(() => {
     if (!host) return
-    const controller = new RuntimeController((snapshot) =>
-      bootstrap(host, undefined, snapshot)
+    const controller = new RuntimeController((snapshot, prepared) =>
+      bootstrap(host, undefined, snapshot, prepared)
     )
     const session = new ProjectSession(new IndexedProjectRepository(), {
       capture: () => controller.capture(),

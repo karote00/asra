@@ -5,6 +5,11 @@ import { bootstrap, type SimRuntime } from '../bootstrap'
 import { ThreeEngine, type GraphicsDriver } from '../../engine/three-engine'
 import { terminalAnalysisResult } from '../../analysis/result'
 import { encodeProject, decodeProject } from '../../storage/project-format'
+import { VisualAssetArchive } from '../../storage/visual-archive'
+import { prepareProjectVisuals } from '../../storage/project-visuals'
+import { decodeRestrictedGlb } from '../../engine/glb/decode'
+import { encodeGlb, triangleFixture } from '../../engine/glb/__tests__/fixtures'
+import { IDENTITY_POSE } from '../../domain/math'
 
 const runtimes: SimRuntime[] = []
 const callbacks: ResizeObserverCallback[] = []
@@ -56,8 +61,11 @@ const environment = () => {
       requestFrame: () => 1,
       cancelFrame: () => undefined
     })
-  const start = async (snapshot?: Parameters<typeof bootstrap>[2]) => {
-    const runtime = await bootstrap(host, provider, snapshot)
+  const start = async (
+    snapshot?: Parameters<typeof bootstrap>[2],
+    prepared?: VisualAssetArchive
+  ) => {
+    const runtime = await bootstrap(host, provider, snapshot, prepared)
     runtimes.push(runtime)
     return runtime
   }
@@ -65,6 +73,104 @@ const environment = () => {
 }
 
 describe('App composition lifetime', () => {
+  it('owns visual import, binding history, portable sources, and historical-only replay across lifetimes', async () => {
+    const { start } = environment(),
+      decoder = { decode: vi.fn(decodeRestrictedGlb), dispose: vi.fn() }
+    const resources = new VisualAssetArchive(decoder),
+      first = await start(undefined, resources)
+    const candidate = first.getCandidates()[0],
+      body = first.getWorkcell(candidate.id).bodies[0]
+    const { json, binary } = triangleFixture(),
+      depth = first.getHistoryDepth()
+    const prepared = await first.features.visuals.prepare(
+      encodeGlb(json, binary),
+      'reference.glb'
+    )
+    expect(first.getHistoryDepth()).toBe(depth)
+    const assetId = await first.features.visuals.retain(
+      prepared,
+      candidate.id,
+      body.id,
+      {
+        version: 1,
+        id: 'reference',
+        pose: IDENTITY_POSE,
+        scale: [1, 1, 1]
+      }
+    )
+    expect(first.getHistoryDepth()).toBe(depth + 1)
+    expect(
+      first.getVisualAssets(first.getWorkcell(candidate.id)).get(assetId)
+        ?.meshes[0].positions
+    ).toEqual([0, 0, 0, 1, 0, 0, 0, 1, 0])
+    expect((await first.captureSnapshot()).visualSources).toHaveLength(1)
+    await first.features.history.undo()
+    expect((await first.captureSnapshot()).visualSources).toBeUndefined()
+    await first.features.history.redo()
+    const experiment = first.getExperiments(candidate.id)[0],
+      frozen = first.createExperimentSnapshot(experiment.id, [])
+    await first.features.storage.retain({
+      version: 1,
+      name: 'Visual provenance',
+      retainedAt: '2026-09-05T00:00:00.000Z',
+      environment: {
+        appVersion: '0.1.0-alpha.0',
+        userAgent: 'Test',
+        hardwareConcurrency: 8
+      },
+      snapshot: frozen,
+      result: terminalAnalysisResult(frozen, [], {
+        runId: 'visual-run',
+        startedAt: 0,
+        endedAt: 1,
+        execution: 'cancelled',
+        error: 'Cancelled'
+      })
+    })
+    await first.features.edit.setVisuals(candidate.id, body.id, [])
+    const saved = decodeProject(encodeProject(await first.captureSnapshot()))
+    expect(saved.visualSources).toEqual([prepared.source])
+    expect(first.getVisualAssets(first.getWorkcell(candidate.id)).size).toBe(0)
+    expect(first.getVisualAssets(frozen.workcell).size).toBe(1)
+    await first.dispose()
+    expect(decoder.dispose).toHaveBeenCalledOnce()
+    expect(() => first.getVisualAssets(frozen.workcell)).toThrow('closed')
+    expect(() =>
+      first.features.visuals.prepare(encodeGlb(json, binary), 'late.glb')
+    ).toThrow('closed')
+    const rehydration = { decode: vi.fn(decodeRestrictedGlb), dispose: vi.fn() }
+    const second = await start(
+      saved,
+      await prepareProjectVisuals(saved, rehydration)
+    )
+    expect(rehydration.decode).toHaveBeenCalledOnce()
+    expect(second.getHistoryDepth()).toBe(0)
+    expect(
+      second.getVisualAssets(second.getRuns()[0].snapshot.workcell).size
+    ).toBe(1)
+    expect((await second.captureSnapshot()).visualSources).toEqual(
+      saved.visualSources
+    )
+  })
+
+  it('releases prepared visual resources when startup fails before Feature installation', async () => {
+    const { host } = environment(),
+      decoder = { decode: decodeRestrictedGlb, dispose: vi.fn() }
+    const resources = new VisualAssetArchive(decoder)
+    await expect(
+      bootstrap(
+        host,
+        () => {
+          throw new Error('engine unavailable')
+        },
+        undefined,
+        resources
+      )
+    ).rejects.toThrow('engine unavailable')
+    expect(decoder.dispose).toHaveBeenCalledOnce()
+    expect(() => resources.capture([])).toThrow('closed')
+  })
+
   it('exposes analysis progress while paused but rejects the retired reader', async () => {
     const { start } = environment(),
       first = await start()
