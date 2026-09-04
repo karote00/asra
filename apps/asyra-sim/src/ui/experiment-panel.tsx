@@ -10,13 +10,11 @@ import {
   parseExclusions
 } from './experiment-draft'
 import { ExperimentFields } from './experiment-fields'
-import {
-  AnalysisResultView,
-  isPresentedRunStale,
-  type PresentedRun
-} from './analysis-result-view'
+import { AnalysisResultView, isPresentedRunStale } from './analysis-result-view'
 import { TrajectoryImportPanel } from './trajectory-import-panel'
 import { GlbPreview } from './glb-preview'
+import type { RunRecord } from '../storage/run-record'
+import { version as appVersion } from '../../package.json'
 
 export interface PlaybackView {
   workcell: Workcell
@@ -36,7 +34,11 @@ export function ExperimentPanel({
   workcell,
   revision,
   perform,
-  onPlayback
+  onPlayback,
+  runs,
+  retainedIds,
+  onRun,
+  onOpenRuns
 }: {
   runtime: SimRuntime
   candidateId: string
@@ -44,6 +46,10 @@ export function ExperimentPanel({
   revision: number
   perform: Perform
   onPlayback: (value: PlaybackView | null) => void
+  runs: readonly RunRecord[]
+  retainedIds: ReadonlySet<string>
+  onRun: (run: RunRecord) => void
+  onOpenRuns: () => void
 }) {
   const experiments = runtime.getExperiments(candidateId)
   const [experimentId, setExperimentId] = useState(experiments[0]?.id ?? '')
@@ -59,7 +65,6 @@ export function ExperimentPanel({
   )
   const [preflight, setPreflight] = useState<PreflightReport | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
-  const [runs, setRuns] = useState<PresentedRun[]>([])
   const [running, setRunning] = useState(false)
   const [time, setTime] = useState(draft.interval[0])
   const [error, setError] = useState('')
@@ -192,13 +197,26 @@ export function ExperimentPanel({
       if (!canonical) return
       const snapshot = runtime.createExperimentSnapshot(canonical.id, warnings)
       const controller = new AbortController()
+      const environment = {
+        appVersion,
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency
+      }
       active.current = controller
       setRunning(true)
       setError('')
       const result = await runtime.features.analysis.run(snapshot, {
         signal: controller.signal
       })
-      if (live.current) setRuns((current) => [...current, { snapshot, result }])
+      if (live.current)
+        onRun({
+          version: 1,
+          name: `${canonical.name.slice(0, 150)} · r${canonical.definition.revision}`,
+          retainedAt: new Date().toISOString(),
+          environment,
+          snapshot,
+          result
+        })
     } catch (reason) {
       fail(reason)
     } finally {
@@ -421,11 +439,33 @@ export function ExperimentPanel({
           </p>
         )}
         {selectedRun && canonicalDraft && (
-          <AnalysisResultView
-            run={selectedRun}
-            stale={isPresentedRunStale(selectedRun, workcell, canonicalDraft)}
-            onReplay={replayRun}
-          />
+          <>
+            <div className="retention-actions">
+              <p className="hint">
+                {retainedIds.has(selectedRun.result.runId)
+                  ? 'Retained in this project. Save the project for durable storage.'
+                  : 'Temporary result. Explicitly retain it before saving or replacing this project.'}
+              </p>
+              <button
+                disabled={retainedIds.has(selectedRun.result.runId)}
+                onClick={() =>
+                  void perform(
+                    () => runtime.features.storage.retain(selectedRun),
+                    'Result retained · save the project for durable storage'
+                  )
+                }
+              >
+                Retain result
+              </button>
+              <button onClick={onOpenRuns}>Browse runs &amp; compare</button>
+            </div>
+            <AnalysisResultView
+              key={selectedRun.result.runId}
+              run={selectedRun}
+              stale={isPresentedRunStale(selectedRun, workcell, canonicalDraft)}
+              onReplay={replayRun}
+            />
+          </>
         )}
       </div>
     </div>

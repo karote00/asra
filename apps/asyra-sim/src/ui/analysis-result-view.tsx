@@ -1,5 +1,7 @@
 import type { ExperimentSnapshot } from '../analysis/contracts'
 import type { AnalysisResult } from '../analysis/result'
+import { useState } from 'react'
+import type { OfficialPairEvidence } from '../analysis/methods/official-method'
 import type { ExperimentDraft } from '../common-apis/experiment'
 import type { Workcell } from '../domain/workcell'
 import { definitionToDraft } from './experiment-draft'
@@ -80,17 +82,23 @@ export function AnalysisResultView({
 }) {
   const { result, snapshot } = run,
     missing = result.totalPairCount - result.coveredPairCount,
-    leaves = result.pairEvidence.flatMap((pair) =>
-      pair.evidence.leaves.map((leaf) => ({ pairId: pair.pairId, leaf }))
-    ),
-    finiteUpper = leaves.flatMap(({ leaf }) =>
-      leaf.upper === null ? [] : [leaf.upper]
-    ),
     lower =
-      missing || !leaves.length
+      missing || !result.pairEvidence.length
         ? 0
-        : Math.min(...leaves.map(({ leaf }) => leaf.lower)),
-    upper = finiteUpper.length ? Math.min(...finiteUpper) : null
+        : result.pairEvidence.reduce(
+            (minimum, pair) => Math.min(minimum, pair.evidence.lower),
+            Infinity
+          ),
+    upper = result.pairEvidence.reduce<number | null>(
+      (minimum, pair) =>
+        pair.evidence.upper === null
+          ? minimum
+          : Math.min(minimum ?? Infinity, pair.evidence.upper),
+      null
+    )
+  const [page, setPage] = useState(0)
+  const pageCount = Math.max(1, Math.ceil(result.pairEvidence.length / 20)),
+    currentPage = Math.min(page, pageCount - 1)
   return (
     <section className="result-card" data-testid="analysis-result">
       <div className="result-title">
@@ -168,70 +176,46 @@ export function AnalysisResultView({
           <span>{result.pairEvidence.length} records</span>
         </summary>
         <div className="evidence-list">
-          {result.pairEvidence.map((pair) => {
-            const source = snapshot.pairs.find(
-              (item) => item.id === pair.pairId
-            )
-            if (!source)
-              throw new Error('Result pair is missing from its frozen snapshot')
-            const finding = pair.evidence.leaves.find(
-              (leaf) => leaf.state === 'finding'
-            )
-            const unknown = pair.evidence.leaves.find(
-              (leaf) => leaf.state === 'unresolved'
-            )
-            const leaf = finding ?? unknown ?? pair.evidence.leaves[0]
-            return (
-              <details className="evidence-pair" key={pair.pairId}>
-                <summary>
-                  {source.a.bodyId} / {source.b.bodyId}
-                  <span>{pair.evidence.coverage}</span>
-                </summary>
-                <p className="hint">
-                  Lower {distance(pair.evidence.lower)} · upper{' '}
-                  {distance(pair.evidence.upper)}
-                </p>
-                <button
-                  onClick={() =>
-                    onReplay(snapshot, leaf.witnessTime ?? leaf.start, [
-                      source.a.bodyId,
-                      source.b.bodyId
-                    ])
-                  }
-                >
-                  Replay pair
-                </button>
-                {pair.evidence.leaves.map((interval, index) => (
-                  <div className="interval-evidence" key={index}>
-                    <strong>
-                      {interval.state} · {interval.start.toFixed(6)}–
-                      {interval.end.toFixed(6)} s
-                    </strong>
-                    <span>
-                      {distance(interval.lower)} ≤ minimum ≤{' '}
-                      {distance(interval.upper)}
-                    </span>
-                    <span>{interval.reason}</span>
-                    <button
-                      onClick={() =>
-                        onReplay(
-                          snapshot,
-                          interval.witnessTime ?? interval.start,
-                          [source.a.bodyId, source.b.bodyId]
-                        )
-                      }
-                    >
-                      Replay{' '}
-                      {interval.witnessTime === null
-                        ? 'interval start'
-                        : 'witness'}
-                    </button>
-                  </div>
-                ))}
-              </details>
-            )
-          })}
+          {result.pairEvidence
+            .slice(currentPage * 20, (currentPage + 1) * 20)
+            .map((pair) => {
+              const source = snapshot.pairs.find(
+                (item) => item.id === pair.pairId
+              )
+              if (!source)
+                throw new Error(
+                  'Result pair is missing from its frozen snapshot'
+                )
+              return (
+                <PairEvidenceView
+                  key={pair.pairId}
+                  pair={pair}
+                  snapshot={snapshot}
+                  source={source}
+                  onReplay={onReplay}
+                />
+              )
+            })}
         </div>
+        {pageCount > 1 && (
+          <div className="pagination">
+            <button
+              disabled={currentPage === 0}
+              onClick={() => setPage(currentPage - 1)}
+            >
+              Previous pairs
+            </button>
+            <span>
+              Pair page {currentPage + 1}/{pageCount} · all records retained
+            </span>
+            <button
+              disabled={currentPage + 1 === pageCount}
+              onClick={() => setPage(currentPage + 1)}
+            >
+              Next pairs
+            </button>
+          </div>
+        )}
       </details>
       {missing > 0 && (
         <p className="inline-error">
@@ -244,5 +228,97 @@ export function AnalysisResultView({
         </p>
       ))}
     </section>
+  )
+}
+
+function PairEvidenceView({
+  pair,
+  snapshot,
+  source,
+  onReplay
+}: {
+  pair: OfficialPairEvidence
+  snapshot: ExperimentSnapshot
+  source: ExperimentSnapshot['pairs'][number]
+  onReplay: (
+    snapshot: ExperimentSnapshot,
+    time: number,
+    bodyIds: readonly string[]
+  ) => void
+}) {
+  const [expanded, setExpanded] = useState(false),
+    [page, setPage] = useState(0)
+  const leaves = pair.evidence.leaves,
+    finding = leaves.find((leaf) => leaf.state === 'finding'),
+    unknown = leaves.find((leaf) => leaf.state === 'unresolved'),
+    leaf = finding ?? unknown ?? leaves[0],
+    pages = Math.max(1, Math.ceil(leaves.length / 20)),
+    bodyIds = [source.a.bodyId, source.b.bodyId]
+  return (
+    <details
+      className="evidence-pair"
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
+    >
+      <summary>
+        {source.a.bodyId} / {source.b.bodyId}
+        <span>{pair.evidence.coverage}</span>
+      </summary>
+      <p className="hint">
+        Lower {distance(pair.evidence.lower)} · upper{' '}
+        {distance(pair.evidence.upper)} · {leaves.length} intervals
+      </p>
+      <button
+        onClick={() =>
+          onReplay(snapshot, leaf.witnessTime ?? leaf.start, bodyIds)
+        }
+      >
+        Replay pair
+      </button>
+      {expanded && (
+        <>
+          {leaves.slice(page * 20, (page + 1) * 20).map((interval, index) => (
+            <div className="interval-evidence" key={page * 20 + index}>
+              <strong>
+                {interval.state} · {interval.start.toFixed(6)}–
+                {interval.end.toFixed(6)} s
+              </strong>
+              <span>
+                {distance(interval.lower)} ≤ minimum ≤{' '}
+                {distance(interval.upper)}
+              </span>
+              <span>{interval.reason}</span>
+              <button
+                onClick={() =>
+                  onReplay(
+                    snapshot,
+                    interval.witnessTime ?? interval.start,
+                    bodyIds
+                  )
+                }
+              >
+                Replay{' '}
+                {interval.witnessTime === null ? 'interval start' : 'witness'}
+              </button>
+            </div>
+          ))}
+          {pages > 1 && (
+            <div className="pagination">
+              <button disabled={page === 0} onClick={() => setPage(page - 1)}>
+                Previous intervals
+              </button>
+              <span>
+                Interval page {page + 1}/{pages}
+              </span>
+              <button
+                disabled={page + 1 === pages}
+                onClick={() => setPage(page + 1)}
+              >
+                Next intervals
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </details>
   )
 }

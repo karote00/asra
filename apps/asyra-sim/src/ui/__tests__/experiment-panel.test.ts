@@ -48,7 +48,11 @@ it('preserves an unapplied experiment draft when the workcell changes', async ()
         workcell: example.workcell,
         revision,
         perform,
-        onPlayback
+        onPlayback,
+        runs: [],
+        retainedIds: new Set<string>(),
+        onRun: vi.fn(),
+        onOpenRuns: vi.fn()
       })
     )
   await act(() => render(1))
@@ -79,7 +83,11 @@ it('exposes a new experiment draft even when a saved experiment exists', async (
         workcell: example.workcell,
         revision: 1,
         perform: vi.fn(),
-        onPlayback: vi.fn()
+        onPlayback: vi.fn(),
+        runs: [],
+        retainedIds: new Set<string>(),
+        onRun: vi.fn(),
+        onOpenRuns: vi.fn()
       })
     )
   )

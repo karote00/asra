@@ -1,0 +1,24 @@
+.run-dialog { width: min(1080px, calc(100vw - 48px)); max-height: calc(100dvh - 64px); padding: 24px; border: 1px solid #c7dce0; border-radius: 12px; color: #213442; box-shadow: 0 24px 80px #101f2a40; }
+.run-dialog::backdrop { background: #101f2a80; }
+.run-library-grid { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 24px; margin: 20px 0; }
+.run-history { display: flex; flex-direction: column; gap: 12px; }
+.run-history article { display: grid; gap: 9px; padding: 10px; background: #f3f7f8; border-radius: 6px; }
+.run-history article > button { display: grid; gap: 5px; text-align: left; overflow-wrap: anywhere; }
+.run-history article > button[aria-pressed='true'] { border-color: #168c83; background: #e6f3ee; }
+.run-history small { font-size: 9px; color: #738591; overflow-wrap: anywhere; }
+.run-retention-label { font-size: 10px; color: #657e8b; }
+.run-detail { min-width: 0; }
+.run-detail-actions, .retention-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.retention-actions > p { flex-basis: 100%; }
+.run-detail-actions button { font-size: 11px; }
+.run-dialog .result-card { margin-top: 14px; }
+.run-dialog .result-card summary { cursor: pointer; font-size: 11px; margin: 6px 0; }
+.run-comparison { border-top: 1px solid #d4dfe5; padding-top: 20px; display: grid; gap: 12px; }
+.comparison-columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 12px; }
+.comparison-columns > * { border: 1px solid #e0e8ec; padding: 12px; border-radius: 6px; min-width: 0; overflow-wrap: anywhere; }
+.comparison-columns p { font-size: 11px; line-height: 1.7; margin-top: 8px; }
+.comparison-columns pre { max-height: 240px; overflow: auto; white-space: pre-wrap; font-size: 10px; }
+.pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0; font-size: 10px; }
+.portable-controls { border-block: 1px solid #e0e8ec; padding: 16px 0; margin: 18px 0; }
+.portable-controls > .hint { margin-top: 10px; }
+@media (max-width: 900px) { .run-library-grid { grid-template-columns: 200px minmax(0, 1fr); gap: 16px; } }

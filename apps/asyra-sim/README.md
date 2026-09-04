@@ -8,9 +8,10 @@ industrial safety certification.
 six-axis model and geometric proxies, navigate in 3D, Undo/Redo, and explicitly
 save and reopen local projects. The experiment panel accepts explicitly mapped
 trajectories, runs preflight and isolated continuous-time analysis, and replays
-frozen evidence. Result retention, comparison, extension delivery, and independent
-validation remain under development. Do not use this checkpoint to approve
-production operations.
+frozen evidence. Runs can be explicitly retained, compared, exported, and reopened
+with portable projects. Candidate duplication, attached visual assets, extension
+delivery, and independent validation remain under development. Do not use this
+checkpoint to approve production operations.
 
 ## Local development
 
@@ -52,6 +53,13 @@ ordinary `Core.load()`. Invalid targets leave the current document intact.
 Failure after retirement stops editing and offers a detached native JSON
 recovery download. Load-review diagnostics remain visible and retained.
 
+Use **Export project** for a portable JSON backup. **Choose project file** validates
+and previews a file before explicit replacement acceptance. Imported projects start
+unsaved under a new storage identity; importing never overwrites a local saved
+project automatically. Portable projects include explicitly retained runs, not
+temporary results or private method binaries. Invalid historical evidence is
+rejected before the current runtime retires.
+
 ## Experiments
 
 Choose **Experiments** to configure a saved study or create a new one. Expand
@@ -66,8 +74,24 @@ The sampled pose slider changes only the view. Formal analysis freezes inputs,
 runs in an owned Worker, and separates execution, coverage, findings, bounds,
 and the rule verdict. Partial or cancelled results retain their unknowns.
 Replay consumes the run's frozen model and trajectory, including after edits.
-Completed runs currently remain in the active panel only; saving a project
-preserves experiment definitions but does not yet preserve those run records.
+New results are temporary until **Retain result** is chosen. Retaining adds one
+Undo action; the immutable evidence remains available for Redo during the document
+lifetime. Save the project separately for durable local storage. Unretained results
+are excluded from project saves/exports and are lost on document replacement or
+page close; the UI warns before replacement and navigation.
+
+## Retained evidence and comparison
+
+**Runs & compare** lists temporary and retained results across the current project.
+Inspect a run, export JSON/CSV/self-contained HTML, replay its frozen geometry, or
+select its source candidate. Missing method modules do not prevent reading history;
+they do block reruns. The UI pages large evidence collections without truncating
+the saved or exported records.
+
+Select two or three run checkboxes to compare their execution, findings, unknowns,
+scope, method, rule and input differences. Incompatible settings are disclosed as
+not directly comparable. No automatic winner is chosen. Changed current inputs do
+not rewrite earlier evidence, including cancelled and partial results.
 
 ## Architecture
 

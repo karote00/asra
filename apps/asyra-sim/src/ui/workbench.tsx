@@ -1,7 +1,7 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { SimRuntime } from '../init/bootstrap'
 import { IDENTITY_POSE } from '../domain/math'
-import type { Body, Workcell } from '../domain/workcell'
+import { jointValuesAt, type Body, type Workcell } from '../domain/workcell'
 import type { SpatialCamera } from '../render-app/spatial-layer'
 import { DEFAULT_CAMERA } from '../render-app/workcell-frame'
 import { BodyEditor } from './body-editor'
@@ -11,6 +11,10 @@ import { useProjectRuntime } from './use-project-runtime'
 import { ProjectControls } from './project-controls'
 import { downloadRecovery } from './download-project'
 import { ExperimentPanel, type PlaybackView } from './experiment-panel'
+import type { RunRecord } from '../storage/run-record'
+import { RunLibrary } from './run-library'
+import { isPresentedRunStale } from './analysis-result-view'
+import { definitionToDraft } from './experiment-draft'
 
 function Hierarchy({
   workcell,
@@ -56,6 +60,8 @@ export function Workbench() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [inspector, setInspector] = useState<'object' | 'experiment'>('object')
   const [playback, setPlayback] = useState<PlaybackView | null>(null)
+  const [pendingRuns, setPendingRuns] = useState<RunRecord[]>([])
+  const [showRuns, setShowRuns] = useState(false)
   const [camera, setCamera] = useState<SpatialCamera>(() =>
     structuredClone(DEFAULT_CAMERA)
   )
@@ -67,6 +73,8 @@ export function Workbench() {
     setSelectedId(null)
     setInspector('object')
     setPlayback(null)
+    if (value) setPendingRuns([])
+    setShowRuns(false)
     setCamera(structuredClone(DEFAULT_CAMERA))
     setGrid(true)
     setError('')
@@ -86,6 +94,31 @@ export function Workbench() {
   let modelError = ''
   const candidates = runtime?.getCandidates() ?? []
   const loadIssues = runtime?.getLoadIssues() ?? []
+  let retainedRuns: readonly RunRecord[] = [],
+    runError = ''
+  try {
+    retainedRuns = runtime?.getRuns() ?? []
+  } catch (reason) {
+    runError = `Cannot read retained runs: ${reason instanceof Error ? reason.message : String(reason)}`
+  }
+  const retainedIds = new Set(retainedRuns.map((run) => run.result.runId))
+  const runs = [
+    ...new Map(
+      [...pendingRuns, ...retainedRuns].map((run) => [run.result.runId, run])
+    ).values()
+  ]
+  const unsavedRunCount = pendingRuns.filter(
+    (run) => !retainedIds.has(run.result.runId)
+  ).length
+  useEffect(() => {
+    if (!unsavedRunCount) return
+    const guard = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', guard)
+    return () => window.removeEventListener('beforeunload', guard)
+  }, [unsavedRunCount])
   try {
     if (
       runtime &&
@@ -181,7 +214,11 @@ export function Workbench() {
           Robot workcell experiments<span>Local workspace</span>
         </div>
         {resources && (
-          <ProjectControls session={resources.session} ready={ready} />
+          <ProjectControls
+            session={resources.session}
+            ready={ready}
+            unsavedRunCount={unsavedRunCount}
+          />
         )}
         <span className="local-badge">
           <i />
@@ -226,6 +263,12 @@ export function Workbench() {
             Experiments
           </button>
           <button
+            disabled={!ready || !!runError}
+            onClick={() => setShowRuns(true)}
+          >
+            Runs &amp; compare
+          </button>
+          <button
             disabled={!ready}
             aria-pressed={inspector === 'object'}
             onClick={() => {
@@ -260,6 +303,11 @@ export function Workbench() {
         </div>
       </div>
       {error && <ErrorNotice message={error} onDismiss={() => setError('')} />}
+      {runError && (
+        <div className="error-notice" role="alert">
+          {runError}
+        </div>
+      )}
       {lifecycle.error && (
         <div className="lifecycle-notice" role="alert">
           <span>
@@ -433,6 +481,13 @@ export function Workbench() {
                 revision={revision}
                 perform={perform}
                 onPlayback={setPlayback}
+                runs={runs}
+                retainedIds={retainedIds}
+                onRun={(run) => {
+                  if (isCurrent(runtime))
+                    setPendingRuns((current) => [...current, run])
+                }}
+                onOpenRuns={() => setShowRuns(true)}
               />
             </div>
           )}
@@ -490,6 +545,55 @@ export function Workbench() {
           </div>
         </aside>
       </main>
+      {showRuns && ready && runtime && (
+        <RunLibrary
+          runs={runs}
+          retainedIds={retainedIds}
+          candidateIds={new Set(candidates.map((candidate) => candidate.id))}
+          isStale={(run) => {
+            try {
+              const experiment = runtime.getExperiment(
+                run.snapshot.source.experimentId
+              )
+              return (
+                !experiment ||
+                isPresentedRunStale(
+                  run,
+                  runtime.getWorkcell(run.snapshot.source.candidateId),
+                  definitionToDraft(experiment.definition)
+                )
+              )
+            } catch {
+              return true
+            }
+          }}
+          onRetain={async (run) => {
+            if (!isCurrent(runtime))
+              throw new Error('The document is no longer active')
+            await runtime.features.storage.retain(run)
+            if (isCurrent(runtime))
+              setStatus(
+                'Result retained · save the project for durable storage'
+              )
+          }}
+          onReplay={(snapshot, time, bodyIds) => {
+            if (isCurrent(runtime))
+              setPlayback({
+                workcell: snapshot.workcell,
+                joints: jointValuesAt(snapshot.trajectory, time),
+                time,
+                historical: true,
+                bodyIds
+              })
+          }}
+          onCandidate={(id) => {
+            setCandidateId(id)
+            setSelectedId(null)
+            setPlayback(null)
+          }}
+          onClose={() => setShowRuns(false)}
+        />
+      )}
       <footer className="statusbar">
         <span>
           <i className={runtime ? 'ready-dot' : 'pending-dot'} />

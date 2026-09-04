@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { ProjectSession } from '../storage/project-session'
 import type { ProjectSummary } from '../storage/project-format'
+import { PortableProjectControls } from './portable-project-controls'
 
 export function ProjectControls({
   session,
-  ready
+  ready,
+  unsavedRunCount = 0
 }: {
   session: ProjectSession
   ready: boolean
+  unsavedRunCount?: number
 }) {
   const state = useSyncExternalStore(session.subscribe, session.getState)
   const [open, setOpen] = useState(false),
@@ -57,7 +60,7 @@ export function ProjectControls({
       : ''
     if (
       !window.confirm(
-        `Open “${project.name}”?${warning} This starts a new document with empty Undo/Redo.`
+        `Open “${project.name}”?${warning} This starts a new document with empty Undo/Redo. ${unsavedRunCount} unretained results will be lost.`
       )
     )
       return
@@ -72,6 +75,7 @@ export function ProjectControls({
   }
   let caption = 'Unsaved changes'
   if (state.busy === 'open') caption = 'Opening…'
+  else if (state.busy === 'export') caption = 'Preparing export…'
   else if (state.status === 'saving') caption = 'Saving…'
   else if (state.status === 'saved')
     caption = `Saved locally · ${state.project?.name}`
@@ -158,6 +162,17 @@ export function ProjectControls({
               </button>
             </div>
           </form>
+          <PortableProjectControls
+            session={session}
+            disabled={!ready || !!state.busy}
+            name={name}
+            unsavedRunCount={unsavedRunCount}
+            onImported={(importedName) => {
+              setName(importedName)
+              setProblem('')
+              setOpen(false)
+            }}
+          />
           {(problem || state.error) && (
             <p className="project-error" role="alert">
               {problem || state.error}
