@@ -82,6 +82,9 @@ invalidates the transient preview. Accepted references can be adjusted or remove
 under the selected object's **Visual references**; **Apply changes** commits the
 draft. The viewport's **Visuals** and **Proxies** switches affect display only.
 Imported triangles never become analysis colliders automatically.
+Sources above 8 MiB require explicit memory-warning acknowledgement before
+placement preview and acceptance. Another source resets that acknowledgement;
+hard byte, geometry and instance limits cannot be overridden.
 
 Native projects include original sources referenced by current candidates or
 retained runs. Removing today's visual does not remove a historical run's source.

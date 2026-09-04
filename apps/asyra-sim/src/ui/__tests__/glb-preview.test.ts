@@ -122,6 +122,28 @@ it('revokes a completed preview when a new invalid selection replaces it', async
   expect(retain).not.toHaveBeenCalled()
 })
 
+it('requires explicit memory-warning acknowledgement for a large visual and resets it for another source', async () => {
+  prepared = {
+    ...prepared,
+    source: { ...prepared.source, byteLength: 8 * 1024 * 1024 + 1 }
+  }
+  prepare.mockResolvedValue(prepared)
+  await choose(smallFile())
+  const acknowledge = () =>
+    host.querySelector<HTMLInputElement>(
+      '[aria-label="Visual memory warning acknowledgement"]'
+    )
+  expect(acknowledge()).not.toBeNull()
+  expect(button('Preview placement in 3D')?.disabled).toBe(true)
+  await act(() => acknowledge()?.click())
+  expect(button('Preview placement in 3D')?.disabled).toBe(false)
+  await act(() => button('Preview placement in 3D')?.click())
+  expect(button('Accept visual reference')).toBeDefined()
+  await choose(smallFile())
+  expect(acknowledge()?.checked).toBe(false)
+  expect(button('Preview placement in 3D')?.disabled).toBe(true)
+})
+
 it('cancels Feature preparation and discards a late receipt without publishing it', async () => {
   let finish: (value: PreparedVisualImport) => void = () => undefined
   prepare.mockImplementation(

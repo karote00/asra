@@ -8,6 +8,61 @@ import {
 const fixture = triangleFixture(),
   bytes = Buffer.from(encodeGlb(fixture.json, fixture.binary))
 const digest = createHash('sha256').update(bytes).digest('hex')
+
+test('a large valid GLB requires an explicit resource acknowledgement without making model edits', async ({
+  page
+}, info) => {
+  const source = triangleFixture(),
+    padded = new Uint8Array(9 * 1024 * 1024)
+  padded.set(source.binary)
+  source.json.buffers[0].byteLength = padded.byteLength
+  await page.goto('/')
+  await expect(page.getByRole('status')).toHaveText('Local runtime ready')
+  const depth = await page.getByTestId('history-depth').textContent()
+  await page.getByRole('button', { name: 'Experiments', exact: true }).click()
+  await page.locator('.glb-preview > summary').click()
+  await page.getByLabel('Choose visual GLB').setInputFiles({
+    name: 'large-reference.glb',
+    mimeType: 'model/gltf-binary',
+    buffer: Buffer.from(encodeGlb(source.json, padded))
+  })
+  const acknowledge = page.getByLabel('Visual memory warning acknowledgement')
+  await expect(acknowledge).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Preview placement in 3D', exact: true })
+  ).toBeDisabled()
+  await acknowledge.check()
+  await page
+    .getByRole('button', { name: 'Preview placement in 3D', exact: true })
+    .click()
+  await expect(
+    page.getByRole('button', { name: 'Accept visual reference', exact: true })
+  ).toBeVisible()
+  await expect(page.getByTestId('history-depth')).toHaveText(depth ?? '')
+  await acknowledge.scrollIntoViewIfNeeded()
+  await page.screenshot({ path: info.outputPath('large-visual-warning.png') })
+  await page
+    .getByRole('button', { name: 'Cancel preview', exact: true })
+    .click()
+  await expect(
+    page.getByRole('button', { name: 'Accept visual reference', exact: true })
+  ).toHaveCount(0)
+  await expect(page.getByTestId('history-depth')).toHaveText(depth ?? '')
+  await info.attach('review-state.json', {
+    contentType: 'application/json',
+    body: JSON.stringify({
+      baseURL: info.project.use.baseURL,
+      scope: 'files:e2e/__tests__/visual-references.spec.ts',
+      viewport: page.viewportSize(),
+      dpr: 1,
+      camera: 'default',
+      sourceBinaryBytes: padded.byteLength,
+      acknowledged: true,
+      accepted: false,
+      screenshot: 'large-visual-warning.png'
+    })
+  })
+})
 async function chooseVisual(page: Page) {
   await page.getByRole('button', { name: 'Experiments', exact: true }).click()
   await page.locator('.glb-preview > summary').click()

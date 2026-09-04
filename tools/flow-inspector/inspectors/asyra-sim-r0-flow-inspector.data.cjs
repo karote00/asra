@@ -1122,6 +1122,7 @@
           'Prepare visual sources through owned Features; show dimensions, units, digest and limitations, preview explicit body-local placement, then accept one binding transaction.',
           'Cancel or replace previews without canonical writes; invalidate transient placement when its source, target, or current workcell changes, and guard retired runtime callbacks.',
           'Keep visual/proxy display switches transient; binding edits and removal remain ordinary undoable model edits.',
+          'A visual source above 8 MiB requires explicit source-scoped memory-warning acknowledgement before placement preview or acceptance; acknowledgement never overrides hard resource limits.',
           'Use local assets; release readiness remains governed by FIRST_RELEASE gates.'
         ],
         bypasses: [

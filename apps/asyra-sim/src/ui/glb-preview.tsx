@@ -7,6 +7,8 @@ import type { PreparedVisualImport } from '../storage/visual-archive'
 import { VISUAL_SOURCE_PROFILE } from '../storage/visual-source'
 import { VisualPlacementFields } from './visual-placement-fields'
 
+const VISUAL_MEMORY_WARNING_BYTES = 8 * 1024 * 1024
+
 export interface VisualPreview {
   workcell: Workcell
   prepared: PreparedVisualImport
@@ -46,6 +48,9 @@ export function GlbPreview({
     'reading' | 'preparing' | 'accepting' | null
   >(null)
   const [previewed, setPreviewed] = useState(false)
+  const [memoryAcknowledged, setMemoryAcknowledged] = useState(false)
+  const needsMemoryAcknowledgement =
+    (prepared?.source.byteLength ?? 0) > VISUAL_MEMORY_WARNING_BYTES
   const workcellKey = JSON.stringify(workcell)
   const invalidatePlacement = () => {
     setPreviewed(false)
@@ -60,6 +65,7 @@ export function GlbPreview({
     if (receipt.current) discard(receipt.current)
     receipt.current = null
     setPrepared(null)
+    setMemoryAcknowledged(false)
     invalidatePlacement()
   }
   useEffect(() => {
@@ -122,6 +128,7 @@ export function GlbPreview({
   }
   const showPlacement = () => {
     if (!prepared || !current.current(runtime)) return
+    if (needsMemoryAcknowledgement && !memoryAcknowledged) return
     try {
       if (!workcell.bodies.some((body) => body.id === targetId))
         throw new Error('Choose an available target body')
@@ -150,6 +157,7 @@ export function GlbPreview({
   }
   const accept = async () => {
     if (!prepared || !previewed || !current.current(runtime)) return
+    if (needsMemoryAcknowledgement && !memoryAcknowledged) return
     setPhase('accepting')
     invalidatePlacement()
     try {
@@ -253,11 +261,23 @@ export function GlbPreview({
               <dd>{asset.source.sha256}</dd>
             </div>
           </dl>
-          {prepared.source.byteLength > 8 * 1024 * 1024 && (
-            <p className="hint">
-              Large reference: more than 8 MiB. Expanded geometry and repeated
-              instances consume additional memory.
-            </p>
+          {needsMemoryAcknowledgement && (
+            <label className="hint">
+              <input
+                type="checkbox"
+                aria-label="Visual memory warning acknowledgement"
+                checked={memoryAcknowledged}
+                onChange={(event) => {
+                  invalidatePlacement()
+                  setMemoryAcknowledged(event.target.checked)
+                }}
+              />
+              I acknowledge this{' '}
+              {(prepared.source.byteLength / (1024 * 1024)).toFixed(2)} MiB
+              source exceeds the 8 MiB warning threshold. Expanded geometry and
+              repeated instances consume additional memory. This does not
+              override hard limits.
+            </label>
           )}
           <label>
             Attach to body
@@ -293,7 +313,12 @@ export function GlbPreview({
               Scale must be positive (0.000001–1000). It affects only this
               visual, never joints or analysis shapes.
             </p>
-            <button onClick={showPlacement}>Preview placement in 3D</button>
+            <button
+              disabled={needsMemoryAcknowledgement && !memoryAcknowledged}
+              onClick={showPlacement}
+            >
+              Preview placement in 3D
+            </button>
             {previewed && (
               <button className="primary" onClick={() => void accept()}>
                 Accept visual reference
