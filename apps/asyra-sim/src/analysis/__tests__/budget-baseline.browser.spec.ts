@@ -7,6 +7,7 @@ import {
 } from '../contracts'
 import { createExperimentSnapshot } from '../snapshot'
 import { OFFICIAL_CLEARANCE_METHOD } from '../methods/official-method'
+import type { AnalysisResult } from '../result'
 
 for (const maxIntervals of [2000, DEFAULT_EXPERIMENT_BUDGET.maxIntervals]) {
   test(`the public six-axis workcell preserves bounded evidence at ${maxIntervals} intervals`, async ({
@@ -46,7 +47,7 @@ for (const maxIntervals of [2000, DEFAULT_EXPERIMENT_BUDGET.maxIntervals]) {
           ticks++
         }, 50)
         try {
-          const result = await runner.run(snapshot)
+          const result: AnalysisResult = await runner.run(snapshot)
           return {
             elapsedMs: performance.now() - started,
             ticks,
@@ -83,7 +84,6 @@ for (const maxIntervals of [2000, DEFAULT_EXPERIMENT_BUDGET.maxIntervals]) {
       keyframes: input.trajectory.keyframes.length,
       ...measured
     }
-    console.info('Budget baseline:', JSON.stringify(evidence))
     await info.attach('budget-baseline.json', {
       contentType: 'application/json',
       body: JSON.stringify(evidence)
