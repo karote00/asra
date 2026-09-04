@@ -13,6 +13,7 @@ import { ExperimentFields } from './experiment-fields'
 import { AnalysisResultView, isPresentedRunStale } from './analysis-result-view'
 import { TrajectoryImportPanel } from './trajectory-import-panel'
 import { GlbPreview } from './glb-preview'
+import { RunProgress } from './run-progress'
 import type { RunRecord } from '../storage/run-record'
 import { version as appVersion } from '../../package.json'
 
@@ -66,6 +67,9 @@ export function ExperimentPanel({
   const [preflight, setPreflight] = useState<PreflightReport | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
   const [running, setRunning] = useState(false)
+  const [runningInput, setRunningInput] = useState<ExperimentSnapshot | null>(
+    null
+  )
   const [time, setTime] = useState(draft.interval[0])
   const [error, setError] = useState('')
   const live = useRef(true),
@@ -211,6 +215,7 @@ export function ExperimentPanel({
       }
       active.current = controller
       setRunning(true)
+      setRunningInput(snapshot)
       setError('')
       const result = await runtime.features.analysis.run(snapshot, {
         signal: controller.signal
@@ -228,7 +233,10 @@ export function ExperimentPanel({
     } catch (reason) {
       fail(reason)
     } finally {
-      if (live.current) setRunning(false)
+      if (live.current) {
+        setRunning(false)
+        setRunningInput(null)
+      }
       active.current = null
     }
   }
@@ -362,6 +370,14 @@ export function ExperimentPanel({
         >
           Run preflight
         </button>
+        {runningInput && (
+          <RunProgress
+            analysis={runtime.features.analysis}
+            snapshotId={runningInput.snapshotId}
+            budget={runningInput.budget}
+            onCancel={() => active.current?.abort()}
+          />
+        )}
         {preflight && (
           <section className="preflight-card" data-testid="preflight-report">
             <div className="section-heading">
@@ -435,11 +451,6 @@ export function ExperimentPanel({
           >
             {running ? 'Formal analysis running…' : 'Run formal analysis'}
           </button>
-          {running && (
-            <button onClick={() => active.current?.abort()}>
-              Cancel analysis
-            </button>
-          )}
         </div>
         {error && (
           <p className="inline-error" role="alert">

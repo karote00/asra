@@ -997,10 +997,11 @@
           'artifact:method-evidence',
           'Feature-owned abort signal'
         ],
-        outputs: ['artifact:result'],
+        outputs: ['artifact:result', 'artifact:run-progress'],
         conditions: [
           'One detached Feature task at a time; no transaction spans worker execution.',
           'Validate source identity, evidence, pair/time coverage, and terminal state.',
+          'Expose only validated bounded progress counts through the analysis Feature; progress is not a final verdict or a completion-time estimate.',
           'Abort, terminate after grace, and discard late messages from an old run.'
         ],
         bypasses: ['Malformed evidence fails; no UI repair into success.'],
@@ -1017,10 +1018,12 @@
         cacheDimensions: [],
         implementationBoundary: [
           'apps/asyra-sim/src/analysis/runner*',
+          'apps/asyra-sim/src/analysis/analysis.worker.ts',
           'apps/asyra-sim/src/analysis/worker*',
           'apps/asyra-sim/src/analysis/result*',
           'apps/asyra-sim/src/analysis/__tests__/**',
-          'apps/asyra-sim/src/features/analysis*'
+          'apps/asyra-sim/src/features/analysis*',
+          'apps/asyra-sim/src/features/__tests__/analysis.test.ts'
         ],
         specRefs: [
           '#8-results-are-not-a-single-green-check',
@@ -1085,6 +1088,7 @@
           'artifact:committed-model',
           'artifact:visual-output',
           'artifact:result',
+          'artifact:run-progress',
           'artifact:retained-data',
           'artifact:visual-asset'
         ],
@@ -1453,6 +1457,15 @@
         producedArtifacts: ['artifact:result']
       },
       {
+        id: 'run-progress-to-ui',
+        from: 'run',
+        to: 'ui',
+        kind: 'normal',
+        predicate:
+          'The active run exposes validated retained pair and resource counts without a verdict, canonical mutation, or time estimate.',
+        producedArtifacts: ['artifact:run-progress']
+      },
+      {
         id: 'result-to-ui',
         from: 'run',
         to: 'ui',
@@ -1681,6 +1694,13 @@
         ownerStepId: 'method',
         channel: 'detached handoff',
         consumerStepIds: ['run'],
+        terminal: false
+      },
+      {
+        id: 'artifact:run-progress',
+        ownerStepId: 'run',
+        channel: 'read-only analysis Feature API',
+        consumerStepIds: ['ui'],
         terminal: false
       },
       {

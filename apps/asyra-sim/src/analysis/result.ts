@@ -1,6 +1,9 @@
 import { validIdentifier } from '../domain/workcell'
 import { hasExactOwnKeys } from '../domain/records'
-import type { ExperimentSnapshot } from './contracts'
+import {
+  EXPERIMENT_RESOURCE_PROFILE,
+  type ExperimentSnapshot
+} from './contracts'
 import type {
   OfficialMethodEvidence,
   OfficialPairEvidence
@@ -91,7 +94,7 @@ export function validatePairProgress(
     !finiteNonnegative(evidence.lower) ||
     !['complete', 'partial'].includes(evidence.coverage) ||
     evidence.leaves.length < 1 ||
-    evidence.leaves.length > 200000
+    evidence.leaves.length > EXPERIMENT_RESOURCE_PROFILE.maxEvidenceLeaves
   )
     throw new Error('Invalid analysis pair evidence')
   let cursor = snapshot.interval[0],
@@ -191,7 +194,8 @@ function summarize(
   if (
     pairs.reduce((sum, pair) => sum + pair.evidence.evaluations, 0) >
       snapshot.budget.maxIntervals ||
-    pairs.reduce((sum, pair) => sum + pair.evidence.leaves.length, 0) > 200000
+    pairs.reduce((sum, pair) => sum + pair.evidence.leaves.length, 0) >
+      EXPERIMENT_RESOURCE_PROFILE.maxEvidenceLeaves
   )
     throw new Error('Analysis evidence exceeds its global budget')
   let summary: AnalysisSummary = 'cannot-determine'

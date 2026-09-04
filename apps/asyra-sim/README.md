@@ -73,12 +73,27 @@ asset metadata; attaching it to the workcell is a separate unfinished step.
 The sampled pose slider changes only the view. Formal analysis freezes inputs,
 runs in an owned Worker, and separates execution, coverage, findings, bounds,
 and the rule verdict. Partial or cancelled results retain their unknowns.
+While a run is active, its progress card shows validated received pair records,
+evaluated intervals, retained evidence leaves, and the frozen wall-time budget.
+Use **Cancel analysis** directly in that card. These counts are not a safety
+conclusion or an estimated time to completion. Worker startup counts against the
+deadline; cancellation permits at most 250 ms of cooperative grace before owned
+Worker termination. Contradictory terminal evidence fails without replacing
+previously validated findings.
 Replay consumes the run's frozen model and trajectory, including after edits.
 New results are temporary until **Retain result** is chosen. Retaining adds one
 Undo action; the immutable evidence remains available for Redo during the document
 lifetime. Save the project separately for durable local storage. Unretained results
 are excluded from project saves/exports and are lost on document replacement or
 page close; the UI warns before replacement and navigation.
+
+Admission enforces 16 colliders per body, 256 per workcell, 4,096 expanded pairs,
+and 500,000 pair/segment combinations in the requested interval. Larger scopes
+cannot bypass hard limits through acknowledgement. Retained evidence is capped
+globally, including partial progress; reaching a resource limit never means clear.
+GLB preview rejects files above 16 MiB before reading and terminates decoding
+after its five-second deadline. See the runtime profile for remaining validation
+targets; these input caps are not a total-memory guarantee.
 
 ## Retained evidence and comparison
 

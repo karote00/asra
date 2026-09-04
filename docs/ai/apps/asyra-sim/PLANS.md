@@ -12,7 +12,9 @@
   import, preflight, Worker execution, immutable run retention/comparison,
   reports, portable project reopening, and independent candidate duplication with
   lineage-aware comparison are implemented. Visual-asset attachment, private
-  extensions, field observations, and full resource gates remain.
+  extensions, field observations, and full resource gates remain. Admission,
+  retained-evidence caps, Worker deadlines/cancellation, and bounded visible
+  progress now have focused regressions and ordinary browser coverage.
 - R0 first public release: not ready; no gate is claimed to have passed.
 
 This index does not record completed implementation or replace the roadmap and

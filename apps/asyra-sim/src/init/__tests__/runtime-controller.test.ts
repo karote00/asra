@@ -39,7 +39,8 @@ function runtime() {
       analysis: {
         run: vi.fn(),
         cancel: vi.fn(),
-        isRunning: vi.fn(() => false)
+        isRunning: vi.fn(() => false),
+        getProgress: vi.fn(() => null)
       }
     },
     pauseEditing: vi.fn(() => resume),

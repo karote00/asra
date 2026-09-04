@@ -9,6 +9,7 @@ import { AnalysisRunner } from '../runner'
 class WorkerStub {
   onmessage: ((event: MessageEvent) => void) | null = null
   onerror: ((event: ErrorEvent) => void) | null = null
+  onmessageerror: ((event: MessageEvent) => void) | null = null
   postMessage = vi.fn()
   terminate = vi.fn()
   emit(data: unknown) {
@@ -98,6 +99,147 @@ const setup = () => {
 afterEach(() => vi.useRealTimers())
 
 describe('M3 analysis worker lifecycle', () => {
+  it('rejects contradictory terminal evidence without erasing an earlier validated finding', async () => {
+    const { worker, runner } = setup(),
+      input = snapshot(0),
+      pending = runner.run(input),
+      evidence = runOfficialClearanceMethod(input)
+    worker.emit({ type: 'progress', runId: 'run-1', pairs: evidence.pairs })
+    const conflicting = {
+      ...evidence,
+      pairs: evidence.pairs.map((pair) => ({
+        ...pair,
+        evidence: {
+          ...pair.evidence,
+          lower: 0.5,
+          upper: 1,
+          leaves: pair.evidence.leaves.map((leaf) => ({
+            ...leaf,
+            lower: 0.5,
+            upper: 1,
+            penetration: false,
+            state: 'clear'
+          }))
+        }
+      }))
+    }
+    worker.emit({ type: 'complete', runId: 'run-1', evidence: conflicting })
+    await expect(pending).resolves.toMatchObject({
+      execution: 'failed',
+      summary: 'issue-found',
+      errors: [expect.stringContaining('progress')]
+    })
+  })
+  it('exposes immutable validated progress without a verdict and clears it on disposal', async () => {
+    vi.useFakeTimers()
+    const { worker, runner } = setup(),
+      input = snapshot(),
+      pending = runner.run(input)
+    expect(runner.getProgress()).toMatchObject({
+      state: 'running',
+      totalPairCount: 1,
+      receivedPairCount: 0
+    })
+    const evidence = runOfficialClearanceMethod(input)
+    worker.emit({ type: 'progress', runId: 'run-1', pairs: evidence.pairs })
+    const progress = runner.getProgress()
+    expect(progress).toMatchObject({
+      runId: 'run-1',
+      snapshotId: input.snapshotId,
+      receivedPairCount: 1,
+      evaluations: 1
+    })
+    expect(Object.isFrozen(progress)).toBe(true)
+    expect(progress).not.toHaveProperty('verdict')
+    worker.emit({ type: 'complete', runId: 'run-1', evidence })
+    await pending
+    expect(runner.getProgress()?.state).toBe('completed')
+    await runner.dispose()
+    expect(runner.getProgress()).toBeNull()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('retains validated unsent findings carried by a terminal method error', async () => {
+    const { worker, runner } = setup(),
+      input = snapshot(0),
+      pending = runner.run(input),
+      evidence = runOfficialClearanceMethod(input)
+    worker.emit({
+      type: 'error',
+      runId: 'run-1',
+      error: 'Method stopped',
+      pairs: evidence.pairs
+    })
+    await expect(pending).resolves.toMatchObject({
+      execution: 'failed',
+      summary: 'issue-found',
+      coveredPairCount: 1
+    })
+  })
+  it('uses the published 250 ms cooperative cancellation grace by default', async () => {
+    vi.useFakeTimers()
+    const worker = new WorkerStub(),
+      controller = new AbortController(),
+      runner = new AnalysisRunner(() => worker as unknown as Worker)
+    const pending = runner.run(snapshot(), controller.signal)
+    controller.abort()
+    await vi.advanceTimersByTimeAsync(249)
+    expect(worker.terminate).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(worker.terminate).toHaveBeenCalledOnce()
+    await expect(pending).resolves.toMatchObject({ execution: 'cancelled' })
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('charges worker startup time to the same deadline as computation', async () => {
+    vi.useFakeTimers()
+    const worker = new WorkerStub(),
+      runner = new AnalysisRunner(
+        () => {
+          vi.setSystemTime(Date.now() + 900)
+          return worker as unknown as Worker
+        },
+        Date.now,
+        () => 'slow-start',
+        25
+      )
+    const pending = runner.run(snapshot())
+    await vi.advanceTimersByTimeAsync(125)
+    expect(worker.terminate).toHaveBeenCalledOnce()
+    await expect(pending).resolves.toMatchObject({ execution: 'timed-out' })
+  })
+
+  it('rejects a completion delivered after the deadline before the timer callback runs', async () => {
+    vi.useFakeTimers()
+    const worker = new WorkerStub(),
+      runner = new AnalysisRunner(() => worker as unknown as Worker),
+      input = snapshot(),
+      pending = runner.run(input)
+    const request = worker.postMessage.mock.calls[0]?.[0] as { runId: string }
+    vi.setSystemTime(Date.now() + 1000)
+    worker.emit({
+      type: 'complete',
+      runId: request.runId,
+      evidence: runOfficialClearanceMethod(input)
+    })
+    await expect(pending).resolves.toMatchObject({
+      execution: 'timed-out',
+      verdict: 'cannot-determine'
+    })
+    expect(worker.terminate).toHaveBeenCalledOnce()
+  })
+
+  it('terminates explicitly when structured worker messages cannot be deserialized', async () => {
+    const { worker, runner } = setup(),
+      pending = runner.run(snapshot())
+    expect(worker.onmessageerror).toBeTypeOf('function')
+    worker.onmessageerror?.(new MessageEvent('messageerror'))
+    await expect(pending).resolves.toMatchObject({
+      execution: 'failed',
+      errors: [expect.stringContaining('deserialize')]
+    })
+    expect(worker.terminate).toHaveBeenCalledOnce()
+  })
   it('validates a completed worker result and releases the worker', async () => {
     const { worker, runner } = setup(),
       input = snapshot(),
@@ -107,9 +249,16 @@ describe('M3 analysis worker lifecycle', () => {
     worker.emit({
       type: 'progress',
       runId: request.runId,
-      pair: evidence.pairs[0]
+      pairs: [evidence.pairs[0]]
     })
-    worker.emit({ type: 'complete', runId: request.runId, evidence })
+    const reordered = JSON.parse(
+      JSON.stringify(evidence, (_key, value) =>
+        value && typeof value === 'object' && !Array.isArray(value)
+          ? Object.fromEntries(Object.entries(value).reverse())
+          : value
+      )
+    )
+    worker.emit({ type: 'complete', runId: request.runId, evidence: reordered })
 
     await expect(pending).resolves.toMatchObject({
       execution: 'completed',
@@ -128,7 +277,7 @@ describe('M3 analysis worker lifecycle', () => {
       pending = runner.run(input, controller.signal),
       request = worker.postMessage.mock.calls[0]?.[0] as { runId: string },
       pair = runOfficialClearanceMethod(input).pairs[0]
-    worker.emit({ type: 'progress', runId: request.runId, pair })
+    worker.emit({ type: 'progress', runId: request.runId, pairs: [pair] })
     controller.abort()
     expect(worker.postMessage).toHaveBeenLastCalledWith({
       type: 'cancel',

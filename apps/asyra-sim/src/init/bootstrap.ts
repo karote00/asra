@@ -145,6 +145,10 @@ export async function bootstrap(
         isRunning: () => {
           assertLive()
           return analysis.isRunning()
+        },
+        getProgress: () => {
+          assertLive()
+          return analysis.getProgress()
         }
       }
     }

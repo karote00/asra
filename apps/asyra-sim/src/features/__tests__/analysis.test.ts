@@ -9,6 +9,7 @@ it('runs one detached experiment with a Feature-owned signal and supports cancel
     { snapshot: ExperimentSnapshot; signal: AbortSignal } | undefined
   const service = {
     isRunning: vi.fn(() => false),
+    getProgress: vi.fn(() => null),
     run: vi.fn(
       async (snapshot: ExperimentSnapshot, signal: AbortSignal) =>
         new Promise<AnalysisResult>((resolve) => {
@@ -23,6 +24,8 @@ it('runs one detached experiment with a Feature-owned signal and supports cancel
     dispose: vi.fn(async () => undefined)
   }
   const api = installAnalysisFeature(core, service)
+  expect(api.getProgress()).toBeNull()
+  expect(service.getProgress).toHaveBeenCalledOnce()
   const external = new AbortController()
   const snapshot = {
     snapshotId: 'original-snapshot'

@@ -65,6 +65,18 @@ const environment = () => {
 }
 
 describe('App composition lifetime', () => {
+  it('exposes analysis progress while paused but rejects the retired reader', async () => {
+    const { start } = environment(),
+      first = await start()
+    expect(first.features.analysis.getProgress()).toBeNull()
+    const resume = first.pauseEditing()
+    expect(first.features.analysis.getProgress()).toBeNull()
+    resume()
+    await first.dispose()
+    const second = await start()
+    expect(second.features.analysis.getProgress()).toBeNull()
+    expect(() => first.features.analysis.getProgress()).toThrow('closed')
+  })
   it('exposes detached candidate lineage across replacement and rejects retired readers', async () => {
     const { start } = environment(),
       first = await start()

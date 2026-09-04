@@ -1,8 +1,22 @@
-import type { ExperimentSnapshot } from './contracts'
+import {
+  EXPERIMENT_RESOURCE_PROFILE,
+  type ExperimentSnapshot
+} from './contracts'
 import type {
   OfficialMethodEvidence,
   OfficialPairEvidence
 } from './methods/official-method'
+
+export function measureWorkerPayload(input: unknown): number {
+  const encoded = JSON.stringify(input)
+  if (typeof encoded !== 'string') throw new Error('Invalid worker payload')
+  const bytes = new TextEncoder().encode(encoded).byteLength
+  if (bytes > EXPERIMENT_RESOURCE_PROFILE.maxEvidenceBytes)
+    throw new Error(
+      'Analysis worker payload exceeds the encoded evidence limit'
+    )
+  return bytes
+}
 
 export const AnalysisWorkerMessages = {
   RUN: 'run',
@@ -27,7 +41,7 @@ export type AnalysisWorkerResponse =
   | {
       type: typeof AnalysisWorkerMessages.PROGRESS
       runId: string
-      pair: OfficialPairEvidence
+      pairs: readonly OfficialPairEvidence[]
     }
   | {
       type: typeof AnalysisWorkerMessages.COMPLETE
@@ -38,4 +52,5 @@ export type AnalysisWorkerResponse =
       type: typeof AnalysisWorkerMessages.ERROR
       runId: string
       error: string
+      pairs?: readonly OfficialPairEvidence[]
     }

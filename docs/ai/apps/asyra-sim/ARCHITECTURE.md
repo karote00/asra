@@ -126,6 +126,16 @@ does not mean persistence. If either blob persistence or canonical-reference
 acceptance fails, retain an explicit retryable state. Do not claim cross-storage
 ACID or report a reference as saved when its content is unavailable.
 
+The runner owns a transient, immutable progress view containing the run/snapshot
+identity, validated retained pair count, evaluation/leaf counts, and execution
+state. The analysis Feature exposes it through a read-only query. The UI may
+poll it while a run is active and releases that polling on completion/unmount;
+neither progress nor its update cadence enters canonical state or Undo. Worker
+transport batches pair evidence at most ten times per second; terminal evidence
+is delivered immediately and includes any pairs not sent in a progress batch.
+Counts describe received evidence, not elapsed-work percentages, future runtime,
+or a final safety conclusion.
+
 The dedicated `asyra-sim-r0-flow-inspector.data.cjs` under
 `tools/flow-inspector/inspectors/` owns exact step boundaries and handoffs.
 Re-read it before each segment. This document is not a substitute for that

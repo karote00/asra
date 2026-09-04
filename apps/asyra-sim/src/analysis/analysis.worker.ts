@@ -1,15 +1,12 @@
 import { runOfficialClearanceMethod } from './methods/official-method'
+import { WorkerEvidenceDelivery } from './worker-delivery'
 import {
   AnalysisWorkerMessages,
-  type AnalysisWorkerRequest,
-  type AnalysisWorkerResponse
+  type AnalysisWorkerRequest
 } from './worker-protocol'
 
 let activeRunId: string | null = null
 let cancelled = false
-
-const respond = (message: AnalysisWorkerResponse): void =>
-  self.postMessage(message)
 
 self.addEventListener(
   'message',
@@ -24,30 +21,21 @@ self.addEventListener(
     }
     if (request?.type !== AnalysisWorkerMessages.RUN || activeRunId) return
     activeRunId = request.runId
+    const delivery = new WorkerEvidenceDelivery(request.runId, (message) =>
+      self.postMessage(message)
+    )
     try {
       const evidence = runOfficialClearanceMethod(
         request.snapshot,
         () => {
           if (cancelled) throw new Error('Analysis cancelled')
+          delivery.flush()
         },
-        (pair) =>
-          respond({
-            type: AnalysisWorkerMessages.PROGRESS,
-            runId: request.runId,
-            pair
-          })
+        (pair) => delivery.record(pair)
       )
-      respond({
-        type: AnalysisWorkerMessages.COMPLETE,
-        runId: request.runId,
-        evidence
-      })
+      delivery.complete(evidence)
     } catch (error) {
-      respond({
-        type: AnalysisWorkerMessages.ERROR,
-        runId: request.runId,
-        error: error instanceof Error ? error.message : String(error)
-      })
+      delivery.fail(error)
     } finally {
       self.close()
     }
