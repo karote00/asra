@@ -6,11 +6,11 @@ industrial safety certification.
 
 **Development checkpoint, not R0.** The current workbench can edit a synthetic
 six-axis model and geometric proxies, navigate in 3D, Undo/Redo, and explicitly
-save and reopen local projects. Analytical
-and continuous-time numerical kernels have owner tests; they are not yet a
-complete user-facing experiment workflow. Do not use this checkpoint to approve
-production operations. Import, formal execution, comparison, and
-distribution are still under development.
+save and reopen local projects. The experiment panel accepts explicitly mapped
+trajectories, runs preflight and isolated continuous-time analysis, and replays
+frozen evidence. Result retention, comparison, extension delivery, and independent
+validation remain under development. Do not use this checkpoint to approve
+production operations.
 
 ## Local development
 
@@ -51,6 +51,23 @@ empty Undo/Redo and reset selection/camera; it does not clear history inside
 ordinary `Core.load()`. Invalid targets leave the current document intact.
 Failure after retirement stops editing and offers a detached native JSON
 recovery download. Load-review diagnostics remain visible and retained.
+
+## Experiments
+
+Choose **Experiments** to configure a saved study or create a new one. Expand
+**Analysis scope** to select primary and influencing bodies and describe any
+excluded pairs. Edit clearance thresholds and time ranges, or preview a CSV or
+versioned JSON trajectory before accepting it into the draft. Each CSV joint
+column has an explicit angle or length unit. Save the draft before preflight
+or formal analysis. A GLB decode preview currently reports restricted visual
+asset metadata; attaching it to the workcell is a separate unfinished step.
+
+The sampled pose slider changes only the view. Formal analysis freezes inputs,
+runs in an owned Worker, and separates execution, coverage, findings, bounds,
+and the rule verdict. Partial or cancelled results retain their unknowns.
+Replay consumes the run's frozen model and trajectory, including after edits.
+Completed runs currently remain in the active panel only; saving a project
+preserves experiment definitions but does not yet preserve those run records.
 
 ## Architecture
 

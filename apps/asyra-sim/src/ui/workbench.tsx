@@ -10,6 +10,7 @@ import { useViewport, ViewportControls } from './viewport'
 import { useProjectRuntime } from './use-project-runtime'
 import { ProjectControls } from './project-controls'
 import { downloadRecovery } from './download-project'
+import { ExperimentPanel, type PlaybackView } from './experiment-panel'
 
 function Hierarchy({
   workcell,
@@ -53,6 +54,8 @@ export function Workbench() {
   const [host, setHost] = useState<HTMLDivElement | null>(null)
   const [candidateId, setCandidateId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [inspector, setInspector] = useState<'object' | 'experiment'>('object')
+  const [playback, setPlayback] = useState<PlaybackView | null>(null)
   const [camera, setCamera] = useState<SpatialCamera>(() =>
     structuredClone(DEFAULT_CAMERA)
   )
@@ -62,6 +65,8 @@ export function Workbench() {
   const onRuntime = useCallback((value: SimRuntime | null) => {
     setCandidateId(value?.getCandidates()[0]?.id ?? null)
     setSelectedId(null)
+    setInspector('object')
+    setPlayback(null)
     setCamera(structuredClone(DEFAULT_CAMERA))
     setGrid(true)
     setError('')
@@ -94,11 +99,23 @@ export function Workbench() {
   const selected = workcell?.bodies.find((body) => body.id === selectedId)
   const select = useCallback(
     (id: string | null) => {
-      if (runtime && isCurrent(runtime)) setSelectedId(id)
+      if (runtime && isCurrent(runtime)) {
+        setSelectedId(id)
+        setInspector('object')
+        setPlayback(null)
+      }
     },
     [runtime, isCurrent]
   )
-  useViewport(runtime, workcell, selectedId, camera, grid, isCurrent)
+  useViewport(
+    runtime,
+    playback?.workcell ?? workcell,
+    playback?.bodyIds[0] ?? selectedId,
+    camera,
+    grid,
+    isCurrent,
+    playback?.joints
+  )
   const perform = async (
     action: (assertCurrent: () => void) => Promise<unknown>,
     message: string
@@ -202,6 +219,24 @@ export function Workbench() {
           </button>
           <span className="divider" />
           <button
+            disabled={!ready || !workcell}
+            aria-pressed={inspector === 'experiment'}
+            onClick={() => setInspector('experiment')}
+          >
+            Experiments
+          </button>
+          <button
+            disabled={!ready}
+            aria-pressed={inspector === 'object'}
+            onClick={() => {
+              setInspector('object')
+              setPlayback(null)
+            }}
+          >
+            Object
+          </button>
+          <span className="divider" />
+          <button
             disabled={!ready}
             onClick={() =>
               runtime &&
@@ -213,6 +248,7 @@ export function Workbench() {
                 assertCurrent()
                 setCandidateId(id)
                 setSelectedId(null)
+                setPlayback(null)
               }, 'Blank workcell created')
             }
           >
@@ -281,7 +317,9 @@ export function Workbench() {
           )}
         </details>
       )}
-      <main className="work-area">
+      <main
+        className={`work-area ${inspector === 'experiment' ? 'experiment-mode' : ''}`}
+      >
         <aside className="hierarchy-panel">
           <div className="panel-heading">
             <div>
@@ -300,6 +338,7 @@ export function Workbench() {
                 onChange={(event) => {
                   setCandidateId(event.target.value)
                   setSelectedId(null)
+                  setPlayback(null)
                 }}
               >
                 {candidates.length === 0 && (
@@ -366,7 +405,11 @@ export function Workbench() {
             isCurrent={isCurrent}
           />
           <div className="viewport-summary">
-            <span>{selected?.name ?? 'Select an object to inspect'}</span>
+            <span>
+              {playback
+                ? `${playback.historical ? 'Historical run replay' : 'Sampled preview'} · ${playback.time.toFixed(4)} s`
+                : (selected?.name ?? 'Select an object to inspect')}
+            </span>
             <span>
               {workcell?.bodies.reduce(
                 (sum, body) => sum + body.colliders.length,
@@ -377,53 +420,74 @@ export function Workbench() {
           </div>
         </section>
         <aside className="properties-panel">
-          {ready && selected && workcell && runtime && candidateId ? (
-            <BodyEditor
-              key={`${candidateId}:${selected.id}:${revision}`}
-              body={selected}
-              workcell={workcell}
-              onApply={(body) =>
-                perform(
-                  () => runtime.features.edit.upsert(candidateId, body),
-                  'Properties applied · one Undo action'
-                )
-              }
-              onRemove={() => {
-                if (
-                  window.confirm(
-                    'Delete this object and all its descendants? You can Undo this action.'
-                  )
-                )
-                  void perform(async (assertCurrent) => {
-                    await runtime.features.edit.remove(candidateId, selected.id)
-                    assertCurrent()
-                    setSelectedId(null)
-                  }, 'Object removed')
-              }}
-            />
-          ) : (
-            <div className="empty-inspector">
-              <span className="eyebrow">INSPECTOR</span>
-              <div className="empty-icon">◇</div>
-              <h2>
-                {lifecycle.status === 'failed'
-                  ? 'Runtime unavailable.'
-                  : 'A closer look.'}
-              </h2>
-              <p>
-                {lifecycle.status === 'failed'
-                  ? 'Download available recovery data before reloading. No model is currently editable.'
-                  : 'Select a body in the scene or hierarchy to edit its mounting, joints, and analysis shapes.'}
-              </p>
-              <div className="scope-note">
-                <strong>Geometry, not guarantees.</strong>
-                <p>
-                  This workbench executes experiments. Real equipment and safety
-                  decisions require independent validation.
-                </p>
-              </div>
+          {ready && runtime && candidateId && workcell && (
+            <div
+              className="inspector-content"
+              hidden={inspector !== 'experiment'}
+            >
+              <ExperimentPanel
+                key={`${lifecycle.generation}:${candidateId}`}
+                runtime={runtime}
+                candidateId={candidateId}
+                workcell={workcell}
+                revision={revision}
+                perform={perform}
+                onPlayback={setPlayback}
+              />
             </div>
           )}
+          <div className="inspector-content" hidden={inspector !== 'object'}>
+            {ready && selected && workcell && runtime && candidateId ? (
+              <BodyEditor
+                key={`${candidateId}:${selected.id}:${revision}`}
+                body={selected}
+                workcell={workcell}
+                onApply={(body) =>
+                  perform(
+                    () => runtime.features.edit.upsert(candidateId, body),
+                    'Properties applied · one Undo action'
+                  )
+                }
+                onRemove={() => {
+                  if (
+                    window.confirm(
+                      'Delete this object and all its descendants? You can Undo this action.'
+                    )
+                  )
+                    void perform(async (assertCurrent) => {
+                      await runtime.features.edit.remove(
+                        candidateId,
+                        selected.id
+                      )
+                      assertCurrent()
+                      setSelectedId(null)
+                    }, 'Object removed')
+                }}
+              />
+            ) : (
+              <div className="empty-inspector">
+                <span className="eyebrow">INSPECTOR</span>
+                <div className="empty-icon">◇</div>
+                <h2>
+                  {lifecycle.status === 'failed'
+                    ? 'Runtime unavailable.'
+                    : 'A closer look.'}
+                </h2>
+                <p>
+                  {lifecycle.status === 'failed'
+                    ? 'Download available recovery data before reloading. No model is currently editable.'
+                    : 'Select a body in the scene or hierarchy to edit its mounting, joints, and analysis shapes.'}
+                </p>
+                <div className="scope-note">
+                  <strong>Geometry, not guarantees.</strong>
+                  <p>
+                    This workbench executes experiments. Real equipment and
+                    safety decisions require independent validation.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </aside>
       </main>
       <footer className="statusbar">

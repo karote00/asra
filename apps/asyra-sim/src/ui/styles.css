@@ -1,5 +1,6 @@
 @import url('./workbench-layout.css');
 @import url('./project-controls.css');
+@import url('./experiment-panel.css');
 
 :root {
   font-family:
@@ -22,7 +23,8 @@ body {
 }
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 button {
@@ -49,7 +51,8 @@ summary:focus-visible {
   outline-offset: 2px;
 }
 input,
-select {
+select,
+textarea {
   min-width: 0;
   width: 100%;
   border: 1px solid #d6e0e5;

@@ -282,6 +282,7 @@ test('a blank workcell survives an App reload and explicit reopen without an ext
 }) => {
   await ready(page)
   await page.getByRole('button', { name: '↶ Undo', exact: true }).click()
+  await page.getByRole('button', { name: '↶ Undo', exact: true }).click()
   await page
     .getByRole('button', { name: '+ New workcell', exact: true })
     .click()

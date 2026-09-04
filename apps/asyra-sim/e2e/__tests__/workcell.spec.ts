@@ -6,6 +6,8 @@ test('Undo can remove the initial model and a blank workcell is editable', async
   await page.goto('/')
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
   await page.getByRole('button', { name: '↶ Undo' }).click()
+  await expect(page.getByRole('treeitem')).toHaveCount(11)
+  await page.getByRole('button', { name: '↶ Undo' }).click()
   await expect(page.getByRole('treeitem')).toHaveCount(0)
   await expect(
     page.getByRole('button', { name: '+ Add fixture', exact: true })
