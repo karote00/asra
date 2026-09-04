@@ -4,6 +4,19 @@ Append App-scoped decisions according to the
 [global standard](../../../../decisions/README.md). Record changes in direction
 as superseding entries; do not overwrite released history.
 
+## 2026-09-04 — Implement CUSTOM First, Extract Generic Defaults Later
+
+- The user authorized the first candidate implementation, `three`,
+  `@types/three`, their necessary dependencies, and minimal necessary Framework
+  extensions with tests and documentation.
+- Start with an App-owned CUSTOM engine and the existing public Core/Render
+  boundaries. Keep SDK objects private to the adapter and robot/analysis
+  semantics outside it. Do not enable the official 3D/HYBRID profiles.
+- Generic contracts and adapter code may be extracted in a later task; Preset
+  will own optional default composition, not engine execution or Sim semantics.
+- Foundation tests and local builds do not replace numerical, real-browser,
+  distribution, maintenance, or independent-user release evidence.
+
 ## 2026-09-04 — Establish Asyra Sim's Product Direction and Separate Documentation
 
 - Context: The user wants to lower the barrier for small and medium-sized

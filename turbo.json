@@ -73,6 +73,18 @@
         "@asyra/system-context#build:system-context"
       ]
     },
+    "@asyra/asyra-sim#react:build": {
+      "cache": false,
+      "outputs": [
+        "dist/**"
+      ],
+      "dependsOn": [
+        "@asyra/core#build:core",
+        "@asyra/preset#build:preset",
+        "@asyra/render#build:render",
+        "@asyra/render-engine#build:render-engine"
+      ]
+    },
     "@asyra/collaboration#build:collaboration": {
       "cache": false,
       "outputs": [

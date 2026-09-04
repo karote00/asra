@@ -1,0 +1,60 @@
+import {
+  getSessionManager,
+  redoWithRenderPolicy,
+  undoWithRenderPolicy,
+  type Core
+} from '@asyra/core'
+import { FeatureNames } from '../constants'
+import * as model from '../common-apis/workcell'
+import type { Body, Workcell } from '../domain/workcell'
+
+export function installEditingFeatures(core: Core) {
+  const execute = <T>(operation: () => T): Promise<T> =>
+    getSessionManager().runAfterCancellingActiveSessions(
+      () => core.getSystemContextSnapshot(),
+      operation,
+      FeatureNames.EDIT_WORKCELL
+    )
+  const api = {
+    createCandidate: (name: string, workcell: Workcell) => {
+      const input = structuredClone(workcell)
+      return execute(() => model.createCandidate(core, name, input))
+    },
+    replace: (candidateId: string, workcell: Workcell) => {
+      const input = structuredClone(workcell)
+      return execute(() => model.replaceWorkcell(core, candidateId, input))
+    },
+    upsert: (candidateId: string, body: Body, robotRootId?: string | null) => {
+      const input = structuredClone(body)
+      return execute(() =>
+        model.upsertBody(core, candidateId, input, robotRootId)
+      )
+    },
+    remove: (candidateId: string, bodyId: string) =>
+      execute(() => model.removeBody(core, candidateId, bodyId))
+  }
+  const edit = core.defineFeature(FeatureNames.EDIT_WORKCELL, undefined, {
+    priority: 100,
+    exclusive: true,
+    api
+  })
+  const history = core.defineFeature(FeatureNames.HISTORY, undefined, {
+    priority: 100,
+    exclusive: true,
+    api: {
+      undo: () =>
+        getSessionManager().runAfterCancellingActiveSessions(
+          () => core.getSystemContextSnapshot(),
+          () => undoWithRenderPolicy({ mode: 'atomic' }),
+          FeatureNames.HISTORY
+        ),
+      redo: () =>
+        getSessionManager().runAfterCancellingActiveSessions(
+          () => core.getSystemContextSnapshot(),
+          () => redoWithRenderPolicy({ mode: 'atomic' }),
+          FeatureNames.HISTORY
+        )
+    }
+  })
+  return { edit: edit.api, history: history.api }
+}

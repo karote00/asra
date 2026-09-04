@@ -1,4 +1,4 @@
-# Asyra Sim Planning Entry
+# Asyra Sim Development Entry
 
 > We provide a trustworthy environment for executing experiments, not a guarantee that users' experimental assumptions hold.
 
@@ -8,22 +8,23 @@ single robot workcell**, not a complete factory simulator.
 
 ## Status and Location
 
-- This is a product planning baseline. Implementation has not started, and no
-  App, solver, or release gate is claimed to have passed.
-- Planned implementation: `apps/asyra-sim/`, alongside `apps/asyra-design/`.
-- This work creates documentation only: no App scaffold, packages, dependencies,
-  deployment, or Inspector artifacts.
+- Implementation is active. M0 and the R0 release gates are not complete.
+- App workspace: `apps/asyra-sim/`, alongside `apps/asyra-design/`.
+- The normal CUSTOM workbench renders and edits a synthetic six-axis model.
+  Canonical editing, analytical numerical kernels, and basic browser proofs
+  exist. Complete experiment workflows, distribution, and pilots remain pending.
 - At the user's request, this plan supersedes the former Asyra CAD roadmap.
   Useful content has been integrated without retaining its phase numbering or
   claiming that the old plan was implemented. See the roadmap's replacement
   notes.
 - [Framework documentation](../../framework/README.md) remains authoritative for
   Framework contracts.
-- This is a roadmap whose implementation has not started, not an
-  implementation-ready Inspector owner-step plan. App implementation requires
-  the M0 contracts, formal product cases, and Inspector readiness first.
-  Any code or tests needed for an M0 proof also require the corresponding bounded
-  owner contract and Inspector readiness before implementation.
+- Implementation follows the dedicated
+  [R0 Inspector](../../../../tools/flow-inspector/inspectors/asyra-sim-r0-flow-inspector.html)
+  and each bounded owner contract. The [CUSTOM engine contract](specs/custom-engine-v0.md)
+  defines the current adapter boundary. M0 still requires restricted import and
+  resource/environment decisions before the complete workcell implementation
+  advances. A working viewport does not establish R0 readiness.
 
 ## Reading Guide
 
@@ -70,10 +71,11 @@ analysis geometry, JSON/CSV import, sequential candidate comparison, and trusted
 local method extensions. These are implementation targets, not available
 features.
 
-M0 must still establish public-boundary 3D feasibility, the formal collision
-method, accuracy and scale limits, supported environments, and resource
-baselines. Do not claim production 3D support or engineering accuracy before
-that evidence exists.
+The current proofs cover public-boundary 3D, canonical edits, interval geometry
+kernels, and a real Chrome path. M0 must still establish restricted import and
+resource/environment baselines. The [numerical contract](specs/numerical-method-v0.md)
+defines the kernels' support limits; a tested kernel is not yet a complete
+experiment runner or a real-world accuracy claim.
 
 ## Working Rules
 

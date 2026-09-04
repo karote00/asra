@@ -1,0 +1,1624 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Asyra Sim R0 Inspector Flow</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #101418;
+        --panel: #151b22;
+        --panel-2: #1d2530;
+        --line: #334155;
+        --text: #e5edf5;
+        --muted: #9caab8;
+        --accent: #59b7ff;
+        --accent-2: #f97373;
+        --warn: #f6c85f;
+        --ok: #7bd88f;
+        --card-w: 270px;
+        --card-h: 118px;
+        --gap-x: 220px;
+        --gap-y: 100px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        background: var(--bg);
+        font:
+          14px/1.5 ui-sans-serif,
+          system-ui,
+          sans-serif;
+      }
+      .app {
+        display: grid;
+        grid-template-columns: minmax(980px, 1fr) 430px;
+        height: 100vh;
+        overflow: hidden;
+      }
+      .main {
+        min-width: 0;
+        overflow: auto;
+        padding: 24px;
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 18px;
+      }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 24px;
+      }
+      .subtitle,
+      .detail-summary {
+        color: var(--muted);
+      }
+      .header-links,
+      .filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 12px 0 18px;
+      }
+      .header-link,
+      .filter-button {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 6px 10px;
+        color: var(--accent);
+        background: var(--panel);
+      }
+      .filter-button.active {
+        border-color: var(--accent);
+      }
+      .guide-panel {
+        margin-bottom: 18px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px 16px;
+        background: var(--panel);
+      }
+      .guide-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(240px, 1fr));
+        gap: 12px;
+      }
+      .guide-card {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+        background: var(--panel-2);
+      }
+      .flow {
+        position: relative;
+        min-width: 100%;
+        min-height: 620px;
+      }
+      .flow-svg {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .step-card {
+        position: absolute;
+        width: var(--card-w);
+        min-height: var(--card-h);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 14px;
+        color: var(--text);
+        background: var(--panel);
+        text-align: left;
+      }
+      .step-card.selected {
+        border-color: var(--accent);
+      }
+      .step-card h2 {
+        margin: 0 0 6px;
+        font-size: 15px;
+      }
+      .detail {
+        height: 100vh;
+        overflow: auto;
+        border-left: 1px solid var(--line);
+        padding: 24px;
+        background: #0f1720;
+      }
+      .detail-section {
+        margin-bottom: 16px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px;
+        background: var(--panel);
+      }
+      .detail-section h3 {
+        margin: 0 0 8px;
+        font-size: 12px;
+        text-transform: uppercase;
+      }
+      code {
+        color: #dbeafe;
+      }
+      a {
+        color: var(--accent);
+      }
+      .hidden {
+        display: none;
+      }
+    </style>
+      <style data-flow-inspector-viewer-styles>
+:root {
+  --panel-2: #1d2530;
+  --warn: #f6c85f;
+  --ok: #7bd88f;
+  --card-w: 290px;
+  --card-h: 168px;
+  --gap-x: 180px;
+  --gap-y: 84px;
+  --flow-controls-safe-left: 60px;
+}
+
+.target-meta {
+  position: relative;
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--line);
+  padding: 8px 56px 8px 18px;
+  color: var(--muted);
+  background: #0c1117;
+}
+
+.target-meta a,
+a {
+  color: var(--accent);
+}
+
+.app {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 30vw, 430px);
+  height: 100vh;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.target-meta + .app {
+  height: calc(100vh - 42px);
+}
+
+.target-meta[hidden] + .app {
+  height: 100vh;
+}
+
+.app.is-detail-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.main {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 24px;
+}
+
+.panel-close-button,
+.panel-rail button {
+  border: 1px solid var(--line);
+  color: var(--text);
+  background: rgba(22, 29, 38, 0.94);
+  cursor: pointer;
+}
+
+.panel-close-button:hover,
+.panel-close-button:focus-visible,
+.panel-rail button:not(:disabled):hover,
+.panel-rail button:not(:disabled):focus-visible {
+  border-color: var(--accent);
+}
+
+.panel-close-button {
+  position: absolute;
+  top: 24px;
+  right: 12px;
+  z-index: 3;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  padding: 0;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.header .panel-close-button {
+  top: 0;
+}
+
+.panel-rail {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel-rail button {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 6px;
+  padding: 0;
+  line-height: 1;
+}
+
+.panel-rail button[aria-pressed='true'] {
+  border-color: #39698a;
+  color: var(--accent);
+  background: #142638;
+  opacity: 1;
+}
+
+.panel-rail button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.header {
+  position: relative;
+  display: flex;
+  flex: none;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+h1 {
+  margin: 0 0 6px;
+  font-size: 24px;
+}
+
+.subtitle,
+.detail-summary,
+.step-summary {
+  color: var(--muted);
+}
+
+.header-links,
+.filters {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.header-link,
+.filter-button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: var(--accent);
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.filter-button.is-active,
+.filter-button.active {
+  border-color: var(--accent);
+  background: #142638;
+}
+
+.guide-panel {
+  flex: none;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 14px;
+  background: var(--panel);
+}
+
+.guide-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.guide-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--panel-2);
+}
+
+.flow-shell {
+  flex: 1 1 auto;
+  position: relative;
+  min-width: 0;
+  min-height: 360px;
+  overflow: hidden;
+}
+
+.flow-viewport {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #0c1117;
+}
+
+.flow-viewport:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.flow-zoom-surface {
+  position: relative;
+  min-width: 100%;
+  min-height: 100%;
+  overflow: hidden;
+}
+
+.zoom-controls {
+  position: absolute;
+  top: 12px;
+  right: 24px;
+  z-index: 5;
+}
+
+.zoom-controls button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 11px;
+  color: var(--text);
+  background: rgba(22, 29, 38, 0.94);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+}
+
+.zoom-controls button:hover,
+.zoom-controls button:focus-visible {
+  border-color: var(--accent);
+}
+
+.flow {
+  position: relative;
+}
+
+.lane-label {
+  position: absolute;
+  top: 22px;
+  z-index: 2;
+  width: var(--card-w);
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.flow-svg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.edge-path {
+  fill: none;
+  stroke: rgba(148, 163, 184, 0.56);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.edge-path.route-bypass {
+  stroke: rgba(246, 200, 95, 0.72);
+  stroke-dasharray: 8 7;
+}
+
+.edge-path.route-parallel,
+.edge-path.route-coexecute,
+.edge-path.route-fanout {
+  stroke: rgba(89, 183, 255, 0.68);
+}
+
+.edge-path.is-active {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+.step-card {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  width: var(--card-w);
+  height: var(--card-h);
+  min-height: var(--card-h);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  color: var(--text);
+  background: var(--panel);
+  text-align: left;
+  cursor: pointer;
+}
+
+.step-card:hover,
+.step-card:focus-visible,
+.step-card.is-selected,
+.step-card.selected {
+  border-color: var(--accent);
+}
+
+.step-kicker,
+.badge-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.step-kicker {
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.step-kicker > :last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.step-number {
+  flex: none;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.step-title {
+  display: -webkit-box;
+  margin-top: 8px;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.step-summary {
+  display: -webkit-box;
+  margin-top: 6px;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.badge-row {
+  margin-top: auto;
+  overflow: hidden;
+}
+
+.badge {
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 7px;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge.owner {
+  color: #8fc7e8;
+}
+
+.detail {
+  position: relative;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border-left: 1px solid var(--line);
+  padding: 24px;
+  background: #0f1720;
+}
+
+.detail-group {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.detail-heading h2 {
+  margin: 8px 0;
+}
+
+.detail-summary {
+  margin: 0 0 24px;
+}
+
+.detail-category {
+  margin-top: 24px;
+  border-top: 2px solid #34465d;
+  padding-top: 16px;
+}
+
+.detail-category-title {
+  margin: 0 0 14px;
+  color: #b9d9ed;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.detail-section {
+  margin-bottom: 12px;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--panel);
+}
+
+.detail-section h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.full-contract {
+  margin-top: 24px;
+  border: 1px solid #3a506a;
+  border-radius: 12px;
+  background: #111923;
+}
+
+.full-contract > summary {
+  display: grid;
+  gap: 3px;
+  padding: 14px 16px;
+  color: var(--accent);
+  cursor: pointer;
+  font-weight: 700;
+  list-style-position: inside;
+}
+
+.full-contract > summary small {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.full-contract[open] > summary {
+  border-bottom: 1px solid #3a506a;
+}
+
+.full-contract > .detail-category {
+  margin: 20px 16px 0;
+}
+
+.full-contract > .detail-category:last-child {
+  padding-bottom: 4px;
+}
+
+.detail-section ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+code {
+  color: #dbeafe;
+}
+
+.compatibility-view {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 64px);
+}
+
+.compatibility-label {
+  color: var(--warn);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.compatibility-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.compatibility-card {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  background: var(--panel);
+}
+
+.compatibility-card h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.compatibility-card pre {
+  max-height: 360px;
+  overflow: auto;
+  color: #cbd5e1;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .target-meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .target-meta + .app,
+  .app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(620px, 72vh) auto;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .main {
+    min-height: 620px;
+    padding: 16px;
+  }
+
+  .flow-shell {
+    min-height: 420px;
+  }
+
+  .detail {
+    height: auto;
+    max-height: none;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .guide-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <main class="main">
+        <div class="header">
+          <div>
+            <h1 id="inspector-title">Flow Inspector</h1>
+            <p id="inspector-subtitle" class="subtitle">
+              Loading target contract.
+            </p>
+            <div id="inspector-links" class="header-links"></div>
+          </div>
+        </div>
+        <div id="filters" class="filters"></div>
+        <details class="guide-panel">
+          <summary>Viewer controls and contract</summary>
+          <section class="guide-grid">
+            <article class="guide-card">
+              <h2>Viewer controls</h2>
+              <p>
+                Filter by owner lane and select a card to inspect its exact
+                inputs, outputs, boundaries, and failure owner.
+              </p>
+            </article>
+            <article class="guide-card">
+              <h2>Target contract</h2>
+              <p id="target-contract-summary">Loading target contract.</p>
+            </article>
+          </section>
+        </details>
+        <section
+          id="flow"
+          class="flow"
+          aria-label="render-engine boundary flow"
+        ></section>
+      </main>
+      <aside id="detail" class="detail" aria-label="step detail"></aside>
+    </div>
+    <script src="./asyra-sim-r0-flow-inspector.data.cjs"></script>
+    <script data-flow-inspector-renderer>
+/* global console, document, window */
+
+;(function () {
+  'use strict'
+
+  const data = globalThis.FLOW_INSPECTOR_DATA
+  if (!data) {
+    throw new Error(
+      'Missing FLOW_INSPECTOR_DATA. Load the target data file before the shared viewer.'
+    )
+  }
+
+  const {
+    schema,
+    target,
+    authority,
+    links = [],
+    lanes,
+    steps,
+    routes,
+    artifacts,
+    invariants,
+    acceptanceContracts
+  } = data
+
+  const requiredCollections = {
+    links,
+    lanes,
+    steps,
+    routes,
+    artifacts,
+    invariants,
+    acceptanceContracts
+  }
+  const invalidCollections = Object.entries(requiredCollections)
+    .filter(([, value]) => !Array.isArray(value))
+    .map(([name]) => name)
+  if (invalidCollections.length) {
+    throw new Error(
+      `Flow Inspector target has invalid collections: ${invalidCollections.join(', ')}`
+    )
+  }
+  const schemaId = schema?.id
+  const recognizedSchemaId =
+    schemaId === 'flow-inspector' ||
+    (typeof schemaId === 'string' && schemaId.endsWith('.flow-inspector'))
+  if (!recognizedSchemaId || schema.version !== 2) {
+    throw new Error('Flow Inspector requires the flow-inspector/v2 schema.')
+  }
+
+  const flow = document.getElementById('flow')
+  const detail = document.getElementById('detail')
+  const filters = document.getElementById('filters')
+  const app = flow?.closest('.app')
+  const main = flow?.closest('.main')
+  const header = main?.querySelector('.header')
+  const guide = main?.querySelector('.guide-panel')
+  const targetMeta = document.querySelector('.target-meta')
+  const title = document.getElementById('inspector-title')
+  const subtitle = document.getElementById('inspector-subtitle')
+  const headerLinks = document.getElementById('inspector-links')
+  const targetSummary = document.getElementById('target-contract-summary')
+
+  const requiredElements = {
+    flow,
+    detail,
+    filters,
+    app,
+    main,
+    header,
+    guide,
+    title,
+    subtitle,
+    headerLinks,
+    targetSummary
+  }
+  const missingElements = Object.entries(requiredElements)
+    .filter(([, element]) => !element)
+    .map(([name]) => name)
+  if (missingElements.length) {
+    throw new Error(
+      `Flow Inspector shell is missing: ${missingElements.join(', ')}`
+    )
+  }
+
+  const detailContent = document.createElement('div')
+  detailContent.className = 'detail-content'
+  detail.appendChild(detailContent)
+
+  const escapeHtml = (value) =>
+    String(value)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;')
+
+  const specLink = links.find((link) => link.kind === 'authority')
+
+  const formatItem = (value) => {
+    if (value && typeof value === 'object' && value.href && value.label) {
+      return `<a href="${escapeHtml(value.href)}">${escapeHtml(value.label)}</a>`
+    }
+    const text = String(value)
+    if (text.startsWith('#') && specLink) {
+      return `<a href="${escapeHtml(`${specLink.href}${text}`)}"><code>${escapeHtml(text)}</code></a>`
+    }
+    return escapeHtml(text).replace(/`([^`]+)`/g, '<code>$1</code>')
+  }
+
+  const section = (heading, items, className = '') => {
+    const values = items && items.length ? items : ['None']
+    return `
+      <section class="detail-section ${className}" data-detail-section="${escapeHtml(heading)}">
+        <h3>${escapeHtml(heading)}</h3>
+        <ul>${values.map((item) => `<li>${formatItem(item)}</li>`).join('')}</ul>
+      </section>`
+  }
+
+  const laneById = new Map(lanes.map((lane) => [lane.id, lane]))
+  const stepById = new Map(steps.map((step) => [step.id, step]))
+  const artifactById = new Map(
+    artifacts.map((artifact) => [artifact.id, artifact])
+  )
+  const stepsByLane = new Map(
+    lanes.map((lane) => [
+      lane.id,
+      steps
+        .filter((step) => step.laneId === lane.id)
+        .sort((left, right) => left.order - right.order)
+    ])
+  )
+
+  const layout = {
+    left: 60,
+    top: 68,
+    cardW: 290,
+    cardH: 168,
+    gapX: 180,
+    gapY: 84
+  }
+
+  let selectedId = steps[0]?.id ?? null
+  let selectedLaneId = 'All'
+
+  const ensureFlowViewport = () => {
+    if (flow.parentElement?.classList.contains('flow-zoom-surface')) {
+      return flow.parentElement.closest('.flow-viewport')
+    }
+    const shell = document.createElement('div')
+    shell.className = 'flow-shell'
+    const viewport = document.createElement('div')
+    viewport.className = 'flow-viewport'
+    const surface = document.createElement('div')
+    surface.className = 'flow-zoom-surface'
+    flow.before(shell)
+    shell.appendChild(viewport)
+    viewport.appendChild(surface)
+    surface.appendChild(flow)
+    return viewport
+  }
+
+  const enablePanelControls = () => {
+    let catalogVisible = true
+    let headerVisible = true
+    let detailVisible = true
+    const headerPanel = header
+    const catalogToggle = document.createElement('button')
+    const headerClose = document.createElement('button')
+    const detailClose = document.createElement('button')
+    const headerOpen = document.createElement('button')
+    const detailOpen = document.createElement('button')
+    const isEmbedded = window.parent !== window
+    const panelRail = document.createElement('div')
+    catalogToggle.type = 'button'
+    catalogToggle.dataset.panelButton = 'catalog'
+    catalogToggle.setAttribute('aria-label', 'Catalog panel')
+    catalogToggle.textContent = '☰'
+    headerClose.className = 'panel-close-button'
+    headerClose.type = 'button'
+    headerClose.dataset.closeHeader = ''
+    headerClose.setAttribute('aria-label', 'Close Inspector header')
+    headerClose.textContent = '×'
+    detailClose.className = 'panel-close-button'
+    detailClose.type = 'button'
+    detailClose.dataset.closeDetails = ''
+    detailClose.setAttribute('aria-label', 'Close step details')
+    detailClose.textContent = '×'
+    headerOpen.type = 'button'
+    headerOpen.dataset.panelButton = 'header'
+    headerOpen.setAttribute('aria-label', 'Header panel')
+    headerOpen.title = 'Header panel is open'
+    headerOpen.textContent = '▤'
+    detailOpen.type = 'button'
+    detailOpen.dataset.panelButton = 'details'
+    detailOpen.setAttribute('aria-label', 'Details panel')
+    detailOpen.title = 'Details panel is open'
+    detailOpen.textContent = '◧'
+    headerPanel.prepend(headerClose)
+    detail.prepend(detailClose)
+    panelRail.className = 'panel-rail viewer-panel-rail'
+    panelRail.dataset.panelRail = ''
+    panelRail.setAttribute('role', 'toolbar')
+    panelRail.setAttribute('aria-label', 'Inspector panels')
+    panelRail.append(catalogToggle, headerOpen, detailOpen)
+    flow.closest('.flow-shell').appendChild(panelRail)
+
+    const notifyParent = (panel, visible) => {
+      if (!isEmbedded) return
+      window.parent.postMessage(
+        { type: 'flow-inspector:panel-visibility', panel, visible },
+        '*'
+      )
+    }
+
+    const renderVisibility = () => {
+      catalogToggle.disabled = !isEmbedded
+      catalogToggle.setAttribute('aria-pressed', String(catalogVisible))
+      if (!isEmbedded) {
+        catalogToggle.title = 'Catalog panel is available in the workspace'
+      } else {
+        catalogToggle.title = catalogVisible
+          ? 'Catalog panel is open'
+          : 'Open Catalog panel'
+      }
+      if (targetMeta) targetMeta.hidden = !headerVisible
+      header.hidden = !headerVisible
+      filters.hidden = !headerVisible
+      guide.hidden = !headerVisible
+      detail.hidden = !detailVisible
+      main.classList.toggle('is-header-collapsed', !headerVisible)
+      app.classList.toggle('is-detail-collapsed', !detailVisible)
+      headerOpen.setAttribute('aria-pressed', String(headerVisible))
+      headerOpen.title = headerVisible
+        ? 'Header panel is open'
+        : 'Open Header panel'
+      detailOpen.setAttribute('aria-pressed', String(detailVisible))
+      detailOpen.title = detailVisible
+        ? 'Details panel is open'
+        : 'Open Details panel'
+    }
+
+    headerClose.addEventListener('click', () => {
+      headerVisible = false
+      renderVisibility()
+      notifyParent('header', false)
+    })
+    catalogToggle.addEventListener('click', () => {
+      if (!isEmbedded) return
+      catalogVisible = !catalogVisible
+      renderVisibility()
+      notifyParent('catalog', catalogVisible)
+    })
+    detailClose.addEventListener('click', () => {
+      detailVisible = false
+      renderVisibility()
+      notifyParent('details', false)
+    })
+    headerOpen.addEventListener('click', () => {
+      headerVisible = !headerVisible
+      renderVisibility()
+      notifyParent('header', headerVisible)
+    })
+    detailOpen.addEventListener('click', () => {
+      detailVisible = !detailVisible
+      renderVisibility()
+      notifyParent('details', detailVisible)
+    })
+    window.addEventListener('message', (event) => {
+      const message = event.data
+      if (message?.type !== 'flow-inspector:set-panel-visibility') return
+      if (message.panel === 'catalog') catalogVisible = message.visible
+      else if (message.panel === 'header') headerVisible = message.visible
+      else if (message.panel === 'details') detailVisible = message.visible
+      else return
+      renderVisibility()
+      notifyParent(message.panel, message.visible)
+    })
+    renderVisibility()
+    notifyParent('catalog', catalogVisible)
+    notifyParent('header', headerVisible)
+    notifyParent('details', detailVisible)
+  }
+
+  const enableViewportZoom = (viewport) => {
+    const minimumScale = 0.2
+    const maximumScale = 2.5
+    let scale = 1
+    const surface = flow.parentElement
+    const controls = document.createElement('div')
+    const reset = document.createElement('button')
+    controls.className = 'zoom-controls'
+    reset.type = 'button'
+    reset.dataset.resetZoom = ''
+    reset.title = 'Reset flow zoom to 100% (⌘0)'
+    viewport.tabIndex = 0
+    viewport.setAttribute(
+      'aria-label',
+      'Zoomable and scrollable Inspector flow'
+    )
+    controls.appendChild(reset)
+    viewport.parentElement.appendChild(controls)
+
+    const updateResetLabel = () => {
+      reset.textContent = `Reset zoom · ${Math.round(scale * 100)}%`
+    }
+
+    const syncSurfaceSize = () => {
+      const baseWidth = Number(flow.dataset.baseWidth)
+      const baseHeight = Number(flow.dataset.baseHeight)
+      if (baseWidth > 0) surface.style.width = `${baseWidth * scale}px`
+      if (baseHeight > 0) surface.style.height = `${baseHeight * scale}px`
+    }
+
+    const setScale = (nextScale, anchor) => {
+      const boundedScale = Math.min(
+        maximumScale,
+        Math.max(minimumScale, nextScale)
+      )
+      const anchorX = anchor?.x ?? viewport.clientWidth / 2
+      const anchorY = anchor?.y ?? viewport.clientHeight / 2
+      const contentX = (viewport.scrollLeft + anchorX) / scale
+      const contentY = (viewport.scrollTop + anchorY) / scale
+      scale = boundedScale
+      viewport.dataset.zoomScale = String(scale)
+      flow.style.transformOrigin = '0 0'
+      flow.style.transform = `scale(${scale})`
+      syncSurfaceSize()
+      viewport.scrollLeft = contentX * scale - anchorX
+      viewport.scrollTop = contentY * scale - anchorY
+      updateResetLabel()
+    }
+
+    const resetZoom = () => setScale(1)
+
+    viewport.addEventListener(
+      'wheel',
+      (event) => {
+        if (!event.ctrlKey) return
+        event.preventDefault()
+        viewport.focus({ preventScroll: true })
+        const bounds = viewport.getBoundingClientRect()
+        const deltaMultiplier = event.deltaMode === 1 ? 16 : 1
+        const zoomFactor = Math.exp(-event.deltaY * deltaMultiplier * 0.002)
+        setScale(scale * zoomFactor, {
+          x: event.clientX - bounds.left,
+          y: event.clientY - bounds.top
+        })
+      },
+      { passive: false }
+    )
+    reset.addEventListener('click', resetZoom)
+    document.addEventListener('keydown', (event) => {
+      if (!event.metaKey || event.key !== '0') return
+      event.preventDefault()
+      resetZoom()
+    })
+    flow.addEventListener('flowboundschange', syncSurfaceSize)
+    setScale(1, { x: 0, y: 0 })
+  }
+
+  const isVisible = (step) =>
+    selectedLaneId === 'All' || step.laneId === selectedLaneId
+
+  const getStepLane = (step) =>
+    lanes.findIndex((lane) => lane.id === step.laneId)
+
+  const getStepRow = (step) =>
+    stepsByLane.get(step.laneId)?.findIndex((item) => item.id === step.id) ?? 0
+
+  const stepPosition = (step) => ({
+    x: layout.left + getStepLane(step) * (layout.cardW + layout.gapX),
+    y: layout.top + getStepRow(step) * (layout.cardH + layout.gapY)
+  })
+
+  const getFlowBounds = () => {
+    const visibleSteps = steps.filter(isVisible)
+    const laneIndexes = visibleSteps.map(getStepLane)
+    const rowIndexes = visibleSteps.map(getStepRow)
+    const maxLane = laneIndexes.length ? Math.max(...laneIndexes) : 0
+    const maxRow = rowIndexes.length ? Math.max(...rowIndexes) : 0
+    return {
+      width:
+        layout.left * 2 + (maxLane + 1) * layout.cardW + maxLane * layout.gapX,
+      height:
+        layout.top * 2 + (maxRow + 1) * layout.cardH + maxRow * layout.gapY
+    }
+  }
+
+  const toSvgPoint = (svg, x, y) => {
+    const point = svg.createSVGPoint()
+    point.x = x
+    point.y = y
+    const matrix = svg.getScreenCTM()
+    return matrix ? point.matrixTransform(matrix.inverse()) : { x, y }
+  }
+
+  const getEdgePath = (svg, fromCard, toCard, fromStep, toStep) => {
+    const fromBox = fromCard.getBoundingClientRect()
+    const toBox = toCard.getBoundingClientRect()
+    if (fromStep.laneId === toStep.laneId) {
+      const start = toSvgPoint(
+        svg,
+        fromBox.left + fromBox.width / 2,
+        fromBox.bottom
+      )
+      const end = toSvgPoint(svg, toBox.left + toBox.width / 2, toBox.top)
+      const midpointY = fromBox.bottom + (toBox.top - fromBox.bottom) * 0.5
+      const controlStart = toSvgPoint(
+        svg,
+        fromBox.left + fromBox.width / 2,
+        midpointY
+      )
+      const controlEnd = toSvgPoint(
+        svg,
+        toBox.left + toBox.width / 2,
+        midpointY
+      )
+      return `M ${start.x} ${start.y} C ${controlStart.x} ${controlStart.y}, ${controlEnd.x} ${controlEnd.y}, ${end.x} ${end.y}`
+    }
+
+    const direction = toBox.left >= fromBox.left ? 1 : -1
+    const startX = direction > 0 ? fromBox.right : fromBox.left
+    const startY = fromBox.top + fromBox.height / 2
+    const endX = direction > 0 ? toBox.left : toBox.right
+    const endY = toBox.top + toBox.height / 2
+    const distanceX = Math.abs(endX - startX)
+    const curve = Math.max(120, Math.min(distanceX * 0.46, layout.gapX * 0.92))
+    const start = toSvgPoint(svg, startX, startY)
+    const end = toSvgPoint(svg, endX, endY)
+    const controlStart = toSvgPoint(svg, startX + direction * curve, startY)
+    const controlEnd = toSvgPoint(svg, endX - direction * curve, endY)
+    return `M ${start.x} ${start.y} C ${controlStart.x} ${controlStart.y}, ${controlEnd.x} ${controlEnd.y}, ${end.x} ${end.y}`
+  }
+
+  const routeClass = (kind) => {
+    if (kind === 'bypass') return 'route-bypass'
+    if (kind === 'coexecute' || kind === 'fanout') return 'route-parallel'
+    return `route-${kind}`
+  }
+
+  const renderEdges = (svg) => {
+    svg.querySelectorAll('.edge-path').forEach((node) => node.remove())
+    routes.forEach((route) => {
+      if (!route.to) return
+      const from = stepById.get(route.from)
+      const to = stepById.get(route.to)
+      if (!from || !to || !isVisible(from) || !isVisible(to)) return
+      const fromCard = flow.querySelector(`[data-step-id="${route.from}"]`)
+      const toCard = flow.querySelector(`[data-step-id="${route.to}"]`)
+      if (!fromCard || !toCard) return
+
+      const path = document.createElementNS(
+        'http://www.w3.org/2000/svg',
+        'path'
+      )
+      path.setAttribute('d', getEdgePath(svg, fromCard, toCard, from, to))
+      path.setAttribute(
+        'class',
+        `edge-path ${routeClass(route.kind)}${route.from === selectedId || route.to === selectedId ? ' is-active' : ''}`
+      )
+      path.setAttribute('data-route-id', route.id)
+      path.setAttribute('marker-end', 'url(#arrow)')
+      const tooltip = document.createElementNS(
+        'http://www.w3.org/2000/svg',
+        'title'
+      )
+      tooltip.textContent = `${route.id}: ${route.kind}; ${route.predicate}`
+      path.appendChild(tooltip)
+      svg.appendChild(path)
+    })
+  }
+
+  const routesForStep = (stepId, direction) =>
+    routes
+      .filter((route) => route[direction] === stepId)
+      .map(
+        (route) =>
+          `${route.id} [${route.kind}]: ${route.predicate}; ${route.from} -> ${route.to ?? 'terminal'}; artifacts ${route.producedArtifacts.join(', ')}`
+      )
+
+  const artifactsOwnedBy = (stepId) =>
+    artifacts
+      .filter((artifact) => artifact.ownerStepId === stepId)
+      .map(
+        (artifact) =>
+          `${artifact.id}: ${artifact.channel}; consumers ${artifact.consumerStepIds.join(', ') || 'terminal'}`
+      )
+
+  const artifactsConsumedBy = (stepId) =>
+    artifacts
+      .filter((artifact) => artifact.consumerStepIds.includes(stepId))
+      .map(
+        (artifact) =>
+          `${artifact.id}: owner ${artifact.ownerStepId}; ${artifact.channel}`
+      )
+
+  const invariantsForStep = (stepId) =>
+    invariants
+      .filter((invariant) => invariant.stepIds.includes(stepId))
+      .map(
+        (invariant) =>
+          `${invariant.id}: ${invariant.statement}; refs ${invariant.specRefs.join(', ')}`
+      )
+
+  const acceptanceForStep = (stepId) =>
+    acceptanceContracts
+      .filter((contract) => contract.stepIds.includes(stepId))
+      .map(
+        (contract) =>
+          `${contract.id}: ${contract.assertions.join('; ')}; refs ${contract.specRefs.join(', ')}`
+      )
+
+  const renderHeader = () => {
+    document.title = target.title
+    title.textContent = target.title
+    subtitle.textContent = target.subtitle
+    headerLinks.innerHTML = links
+      .map(
+        (link) =>
+          `<a class="header-link" href="${escapeHtml(link.href)}" data-link-kind="${escapeHtml(link.kind)}">${escapeHtml(link.label)}</a>`
+      )
+      .join('')
+    targetSummary.innerHTML = [
+      `Target: <code>${escapeHtml(target.kind)}:${escapeHtml(target.id)}</code>`,
+      `Schema: <code>${escapeHtml(schema.id)}/v${escapeHtml(schema.version)}</code>`,
+      `Semantic authority: <code>${escapeHtml(authority.specPath)}</code>`,
+      `Inspector data: <code>${escapeHtml(authority.inspectorPath)}</code>`
+    ].join('<br />')
+  }
+
+  const renderFilters = () => {
+    filters.innerHTML = ''
+    ;[{ id: 'All', title: 'All' }, ...lanes].forEach((lane) => {
+      const button = document.createElement('button')
+      button.className = `filter-button${lane.id === selectedLaneId ? ' is-active' : ''}`
+      button.type = 'button'
+      button.textContent = lane.title
+      button.addEventListener('click', () => {
+        selectedLaneId = lane.id
+        const selectedStep = stepById.get(selectedId)
+        if (selectedStep && !isVisible(selectedStep)) {
+          selectedId = steps.find(isVisible)?.id ?? steps[0]?.id ?? null
+        }
+        render()
+      })
+      filters.appendChild(button)
+    })
+  }
+
+  const renderDetail = () => {
+    const selected = stepById.get(selectedId) ?? steps[0]
+    if (!selected) {
+      detailContent.innerHTML = '<p>No steps are declared.</p>'
+      return
+    }
+    const lane = laneById.get(selected.laneId)
+    detailContent.innerHTML = `
+      <div class="detail-group">${escapeHtml(lane?.title ?? selected.laneId)}</div>
+      <div class="detail-heading">
+        <span class="step-number">Step ${escapeHtml(selected.order)}</span>
+        <h2>${escapeHtml(selected.title)}</h2>
+      </div>
+      <p class="detail-summary">${escapeHtml(selected.purpose)}</p>
+      <section class="detail-category detail-at-a-glance">
+        <h3 class="detail-category-title">At a glance</h3>
+        ${section('Owner package', [selected.ownerPackage], 'alignment-box')}
+        ${section('Inputs', selected.inputs)}
+        ${section('Outputs', selected.outputs)}
+        ${section('Failure owner step', [selected.failureOwnerStepId], 'risk-box')}
+        ${section('Spec references', selected.specRefs, 'rule-box')}
+        ${section('Target links', links, 'rule-box')}
+      </section>
+      <details class="full-contract" data-full-contract>
+        <summary>
+          <span>Full contract</span>
+          <small>Execution rules, boundaries, routes, and verification</small>
+        </summary>
+        <section class="detail-category">
+          <h3 class="detail-category-title">Execution rules</h3>
+          ${section('Conditions', selected.conditions, 'trace-box')}
+          ${section('Bypasses', selected.bypasses, 'trace-box')}
+          ${section('Cache dimensions', selected.cacheDimensions, 'trace-box')}
+          ${section('Implementation boundary', selected.implementationBoundary)}
+        </section>
+        <section class="detail-category">
+          <h3 class="detail-category-title">Ownership boundaries</h3>
+          ${section('Allowed contributors', selected.allowedContributors, 'evidence-box')}
+          ${section('Forbidden contributors', selected.forbiddenContributors, 'risk-box')}
+        </section>
+        <section class="detail-category">
+          <h3 class="detail-category-title">Related contract data</h3>
+          ${section('Incoming routes', routesForStep(selected.id, 'to'), 'trace-box')}
+          ${section('Outgoing routes', routesForStep(selected.id, 'from'), 'trace-box')}
+          ${section('Owned artifacts', artifactsOwnedBy(selected.id), 'trace-box')}
+          ${section('Consumed artifacts', artifactsConsumedBy(selected.id), 'trace-box')}
+          ${section('Invariants', invariantsForStep(selected.id), 'evidence-box')}
+          ${section('Acceptance contracts', acceptanceForStep(selected.id), 'test-box')}
+        </section>
+      </details>`
+  }
+
+  const renderFlow = () => {
+    flow.innerHTML = ''
+    const bounds = getFlowBounds()
+    flow.style.width = `${bounds.width}px`
+    flow.style.height = `${bounds.height}px`
+    flow.dataset.baseWidth = String(bounds.width)
+    flow.dataset.baseHeight = String(bounds.height)
+    flow.dispatchEvent(new window.Event('flowboundschange'))
+
+    lanes.forEach((lane, laneIndex) => {
+      const label = document.createElement('div')
+      label.className = 'lane-label'
+      label.style.left = `${layout.left + laneIndex * (layout.cardW + layout.gapX)}px`
+      label.textContent = lane.title
+      flow.appendChild(label)
+    })
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.setAttribute('class', 'flow-svg')
+    svg.setAttribute('viewBox', `0 0 ${bounds.width} ${bounds.height}`)
+    svg.style.width = `${bounds.width}px`
+    svg.style.height = `${bounds.height}px`
+    svg.innerHTML = `
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(148, 163, 184, 0.62)"></path>
+        </marker>
+      </defs>`
+    flow.appendChild(svg)
+
+    steps.filter(isVisible).forEach((step) => {
+      const position = stepPosition(step)
+      const lane = laneById.get(step.laneId)
+      const tags = step.tags ?? []
+      const card = document.createElement('button')
+      card.type = 'button'
+      card.className = [
+        'step-card',
+        step.id === selectedId ? 'is-selected' : '',
+        tags.includes('risk') ? 'is-risk' : '',
+        tags.includes('critical') ? 'is-critical' : '',
+        tags.includes('blocker') ? 'is-blocker' : ''
+      ]
+        .filter(Boolean)
+        .join(' ')
+      card.style.left = `${position.x}px`
+      card.style.top = `${position.y}px`
+      card.dataset.stepId = step.id
+      card.innerHTML = `
+        <div class="step-kicker">
+          <span class="step-number">Step ${escapeHtml(step.order)}</span>
+          <span>${escapeHtml(lane?.title ?? step.laneId)}</span>
+        </div>
+        <div class="step-title">${escapeHtml(step.title)}</div>
+        <div class="step-summary">${escapeHtml(step.purpose)}</div>
+        <div class="badge-row">
+          <span class="badge owner">Owner: ${escapeHtml(step.ownerPackage)}</span>
+          ${tags
+            .slice(0, 2)
+            .map((tag) => `<span class="badge">${escapeHtml(tag)}</span>`)
+            .join('')}
+        </div>`
+      card.addEventListener('click', () => {
+        selectedId = step.id
+        render()
+      })
+      flow.appendChild(card)
+    })
+
+    renderEdges(svg)
+  }
+
+  const runStaticChecks = () => {
+    const errors = []
+    const uniqueIds = (label, items) => {
+      const seen = new Set()
+      items.forEach((item) => {
+        if (seen.has(item.id)) errors.push(`${label}:duplicate:${item.id}`)
+        seen.add(item.id)
+      })
+    }
+    uniqueIds('lane', lanes)
+    uniqueIds('step', steps)
+    uniqueIds('route', routes)
+    uniqueIds('artifact', artifacts)
+    uniqueIds('invariant', invariants)
+    uniqueIds('acceptance', acceptanceContracts)
+
+    if (!target?.id || !target?.kind || !target?.title) {
+      errors.push('target:incomplete')
+    }
+
+    const requiredStepFields = [
+      'id',
+      'order',
+      'laneId',
+      'title',
+      'ownerPackage',
+      'purpose',
+      'inputs',
+      'outputs',
+      'conditions',
+      'bypasses',
+      'allowedContributors',
+      'forbiddenContributors',
+      'cacheDimensions',
+      'implementationBoundary',
+      'specRefs',
+      'failureOwnerStepId'
+    ]
+    steps.forEach((step) => {
+      requiredStepFields.forEach((field) => {
+        if (step[field] === undefined)
+          errors.push(`${step.id}:missing:${field}`)
+      })
+      if (!laneById.has(step.laneId)) errors.push(`${step.id}:lane`)
+      if (!stepById.has(step.failureOwnerStepId)) {
+        errors.push(`${step.id}:failureOwnerStepId`)
+      }
+      step.inputs
+        .filter((input) => input.startsWith('artifact:'))
+        .forEach((artifactId) => {
+          if (!artifactById.has(artifactId)) {
+            errors.push(`${step.id}:input:${artifactId}`)
+          }
+        })
+      step.outputs.forEach((artifactId) => {
+        if (!artifactById.has(artifactId)) {
+          errors.push(`${step.id}:output:${artifactId}`)
+        }
+      })
+    })
+
+    routes.forEach((route) => {
+      if (!stepById.has(route.from)) errors.push(`${route.id}:from`)
+      if (route.to && !stepById.has(route.to)) errors.push(`${route.id}:to`)
+      route.producedArtifacts.forEach((artifactId) => {
+        const artifact = artifactById.get(artifactId)
+        if (!artifact) {
+          errors.push(`${route.id}:artifact:${artifactId}`)
+          return
+        }
+        if (artifact.ownerStepId !== route.from) {
+          errors.push(`${route.id}:artifact-owner:${artifactId}`)
+        }
+        if (route.to && !artifact.consumerStepIds.includes(route.to)) {
+          errors.push(`${route.id}:artifact-consumer:${artifactId}`)
+        }
+      })
+    })
+
+    artifacts.forEach((artifact) => {
+      const owner = stepById.get(artifact.ownerStepId)
+      if (!owner) {
+        errors.push(`${artifact.id}:owner`)
+      } else if (!owner.outputs.includes(artifact.id)) {
+        errors.push(`${artifact.id}:owner-output`)
+      }
+      artifact.consumerStepIds.forEach((stepId) => {
+        const consumer = stepById.get(stepId)
+        if (!consumer) {
+          errors.push(`${artifact.id}:consumer:${stepId}`)
+        } else if (!consumer.inputs.includes(artifact.id)) {
+          errors.push(`${artifact.id}:consumer-input:${stepId}`)
+        }
+      })
+      if (!artifact.terminal && !artifact.consumerStepIds.length) {
+        errors.push(`${artifact.id}:missing-consumer`)
+      }
+    })
+
+    invariants.forEach((invariant) => {
+      invariant.stepIds.forEach((stepId) => {
+        if (!stepById.has(stepId)) {
+          errors.push(`${invariant.id}:step:${stepId}`)
+        }
+      })
+      invariant.artifactIds.forEach((artifactId) => {
+        if (!artifactById.has(artifactId)) {
+          errors.push(`${invariant.id}:artifact:${artifactId}`)
+        }
+      })
+    })
+
+    acceptanceContracts.forEach((contract) => {
+      contract.stepIds.forEach((stepId) => {
+        if (!stepById.has(stepId)) {
+          errors.push(`${contract.id}:step:${stepId}`)
+        }
+      })
+    })
+
+    if (errors.length) {
+      console.error('Flow Inspector static check failed', {
+        target: target.id,
+        errors
+      })
+    } else {
+      console.info('Flow Inspector static check passed', {
+        target: target.id,
+        lanes: lanes.length,
+        steps: steps.length,
+        routes: routes.length,
+        artifacts: artifacts.length,
+        invariants: invariants.length,
+        acceptanceContracts: acceptanceContracts.length
+      })
+    }
+  }
+
+  const runLayoutChecks = () => {
+    const cards = [...flow.querySelectorAll('.step-card')].map((card) => {
+      const rect = card.getBoundingClientRect()
+      return {
+        id: card.dataset.stepId,
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom
+      }
+    })
+    const overlaps = []
+    cards.forEach((card, index) => {
+      cards.slice(index + 1).forEach((other) => {
+        const overlapX =
+          Math.min(card.right, other.right) - Math.max(card.left, other.left)
+        const overlapY =
+          Math.min(card.bottom, other.bottom) - Math.max(card.top, other.top)
+        if (overlapX > 8 && overlapY > 8) {
+          overlaps.push(`${card.id}:${other.id}`)
+        }
+      })
+    })
+    if (overlaps.length) {
+      console.error('Flow Inspector layout check failed', { overlaps })
+    } else {
+      console.info('Flow Inspector layout check passed', {
+        cards: cards.length
+      })
+    }
+  }
+
+  const render = () => {
+    renderHeader()
+    renderFilters()
+    renderFlow()
+    renderDetail()
+    runLayoutChecks()
+  }
+
+  runStaticChecks()
+  const viewport = ensureFlowViewport()
+  enableViewportZoom(viewport)
+  render()
+  enablePanelControls()
+  window.addEventListener('resize', () => {
+    const svg = flow.querySelector('.flow-svg')
+    if (svg) renderEdges(svg)
+  })
+})()
+    </script>
+  </body>
+</html>

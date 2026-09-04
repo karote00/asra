@@ -1,7 +1,7 @@
 # Asyra Sim Testing and Credibility Strategy
 
-This is a formal test plan awaiting implementation. No case is claimed to have
-passed during this documentation work. The
+This is the formal test plan for the implementation in progress. Individual
+foundation tests do not establish that all product cases below have passed. The
 [R0 contract](../specs/robot-workcell-v0.md) owns product semantics;
 [FIRST_RELEASE.md](../release/FIRST_RELEASE.md) owns release acceptance.
 
@@ -182,6 +182,6 @@ distribution artifact. Method updates rerun their oracles, consumer integration,
 and affected cases. Numerical behavior changes require versioning and
 traceability for old results, not silent changes to method meaning.
 
-This task creates documentation, not an App. Do not invent an existing or
-passing `yarn workspace @asyra/asyra-sim test` command. Implementation
-milestones will create and document real executable scripts.
+`yarn workspace @asyra/asyra-sim test:local` runs the tests currently implemented
+in the App workspace. Its current foundation coverage is not completion of
+SIM-01 through SIM-22. Type checks run through the workspace's `typecheck` script.

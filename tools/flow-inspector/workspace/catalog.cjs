@@ -11,6 +11,10 @@ module.exports = Object.freeze({
     })
   ]),
   groupOverrides: Object.freeze({
+    'asyra-sim-r0': Object.freeze({
+      group: 'Apps',
+      subgroup: 'Asyra Sim'
+    }),
     'asyra-design-ai-conversational-drawing-performance': Object.freeze({
       group: 'Apps',
       subgroup: 'Asyra Design'

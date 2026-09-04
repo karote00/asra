@@ -1,7 +1,7 @@
 # Asyra Sim: Intended Architecture and Boundaries
 
-This is App planning, not a claim that the modules, APIs, or 3D capabilities
-below already exist. The [R0 contract](specs/robot-workcell-v0.md) owns product
+This is the intended App architecture under implementation, not a claim that
+every module, API, or 3D capability already exists. The [R0 contract](specs/robot-workcell-v0.md) owns product
 semantics. This document describes ownership, data, and execution boundaries
 without preselecting solver internals.
 
@@ -30,11 +30,12 @@ ray selection, render resources, interaction, and lifecycle can use public
 boundaries. The term "engine-neutral" does not prove that all 3D operations are
 supported.
 
-If general capabilities are missing, propose the smallest Framework-owner
-change and test scope first. Do not create a parallel rendering authority,
+The user approved the smallest necessary Framework-owner changes and tests if
+formal CUSTOM proofs establish a missing boundary. Do not create a parallel rendering authority,
 manipulate package singletons directly, or present a 2D projection as a complete
-3D implementation. General Framework extensions need a separately authorized
-implementation contract; this plan does not start that work.
+3D implementation. Start with the App-owned
+[CUSTOM spatial engine](specs/custom-engine-v0.md); do not modify Framework
+contracts speculatively or move generic defaults into Preset during this task.
 
 ## 2. Ownership
 
@@ -51,12 +52,13 @@ implementation contract; this plan does not start that work.
 
 ## 3. Proposed Source Organization
 
-Planned locations, not yet created:
+Owner locations (some later-stage owners are not implemented yet):
 
 ```text
 apps/asyra-sim/
   src/
     init/                App composition and registration
+    engine/              CUSTOM SDK adapter and spatial descriptor
     features/            User actions and non-mutating analysis tasks
     common-apis/         App mutation/query boundaries
     domain/              Workcell, trajectory, experiment, rules
@@ -124,10 +126,10 @@ does not mean persistence. If either blob persistence or canonical-reference
 acceptance fails, retain an explicit retryable state. Do not claim cross-storage
 ACID or report a reference as saved when its content is unavailable.
 
-Once the relevant M0 contracts are ready, create the formal Inspector under
-`tools/flow-inspector/inspectors/` with owners, artifacts, routes, failure
-owners, and actual file allowlists. This document does not replace the required
-Inspector. Its absence blocks implementation, not this initial roadmap.
+The dedicated `asyra-sim-r0-flow-inspector.data.cjs` under
+`tools/flow-inspector/inspectors/` owns exact step boundaries and handoffs.
+Re-read it before each segment. This document is not a substitute for that
+contract, and an unready later step still blocks that step's implementation.
 
 ## 5. Data Categories
 

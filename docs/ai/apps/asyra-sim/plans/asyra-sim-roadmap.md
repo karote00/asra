@@ -2,18 +2,34 @@
 
 ## 1. Status and Task Contract
 
-This roadmap has not entered implementation. M0–M6 are all unexecuted; creating
-these documents does not mean that Framework 3D, official methods, user pilots,
-or release gates have passed.
+Implementation is authorized and M0 is active. No milestone or release gate is
+claimed complete merely because its contract or source files exist.
 
 The goal is a free, pluggable, trustworthy experiment workbench. Its first bounded
 product is [robot workcell geometry experiments](../specs/robot-workcell-v0.md).
 [PRODUCT.md](../PRODUCT.md) is the authority for user value.
 
-The mutation scope of this planning task is the new `docs/ai/apps/asyra-sim/`
-section, the App index, and the user-authorized replacement of the old CAD roadmap
-and cleanup of its direct indexes. Do not create the App, add dependencies, modify
-the Framework, create a runtime Inspector, push, or publish.
+The implementation task covers `apps/asyra-sim/`, its App documentation, its
+dedicated Flow Inspector and catalog registration, and necessary workspace
+manifests/build integration. The user approved `three`, `@types/three`, and their
+necessary dependencies. Reuse existing repository tooling without upgrades.
+
+Start with an App-owned CUSTOM engine. The user also approved minimal necessary
+engine-contract/Render/Core extensions and their tests/docs if a formal proof
+identifies a missing public boundary. Do not make those changes preemptively.
+Preset extraction, enabling official 3D/HYBRID profiles, changes to other Apps,
+publication, live equipment, external outreach, and broader Framework work are
+excluded. Preserve existing 2D and startup-lock semantics.
+
+The bounded `surface` proof adds only Core's validated `resizeRenderer` delegate,
+its basic API tier, focused startup/facade tests, and API/package documentation.
+Render already owns resize; no engine-specific Framework behavior is needed.
+
+Discovery is bounded to the public Core, Render, engine, Feature, property,
+scene, and persistence surfaces needed by the owner slices. Verification covers
+owner tests, typecheck, lint/build, normal-path browser/visual/offline tests,
+resource limits, and an isolated distribution consumer. Independent pilots and
+maintenance ownership remain human gates, not simulated evidence.
 
 Freeze a separate scope and actual gates before starting each subsequent
 milestone. This roadmap does not authorize implementing every milestone at once
@@ -45,6 +61,14 @@ An M1 or M2 demo cannot serve as the first product release.
 
 ## 3. M0: Prove the Direction Before Starting the App
 
+The first coherent foundation checkpoint consists of the normal CUSTOM
+workbench, canonical editing, shared kinematics, and interval query kernels.
+Its gates are all App unit/integration tests, typecheck, lint, production build,
+the basic workcell E2E suite, inspected real-App screenshots, and Inspector
+schema/catalog checks. It may be committed independently while M0 remains
+active. Restricted GLB feasibility, environment/resource selection, complete
+experiment execution, and release gates are not part of this checkpoint claim.
+
 ### Questions to Resolve
 
 Can the existing Framework public boundaries support a small 3D workcell? Can the
@@ -69,8 +93,9 @@ trajectories and geometry we promise to support?
    high-speed crossing cases. Do not build disposable visual demos.
 6. Evaluate engine, geometry, and import candidates for licensing, offline use,
    reproducibility, workers, numerical contracts, cancellation, and measured
-   performance. No engine has been selected, and no new dependency is
-   pre-approved.
+   performance. Three.js is approved for the first CUSTOM visual engine and
+   restricted GLB importer, not as the formal geometry-analysis method. Its type
+   dependencies do not authorize using a transitive physics library as a solver.
 7. Freeze the official methods' input envelope, error and time semantics,
    decision boundaries, and unsupported and unknown states.
 8. Select the first-version OS/browser support, reference hardware, local
@@ -97,6 +122,12 @@ or large collections of governance documents.
   implementation readiness. They cannot be deferred to release wording.
 
 ## 4. M1: Workcell Editing Vertical Slice
+
+The M0 editing proof now uses canonical identity reconciliation rather than
+remove/recreate replacement, and the App load check reuses registered complete
+validators. Regression cases cover recovery, replacement replay, parent/child
+reversal, rejection/rollback, unchanged edits, and save/load. No alternate
+history or UI model-repair path was introduced.
 
 ### User Outcome
 

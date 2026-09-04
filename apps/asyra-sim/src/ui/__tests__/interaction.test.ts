@@ -1,0 +1,67 @@
+// @vitest-environment jsdom
+import { act, createElement } from 'react'
+import { createRoot } from 'react-dom/client'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { NumberField } from '../fields'
+import { useViewport } from '../viewport'
+import { DEFAULT_CAMERA } from '../../render-app/workcell-frame'
+import type { SimRuntime } from '../../init/bootstrap'
+import type { Workcell } from '../../domain/workcell'
+import { createSyntheticExample } from '../../../samples/synthetic-workcell'
+
+beforeEach(() => vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true))
+afterEach(() => vi.unstubAllGlobals())
+
+it('Escape abandons a numeric draft without emitting a property edit', async () => {
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host),
+    onChange = vi.fn()
+  await act(() =>
+    root.render(
+      createElement(NumberField, { label: 'Dimension', value: 2, onChange })
+    )
+  )
+  const input = host.querySelector('input')
+  const setValue = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    'value'
+  )?.set
+  if (!input || !setValue) throw new Error('Missing numeric input')
+  await act(() => {
+    input.focus()
+    setValue.call(input, '9')
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  expect(input.value).toBe('9')
+  await act(() =>
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
+    )
+  )
+  expect(onChange).not.toHaveBeenCalled()
+  expect(input.value).toBe('2')
+  await act(() => root.unmount())
+  host.remove()
+})
+
+it('removing the active canonical model removes its old visible projection', async () => {
+  const host = document.createElement('div'),
+    root = createRoot(host)
+  const setFrame = vi.fn(),
+    runtime = { setFrame } as unknown as SimRuntime
+  const View = ({ workcell }: { workcell: Workcell | null }) => {
+    useViewport(runtime, workcell, null, DEFAULT_CAMERA, false)
+    return null
+  }
+  await act(() =>
+    root.render(
+      createElement(View, { workcell: createSyntheticExample().workcell })
+    )
+  )
+  expect(setFrame.mock.lastCall?.[0].meshes).toHaveLength(11)
+  await act(() => root.render(createElement(View, { workcell: null })))
+  expect(setFrame.mock.lastCall?.[0].meshes.length).toBe(0)
+  expect(setFrame.mock.lastCall?.[0].camera).toEqual(DEFAULT_CAMERA)
+  await act(() => root.unmount())
+})
