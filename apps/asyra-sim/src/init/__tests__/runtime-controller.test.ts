@@ -32,13 +32,23 @@ function runtime() {
         updateExperiment: vi.fn(),
         removeExperiment: vi.fn()
       },
-      history: { undo: vi.fn(), redo: vi.fn() }
+      history: { undo: vi.fn(), redo: vi.fn() },
+      analysis: {
+        run: vi.fn(),
+        cancel: vi.fn(),
+        isRunning: vi.fn(() => false)
+      }
     },
     pauseEditing: vi.fn(() => resume),
     captureSnapshot: vi.fn(async () => snapshot()),
     preflight: vi.fn(() => []),
     getCandidates: vi.fn(() => []),
     getWorkcell: vi.fn(),
+    getExperiments: vi.fn(() => []),
+    getExperiment: vi.fn(),
+    getMethodDescriptors: vi.fn(() => []),
+    preflightExperiment: vi.fn(),
+    createExperimentSnapshot: vi.fn(),
     getLoadIssues: vi.fn(() => []),
     getHistoryDepth: vi.fn(() => 0),
     setFrame: vi.fn(),

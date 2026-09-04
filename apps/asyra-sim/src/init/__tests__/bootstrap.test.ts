@@ -65,6 +65,21 @@ it('composes the normal workcell runtime and cleans up surface subscriptions and
   expect(
     model.bodies.filter((body) => body.joint.kind === 'revolute')
   ).toHaveLength(6)
+  const experiments = runtime.getExperiments(candidate.id)
+  expect(experiments).toHaveLength(1)
+  const experiment = experiments[0]
+  if (!experiment) throw new Error('Expected synthetic experiment')
+  expect(experiment.definition.trajectory.keyframes).toHaveLength(3)
+  const preflight = runtime.preflightExperiment(experiment.id)
+  expect(preflight.blockers).toEqual([])
+  expect(preflight.pairs.length).toBeGreaterThan(0)
+  const snapshot = runtime.createExperimentSnapshot(experiment.id, [])
+  expect(snapshot.source).toMatchObject({
+    candidateId: candidate.id,
+    experimentId: experiment.id,
+    experimentRevision: 1
+  })
+  expect(Object.isFrozen(snapshot)).toBe(true)
   runtime.setFrame(
     createWorkcellFrame(model, {
       camera: DEFAULT_CAMERA,

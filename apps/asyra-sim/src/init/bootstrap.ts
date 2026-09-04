@@ -2,16 +2,23 @@ import currentCore from '@asyra/core'
 import type { RenderEngineProvider } from '@asyra/render-engine'
 import { ComponentTypes } from '../constants'
 import { readWorkcell } from '../common-apis/workcell'
+import { readExperiment, readExperiments } from '../common-apis/experiment'
 import {
   loadCanonicalDocument,
   type ModelLoadIssue
 } from '../common-apis/document'
 import { installEditingFeatures } from '../features/edit-workcell'
+import { installAnalysisFeature } from '../features/analysis'
 import { installModelComponents } from './components'
 import { installCustomRenderer } from './custom-renderer'
 import type { SpatialFrame } from '../render-app/spatial-layer'
 import { createSyntheticExample } from '../../samples/synthetic-workcell'
+import { createSyntheticExperimentDraft } from '../../samples/synthetic-experiment'
 import type { ProjectSnapshot } from '../storage/project-format'
+import { AnalysisRunner } from '../analysis/runner'
+import { OFFICIAL_CLEARANCE_METHOD } from '../analysis/methods/official-method'
+import { preflightExperiment as checkExperiment } from '../analysis/preflight'
+import { createExperimentSnapshot as freezeExperiment } from '../analysis/snapshot'
 
 function guardCommands<
   T extends { [K in keyof T]: (...args: never[]) => unknown }
@@ -86,9 +93,25 @@ export async function bootstrap(
     const layer = rendering.layer
     installModelComponents(core)
     const editing = installEditingFeatures(core)
+    const analysisRunner = new AnalysisRunner()
+    const analysis = installAnalysisFeature(core, analysisRunner)
     const features = {
       edit: guardCommands(editing.edit, assertAccepting),
-      history: guardCommands(editing.history, assertAccepting)
+      history: guardCommands(editing.history, assertAccepting),
+      analysis: {
+        run: (...args: Parameters<typeof analysis.run>) => {
+          assertAccepting()
+          return analysis.run(...args)
+        },
+        cancel: () => {
+          assertLive()
+          return analysis.cancel()
+        },
+        isRunning: () => {
+          assertLive()
+          return analysis.isRunning()
+        }
+      }
     }
     loadIssues = [
       ...structuredClone(snapshot?.loadIssues ?? []),
@@ -113,9 +136,14 @@ export async function bootstrap(
     })
     if (!snapshot) {
       const example = createSyntheticExample()
-      await features.edit.createCandidate(
+      const candidateId = await features.edit.createCandidate(
         'A · Baseline workcell',
         example.workcell
+      )
+      await features.edit.createExperiment(
+        candidateId,
+        'Synthetic clearance study',
+        createSyntheticExperimentDraft(example)
       )
     }
     observer = new ResizeObserver((entries) => {
@@ -162,6 +190,59 @@ export async function bootstrap(
       getWorkcell: (id: string) => {
         assertLive()
         return readWorkcell(core, id)
+      },
+      getExperiments: (candidateId: string) => {
+        assertLive()
+        return readExperiments(core, candidateId)
+      },
+      getExperiment: (experimentId: string) => {
+        assertLive()
+        return readExperiment(core, experimentId)
+      },
+      getMethodDescriptors: () => {
+        assertLive()
+        return structuredClone([OFFICIAL_CLEARANCE_METHOD])
+      },
+      preflightExperiment: (experimentId: string) => {
+        assertLive()
+        const experiment = readExperiment(core, experimentId)
+        const report = checkExperiment(
+          readWorkcell(core, experiment.candidateId),
+          experiment.definition,
+          [OFFICIAL_CLEARANCE_METHOD]
+        )
+        if (!loadIssues.length) return report
+        return {
+          ...report,
+          blockers: [
+            ...report.blockers,
+            {
+              code: 'load-recovery-unresolved',
+              message:
+                'Retained load recovery requirements must be corrected or acknowledged before formal analysis.'
+            }
+          ]
+        }
+      },
+      createExperimentSnapshot: (
+        experimentId: string,
+        acknowledgedWarningCodes: readonly string[]
+      ) => {
+        assertAccepting()
+        if (loadIssues.length)
+          throw new Error(
+            'Retained load recovery requirements block formal analysis'
+          )
+        const experiment = readExperiment(core, experimentId)
+        return freezeExperiment({
+          snapshotId: crypto.randomUUID(),
+          candidateId: experiment.candidateId,
+          experimentId,
+          workcell: readWorkcell(core, experiment.candidateId),
+          definition: experiment.definition,
+          methods: [OFFICIAL_CLEARANCE_METHOD],
+          acknowledgedWarningCodes
+        })
       },
       getLoadIssues: () => {
         assertLive()
