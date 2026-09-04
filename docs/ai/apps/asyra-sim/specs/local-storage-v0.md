@@ -23,9 +23,10 @@ must reject rather than silently overwrite it. New projects receive new IDs.
 The presentation states are unsaved, saving, saved, and error; opening is a
 separate busy operation. Editing during a save is allowed. Completion acknowledges
 only the captured revision, so newer edits remain unsaved. Repeated overlapping
-save/open operations reject. A failed operation retains the editable model and
-supports retry. Persistence status and project identity are not a second editable
-workcell or Undo stack.
+save/open operations reject. Save failures and pre-retirement open failures
+retain the editable model and support retry. Post-retirement failure instead
+retains detached recovery with no editable runtime. Persistence status and
+project identity are not a second editable workcell or Undo stack.
 
 Opening first reads and validates a detached envelope. Explicit acceptance then
 passes through the App replacement boundary. Check that the document has not
@@ -221,6 +222,29 @@ reported rather than activating another App runtime. Startup failure follows the
 same cleanup boundary. A second bootstrap must not take ownership of an already
 started Core. Old callbacks retain the old Core and cannot operate on the new
 default export.
+
+### App Replacement Coordinator
+
+The App runtime controller owns exactly one bootstrap lifetime. It accepts an
+already decoded target and a storage-session currentness guard; it does not own
+database metadata, canonical writes, or a second command queue. Replacement is
+exclusive: preflight B, pause new A editing, capture A through the existing
+Feature queue, and recheck acceptance/currentness before retirement. The target
+and recovery snapshot are detached from caller-owned objects.
+
+Before disposal begins, publish no active runtime so the UI cannot present A as
+editable. Await complete disposal before bootstrapping B. Only successful startup
+publishes B and advances the UI lifetime generation. A rejected target, capture,
+or stale acceptance before retirement resumes A unchanged. Failure after
+retirement publishes no editable runtime and exposes a downloadable detached A
+snapshot; it never automatically restores A or starts another runtime. Recovery
+data is cleared only after successful replacement or explicit controller close.
+
+Closing the controller closes admission immediately, waits for pending startup
+or replacement, disposes any acquired runtime, and preserves the same terminal
+promise. It cannot publish a late successor. Formal cases cover ordering,
+concurrent rejection, invalid/stale target preservation, capture/cleanup/startup
+failure, recovery isolation, and close during asynchronous boundaries.
 
 Formal cases for Feature quiescence: empty and repeated disposal; reject queued
 and new operations; await a running command; abort and await tasks; force active

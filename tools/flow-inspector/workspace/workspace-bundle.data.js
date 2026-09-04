@@ -9671,6 +9671,51 @@
         ],
         "steps": [
           {
+            "id": "replace-app-runtime",
+            "order": -0.2,
+            "laneId": "compose",
+            "title": "Coordinate an accepted App document replacement",
+            "ownerPackage": "@asyra/asyra-sim lifecycle",
+            "purpose": "Retire one App lifetime before publishing another",
+            "inputs": [
+              "Decoded target snapshot",
+              "Explicit replacement acceptance and storage currentness guard",
+              "Current App runtime"
+            ],
+            "outputs": [
+              "artifact:app-lifetime"
+            ],
+            "conditions": [
+              "Preflight, pause new editing, capture detached A recovery through the Feature queue, and recheck currentness before retirement.",
+              "Publish no active runtime before disposing A; await complete disposal before composing B with the same trusted modules.",
+              "Pre-retirement rejection resumes A; post-retirement failure retains detached recovery and publishes no editable runtime.",
+              "Exclusive operation and close guards fence late startup/replacement; repeated close shares one terminal result."
+            ],
+            "bypasses": [
+              "Initial startup has no document to retire; ordinary save only captures the current runtime."
+            ],
+            "allowedContributors": [
+              "App bootstrap",
+              "Core preflight/reset through the App runtime facade",
+              "Storage currentness guard"
+            ],
+            "forbiddenContributors": [
+              "Direct package cleanup or history clearing",
+              "A second editable model or command queue",
+              "Automatic recovery/reload",
+              "Database metadata ownership"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "apps/asyra-sim/src/init/runtime-controller.ts",
+              "apps/asyra-sim/src/init/__tests__/runtime-controller.test.ts"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "replace-app-runtime"
+          },
+          {
             "id": "preflight-document",
             "order": -0.1,
             "laneId": "compose",
@@ -10724,6 +10769,7 @@
             "ownerPackage": "@asyra/asyra-sim workbench",
             "purpose": "Expose the full ordinary user journey",
             "inputs": [
+              "artifact:app-lifetime",
               "artifact:runtime",
               "artifact:committed-model",
               "artifact:visual-output",
@@ -10808,6 +10854,16 @@
           }
         ],
         "routes": [
+          {
+            "id": "app-lifetime-to-ui",
+            "from": "replace-app-runtime",
+            "to": "ui",
+            "kind": "normal",
+            "predicate": "The UI consumes the current lifetime or an explicit failure with detached recovery.",
+            "producedArtifacts": [
+              "artifact:app-lifetime"
+            ]
+          },
           {
             "id": "canonical-capture-to-storage",
             "from": "edit",
@@ -11196,6 +11252,15 @@
           }
         ],
         "artifacts": [
+          {
+            "id": "artifact:app-lifetime",
+            "ownerStepId": "replace-app-runtime",
+            "channel": "App lifetime state and detached failure recovery",
+            "consumerStepIds": [
+              "ui"
+            ],
+            "terminal": false
+          },
           {
             "id": "artifact:canonical-capture",
             "ownerStepId": "edit",
