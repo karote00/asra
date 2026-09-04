@@ -8,7 +8,9 @@ Current apps:
 
 Planned apps:
 
-- `asyra-cad/`
+- [Asyra Sim](asyra-sim/README.md) — free, pluggable simulation and experiment
+  workbench; first product slice: local robot-workcell collision and clearance
+  experiments. Planning only; the App implementation has not started.
 
 Each app folder documents:
 
