@@ -1,6 +1,10 @@
 import type { Core } from '@asyra/core'
 import { PropertyFields, PropertyTypes } from '../constants'
-import { validBodyProperty, validCandidateParameters } from '../init/properties'
+import {
+  validBodyProperty,
+  validCandidateParameters,
+  validRunReference
+} from '../init/properties'
 import { validExperimentDefinition } from '../analysis/contracts'
 
 export interface ModelLoadIssue {
@@ -50,6 +54,16 @@ export function loadCanonicalDocument(
           path: `props.${id}.${PropertyFields.EXPERIMENT}`,
           message:
             'Experiment inputs required schema recovery; confirm or correct the definition before analysis.'
+        })
+      if (
+        property.type === PropertyTypes.RUN_REFERENCE &&
+        (!validRunReference(property[PropertyFields.RUN_REFERENCE]) ||
+          property[PropertyFields.RUN_REFERENCE] === null)
+      )
+        issues.push({
+          path: `props.${id}.${PropertyFields.RUN_REFERENCE}`,
+          message:
+            'Retained run reference requires review; original evidence has not been replaced.'
         })
     }
   const unsubscribe = core.registerLoadDiagnosticsHook((diagnostics) => {

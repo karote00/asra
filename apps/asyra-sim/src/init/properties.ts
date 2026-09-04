@@ -10,6 +10,7 @@ import {
   type ExperimentDefinition
 } from '../analysis/contracts'
 import { IDENTITY_POSE } from '../domain/math'
+import { hasExactOwnKeys } from '../domain/records'
 import {
   validBodyParameters,
   validIdentifier,
@@ -53,6 +54,29 @@ export const DEFAULT_EXPERIMENT_DEFINITION: ExperimentDefinition = {
 export interface CandidateParameters {
   robotRootId: string | null
 }
+export interface RunReference {
+  version: 1
+  runId: string
+  snapshotId: string
+  experimentId: string
+}
+export function validRunReference(
+  value: unknown
+): value is RunReference | null {
+  if (value === null) return true
+  return (
+    hasExactOwnKeys(value, [
+      'version',
+      'runId',
+      'snapshotId',
+      'experimentId'
+    ]) &&
+    value.version === 1 &&
+    validIdentifier(value.runId) &&
+    validIdentifier(value.snapshotId) &&
+    validIdentifier(value.experimentId)
+  )
+}
 export function validBodyProperty(value: unknown): value is BodyParameters {
   return (
     validBodyParameters(value) &&
@@ -89,6 +113,12 @@ export function installModelProperties(core: Core): void {
       key: PropertyFields.EXPERIMENT,
       defaultValue: DEFAULT_EXPERIMENT_DEFINITION,
       validate: validExperimentDefinition
+    },
+    {
+      type: PropertyTypes.RUN_REFERENCE,
+      key: PropertyFields.RUN_REFERENCE,
+      defaultValue: null,
+      validate: validRunReference
     }
   ]
   for (const definition of definitions) {

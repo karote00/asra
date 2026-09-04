@@ -5,6 +5,9 @@ export const HistoryFeatureNames = { HISTORY: 'asyra-sim.history' } as const
 export const AnalysisFeatureNames = {
   ANALYZE_EXPERIMENT: 'asyra-sim.analyze-experiment'
 } as const
+export const StorageFeatureNames = {
+  RETAIN_RUN: 'asyra-sim.retain-run'
+} as const
 type ExistingFeatureNames = typeof EditingFeatureNames &
   typeof HistoryFeatureNames
 type NoOverlap =
@@ -21,8 +24,16 @@ type NoOverlap =
     : never
 const distinctKeys: NoOverlap = true
 void distinctKeys
+const distinctStorageKeys: Extract<
+  keyof (ExistingFeatureNames & typeof AnalysisFeatureNames),
+  keyof typeof StorageFeatureNames
+> extends never
+  ? true
+  : never = true
+void distinctStorageKeys
 export const FeatureNames = {
   ...EditingFeatureNames,
   ...HistoryFeatureNames,
-  ...AnalysisFeatureNames
+  ...AnalysisFeatureNames,
+  ...StorageFeatureNames
 } as const

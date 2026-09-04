@@ -17,8 +17,15 @@ import {
   updateExperiment,
   type ExperimentDraft
 } from '../common-apis/experiment'
+import {
+  attachRunReference,
+  type ArchivedRunIdentity
+} from '../common-apis/run-reference'
 
-export function installEditingFeatures(core: Core) {
+export function installEditingFeatures(
+  core: Core,
+  artifacts?: { readRun(runId: string): ArchivedRunIdentity | undefined }
+) {
   const execute = <T>(operation: () => T): Promise<T> =>
     getSessionManager().runAfterCancellingActiveSessions(
       () => core.getSystemContextSnapshot(),
@@ -26,6 +33,13 @@ export function installEditingFeatures(core: Core) {
       FeatureNames.EDIT_WORKCELL
     )
   const api = {
+    attachRun: (runId: string) =>
+      execute(() => {
+        const run = artifacts?.readRun(runId)
+        if (!run || run.runId !== runId)
+          throw new Error('Validated run evidence is unavailable')
+        return attachRunReference(core, run)
+      }),
     captureDocument: () => execute(() => captureCanonicalDocument(core)),
     applyDocument: (data: unknown, assertCurrent: () => void) => {
       const input = structuredClone(data)

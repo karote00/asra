@@ -10,17 +10,23 @@ import { installModelProperties } from './properties'
 const componentNames = {
   BODY: 'Body',
   CANDIDATE: 'Candidate',
-  EXPERIMENT: 'Experiment'
+  EXPERIMENT: 'Experiment',
+  RUN_REFERENCE: 'Retained run'
 } as const
 
 export function installModelComponents(core: Core): void {
   installModelProperties(core)
-  for (const key of ['BODY', 'CANDIDATE', 'EXPERIMENT'] as const)
+  for (const key of [
+    'BODY',
+    'CANDIDATE',
+    'EXPERIMENT',
+    'RUN_REFERENCE'
+  ] as const)
     core.defineComponent({
       type: ComponentTypes[key],
       idPrefix: ComponentTypes[key],
       namePrefix: componentNames[key],
-      isContainer: key !== 'EXPERIMENT',
+      isContainer: key === 'BODY' || key === 'CANDIDATE',
       properties: [
         {
           name: PropertyNames[key],
