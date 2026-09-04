@@ -112,6 +112,7 @@ export class RuntimeController {
     return this.run(async () => {
       const previous = this.requireReady()
       assertCurrent()
+      encodeProject(target)
       previous.preflight(target.document)
       const resume = previous.pauseEditing()
       this.publish({ status: 'replacing', error: '' })

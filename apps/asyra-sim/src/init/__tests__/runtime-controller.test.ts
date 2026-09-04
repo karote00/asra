@@ -148,6 +148,35 @@ describe('App document replacement controller', () => {
     await controller.dispose()
   })
 
+  it.each(['run evidence', 'nonfinite data'])(
+    'rejects invalid target %s before pausing or retiring A',
+    async (failure) => {
+      const { a, factory, controller } = await setup(),
+        target = snapshot()
+      if (failure === 'run evidence')
+        Object.assign(target, { runs: [{ version: 999 }] })
+      else
+        Object.assign(target.document.props, {
+          invalidNumber: Number.POSITIVE_INFINITY
+        })
+      await expect(
+        controller.replace(target, () => undefined)
+      ).rejects.toThrow()
+      expect(a.value.preflight).not.toHaveBeenCalled()
+      expect(a.value.pauseEditing).not.toHaveBeenCalled()
+      expect(a.value.captureSnapshot).not.toHaveBeenCalled()
+      expect(a.value.dispose).not.toHaveBeenCalled()
+      expect(factory).toHaveBeenCalledTimes(1)
+      expect(controller.getState()).toMatchObject({
+        status: 'ready',
+        runtime: a.value,
+        generation: 1,
+        recoveryAvailable: false
+      })
+      await controller.dispose()
+    }
+  )
+
   it('preserves A if its recovery capture cannot be exported under the native format contract', async () => {
     const { a, factory, controller } = await setup(),
       source = snapshot()
