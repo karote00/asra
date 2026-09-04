@@ -36,7 +36,7 @@ export const STATIC_SPHERE_METHOD: InstalledMethodDescriptor = Object.freeze({
     license: 'MIT',
     purpose: 'Independent local SDK example for static sphere-pair clearance.',
     units: 'm-rad-s',
-    coordinates: 'right-handed-z-up',
+    coordinates: 'right-handed-y-up',
     applicability:
       'One static keyframe; sphere radii 0.0001-20 m; shared machine-scale domain limits. No motion, meshes, dynamics or physical-safety certification.',
     numericalSemantics:

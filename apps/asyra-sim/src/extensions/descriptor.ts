@@ -165,7 +165,7 @@ export function validateInstalledDescriptor(
     ]) ||
     manifest.contractVersion !== 1 ||
     manifest.units !== 'm-rad-s' ||
-    manifest.coordinates !== 'right-handed-z-up' ||
+    manifest.coordinates !== 'right-handed-y-up' ||
     !['official', 'example', 'private'].includes(manifest.origin as string) ||
     ![
       'name',

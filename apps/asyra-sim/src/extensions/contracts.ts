@@ -34,7 +34,7 @@ export interface MethodManifest {
   license: string
   purpose: string
   units: 'm-rad-s'
-  coordinates: 'right-handed-z-up'
+  coordinates: 'right-handed-y-up'
   applicability: string
   numericalSemantics: string
   controls: string

@@ -29,7 +29,7 @@ function registration(): MethodRegistration {
       license: 'Private',
       purpose: 'Local clearance experiments.',
       units: 'm-rad-s',
-      coordinates: 'right-handed-z-up',
+      coordinates: 'right-handed-y-up',
       applicability: 'Machine-scale proxy geometry; no physical safety claim.',
       numericalSemantics: 'Bounded clearance with unresolved equality.',
       controls: 'Uses the common distance, time and iteration controls.',

@@ -21,7 +21,7 @@ const official: InstalledMethodDescriptor = {
     purpose:
       'Static and continuous collision/clearance experiments on rigid proxies.',
     units: 'm-rad-s',
-    coordinates: 'right-handed-z-up',
+    coordinates: 'right-handed-y-up',
     applicability:
       'Machine-scale v0: box, sphere, capsule; one serial robot; 64 bodies, 12 actuated joints, 2000 frames. Dimensions 0.0001-20 m; local translations up to 1000 m. No dynamics, metrology or physical-safety guarantee.',
     numericalSemantics:

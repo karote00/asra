@@ -20,6 +20,14 @@ function snapshot() {
   })
 }
 
+it('declares the same right-handed Y-up coordinates as the App spatial contract', () => {
+  expect(
+    INSTALLED_METHOD_CATALOG.descriptors.map(
+      (method) => method.manifest.coordinates
+    )
+  ).toEqual(['right-handed-y-up', 'right-handed-y-up'])
+})
+
 it('admits detached snapshots only against the exact installed method declaration', () => {
   const input = snapshot(),
     admitted = admitSnapshotExecution(input, INSTALLED_METHOD_CATALOG)
