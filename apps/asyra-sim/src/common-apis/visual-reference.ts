@@ -8,9 +8,9 @@ import {
   type WorkcellResourceAdmission
 } from './workcell'
 
-export function readCapturedVisualAssetIds(
+export function readCapturedVisualBindingGroups(
   document: unknown
-): readonly string[] {
+): ReadonlyMap<string, readonly VisualBinding[]> {
   if (
     !isPlainRecord(document) ||
     !isPlainRecord(document.sceneTree) ||
@@ -18,8 +18,23 @@ export function readCapturedVisualAssetIds(
     !isPlainRecord(document.props)
   )
     throw new Error('Invalid canonical capture for visual sources')
-  const ids = new Set<string>()
-  for (const element of Object.values(document.sceneTree.elements)) {
+  const elements = document.sceneTree.elements
+  const groups = new Map<string, VisualBinding[]>()
+  const owner = (body: Readonly<Record<string, unknown>>): string => {
+    const visited = new Set([body.id])
+    let parentId = body.parentId
+    while (typeof parentId === 'string') {
+      if (visited.has(parentId))
+        throw new Error('Canonical visual ownership cycle')
+      visited.add(parentId)
+      const parent = elements[parentId]
+      if (!isPlainRecord(parent)) break
+      if (parent.type === ComponentTypes.CANDIDATE) return parentId
+      parentId = parent.parentId
+    }
+    throw new Error('Visual body has no canonical candidate owner')
+  }
+  for (const element of Object.values(elements)) {
     if (!isPlainRecord(element) || element.type !== ComponentTypes.BODY)
       continue
     const propertyId = isPlainRecord(element.props)
@@ -33,8 +48,23 @@ export function readCapturedVisualAssetIds(
     if (!isPlainRecord(parameters) || parameters.visuals === undefined) continue
     if (!validVisualBindings(parameters.visuals))
       throw new Error('Invalid canonical visual bindings')
-    parameters.visuals.forEach((binding) => ids.add(binding.assetId))
+    if (!parameters.visuals.length) continue
+    const candidateId = owner(element),
+      bindings = groups.get(candidateId) ?? []
+    bindings.push(...structuredClone(parameters.visuals))
+    groups.set(candidateId, bindings)
   }
+  return new Map(
+    [...groups].map(([id, bindings]) => [id, Object.freeze(bindings)])
+  )
+}
+
+export function readCapturedVisualAssetIds(
+  document: unknown
+): readonly string[] {
+  const ids = new Set<string>()
+  for (const bindings of readCapturedVisualBindingGroups(document).values())
+    bindings.forEach((binding) => ids.add(binding.assetId))
   return Object.freeze([...ids])
 }
 

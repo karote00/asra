@@ -44,8 +44,10 @@ function project(source: VisualSourceRecord) {
         workspace: '',
         workspaceList: [],
         elements: {
+          candidate: { id: 'candidate', type: ComponentTypes.CANDIDATE },
           body: {
             id: 'body',
+            parentId: 'candidate',
             type: ComponentTypes.BODY,
             props: { [PropertyNames.BODY]: 'body-props' }
           }

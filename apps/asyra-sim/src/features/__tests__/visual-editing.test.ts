@@ -6,7 +6,10 @@ import type { VisualBinding, Workcell } from '../../domain/workcell'
 import { installModelComponents } from '../../init/components'
 import { installEditingFeatures } from '../edit-workcell'
 import { createCandidate, readWorkcell } from '../../common-apis/workcell'
-import { readCapturedVisualAssetIds } from '../../common-apis/visual-reference'
+import {
+  readCapturedVisualAssetIds,
+  readCapturedVisualBindingGroups
+} from '../../common-apis/visual-reference'
 
 const binding: VisualBinding = {
   version: 1,
@@ -143,4 +146,27 @@ it('adds or replaces one binding against the committed body without overwriting 
   await expect(
     features.edit.upsertVisual(candidate, 'missing', binding)
   ).rejects.toThrow('Missing body')
+})
+
+it('groups captured visual instances by canonical candidate without mixing separate workcell budgets', async () => {
+  const candidate = await features.edit.createCandidate('A', source)
+  await features.edit.setVisuals(candidate, 'body', [binding])
+  const copy = await features.edit.duplicateCandidate(candidate, 'B')
+  const document = await features.edit.captureDocument()
+  const groups = readCapturedVisualBindingGroups(document)
+  expect(groups.get(candidate)).toEqual([binding])
+  expect(groups.get(copy)).toEqual([binding])
+  expect(readCapturedVisualAssetIds(document)).toEqual([binding.assetId])
+})
+
+it('rejects captured visual references with missing or cyclic canonical ownership', async () => {
+  const candidate = await features.edit.createCandidate('A', source)
+  await features.edit.setVisuals(candidate, 'body', [binding])
+  const document = await features.edit.captureDocument()
+  const missing = structuredClone(document)
+  Reflect.deleteProperty(missing.sceneTree.elements, candidate)
+  expect(() => readCapturedVisualAssetIds(missing)).toThrow('candidate')
+  const cyclic = structuredClone(document)
+  cyclic.sceneTree.elements.body.parentId = 'body'
+  expect(() => readCapturedVisualAssetIds(cyclic)).toThrow('cycle')
 })

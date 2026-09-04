@@ -46,6 +46,10 @@ pose. An explicit prepared-source acceptance and the resulting binding update
 produce one canonical Undo action. Rejection produces no partial binding;
 immutable source retention may outlive a rejected write and remains unsaved.
 Undo removes/reverts the binding, while Redo can resolve the retained source.
+Detached capture derives visual binding groups from canonical candidate
+ancestry. It does not merge independent candidates into one workcell budget or
+invent ownership for orphan/cyclic references. This grouping is read-only and
+does not create a second editable hierarchy.
 
 ### Retained source ownership
 
