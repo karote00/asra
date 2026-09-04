@@ -55,6 +55,8 @@ export const GEOMETRY_PROFILE = Object.freeze({
   maxDimension: 20,
   maxOffset: 1000,
   maxBodies: 64,
+  maxCollidersPerBody: 16,
+  maxColliders: 256,
   maxJoints: 12,
   maxAngle: 100,
   maxTime: 3600,
@@ -132,6 +134,7 @@ export function validBodyParameters(input: unknown): input is BodyParameters {
     !validPose(body.pose) ||
     !validJoint(body.joint) ||
     !Array.isArray(body.colliders) ||
+    body.colliders.length > GEOMETRY_PROFILE.maxCollidersPerBody ||
     !Number.isInteger(body.color) ||
     body.color < 0 ||
     body.color > 0xffffff
@@ -161,6 +164,7 @@ export function validateWorkcell(input: unknown): asserts input is Workcell {
     workcell.bodies.length > GEOMETRY_PROFILE.maxBodies
   )
     throw new Error('Unsupported workcell version or body count')
+  let colliderCount = 0
   for (const body of workcell.bodies) {
     if (
       !body ||
@@ -172,6 +176,9 @@ export function validateWorkcell(input: unknown): asserts input is Workcell {
       !validBodyParameters(body)
     )
       throw new Error('Invalid body or joint data')
+    colliderCount += body.colliders.length
+    if (colliderCount > GEOMETRY_PROFILE.maxColliders)
+      throw new Error('Workcell exceeds the aggregate collider limit of 256')
   }
   const bodies = new Map(workcell.bodies.map((b) => [b.id, b]))
   if (bodies.size !== workcell.bodies.length)
