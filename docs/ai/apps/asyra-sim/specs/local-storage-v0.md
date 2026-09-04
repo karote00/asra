@@ -147,6 +147,41 @@ its own subscriptions and jobs. Invalid target input must reject before A is
 retired. Failure after retirement exposes an error and recoverable detached A
 data; it must not pretend that A remains a live, editable runtime.
 
+### Core Handoff Boundary
+
+`Core.resetRuntime(): Promise<Core>` coordinates the ordered owner operations
+above and returns a fresh, unstarted Core over the exclusive Framework runtime.
+It is not support for concurrent Core runtimes. App admission must already be
+stopped, and the call must be outside the old Feature interaction queue. An
+in-progress `start` rejects reset before retirement. Repeated accepted reset calls
+join one operation and preserve its success or failure; the retired Core never
+reopens. Resetting the default Core updates its live default export only after
+successful cleanup. Consumers must capture the Core for their runtime, not route
+old callbacks through that live export.
+
+Core closes Feature admission, terminates collaboration transport and awaits
+actual in-flight Core operations before canonical retirement. Settling handlers
+can still use Core during quiescence; after quiescence, old facade methods and
+retained Feature APIs reject. Old cleanup handles cannot remove successor
+registrations. This is a lifecycle boundary, not a sandbox for arbitrary code
+that retained deprecated raw package dependencies.
+
+Core retires its data-channel observer definitions/bindings, owned event
+subscriptions and event registrations. Observer reset invalidates callbacks,
+attempts every acquired cleanup (including partial initialization), and does not
+destroy caller-owned channel objects. It rejects during observer acquisition.
+After all canonical and graph owners retire, Core awaits composition cleanup
+registered through `registerRuntimeCleanup`. These callbacks may inspect retired
+registration state and release resources, but cannot create canonical work or
+reopen composition. Core then begins Feature/shared Render wiring and constructs
+the successor. Any failure records the owner phase and blocks a successor; no
+timeout, fallback renderer, implicit reload, or App-owned history reset is used.
+
+Formal Core cases cover ordered cleanup and fresh composition, repeated reset,
+startup rejection, active-work settlement, partial observer initialization,
+cleanup failure, stale facade/Feature/event/cleanup handles, preserved ordinary
+load/destroy semantics, and unchanged independent dependencies.
+
 Formal cases for Feature quiescence: empty and repeated disposal; reject queued
 and new operations; await a running command; abort and await tasks; force active
 session rollback; await timed-out handlers; detach input and late renderer-event

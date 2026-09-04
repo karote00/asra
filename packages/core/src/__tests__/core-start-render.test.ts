@@ -372,8 +372,12 @@ describe('Core render startup', () => {
   })
 
   it('isolates observer identity and activation through each injected Factory', async () => {
-    const observeFirst = vi.fn(() => vi.fn())
-    const observeSecond = vi.fn(() => vi.fn())
+    const observeFirst = vi.fn(
+      (_channel: string, _handler: (value: unknown) => void) => vi.fn()
+    )
+    const observeSecond = vi.fn(
+      (_channel: string, _handler: (value: unknown) => void) => vi.fn()
+    )
     const first = createCoreForTest({
       observeSharedDataChannel: observeFirst
     })
@@ -410,12 +414,22 @@ describe('Core render startup', () => {
 
     expect(observeFirst).toHaveBeenCalledWith(
       'shared-channel-name',
-      registration.onChange
+      expect.any(Function)
     )
     expect(observeSecond).toHaveBeenCalledWith(
       'shared-channel-name',
-      registration.onChange
+      expect.any(Function)
     )
+    const firstValue = Object.freeze({ owner: 'first' }),
+      secondValue = Object.freeze({ owner: 'second' })
+    observeFirst.mock.calls[0][1](firstValue)
+    observeSecond.mock.calls[0][1](secondValue)
+    expect(registration.onChange.mock.calls).toEqual([
+      [firstValue],
+      [secondValue]
+    ])
+    expect(registration.onChange.mock.calls[0][0]).toBe(firstValue)
+    expect(registration.onChange.mock.calls[1][0]).toBe(secondValue)
   })
 
   it('requires exactly one single or batch data-channel handler at runtime', () => {
@@ -472,10 +486,14 @@ describe('Core render startup', () => {
     const changes = Object.freeze([{ id: 'a' }, { id: 'b' }, { id: 'c' }])
     notifyBatch?.(changes)
 
-    expect(observeBatch).toHaveBeenCalledWith('scene-tree', onBatch)
+    expect(observeBatch).toHaveBeenCalledWith(
+      'scene-tree',
+      expect.any(Function)
+    )
     expect(observeSingle).not.toHaveBeenCalled()
     expect(onBatch).toHaveBeenCalledOnce()
     expect(onBatch).toHaveBeenCalledWith(changes)
+    expect(onBatch.mock.calls[0][0]).toBe(changes)
   })
 
   it('keeps standalone observer helpers compatible with the default Core', async () => {

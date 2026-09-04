@@ -84,3 +84,14 @@
   are terminal, and completed resources are never repeated.
 - New composition uses a new graph. Ordinary unregister keeps its active-use,
   composition-lock and retry contracts.
+
+## 2026-09-04 — Explicit Core Runtime Handoff
+
+- App replacement now has a terminal Core lifecycle, distinct from ordinary
+  load and destroy. Core waits for real work, coordinates public owner cleanup,
+  retires its subscriptions and composition resources, and returns a fresh
+  unstarted Core only on success. Default export handoff is a live binding.
+- Core/Feature execution and cleanup handles are lifetime-scoped. Delivery keeps
+  original payload/batch identity and order; internal callback wrappers are not
+  a public identity guarantee. Composition cleanup is retained through a
+  neutral Core API, without a Core dependency on Preset or App internals.

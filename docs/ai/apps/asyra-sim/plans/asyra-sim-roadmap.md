@@ -53,6 +53,18 @@ invalid target preservation, and A/B/A reconstruction are required cases.
 Do not activate a successor after incomplete cleanup or an uncooperative handler;
 report the reset failure and preserve detached recovery data.
 
+The Core handoff gate validates observable delivery, not internal callback
+identity: lifetime-scoped bindings must preserve each payload/batch and order
+exactly once while active and suppress delivery after retirement. Before App
+integration, replace internal identity assertions in the direct Core facade and
+startup tests with those delivery oracles; retain injected-owner isolation.
+Then prove actual Core/Feature work settlement, retained-handle rejection and
+default-Core A/B/A reconstruction with real Framework owners. The bounded files
+remain the Core lifecycle implementation and its direct tests/docs under
+`reset-core`; no downstream App change may compensate for a failing owner gate.
+Focused lifecycle and delivery cases precede the full Core suite, build/lint and
+Inspector gates. Preset and App adoption follow as separate owner segments.
+
 The bounded `surface` proof adds only Core's validated `resizeRenderer` delegate,
 its basic API tier, focused startup/facade tests, and API/package documentation.
 Render already owns resize; no engine-specific Framework behavior is needed.

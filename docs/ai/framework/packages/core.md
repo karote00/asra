@@ -95,6 +95,42 @@ System orchestrator and lifecycle coordinator.
   observer name without sharing registrations or cleanup state.
 - Default singleton imports intentionally share state and subscriptions.
 
+## Complete Runtime Handoff
+
+`resetRuntime(): Promise<Core>` terminates an exclusive Framework runtime and
+returns a fresh, unstarted Core. It never reopens the old composition. Ordinary
+`load()` remains canonical replacement with existing history; `destroy()` keeps
+its compatibility behavior. The App stops admission, captures detached recovery
+data and calls reset outside its old Feature interaction queue. In-progress
+startup rejects before retirement. Repeated accepted reset calls share one
+terminal result. A reset of the default Core updates the live default export
+only after success; App callbacks must retain their own generation's Core.
+
+Core closes Feature work and collaboration, awaits actual work settlement,
+retires its observer/event ownership, then coordinates Input, instance/shared
+Render, Factory, Scene Tree, Props, Selection, System/UI Context and registration
+cleanup through public owner APIs. It awaits all retained composition cleanup
+before beginning shared wiring and constructing the successor. The first failed
+phase prevents handoff and throws `CoreRuntimeResetError` with `phase` and `cause`.
+An uncooperative Promise cannot be declared terminated by a timeout.
+
+`getRuntimeState()` reports `active`, `quiescing`, `retiring`, `retired` or
+`failed`. Settling work may use Core during quiescence. Retired facade calls and
+old Feature methods reject with `CoreRuntimeClosedError`; retained cleanup
+handles cannot delete successor registrations. Observer bindings preserve
+original payload/batch identity and active delivery order, not internal wrapper
+function identity. This does not isolate concurrent Core runtimes or sandbox
+code that retained raw package references.
+
+`registerRuntimeCleanup(key, cleanup)` retains a unique composition-owned
+synchronous or asynchronous resource cleanup; its returned handle removes only
+that registration. After canonical retirement, these callbacks may inspect
+registration state and release remaining bindings, not create canonical work or
+reopen composition. Every registered callback is attempted before reporting
+failure. `CorePresetInstallAPIs` exposes this capability optionally for older
+composition adapters; only integrations that register all owned cleanup support
+complete runtime replacement.
+
 ## Runtime Contracts
 
 1. Startup contract

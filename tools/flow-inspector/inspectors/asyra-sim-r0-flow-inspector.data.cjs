@@ -479,6 +479,50 @@
         failureOwnerStepId: 'retire-registrations'
       },
       {
+        id: 'reset-core',
+        order: 0.98,
+        laneId: 'compose',
+        title: 'Coordinate terminal cleanup and return a fresh Core',
+        ownerPackage: '@asyra/core',
+        purpose:
+          'Expose one fail-closed App runtime handoff without private owner access',
+        inputs: [
+          'Accepted App reset request outside the old interaction queue',
+          'Ordered lifecycle completion from Feature, input, Render, Factory and canonical owners',
+          'artifact:registrations-retired'
+        ],
+        outputs: ['artifact:core-successor'],
+        conditions: [
+          'Reject in-progress startup before retirement; join repeated reset calls.',
+          'Close admission, terminate collaboration, await actual work and invoke canonical lifecycle owners in order.',
+          'Retire Core observer/event ownership and await composition cleanup; never reopen the old facade or its graph.',
+          'Only successful owner cleanup may begin shared wiring and return a fresh unstarted Core; failures retain their owner phase.'
+        ],
+        bypasses: [
+          'Ordinary load/destroy retain their compatibility semantics.'
+        ],
+        allowedContributors: [
+          'Framework public lifecycle APIs',
+          'Core-owned subscriptions and composition cleanup callbacks'
+        ],
+        forbiddenContributors: [
+          'App private history access',
+          'concurrent default runtimes',
+          'implicit reload',
+          'canonical writes from termination cleanup'
+        ],
+        cacheDimensions: [],
+        implementationBoundary: [
+          'packages/core/src/core.ts',
+          'packages/core/src/runtime-lifetime.ts',
+          'packages/core/src/data-channel-observer.ts',
+          'packages/core/src/index.ts',
+          'packages/core/src/__tests__/**'
+        ],
+        specRefs: ['#11-interaction-cancellation-and-resources'],
+        failureOwnerStepId: 'reset-core'
+      },
+      {
         id: 'compose',
         order: 1,
         laneId: 'compose',
@@ -1066,12 +1110,21 @@
         producedArtifacts: ['artifact:ui-context-reset']
       },
       {
-        id: 'registrations-retired-terminal',
+        id: 'registrations-retired-to-core',
         from: 'retire-registrations',
+        to: 'reset-core',
+        kind: 'normal',
+        predicate:
+          'Registration resources are retired; finish Core-owned cleanup before successor composition.',
+        producedArtifacts: ['artifact:registrations-retired']
+      },
+      {
+        id: 'core-successor-terminal',
+        from: 'reset-core',
         kind: 'terminal',
         predicate:
-          'Registration resources are retired; Core/App lifecycle integration is still required.',
-        producedArtifacts: ['artifact:registrations-retired']
+          'A fresh unstarted Core is available; App replacement and composition integration remain separate gates.',
+        producedArtifacts: ['artifact:core-successor']
       },
       {
         id: 'runtime-to-edit',
@@ -1363,6 +1416,13 @@
         id: 'artifact:registrations-retired',
         ownerStepId: 'retire-registrations',
         channel: 'synchronous lifecycle completion',
+        consumerStepIds: ['reset-core'],
+        terminal: false
+      },
+      {
+        id: 'artifact:core-successor',
+        ownerStepId: 'reset-core',
+        channel: 'awaited Core lifecycle handoff',
         consumerStepIds: [],
         terminal: true
       },
@@ -1493,6 +1553,7 @@
           'reset-system-context',
           'reset-ui-context',
           'retire-registrations',
+          'reset-core',
           'compose',
           'domain',
           'edit',

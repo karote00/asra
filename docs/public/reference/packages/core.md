@@ -44,6 +44,21 @@ Collaboration, then publishes readiness. Provider, engine, renderer, load,
 Feature, or collaboration activation failure prevents false ready and tears
 down owned work. Post-start registration/replacement fails explicitly.
 
+Complete replacement is explicit: `await current.resetRuntime()` terminates the
+exclusive runtime and returns a fresh, unstarted Core for composition and load.
+It does not reopen `current` or change ordinary load/destroy semantics. The App
+must stop admission and call outside old Feature work. Startup still in progress
+rejects reset; cleanup failure prevents a successor and identifies its owner
+phase. The default export becomes the successor only on success, so callbacks
+must capture their own runtime's Core instead of reading that live export later.
+
+`getRuntimeState()` exposes handoff state. Old facade/Feature calls reject after
+retirement. Composition integrations retain owned cleanup through
+`registerRuntimeCleanup(key, cleanup)`, which Core awaits after canonical and
+registration cleanup. Complete reset requires all installed integrations to
+participate; it is not support for concurrent isolated runtimes, a reload, or a
+timeout-based claim that arbitrary asynchronous code has stopped.
+
 ## Relationships
 
 Core coordinates Factory, Feature System, Input, Persistence, Props, Reactive

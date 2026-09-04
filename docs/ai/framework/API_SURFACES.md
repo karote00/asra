@@ -945,6 +945,26 @@ Feature runtime lifecycle (`@asyra/feature-system`, not yet Core facade):
   Reentrant disposal rejects with `COMPOSITION_CLOSED`; ordinary unregister
   remains locked/retryable and another graph is unaffected.
 
+## Core Runtime Handoff
+
+- `core.resetRuntime(): Promise<Core>` coordinates terminal owner cleanup and
+  returns a fresh unstarted Core, never unlocking the retired Core. The App
+  stops admission and calls outside old Feature work; pending startup rejects
+  before retirement. Repeated accepted calls share one result. Ordinary
+  load/destroy are unchanged; resetting the default Core updates its live
+  export only after success.
+- `core.getRuntimeState(): CoreRuntimeState` exposes active, quiescing, retiring,
+  retired or failed. `CoreRuntimeResetError` identifies the failed `phase` and
+  `cause`; `CoreRuntimeClosedError` rejects retired facade/Feature execution.
+- `core.registerRuntimeCleanup(key, cleanup): () => void` retains composition
+  cleanup, awaited after canonical/graph retirement. It may release resources
+  and inspect registrations, not write canonical state. All registered callbacks
+  are attempted. The capability is optional in `CorePresetInstallAPIs` for
+  existing adapters; complete replacement requires lifecycle-aware integration.
+- This boundary coordinates one exclusive shared runtime, not concurrent Core
+  isolation or cancellation of arbitrary JavaScript. Old cleanup handles and
+  observer/event callbacks cannot operate in its successor.
+
 ## API Usage Rules
 
 - App-level code should prefer `core.xxx` when surface exists.

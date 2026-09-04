@@ -6,9 +6,15 @@ const createCoreForTest = () => {
     registerKeyCombinations: vi.fn(),
     unregister: vi.fn()
   }
-  const subscribeToSharedPublication = vi.fn(() => vi.fn())
-  const subscribeToTransactionStatus = vi.fn(() => vi.fn())
-  const observeSharedDataChannel = vi.fn(() => vi.fn())
+  const subscribeToSharedPublication = vi.fn(
+    (_subscriber: (value: unknown) => void) => vi.fn()
+  )
+  const subscribeToTransactionStatus = vi.fn(
+    (_subscriber: (value: unknown) => void) => vi.fn()
+  )
+  const observeSharedDataChannel = vi.fn(
+    (_channel: string, _subscriber: (value: unknown) => void) => vi.fn()
+  )
   const runRemoteTransaction = vi.fn((mutate: () => void) => mutate())
   const runRemoteTransactionProgressively = vi.fn(
     async (
@@ -236,13 +242,27 @@ describe('Core app runtime facade', () => {
     core.observeSharedDataChannel('document', channelSubscriber)
 
     expect(subscribeToSharedPublication).toHaveBeenCalledWith(
-      publicationSubscriber
+      expect.any(Function)
     )
-    expect(subscribeToTransactionStatus).toHaveBeenCalledWith(statusSubscriber)
+    expect(subscribeToTransactionStatus).toHaveBeenCalledWith(
+      expect.any(Function)
+    )
     expect(observeSharedDataChannel).toHaveBeenCalledWith(
       'document',
-      channelSubscriber
+      expect.any(Function)
     )
+    const publication = Object.freeze({ id: 'publication' }),
+      status = Object.freeze({ id: 'status' }),
+      change = Object.freeze({ id: 'change' })
+    subscribeToSharedPublication.mock.calls[0][0](publication)
+    subscribeToTransactionStatus.mock.calls[0][0](status)
+    observeSharedDataChannel.mock.calls[0][1](change)
+    expect(publicationSubscriber).toHaveBeenCalledExactlyOnceWith(publication)
+    expect(statusSubscriber).toHaveBeenCalledExactlyOnceWith(status)
+    expect(channelSubscriber).toHaveBeenCalledExactlyOnceWith(change)
+    expect(publicationSubscriber.mock.calls[0][0]).toBe(publication)
+    expect(statusSubscriber.mock.calls[0][0]).toBe(status)
+    expect(channelSubscriber.mock.calls[0][0]).toBe(change)
     expect(core.getUndoHistoryDepth()).toBe(3)
   })
 
