@@ -4,6 +4,7 @@ import {
   interpolateSegment,
   numberAlgebra
 } from './kinematic-algebra'
+import { hasExactOwnKeys } from './records'
 
 export type Geometry =
   | { kind: 'box'; size: Vec3 }
@@ -240,9 +241,10 @@ export function validateTrajectory(
         'Keyframe times must be finite and strictly increasing within the supported envelope'
       )
     if (
-      !frame.joints ||
-      typeof frame.joints !== 'object' ||
-      Object.keys(frame.joints).length !== joints.length
+      !hasExactOwnKeys(
+        frame.joints,
+        joints.map((body) => body.id)
+      )
     )
       throw new Error('Every actuated joint must have an explicit value')
     for (const body of joints) {
