@@ -142,6 +142,63 @@ test('the same production worker dispatches the independently implemented instal
   })
 })
 
+for (const method of [
+  MethodIds.CONTINUOUS_CLEARANCE,
+  MethodIds.STATIC_SPHERES
+]) {
+  test(`production method ${method} retains typed acceptance without erasing findings`, async ({
+    page
+  }) => {
+    await page.goto('/')
+    const input = snapshot()
+    if (method === MethodIds.STATIC_SPHERES) {
+      input.method.id = method
+      input.method.version = MethodVersions.STATIC_SPHERES
+      input.method.settings.parameters = { additionalError: 0 }
+    }
+    input.rule.acceptance = {
+      kind: 'any',
+      conditions: [
+        { kind: 'penetration', expected: 'present' },
+        {
+          kind: 'all',
+          conditions: [
+            { kind: 'clearance', operator: 'above', value: 1 },
+            { kind: 'clearance', operator: 'below', value: 2 }
+          ]
+        }
+      ]
+    }
+    const result: AnalysisResult = await page.evaluate(
+      async ({ input, moduleUrl }) => {
+        const { AnalysisRunner } = await import(moduleUrl),
+          runner = new AnalysisRunner()
+        try {
+          return await runner.run(input)
+        } finally {
+          await runner.dispose()
+        }
+      },
+      { input, moduleUrl: '/src/analysis/runner.ts' }
+    )
+    expect(result).toMatchObject({
+      execution: 'completed',
+      coverage: 'complete',
+      verdict: 'meets',
+      summary: 'issue-found',
+      findingPairCount: 1,
+      decision: {
+        value: 'true',
+        children: [
+          { value: 'true' },
+          { value: 'false', children: [{ value: 'false' }, { value: 'true' }] }
+        ]
+      }
+    })
+    expect(result.rule.acceptance).toEqual(input.rule.acceptance)
+  })
+}
+
 for (const stop of ['cancel', 'timeout'] as const) {
   test(`real uncooperative extension is terminated after ${stop} without late completion`, async ({
     page

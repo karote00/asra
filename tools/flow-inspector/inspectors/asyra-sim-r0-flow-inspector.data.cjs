@@ -1026,6 +1026,7 @@
           'Reuse snapshot-owner execution admission before Worker allocation and inside the Worker; dispatch only the exact pre-start registration, never a hard-coded replacement or imported executable.',
           'Private method exceptions expose only failure stage, not raw data, paths or credentials; late method emissions after settlement are rejected.',
           'Validate source identity, evidence, pair/time coverage, and terminal state.',
+          'Evaluate frozen typed acceptance conditions only from validated retained geometry evidence; preserve method findings and unknowns, forbid success after incomplete execution or coverage, and validate historical evaluation without the current catalog.',
           'Expose only validated bounded progress counts through the analysis Feature; progress is not a final verdict or a completion-time estimate.',
           'Abort, terminate after grace, and discard late messages from an old run.'
         ],

@@ -8,6 +8,11 @@ import type {
   MethodEvidence,
   MethodPairEvidence
 } from '../extensions/contracts'
+import {
+  evaluateAcceptance,
+  validateRuleEvaluation,
+  type RuleEvaluation
+} from './result-rules'
 
 export type AnalysisExecution =
   'completed' | 'cancelled' | 'timed-out' | 'failed'
@@ -35,6 +40,7 @@ export interface AnalysisResult {
   findingPairCount: number
   unresolvedPairCount: number
   errors: readonly string[]
+  decision?: RuleEvaluation
 }
 
 export interface RunTiming {
@@ -205,6 +211,19 @@ function summarize(
   let verdict: AnalysisVerdict = 'cannot-determine'
   if (summary === 'issue-found') verdict = 'does-not-meet'
   else if (summary === 'no-issue-within-scope') verdict = 'meets'
+  const decision = snapshot.rule.acceptance
+    ? evaluateAcceptance(snapshot.rule.acceptance, snapshot.pairs.length, pairs)
+    : undefined
+  if (decision) {
+    verdict = 'cannot-determine'
+    if (decision.value === 'false') verdict = 'does-not-meet'
+    else if (
+      decision.value === 'true' &&
+      execution === 'completed' &&
+      coverage === 'complete'
+    )
+      verdict = 'meets'
+  }
   return deepFreeze({
     version: 1,
     runId: timing.runId,
@@ -223,7 +242,8 @@ function summarize(
     coveredPairCount: pairs.length,
     findingPairCount,
     unresolvedPairCount,
-    errors: [...errors]
+    errors: [...errors],
+    ...(decision ? { decision } : {})
   })
 }
 
@@ -323,7 +343,8 @@ export function validateHistoricalResult(
       'coveredPairCount',
       'findingPairCount',
       'unresolvedPairCount',
-      'errors'
+      'errors',
+      ...(snapshot.rule.acceptance ? ['decision'] : [])
     ]) ||
     input.version !== 1 ||
     !Array.isArray(input.pairEvidence) ||
@@ -337,6 +358,8 @@ export function validateHistoricalResult(
   )
     throw new Error('Invalid historical result envelope')
   const result = input as unknown as AnalysisResult
+  if (snapshot.rule.acceptance)
+    validateRuleEvaluation(result.decision, snapshot.rule.acceptance)
   const timing = {
     runId: result.runId,
     startedAt: result.startedAt,
