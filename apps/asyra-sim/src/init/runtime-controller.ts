@@ -2,6 +2,7 @@ import type { SimRuntime } from './bootstrap'
 import { encodeProject, type ProjectSnapshot } from '../storage/project-format'
 import type { VisualAssetArchive } from '../storage/visual-archive'
 import { prepareProjectVisuals } from '../storage/project-visuals'
+import { verifyProjectObservations } from '../storage/project-observations'
 
 export interface RuntimeState {
   readonly status:
@@ -132,6 +133,8 @@ export class RuntimeController {
       const preparation = new AbortController()
       this.preparation = preparation
       try {
+        await verifyProjectObservations(target, preparation.signal)
+        this.assertOpen()
         prepared = await this.prepareVisuals(target, preparation.signal)
         this.assertOpen()
         assertCurrent()

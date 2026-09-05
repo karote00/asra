@@ -101,6 +101,90 @@ async function setup() {
 }
 
 describe('App document replacement controller', () => {
+  it('rejects corrupt observation bytes before preparing visuals, pausing A or starting B', async () => {
+    const a = runtime(),
+      factory = vi.fn(async () => a.value)
+    const prepare = vi.fn(async () => new VisualAssetArchive())
+    const controller = new RuntimeController(factory, prepare)
+    await controller.start()
+    try {
+      await expect(
+        controller.replace(
+          {
+            ...snapshot(),
+            observationSources: [
+              {
+                version: 1,
+                sourceId: `sha256:${'a'.repeat(64)}`,
+                byteLength: 1,
+                base64: 'YQ=='
+              }
+            ]
+          },
+          () => undefined
+        )
+      ).rejects.toThrow('digest')
+      expect(prepare).not.toHaveBeenCalled()
+      expect(a.value.pauseEditing).not.toHaveBeenCalled()
+      expect(a.value.captureSnapshot).not.toHaveBeenCalled()
+      expect(a.value.dispose).not.toHaveBeenCalled()
+      expect(factory).toHaveBeenCalledOnce()
+      expect(controller.getState()).toMatchObject({
+        status: 'ready',
+        runtime: a.value,
+        generation: 1,
+        recoveryAvailable: false
+      })
+    } finally {
+      await controller.dispose()
+    }
+  })
+
+  it('fences late observation verification after close without pausing A or allocating target visuals', async () => {
+    const bytes = new Uint8Array([97]),
+      subtle = crypto.subtle
+    const original = subtle.digest
+    const actual = await original.call(subtle, 'SHA-256', bytes)
+    const sourceId = `sha256:${Array.from(new Uint8Array(actual), (byte) => byte.toString(16).padStart(2, '0')).join('')}`
+    const wait = deferred<ArrayBuffer>()
+    const digest = vi.fn(() => wait.promise)
+    const a = runtime(),
+      factory = vi.fn(async () => a.value)
+    const prepare = vi.fn(async () => new VisualAssetArchive())
+    const controller = new RuntimeController(factory, prepare)
+    await controller.start()
+    subtle.digest = digest
+    try {
+      const replacing = controller
+        .replace(
+          {
+            ...snapshot(),
+            observationSources: [
+              { version: 1, sourceId, byteLength: 1, base64: 'YQ==' }
+            ]
+          },
+          () => undefined
+        )
+        .then(
+          () => null,
+          (error: unknown) => error
+        )
+      await vi.waitFor(() => expect(digest).toHaveBeenCalledOnce())
+      expect(a.value.pauseEditing).not.toHaveBeenCalled()
+      const closing = controller.dispose()
+      wait.resolve(actual)
+      expect(await replacing).toMatchObject({ name: 'AbortError' })
+      await closing
+      expect(prepare).not.toHaveBeenCalled()
+      expect(factory).toHaveBeenCalledOnce()
+      expect(a.value.dispose).toHaveBeenCalledOnce()
+    } finally {
+      wait.resolve(actual)
+      subtle.digest = original
+      await controller.dispose()
+    }
+  })
+
   it('rejects damaged source content before pausing or retiring the current document', async () => {
     const a = runtime(),
       b = runtime(),
