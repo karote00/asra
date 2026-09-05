@@ -59,7 +59,9 @@ immutable lockfile, rebuilds Framework packages with two concurrent build tasks,
 and invokes the existing 19-package artifact validator. It does not clean or
 build the developer's active Framework outputs. The second, independent App
 consumer installs those tarballs with transparent workspaces disabled. Its
-registry identities and integrity must match the original lockfile; direct
+registry identities and integrity must match the original lockfile, including
+the complete locator, patch hash and checksum of any npm-backed Yarn builtin
+compatibility patch. Custom/local patches remain forbidden. Direct
 dependencies, TypeScript inputs and main/Worker bundle inputs must resolve
 inside that consumer. Installation uses the existing project-local cache with
 network disabled; missing cached dependencies fail without fetching or upgrading.

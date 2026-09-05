@@ -349,6 +349,26 @@ without a usable UI is not complete.
 
 ## 8. M5: Controlled-Pilot Candidate
 
+The current delivery iteration addresses the `ui` owner's consumer lock guard,
+not a solver or Framework change. The exact-source gate exposed a blanket patch
+rejection after all 19 packages built, packed and validated: Yarn's already-locked
+builtin compatibility patches must retain their complete locator and checksum.
+Replace the blanket rejection with source-class validation in
+`scripts/consumer-contract.mjs` and its permanent tests. Only plain registry
+records and unchanged npm-backed Yarn builtin compatibility records qualify;
+custom/local patches, new inputs and integrity drift remain failures. Prove the
+new regression red, then run consumer/launcher unit tests, formatting, Inspector
+and placement gates before committing; rerun the clean-source consumer afterward.
+Self-review confirms this preserves the runtime-profile input-integrity contract
+and the Inspector `ui` boundary without new dependencies, relaxed isolation,
+solver changes or downstream compensation. Distribution assembly still waits
+for passing independent build evidence.
+The placement gate also detected extracted copies of other Apps' source tests
+inside failed build outputs. `scripts/build-consumer.mjs` now places its
+reconstructible source snapshot under the existing temporary directory; archives
+and failure logs remain retained. The unchanged repository placement gate is the
+regression oracle, not an expanded exception for product tests.
+
 ### User Outcome
 
 Receive a product candidate that starts on their own computer, works offline,

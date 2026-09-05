@@ -44,7 +44,7 @@ export async function buildConsumer() {
   const output = mkdtempSync(
     path.join(artifactParent, `${sourceCommit.slice(0, 12)}-`)
   )
-  const snapshot = path.join(output, 'source'),
+  const snapshot = path.join(output, 'tmp/source'),
     consumer = path.join(output, 'app')
   const logs = path.join(output, 'logs'),
     temporary = path.join(output, 'tmp')

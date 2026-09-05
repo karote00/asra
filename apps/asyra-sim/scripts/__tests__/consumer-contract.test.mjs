@@ -99,6 +99,40 @@ test('consumer lock evidence rejects upgrades, checksum drift and workspace or p
   assert.throws(() => assertFrozenRegistryLock(lock(), ''), /no registry/)
 })
 
+test('consumer lock preserves exact existing Yarn builtin compatibility patches but rejects custom patches and drift', () => {
+  const locator =
+    'typescript@patch:typescript@npm%3A5.8.3#optional!builtin<compat/typescript>::version=5.8.3&hash=379a07'
+  const record = (identity = locator, checksum = '10c0/original') =>
+    `"typescript@patch:fixture":\n  resolution: "${identity}"\n  checksum: ${checksum}\n`
+  const source = `${lock()}\n${record()}`
+  assert.equal(assertFrozenRegistryLock(source, source), 2)
+  for (const changed of [
+    record(locator, '10c0/changed'),
+    record(locator.replace('379a07', 'abcdef')),
+    record(locator.replaceAll('5.8.3', '5.8.4'))
+  ])
+    assert.throws(
+      () => assertFrozenRegistryLock(source, `${lock()}\n${changed}`),
+      /drift/
+    )
+  assert.throws(() => assertFrozenRegistryLock(lock(), source), /drift/)
+  for (const identity of [
+    'typescript@patch:typescript@npm%3A5.8.3#./custom.patch',
+    'typescript@patch:typescript@npm:5.8.3#./custom.patch',
+    locator.replace(
+      'optional!builtin<compat/typescript>',
+      'builtin<compat/typescript>&./custom.patch'
+    ),
+    locator.replace('npm%3A5.8.3', 'file%3A../private')
+  ]) {
+    const custom = `${lock()}\n${record(identity)}`
+    assert.throws(
+      () => assertFrozenRegistryLock(custom, custom),
+      /private source/
+    )
+  }
+})
+
 test('type and installed-package evidence cannot use ancestor hoisting or symbolic links outside the consumer', (t) => {
   const parent = fileURLToPath(
     new URL('../../.artifacts/consumer-tests/', import.meta.url)

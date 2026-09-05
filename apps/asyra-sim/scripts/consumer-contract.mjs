@@ -48,14 +48,33 @@ export function consumerManifest(app, root, packages) {
   }
 }
 
-function registryRecords(lockfile) {
+const registryLocator = /^(?:@[^/@:]+\/)?[^/@:]+@npm:[^\s#]+$/
+const builtinCompatibilityLocator =
+  /^(?:@[^/@:]+\/)?[^/@:]+@patch:(?:@[^/@:]+\/)?[^/@:]+@npm%3A[^\s#]+#(?:optional!)?builtin<compat\/[a-zA-Z0-9@/._-]+>::version=[^\s&]+&hash=[a-f0-9]+$/
+
+function registryRecords(lockfile, rejectPrivate = false) {
   const result = new Map()
   for (const block of lockfile.split('\n\n')) {
-    const resolution = block.match(
-      /^ {2}resolution: "([^"]+@npm:[^"]+)"$/m
-    )?.[1]
-    if (resolution)
-      result.set(resolution, block.match(/^ {2}checksum: (.+)$/m)?.[1] ?? null)
+    for (const [, resolution] of block.matchAll(
+      /^ {2}resolution: "([^"]+)"$/gm
+    )) {
+      if (
+        registryLocator.test(resolution) ||
+        builtinCompatibilityLocator.test(resolution)
+      )
+        result.set(
+          resolution,
+          block.match(/^ {2}checksum: (.+)$/m)?.[1] ?? null
+        )
+      else if (
+        rejectPrivate &&
+        resolution !== '@asyra/asyra-sim@workspace:.' &&
+        /@(?:workspace|link|portal|patch):/.test(resolution)
+      )
+        throw new Error(
+          'The consumer resolves another workspace or private source.'
+        )
+    }
   }
   return result
 }
@@ -63,21 +82,13 @@ function registryRecords(lockfile) {
 /** The isolated lock may drop unrelated workspaces, never select new registry inputs. */
 export function assertFrozenRegistryLock(source, consumer) {
   const original = registryRecords(source),
-    actual = registryRecords(consumer)
+    actual = registryRecords(consumer, true)
   if (!actual.size)
     throw new Error('The consumer has no registry dependency evidence.')
   for (const [identity, checksum] of actual) {
     if (!original.has(identity) || original.get(identity) !== checksum)
       throw new Error(`Registry dependency or integrity drift: ${identity}`)
   }
-  if (
-    /resolution: "[^"\n]+@(?:workspace|link|portal|patch):/.test(
-      consumer.replace(/resolution: "@asyra\/asyra-sim@workspace:\."/, '')
-    )
-  )
-    throw new Error(
-      'The consumer resolves another workspace or private source.'
-    )
   return actual.size
 }
 
