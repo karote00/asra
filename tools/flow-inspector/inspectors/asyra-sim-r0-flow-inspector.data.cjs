@@ -1159,6 +1159,7 @@
           'A visual source above 8 MiB requires explicit source-scoped memory-warning acknowledgement before placement preview or acceptance; acknowledgement never overrides hard resource limits.',
           'Serve versioned static distribution files through a read-only, loopback-only Node launcher with a stable explicit port, exact Host/origin checks, safe paths, no symlinks or uploads, and owned shutdown; never silently choose another origin.',
           'Build independent distribution inputs in a project-local exact-source archive and isolated consumer, using the existing Framework package artifact validator. Preserve locked registry identities and integrity, reject ancestor/private/symlink type or bundle resolution, bound child processes and logs, and record checksums without claiming publication or independent acceptance.',
+          'Consumer tests preserve native ESM live exports from packed dependencies; test-runner CommonJS compatibility must not snapshot the current Core binding.',
           'Use local assets; release readiness remains governed by FIRST_RELEASE gates.'
         ],
         bypasses: [
@@ -1179,6 +1180,7 @@
           'apps/asyra-sim/src/main*',
           'apps/asyra-sim/e2e/**',
           'apps/asyra-sim/playwright.config.ts',
+          'apps/asyra-sim/vitest.config.ts',
           'apps/asyra-sim/scripts/**',
           'apps/asyra-sim/README.md'
         ],

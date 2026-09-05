@@ -369,7 +369,7 @@ reconstructible source snapshot under the existing temporary directory; archives
 and failure logs remain retained. The unchanged repository placement gate is the
 regression oracle, not an expanded exception for product tests.
 
-The next bounded delivery iteration fixes actual consumer isolation. The clean
+The isolation iteration fixed actual consumer isolation. The clean
 gate at `81c473395` detected ancestor `buffer` and `lightningcss` declaration
 reads: npm ambient/optional resolution can climb out of a project-local consumer.
 Use the existing macOS sandbox for consumer type/test/build commands to deny
@@ -382,6 +382,19 @@ delivery docs. Run focused process/contract tests, formatting, Inspector and
 placement checks, then commit and rerun the exact-source gate. Self-review maps
 this to the unchanged `ui` isolation contract and macOS delivery profile; other
 hosts fail explicitly rather than claiming equivalent isolation.
+
+The current `ui` slice preserves native ESM semantics in App test configuration.
+The isolated `9a20ebc87` gate passed the type fence and 347 tests, but all 13
+lifecycle cases failed because vite-node's default CommonJS interop snapshots
+the default export even for `.js` packages declaring `type: module`. Native Node
+observes the packed Core successor correctly. Disable that interop in the App's
+`vitest.config.ts`, without changing Core, inlining private sources, or weakening
+the existing lifecycle assertions. The same failed packed lifecycle file is the
+focused regression gate, followed by all 360 packed tests and the production
+build; then the usual lint/Inspector/placement checkpoint and exact-source gate.
+Self-review confirms the Inspector `ui` testing boundary and runtime-profile
+isolation contract agree; no product lifecycle rewrite is authorized by this
+test-runner mismatch.
 
 ### User Outcome
 

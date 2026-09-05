@@ -71,6 +71,9 @@ This prevents Node/TypeScript optional and ambient resolution from discovering
 unrelated host packages. Local-path evidence checks remain mandatory; other
 build hosts are unverified and fail explicitly. No sandbox binary is shipped
 in the user distribution.
+Consumer tests disable CommonJS default-export interop so packed ESM live
+bindings preserve the same successor-Core semantics as native modules. They
+execute the packed files, not an alias to Framework source.
 
 Each owned command has a five-minute deadline and an 8 MiB log limit. Signals
 terminate the active owned process group. Passing evidence records the exact
