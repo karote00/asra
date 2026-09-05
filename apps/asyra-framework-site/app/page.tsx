@@ -215,7 +215,7 @@ export default function HomePage() {
               eager
               height={1254}
               name="hero-core-v08-desktop-photoroom"
-              sizes="(max-width: 800px) calc(200vw - 80px), (max-width: 1100px) 96vw, 1240px"
+              sizes="(max-width: 680px) 340px, (max-width: 800px) 330px, (max-width: 1100px) 96vw, 1240px"
               widths={[720, 1080, 1400]}
               width={1400}
             />
@@ -508,7 +508,7 @@ export const reviewActions = defineFeature(
                   className="proof-image proof-image--same-path"
                   height={887}
                   name="same-path-photoroom"
-                  sizes="(max-width: 680px) 88vw, (max-width: 1100px) 48vw, 650px"
+                  sizes="(max-width: 520px) 280px, (max-width: 680px) 88vw, (max-width: 1100px) 48vw, 650px"
                   widths={[720, 1280, 1774]}
                   width={1774}
                 />
@@ -557,7 +557,7 @@ export const reviewActions = defineFeature(
                 className="proof-image proof-image--grow"
                 height={1036}
                 name="grow-photoroom"
-                sizes="(max-width: 800px) calc(200vw - 80px), (max-width: 1100px) 92vw, 1120px"
+                sizes="(max-width: 520px) 300px, (max-width: 800px) calc(200vw - 80px), (max-width: 1100px) 92vw, 1120px"
                 widths={[720, 1200, 1518]}
                 width={1518}
               />
@@ -583,7 +583,7 @@ export const reviewActions = defineFeature(
                 className="proof-image proof-image--one-source"
                 height={800}
                 name="one-source-v08-desktop-photoroom"
-                sizes="(max-width: 800px) calc(200vw - 80px), (max-width: 1100px) 92vw, 1120px"
+                sizes="(max-width: 520px) 280px, (max-width: 800px) calc(200vw - 80px), (max-width: 1100px) 92vw, 1120px"
                 widths={[720, 1280, 1536]}
                 width={1536}
               />
