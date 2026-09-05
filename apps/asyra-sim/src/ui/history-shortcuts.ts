@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { isEditableKeyboardEvent } from './keyboard-input'
 
 export type HistoryDirection = 'undo' | 'redo'
 
@@ -20,19 +21,7 @@ export function useHistoryShortcuts(
       )
         return
 
-      // Preserve native editing, including inputs inside a shadow-root host.
-      const editing = event.composedPath().some((target) => {
-        if (!(target instanceof HTMLElement)) return false
-        const editable = target.getAttribute('contenteditable')
-        return (
-          ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) ||
-          target.isContentEditable ||
-          editable === '' ||
-          editable === 'true' ||
-          editable === 'plaintext-only'
-        )
-      })
-      if (editing) return
+      if (isEditableKeyboardEvent(event)) return
       event.preventDefault()
       if (!event.repeat) onHistory(event.shiftKey ? 'redo' : 'undo')
     }

@@ -97,6 +97,40 @@ Formal cases cover automatic field completion, sequential edits, focus and unit
 retention, rotation replay, no-op/Escape, invalid dimensions/scales/joint limits,
 and one Undo per completed field through the ordinary browser workbench.
 
+## Viewport Navigation
+
+Camera navigation is transient UI state. It never edits geometry, changes
+analysis scope, stops playback, or creates Undo history. Normal left or middle
+drag orbits; Shift + middle drag pans (Blender convention), with Shift + left
+drag as the trackpad alternative. Only an unmodified left click selects.
+The gesture is chosen at pointer-down and remains fixed until release. A second
+pointer cannot replace it. Cancellation, capture loss, hidden documents, window
+blur and runtime retirement release the gesture without selection. Wheel zoom
+does not interrupt an active drag.
+
+Pan translates the eye and target together in the screen plane at the target's
+depth. CSS-pixel distance and the perspective field of view set its scale;
+device pixels and model units must not introduce another multiplier.
+
+`Meta+1` / `Ctrl+1` and **Fit all** frame all currently visible parts, preserving
+the view direction and leaving at least 32 CSS pixels on each viewport edge.
+The actual canvas dimensions exclude panels. Grid/floor decorations and hidden
+parts do not affect fitting. Current trajectory or historical replay poses and
+pending part-placement previews use the same displayed spatial projection.
+Display bounds are never collision geometry or analysis evidence. Empty scenes
+and surfaces too small for the padding leave the camera unchanged. Fit adjusts
+clipping planes when necessary and cancels a current navigation drag.
+Subsequent wheel zoom remains incremental even when fitting required a camera
+distance beyond the initial workcell scale; zooming out preserves far-plane
+coverage instead of jumping back to a fixed distance limit.
+
+Fit shortcuts use the same editable-control, current-runtime, consumed-event,
+composition and repeat safeguards as History; Shift/Alt and combined Ctrl+Meta
+are not Fit shortcuts. **Reset view** remains a separate default-camera action.
+Formal gates prove screen-space pan, perspective containment at multiple aspect
+ratios, complete source placement, control cancellation, shortcut/button parity,
+and unchanged canonical fields, selection and history in the normal browser.
+
 ## History Shortcuts
 
 Outside native input, textarea, select and contenteditable controls, `Meta+Z`

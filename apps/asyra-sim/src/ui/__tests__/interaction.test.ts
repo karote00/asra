@@ -154,7 +154,8 @@ it('ignores retained pointer, wheel and reset-view input from a retired document
         camera: DEFAULT_CAMERA,
         onCamera,
         onSelect,
-        isCurrent: () => current
+        isCurrent: () => current,
+        getFitMeshes: () => []
       })
     )
   )
@@ -173,7 +174,7 @@ it('ignores retained pointer, wheel and reset-view input from a retired document
         { pointerId: 1 }
       )
     )
-    host.querySelector('button')?.click()
+    host.querySelectorAll('button').forEach((button) => button.click())
   })
   expect(pick).not.toHaveBeenCalled()
   expect(onCamera).not.toHaveBeenCalled()

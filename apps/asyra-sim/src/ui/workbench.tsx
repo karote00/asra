@@ -4,7 +4,10 @@ import type { SimRuntime } from '../init/bootstrap'
 import { IDENTITY_POSE } from '../domain/math'
 import { jointValuesAt, type Body, type Workcell } from '../domain/workcell'
 import type { SpatialCamera } from '../render-app/spatial-layer'
-import { DEFAULT_CAMERA } from '../render-app/workcell-frame'
+import {
+  createWorkcellFrame,
+  DEFAULT_CAMERA
+} from '../render-app/workcell-frame'
 import { BodyEditor } from './body-editor'
 import { ErrorNotice } from './fields'
 import { useHistoryShortcuts, type HistoryDirection } from './history-shortcuts'
@@ -522,6 +525,22 @@ export function Workbench() {
             onCamera={setCamera}
             onSelect={select}
             isCurrent={isCurrent}
+            getFitMeshes={() => {
+              const displayed =
+                visualPreview?.workcell ?? playback?.workcell ?? workcell
+              if (!runtime || !displayed || !isCurrent(runtime)) return []
+              return createWorkcellFrame(
+                displayed,
+                {
+                  camera,
+                  selectedId,
+                  grid: false,
+                  joints: playback?.joints,
+                  wireframe
+                },
+                runtime.getVisualAssets(displayed, visualPreview?.prepared)
+              ).meshes
+            }}
           />
           <div className="viewport-summary">
             {visualPreview && <strong>Visual preview · not accepted</strong>}

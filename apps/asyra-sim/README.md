@@ -217,6 +217,14 @@ part rotation fields also update without a separate Set button. Unit choices,
 focus and expanded sections survive ordinary edits and Undo/Redo. These Object
 controls do not change explicit experiment saving or import acceptance.
 
+Navigate with left or middle drag to orbit, **Shift + middle drag** to pan
+(Blender convention), or **Shift + left drag** when using a trackpad. Scroll
+zooms; an unmodified left click selects. **⌘1** / **Ctrl+1** or **Fit all**
+centers all visible parts in the current pose, keeps the viewing angle and
+leaves at least 32 px around them inside the viewport. Grid/floor decorations
+are excluded. **Reset view** restores the default camera. These view operations
+do not change model data or Undo history.
+
 Use **⌘Z** / **⌘⇧Z** on macOS, or **Ctrl+Z** / **Ctrl+Shift+Z**, for model
 Undo/Redo. These shortcuts use the same history as the toolbar buttons. While
 an input, textarea, select or editable text area has focus, native field editing
