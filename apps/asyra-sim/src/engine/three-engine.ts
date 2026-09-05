@@ -20,6 +20,7 @@ import type {
 } from '@asyra/render-engine'
 import {
   readSpatialDescriptor,
+  sameSpatialShape,
   SPATIAL_CAPABILITY,
   SPATIAL_PROPERTY,
   type SpatialDescriptor,
@@ -468,7 +469,15 @@ export class ThreeEngine implements RenderEngine {
     const rotation = numberProperty(properties, 'rotation', 0)
     const order = numberProperty(properties, 'zIndex', 0)
     let content: THREE.Object3D | null = null
-    if (spatial?.kind === 'mesh' && Object.hasOwn(patch, SPATIAL_PROPERTY)) {
+    if (
+      spatial?.kind === 'mesh' &&
+      Object.hasOwn(patch, SPATIAL_PROPERTY) &&
+      !(
+        record.spatial?.kind === 'mesh' &&
+        record.content instanceof THREE.Mesh &&
+        sameSpatialShape(record.spatial.shape, spatial.shape)
+      )
+    ) {
       content = new THREE.Mesh(
         makeGeometry(spatial.shape),
         new THREE.MeshStandardMaterial({
@@ -487,6 +496,20 @@ export class ThreeEngine implements RenderEngine {
     record.spatial = spatial
     if (content) this.replaceContent(record, content)
     if (spatial?.kind === 'mesh') {
+      if (record.content instanceof THREE.Mesh) {
+        const material = record.content.material as THREE.MeshStandardMaterial
+        const transparent = spatial.opacity < 1
+        if (
+          material.transparent !== transparent ||
+          material.wireframe !== spatial.wireframe
+        )
+          material.needsUpdate = true
+        material.color.setHex(spatial.color)
+        material.opacity = spatial.opacity
+        material.transparent = transparent
+        material.depthWrite = !transparent
+        material.wireframe = spatial.wireframe
+      }
       record.visual.position.fromArray(spatial.position)
       record.visual.quaternion.fromArray(spatial.rotation)
       record.visual.scale.set(1, 1, 1)

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
+import * as THREE from 'three'
 import { runRenderEngineContract } from '@asyra/render-engine/testing'
 import type {
   RenderEngineCommand,
@@ -97,6 +98,65 @@ const setup = () => {
 }
 
 describe('CUSTOM Three engine', () => {
+  it('retains live GPU resources for pose and appearance updates and replaces changed geometry', () => {
+    const { engine, driver, add } = setup()
+    add(camera)
+    const handle = add(box)
+    const renderedMesh = () => {
+      engine.execute({ type: 'flush' })
+      const scene = vi
+        .mocked(driver.render)
+        .mock.calls.find(([value]) =>
+          value.children.some(
+            (child) => child.getObjectsByProperty('isMesh', true).length
+          )
+        )?.[0]
+      const mesh = scene?.getObjectsByProperty('isMesh', true)[0]
+      if (!(mesh instanceof THREE.Mesh))
+        throw new Error('Missing rendered mesh')
+      return mesh as THREE.Mesh<
+        THREE.BufferGeometry,
+        THREE.MeshStandardMaterial
+      >
+    }
+    const original = renderedMesh()
+    const disposeGeometry = vi.spyOn(original.geometry, 'dispose')
+    const disposeMaterial = vi.spyOn(original.material, 'dispose')
+    for (let frame = 1; frame <= 120; frame++) {
+      engine.execute({
+        type: 'update-object',
+        object: handle,
+        properties: {
+          [SPATIAL_PROPERTY]: {
+            ...box,
+            position: [frame / 120, 0, 0],
+            color: 0xffffff,
+            opacity: 0.5,
+            wireframe: true
+          }
+        }
+      })
+      const mesh = renderedMesh()
+      expect(mesh.geometry).toBe(original.geometry)
+      expect(mesh.material).toBe(original.material)
+      expect(mesh.material.opacity).toBe(0.5)
+      expect(mesh.material.depthWrite).toBe(false)
+      expect(mesh.material.color.getHex()).toBe(0xffffff)
+    }
+    expect(disposeGeometry).not.toHaveBeenCalled()
+    expect(disposeMaterial).not.toHaveBeenCalled()
+    engine.execute({
+      type: 'update-object',
+      object: handle,
+      properties: {
+        [SPATIAL_PROPERTY]: { ...box, shape: { kind: 'box', size: [2, 1, 1] } }
+      }
+    })
+    expect(renderedMesh().geometry).not.toBe(original.geometry)
+    expect(disposeGeometry).toHaveBeenCalledTimes(1)
+    expect(disposeMaterial).toHaveBeenCalledTimes(1)
+    engine.destroy()
+  })
   it('rejects unsupported screen bridge properties and thick strokes instead of ignoring them', () => {
     const { engine, root } = setup()
     const create = (properties: Record<string, unknown> = {}) =>

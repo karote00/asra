@@ -33,6 +33,28 @@ export type SpatialDescriptor =
       selectable: boolean
     }
 
+/** Compare accepted geometry values, not caller-owned object identity. */
+export function sameSpatialShape(a: SpatialShape, b: SpatialShape): boolean {
+  const equal = (x: readonly number[], y: readonly number[]) =>
+    x.length === y.length && x.every((value, index) => value === y[index])
+  switch (a.kind) {
+    case 'box':
+      return b.kind === 'box' && equal(a.size, b.size)
+    case 'sphere':
+      return b.kind === 'sphere' && a.radius === b.radius
+    case 'capsule':
+      return (
+        b.kind === 'capsule' && a.radius === b.radius && a.length === b.length
+      )
+    case 'triangles':
+      return (
+        b.kind === 'triangles' &&
+        equal(a.positions, b.positions) &&
+        equal(a.indices, b.indices)
+      )
+  }
+}
+
 const finiteTuple = (value: unknown, length: number): value is number[] =>
   Array.isArray(value) &&
   value.length === length &&

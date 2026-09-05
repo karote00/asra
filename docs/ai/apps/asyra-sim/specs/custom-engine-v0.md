@@ -76,6 +76,11 @@ listeners, resources, and pending callbacks. Destroyed or foreign handles fail;
 no late callback may draw a destroyed engine. Initialization failures clean up
 their partial resources and remain errors, without a Pixi or no-canvas fallback.
 
+Pose-only and appearance-only updates retain each live mesh's GPU geometry and
+material. Geometry replacement compares validated shape values, not caller
+object identity; changed shapes release their previous resources exactly once.
+This is per-handle resource ownership, not a workcell or solver cache.
+
 ## Product Cases and Done
 
 Permanent tests cover provider/startup isolation, shared engine contract
