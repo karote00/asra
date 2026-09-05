@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import type { ReactNode } from 'react'
+import { SiteGoogleAnalytics } from '@/components/site-google-analytics'
+import { resolveGoogleSiteServices } from '@/lib/site-google-services.mjs'
 import { isIndexingAuthorized, resolveSiteOrigin } from '@/lib/site-origin'
 import './styles/tokens.css'
 import './globals.css'
@@ -9,6 +11,7 @@ import './styles/support.css'
 import './styles/atlas.css'
 
 const title = 'Asyra - Framework for canvas-based and domain-driven tools'
+const googleServices = resolveGoogleSiteServices()
 const description =
   'Build canvas-based editors, visual tools, BIM workspaces, simulations, and other domain products from composable application building blocks.'
 const socialImage = {
@@ -24,6 +27,7 @@ export const metadata: Metadata = {
   title,
   description,
   applicationName: 'Asyra',
+  verification: { google: googleServices.verification },
   keywords: [
     'canvas tool framework',
     'canvas editor framework',
@@ -64,7 +68,10 @@ export default function RootLayout({
 }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <SiteGoogleAnalytics measurementId={googleServices.measurementId} />
+      </body>
     </html>
   )
 }
