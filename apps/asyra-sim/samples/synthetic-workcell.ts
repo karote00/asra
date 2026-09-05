@@ -15,7 +15,7 @@ export interface SyntheticExample {
   excludedPairs: readonly { a: string; b: string; reason: string }[]
   source: {
     kind: 'synthetic'
-    version: '1'
+    version: '2'
     lengthUnit: 'm'
     angleUnit: 'rad'
     timeUnit: 's'
@@ -74,14 +74,14 @@ export function createSyntheticExample(
           pose: { ...IDENTITY_POSE, position: [0, length / 2, 0] },
           geometry: {
             kind: 'capsule',
-            radius: index < 3 ? 0.085 : 0.055,
-            length
+            radius: Math.min(index < 3 ? 0.085 : 0.055, length / 2),
+            length: Math.max(0, length - 2 * (index < 3 ? 0.085 : 0.055))
           }
         }
       ],
       index === 0 ? base.id : id(`joint-${index}`)
     ),
-    name: `J${index + 1} · ${['Base yaw', 'Shoulder', 'Elbow', 'Wrist roll', 'Wrist bend', 'Tool roll'][index]}`,
+    name: `J${index + 1} - ${['Base yaw', 'Shoulder', 'Elbow', 'Wrist roll', 'Wrist bend', 'Tool roll'][index]}`,
     joint: {
       kind: 'revolute',
       axis: axes[index],
@@ -94,16 +94,27 @@ export function createSyntheticExample(
   const tool = fixed(
     'gripper',
     'tool',
-    [0, 0.16, 0],
-    [box([0.18, 0.16, 0.12])],
+    [0, 0.1, 0],
+    [
+      {
+        ...box([0.18, 0.06, 0.1]),
+        id: 'palm',
+        pose: { ...IDENTITY_POSE, position: [0, 0.03, 0] }
+      },
+      ...[-1, 1].map((side) => ({
+        ...box([0.027, 0.12, 0.07]),
+        id: side < 0 ? 'left-finger' : 'right-finger',
+        pose: { ...IDENTITY_POSE, position: [side * 0.072, 0.12, 0] as Vec3 }
+      }))
+    ],
     links[5].id
   )
   tool.color = 0x3f7883
   const workpiece = fixed(
     'workpiece',
     'workpiece',
-    [0, 0.12, 0],
-    [box([0.18, 0.08, 0.14])],
+    [0, 0.13, 0],
+    [box([0.11, 0.075, 0.08])],
     tool.id
   )
   workpiece.color = 0x3bc3b1
@@ -168,7 +179,7 @@ export function createSyntheticExample(
     })),
     source: {
       kind: 'synthetic',
-      version: '1',
+      version: '2',
       lengthUnit: 'm',
       angleUnit: 'rad',
       timeUnit: 's'
