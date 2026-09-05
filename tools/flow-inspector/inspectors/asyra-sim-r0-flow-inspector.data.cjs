@@ -1140,7 +1140,8 @@
           'artifact:result',
           'artifact:run-progress',
           'artifact:retained-data',
-          'artifact:visual-asset'
+          'artifact:visual-asset',
+          'versioned static distribution files'
         ],
         outputs: ['artifact:user-workbench'],
         conditions: [
@@ -1155,6 +1156,7 @@
           'Cancel or replace previews without canonical writes; invalidate transient placement when its source, target, or current workcell changes, and guard retired runtime callbacks.',
           'Keep visual/proxy display switches transient; binding edits and removal remain ordinary undoable model edits.',
           'A visual source above 8 MiB requires explicit source-scoped memory-warning acknowledgement before placement preview or acceptance; acknowledgement never overrides hard resource limits.',
+          'Serve versioned static distribution files through a read-only, loopback-only Node launcher with a stable explicit port, exact Host/origin checks, safe paths, no symlinks or uploads, and owned shutdown; never silently choose another origin.',
           'Use local assets; release readiness remains governed by FIRST_RELEASE gates.'
         ],
         bypasses: [

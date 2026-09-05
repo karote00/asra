@@ -40,6 +40,19 @@ Portable backups remain required. `file://` is not the supported launch route.
 M5 must prove offline startup and the clean-consumer artifact, including its
 exact source commit, dependency notices, and checksums.
 
+The launcher serves only its sibling `site` directory at
+`http://127.0.0.1:3020`. It accepts an explicit `--port=1024..65535` override,
+never a remote bind address, and fails if that port is occupied. It never opens
+a browser or installs anything. GET/HEAD are the only supported methods;
+uploads, request bodies, foreign Host/Origin values, cross-site requests,
+dotfiles, path traversal, directory listings and symbolic links are rejected.
+Static responses disable caching and enforce same-origin script, Worker and
+connection policies. The site is a trusted immutable distribution, not an
+untrusted plugin server or a defense against another process modifying local
+files. Shutdown closes owned connections. Launcher tests are permanent under
+`apps/asyra-sim/scripts/__tests__`; the packaged browser journey remains a
+separate delivery gate.
+
 ## Initial Admission and Execution Limits
 
 The numerical envelope and GLB structural limits remain owned by their

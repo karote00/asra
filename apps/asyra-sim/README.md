@@ -225,6 +225,21 @@ separate JSON bundle with the run/snapshot identity, current notes and files.
 The run's existing JSON/CSV/HTML reports remain unchanged. See the
 [field observation contract](../../docs/ai/apps/asyra-sim/specs/field-observations-v0.md).
 
+## Local distribution launcher
+
+The candidate distribution's `node server.mjs` command serves its own `site`
+directory at `http://127.0.0.1:3020`. Open that exact address in an installed
+Chrome. Stop with Ctrl+C. An occupied port is an error, not an automatic port
+change. `node server.mjs --port=3021` is an explicit alternative, but a different
+origin has different browser saves. Always export portable backups before
+changing origins or clearing browser data. Do not use `file://` or expose this
+launcher as a network service. It offers no uploads or remote-control API.
+
+The launcher is tested independently with
+`node --test apps/asyra-sim/scripts/__tests__/local-server.test.mjs` from the
+repository root. A launcher alone is not a verified distribution; packaging,
+clean-consumer and packaged-browser evidence are still required.
+
 ## Architecture
 
 The App-owned CUSTOM engine is composed before Core startup and renders through
