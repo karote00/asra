@@ -217,6 +217,12 @@ part rotation fields also update without a separate Set button. Unit choices,
 focus and expanded sections survive ordinary edits and Undo/Redo. These Object
 controls do not change explicit experiment saving or import acceptance.
 
+Use **⌘Z** / **⌘⇧Z** on macOS, or **Ctrl+Z** / **Ctrl+Shift+Z**, for model
+Undo/Redo. These shortcuts use the same history as the toolbar buttons. While
+an input, textarea, select or editable text area has focus, native field editing
+keeps its own shortcuts. Press Enter or Escape to leave an Object input before
+undoing a model action. Holding the shortcut does not replay multiple actions.
+
 **Runs & compare** lists temporary and retained results across the current project.
 Inspect a run, export JSON/CSV/self-contained HTML, replay its frozen geometry, or
 select its source candidate. Missing method modules do not prevent reading history;

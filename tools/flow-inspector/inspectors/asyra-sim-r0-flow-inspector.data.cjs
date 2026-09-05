@@ -1168,6 +1168,7 @@
         outputs: ['artifact:user-workbench'],
         conditions: [
           'Dispatch intent through Features; UI is never canonical model or solver authority.',
+          'Workbench history shortcuts share the toolbar guarded History Feature APIs. The ready-lifetime document keydown bridge runs after local controls and before window browser-default suppression; preserve native editable controls, ignore consumed/composing/ambiguous input, consume repeats without duplicate replay, and retire bindings on replacement or unmount. No keyboard-owned transaction, queue or history.',
           'Object field completion dispatches one edit directly through the existing editing Feature, without a form-wide Apply or a second editable body. Keep only unfinished input text and presentation settings transient; reject invalid input without history, project canonical replay, and preserve the selected editor across ordinary revisions. Reset it on body, candidate or lifetime replacement.',
           'Keep one storage session outside document lifetimes; acknowledge saves separately and confirm replacement through the App lifecycle controller.',
           'Reset transient view/selection/drafts for each successor; guard late old-runtime effects and input callbacks.',

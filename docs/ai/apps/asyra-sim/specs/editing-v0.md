@@ -97,6 +97,29 @@ Formal cases cover automatic field completion, sequential edits, focus and unit
 retention, rotation replay, no-op/Escape, invalid dimensions/scales/joint limits,
 and one Undo per completed field through the ordinary browser workbench.
 
+## History Shortcuts
+
+Outside native input, textarea, select and contenteditable controls, `Meta+Z`
+or `Ctrl+Z` undoes one committed action; adding Shift redoes it. The Object
+editor's Enter/Escape completion releases field focus so the next shortcut can
+operate on model history. While a field owns focus, native editing keeps its
+own Undo/Redo behavior and must not also replay the model.
+
+The workbench keyboard bridge and toolbar buttons call the same guarded History
+Feature APIs. The bridge runs on document keydown after local controls and before
+the window-level input adapter's browser-default suppression. It does not add
+an input registry, transaction wrapper, parallel queue, history stack or canonical
+mutation. It ignores consumed events, composition, Alt combinations and ambiguous
+Ctrl+Meta combinations. A held key triggers only once; repeat events are consumed
+without additional replay. Unrelated keys remain outside this bridge.
+
+Registration exists only while the workbench is ready. Cleanup retires retained
+callbacks, and the normal current-runtime guard rejects late old-document work.
+Project replacement must restore one successor binding, never accumulate listeners.
+Errors and completion status follow the same toolbar action path. Formal gates
+cover both modifier families, native field Undo/Redo, event order, repeat and
+composition guards, disabled/unmounted bindings and project replacement.
+
 ## M0 Proof Gate
 
 Before expanding to M1 interaction, prove normal Core creation, one Undo per

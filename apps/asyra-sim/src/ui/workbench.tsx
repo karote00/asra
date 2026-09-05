@@ -7,6 +7,7 @@ import type { SpatialCamera } from '../render-app/spatial-layer'
 import { DEFAULT_CAMERA } from '../render-app/workcell-frame'
 import { BodyEditor } from './body-editor'
 import { ErrorNotice } from './fields'
+import { useHistoryShortcuts, type HistoryDirection } from './history-shortcuts'
 import { useViewport, ViewportControls } from './viewport'
 import { useProjectRuntime } from './use-project-runtime'
 import { ProjectControls } from './project-controls'
@@ -170,26 +171,40 @@ export function Workbench() {
     wireframe,
     visualPreview?.prepared
   )
-  const perform = async (
-    action: (assertCurrent: () => void) => Promise<unknown>,
-    message: string
-  ) => {
-    const assertCurrent = () => {
-      if (!runtime || !isCurrent(runtime))
-        throw new Error('The document is no longer active')
-    }
-    try {
-      assertCurrent()
-      await action(assertCurrent)
-      assertCurrent()
-      setError('')
-      setStatus(message)
-    } catch (reason) {
-      if (!runtime || !isCurrent(runtime)) return
-      setError(reason instanceof Error ? reason.message : String(reason))
-      setStatus('Action rejected; the model was not changed')
-    }
-  }
+  const perform = useCallback(
+    async (
+      action: (assertCurrent: () => void) => Promise<unknown>,
+      message: string
+    ) => {
+      const assertCurrent = () => {
+        if (!runtime || !isCurrent(runtime))
+          throw new Error('The document is no longer active')
+      }
+      try {
+        assertCurrent()
+        await action(assertCurrent)
+        assertCurrent()
+        setError('')
+        setStatus(message)
+      } catch (reason) {
+        if (!runtime || !isCurrent(runtime)) return
+        setError(reason instanceof Error ? reason.message : String(reason))
+        setStatus('Action rejected; the model was not changed')
+      }
+    },
+    [runtime, isCurrent]
+  )
+  const performHistory = useCallback(
+    (direction: HistoryDirection) => {
+      if (!runtime) return
+      void perform(
+        () => runtime.features.history[direction](),
+        direction === 'undo' ? 'Undo applied' : 'Redo applied'
+      )
+    },
+    [runtime, perform]
+  )
+  useHistoryShortcuts(ready, performHistory)
   const addBody = () => {
     if (!runtime || !candidateId) return
     const body: Body = {
@@ -258,25 +273,17 @@ export function Workbench() {
           </button>
           <button
             disabled={!ready}
-            onClick={() =>
-              runtime &&
-              void perform(
-                () => runtime.features.history.undo(),
-                'Undo applied'
-              )
-            }
+            onClick={() => performHistory('undo')}
+            aria-keyshortcuts="Meta+Z Control+Z"
+            title="Undo (⌘Z / Ctrl+Z)"
           >
             Undo
           </button>
           <button
             disabled={!ready}
-            onClick={() =>
-              runtime &&
-              void perform(
-                () => runtime.features.history.redo(),
-                'Redo applied'
-              )
-            }
+            onClick={() => performHistory('redo')}
+            aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z"
+            title="Redo (⌘⇧Z / Ctrl+Shift+Z)"
           >
             Redo
           </button>
