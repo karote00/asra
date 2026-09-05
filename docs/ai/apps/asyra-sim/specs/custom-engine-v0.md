@@ -81,6 +81,12 @@ material. Geometry replacement compares validated shape values, not caller
 object identity; changed shapes release their previous resources exactly once.
 This is per-handle resource ownership, not a workcell or solver cache.
 
+The default driver uses tone-mapped studio lighting and one bounded 1024-pixel
+shadow map for the central metre-scale workspace. Only opaque selectable meshes
+cast shadows; wireframe proxies do not. Shadowed surfaces, light frusta and
+lighting are display choices, never collision or enclosure evidence. Light
+shadow resources are released on teardown along with ordinary mesh resources.
+
 ## Product Cases and Done
 
 Permanent tests cover provider/startup isolation, shared engine contract

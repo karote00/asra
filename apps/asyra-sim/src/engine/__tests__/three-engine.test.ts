@@ -98,6 +98,27 @@ const setup = () => {
 }
 
 describe('CUSTOM Three engine', () => {
+  it('bounds studio shadows, limits casters to solid selectable geometry and releases the light', () => {
+    const { engine, driver, add } = setup()
+    add(camera)
+    add(box)
+    engine.execute({ type: 'flush' })
+    const scene = vi.mocked(driver.render).mock.calls[0][0]
+    const key = scene.children.find(
+      (value) => value instanceof THREE.DirectionalLight
+    )
+    if (!(key instanceof THREE.DirectionalLight))
+      throw new Error('Missing key light')
+    expect(key.castShadow).toBe(true)
+    expect(key.shadow.mapSize.toArray()).toEqual([1024, 1024])
+    const mesh = scene.getObjectsByProperty('isMesh', true)[0]
+    expect(mesh.castShadow).toBe(true)
+    expect(mesh.receiveShadow).toBe(true)
+    const dispose = vi.spyOn(key, 'dispose')
+    engine.destroy()
+    engine.destroy()
+    expect(dispose).toHaveBeenCalledOnce()
+  })
   it('retains live GPU resources for pose and appearance updates and replaces changed geometry', () => {
     const { engine, driver, add } = setup()
     add(camera)

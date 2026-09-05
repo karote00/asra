@@ -46,6 +46,14 @@ interface EnginePlatform {
   cancelFrame?: (id: number) => void
 }
 
+const createDefaultDriver = (): GraphicsDriver => {
+  const driver = new THREE.WebGLRenderer({ antialias: true, alpha: false })
+  driver.toneMapping = THREE.ACESFilmicToneMapping
+  driver.shadowMap.enabled = true
+  driver.shadowMap.type = THREE.PCFSoftShadowMap
+  return driver
+}
+
 interface ObjectRecord {
   handle: RenderEngineObjectHandle
   type: 'container' | 'graphics' | 'mesh'
@@ -158,9 +166,7 @@ export class ThreeEngine implements RenderEngine {
       throw new Error('Engine is not available for initialization')
     this.validateSize(options.width, options.height)
     try {
-      this.driver =
-        this.platform.createDriver?.() ??
-        new THREE.WebGLRenderer({ antialias: true, alpha: false })
+      this.driver = this.platform.createDriver?.() ?? createDefaultDriver()
       this.driver.autoClear = false
       this.driver.setPixelRatio(
         Math.min(options.resolution ?? globalThis.devicePixelRatio ?? 1, 2)
@@ -168,10 +174,24 @@ export class ThreeEngine implements RenderEngine {
       this.driver.setClearColor(options.backgroundColor ?? 0x101b29, 1)
       this.resize(options.width, options.height)
       this.root = this.create('container', {})
-      this.scene.add(new THREE.HemisphereLight(0xd7eaff, 0x4b5366, 2.5))
-      const key = new THREE.DirectionalLight(0xffffff, 3)
+      this.scene.add(new THREE.HemisphereLight(0xd7eaff, 0x4b5366, 1.3))
+      const key = new THREE.DirectionalLight(0xfff3e5, 2.6)
       key.position.set(3, 6, 4)
+      key.castShadow = true
+      key.shadow.mapSize.set(1024, 1024)
+      Object.assign(key.shadow.camera, {
+        left: -4,
+        right: 4,
+        top: 4,
+        bottom: -4,
+        near: 0.1,
+        far: 20
+      })
+      key.shadow.normalBias = 0.005
       this.scene.add(key)
+      const fill = new THREE.DirectionalLight(0xb6d5f5, 1.2)
+      fill.position.set(-3, 3, -4)
+      this.scene.add(fill)
       this.attachPointerListeners(this.driver.domElement)
       return {
         surface: this.driver.domElement,
@@ -393,6 +413,9 @@ export class ThreeEngine implements RenderEngine {
     for (const record of this.objects.values()) disposeObject(record.visual)
     this.objects.clear()
     this.resources.clear()
+    this.scene.traverse((object) => {
+      if (object instanceof THREE.Light) object.dispose()
+    })
     this.scene.clear()
     this.screen.clear()
     this.driver?.dispose()
@@ -497,6 +520,9 @@ export class ThreeEngine implements RenderEngine {
     if (content) this.replaceContent(record, content)
     if (spatial?.kind === 'mesh') {
       if (record.content instanceof THREE.Mesh) {
+        record.content.castShadow =
+          spatial.selectable && spatial.opacity === 1 && !spatial.wireframe
+        record.content.receiveShadow = !spatial.wireframe
         const material = record.content.material as THREE.MeshStandardMaterial
         const transparent = spatial.opacity < 1
         if (
