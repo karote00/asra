@@ -105,6 +105,9 @@ it('composes the normal workcell runtime and cleans up surface subscriptions and
   )
   frame?.(1)
   const depth = runtime.getHistoryDepth()
+  runtime.setCamera({ ...DEFAULT_CAMERA, position: [4, 3, 5] })
+  frame?.(2)
+  expect(runtime.getHistoryDepth()).toBe(depth)
   onResize?.(
     [{ contentRect: { width: 800, height: 600 } }] as ResizeObserverEntry[],
     {} as ResizeObserver
@@ -162,6 +165,7 @@ it('composes the normal workcell runtime and cleans up surface subscriptions and
   unsubscribe()
   await runtime.dispose()
   await runtime.dispose()
+  expect(() => runtime.setCamera(DEFAULT_CAMERA)).toThrow('closed')
   expect(disconnect).toHaveBeenCalledOnce()
   expect(driver.dispose).toHaveBeenCalledOnce()
   expect(host.childElementCount).toBe(0)

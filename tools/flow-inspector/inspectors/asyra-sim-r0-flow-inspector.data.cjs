@@ -834,6 +834,7 @@
         outputs: ['artifact:spatial-projection'],
         conditions: [
           'Use shared domain poses; replay and camera never overwrite canonical geometry.',
+          'Retain complete admitted local shapes only for one detached workcell/source projection. Pose, selection and display updates reuse those shapes; replacement inputs create a fresh projection. Camera-only submission updates its spatial container without validating or updating mesh descriptors; accepted pending model and camera submissions preserve call order and share the existing demanded frame.',
           'Project visual vertices using explicit binding scale and body-local pose through the shared body world pose; missing source references fail even when display is hidden.',
           'Project only original bound parts or explicitly authored native parts, never legacy surrogates beneath imported surfaces. Domain placement is shared with analysis; wireframe and visibility are display-only.',
           'Register through Core; findings are projections of accepted evidence.'
@@ -850,7 +851,7 @@
           'collision re-derivation',
           'renderer runtime extraction'
         ],
-        cacheDimensions: [],
+        cacheDimensions: ['current detached workcell and visual-source inputs; mesh identity within that projection fixes native geometry or original source mesh and binding scale'],
         implementationBoundary: [
           'apps/asyra-sim/src/render-app/**',
           'apps/asyra-sim/src/render-layers/**'
@@ -876,6 +877,7 @@
         outputs: ['artifact:visual-output'],
         conditions: [
           'Validate versioned spatial descriptors and own all SDK objects.',
+          'Spatial admission isolates and deeply freezes descriptors and shapes. Only exact owner-issued immutable products reuse their admission; new envelopes and untrusted geometry remain validated, and weak receipts retain no dead resources.',
           'Flush only on demand; ray picking returns visual handles, never formal collision evidence.',
           'Keep the engine independent of workcell and canonical runtime modules.'
         ],
@@ -1168,6 +1170,7 @@
         outputs: ['artifact:user-workbench'],
         conditions: [
           'Dispatch intent through Features; UI is never canonical model or solver authority.',
+          'Keep camera state in the viewport subtree. Read-only workbench projection refreshes on canonical revision, selected candidate or runtime identity; local panels and playback never reread unchanged canonical model or retained runs. The retained projection has one current entry, preserves error output, and owns no editable state.',
           'Viewport navigation owns transient camera intent only. Explicit local input preference chooses trackpad pan or mouse wheel zoom; pinch zoom and complete burst deltas update only the latest transient camera, without device-guessing heuristics or a second animation loop. Pan preserves eye-to-target direction and distance; Fit consumes the current displayed spatial projection and canvas dimensions with padding, excludes hidden/decorative meshes, and never feeds display bounds into analysis. Capture cancellation and runtime retirement remove stale input; ordinary selection and canonical History stay unchanged. Viewport Navigation in editing-v0.md owns the gesture and shortcut contract.',
           'Workbench history shortcuts share the toolbar guarded History Feature APIs. The ready-lifetime document keydown bridge runs after local controls and before window browser-default suppression; preserve native editable controls, ignore consumed/composing/ambiguous input, consume repeats without duplicate replay, and retire bindings on replacement or unmount. No keyboard-owned transaction, queue or history.',
           'Object field completion dispatches one edit directly through the existing editing Feature, without a form-wide Apply or a second editable body. Keep only unfinished input text and presentation settings transient; reject invalid input without history, project canonical replay, and preserve the selected editor across ordinary revisions. Reset it on body, candidate or lifetime replacement.',
@@ -1200,7 +1203,7 @@
           'equipment commands',
           'automatic publishing'
         ],
-        cacheDimensions: [],
+        cacheDimensions: ['runtime identity, canonical revision and selected candidate for the current read-only workbench projection; retained run identity and pending run identity for UI-only run indexes', 'runtime, displayed workcell and pending import identity for the current prepared projection; projection identity, joints, selection, grid and wireframe for its current frame, excluding camera'],
         implementationBoundary: [
           'apps/asyra-sim/src/ui/**',
           'apps/asyra-sim/src/main*',

@@ -108,6 +108,18 @@ pointer cannot replace it. Cancellation, capture loss, hidden documents, window
 blur and runtime retirement release the gesture without selection. Wheel input
 does not interrupt an active drag.
 
+Camera state belongs to the viewport subtree. Navigation must not reread the
+canonical workbench, retained runs or experiment definitions. Playback and
+panel-only changes reuse the current read-only UI projection; canonical
+notifications, candidate changes and runtime replacement refresh it. Errors
+remain visible until the matching owner changes, rather than being retried by
+every camera event. No projection is another editable model or Undo authority.
+
+Formal work-count tests cover camera bursts, playback, panel changes and
+canonical invalidation. A repeatable browser CPU profile covers the ordinary
+full-geometry workcell; its timings are local evidence, not a portable FPS
+guarantee.
+
 The viewport defaults to **Trackpad** input: two-finger scrolling pans in the
 natural-scroll direction, while Chromium's Ctrl-wheel pinch gesture zooms.
 The **Trackpad / Mouse** button explicitly selects the input device; no wheel

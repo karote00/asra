@@ -33,8 +33,14 @@ export type SpatialDescriptor =
       selectable: boolean
     }
 
+// Weak admission receipts, not caller-identity caches. Only detached, deeply
+// frozen products created below enter these sets; caller freezing proves nothing.
+const admittedShapes = new WeakSet<object>()
+const admittedDescriptors = new WeakSet<object>()
+
 /** Compare accepted geometry values, not caller-owned object identity. */
 export function sameSpatialShape(a: SpatialShape, b: SpatialShape): boolean {
+  if (a === b && admittedShapes.has(a)) return true
   const equal = (x: readonly number[], y: readonly number[]) =>
     x.length === y.length && x.every((value, index) => value === y[index])
   switch (a.kind) {
@@ -95,7 +101,42 @@ export function isSpatialShape(value: unknown): value is SpatialShape {
   )
 }
 
+export function readSpatialShape(value: unknown): SpatialShape {
+  if (record(value) && admittedShapes.has(value)) return value as SpatialShape
+  const snapshot: unknown = structuredClone(value)
+  if (!isSpatialShape(snapshot)) throw new Error('Invalid spatial shape')
+  let shape: SpatialShape
+  if (snapshot.kind === 'triangles')
+    shape = {
+      kind: 'triangles',
+      positions: Object.freeze(snapshot.positions),
+      indices: Object.freeze(snapshot.indices)
+    }
+  else if (snapshot.kind === 'box')
+    shape = { kind: 'box', size: Object.freeze(snapshot.size) }
+  else if (snapshot.kind === 'sphere')
+    shape = { kind: 'sphere', radius: snapshot.radius }
+  else
+    shape = {
+      kind: 'capsule',
+      radius: snapshot.radius,
+      length: snapshot.length
+    }
+  Object.freeze(shape)
+  admittedShapes.add(shape)
+  return shape
+}
+
 export function readSpatialDescriptor(value: unknown): SpatialDescriptor {
+  if (record(value) && admittedDescriptors.has(value))
+    return value as SpatialDescriptor
+  if (record(value)) {
+    const snapshot = { ...value }
+    for (const key of ['position', 'target', 'rotation']) {
+      if (Array.isArray(snapshot[key])) snapshot[key] = [...snapshot[key]]
+    }
+    value = snapshot
+  }
   if (!record(value) || !finiteTuple(value.position, 3)) {
     throw new Error('Invalid spatial descriptor or position')
   }
@@ -120,7 +161,6 @@ export function readSpatialDescriptor(value: unknown): SpatialDescriptor {
     if (
       !finiteTuple(value.rotation, 4) ||
       Math.abs(Math.hypot(...value.rotation) - 1) > 1e-8 ||
-      !isSpatialShape(value.shape) ||
       !Number.isInteger(value.color) ||
       (value.color as number) < 0 ||
       (value.color as number) > 0xffffff ||
@@ -136,5 +176,28 @@ export function readSpatialDescriptor(value: unknown): SpatialDescriptor {
   } else {
     throw new Error('Unsupported spatial descriptor kind')
   }
-  return structuredClone(value) as SpatialDescriptor
+  const position = Object.freeze([...(value.position as number[])])
+  const descriptor =
+    value.kind === 'camera'
+      ? {
+          kind: 'camera',
+          position,
+          target: Object.freeze([...(value.target as number[])]),
+          fov: value.fov,
+          near: value.near,
+          far: value.far
+        }
+      : {
+          kind: 'mesh',
+          position,
+          rotation: Object.freeze([...(value.rotation as number[])]),
+          shape: readSpatialShape(value.shape),
+          color: value.color,
+          opacity: value.opacity,
+          wireframe: value.wireframe,
+          selectable: value.selectable
+        }
+  Object.freeze(descriptor)
+  admittedDescriptors.add(descriptor)
+  return descriptor as SpatialDescriptor
 }

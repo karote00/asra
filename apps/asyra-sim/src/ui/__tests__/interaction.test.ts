@@ -91,6 +91,7 @@ it('removing the active canonical model removes its old visible projection', asy
   const setFrame = vi.fn(),
     runtime = {
       setFrame,
+      setCamera: vi.fn(),
       getVisualAssets: () => new Map()
     } as unknown as SimRuntime
   const View = ({ workcell }: { workcell: Workcell | null }) => {

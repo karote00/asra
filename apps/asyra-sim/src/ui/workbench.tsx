@@ -1,17 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { ThemeToggle } from './theme-toggle'
 import type { SimRuntime } from '../init/bootstrap'
 import { IDENTITY_POSE } from '../domain/math'
 import { jointValuesAt, type Body, type Workcell } from '../domain/workcell'
-import type { SpatialCamera } from '../render-app/spatial-layer'
-import {
-  createWorkcellFrame,
-  DEFAULT_CAMERA
-} from '../render-app/workcell-frame'
 import { BodyEditor } from './body-editor'
 import { ErrorNotice } from './fields'
 import { useHistoryShortcuts, type HistoryDirection } from './history-shortcuts'
-import { useViewport, ViewportControls } from './viewport'
+import { Viewport } from './viewport'
+import { useWorkbenchData } from './workbench-data'
 import { useProjectRuntime } from './use-project-runtime'
 import { ProjectControls } from './project-controls'
 import { downloadRecovery } from './download-project'
@@ -22,7 +18,9 @@ import { isPresentedRunStale } from './analysis-result-view'
 import { definitionToDraft } from './experiment-draft'
 import type { VisualPreview } from './glb-preview'
 
-function Hierarchy({
+const StableExperimentPanel = memo(ExperimentPanel)
+
+const Hierarchy = memo(function Hierarchy({
   workcell,
   selected,
   onSelect
@@ -58,7 +56,7 @@ function Hierarchy({
       {rows(null, 0)}
     </div>
   )
-}
+})
 
 export function Workbench() {
   const [host, setHost] = useState<HTMLDivElement | null>(null)
@@ -78,9 +76,6 @@ export function Workbench() {
   }, [])
   const [pendingRuns, setPendingRuns] = useState<RunRecord[]>([])
   const [showRuns, setShowRuns] = useState(false)
-  const [camera, setCamera] = useState<SpatialCamera>(() =>
-    structuredClone(DEFAULT_CAMERA)
-  )
   const [grid, setGrid] = useState(true),
     [error, setError] = useState(''),
     [status, setStatus] = useState('Starting local runtime…')
@@ -94,7 +89,6 @@ export function Workbench() {
     setWireframe(false)
     if (value) setPendingRuns([])
     setShowRuns(false)
-    setCamera(structuredClone(DEFAULT_CAMERA))
     setGrid(true)
     setError('')
     setStatus(value ? 'Local runtime ready' : 'Replacing document…')
@@ -109,26 +103,38 @@ export function Workbench() {
     },
     [resources]
   )
-  let workcell: Workcell | null = null
-  let modelError = ''
-  const candidates = runtime?.getCandidates() ?? []
+  const onRun = useCallback(
+    (run: RunRecord) => {
+      if (runtime && isCurrent(runtime))
+        setPendingRuns((current) => [...current, run])
+    },
+    [runtime, isCurrent]
+  )
+  const openRuns = useCallback(() => setShowRuns(true), [])
+  const {
+    workcell,
+    modelError,
+    candidates,
+    loadIssues,
+    retainedRuns,
+    runError,
+    historyDepth
+  } = useWorkbenchData(runtime, candidateId, revision)
   const hasSelectedCandidate = candidates.some(
     (candidate) => candidate.id === candidateId
   )
-  const loadIssues = runtime?.getLoadIssues() ?? []
-  let retainedRuns: readonly RunRecord[] = [],
-    runError = ''
-  try {
-    retainedRuns = runtime?.getRuns() ?? []
-  } catch (reason) {
-    runError = `Cannot read retained runs: ${reason instanceof Error ? reason.message : String(reason)}`
-  }
-  const retainedIds = new Set(retainedRuns.map((run) => run.result.runId))
-  const runs = [
-    ...new Map(
-      [...pendingRuns, ...retainedRuns].map((run) => [run.result.runId, run])
-    ).values()
-  ]
+  const retainedIds = useMemo(
+    () => new Set(retainedRuns.map((run) => run.result.runId)),
+    [retainedRuns]
+  )
+  const runs = useMemo(
+    () => [
+      ...new Map(
+        [...pendingRuns, ...retainedRuns].map((run) => [run.result.runId, run])
+      ).values()
+    ],
+    [pendingRuns, retainedRuns]
+  )
   const unsavedRunCount = pendingRuns.filter(
     (run) => !retainedIds.has(run.result.runId)
   ).length
@@ -141,16 +147,6 @@ export function Workbench() {
     window.addEventListener('beforeunload', guard)
     return () => window.removeEventListener('beforeunload', guard)
   }, [unsavedRunCount])
-  try {
-    if (
-      runtime &&
-      candidateId &&
-      candidates.some((candidate) => candidate.id === candidateId)
-    )
-      workcell = runtime.getWorkcell(candidateId)
-  } catch (reason) {
-    modelError = `Cannot project this candidate: ${reason instanceof Error ? reason.message : String(reason)}`
-  }
   const selected = workcell?.bodies.find((body) => body.id === selectedId)
   const select = useCallback(
     (id: string | null) => {
@@ -162,17 +158,6 @@ export function Workbench() {
       }
     },
     [runtime, isCurrent]
-  )
-  useViewport(
-    runtime,
-    visualPreview?.workcell ?? playback?.workcell ?? workcell,
-    playback?.bodyIds[0] ?? selectedId,
-    camera,
-    grid,
-    isCurrent,
-    playback?.joints,
-    wireframe,
-    visualPreview?.prepared
   )
   const perform = useCallback(
     async (
@@ -518,29 +503,18 @@ export function Workbench() {
             ref={setHost}
             data-testid="workcell-canvas"
           />
-          <ViewportControls
+          <Viewport
+            key={lifecycle.generation}
             host={host}
             runtime={runtime}
-            camera={camera}
-            onCamera={setCamera}
+            workcell={visualPreview?.workcell ?? playback?.workcell ?? workcell}
+            selectedId={playback?.bodyIds[0] ?? selectedId}
+            grid={grid}
+            wireframe={wireframe}
+            joints={playback?.joints}
+            pending={visualPreview?.prepared}
             onSelect={select}
             isCurrent={isCurrent}
-            getFitMeshes={() => {
-              const displayed =
-                visualPreview?.workcell ?? playback?.workcell ?? workcell
-              if (!runtime || !displayed || !isCurrent(runtime)) return []
-              return createWorkcellFrame(
-                displayed,
-                {
-                  camera,
-                  selectedId,
-                  grid: false,
-                  joints: playback?.joints,
-                  wireframe
-                },
-                runtime.getVisualAssets(displayed, visualPreview?.prepared)
-              ).meshes
-            }}
           />
           <div className="viewport-summary">
             {visualPreview && <strong>Visual preview · not accepted</strong>}
@@ -565,7 +539,7 @@ export function Workbench() {
               className="inspector-content"
               hidden={inspector !== 'experiment'}
             >
-              <ExperimentPanel
+              <StableExperimentPanel
                 key={`${lifecycle.generation}:${candidateId}`}
                 runtime={runtime}
                 candidateId={candidateId}
@@ -584,11 +558,8 @@ export function Workbench() {
                 }
                 runs={runs}
                 retainedIds={retainedIds}
-                onRun={(run) => {
-                  if (isCurrent(runtime))
-                    setPendingRuns((current) => [...current, run])
-                }}
-                onOpenRuns={() => setShowRuns(true)}
+                onRun={onRun}
+                onOpenRuns={openRuns}
               />
             </div>
           )}
@@ -703,9 +674,7 @@ export function Workbench() {
           <i className={runtime ? 'ready-dot' : 'pending-dot'} />
           <span role="status">{runtimeStatus}</span>
         </span>
-        <span data-testid="history-depth">
-          Undo steps: {runtime?.getHistoryDepth() ?? 0}
-        </span>
+        <span data-testid="history-depth">Undo steps: {historyDepth}</span>
         <span>
           Machine-scale geometry <span className="footer-dot">·</span> CUSTOM
           renderer <span className="footer-dot">·</span> Not a released product

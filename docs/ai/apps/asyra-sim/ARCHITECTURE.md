@@ -154,6 +154,25 @@ contract, and an unready later step still blocks that step's implementation.
 
 ## 5. Data Categories
 
+### Interactive projection boundaries
+
+The workbench follows the same separation used by Design's viewport API and
+fine-grained UI providers, without importing Design's 2D state or socket
+architecture. Camera state is viewport-local; canonical workbench reads are
+revision-bound, and unrelated hierarchy/experiment panels do not rerender for
+each camera or playback sample. Immutable source geometry is prepared for the
+current displayed workcell; shared kinematics updates poses independently.
+Spatial admission isolates new data and issues immutable products that can
+cross later internal handoffs without repeated triangle scans or copies.
+Camera-only updates use the registered spatial layer and existing Framework
+frame scheduler, never a second engine loop or direct SDK access.
+
+The exact navigation and admission contracts remain in
+[editing-v0.md](specs/editing-v0.md) and
+[custom-engine-v0.md](specs/custom-engine-v0.md). Formal work-count, equivalence,
+replacement and browser-profile tests guard these boundaries. This does not
+remove full-geometry rasterization cost or establish reference-hardware FPS.
+
 | Data                                            | Lifecycle                                                                                                     |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | Workcell/Trajectory/Experiment/Rule definition  | Editable, undoable, versioned persistence                                                                     |

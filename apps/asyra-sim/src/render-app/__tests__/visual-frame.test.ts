@@ -2,7 +2,11 @@ import { expect, it } from 'vitest'
 import { IDENTITY_POSE, axisAngle, transformPoint } from '../../domain/math'
 import type { Body, Workcell } from '../../domain/workcell'
 import type { VisualAsset } from '../../engine/glb/decode'
-import { createWorkcellFrame, DEFAULT_CAMERA } from '../workcell-frame'
+import {
+  createWorkcellFrame,
+  DEFAULT_CAMERA,
+  prepareWorkcellProjection
+} from '../workcell-frame'
 import { resolvePartWorkcell } from '../../domain/part-geometry'
 
 const assetId = 'a'.repeat(64)
@@ -68,6 +72,29 @@ const model = (): Workcell => ({
 })
 const view = { camera: DEFAULT_CAMERA, grid: false, selectedId: null }
 const resources = new Map([[assetId, asset]])
+
+it('retains complete placed triangles across pose/appearance frames and replaces them for new source inputs', () => {
+  const workcell = model(),
+    project = prepareWorkcellProjection(workcell, resources)
+  const initial = project(view).meshes[0].descriptor.shape
+  for (const angle of [0, 0.3, 1.2]) {
+    const options = {
+      ...view,
+      joints: { base: angle },
+      selectedId: 'tool',
+      wireframe: true
+    }
+    const frame = project(options)
+    expect(frame).toEqual(createWorkcellFrame(workcell, options, resources))
+    expect(frame.meshes[0].descriptor.shape).toBe(initial)
+  }
+  const binding = workcell.bodies[1].visuals?.[0]
+  if (!binding) throw new Error('Missing original binding')
+  binding.scale = [4, 3, 2]
+  const replacement = prepareWorkcellProjection(workcell, resources)(view)
+  expect(replacement.meshes[0].descriptor.shape).not.toEqual(initial)
+  expect(project(view).meshes[0].descriptor.shape).toBe(initial)
+})
 
 it.each([0, Math.PI / 2, -Math.PI / 4])(
   'projects the exact resolved original part at %s without surrogate geometry',

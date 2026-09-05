@@ -3,6 +3,7 @@ import { forwardKinematics, type Body, type Workcell } from '../domain/workcell'
 import type { SpatialCamera, SpatialFrame, SpatialMesh } from './spatial-layer'
 import type { VisualAsset } from '../engine/glb/decode'
 import { placedPartPositions } from '../domain/part-geometry'
+import { readSpatialShape, type SpatialShape } from '../engine/spatial-contract'
 
 export interface WorkcellView {
   camera: SpatialCamera
@@ -26,6 +27,37 @@ export function createWorkcellFrame(
   workcell: Workcell,
   view: WorkcellView,
   visualAssets: ReadonlyMap<string, VisualAsset> = new Map()
+): SpatialFrame {
+  return projectWorkcellFrame(workcell, view, visualAssets, (_id, create) =>
+    readSpatialShape(create())
+  )
+}
+
+/** One detached definition; all retained shapes are complete, admitted geometry. */
+export function prepareWorkcellProjection(
+  workcell: Workcell,
+  visualAssets: ReadonlyMap<string, VisualAsset>
+) {
+  const model = structuredClone(workcell),
+    sources = structuredClone(visualAssets)
+  const shapes = new Map<string, SpatialShape>()
+  const shapeFor = (id: string, create: () => SpatialShape) => {
+    let shape = shapes.get(id)
+    if (!shape) {
+      shape = readSpatialShape(create())
+      shapes.set(id, shape)
+    }
+    return shape
+  }
+  return (view: WorkcellView): SpatialFrame =>
+    projectWorkcellFrame(model, view, sources, shapeFor)
+}
+
+function projectWorkcellFrame(
+  workcell: Workcell,
+  view: WorkcellView,
+  visualAssets: ReadonlyMap<string, VisualAsset>,
+  shapeFor: (id: string, create: () => SpatialShape) => SpatialShape
 ): SpatialFrame {
   const poses = forwardKinematics(workcell, view.joints),
     meshes: SpatialFrame['meshes'][number][] = []
@@ -57,7 +89,7 @@ export function createWorkcellFrame(
           kind: 'mesh',
           position,
           rotation: IDENTITY_POSE.rotation,
-          shape: { kind: 'box', size },
+          shape: shapeFor(id, () => ({ kind: 'box', size })),
           color,
           opacity: 1,
           wireframe: false,
@@ -92,14 +124,15 @@ export function createWorkcellFrame(
         kind: 'mesh',
         position: pose.position,
         rotation: pose.rotation,
-        shape:
+        shape: shapeFor(`${body.id}/${collider.id}`, () =>
           collider.geometry.kind === 'mesh'
             ? {
                 kind: 'triangles',
                 positions: collider.geometry.positions,
                 indices: collider.geometry.indices
               }
-            : collider.geometry,
+            : collider.geometry
+        ),
         color: body.id === view.selectedId ? 0x62e6c1 : body.color,
         opacity: 1,
         wireframe: view.wireframe ?? false,
@@ -126,11 +159,11 @@ export function createWorkcellFrame(
             kind: 'mesh',
             position: pose.position,
             rotation: pose.rotation,
-            shape: {
+            shape: shapeFor(`${body.id}/visual/${binding.id}/${index}`, () => ({
               kind: 'triangles',
               positions: placedPartPositions(mesh.positions, binding.scale),
               indices: mesh.indices
-            },
+            })),
             color: body.id === view.selectedId ? 0x62e6c1 : mesh.color,
             opacity: mesh.opacity,
             wireframe: view.wireframe ?? false,

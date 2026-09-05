@@ -11,7 +11,7 @@ import { installEditingFeatures } from '../features/edit-workcell'
 import { installAnalysisFeature } from '../features/analysis'
 import { installModelComponents } from './components'
 import { installCustomRenderer } from './custom-renderer'
-import type { SpatialFrame } from '../render-app/spatial-layer'
+import type { SpatialFrame, SpatialCamera } from '../render-app/spatial-layer'
 import { createSyntheticExample } from '../../samples/synthetic-workcell'
 import { createMechanicalVisuals } from '../../samples/mechanical-visuals'
 import { createSyntheticExperimentDraft } from '../../samples/synthetic-experiment'
@@ -490,6 +490,10 @@ export async function bootstrap(
       setFrame: (frame: SpatialFrame) => {
         assertLive()
         layer.submit(frame)
+      },
+      setCamera: (camera: SpatialCamera) => {
+        assertLive()
+        layer.submitCamera(camera)
       },
       pick: (x: number, y: number) => {
         if (disposed) return null

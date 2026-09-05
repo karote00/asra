@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SimRuntime } from '../init/bootstrap'
 import type { SpatialCamera, SpatialFrame } from '../render-app/spatial-layer'
 import { fitCameraToMeshes, panCamera, wheelCamera } from './viewport-camera'
@@ -7,9 +7,58 @@ import { isEditableKeyboardEvent } from './keyboard-input'
 import type { Workcell } from '../domain/workcell'
 import type { PreparedVisualImport } from '../storage/visual-archive'
 import {
-  createWorkcellFrame,
+  prepareWorkcellProjection,
   DEFAULT_CAMERA
 } from '../render-app/workcell-frame'
+
+/** High-frequency camera state is local to the viewport, not the workbench. */
+export function Viewport({
+  host,
+  runtime,
+  workcell,
+  selectedId,
+  grid,
+  wireframe,
+  joints,
+  pending,
+  onSelect,
+  isCurrent
+}: {
+  host: HTMLDivElement | null
+  runtime: SimRuntime | null
+  workcell: Workcell | null
+  selectedId: string | null
+  grid: boolean
+  wireframe: boolean
+  joints?: Readonly<Record<string, number>>
+  pending?: PreparedVisualImport
+  onSelect: (id: string | null) => void
+  isCurrent: (runtime: SimRuntime) => boolean
+}) {
+  const [camera, setCamera] = useState(() => structuredClone(DEFAULT_CAMERA))
+  const meshes = useViewport(
+    runtime,
+    workcell,
+    selectedId,
+    camera,
+    grid,
+    isCurrent,
+    joints,
+    wireframe,
+    pending
+  )
+  return (
+    <ViewportControls
+      host={host}
+      runtime={runtime}
+      camera={camera}
+      onCamera={setCamera}
+      onSelect={onSelect}
+      isCurrent={isCurrent}
+      getFitMeshes={() => meshes}
+    />
+  )
+}
 
 /** Camera navigation is transient UI state and never edits the experiment. */
 export function useViewport(
@@ -23,28 +72,40 @@ export function useViewport(
   wireframe = false,
   pending?: PreparedVisualImport
 ) {
+  const currentCamera = useRef(camera)
+  currentCamera.current = camera
+  const project = useMemo(
+    () =>
+      runtime && workcell && isCurrent(runtime)
+        ? prepareWorkcellProjection(
+            workcell,
+            runtime.getVisualAssets(workcell, pending)
+          )
+        : null,
+    [runtime, workcell, pending, isCurrent]
+  )
+  const frame = useMemo(
+    () =>
+      project?.({
+        camera: DEFAULT_CAMERA,
+        selectedId,
+        grid,
+        joints,
+        wireframe
+      }),
+    [project, selectedId, grid, joints, wireframe]
+  )
   useEffect(() => {
     if (runtime && isCurrent(runtime))
-      runtime.setFrame(
-        workcell
-          ? createWorkcellFrame(
-              workcell,
-              { selectedId, camera, grid, joints, wireframe },
-              runtime.getVisualAssets(workcell, pending)
-            )
-          : { camera, meshes: [] }
-      )
-  }, [
-    runtime,
-    workcell,
-    selectedId,
-    camera,
-    grid,
-    joints,
-    isCurrent,
-    wireframe,
-    pending
-  ])
+      runtime.setFrame({
+        camera: currentCamera.current,
+        meshes: frame?.meshes ?? []
+      })
+  }, [runtime, frame, isCurrent])
+  useEffect(() => {
+    if (runtime && isCurrent(runtime)) runtime.setCamera(camera)
+  }, [runtime, camera, isCurrent])
+  return frame?.meshes ?? []
 }
 
 export function ViewportControls({

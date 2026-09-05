@@ -32,10 +32,26 @@ owned by this App; generic `Record<string, unknown>` typing alone is not evidenc
 that arbitrary engines support it. Unknown versions and malformed descriptors
 fail explicitly before changing an accepted object.
 
+Spatial admission returns detached, deeply immutable descriptors and shapes.
+Only owner-issued admission receipts permit reuse of those exact immutable
+products; caller identity, shallow freezing or user-provided flags never bypass
+validation. New poses and appearance values still pass descriptor admission,
+while an unchanged admitted shape does not rescan or copy its triangles. Weak
+receipts retain no dead geometry and create no document or solver cache.
+
 Framework 2D containers and graphics remain an independent screen-space bridge.
 Spatial nodes receive complete domain world poses and do not reinterpret the
 Framework's 2D affine `worldTransform` as 3D. They may be grouped for resource
 ownership, but the engine must not recompute the canonical robot hierarchy.
+
+The projection owner retains complete admitted local shapes for one detached
+workcell and source input. Shared domain kinematics produces each new pose;
+camera, selection and playback do not rebuild unchanged triangles. A new
+workcell/source/binding input creates a fresh projection, including import
+preview, Undo/Redo and historical replacement. Missing sources remain errors.
+Camera-only submission touches only the spatial camera container. Pending
+model and camera submissions preserve accepted call order and invalidate the
+existing Framework frame once; no second draw loop or canonical state appears.
 Screen queries retain the public 2D query semantics; visual spatial hit testing
 casts a camera ray and returns the nearest selectable visible handle. No visual
 query is collision evidence.

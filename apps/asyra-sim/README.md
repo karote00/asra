@@ -222,6 +222,14 @@ Navigate with left or middle drag to orbit, **Shift + middle drag** to pan
 uses **two-finger scrolling to pan** and **pinch to zoom** in Chromium. Click
 the **Trackpad / Mouse** button beside Reset view to switch explicitly; Mouse
 mode restores wheel zoom. This device preference is remembered locally.
+Camera navigation updates only the camera, not model or result projections.
+Playback reuses complete local geometry and updates shared domain poses; it
+does not simplify parts or add Undo history. The ordinary navigation/playback
+CPU profile can be reproduced with
+`yarn workspace @asyra/asyra-sim test:e2e e2e/__tests__/navigation-performance.spec.ts`.
+Reports and screenshots are written to the App's `.artifacts/browser-report.json`
+and `test-results/`. Test-renderer timings are not a hardware-independent FPS
+promise; formal unit tests additionally enforce the work-count boundaries.
 An unmodified left click selects. **⌘1** / **Ctrl+1** or **Fit all**
 centers all visible parts in the current pose, keeps the viewing angle and
 leaves at least 32 px around them inside the viewport. Grid/floor decorations

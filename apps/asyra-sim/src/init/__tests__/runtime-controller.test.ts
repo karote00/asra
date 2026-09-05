@@ -82,6 +82,7 @@ function runtime() {
     getLoadIssues: vi.fn(() => []),
     getHistoryDepth: vi.fn(() => 0),
     setFrame: vi.fn(),
+    setCamera: vi.fn(),
     pick: vi.fn(() => null),
     save: vi.fn(),
     load: vi.fn(() => []),

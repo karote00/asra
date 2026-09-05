@@ -45,6 +45,7 @@ export class SpatialLayer {
   private readonly meshes = new Map<string, RenderMesh>()
   private camera: CameraProjection | null = null
   private pending: SpatialFrame | null = null
+  private pendingCamera: SpatialCamera | null = null
   private destroyed = false
 
   constructor(private readonly invalidate: () => void) {
@@ -53,7 +54,7 @@ export class SpatialLayer {
       name: SPATIAL_LAYER_NAME,
       layer: this.layer,
       zIndex: 0,
-      shouldUpdate: () => this.pending !== null,
+      shouldUpdate: () => this.pending !== null || this.pendingCamera !== null,
       update: () => this.flush()
     }
   }
@@ -82,14 +83,26 @@ export class SpatialLayer {
         visible: item.visible
       }
     })
+    const requested = this.pending !== null || this.pendingCamera !== null
     this.pending = { camera, meshes }
-    this.invalidate()
+    this.pendingCamera = camera
+    if (!requested) this.invalidate()
+  }
+
+  submitCamera(value: SpatialCamera): void {
+    if (this.destroyed) throw new Error('Spatial layer is disposed')
+    const camera = readSpatialDescriptor(value)
+    if (camera.kind !== 'camera') throw new Error('Expected a camera')
+    const requested = this.pending !== null || this.pendingCamera !== null
+    this.pendingCamera = camera
+    if (!requested) this.invalidate()
   }
 
   dispose(): void {
     if (this.destroyed) return
     this.destroyed = true
     this.pending = null
+    this.pendingCamera = null
     this.meshes.forEach((mesh) => mesh.destroy())
     this.meshes.clear()
     this.camera?.destroy()
@@ -99,11 +112,14 @@ export class SpatialLayer {
 
   private flush(): boolean {
     const frame = this.pending
-    if (!frame || this.destroyed) return false
+    const camera = this.pendingCamera
+    if (!camera || this.destroyed) return false
     if (!this.camera) {
-      this.camera = new CameraProjection(frame.camera)
+      this.camera = new CameraProjection(camera)
       this.layer.addChild(this.camera)
-    } else this.camera.update(frame.camera)
+    } else this.camera.update(camera)
+    this.pendingCamera = null
+    if (!frame) return true
     const ids = new Set(frame.meshes.map((mesh) => mesh.id))
     for (const [id, mesh] of this.meshes) {
       if (!ids.has(id)) {
