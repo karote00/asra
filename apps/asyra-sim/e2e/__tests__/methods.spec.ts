@@ -40,7 +40,7 @@ test('method capabilities block an unsupported ordinary experiment without runni
   await expect(page.getByRole('alert')).toContainText('does not support')
   await expect(page.getByTestId('analysis-result')).toHaveCount(0)
   await expect(page.getByRole('treeitem')).toHaveCount(11)
-  await page.getByRole('button', { name: '↶ Undo', exact: true }).click()
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect(page.getByLabel('Analysis method')).toHaveValue(
     `${MethodIds.CONTINUOUS_CLEARANCE}@${MethodVersions.CONTINUOUS_CLEARANCE}`
   )
@@ -63,16 +63,12 @@ test('a user builds spheres, selects an independent method, edits uncertainty, a
   })
   await page.goto('/')
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
-  await page
-    .getByRole('button', { name: '+ New workcell', exact: true })
-    .click()
+  await page.getByRole('button', { name: 'New workcell', exact: true }).click()
   for (const [name, x, role] of [
     ['Primary sphere', '0', 'tool'],
     ['Obstacle sphere', '1', 'fixture']
   ]) {
-    await page
-      .getByRole('button', { name: '+ Add fixture', exact: true })
-      .click()
+    await page.getByRole('button', { name: 'Add fixture', exact: true }).click()
     await page.getByLabel('Object name').fill(name)
     await page.getByLabel('Body role').selectOption(role)
     await page.getByLabel('Mount position (m) X', { exact: true }).fill(x)

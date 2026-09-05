@@ -11,10 +11,10 @@
 .experiment-scroll button { font-size: 11px; }
 .experiment-picker { display: flex; align-items: flex-end; gap: 8px; }
 .experiment-picker label { flex: 1; min-width: 0; }
-.experiment-picker button { max-width: 100px; }
+.experiment-picker button { flex: none; white-space: nowrap; }
 .duplicate-candidate { margin-top: 10px; width: 100%; font-size: 10px; }
 .experiment-scroll textarea { resize: vertical; font-size: 11px; line-height: 1.6; }
-.experiment-scroll summary { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.experiment-scroll summary { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 5px 8px; }
 .experiment-scroll summary > span { float: none; text-align: right; }
 .scope-flags { display: grid; gap: 10px; margin-bottom: 14px; }
 .body-scope-list { display: grid; gap: 7px; margin-bottom: 14px; }
@@ -36,6 +36,12 @@
 .playback-card, .preflight-card { display: grid; gap: 10px; padding: 13px; border-radius: 7px; border: 1px solid #dce8e8; background: #f6fafa; }
 .playback-card input { padding: 0; accent-color: #168c83; }
 .playback-card button { justify-self: start; }
+.playback-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.playback-actions button { min-width: 70px; }
+.experiment-scroll { overflow-x: hidden; }
+.experiment-scroll label, .experiment-scroll button, .experiment-scroll summary { overflow-wrap: anywhere; }
+.experiment-scroll .section-heading { flex-wrap: wrap; gap: 8px; }
+.experiment-scroll .preview-time { font-variant-numeric: tabular-nums; }
 .issue { display: flex; flex-direction: column; gap: 6px; padding: 10px; font-size: 11px; line-height: 1.6; border-radius: 5px; }
 .issue.blocker, .inline-error { color: #934630; background: #fff2e9; }
 .issue.assumption, .issue.warning, .stale-notice { background: #fff7df; color: #80642d; }
@@ -64,4 +70,5 @@
 .interval-evidence { display: grid; gap: 5px; padding-top: 12px; font-size: 10px; color: #657e8b; }
 .interval-evidence button { justify-self: start; }
 .asset-digest { grid-column: 1 / -1; overflow-wrap: anywhere; }
-@media (max-width: 1100px) { .work-area.experiment-mode { grid-template-columns: 180px minmax(250px, 1fr) 370px; } .breadcrumb { display: none; } .commandbar { justify-content: flex-end; } }
+@media (max-width: 1100px) { .work-area.experiment-mode { grid-template-columns: minmax(0, 1fr) 360px; } }
+@media (max-width: 700px) { .work-area.experiment-mode { grid-template-columns: minmax(0, 1fr); } }

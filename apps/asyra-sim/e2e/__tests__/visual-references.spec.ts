@@ -144,9 +144,9 @@ test('previews, accepts, edits, undoes and reopens a visual without changing pro
   expect((await canvas.screenshot()).equals(accepted)).toBe(false)
   await page.getByLabel('Visuals', { exact: true }).check()
   await expect(page.getByTestId('history-depth')).toHaveText('Undo steps: 3')
-  await page.getByRole('button', { name: '↶ Undo', exact: true }).click()
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect(page.getByTestId('history-depth')).toHaveText(depth ?? '')
-  await page.getByRole('button', { name: '↷ Redo', exact: true }).click()
+  await page.getByRole('button', { name: 'Redo', exact: true }).click()
   expect((await canvas.screenshot()).equals(accepted)).toBe(true)
   await page
     .getByRole('treeitem', { name: '◇ fixture post', exact: true })

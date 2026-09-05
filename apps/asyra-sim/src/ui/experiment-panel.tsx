@@ -14,6 +14,7 @@ import { AnalysisResultView, isPresentedRunStale } from './analysis-result-view'
 import { TrajectoryImportPanel } from './trajectory-import-panel'
 import { GlbPreview, type VisualPreview } from './glb-preview'
 import { RunProgress } from './run-progress'
+import { PlaybackControls } from './playback-controls'
 import type { RunRecord } from '../storage/run-record'
 import { version as appVersion } from '../../package.json'
 
@@ -42,7 +43,8 @@ export function ExperimentPanel({
   onOpenRuns,
   onVisualPreview,
   isCurrent,
-  visualImportActive
+  visualImportActive,
+  previewActive = true
 }: {
   runtime: SimRuntime
   candidateId: string
@@ -57,6 +59,7 @@ export function ExperimentPanel({
   onVisualPreview: (preview: VisualPreview | null) => void
   isCurrent: (runtime: SimRuntime) => boolean
   visualImportActive: boolean
+  previewActive?: boolean
 }) {
   const experiments = runtime.getExperiments(candidateId)
   const [experimentId, setExperimentId] = useState(experiments[0]?.id ?? '')
@@ -76,7 +79,6 @@ export function ExperimentPanel({
   const [runningInput, setRunningInput] = useState<ExperimentSnapshot | null>(
     null
   )
-  const [time, setTime] = useState(draft.interval[0])
   const [error, setError] = useState('')
   const live = useRef(true),
     active = useRef<AbortController | null>(null)
@@ -96,7 +98,6 @@ export function ExperimentPanel({
     if (canonical) {
       setDraft(definitionToDraft(canonical.definition))
       setExclusions(formatExclusions(canonical.definition.scope.excludedPairs))
-      setTime(canonical.definition.interval[0])
     }
     setPreflight(null)
     setWarnings([])
@@ -113,6 +114,7 @@ export function ExperimentPanel({
     setDraft(next)
     setPreflight(null)
     setWarnings([])
+    onPlayback(null)
   }
   let dirty = !canonical
   try {
@@ -176,7 +178,6 @@ export function ExperimentPanel({
     if (!canonical) return
     try {
       const joints = jointValuesAt(canonical.definition.trajectory, value)
-      setTime(value)
       onPlayback({
         workcell,
         joints,
@@ -292,6 +293,15 @@ export function ExperimentPanel({
             />
           </label>
         )}
+        {canonical && !dirty && (
+          <PlaybackControls
+            key={`${experimentId}:${canonicalKey}:${revision}`}
+            interval={canonical.definition.interval}
+            active={previewActive && !running}
+            onSample={replayCurrent}
+            onReset={() => onPlayback(null)}
+          />
+        )}
         <ExperimentFields
           draft={draft}
           onChange={changed}
@@ -340,35 +350,6 @@ export function ExperimentPanel({
             {canonical ? 'Save experiment' : 'Create experiment'}
           </button>
         </div>
-        {canonical && !dirty && (
-          <section className="playback-card">
-            <div className="section-heading">
-              <h3>Sampled geometry preview</h3>
-              <span>{time.toFixed(4)} s</span>
-            </div>
-            <p className="hint">
-              This slider displays one pose. Run formal analysis to check the
-              continuous interval.
-            </p>
-            <input
-              aria-label="Sampled trajectory preview time"
-              type="range"
-              min={canonical.definition.interval[0]}
-              max={canonical.definition.interval[1]}
-              step={Math.max(
-                0.000001,
-                (canonical.definition.interval[1] -
-                  canonical.definition.interval[0]) /
-                  500
-              )}
-              value={time}
-              onChange={(event) => replayCurrent(Number(event.target.value))}
-            />
-            <button onClick={() => onPlayback(null)}>
-              Return to editing pose
-            </button>
-          </section>
-        )}
         <button
           className="wide"
           disabled={!canonical || dirty || running}

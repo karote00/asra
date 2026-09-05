@@ -43,12 +43,12 @@ test('retains runs with Undo, compares evidence, exports reports, and reopens po
     await expect(
       page.getByRole('button', { name: 'Retain result', exact: true })
     ).toBeDisabled()
-    await page.getByRole('button', { name: '↶ Undo', exact: true }).click()
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
     await expect(page.getByTestId('history-depth')).toHaveText(before)
     await expect(
       page.getByRole('button', { name: 'Retain result', exact: true })
     ).toBeEnabled()
-    await page.getByRole('button', { name: '↷ Redo', exact: true }).click()
+    await page.getByRole('button', { name: 'Redo', exact: true }).click()
     await expect(
       page.getByRole('button', { name: 'Retain result', exact: true })
     ).toBeDisabled()

@@ -103,7 +103,7 @@ export function TrajectoryImportPanel({
       joints: { ...current.joints, [id]: value }
     }))
   return (
-    <details className="trajectory-import" open>
+    <details className="trajectory-import">
       <summary>
         Trajectory input <span>preview before acceptance</span>
       </summary>

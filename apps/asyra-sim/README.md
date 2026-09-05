@@ -97,6 +97,12 @@ replacement; historical-only references still render after a successful reopen.
 New studies use the published 100,000-interval / 30-second budget. Existing saved
 studies keep their explicit settings; updating the App does not rewrite them.
 
+**Play**, **Pause**, and **Restart** animate the saved trajectory at real-time
+speed without editing joint values or adding history. **Edit pose** returns to
+the canonical pose. Playback stops at the interval end and on draft/model,
+candidate, document, panel or browser-visibility changes. It owns one cancellable
+browser frame callback, never an always-on renderer loop. Preview is not analysis.
+
 The sampled pose slider changes only the view. Formal analysis freezes inputs,
 runs in an owned Worker, and separates execution, coverage, findings, bounds,
 and the rule verdict. Partial or cancelled results retain their unknowns.

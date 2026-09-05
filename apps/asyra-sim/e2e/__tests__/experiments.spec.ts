@@ -88,6 +88,7 @@ test('invalid trajectory mapping and empty scope are actionable without mutating
   await page.goto('/')
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
   await page.getByRole('button', { name: 'Experiments', exact: true }).click()
+  await page.locator('.trajectory-import > summary').click()
   await page.getByLabel('Trajectory source data').fill('time,wrong\n0,abc')
   await page
     .getByRole('button', { name: 'Preview trajectory', exact: true })

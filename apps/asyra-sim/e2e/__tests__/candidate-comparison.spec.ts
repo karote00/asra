@@ -47,13 +47,13 @@ test('Undoing the selected duplicate never presents a different candidate as the
   await page.goto('/')
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
   await duplicate(page, 'B')
-  await page.getByRole('button', { name: '↶ Undo', exact: true }).click()
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect(page.getByLabel('Candidate', { exact: true })).toHaveValue('')
   await expect(page.getByRole('treeitem')).toHaveCount(0)
   await expect(
     page.getByLabel('Candidate', { exact: true }).locator('option:checked')
   ).toHaveText('No active candidate — select one or Redo')
-  await page.getByRole('button', { name: '↷ Redo', exact: true }).click()
+  await page.getByRole('button', { name: 'Redo', exact: true }).click()
   await expect(
     page.getByLabel('Candidate', { exact: true }).locator('option:checked')
   ).toHaveText('B')

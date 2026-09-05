@@ -66,7 +66,7 @@ test('local project A/B/A replacement resets history and view without duplicatin
   await expect(
     page.getByTestId('workcell-canvas').locator('canvas')
   ).toHaveCount(1)
-  await page.getByRole('button', { name: '↶ Undo', exact: true }).click()
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect(page.getByRole('treeitem')).toHaveCount(11)
   await open(page, 'Project B')
   await expect(page.getByTestId('persistence-status')).toHaveText(
@@ -157,7 +157,7 @@ test('cancel and invalid target preserve the editable current document', async (
   await expect(
     page.getByTestId('workcell-canvas').locator('canvas')
   ).toHaveCount(1)
-  await page.getByRole('button', { name: '+ Add fixture', exact: true }).click()
+  await page.getByRole('button', { name: 'Add fixture', exact: true }).click()
   await expect(page.getByRole('treeitem')).toHaveCount(12)
 })
 
@@ -180,7 +180,7 @@ test('unavailable browser storage reports an error without disabling local editi
   await page
     .getByRole('button', { name: 'Close projects', exact: true })
     .click()
-  await page.getByRole('button', { name: '+ Add fixture', exact: true }).click()
+  await page.getByRole('button', { name: 'Add fixture', exact: true }).click()
   await expect(page.getByRole('treeitem')).toHaveCount(12)
 })
 
@@ -203,7 +203,7 @@ test('failed successor startup exposes recovery and never presents A as editable
     .getByRole('button', { name: 'Close projects', exact: true })
     .click()
   await expect(
-    page.getByRole('button', { name: '+ Add fixture', exact: true })
+    page.getByRole('button', { name: 'Add fixture', exact: true })
   ).toBeDisabled()
   await expect(
     page.getByTestId('workcell-canvas').locator('canvas')
@@ -281,13 +281,11 @@ test('a blank workcell survives an App reload and explicit reopen without an ext
   page
 }) => {
   await ready(page)
-  await page.getByRole('button', { name: '↶ Undo', exact: true }).click()
-  await page.getByRole('button', { name: '↶ Undo', exact: true }).click()
-  await page
-    .getByRole('button', { name: '+ New workcell', exact: true })
-    .click()
-  await page.getByRole('button', { name: '+ Add fixture', exact: true }).click()
-  await page.getByRole('button', { name: '+ Add fixture', exact: true }).click()
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await page.getByRole('button', { name: 'New workcell', exact: true }).click()
+  await page.getByRole('button', { name: 'Add fixture', exact: true }).click()
+  await page.getByRole('button', { name: 'Add fixture', exact: true }).click()
   await expect(page.getByRole('treeitem')).toHaveCount(2)
   await save(page, 'Blank workcell')
   await page.reload()

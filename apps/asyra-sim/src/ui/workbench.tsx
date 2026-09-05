@@ -59,6 +59,7 @@ export function Workbench() {
   const [host, setHost] = useState<HTMLDivElement | null>(null)
   const [candidateId, setCandidateId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [hierarchyOpen, setHierarchyOpen] = useState(false)
   const [inspector, setInspector] = useState<'object' | 'experiment'>('object')
   const [playback, setPlayback] = useState<PlaybackView | null>(null)
   const [visualPreview, setVisualPreview] = useState<VisualPreview | null>(null)
@@ -82,6 +83,7 @@ export function Workbench() {
   const onRuntime = useCallback((value: SimRuntime | null) => {
     setCandidateId(value?.getCandidates()[0]?.id ?? null)
     setSelectedId(null)
+    setHierarchyOpen(false)
     setInspector('object')
     setPlayback(null)
     setVisualPreview(null)
@@ -151,6 +153,7 @@ export function Workbench() {
     (id: string | null) => {
       if (runtime && isCurrent(runtime)) {
         setSelectedId(id)
+        setHierarchyOpen(false)
         setInspector('object')
         setPlayback(null)
       }
@@ -246,10 +249,14 @@ export function Workbench() {
         </span>
       </header>
       <div className="commandbar">
-        <div className="breadcrumb">
-          WORKSPACE <span>/</span> Workcell
-        </div>
         <div className="commands">
+          <button
+            className="model-toggle"
+            aria-expanded={hierarchyOpen}
+            onClick={() => setHierarchyOpen((value) => !value)}
+          >
+            Model
+          </button>
           <button
             disabled={!ready}
             onClick={() =>
@@ -260,7 +267,7 @@ export function Workbench() {
               )
             }
           >
-            ↶ Undo
+            Undo
           </button>
           <button
             disabled={!ready}
@@ -272,7 +279,7 @@ export function Workbench() {
               )
             }
           >
-            ↷ Redo
+            Redo
           </button>
           <span className="divider" />
           <button
@@ -284,9 +291,10 @@ export function Workbench() {
           </button>
           <button
             disabled={!ready || !!runError}
+            aria-label="Runs & compare"
             onClick={() => setShowRuns(true)}
           >
-            Runs &amp; compare
+            Results
           </button>
           <button
             disabled={!ready}
@@ -297,28 +305,6 @@ export function Workbench() {
             }}
           >
             Object
-          </button>
-          <span className="divider" />
-          <button
-            disabled={!ready}
-            onClick={() =>
-              runtime &&
-              void perform(async (assertCurrent) => {
-                const id = await runtime.features.edit.createCandidate(
-                  'New workcell',
-                  { version: 1, robotRootId: null, bodies: [] }
-                )
-                assertCurrent()
-                setCandidateId(id)
-                setSelectedId(null)
-                setPlayback(null)
-              }, 'Blank workcell created')
-            }
-          >
-            + New workcell
-          </button>
-          <button disabled={!ready || !workcell} onClick={addBody}>
-            + Add fixture
           </button>
         </div>
       </div>
@@ -388,7 +374,7 @@ export function Workbench() {
       <main
         className={`work-area ${inspector === 'experiment' ? 'experiment-mode' : ''}`}
       >
-        <aside className="hierarchy-panel">
+        <aside className={`hierarchy-panel ${hierarchyOpen ? 'is-open' : ''}`}>
           <div className="panel-heading">
             <div>
               <span className="eyebrow">MODEL</span>
@@ -397,6 +383,29 @@ export function Workbench() {
             <span className="count">{workcell?.bodies.length ?? 0}</span>
           </div>
           <div className="candidate-picker">
+            <div className="model-actions">
+              <button
+                disabled={!ready}
+                onClick={() =>
+                  runtime &&
+                  void perform(async (assertCurrent) => {
+                    const id = await runtime.features.edit.createCandidate(
+                      'New workcell',
+                      { version: 1, robotRootId: null, bodies: [] }
+                    )
+                    assertCurrent()
+                    setCandidateId(id)
+                    setSelectedId(null)
+                    setPlayback(null)
+                  }, 'Blank workcell created')
+                }
+              >
+                New workcell
+              </button>
+              <button disabled={!ready || !workcell} onClick={addBody}>
+                Add fixture
+              </button>
+            </div>
             <label>
               Candidate
               <select
@@ -552,6 +561,12 @@ export function Workbench() {
                 onVisualPreview={onVisualPreview}
                 isCurrent={isCurrent}
                 visualImportActive={inspector === 'experiment' && !playback}
+                previewActive={
+                  inspector === 'experiment' &&
+                  !showRuns &&
+                  !visualPreview &&
+                  !playback?.historical
+                }
                 runs={runs}
                 retainedIds={retainedIds}
                 onRun={(run) => {

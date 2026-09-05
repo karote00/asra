@@ -95,6 +95,12 @@ not a path that a particular vendor controller is guaranteed to execute.
   analysis.
 - Playback speed, display FPS, and camera zoom do not change formal analysis
   time or results.
+- Saved trajectories provide real-time Play/Pause, Restart to the interval
+  start, manual seeking and return to the editing pose. Playback is transient,
+  schedules at most one browser frame callback and stops at the end, on hidden
+  documents, panel/candidate/document changes or changed model/experiment inputs.
+  Delayed frames use elapsed time, never a growing queue of missed poses. Preview
+  neither starts a solver nor writes canonical joint values or Undo history.
 - The App's shared domain contract defines interpolation and forward
   kinematics. Analysis modules must not silently smooth the path or substitute
   different interpolation.
@@ -294,6 +300,13 @@ Replacement defaults must not masquerade as original experiment inputs.
   draining work; owner cleanup must complete before the successor starts.
 
 ## 12. Representative Product Cases and Definition of Done
+
+Workbench controls use concise text actions, grouped by editing, experiments
+and results. Trajectory import is collapsed until requested. At desktop and
+narrow review widths, controls remain reachable without horizontally clipped
+panels or labels; the model tree is a toggleable drawer on narrower screens,
+and the viewport and inspector stack below 700 CSS pixels. These presentation
+choices do not change saved models, analysis scopes or numerical evidence.
 
 [TEST_STRATEGY.md](../validation/TEST_STRATEGY.md) owns the formal cases, including
 valid, empty, invalid, boundary, cancellation, precision, cross-version, scope,

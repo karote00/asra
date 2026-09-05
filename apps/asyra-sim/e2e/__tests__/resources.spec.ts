@@ -7,6 +7,7 @@ test('a rejected trajectory selection invalidates the old preview without changi
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
   const depth = await page.getByTestId('history-depth').textContent()
   await page.getByRole('button', { name: 'Experiments', exact: true }).click()
+  await page.locator('.trajectory-import > summary').click()
   await page
     .getByRole('button', { name: 'Preview trajectory', exact: true })
     .click()

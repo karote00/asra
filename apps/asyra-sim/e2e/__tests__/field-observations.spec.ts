@@ -125,8 +125,8 @@ test('ordinary field observations preserve immutable evidence, opaque files and 
   expect(bundle.observations[0].revision).toBe(2)
   expect(bundle).not.toHaveProperty('result')
   for (const [action, revision] of [
-    ['↶ Undo', 1],
-    ['↷ Redo', 2]
+    ['Undo', 1],
+    ['Redo', 2]
   ] as const) {
     await library
       .getByRole('button', { name: 'Close runs', exact: true })
@@ -148,7 +148,7 @@ test('ordinary field observations preserve immutable evidence, opaque files and 
     .click()
   await expect(note).toHaveCount(0)
   await library.getByRole('button', { name: 'Close runs', exact: true }).click()
-  await page.getByRole('button', { name: '↶ Undo', exact: true }).click()
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await page
     .getByRole('button', { name: 'Runs & compare', exact: true })
     .click()

@@ -84,12 +84,12 @@
   display: inline-block;
 }
 .commandbar {
-  height: 49px;
+  min-height: 49px;
   display: flex;
   flex: none;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 22px;
+  justify-content: flex-start;
+  padding: 8px 22px;
   background: #f8fafb;
   border-bottom: 1px solid #dde6eb;
 }
@@ -104,13 +104,18 @@
 }
 .commands {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 .commands button {
   padding: 6px 12px;
   font-size: 11px;
+  white-space: nowrap;
 }
+.model-toggle { display: none; }
+.model-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.model-actions button { font-size: 11px; padding: 8px; }
 .divider {
   height: 18px;
   width: 1px;
@@ -118,6 +123,7 @@
   margin: 0 5px;
 }
 .work-area {
+  position: relative;
   display: grid;
   grid-template-columns: 265px minmax(300px, 1fr) 306px;
   flex: 1;
@@ -278,6 +284,7 @@
 .properties-panel {
   background: #fff;
   min-height: 0;
+  min-width: 0;
   border-left: 1px solid #dce6eb;
   overflow: hidden;
 }
@@ -376,9 +383,12 @@
   color: #b5c5cd;
 }
 @media (max-width: 1100px) {
-  .work-area {
-    grid-template-columns: 220px minmax(250px, 1fr) 275px;
+  .work-area, .work-area.experiment-mode {
+    grid-template-columns: minmax(0, 1fr) 360px;
   }
+  .model-toggle { display: block; }
+  .hierarchy-panel { display: none; }
+  .hierarchy-panel.is-open { display: flex; position: absolute; inset: 0 auto 0 0; width: 280px; z-index: 4; box-shadow: 8px 0 24px #10233026; }
   .viewport-tools > span {
     display: none;
   }
@@ -390,10 +400,6 @@
   }
 }
 @media (max-width: 800px) {
-  .work-area {
-    grid-template-columns: 180px minmax(240px, 1fr) 240px;
-    overflow-x: auto;
-  }
   .local-badge {
     display: none;
   }
@@ -406,4 +412,21 @@
   .viewport-summary > span:last-child {
     display: none;
   }
+}
+@media (max-width: 700px) {
+  .work-area, .work-area.experiment-mode {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(220px, 0.85fr) minmax(0, 1fr);
+  }
+  .topbar { gap: 10px; padding: 0 12px; }
+  .brand { gap: 8px; }
+  .build-label, .project-controls > span { display: none; }
+  .commandbar { padding: 8px 12px; }
+  .commands { gap: 6px; }
+  .commands button { padding: 7px 9px; }
+  .divider { margin: 0; }
+  .properties-panel { border-left: 0; border-top: 1px solid #dce6eb; }
+  .viewport-top { left: 12px; right: 12px; }
+  .viewport-top > span { display: none; }
+  .empty-icon { display: none; }
 }

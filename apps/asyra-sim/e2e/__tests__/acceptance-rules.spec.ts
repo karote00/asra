@@ -28,16 +28,12 @@ test('ordinary nested acceptance editing preserves findings, versions, compariso
   })
   await page.goto('/')
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
-  await page
-    .getByRole('button', { name: '+ New workcell', exact: true })
-    .click()
+  await page.getByRole('button', { name: 'New workcell', exact: true }).click()
   for (const [name, role] of [
     ['Primary sphere', 'tool'],
     ['Obstacle sphere', 'fixture']
   ]) {
-    await page
-      .getByRole('button', { name: '+ Add fixture', exact: true })
-      .click()
+    await page.getByRole('button', { name: 'Add fixture', exact: true }).click()
     await page.getByLabel('Object name').fill(name)
     await page.getByLabel('Body role').selectOption(role)
     await page.getByLabel('Mount position (m) X', { exact: true }).fill('0')
@@ -111,12 +107,12 @@ test('ordinary nested acceptance editing preserves findings, versions, compariso
   await page
     .getByRole('button', { name: 'Save experiment', exact: true })
     .click()
-  await page.getByRole('button', { name: '↶ Undo', exact: true }).click()
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect(page.getByTestId('history-depth')).toHaveText(before ?? '')
   await expect(
     page.getByLabel('Condition 1.1 expected penetration')
   ).toHaveValue('present')
-  await page.getByRole('button', { name: '↷ Redo', exact: true }).click()
+  await page.getByRole('button', { name: 'Redo', exact: true }).click()
   await expect(
     page.getByLabel('Condition 1.1 expected penetration')
   ).toHaveValue('absent')

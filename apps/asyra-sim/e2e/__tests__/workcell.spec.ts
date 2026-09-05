@@ -5,20 +5,18 @@ test('Undo can remove the initial model and a blank workcell is editable', async
 }) => {
   await page.goto('/')
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
-  await page.getByRole('button', { name: '↶ Undo' }).click()
+  await page.getByRole('button', { name: 'Undo' }).click()
   await expect(page.getByRole('treeitem')).toHaveCount(11)
-  await page.getByRole('button', { name: '↶ Undo' }).click()
+  await page.getByRole('button', { name: 'Undo' }).click()
   await expect(page.getByRole('treeitem')).toHaveCount(0)
   await expect(
-    page.getByRole('button', { name: '+ Add fixture', exact: true })
+    page.getByRole('button', { name: 'Add fixture', exact: true })
   ).toBeDisabled()
-  await page.getByRole('button', { name: '↷ Redo' }).click()
+  await page.getByRole('button', { name: 'Redo' }).click()
   await expect(page.getByRole('treeitem')).toHaveCount(11)
-  await page
-    .getByRole('button', { name: '+ New workcell', exact: true })
-    .click()
+  await page.getByRole('button', { name: 'New workcell', exact: true }).click()
   await expect(page.getByRole('treeitem')).toHaveCount(0)
-  await page.getByRole('button', { name: '+ Add fixture', exact: true }).click()
+  await page.getByRole('button', { name: 'Add fixture', exact: true }).click()
   await expect(page.getByRole('treeitem')).toHaveCount(1)
   await expect(page.getByLabel('Object name')).toHaveValue('New fixture')
 })
@@ -43,15 +41,15 @@ test('normal CUSTOM workbench renders, edits, undoes, resizes, and picks canonic
   await expect(
     page.getByLabel('Mount position (m) X', { exact: true })
   ).toHaveValue('-1.25')
-  await page.getByRole('button', { name: '↶ Undo' }).click()
+  await page.getByRole('button', { name: 'Undo' }).click()
   await expect(
     page.getByLabel('Mount position (m) X', { exact: true })
   ).toHaveValue('-0.75')
-  await page.getByRole('button', { name: '↷ Redo' }).click()
+  await page.getByRole('button', { name: 'Redo' }).click()
   await expect(
     page.getByLabel('Mount position (m) X', { exact: true })
   ).toHaveValue('-1.25')
-  await page.getByRole('button', { name: '↶ Undo' }).click()
+  await page.getByRole('button', { name: 'Undo' }).click()
   await expect(
     page.getByLabel('Mount position (m) X', { exact: true })
   ).toHaveValue('-0.75')
