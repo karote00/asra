@@ -8,6 +8,16 @@
   are frozen in the runtime profile. This is not a full workflow or release gate.
 - M1 workcell foundations: complete through local save/reopen and complete App
   runtime replacement, including owner cleanup and empty successor history.
+- Local review refresh (2026-09-05): original mechanical main-body GLB sources,
+  explicit sample naming and compound gripper proxies, concise responsive UI,
+  transient Play/Pause/Restart, persistent light/dark themes, pose-stable GPU
+  resource ownership and bounded studio shadows are implemented. Source checks
+  pass 367 unit tests, 45 browser tests, typecheck, lint and production build.
+  Live review uses `http://127.0.0.1:3020/`; overview, three trajectory times,
+  closer views, narrow layouts and theme screenshots were inspected. The
+  software-rendered 1600x1000 playback check recorded 50 ms median / 66.7 ms
+  p95 with shadows, not a hardware-GPU or release performance guarantee.
+  This refresh has not rebuilt or revalidated the older packaged candidate.
 - M2-M4 implementation: in progress. Experiment authoring, mapped trajectory
   import, preflight, Worker execution, immutable run retention/comparison,
   reports, portable project reopening, and independent candidate duplication with
