@@ -44,6 +44,12 @@ function runtime() {
       },
       history: { undo: vi.fn(), redo: vi.fn() },
       storage: { retain: vi.fn() },
+      observations: {
+        prepare: vi.fn(),
+        retain: vi.fn(),
+        cancel: vi.fn(),
+        discard: vi.fn()
+      },
       visuals: {
         prepare: vi.fn(),
         retain: vi.fn(),
@@ -62,6 +68,9 @@ function runtime() {
     preflight: vi.fn(() => []),
     getCandidates: vi.fn(() => []),
     getRuns: vi.fn(() => []),
+    getObservations: vi.fn(() => []),
+    getObservationAttachment: vi.fn(),
+    exportObservations: vi.fn(),
     getWorkcell: vi.fn(),
     getVisualAssets: vi.fn(),
     getCandidateLineage: vi.fn(),

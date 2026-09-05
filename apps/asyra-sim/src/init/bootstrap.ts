@@ -24,8 +24,20 @@ import { preflightExperiment as checkExperiment } from '../analysis/preflight'
 import { createExperimentSnapshot as freezeExperiment } from '../analysis/snapshot'
 import { RunArchive } from '../storage/run-record'
 import { readCapturedRunReferences } from '../common-apis/run-reference'
+import { readFieldObservations } from '../common-apis/field-observation'
+import type { ObservationAttachmentReference } from '../common-apis/observation-contract'
 import { installRunStorageFeature } from '../features/storage-runs'
 import { installVisualStorageFeatures } from '../features/storage-visuals'
+import { installObservationStorageFeatures } from '../features/storage-observations'
+import {
+  ObservationAttachmentArchive,
+  type PreparedObservationAttachments
+} from '../storage/observation-archive'
+import {
+  projectObservationAttachments,
+  validateProjectObservationReferences,
+  exportObservationBundle
+} from '../storage/project-observations'
 import {
   VisualAssetArchive,
   type PreparedVisualImport
@@ -62,6 +74,7 @@ export async function bootstrap(
   if (!core.isCompositionOpen()) throw new Error('Runtime already started')
   let rendering: ReturnType<typeof installCustomRenderer> | undefined
   let visualResources: VisualAssetArchive | undefined
+  let observationResources: ObservationAttachmentArchive | undefined
   let observer: ResizeObserver | null = null,
     disposed = false
   let disposal: Promise<void> | undefined
@@ -100,6 +113,7 @@ export async function bootstrap(
       }
       // Also covers startup failure before the storage Feature cleanup was registered.
       attempt(() => visualResources?.dispose())
+      attempt(() => observationResources?.dispose())
       if (errors.length === 1) throw errors[0]
       if (errors.length)
         throw new AggregateError(errors, 'Runtime cleanup failed')
@@ -113,6 +127,12 @@ export async function bootstrap(
         ? await prepareProjectVisuals(snapshot)
         : new VisualAssetArchive())
     visualResources = visuals
+    const observations = snapshot
+      ? await ObservationAttachmentArchive.hydrate(
+          validateProjectObservationReferences(snapshot)
+        )
+      : new ObservationAttachmentArchive()
+    observationResources = observations
     if (snapshot) {
       for (const bindings of readCapturedVisualBindingGroups(
         snapshot.document
@@ -143,6 +163,8 @@ export async function bootstrap(
       validateVisuals: (workcell) => {
         visuals.resolveWorkcell(workcell)
       },
+      validateObservationAttachments: (references) =>
+        observations.resolve(references),
       readRun: (runId) => {
         const run = archive.get(runId)
         if (!run) return
@@ -169,10 +191,41 @@ export async function bootstrap(
         return editing.edit.upsertVisual(...args)
       }
     )
+    const observationStorage = installObservationStorageFeatures(
+      core,
+      observations,
+      {
+        addObservation: (...args) => {
+          assertAccepting()
+          return editing.edit.addObservation(...args)
+        },
+        updateObservation: (...args) => {
+          assertAccepting()
+          return editing.edit.updateObservation(...args)
+        }
+      }
+    )
     const features = {
       edit: guardCommands(editing.edit, assertAccepting),
       history: guardCommands(editing.history, assertAccepting),
       storage: guardCommands(storage, assertAccepting),
+      observations: {
+        ...guardCommands(
+          {
+            prepare: observationStorage.prepare,
+            retain: observationStorage.retain
+          },
+          assertAccepting
+        ),
+        cancel: () => {
+          assertLive()
+          return observationStorage.cancel()
+        },
+        discard: (receipt: PreparedObservationAttachments) => {
+          assertLive()
+          observationStorage.discard(receipt)
+        }
+      },
       visuals: {
         ...guardCommands(
           { prepare: visualStorage.prepare, retain: visualStorage.retain },
@@ -256,6 +309,12 @@ export async function bootstrap(
       assertLive()
       return document
     }
+    const getObservations = (runId: string) => {
+      assertLive()
+      const notes = readFieldObservations(core, runId)
+      observations.resolve(notes.flatMap((note) => note.attachments))
+      return notes
+    }
     return {
       features,
       pauseEditing: () => {
@@ -272,12 +331,33 @@ export async function bootstrap(
         const visualSources = visuals.capture(
           projectVisualAssetIds({ document, runs })
         )
+        const references = projectObservationAttachments({ document })
+        observations.resolve(references)
+        const observationSources = observations.capture(
+          references.map((reference) => reference.sourceId)
+        )
         return {
           document,
           loadIssues: structuredClone(loadIssues),
           ...(runs.length ? { runs } : {}),
-          ...(visualSources.length ? { visualSources } : {})
+          ...(visualSources.length ? { visualSources } : {}),
+          ...(observationSources.length ? { observationSources } : {})
         }
+      },
+      getObservations,
+      getObservationAttachment: (reference: ObservationAttachmentReference) => {
+        assertLive()
+        observations.resolve([reference])
+        return observations.bytes(reference.sourceId)
+      },
+      exportObservations: (runId: string) => {
+        const notes = getObservations(runId)
+        const run = archive.get(runId)
+        if (!run)
+          throw new Error(
+            'Missing retained run evidence for observation export'
+          )
+        return exportObservationBundle(run, notes, observations)
       },
       getVisualAssets: (workcell: Workcell, pending?: PreparedVisualImport) => {
         assertLive()

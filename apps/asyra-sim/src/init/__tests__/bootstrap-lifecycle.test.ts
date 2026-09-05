@@ -10,6 +10,7 @@ import { prepareProjectVisuals } from '../../storage/project-visuals'
 import { decodeRestrictedGlb } from '../../engine/glb/decode'
 import { encodeGlb, triangleFixture } from '../../engine/glb/__tests__/fixtures'
 import { IDENTITY_POSE } from '../../domain/math'
+import { ObservationAttachmentArchive } from '../../storage/observation-archive'
 
 const runtimes: SimRuntime[] = []
 const callbacks: ResizeObserverCallback[] = []
@@ -73,6 +74,127 @@ const environment = () => {
 }
 
 describe('App composition lifetime', () => {
+  it('owns run-linked notes and opaque sources across Undo, native capture and fresh lifetimes without changing evidence', async () => {
+    const { start } = environment(),
+      first = await start()
+    const candidate = first.getCandidates()[0],
+      experiment = first.getExperiments(candidate.id)[0]
+    const snapshot = first.createExperimentSnapshot(experiment.id, [])
+    const record = {
+      version: 1 as const,
+      name: 'Field validation',
+      retainedAt: '2026-09-05T00:00:00.000Z',
+      environment: {
+        appVersion: 'test',
+        userAgent: 'Unit test',
+        hardwareConcurrency: 1
+      },
+      snapshot,
+      result: terminalAnalysisResult(snapshot, [], {
+        runId: 'field-run',
+        startedAt: 0,
+        endedAt: 1,
+        execution: 'cancelled',
+        error: 'Cancelled'
+      })
+    }
+    await first.features.storage.retain(record)
+    const input = new TextEncoder().encode('Observed gap: 25 mm')
+    const receipt = await first.features.observations.prepare([
+      { filename: 'field.txt', bytes: input }
+    ])
+    const depth = first.getHistoryDepth()
+    const id = await first.features.observations.retain(receipt, {
+      runId: 'field-run',
+      draft: {
+        title: 'Field check',
+        text: 'Reported gap: 25 mm.',
+        attachments: receipt.attachments
+      }
+    })
+    expect(first.getHistoryDepth()).toBe(depth + 1)
+    expect(first.getRuns()).toEqual([record])
+    const note = first.getObservations('field-run')[0]
+    expect(note.id).toBe(id)
+    expect(
+      Array.from(first.getObservationAttachment(note.attachments[0]))
+    ).toEqual(Array.from(input))
+    note.text = 'External mutation'
+    expect(first.getObservations('field-run')[0].text).toBe(
+      'Reported gap: 25 mm.'
+    )
+    await first.features.edit.removeObservation('field-run', id, 1)
+    expect((await first.captureSnapshot()).observationSources).toBeUndefined()
+    await first.features.history.undo()
+    const saved = decodeProject(encodeProject(await first.captureSnapshot()))
+    expect(saved.observationSources).toHaveLength(1)
+    const exported = first.exportObservations('field-run')
+    expect(JSON.parse(exported).sources).toEqual(saved.observationSources)
+    const release = first.pauseEditing()
+    expect(() =>
+      first.features.observations.prepare([
+        { filename: 'late.txt', bytes: input }
+      ])
+    ).toThrow('paused')
+    expect(first.getObservations('field-run')).toHaveLength(1)
+    release()
+    await first.dispose()
+    expect(() => first.getObservations('field-run')).toThrow('closed')
+    expect(() => first.getObservationAttachment(note.attachments[0])).toThrow(
+      'closed'
+    )
+    expect(() => first.exportObservations('field-run')).toThrow('closed')
+    expect(() => first.features.observations.discard(receipt)).toThrow('closed')
+    const sources = saved.observationSources
+    if (!sources) throw new Error('Missing saved sources')
+    const corrupt = {
+      ...saved,
+      observationSources: sources.map((source) => ({
+        ...source,
+        base64: `${source.base64.startsWith('A') ? 'B' : 'A'}${source.base64.slice(1)}`
+      }))
+    }
+    await expect(start(corrupt)).rejects.toThrow('digest')
+    expect(core.isCompositionOpen()).toBe(true)
+    const second = await start(saved)
+    expect(second.getHistoryDepth()).toBe(0)
+    expect(second.getRuns()).toEqual([record])
+    expect(second.exportObservations('field-run')).toBe(exported)
+    expect(
+      Array.from(second.getObservationAttachment(note.attachments[0]))
+    ).toEqual(Array.from(input))
+    expect(() =>
+      first.features.edit.removeObservation('field-run', id, 1)
+    ).toThrow('closed')
+    expect(second.getObservations('field-run')).toHaveLength(1)
+  })
+
+  it('releases observation resources when startup fails before Feature installation', async () => {
+    const { host } = environment(),
+      original = ObservationAttachmentArchive.prototype.dispose
+    const owner = core,
+      defineComponent = owner.defineComponent
+    const released: ObservationAttachmentArchive[] = []
+    owner.defineComponent = vi.fn(() => {
+      throw new Error('component registration unavailable')
+    })
+    ObservationAttachmentArchive.prototype.dispose = function () {
+      released.push(this)
+      original.call(this)
+    }
+    try {
+      await expect(bootstrap(host)).rejects.toThrow(
+        'component registration unavailable'
+      )
+      expect(released).toHaveLength(1)
+      expect(() => released[0].capture([])).toThrow('closed')
+      expect(core.isCompositionOpen()).toBe(true)
+    } finally {
+      ObservationAttachmentArchive.prototype.dispose = original
+      owner.defineComponent = defineComponent
+    }
+  })
+
   it('owns visual import, binding history, portable sources, and historical-only replay across lifetimes', async () => {
     const { start } = environment(),
       decoder = { decode: vi.fn(decodeRestrictedGlb), dispose: vi.fn() }
