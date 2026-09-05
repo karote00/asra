@@ -13,6 +13,7 @@ import { installModelComponents } from './components'
 import { installCustomRenderer } from './custom-renderer'
 import type { SpatialFrame } from '../render-app/spatial-layer'
 import { createSyntheticExample } from '../../samples/synthetic-workcell'
+import { createMechanicalVisuals } from '../../samples/mechanical-visuals'
 import { createSyntheticExperimentDraft } from '../../samples/synthetic-experiment'
 import {
   projectVisualAssetIds,
@@ -283,8 +284,29 @@ export async function bootstrap(
     })
     if (!snapshot) {
       const example = createSyntheticExample()
+      for (const source of createMechanicalVisuals()) {
+        const receipt = await visuals.prepare(
+          source.bytes,
+          `${source.body}.glb`
+        )
+        const retained = visuals.accept(receipt)
+        const body = example.workcell.bodies.find(
+          (value) => value.id === `example:${source.body}`
+        )
+        if (!body)
+          throw new Error(`Missing example visual target: ${source.body}`)
+        body.visuals = [
+          {
+            version: 1,
+            id: 'main-body',
+            assetId: retained.assetId,
+            pose: { position: [0, 0, 0], rotation: [0, 0, 0, 1] },
+            scale: [1, 1, 1]
+          }
+        ]
+      }
       const candidateId = await features.edit.createCandidate(
-        'A · Baseline workcell',
+        'A - Baseline workcell',
         example.workcell
       )
       await features.edit.createExperiment(

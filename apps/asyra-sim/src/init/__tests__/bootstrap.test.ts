@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { expect, it, vi } from 'vitest'
 import { bootstrap } from '../bootstrap'
+import { VisualAssetArchive } from '../../storage/visual-archive'
+import { decodeRestrictedGlb } from '../../engine/glb/decode'
 import { ThreeEngine, type GraphicsDriver } from '../../engine/three-engine'
 import {
   createWorkcellFrame,
@@ -58,10 +60,16 @@ it('composes the normal workcell runtime and cleans up surface subscriptions and
         cancelFrame: () => {
           frame = undefined
         }
-      })
+      }),
+    undefined,
+    new VisualAssetArchive({ decode: decodeRestrictedGlb, dispose: vi.fn() })
   )
   const candidate = runtime.getCandidates()[0],
     model = runtime.getWorkcell(candidate.id)
+  expect(candidate.name).toBe('A - Baseline workcell')
+  expect(model.bodies.every((body) => body.visuals?.length === 1)).toBe(true)
+  expect(runtime.getVisualAssets(model).size).toBe(11)
+  expect((await runtime.captureSnapshot()).visualSources).toHaveLength(11)
   expect(
     model.bodies.filter((body) => body.joint.kind === 'revolute')
   ).toHaveLength(6)
@@ -81,11 +89,15 @@ it('composes the normal workcell runtime and cleans up surface subscriptions and
   })
   expect(Object.isFrozen(snapshot)).toBe(true)
   runtime.setFrame(
-    createWorkcellFrame(model, {
-      camera: DEFAULT_CAMERA,
-      selectedId: null,
-      grid: true
-    })
+    createWorkcellFrame(
+      model,
+      {
+        camera: DEFAULT_CAMERA,
+        selectedId: null,
+        grid: true
+      },
+      runtime.getVisualAssets(model)
+    )
   )
   frame?.(1)
   const depth = runtime.getHistoryDepth()

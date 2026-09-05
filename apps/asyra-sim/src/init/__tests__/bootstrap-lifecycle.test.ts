@@ -66,7 +66,13 @@ const environment = () => {
     snapshot?: Parameters<typeof bootstrap>[2],
     prepared?: VisualAssetArchive
   ) => {
-    const runtime = await bootstrap(host, provider, snapshot, prepared)
+    const decoder = { decode: decodeRestrictedGlb, dispose: vi.fn() }
+    const resources =
+      prepared ??
+      (snapshot
+        ? await prepareProjectVisuals(snapshot, decoder)
+        : new VisualAssetArchive(decoder))
+    const runtime = await bootstrap(host, provider, snapshot, resources)
     runtimes.push(runtime)
     return runtime
   }
@@ -202,6 +208,7 @@ describe('App composition lifetime', () => {
       first = await start(undefined, resources)
     const candidate = first.getCandidates()[0],
       body = first.getWorkcell(candidate.id).bodies[0]
+    const initialSources = (await first.captureSnapshot()).visualSources ?? []
     const { json, binary } = triangleFixture(),
       depth = first.getHistoryDepth()
     const prepared = await first.features.visuals.prepare(
@@ -225,9 +232,13 @@ describe('App composition lifetime', () => {
       first.getVisualAssets(first.getWorkcell(candidate.id)).get(assetId)
         ?.meshes[0].positions
     ).toEqual([0, 0, 0, 1, 0, 0, 0, 1, 0])
-    expect((await first.captureSnapshot()).visualSources).toHaveLength(1)
+    expect((await first.captureSnapshot()).visualSources).toHaveLength(
+      initialSources.length + 1
+    )
     await first.features.history.undo()
-    expect((await first.captureSnapshot()).visualSources).toBeUndefined()
+    expect((await first.captureSnapshot()).visualSources).toEqual(
+      initialSources
+    )
     await first.features.history.redo()
     const experiment = first.getExperiments(candidate.id)[0],
       frozen = first.createExperimentSnapshot(experiment.id, [])
@@ -251,9 +262,16 @@ describe('App composition lifetime', () => {
     })
     await first.features.edit.setVisuals(candidate.id, body.id, [])
     const saved = decodeProject(encodeProject(await first.captureSnapshot()))
-    expect(saved.visualSources).toEqual([prepared.source])
-    expect(first.getVisualAssets(first.getWorkcell(candidate.id)).size).toBe(0)
-    expect(first.getVisualAssets(frozen.workcell).size).toBe(1)
+    expect(saved.visualSources).toHaveLength(initialSources.length + 1)
+    expect(saved.visualSources).toEqual(
+      expect.arrayContaining([...initialSources, prepared.source])
+    )
+    expect(first.getVisualAssets(first.getWorkcell(candidate.id)).size).toBe(
+      initialSources.length - 1
+    )
+    expect(first.getVisualAssets(frozen.workcell).size).toBe(
+      initialSources.length + 1
+    )
     await first.dispose()
     expect(decoder.dispose).toHaveBeenCalledOnce()
     expect(() => first.getVisualAssets(frozen.workcell)).toThrow('closed')
@@ -265,11 +283,11 @@ describe('App composition lifetime', () => {
       saved,
       await prepareProjectVisuals(saved, rehydration)
     )
-    expect(rehydration.decode).toHaveBeenCalledOnce()
+    expect(rehydration.decode).toHaveBeenCalledTimes(initialSources.length + 1)
     expect(second.getHistoryDepth()).toBe(0)
     expect(
       second.getVisualAssets(second.getRuns()[0].snapshot.workcell).size
-    ).toBe(1)
+    ).toBe(initialSources.length + 1)
     expect((await second.captureSnapshot()).visualSources).toEqual(
       saved.visualSources
     )
