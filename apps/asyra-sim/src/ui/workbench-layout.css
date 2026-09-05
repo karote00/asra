@@ -340,18 +340,6 @@
   flex: 1;
   min-height: 0;
 }
-.editor-actions {
-  padding: 14px 18px;
-  border-top: 1px solid var(--sim-divider);
-  background: var(--sim-raised);
-  display: flex;
-  justify-content: flex-end;
-  gap: 9px;
-  flex: none;
-}
-.editor-actions button {
-  font-size: 11px;
-}
 .statusbar {
   height: 29px;
   flex: none;

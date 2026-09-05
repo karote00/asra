@@ -91,8 +91,8 @@ body, set a body-local position/rotation and positive scale, then choose **Previ
 placement in 3D**. Only **Accept original part** creates an undoable binding.
 Cancellation, another source, leaving the import panel, or changed workcell inputs
 invalidates the transient preview. Accepted references can be adjusted or removed
-under the selected object's **Original parts**; **Apply changes** commits the
-draft. The viewport's **Wireframe** switch shows the same original triangles.
+under the selected object's **Original parts**; each completed field updates
+directly. The viewport's **Wireframe** switch shows the same original triangles.
 Acceptance retires previous primitive shapes in one Undo action. Removing the
 last source leaves an empty body; it does not revive a simplified substitute.
 Formal solid analysis requires closed, consistently oriented manifold components;
@@ -209,7 +209,13 @@ and experiment inputs into an independently editable workcell. Enter a name for 
 or C. Copies get new canonical identities, remap all references, and preserve
 explicit body correspondence for comparison. Historical runs and unsaved drafts
 are not copied. Each complete duplication is one Undo action. Numeric property
-fields accept a value on Enter or blur before **Apply changes** commits it.
+fields commit on Enter or blur, without an **Apply changes** button. Object name
+and color fields use the same completion convention; selects and checkboxes
+update directly. Each changed field is one Undo action. Escape discards the
+active input; rejected values restore the canonical value. Mount and original
+part rotation fields also update without a separate Set button. Unit choices,
+focus and expanded sections survive ordinary edits and Undo/Redo. These Object
+controls do not change explicit experiment saving or import acceptance.
 
 **Runs & compare** lists temporary and retained results across the current project.
 Inspect a run, export JSON/CSV/self-contained HTML, replay its frozen geometry, or

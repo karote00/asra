@@ -70,6 +70,33 @@ Its empty-history regression belongs at that lifecycle boundary, not at ordinary
 load. The caller retains both source and new recovery diagnostics; no App history
 mask or independent Undo stack is permitted.
 
+## Object Field Interaction
+
+Object properties have no form-wide Apply or Reset action. Following Asyra
+Design's field-completion convention, text, numeric and color inputs commit on
+Enter or blur; selects, checkboxes and part add/remove controls dispatch their
+change directly. Mount and original-part axis-angle fields need no second Set
+action. Choosing an axis for an identity rotation is presentation-only until
+the angle changes. Length/angle units are presentation settings, not model edits.
+
+Each completed changed field uses the existing editing Feature and finite
+common-API transaction. Unchanged values create no history. Escape discards
+the active input text; empty/non-finite numeric text restores the canonical
+value without dispatch. Domain-invalid edits are rejected by the existing
+canonical validation, show an error and restore the current model value without
+creating history. There is no pending whole-body form or alternate model store.
+
+The selected Object editor survives ordinary canonical revisions, preserving
+focus, unit choices, scroll and expanded sections. Fields project the current
+canonical values after Undo/Redo; an external change to that field's value supersedes
+unfinished input text. A different body, candidate or App lifetime creates a new
+editor. Experiment drafts, import preview/acceptance and explicit project saving
+retain their separate existing contracts.
+
+Formal cases cover automatic field completion, sequential edits, focus and unit
+retention, rotation replay, no-op/Escape, invalid dimensions/scales/joint limits,
+and one Undo per completed field through the ordinary browser workbench.
+
 ## M0 Proof Gate
 
 Before expanding to M1 interaction, prove normal Core creation, one Undo per

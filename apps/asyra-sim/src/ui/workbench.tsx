@@ -569,13 +569,13 @@ export function Workbench() {
           <div className="inspector-content" hidden={inspector !== 'object'}>
             {ready && selected && workcell && runtime && candidateId ? (
               <BodyEditor
-                key={`${candidateId}:${selected.id}:${revision}`}
+                key={`${lifecycle.generation}:${candidateId}:${selected.id}`}
                 body={selected}
                 workcell={workcell}
-                onApply={(body) =>
+                onChange={(body) =>
                   perform(
                     () => runtime.features.edit.upsert(candidateId, body),
-                    'Properties applied · one Undo action'
+                    'Property updated - one Undo action'
                   )
                 }
                 onRemove={() => {

@@ -218,8 +218,6 @@ test('previews, accepts, edits, undoes and reopens complete original part geomet
     ).toHaveValue('1')
   await reference.getByLabel('Visual scale X', { exact: true }).fill('0.5')
   await reference.getByLabel('Visual scale X', { exact: true }).press('Enter')
-  await page.getByRole('button', { name: 'Apply changes', exact: true }).click()
-  await page.locator('.visual-bindings > summary').click()
   await expect(
     reference.getByLabel('Visual scale X', { exact: true })
   ).toHaveValue('0.5')
@@ -314,7 +312,6 @@ test('keeps a historical-only visual source available for replay after portable 
   await page
     .getByRole('button', { name: 'Remove original part 2', exact: true })
     .click()
-  await page.getByRole('button', { name: 'Apply changes', exact: true }).click()
   const payload = await exportProject(page)
   expect(
     payload.visualSources.some(

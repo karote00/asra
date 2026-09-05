@@ -1,7 +1,6 @@
-import { useState } from 'react'
-import { axisAngle, type Vec3 } from '../domain/math'
 import type { VisualBinding } from '../domain/workcell'
-import { NumberField, VectorField } from './fields'
+import { VectorField } from './fields'
+import { RotationFields } from './rotation-fields'
 
 type Placement = Pick<VisualBinding, 'pose' | 'scale'>
 
@@ -12,9 +11,6 @@ export function VisualPlacementFields({
   value: Placement
   onChange: (placement: Placement) => void
 }) {
-  const [axis, setAxis] = useState<Vec3>([0, 1, 0]),
-    [angle, setAngle] = useState(0),
-    [error, setError] = useState('')
   return (
     <>
       <VectorField
@@ -36,38 +32,14 @@ export function VisualPlacementFields({
           {value.pose.rotation.map((entry) => entry.toFixed(4)).join(', ')}. Set
           an absolute axis-angle rotation.
         </p>
-        <VectorField
-          label="Visual rotation axis"
-          value={axis}
-          onChange={setAxis}
+        <RotationFields
+          axisLabel="Visual rotation axis"
+          angleLabel="Visual rotation (deg)"
+          value={value.pose.rotation}
+          onChange={(rotation) =>
+            onChange({ ...value, pose: { ...value.pose, rotation } })
+          }
         />
-        <NumberField
-          label="Visual rotation (deg)"
-          value={angle}
-          onChange={setAngle}
-        />
-        <button
-          type="button"
-          onClick={() => {
-            try {
-              onChange({
-                ...value,
-                pose: {
-                  ...value.pose,
-                  rotation: axisAngle(axis, (angle * Math.PI) / 180)
-                }
-              })
-              setError('')
-            } catch (reason) {
-              setError(
-                reason instanceof Error ? reason.message : String(reason)
-              )
-            }
-          }}
-        >
-          Set visual rotation
-        </button>
-        {error && <p className="inline-error">{error}</p>}
       </details>
     </>
   )

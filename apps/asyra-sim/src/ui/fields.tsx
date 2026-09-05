@@ -1,5 +1,52 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type ComponentProps } from 'react'
 import type { Vec3 } from '../domain/math'
+
+export function CommittedInput({
+  value,
+  onCommit,
+  ...props
+}: Omit<ComponentProps<'input'>, 'value' | 'onChange'> & {
+  value: string | number
+  onCommit: (value: string) => void
+}) {
+  const [draft, setDraft] = useState<{
+    source: string | number
+    text: string
+  } | null>(null)
+  if (draft !== null && draft.source !== value) setDraft(null)
+  const cancelled = useRef(false)
+  return (
+    <input
+      {...props}
+      value={draft?.source === value ? draft.text : value}
+      onChange={(event) =>
+        setDraft({ source: value, text: event.target.value })
+      }
+      onBlur={() => {
+        if (
+          !cancelled.current &&
+          draft?.source === value &&
+          draft.text !== String(value)
+        )
+          onCommit(draft.text)
+        cancelled.current = false
+        setDraft(null)
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          event.currentTarget.blur()
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          cancelled.current = true
+          setDraft(null)
+          event.currentTarget.blur()
+        }
+      }}
+    />
+  )
+}
 
 export function NumberField({
   label,
@@ -12,39 +59,17 @@ export function NumberField({
   onChange: (value: number) => void
   step?: number
 }) {
-  const [draft, setDraft] = useState<string | null>(null)
-  const cancelled = useRef(false)
   return (
     <label className="number-field">
       <span>{label}</span>
-      <input
+      <CommittedInput
         aria-label={label}
         type="number"
         step={step}
-        value={draft ?? value}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={() => {
-          if (
-            !cancelled.current &&
-            draft !== null &&
-            draft.trim() !== '' &&
-            Number.isFinite(Number(draft))
-          )
-            onChange(Number(draft))
-          cancelled.current = false
-          setDraft(null)
-        }}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault()
-            event.currentTarget.blur()
-          }
-          if (event.key === 'Escape') {
-            event.preventDefault()
-            cancelled.current = true
-            setDraft(null)
-            event.currentTarget.blur()
-          }
+        value={value}
+        onCommit={(text) => {
+          if (text.trim() !== '' && Number.isFinite(Number(text)))
+            onChange(Number(text))
         }}
       />
     </label>

@@ -12,6 +12,46 @@ import { createSyntheticExample } from '../../../samples/synthetic-workcell'
 beforeEach(() => vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true))
 afterEach(() => vi.unstubAllGlobals())
 
+it('canonical replay discards superseded input text even when Redo returns to its previous value', async () => {
+  const host = document.createElement('div'),
+    root = createRoot(host),
+    onChange = vi.fn()
+  document.body.append(host)
+  const render = (value: number) =>
+    act(() =>
+      root.render(
+        createElement(NumberField, {
+          label: 'Dimension',
+          value,
+          onChange
+        })
+      )
+    )
+  try {
+    await render(2)
+    const input = host.querySelector('input')
+    const setValue = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value'
+    )?.set
+    if (!input || !setValue) throw new Error('Missing numeric input')
+    await act(() => {
+      input.focus()
+      setValue.call(input, '9')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await render(3)
+    expect(input.value).toBe('3')
+    await render(2)
+    expect(input.value).toBe('2')
+    await act(() => input.blur())
+    expect(onChange).not.toHaveBeenCalled()
+  } finally {
+    await act(() => root.unmount())
+    host.remove()
+  }
+})
+
 it('Escape abandons a numeric draft without emitting a property edit', async () => {
   const host = document.createElement('div')
   document.body.append(host)

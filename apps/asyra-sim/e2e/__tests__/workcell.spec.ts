@@ -36,8 +36,11 @@ test('normal CUSTOM workbench renders, edits, undoes, resizes, and picks canonic
   await expect(page.getByLabel('Object name')).toHaveValue('fixture post')
   await page.getByLabel('Mount position (m) X', { exact: true }).fill('-1.25')
   await page.getByLabel('Object name').click()
-  await page.getByRole('button', { name: 'Apply changes' }).click()
-  await expect(page.getByRole('status')).toContainText('Properties applied')
+  await expect(page.getByRole('status')).toContainText('Property updated')
+  await expect(page.getByRole('button', { name: 'Apply changes' })).toHaveCount(
+    0
+  )
+  await expect(page.getByLabel('Object name')).toBeFocused()
   await expect(
     page.getByLabel('Mount position (m) X', { exact: true })
   ).toHaveValue('-1.25')
@@ -134,10 +137,7 @@ test('invalid original part placement is rejected without losing the existing mo
   await page.locator('.visual-bindings > summary').click()
   await page.getByLabel('Visual scale X', { exact: true }).fill('-1')
   await page.getByLabel('Object name').click()
-  await page.getByRole('button', { name: 'Apply changes' }).click()
   await expect(page.getByRole('alert')).toBeVisible()
-  await page.getByRole('button', { name: 'Reset', exact: true }).click()
-  await page.locator('.visual-bindings > summary').click()
   await expect(page.getByLabel('Visual scale X', { exact: true })).toHaveValue(
     '1'
   )
@@ -154,9 +154,7 @@ test('invalid native part dimensions are rejected without losing the authored ge
   const original = await dimension.inputValue()
   await dimension.fill('-1')
   await page.getByLabel('Object name').click()
-  await page.getByRole('button', { name: 'Apply changes' }).click()
   await expect(page.getByRole('alert')).toBeVisible()
-  await page.getByRole('button', { name: 'Reset', exact: true }).click()
   await expect(dimension).toHaveValue(original)
   await expect(page.getByRole('treeitem')).toHaveCount(12)
 })

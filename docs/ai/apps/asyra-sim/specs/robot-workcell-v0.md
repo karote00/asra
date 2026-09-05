@@ -293,6 +293,12 @@ Replacement defaults must not masquerade as original experiment inputs.
 
 - One edit maps to one understandable Undo action. Playback and solving do not
   write every frame into Undo history.
+- Object fields update through the editing Feature when completed, without a
+  form-wide Apply action. Enter/blur commits text, numeric and color input;
+  selects and checkboxes update directly. Invalid edits leave the model and
+  history unchanged. Ordinary updates and replay preserve the selected editor's
+  focus, expanded sections and unit choices. See
+  [Object field interaction](editing-v0.md#object-field-interaction).
 - Solving uses an isolated compute execution environment. The UI supports
   cancellation, progress inspection, and nonconflicting interactions.
 - Cancellation first propagates a signal. An uncooperative worker exceeding the

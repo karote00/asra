@@ -44,8 +44,9 @@ See the [runtime profile](../specs/runtime-profile-v0.md).
 1. Wait for **Local runtime ready**. The invented six-axis workcell includes a
    robot, gripper, workpiece, table and post. It is not a vendor CAD model.
 2. Use the tree and object properties to inspect the shapes, dimensions and
-   joints. **Apply changes** commits an edit; Undo/Redo reverses ordinary edits.
-   Visual references are appearance only: explicitly create analysis proxies.
+   joints. Complete a text, numeric or color field with Enter or blur; selects
+   and checkboxes update directly. No Apply button is needed. Undo/Redo reverses
+   individual field edits. Original part placement affects display and analysis.
 3. Open **Experiments**. Review **Analysis scope**, exclusions, time interval,
    minimum clearance, method limitations and numerical/resource settings.
    Save any changed draft before preflight or execution. Acknowledging workload
@@ -55,7 +56,7 @@ See the [runtime profile](../specs/runtime-profile-v0.md).
    frozen evidence at problem times; the sampled pose slider is not a continuous
    collision proof. **Retain result** explicitly adds the result to the project.
 5. **Duplicate candidate** to create B. For example, move the fixture post,
-   apply the edit, run and retain again. Duplicate B to C and try another change.
+   complete the field edit, run and retain again. Duplicate B to C and try another change.
 6. Open **Runs & compare**, select the three runs and compare. Differences in
    scope, method, rule or inputs remain visible. There is no automatic winner.
    Export JSON/CSV/HTML reports, then choose what deserves real-world validation.

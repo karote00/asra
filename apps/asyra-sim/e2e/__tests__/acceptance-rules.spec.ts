@@ -35,12 +35,14 @@ test('ordinary nested acceptance editing preserves findings, versions, compariso
   ]) {
     await page.getByRole('button', { name: 'Add fixture', exact: true }).click()
     await page.getByLabel('Object name').fill(name)
+    await page.getByLabel('Object name').press('Enter')
     await page.getByLabel('Body role').selectOption(role)
     await page.getByLabel('Mount position (m) X', { exact: true }).fill('0')
-    await page.getByLabel('Shape 1 type').selectOption('sphere')
     await page
-      .getByRole('button', { name: 'Apply changes', exact: true })
-      .click()
+      .getByLabel('Mount position (m) X', { exact: true })
+      .press('Enter')
+    await page.getByLabel('Shape 1 type').selectOption('sphere')
+    await expect(page.getByLabel('Shape 1 radius (m)')).toHaveValue('0.1')
   }
   await page.getByRole('button', { name: 'Experiments', exact: true }).click()
   await page.getByLabel('Experiment name').fill('Intentional contact study')

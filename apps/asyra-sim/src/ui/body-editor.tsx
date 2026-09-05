@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { IDENTITY_POSE, axisAngle, type Vec3 } from '../domain/math'
+import { IDENTITY_POSE } from '../domain/math'
 import type { Body, Collider, Geometry, Workcell } from '../domain/workcell'
-import { NumberField, VectorField } from './fields'
+import { CommittedInput, NumberField, VectorField } from './fields'
+import { RotationFields } from './rotation-fields'
 import { VisualPlacementFields } from './visual-placement-fields'
 
 function newGeometry(kind: string): Geometry {
@@ -13,39 +14,32 @@ function newGeometry(kind: string): Geometry {
 export function BodyEditor({
   body,
   workcell,
-  onApply,
+  onChange,
   onRemove
 }: {
   body: Body
   workcell: Workcell
-  onApply: (body: Body) => Promise<void>
+  onChange: (body: Body) => Promise<void>
   onRemove: () => void
 }) {
-  const [draft, setDraft] = useState<Body>(() => structuredClone(body))
+  const update = (next: Body) => {
+    void onChange(next)
+  }
   const [lengthUnit, setLengthUnit] = useState<'m' | 'mm'>('m')
   const [angleUnit, setAngleUnit] = useState<'rad' | 'deg'>('deg')
-  const [axis, setAxis] = useState<Vec3>([0, 1, 0]),
-    [angle, setAngle] = useState(0)
   const lengthScale = lengthUnit === 'mm' ? 1000 : 1,
     angleScale = angleUnit === 'deg' ? 180 / Math.PI : 1
   const shape = (id: string, change: Partial<Collider>) =>
-    setDraft({
-      ...draft,
-      colliders: draft.colliders.map((item) =>
+    update({
+      ...body,
+      colliders: body.colliders.map((item) =>
         item.id === id ? { ...item, ...change } : item
       )
     })
   const geometry = (id: string, value: Geometry) =>
     shape(id, { geometry: value })
-  const dirty = JSON.stringify(draft) !== JSON.stringify(body)
   return (
-    <form
-      className="body-editor"
-      onSubmit={(event) => {
-        event.preventDefault()
-        void onApply(draft)
-      }}
-    >
+    <div className="body-editor">
       <div className="panel-heading">
         <div>
           <span className="eyebrow">PROPERTIES</span>
@@ -56,14 +50,14 @@ export function BodyEditor({
       <div className="editor-content">
         <details className="visual-bindings">
           <summary>
-            Original parts <span>{draft.visuals?.length ?? 0}</span>
+            Original parts <span>{body.visuals?.length ?? 0}</span>
           </summary>
           <p className="hint">
             Import a GLB in Experiments to attach a complete part. Placement
-            affects both display and analysis. Apply properties commits one Undo
+            affects both display and analysis. Each field edit is one Undo
             action.
           </p>
-          {(draft.visuals ?? []).map((binding, index) => (
+          {(body.visuals ?? []).map((binding, index) => (
             <fieldset
               key={binding.id}
               aria-label={`Original part ${index + 1}`}
@@ -73,9 +67,9 @@ export function BodyEditor({
               <VisualPlacementFields
                 value={binding}
                 onChange={(placement) =>
-                  setDraft({
-                    ...draft,
-                    visuals: draft.visuals?.map((entry) =>
+                  update({
+                    ...body,
+                    visuals: body.visuals?.map((entry) =>
                       entry.id === binding.id
                         ? { ...entry, ...placement }
                         : entry
@@ -86,11 +80,10 @@ export function BodyEditor({
               <button
                 type="button"
                 onClick={() =>
-                  setDraft({
-                    ...draft,
-                    colliders:
-                      draft.visuals?.length === 1 ? [] : draft.colliders,
-                    visuals: draft.visuals?.filter(
+                  update({
+                    ...body,
+                    colliders: body.visuals?.length === 1 ? [] : body.colliders,
+                    visuals: body.visuals?.filter(
                       (entry) => entry.id !== binding.id
                     )
                   })
@@ -103,13 +96,11 @@ export function BodyEditor({
         </details>
         <label>
           Name
-          <input
+          <CommittedInput
             aria-label="Object name"
             maxLength={200}
-            value={draft.name}
-            onChange={(event) =>
-              setDraft({ ...draft, name: event.target.value })
-            }
+            value={body.name}
+            onCommit={(name) => update({ ...body, name })}
           />
         </label>
         <div className="field-pair">
@@ -144,9 +135,9 @@ export function BodyEditor({
           Parent frame
           <select
             aria-label="Parent frame"
-            value={draft.parentId ?? ''}
+            value={body.parentId ?? ''}
             onChange={(event) =>
-              setDraft({ ...draft, parentId: event.target.value || null })
+              update({ ...body, parentId: event.target.value || null })
             }
           >
             <option value="">Workcell origin</option>
@@ -163,9 +154,9 @@ export function BodyEditor({
           Body role
           <select
             aria-label="Body role"
-            value={draft.role}
+            value={body.role}
             onChange={(event) =>
-              setDraft({ ...draft, role: event.target.value as Body['role'] })
+              update({ ...body, role: event.target.value as Body['role'] })
             }
           >
             {['robot', 'link', 'tool', 'workpiece', 'fixture', 'group'].map(
@@ -177,54 +168,42 @@ export function BodyEditor({
         </label>
         <VectorField
           label={`Mount position (${lengthUnit})`}
-          value={draft.pose.position}
+          value={body.pose.position}
           scale={lengthScale}
           onChange={(position) =>
-            setDraft({ ...draft, pose: { ...draft.pose, position } })
+            update({ ...body, pose: { ...body.pose, position } })
           }
         />
         <details>
           <summary>Mount rotation</summary>
           <p className="hint">
             Set an absolute axis-angle rotation. Current quaternion:{' '}
-            {draft.pose.rotation.map((v) => v.toFixed(4)).join(', ')}.
+            {body.pose.rotation.map((v) => v.toFixed(4)).join(', ')}.
           </p>
-          <VectorField label="Rotation axis" value={axis} onChange={setAxis} />
-          <NumberField
-            label={`Rotation angle (${angleUnit})`}
-            value={angle}
-            onChange={setAngle}
+          <RotationFields
+            axisLabel="Rotation axis"
+            angleLabel={`Rotation angle (${angleUnit})`}
+            angleScale={angleScale}
+            value={body.pose.rotation}
+            onChange={(rotation) =>
+              update({ ...body, pose: { ...body.pose, rotation } })
+            }
           />
-          <button
-            type="button"
-            onClick={() => {
-              if (Math.hypot(...axis) > 0)
-                setDraft({
-                  ...draft,
-                  pose: {
-                    ...draft.pose,
-                    rotation: axisAngle(axis, angle / angleScale)
-                  }
-                })
-            }}
-          >
-            Set mount rotation
-          </button>
         </details>
-        <details open={draft.joint.kind !== 'fixed'}>
+        <details open={body.joint.kind !== 'fixed'}>
           <summary>
-            Joint definition <span>{draft.joint.kind}</span>
+            Joint definition <span>{body.joint.kind}</span>
           </summary>
           <label>
             Joint type
             <select
               aria-label="Joint type"
-              value={draft.joint.kind}
+              value={body.joint.kind}
               onChange={(event) =>
-                setDraft({
-                  ...draft,
+                update({
+                  ...body,
                   joint: {
-                    ...draft.joint,
+                    ...body.joint,
                     kind: event.target.value as Body['joint']['kind']
                   }
                 })
@@ -235,35 +214,35 @@ export function BodyEditor({
               <option>prismatic</option>
             </select>
           </label>
-          {draft.joint.kind !== 'fixed' && (
+          {body.joint.kind !== 'fixed' && (
             <>
               <VectorField
                 label="Joint axis"
-                value={draft.joint.axis}
+                value={body.joint.axis}
                 onChange={(axis) =>
-                  setDraft({ ...draft, joint: { ...draft.joint, axis } })
+                  update({ ...body, joint: { ...body.joint, axis } })
                 }
               />
               {(['min', 'value', 'max'] as const).map((key) => (
                 <NumberField
                   key={key}
-                  label={`Joint ${key} (${draft.joint.kind === 'revolute' ? angleUnit : lengthUnit})`}
+                  label={`Joint ${key} (${body.joint.kind === 'revolute' ? angleUnit : lengthUnit})`}
                   value={Number(
                     (
-                      draft.joint[key] *
-                      (draft.joint.kind === 'revolute'
+                      body.joint[key] *
+                      (body.joint.kind === 'revolute'
                         ? angleScale
                         : lengthScale)
                     ).toPrecision(10)
                   )}
                   onChange={(value) =>
-                    setDraft({
-                      ...draft,
+                    update({
+                      ...body,
                       joint: {
-                        ...draft.joint,
+                        ...body.joint,
                         [key]:
                           value /
-                          (draft.joint.kind === 'revolute'
+                          (body.joint.kind === 'revolute'
                             ? angleScale
                             : lengthScale)
                       }
@@ -274,18 +253,18 @@ export function BodyEditor({
             </>
           )}
         </details>
-        {!draft.visuals?.length && (
+        {!body.visuals?.length && (
           <section className="shape-list">
             <div className="section-heading">
               <h3>Native parts</h3>
-              <span>{draft.colliders.length} shapes</span>
+              <span>{body.colliders.length} shapes</span>
             </div>
             <p className="hint">
               Use these only for genuinely simple parts. Imported parts are
               never replaced by these shapes. Empty bodies cannot enter
               analysis.
             </p>
-            {draft.colliders.map((collider, index) => (
+            {body.colliders.map((collider, index) => (
               <details key={collider.id} open>
                 <summary>
                   Shape {index + 1}
@@ -358,9 +337,9 @@ export function BodyEditor({
                   type="button"
                   className="text-button danger"
                   onClick={() =>
-                    setDraft({
-                      ...draft,
-                      colliders: draft.colliders.filter(
+                    update({
+                      ...body,
+                      colliders: body.colliders.filter(
                         (item) => item.id !== collider.id
                       )
                     })
@@ -374,10 +353,10 @@ export function BodyEditor({
               type="button"
               className="wide"
               onClick={() =>
-                setDraft({
-                  ...draft,
+                update({
+                  ...body,
                   colliders: [
-                    ...draft.colliders,
+                    ...body.colliders,
                     {
                       id: crypto.randomUUID(),
                       geometry: { kind: 'box', size: [0.2, 0.2, 0.2] },
@@ -394,23 +373,23 @@ export function BodyEditor({
         <label className="checkbox">
           <input
             type="checkbox"
-            checked={draft.visible}
+            checked={body.visible}
             onChange={(event) =>
-              setDraft({ ...draft, visible: event.target.checked })
+              update({ ...body, visible: event.target.checked })
             }
           />
           Visible in viewport <span>(not analysis scope)</span>
         </label>
         <label>
           Display color
-          <input
+          <CommittedInput
             aria-label="Display color"
             type="color"
-            value={`#${draft.color.toString(16).padStart(6, '0')}`}
-            onChange={(event) =>
-              setDraft({
-                ...draft,
-                color: parseInt(event.target.value.slice(1), 16)
+            value={`#${body.color.toString(16).padStart(6, '0')}`}
+            onCommit={(color) =>
+              update({
+                ...body,
+                color: parseInt(color.slice(1), 16)
               })
             }
           />
@@ -419,18 +398,6 @@ export function BodyEditor({
           Delete object and descendants
         </button>
       </div>
-      <div className="editor-actions">
-        <button
-          type="button"
-          disabled={!dirty}
-          onClick={() => setDraft(structuredClone(body))}
-        >
-          Reset
-        </button>
-        <button type="submit" className="primary" disabled={!dirty}>
-          Apply changes
-        </button>
-      </div>
-    </form>
+    </div>
   )
 }

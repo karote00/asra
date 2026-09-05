@@ -1168,6 +1168,7 @@
         outputs: ['artifact:user-workbench'],
         conditions: [
           'Dispatch intent through Features; UI is never canonical model or solver authority.',
+          'Object field completion dispatches one edit directly through the existing editing Feature, without a form-wide Apply or a second editable body. Keep only unfinished input text and presentation settings transient; reject invalid input without history, project canonical replay, and preserve the selected editor across ordinary revisions. Reset it on body, candidate or lifetime replacement.',
           'Keep one storage session outside document lifetimes; acknowledge saves separately and confirm replacement through the App lifecycle controller.',
           'Reset transient view/selection/drafts for each successor; guard late old-runtime effects and input callbacks.',
           'Show local storage errors without blocking editing; post-retirement failure disables editing and offers detached recovery download.',

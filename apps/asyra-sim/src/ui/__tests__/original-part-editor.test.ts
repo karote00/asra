@@ -6,6 +6,49 @@ import { BodyEditor } from '../body-editor'
 import { createSyntheticExample } from '../../../samples/synthetic-workcell'
 import { IDENTITY_POSE } from '../../domain/math'
 
+it('commits mount rotation when its angle field is completed, without a second action', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const workcell = createSyntheticExample().workcell,
+    body = workcell.bodies[0],
+    host = document.createElement('div'),
+    root = createRoot(host),
+    apply = vi.fn()
+  document.body.append(host)
+  try {
+    await act(() =>
+      root.render(
+        createElement(BodyEditor, {
+          body,
+          workcell,
+          onChange: apply,
+          onRemove: vi.fn()
+        })
+      )
+    )
+    const input = host.querySelector<HTMLInputElement>(
+      '[aria-label="Rotation angle (deg)"]'
+    )
+    const setValue = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      'value'
+    )?.set
+    if (!input || !setValue) throw new Error('Missing rotation input')
+    await act(() => {
+      input.focus()
+      setValue.call(input, '90')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await act(() => input.blur())
+    expect(apply).toHaveBeenCalledTimes(1)
+    expect(apply.mock.calls[0][0].pose.rotation[1]).toBeCloseTo(Math.SQRT1_2)
+    expect(host.textContent).not.toContain('Set mount rotation')
+  } finally {
+    await act(() => root.unmount())
+    host.remove()
+    vi.unstubAllGlobals()
+  }
+})
+
 it('edits actual source placement and never offers its retired surrogate as analysis geometry', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   const workcell = createSyntheticExample().workcell,
@@ -28,7 +71,7 @@ it('edits actual source placement and never offers its retired surrogate as anal
         createElement(BodyEditor, {
           body,
           workcell,
-          onApply: apply,
+          onChange: apply,
           onRemove: vi.fn()
         })
       )
@@ -40,13 +83,6 @@ it('edits actual source placement and never offers its retired surrogate as anal
     )
     expect(remove).toBeDefined()
     await act(() => remove?.click())
-    const form = host.querySelector('form')
-    if (!form) throw new Error('Missing editor form')
-    await act(() =>
-      form.dispatchEvent(
-        new Event('submit', { bubbles: true, cancelable: true })
-      )
-    )
     expect(apply).toHaveBeenCalledWith(
       expect.objectContaining({ visuals: [], colliders: [] })
     )

@@ -30,7 +30,7 @@ async function renameFixture(page: Page, current: string, name: string) {
     .getByRole('treeitem', { name: `◇ ${current}`, exact: true })
     .click()
   await page.getByLabel('Object name').fill(name)
-  await page.getByRole('button', { name: 'Apply changes' }).click()
+  await page.getByLabel('Object name').press('Enter')
   await expect(
     page.getByRole('treeitem', { name: `◇ ${name}`, exact: true })
   ).toBeVisible()

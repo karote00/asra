@@ -32,10 +32,7 @@ async function movePost(page: Page, x: string) {
     .click()
   await page.getByLabel('Mount position (m) X', { exact: true }).fill(x)
   await page.getByLabel('Mount position (m) X', { exact: true }).press('Enter')
-  await expect(
-    page.getByRole('button', { name: 'Apply changes', exact: true })
-  ).toBeEnabled()
-  await page.getByRole('button', { name: 'Apply changes', exact: true }).click()
+  await expect(page.getByRole('status')).toContainText('Property updated')
   await expect(
     page.getByLabel('Mount position (m) X', { exact: true })
   ).toHaveValue(x)
