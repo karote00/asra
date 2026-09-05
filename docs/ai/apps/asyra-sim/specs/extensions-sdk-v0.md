@@ -1,7 +1,8 @@
 # Local Geometry Method SDK v0
 
 Status: source-level local SDK, not a published package. Read the
-[extension contract](extensions-v0.md) and [numerical contract](numerical-method-v0.md)
+[extension contract](extensions-v0.md), [original-part numerical contract](original-part-method-v1.md)
+and [native primitive contract](numerical-method-v0.md)
 before implementing a method. Public release still requires the release gates.
 
 ## Ownership and Entry Points
@@ -25,10 +26,18 @@ not the official method's convex-search implementation. Its adapter in the
 installed catalog passes the same snapshot, checkpoints and pair emitter used
 by the official method. No special result viewer is involved.
 
-This SDK version is for the R0 geometry domain: rigid box/sphere/capsule proxies,
+This SDK version is for the R0 geometry domain: complete original meshes and
+explicitly authored native rigid boxes/spheres/capsules,
 right-handed Y-up coordinates, meters/radians/seconds, and declared static or
 serial-joint trajectory capabilities. It does not add arbitrary chemistry,
-optics, dynamics, new geometry kinds, or custom shaders by configuration.
+optics, dynamics, arbitrary new geometry kinds, or custom shaders by configuration.
+Declare `mesh` in `geometryKinds` only when the method handles complete source
+triangles and the declared solid semantics. Snapshot version 2 carries those
+resolved meshes with matching source bindings. Version 1 is retained for native
+inputs and historical records; old proxy evidence is never upgraded. Existing
+primitive-only methods reject selected meshes rather than substituting shapes.
+The original-part method is a distinct installed identity; the historical
+continuous method and independent sphere example keep their original identities.
 
 ## Add a Private Method
 

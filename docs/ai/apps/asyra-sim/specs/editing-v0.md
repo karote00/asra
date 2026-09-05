@@ -4,16 +4,25 @@
 
 Each candidate is a Scene Tree container. Body components below it own actual
 parent membership, names, and visibility. A registered body property contains
-only role, mounting pose, joint definition, colliders, and display color. It
+only role, mounting pose, joint definition, native colliders, original part
+bindings, and display color. It
 must not contain an editable id/parent/name/visibility duplicate. Candidate
 properties identify the selected fixed robot root. Detached `Workcell` values
 are query/import/analysis artifacts, never a second editable store.
 
 All body components are containers because tools, fixtures, and links can have
-rigid attachments. The spatial projection renders their colliders; component
+rigid attachments. The spatial projection renders their complete original parts
+or explicitly authored native shapes; component
 registration deliberately emits no default 2D rectangle.
 
 ## Intent and Application
+
+Original part bindings are authoritative geometry sources. Attaching one clears
+the previous primitive geometry in the same transaction; Undo restores both.
+Removing all bindings leaves an empty body, not a surrogate fallback. Ordinary
+body updates cannot remove the last original source while retaining legacy
+primitive shapes. Author replacement native parts explicitly after removal.
+Whole-document replacement and historical Undo retain their explicit meanings.
 
 The registered edit Feature exposes typed programmatic APIs for candidate
 creation, model replacement, body create/update/remove, and history. It is a

@@ -1,12 +1,14 @@
 import { createHash } from 'node:crypto'
 import { expect, test, type Page } from '@playwright/test'
+import { MechanicalMesh } from '../../samples/mechanical-mesh'
 import {
   encodeGlb,
   triangleFixture
 } from '../../src/engine/glb/__tests__/fixtures'
 
-const fixture = triangleFixture(),
-  bytes = Buffer.from(encodeGlb(fixture.json, fixture.binary))
+const fixture = new MechanicalMesh()
+fixture.block(0xeeeeee, [0, 0, 0], [0.1, 0.1, 0.1])
+const bytes = Buffer.from(fixture.toGlb('closed-original-part'))
 const digest = createHash('sha256').update(bytes).digest('hex')
 
 test('a large valid GLB requires an explicit resource acknowledgement without making model edits', async ({
@@ -21,7 +23,7 @@ test('a large valid GLB requires an explicit resource acknowledgement without ma
   const depth = await page.getByTestId('history-depth').textContent()
   await page.getByRole('button', { name: 'Experiments', exact: true }).click()
   await page.locator('.glb-preview > summary').click()
-  await page.getByLabel('Choose visual GLB').setInputFiles({
+  await page.getByLabel('Choose original part GLB').setInputFiles({
     name: 'large-reference.glb',
     mimeType: 'model/gltf-binary',
     buffer: Buffer.from(encodeGlb(source.json, padded))
@@ -36,7 +38,7 @@ test('a large valid GLB requires an explicit resource acknowledgement without ma
     .getByRole('button', { name: 'Preview placement in 3D', exact: true })
     .click()
   await expect(
-    page.getByRole('button', { name: 'Accept visual reference', exact: true })
+    page.getByRole('button', { name: 'Accept original part', exact: true })
   ).toBeVisible()
   await expect(page.getByTestId('history-depth')).toHaveText(depth ?? '')
   await acknowledge.scrollIntoViewIfNeeded()
@@ -45,7 +47,7 @@ test('a large valid GLB requires an explicit resource acknowledgement without ma
     .getByRole('button', { name: 'Cancel preview', exact: true })
     .click()
   await expect(
-    page.getByRole('button', { name: 'Accept visual reference', exact: true })
+    page.getByRole('button', { name: 'Accept original part', exact: true })
   ).toHaveCount(0)
   await expect(page.getByTestId('history-depth')).toHaveText(depth ?? '')
   await info.attach('review-state.json', {
@@ -66,7 +68,7 @@ test('a large valid GLB requires an explicit resource acknowledgement without ma
 async function chooseVisual(page: Page) {
   await page.getByRole('button', { name: 'Experiments', exact: true }).click()
   await page.locator('.glb-preview > summary').click()
-  await page.getByLabel('Choose visual GLB').setInputFiles({
+  await page.getByLabel('Choose original part GLB').setInputFiles({
     name: 'reference.glb',
     mimeType: 'model/gltf-binary',
     buffer: bytes
@@ -82,6 +84,41 @@ async function chooseVisual(page: Page) {
     'Visual preview · not accepted'
   )
 }
+
+test('keeps an open source visible but blocks formal solid analysis without allocating an analysis Worker', async ({
+  page
+}) => {
+  await page.goto('/')
+  await expect(page.getByRole('status')).toHaveText('Local runtime ready')
+  await page.getByRole('button', { name: 'Experiments', exact: true }).click()
+  await page.locator('.glb-preview > summary').click()
+  const source = triangleFixture()
+  await page.getByLabel('Choose original part GLB').setInputFiles({
+    name: 'open.glb',
+    mimeType: 'model/gltf-binary',
+    buffer: Buffer.from(encodeGlb(source.json, source.binary))
+  })
+  await page
+    .getByLabel('Visual target body')
+    .selectOption({ label: 'fixture post' })
+  await page
+    .getByRole('button', { name: 'Preview placement in 3D', exact: true })
+    .click()
+  await page
+    .getByRole('button', { name: 'Accept original part', exact: true })
+    .click()
+  const workers: string[] = []
+  page.on('worker', (worker) => workers.push(worker.url()))
+  await page.getByRole('button', { name: 'Run preflight', exact: true }).click()
+  await expect(page.getByTestId('preflight-report')).toContainText(
+    'original-part-topology'
+  )
+  await page
+    .getByRole('button', { name: 'Run formal analysis', exact: true })
+    .click()
+  await expect(page.getByRole('alert')).toBeVisible()
+  expect(workers).toEqual([])
+})
 async function exportProject(page: Page) {
   await page.getByRole('button', { name: 'Projects', exact: true }).click()
   const pending = page.waitForEvent('download')
@@ -109,7 +146,7 @@ async function importProject(page: Page, payload: unknown) {
     .click()
 }
 
-test('previews, accepts, edits, undoes and reopens a visual without changing proxy geometry', async ({
+test('previews, accepts, edits, undoes and reopens complete original part geometry', async ({
   page
 }, info) => {
   const errors: string[] = [],
@@ -131,31 +168,54 @@ test('previews, accepts, edits, undoes and reopens a visual without changing pro
   await page.locator('.glb-preview').scrollIntoViewIfNeeded()
   await page.screenshot({ path: info.outputPath('visual-preview.png') })
   await page
-    .getByRole('button', { name: 'Accept visual reference', exact: true })
+    .getByRole('button', { name: 'Accept original part', exact: true })
     .click()
   await expect(page.locator('.glb-preview')).toContainText('one Undo action')
   await expect(page.getByTestId('history-depth')).toHaveText('Undo steps: 3')
   await expect(page.locator('.viewport-summary')).toContainText(
-    '13 analysis shapes'
+    '12 analysis parts'
+  )
+  await expect(page.locator('.viewport-summary')).not.toContainText(
+    'not accepted'
+  )
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      )
   )
   const canvas = page.getByTestId('workcell-canvas').locator('canvas'),
-    accepted = await canvas.screenshot()
-  await page.getByLabel('Visuals', { exact: true }).uncheck()
+    accepted = await canvas.screenshot({
+      path: info.outputPath('accepted-original-part.png')
+    })
+  await page.getByLabel('Wireframe', { exact: true }).check()
   expect((await canvas.screenshot()).equals(accepted)).toBe(false)
-  await page.getByLabel('Visuals', { exact: true }).check()
+  await page.getByLabel('Wireframe', { exact: true }).uncheck()
   await expect(page.getByTestId('history-depth')).toHaveText('Undo steps: 3')
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect(page.getByTestId('history-depth')).toHaveText(depth ?? '')
+  await expect(page.locator('.viewport-summary')).toContainText(
+    '11 analysis parts'
+  )
   await page.getByRole('button', { name: 'Redo', exact: true }).click()
-  expect((await canvas.screenshot()).equals(accepted)).toBe(true)
+  await expect(page.locator('.viewport-summary')).toContainText(
+    '12 analysis parts'
+  )
+  await canvas.screenshot({
+    path: info.outputPath('restored-original-part.png')
+  })
   await page
     .getByRole('treeitem', { name: '◇ fixture post', exact: true })
     .click()
   await page.locator('.visual-bindings > summary').click()
   const reference = page.getByRole('group', {
-    name: 'Visual reference 2',
+    name: 'Original part 2',
     exact: true
   })
+  for (const axis of ['X', 'Y', 'Z'])
+    await expect(
+      reference.getByLabel(`Visual scale ${axis}`, { exact: true })
+    ).toHaveValue('1')
   await reference.getByLabel('Visual scale X', { exact: true }).fill('0.5')
   await reference.getByLabel('Visual scale X', { exact: true }).press('Enter')
   await page.getByRole('button', { name: 'Apply changes', exact: true }).click()
@@ -164,7 +224,7 @@ test('previews, accepts, edits, undoes and reopens a visual without changing pro
     reference.getByLabel('Visual scale X', { exact: true })
   ).toHaveValue('0.5')
   await expect(page.locator('.viewport-summary')).toContainText(
-    '13 analysis shapes'
+    '12 analysis parts'
   )
   await reference.scrollIntoViewIfNeeded()
   await page.screenshot({ path: info.outputPath('visual-binding.png') })
@@ -215,7 +275,7 @@ test('previews, accepts, edits, undoes and reopens a visual without changing pro
         .getByRole('treeitem', { name: '◇ fixture post', exact: true })
         .getAttribute('data-object-id'),
       visualScale: [0.5, 1, 1],
-      proxyCount: 11,
+      originalPartCount: 12,
       screenshots: [
         'visual-preview.png',
         'visual-binding.png',
@@ -238,7 +298,7 @@ test('keeps a historical-only visual source available for replay after portable 
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
   await chooseVisual(page)
   await page
-    .getByRole('button', { name: 'Accept visual reference', exact: true })
+    .getByRole('button', { name: 'Accept original part', exact: true })
     .click()
   await page
     .getByRole('button', { name: 'Run formal analysis', exact: true })
@@ -252,7 +312,7 @@ test('keeps a historical-only visual source available for replay after portable 
     .click()
   await page.locator('.visual-bindings > summary').click()
   await page
-    .getByRole('button', { name: 'Remove visual reference 2', exact: true })
+    .getByRole('button', { name: 'Remove original part 2', exact: true })
     .click()
   await page.getByRole('button', { name: 'Apply changes', exact: true }).click()
   const payload = await exportProject(page)

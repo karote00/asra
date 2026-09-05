@@ -5,16 +5,26 @@ robot workcell: geometric interference and clearance, not equipment control or
 industrial safety certification.
 
 **Development checkpoint, not R0.** The current workbench can edit a synthetic
-six-axis model and geometric proxies, navigate in 3D, Undo/Redo, and explicitly
+six-axis model with complete original parts, navigate in 3D, Undo/Redo, and explicitly
 save and reopen local projects. The experiment panel accepts explicitly mapped
 trajectories, runs preflight and isolated continuous-time analysis, and replays
 frozen evidence. Runs can be explicitly retained, compared, exported, and reopened
 with portable projects. Independent A/B/C workcells can be duplicated and compared.
-Restricted GLB references can be previewed, attached, edited, and preserved with
+Restricted GLB parts can be previewed, attached, edited, and preserved with
 historical runs. Run-linked field observations and opaque attachments preserve
 real-world feedback separately from immutable evidence. Independent distribution
 and validation remain under development. Do not use this
 checkpoint to approve production operations.
+
+**One supplied geometry for display and analysis.** The original-part method
+uses every accepted source triangle, including holes and small features, with
+static solid containment and bounded continuous joint-space queries. Conservative
+bounding structures accelerate proof without replacing geometry. Unsupported
+topology or missing sources block analysis; uncertain predicates and exhausted
+budgets remain unresolved. New version-2 runs retain full geometry and source
+provenance. Old proxy evidence keeps its original meaning. This is local software
+verification, not independent numerical certification or manufacturer CAD accuracy.
+See the [original-part contract](../../docs/ai/apps/asyra-sim/specs/original-part-method-v1.md).
 
 ## Local development
 
@@ -75,15 +85,19 @@ up to 1 MiB; both require 1–2,000 keyframes. CSV parsing stops at 256 columns 
 immediately, including when the new file cannot be read. Save the draft before preflight
 or formal analysis.
 
-Expand **GLB visual reference**, choose a self-contained static GLB, and verify its
+Expand **GLB original part**, choose a self-contained static GLB, and verify its
 dimensions, source units, digest, and appearance limitations. Select the target
 body, set a body-local position/rotation and positive scale, then choose **Preview
-placement in 3D**. Only **Accept visual reference** creates an undoable binding.
+placement in 3D**. Only **Accept original part** creates an undoable binding.
 Cancellation, another source, leaving the import panel, or changed workcell inputs
 invalidates the transient preview. Accepted references can be adjusted or removed
-under the selected object's **Visual references**; **Apply changes** commits the
-draft. The viewport's **Visuals** and **Proxies** switches affect display only.
-Imported triangles never become analysis colliders automatically.
+under the selected object's **Original parts**; **Apply changes** commits the
+draft. The viewport's **Wireframe** switch shows the same original triangles.
+Acceptance retires previous primitive shapes in one Undo action. Removing the
+last source leaves an empty body; it does not revive a simplified substitute.
+Formal solid analysis requires closed, consistently oriented manifold components;
+open surfaces may be displayed but cannot pass **Run preflight**. The same checks
+protect **Run formal analysis** before Worker allocation and at Worker entry.
 Sources above 8 MiB require explicit memory-warning acknowledgement before
 placement preview and acceptance. Another source resets that acknowledgement;
 hard byte, geometry and instance limits cannot be overridden.
@@ -107,9 +121,9 @@ The sun/moon icon in the header switches between light and dark mode. The first
 visit follows the system preference; an explicit choice is remembered locally
 when browser storage permits. Theme changes never edit documents or history.
 
-New examples include original detailed mechanical main-body GLB assets. Turn off
-**Proxies** to inspect the housings, joint covers, flanges, fasteners and gripper;
-turn it back on to compare the separately defined analysis shapes. These are
+New examples include original detailed mechanical main-body GLB assets: housings,
+joint covers, flanges, fasteners, table legs and gripper. All supplied triangles
+participate when their body is selected for analysis. These are
 synthetic, uncalibrated parts, not vendor CAD. See [sample provenance](samples/README.md).
 
 The sampled pose slider changes only the view. Formal analysis freezes inputs,
@@ -140,7 +154,10 @@ targets; these input caps are not a total-memory guarantee.
 ## Installed methods and trust
 
 The method selector lists the trusted modules compiled into this local deployment.
-The built-in continuous proxy method supports boxes, spheres and capsules. The
+The **Original-part continuous clearance** method supports complete source meshes
+and native boxes, spheres and capsules. New detailed-example studies select it
+explicitly. The historical continuous primitive method keeps its identity for
+old evidence and genuinely native primitive studies; it rejects meshes. The
 independent analytical sphere example supports one static keyframe and sphere
 pairs only; it is not a replacement for the continuous method. **Method capabilities
 and trust** shows origin, units, bounds, limits, declared validation and services.

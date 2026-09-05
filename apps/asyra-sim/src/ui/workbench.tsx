@@ -64,13 +64,12 @@ export function Workbench() {
   const [inspector, setInspector] = useState<'object' | 'experiment'>('object')
   const [playback, setPlayback] = useState<PlaybackView | null>(null)
   const [visualPreview, setVisualPreview] = useState<VisualPreview | null>(null)
-  const [visuals, setVisuals] = useState(true),
-    [proxies, setProxies] = useState(true)
+  const [wireframe, setWireframe] = useState(false)
   const onVisualPreview = useCallback((value: VisualPreview | null) => {
     setVisualPreview(value)
     if (value) {
       setPlayback(null)
-      setVisuals(true)
+      setWireframe(false)
     }
   }, [])
   const [pendingRuns, setPendingRuns] = useState<RunRecord[]>([])
@@ -88,8 +87,7 @@ export function Workbench() {
     setInspector('object')
     setPlayback(null)
     setVisualPreview(null)
-    setVisuals(true)
-    setProxies(true)
+    setWireframe(false)
     if (value) setPendingRuns([])
     setShowRuns(false)
     setCamera(structuredClone(DEFAULT_CAMERA))
@@ -169,8 +167,7 @@ export function Workbench() {
     grid,
     isCurrent,
     playback?.joints,
-    visuals,
-    proxies,
+    wireframe,
     visualPreview?.prepared
   )
   const perform = async (
@@ -499,20 +496,11 @@ export function Workbench() {
             <label>
               <input
                 type="checkbox"
-                checked={visuals}
+                checked={wireframe}
                 disabled={!ready}
-                onChange={(event) => setVisuals(event.target.checked)}
+                onChange={(event) => setWireframe(event.target.checked)}
               />
-              Visuals
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={proxies}
-                disabled={!ready}
-                onChange={(event) => setProxies(event.target.checked)}
-              />
-              Proxies
+              Wireframe
             </label>
           </div>
           <div
@@ -537,10 +525,11 @@ export function Workbench() {
             </span>
             <span>
               {workcell?.bodies.reduce(
-                (sum, body) => sum + body.colliders.length,
+                (sum, body) =>
+                  sum + (body.visuals?.length || body.colliders.length),
                 0
               ) ?? 0}{' '}
-              analysis shapes · meters
+              analysis parts · meters
             </span>
           </div>
         </section>

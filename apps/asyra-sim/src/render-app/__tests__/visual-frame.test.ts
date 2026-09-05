@@ -3,6 +3,7 @@ import { IDENTITY_POSE, axisAngle, transformPoint } from '../../domain/math'
 import type { Body, Workcell } from '../../domain/workcell'
 import type { VisualAsset } from '../../engine/glb/decode'
 import { createWorkcellFrame, DEFAULT_CAMERA } from '../workcell-frame'
+import { resolvePartWorkcell } from '../../domain/part-geometry'
 
 const assetId = 'a'.repeat(64)
 const asset: VisualAsset = {
@@ -69,7 +70,7 @@ const view = { camera: DEFAULT_CAMERA, grid: false, selectedId: null }
 const resources = new Map([[assetId, asset]])
 
 it.each([0, Math.PI / 2, -Math.PI / 4])(
-  'projects scaled visual geometry through the shared moving pose at %s without scaling proxies',
+  'projects the exact resolved original part at %s without surrogate geometry',
   (angle) => {
     const workcell = model(),
       before = structuredClone(workcell),
@@ -109,11 +110,14 @@ it.each([0, Math.PI / 2, -Math.PI / 4])(
     const proxy = frame.meshes.find(
       (mesh) => mesh.descriptor.shape.kind === 'sphere'
     )
-    expect(proxy?.descriptor.shape).toEqual({ kind: 'sphere', radius: 1 })
-    expect(proxy?.descriptor.position[0]).toBeCloseTo(
-      1 + 2 * Math.cos(angle),
-      12
-    )
+    expect(proxy).toBeUndefined()
+    const resolved = resolvePartWorkcell(workcell, resources).bodies[1]
+      .colliders[0].geometry
+    expect(resolved.kind).toBe('mesh')
+    if (resolved.kind !== 'mesh')
+      throw new Error('Missing resolved original part')
+    expect(visual.descriptor.shape.positions).toEqual(resolved.positions)
+    expect(visual.descriptor.shape.indices).toEqual(resolved.indices)
     expect(workcell).toEqual(before)
     expect(asset).toEqual(source)
   }
@@ -124,7 +128,7 @@ it('keeps visual/proxy display controls transient and inherits hidden ancestry',
     before = structuredClone(workcell)
   expect(
     createWorkcellFrame(workcell, { ...view, visuals: false }, resources).meshes
-  ).toHaveLength(1)
+  ).toHaveLength(0)
   expect(
     createWorkcellFrame(workcell, { ...view, proxies: false }, resources)
       .meshes[0].descriptor.shape.kind

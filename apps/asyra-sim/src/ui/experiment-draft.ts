@@ -65,8 +65,12 @@ export function createDefaultExperimentDraft(
     },
     interval: [0, 0],
     method: {
-      id: MethodIds.CONTINUOUS_CLEARANCE,
-      version: MethodVersions.CONTINUOUS_CLEARANCE,
+      id: workcell.bodies.some((body) => body.visuals?.length)
+        ? MethodIds.ORIGINAL_PART_CLEARANCE
+        : MethodIds.CONTINUOUS_CLEARANCE,
+      version: workcell.bodies.some((body) => body.visuals?.length)
+        ? MethodVersions.ORIGINAL_PART_CLEARANCE
+        : MethodVersions.CONTINUOUS_CLEARANCE,
       settings: {
         distanceTolerance: 0.000001,
         timeTolerance: 0.0001,

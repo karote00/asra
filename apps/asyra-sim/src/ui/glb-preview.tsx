@@ -171,7 +171,7 @@ export function GlbPreview({
       releaseSource()
       setError('')
       setNotice(
-        'Visual reference accepted · one Undo action. Save the project to retain it locally.'
+        'Original part accepted - one Undo action. Save the project to retain it locally.'
       )
     } catch (reason) {
       if (live.current && current.current(runtime))
@@ -184,18 +184,19 @@ export function GlbPreview({
   return (
     <details className="glb-preview">
       <summary>
-        GLB visual reference <span>not an analysis collider</span>
+        GLB original part <span>complete source geometry</span>
       </summary>
       <p className="hint">
         Static, self-contained local GLB only. No remote resources, textures,
-        animation or automatic collision geometry. Asset transforms are baked;
-        appearance is not a photometric match.
+        animation or simplified collision geometry. Every triangle is retained.
+        Open or ambiguous meshes may be viewed but block formal solid analysis.
+        No automatic hole filling; appearance is not a photometric match.
       </p>
       <div className="file-row">
         <label className="file-button">
           Choose GLB
           <input
-            aria-label="Choose visual GLB"
+            aria-label="Choose original part GLB"
             type="file"
             accept=".glb,model/gltf-binary"
             disabled={phase !== null}
@@ -310,8 +311,8 @@ export function GlbPreview({
               }}
             />
             <p className="hint">
-              Scale must be positive (0.000001–1000). It affects only this
-              visual, never joints or analysis shapes.
+              Scale must be positive (0.000001–1000). It changes this actual
+              part in both display and analysis, without scaling joint motion.
             </p>
             <button
               disabled={needsMemoryAcknowledgement && !memoryAcknowledged}
@@ -321,7 +322,7 @@ export function GlbPreview({
             </button>
             {previewed && (
               <button className="primary" onClick={() => void accept()}>
-                Accept visual reference
+                Accept original part
               </button>
             )}
           </fieldset>

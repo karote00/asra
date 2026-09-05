@@ -175,16 +175,18 @@ export function poseOperations<S>(a: Algebra<S>) {
   }
 }
 
-export function evaluateKinematics<S>(
+function createPoseEvaluator<S>(
   workcell: Workcell,
   values: Readonly<Record<string, S>>,
-  a: Algebra<S>
-): ReadonlyMap<string, AlgebraPose<S>> {
+  a: Algebra<S>,
+  frameRootId: string | null = null
+): (id: string) => AlgebraPose<S> {
   const ops = poseOperations(a),
     bodies = new Map(workcell.bodies.map((body) => [body.id, body])),
     poses = new Map<string, AlgebraPose<S>>()
   const visiting = new Set<string>()
   const evaluate = (id: string): AlgebraPose<S> => {
+    if (id === frameRootId) return ops.identity()
     const completed = poses.get(id)
     if (completed) return completed
     const body = bodies.get(id)
@@ -212,8 +214,43 @@ export function evaluateKinematics<S>(
     visiting.delete(id)
     return pose
   }
-  workcell.bodies.forEach((body) => evaluate(body.id))
-  return poses
+  return evaluate
+}
+
+export function evaluateKinematics<S>(
+  workcell: Workcell,
+  values: Readonly<Record<string, S>>,
+  a: Algebra<S>
+): ReadonlyMap<string, AlgebraPose<S>> {
+  const evaluate = createPoseEvaluator(workcell, values, a)
+  return new Map(workcell.bodies.map((body) => [body.id, evaluate(body.id)]))
+}
+
+/** Exact rigid-frame cancellation, not subtraction of dependent world intervals. */
+export function evaluatePairKinematics<S>(
+  workcell: Workcell,
+  values: Readonly<Record<string, S>>,
+  left: string,
+  right: string,
+  a: Algebra<S>
+): readonly [AlgebraPose<S>, AlgebraPose<S>] {
+  const bodies = new Map(workcell.bodies.map((body) => [body.id, body]))
+  const chain = (id: string): string[] => {
+    const ids: string[] = []
+    let current: string | null = id
+    while (current !== null) {
+      const body = bodies.get(current)
+      if (!body || ids.includes(current))
+        throw new Error('Invalid pair pose hierarchy')
+      ids.push(current)
+      current = body.parentId
+    }
+    return ids
+  }
+  const rightChain = new Set(chain(right)),
+    ancestor = chain(left).find((id) => rightChain.has(id)) ?? null
+  const evaluate = createPoseEvaluator(workcell, values, a, ancestor)
+  return [evaluate(left), evaluate(right)]
 }
 
 /** Caller selects a complete keyframe segment; time is a point or a contained interval. */

@@ -7,7 +7,7 @@ test('mechanical main bodies remain articulated during playback with bounded fra
   await page.goto('/')
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
   await expect(page.getByLabel('Candidate', { exact: true })).toHaveValue(/.+/)
-  await page.getByLabel('Proxies', { exact: true }).uncheck()
+  await page.getByLabel('Wireframe', { exact: true }).uncheck()
   await page.getByRole('button', { name: 'Experiments', exact: true }).click()
   const play = page.getByRole('button', {
     name: 'Play trajectory',
@@ -47,7 +47,8 @@ test('mechanical main bodies remain articulated during playback with bounded fra
       ...metrics,
       baseURL: info.project.use.baseURL,
       viewport: page.viewportSize(),
-      state: 'synthetic-v2, visuals on, proxies off, saved trajectory playback',
+      state:
+        'complete original mechanical parts, wireframe off, saved trajectory playback',
       limitations:
         'Browser scheduling evidence on this host, not a universal FPS guarantee.'
     })

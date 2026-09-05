@@ -1,6 +1,14 @@
 # Machine-Scale Geometry Method v0
 
-Status: M0 implementation contract. Source code and passing local tests are not
+Status: implemented primitive-kernel contract, not the original-part mesh
+method required by the revised R0 geometry contract. It cannot analyze imported
+parts by substituting primitive colliders. Historical evidence retains this
+method's original interpretation; new-run admission must enforce the revised
+geometry boundary. The separate implemented
+[original-part method](original-part-method-v1.md) owns mesh certificates,
+topology, continuous coverage and its resource envelope under a new identity.
+
+Source code and passing local tests are not
 an independent numerical audit or release approval. The method must pass the
 R0 product cases and delivery gates before public release.
 

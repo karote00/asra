@@ -56,15 +56,13 @@ beforeEach(() => {
   validateVisuals.mockReset()
 })
 
-it('accepts visual bindings as one Undo action without changing analysis geometry', async () => {
+it('accepts original part bindings and retires previous geometry in one Undo action', async () => {
   const candidate = await features.edit.createCandidate('A', source)
   const before = core.getUndoHistoryDepth()
   await features.edit.setVisuals(candidate, 'body', [binding])
   expect(core.getUndoHistoryDepth()).toBe(before + 1)
   expect(readWorkcell(core, candidate).bodies[0].visuals).toEqual([binding])
-  expect(readWorkcell(core, candidate).bodies[0].colliders).toEqual(
-    source.bodies[0].colliders
-  )
+  expect(readWorkcell(core, candidate).bodies[0].colliders).toEqual([])
   expect(validateVisuals).toHaveBeenLastCalledWith(
     expect.objectContaining({
       bodies: [expect.objectContaining({ visuals: [binding] })]
@@ -72,6 +70,9 @@ it('accepts visual bindings as one Undo action without changing analysis geometr
   )
   await features.history.undo()
   expect(readWorkcell(core, candidate).bodies[0].visuals).toBeUndefined()
+  expect(readWorkcell(core, candidate).bodies[0].colliders).toEqual(
+    source.bodies[0].colliders
+  )
   await features.history.redo()
   expect(readWorkcell(core, candidate).bodies[0].visuals).toEqual([binding])
   expect(
@@ -110,9 +111,23 @@ it('rejects unavailable resources before canonical writes and permits deleting a
   validateVisuals.mockReset()
   await features.edit.setVisuals(candidate, 'body', [binding])
   await features.edit.setVisuals(candidate, 'body', [])
+  expect(readWorkcell(core, candidate).bodies[0].colliders).toEqual([])
   expect(
     readCapturedVisualAssetIds(await features.edit.captureDocument())
   ).toEqual([])
+})
+
+it('rejects implicit surrogate revival when removing the last source from a legacy body', async () => {
+  const input = structuredClone(source)
+  input.bodies[0].visuals = [binding]
+  const candidate = await features.edit.createCandidate('Legacy', input)
+  const before = core.getUndoHistoryDepth(),
+    body = readWorkcell(core, candidate).bodies[0]
+  await expect(
+    features.edit.upsert(candidate, { ...body, visuals: [] })
+  ).rejects.toThrow(/retired geometry/)
+  expect(core.getUndoHistoryDepth()).toBe(before)
+  expect(readWorkcell(core, candidate)).toEqual(input)
 })
 
 it('requires source admission even for direct common API workcell creation', () => {

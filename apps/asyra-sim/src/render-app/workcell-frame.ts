@@ -2,6 +2,7 @@ import { IDENTITY_POSE, compose, type Vec3 } from '../domain/math'
 import { forwardKinematics, type Body, type Workcell } from '../domain/workcell'
 import type { SpatialCamera, SpatialFrame, SpatialMesh } from './spatial-layer'
 import type { VisualAsset } from '../engine/glb/decode'
+import { placedPartPositions } from '../domain/part-geometry'
 
 export interface WorkcellView {
   camera: SpatialCamera
@@ -10,6 +11,7 @@ export interface WorkcellView {
   grid: boolean
   visuals?: boolean
   proxies?: boolean
+  wireframe?: boolean
 }
 export const DEFAULT_CAMERA: SpatialCamera = {
   kind: 'camera',
@@ -82,16 +84,25 @@ export function createWorkcellFrame(
   for (const body of workcell.bodies) {
     const bodyPose = poses.get(body.id)
     if (!bodyPose) throw new Error('Missing domain pose for projection')
-    for (const collider of view.proxies === false ? [] : body.colliders) {
+    for (const collider of body.visuals?.length || view.proxies === false
+      ? []
+      : body.colliders) {
       const pose = compose(bodyPose, collider.pose)
       const descriptor: SpatialMesh = {
         kind: 'mesh',
         position: pose.position,
         rotation: pose.rotation,
-        shape: collider.geometry,
+        shape:
+          collider.geometry.kind === 'mesh'
+            ? {
+                kind: 'triangles',
+                positions: collider.geometry.positions,
+                indices: collider.geometry.indices
+              }
+            : collider.geometry,
         color: body.id === view.selectedId ? 0x62e6c1 : body.color,
         opacity: 1,
-        wireframe: view.visuals !== false && Boolean(body.visuals?.length),
+        wireframe: view.wireframe ?? false,
         selectable: true
       }
       meshes.push({
@@ -117,14 +128,12 @@ export function createWorkcellFrame(
             rotation: pose.rotation,
             shape: {
               kind: 'triangles',
-              positions: mesh.positions.map(
-                (value, axis) => value * binding.scale[axis % 3]
-              ),
+              positions: placedPartPositions(mesh.positions, binding.scale),
               indices: mesh.indices
             },
             color: body.id === view.selectedId ? 0x62e6c1 : mesh.color,
             opacity: mesh.opacity,
-            wireframe: false,
+            wireframe: view.wireframe ?? false,
             selectable: true
           }
         })

@@ -25,7 +25,7 @@ it('declares the same right-handed Y-up coordinates as the App spatial contract'
     INSTALLED_METHOD_CATALOG.descriptors.map(
       (method) => method.manifest.coordinates
     )
-  ).toEqual(['right-handed-y-up', 'right-handed-y-up'])
+  ).toEqual(['right-handed-y-up', 'right-handed-y-up', 'right-handed-y-up'])
 })
 
 it('admits detached snapshots only against the exact installed method declaration', () => {
@@ -34,7 +34,7 @@ it('admits detached snapshots only against the exact installed method declaratio
   expect(admitted).toEqual(input)
   expect(admitted).not.toBe(input)
   expect(Object.isFrozen(admitted.workcell.bodies)).toBe(true)
-  expect(INSTALLED_METHOD_CATALOG.descriptors).toHaveLength(2)
+  expect(INSTALLED_METHOD_CATALOG.descriptors).toHaveLength(3)
   const changed = structuredClone(input)
   if (!changed.methodDescriptor) throw new Error('Missing descriptor')
   changed.methodDescriptor.manifest.resources =

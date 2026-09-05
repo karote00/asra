@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { IDENTITY_POSE } from '../../../domain/math'
+import { convexDistance } from '../convex-query'
 import {
   validateTrajectory,
   validateWorkcell,
@@ -78,6 +79,66 @@ const path = (a: number, b: number, duration = 1): Trajectory => ({
 })
 
 describe('complete-time pair evidence', () => {
+  it.each([
+    { offset: 0, threshold: 0, state: 'finding', penetration: true },
+    { offset: 0.25, threshold: 0.1, state: 'finding', penetration: false },
+    { offset: 1, threshold: 0, state: 'unresolved', penetration: false }
+  ] as const)(
+    'retains $state witnesses and remaining unknown coverage on kernel exhaustion at offset $offset',
+    ({ offset, threshold, state, penetration }) => {
+      const query = input(
+        [
+          moving,
+          { ...fixed, pose: { ...IDENTITY_POSE, position: [offset, 0, 0] } }
+        ],
+        {
+          version: 1,
+          keyframes: [0, 1, 2].map((time) => ({ time, joints: { moving: 0 } }))
+        }
+      )
+      let calls = 0
+      const result = queryContinuousPair(
+        query,
+        { ...settings, threshold },
+        undefined,
+        {
+          distance: (a, b) =>
+            ++calls > 1 ? null : convexDistance(a, b, 1e-6, 64),
+          lower: () => null,
+          exhaustionReason: 'Declared geometry work exhausted'
+        }
+      )
+      expect(result.coverage).toBe('partial')
+      expect(result.evaluations).toBe(1)
+      expect(result.leaves).toHaveLength(2)
+      expect(result.leaves.map(({ start, end }) => [start, end])).toEqual([
+        [0, 1],
+        [1, 2]
+      ])
+      // Traversal order is not the product contract; preservation and the
+      // complete sorted partition are. The motion here is stationary.
+      const retained = result.leaves.find((leaf) => leaf.witnessTime !== null)
+      expect(retained).toBeDefined()
+      if (!retained) throw new Error('The established witness was discarded')
+      expect(retained).toMatchObject({
+        state,
+        penetration,
+        witnessTime: retained.start,
+        lower: 0
+      })
+      expect(retained.upper).not.toBeNull()
+      expect(retained.upper).toBeLessThanOrEqual(
+        Math.max(0, offset - 0.2) + 1e-6
+      )
+      expect(
+        result.leaves.find((leaf) => leaf.witnessTime === null)
+      ).toMatchObject({
+        state: 'unresolved',
+        witnessTime: null,
+        upper: null
+      })
+    }
+  )
   it('accepts the published maximum node budget for ordinary static evidence', () => {
     const query = input(
       [moving, { ...fixed, pose: { ...IDENTITY_POSE, position: [0, 5, 0] } }],

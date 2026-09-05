@@ -1,5 +1,61 @@
 import { expect, test } from '@playwright/test'
 
+test('Chromium original-triangle predicates distinguish containment from diagonal interval clearance', async ({
+  page
+}, info) => {
+  await page.goto('/')
+  const evidence = await page.evaluate(async () => {
+    const algebraPath = '/src/domain/kinematic-algebra.ts',
+      queryPath = '/src/analysis/methods/original-mesh-query.ts'
+    const { poseOperations, intervalAlgebra } = (await import(
+      algebraPath
+    )) as typeof import('../../../domain/kinematic-algebra')
+    const { OriginalMeshQuery } = (await import(
+      queryPath
+    )) as typeof import('../original-mesh-query')
+    const ops = poseOperations(intervalAlgebra),
+      query = new OriginalMeshQuery()
+    const pose = ops.fromPose({ position: [0, 0, 0], rotation: [0, 0, 0, 1] })
+    const part = {
+      pose,
+      geometry: {
+        kind: 'mesh',
+        version: 1,
+        source: { assetId: 'a'.repeat(64), scale: [1, 1, 1] },
+        positions: [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+        indices: [0, 2, 1, 0, 1, 3, 0, 3, 2, 1, 2, 3]
+      }
+    } as const
+    const inside = {
+      geometry: { kind: 'sphere', radius: 0.02 },
+      pose: ops.fromPose({ position: [0.2, 0.2, 0.2], rotation: [0, 0, 0, 1] })
+    } as const
+    const outside = {
+      geometry: { kind: 'sphere', radius: 0.1 },
+      pose: ops.fromPose({ position: [0.9, 0.9, 0], rotation: [0, 0, 0, 1] })
+    } as const
+    const containment = query.distance(part, inside, 0, 1e-6, 48)
+    const clearance = query.distance(part, outside, 0.02, 1e-6, 48)
+    return {
+      containment,
+      clearance,
+      intervalLower: query.lowerOver(part, outside, 0.02, clearance)
+    }
+  })
+  expect(evidence.containment.penetration).toBe(true)
+  expect(evidence.containment.upper).toBe(0)
+  // The closest original edge point is (0.5, 0.5, 0), not its enclosing box.
+  const exact = Math.hypot(0.4, 0.4) - 0.1
+  expect(evidence.clearance.lower).toBeLessThanOrEqual(exact)
+  expect(evidence.clearance.upper).toBeGreaterThanOrEqual(exact)
+  expect(evidence.intervalLower).toBeGreaterThan(0.02)
+  expect(evidence.intervalLower).toBeLessThanOrEqual(exact)
+  await info.attach('original-triangle-runtime', {
+    contentType: 'application/json',
+    body: JSON.stringify(evidence)
+  })
+})
+
 test('Chromium encloses the analytical 3 m gap for every supported shape pair', async ({
   page
 }, testInfo) => {

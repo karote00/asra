@@ -1,6 +1,7 @@
 import { interval, type Interval } from '../../domain/interval'
 import {
   evaluateKinematics,
+  evaluatePairKinematics,
   interpolateSegment,
   intervalAlgebra,
   poseOperations
@@ -50,12 +51,23 @@ export interface PairEvidence {
   coverage: 'complete' | 'partial'
   evaluations: number
 }
+export interface PairQueryKernel {
+  relativeFrames?: boolean
+  distance(a: ConvexShape, b: ConvexShape): DistanceEvidence | null
+  lower(
+    a: ConvexShape,
+    b: ConvexShape,
+    witness: DistanceEvidence
+  ): number | null
+  exhaustionReason: string
+}
 const ops = poseOperations(intervalAlgebra)
 
 function shapesAt(
   query: PairQuery,
   segment: number,
-  time: Interval
+  time: Interval,
+  relativeFrames = false
 ): readonly [ConvexShape, ConvexShape] {
   const values = interpolateSegment(
     query.trajectory,
@@ -63,7 +75,21 @@ function shapesAt(
     time,
     intervalAlgebra
   )
-  const poses = evaluateKinematics(query.workcell, values, intervalAlgebra)
+  const pairPoses = relativeFrames
+    ? evaluatePairKinematics(
+        query.workcell,
+        values,
+        query.a.bodyId,
+        query.b.bodyId,
+        intervalAlgebra
+      )
+    : null
+  const poses = pairPoses
+    ? new Map([
+        [query.a.bodyId, pairPoses[0]],
+        [query.b.bodyId, pairPoses[1]]
+      ])
+    : evaluateKinematics(query.workcell, values, intervalAlgebra)
   const shape = (reference: ColliderReference): ConvexShape => {
     const body = query.workcell.bodies.find(
       (body) => body.id === reference.bodyId
@@ -111,7 +137,8 @@ function checkSettings(settings: QuerySettings): void {
 export function queryContinuousPair(
   query: PairQuery,
   settings: QuerySettings,
-  checkpoint: () => void = () => undefined
+  checkpoint: () => void = () => undefined,
+  kernel?: PairQueryKernel
 ): PairEvidence {
   checkSettings(settings)
   const maxLeaves =
@@ -173,7 +200,8 @@ export function queryContinuousPair(
       evaluations: 0
     }
   let evaluations = 0
-  while (pending.length && evaluations < settings.maxIntervals) {
+  let kernelExhausted = false
+  traversal: while (pending.length && evaluations < settings.maxIntervals) {
     checkpoint()
     const node = pending.pop()
     if (!node) break
@@ -184,13 +212,26 @@ export function queryContinuousPair(
     // never a substitute for the interval-wide separating certificate below.
     for (const time of new Set([node.start, middle, node.end])) {
       checkpoint()
-      const [a, b] = shapesAt(query, node.segment, interval(time))
-      const result = convexDistance(
-        a,
-        b,
-        settings.distanceTolerance,
-        settings.maxIterations
+      const [a, b] = shapesAt(
+        query,
+        node.segment,
+        interval(time),
+        kernel?.relativeFrames
       )
+      const result = kernel
+        ? kernel.distance(a, b)
+        : convexDistance(
+            a,
+            b,
+            settings.distanceTolerance,
+            settings.maxIterations
+          )
+      if (!result) {
+        kernelExhausted = true
+        if (witness) break
+        pending.push(node)
+        break traversal
+      }
       if (!witness || result.upper < witness.upper || result.penetration) {
         witness = result
         witnessTime = time
@@ -199,11 +240,24 @@ export function queryContinuousPair(
     }
     if (!witness) throw new Error('No witness evaluation')
     evaluations++
-    const [a, b] = shapesAt(query, node.segment, interval(node.start, node.end))
-    const lower =
-      node.start === node.end
-        ? witness.lower
+    const [a, b] = shapesAt(
+      query,
+      node.segment,
+      interval(node.start, node.end),
+      kernel?.relativeFrames
+    )
+    let lower: number | null = witness.lower
+    if (kernelExhausted) lower = null
+    else if (node.start !== node.end)
+      lower = kernel
+        ? kernel.lower(a, b, witness)
         : separationLowerBound(a, b, witness.axis)
+    if (lower === null) {
+      kernelExhausted = true
+      // Preserve an established static witness even when no interval-wide
+      // certificate can be computed. Zero cannot establish clearance.
+      lower = 0
+    }
     if (lower > witness.upper)
       throw new Error('Inconsistent continuous distance certificates')
     const base = {
@@ -227,6 +281,12 @@ export function queryContinuousPair(
         state: 'clear',
         reason: 'A conservative support gap covers this complete interval.'
       })
+    else if (kernelExhausted && kernel)
+      leaves.push({
+        ...base,
+        state: 'unresolved',
+        reason: kernel.exhaustionReason
+      })
     else if (
       node.end - node.start <= settings.timeTolerance ||
       middle === node.start ||
@@ -249,6 +309,7 @@ export function queryContinuousPair(
         { start: node.start, end: middle, segment: node.segment },
         { start: middle, end: node.end, segment: node.segment }
       )
+    if (kernelExhausted) break
   }
   for (const node of pending)
     leaves.push({
@@ -259,7 +320,10 @@ export function queryContinuousPair(
       witnessTime: null,
       penetration: false,
       state: 'unresolved',
-      reason: 'Interval budget exhausted before this leaf was resolved.'
+      reason:
+        kernelExhausted && kernel
+          ? kernel.exhaustionReason
+          : 'Interval budget exhausted before this leaf was resolved.'
     })
   leaves.sort((a, b) => a.start - b.start)
   if (!leaves.length) throw new Error('No valid analysis interval')

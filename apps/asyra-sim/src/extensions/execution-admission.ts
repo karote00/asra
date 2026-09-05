@@ -47,7 +47,7 @@ export function admitSnapshotExecution(
     experimentId: snapshot.source.experimentId,
     workcell: snapshot.workcell,
     definition: {
-      version: snapshot.version,
+      version: 1,
       revision: snapshot.source.experimentRevision,
       trajectory: snapshot.trajectory,
       sourceUnits: snapshot.sourceUnits,

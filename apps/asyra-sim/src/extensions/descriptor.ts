@@ -125,9 +125,9 @@ export function validateInstalledDescriptor(
     !text(input.version, 96) ||
     !Array.isArray(input.geometryKinds) ||
     !input.geometryKinds.length ||
-    input.geometryKinds.length > 3 ||
+    input.geometryKinds.length > 4 ||
     !input.geometryKinds.every((kind) =>
-      ['box', 'sphere', 'capsule'].includes(kind)
+      ['box', 'sphere', 'capsule', 'mesh'].includes(kind)
     ) ||
     new Set(input.geometryKinds).size !== input.geometryKinds.length ||
     typeof input.supportsStatic !== 'boolean' ||

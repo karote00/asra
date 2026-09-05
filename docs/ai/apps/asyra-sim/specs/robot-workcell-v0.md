@@ -27,29 +27,39 @@ does not provide general CAD authoring.
 
 ## 2. Visual and Analysis Geometry
 
-R0 plans to support box, sphere, and capsule analysis shapes, including
-combinations on the same rigid body. Every supported shape pair, rotation, and
-motion condition must pass formal method tests. If M0 finds a capability
-infeasible, explicitly revise the contract rather than silently degrading the
-implementation.
+R0 must analyze the supplied part geometry itself, not a simpler surrogate.
+This requirement supersedes the previous proxy-based R0 scope. Rendered part
+surfaces and formal analysis consume the same domain-owned geometry, units,
+body-local placement, scale and shared kinematics. Materials and lighting are
+presentation-only. A visually detailed model is not evidence of this parity.
 
-- Prefer self-contained GLB for visual import. Load only geometry and necessary
-  appearance data; do not execute embedded scripts or follow arbitrary remote
-  resources. M0 dependency review determines the exact supported importer.
-- Imported meshes are visual-only by default. Users must explicitly configure
-  analysis shapes before using official methods.
-- Analysis shapes must be visible, editable, and comparable in the UI.
-  Preflight and reports must identify proxy geometry.
-- Do not describe a coarse proxy result as an exact result for the original CAD
-  model or mesh.
-- Any claim that a proxy encloses the original object needs evidence of that
-  containment. A hand-built approximation does not automatically provide it.
-- With conservative enclosing geometry, a proxy collision may be a conservative
-  warning rather than actual physical contact.
-- Missing colliders or assets and unsupported shapes must not be silently
-  skipped to produce a passing result.
-- Formal collision answers must not come from visual picking, transparency,
-  LOD, or renderer bounds.
+- The first mesh input remains restricted, self-contained GLB. Preserve every
+  accepted triangle and its source identity; do not decimate, fill holes, take a
+  convex hull, omit small features, or substitute boxes/capsules for the part.
+  Native CAD kernels, automatic STEP tessellation and metrology remain outside
+  this refactor. Precision is relative to the supplied geometry and recorded
+  conversion, not an assertion that the source equals manufactured equipment.
+- Native analytical primitives may describe actual primitive parts. They are
+  not an alternative collision representation for a separately supplied mesh.
+- The supported mesh topology and solid/surface interpretation must be explicit.
+  Unsupported, incomplete, degenerate, ambiguous or over-budget geometry blocks
+  analysis or remains unresolved; it never becomes a simpler successful solve.
+- Spatial bounds may exclude impossible interactions only when conservative
+  for the complete source geometry and requested time interval. They are
+  acceleration evidence, never replacement part geometry or output surfaces.
+- Missing sources, transforms or unsupported methods cannot be waived by a
+  warning acknowledgement. Hiding a surface does not remove it from analysis.
+- Formal collision answers must not come from renderer picking, transparency,
+  display LOD or unvalidated renderer bounds.
+
+Admission requires complete resolved source geometry and a compatible method
+for every selected original binding, including hidden bodies. Legacy primitives,
+visibility and warning acknowledgement cannot substitute for that requirement.
+Explicit background scope remains background. The original-part method and
+snapshot version 2 implement this route under
+[original-part-method-v1.md](original-part-method-v1.md). Old snapshots/results
+remain readable with their original inputs and method identity; historical
+admission never grants permission to rerun old proxy evidence as mesh analysis.
 
 ## 3. Coordinates, Units, and Support Envelope
 
@@ -143,7 +153,7 @@ only the number of selected objects:
 | Model/contract blocker | Missing units, unsupported joints, missing collider, invalid interval, unavailable method | Do not start formal analysis; explain the correction                                           |
 | Known capability limit | Two moving robots, unsupported scale or geometry                                          | Require splitting the analysis or a supported method; confirmation cannot make the model valid |
 | Resource risk          | Large pair count, segment count, shape complexity, or candidate count                     | Explain the estimate and uncertainty; offer reduced scope, a trial run, or confirmation        |
-| User assumption        | Proxies, excluded pairs, omitted objects                                                  | Display and preserve acknowledgement without implying platform validation                      |
+| User assumption        | Excluded pairs, omitted background objects                                               | Display and preserve acknowledgement; cannot waive missing original-part geometry              |
 
 R0 allows one formal local analysis job at a time. Candidate scenarios run
 sequentially; there is no unlimited "select everything and run" operation.
@@ -255,8 +265,8 @@ changes do not invalidate geometric results.
   versions explicitly or identify them as requiring migration.
 - CSV: time/joint mapping, units, previews, and row-level diagnostics. Do not
   silently discard invalid rows.
-- GLB: restricted visual-asset import, not automatic vendor kinematics or an
-  analyzable collider.
+- GLB: complete restricted original-part geometry with explicit placement and
+  solid-topology admission, not automatic vendor kinematics or certified CAD.
 - Project export: a portable bundle containing necessary models, assets,
   experiment definitions, method identities, and selected runs. External
   method binaries are not automatically redistributed with a project.

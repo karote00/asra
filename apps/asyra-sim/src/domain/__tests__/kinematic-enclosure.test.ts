@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   evaluateKinematics,
+  evaluatePairKinematics,
   interpolateSegment,
   intervalAlgebra,
   poseOperations
@@ -61,6 +62,43 @@ const trajectory = {
 }
 
 describe('shared pose algebra enclosures', () => {
+  it('cancels common ancestor motion over an entire interval without shrinking descendant motion', () => {
+    const [joint, tool] = evaluatePairKinematics(
+      workcell,
+      { joint: interval(-100, 100) },
+      'joint',
+      'tool',
+      intervalAlgebra
+    )
+    for (const [pose, expected] of [
+      [joint, [0, 0, 0]],
+      [tool, [2, 0, 0]]
+    ] as const) {
+      pose.position.forEach((bound, axis) => {
+        expect(bound[0]).toBeLessThanOrEqual(expected[axis])
+        expect(bound[1]).toBeGreaterThanOrEqual(expected[axis])
+        expect(bound[1] - bound[0]).toBeLessThan(1e-10)
+      })
+    }
+    const [basePose, rotating] = evaluatePairKinematics(
+      workcell,
+      { joint: interval(0, Math.PI / 2) },
+      'base',
+      'tool',
+      intervalAlgebra
+    )
+    expect(basePose.position[0][0]).toBeLessThanOrEqual(0)
+    for (const value of [0, Math.PI / 4, Math.PI / 2]) {
+      expect(rotating.position[0][0]).toBeLessThanOrEqual(2 * Math.cos(value))
+      expect(rotating.position[0][1]).toBeGreaterThanOrEqual(
+        2 * Math.cos(value)
+      )
+      expect(rotating.position[1][0]).toBeLessThanOrEqual(2 * Math.sin(value))
+      expect(rotating.position[1][1]).toBeGreaterThanOrEqual(
+        2 * Math.sin(value)
+      )
+    }
+  })
   it('contains the independent rotating-radius oracle at point times', () => {
     for (let n = -100; n <= 100; n++) {
       const q = n / 10,

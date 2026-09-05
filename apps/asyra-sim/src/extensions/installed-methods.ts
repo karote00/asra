@@ -8,6 +8,10 @@ import {
 } from '../analysis/methods/static-spheres'
 import { createMethodCatalog } from './catalog'
 import type { InstalledMethodDescriptor } from './contracts'
+import {
+  ORIGINAL_PART_METHOD,
+  runOriginalPartMethod
+} from '../analysis/methods/original-part-method'
 
 const official: InstalledMethodDescriptor = {
   ...OFFICIAL_CLEARANCE_METHOD,
@@ -57,5 +61,10 @@ export const INSTALLED_METHOD_CATALOG = createMethodCatalog([
     descriptor: STATIC_SPHERE_METHOD,
     execute: (snapshot, context) =>
       runStaticSphereMethod(snapshot, context.checkpoint, context.emitPair)
+  },
+  {
+    descriptor: ORIGINAL_PART_METHOD,
+    execute: (snapshot, context) =>
+      runOriginalPartMethod(snapshot, context.checkpoint, context.emitPair)
   }
 ])

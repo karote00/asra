@@ -13,16 +13,20 @@ export interface PresentedRun {
   result: AnalysisResult
 }
 
-function geometryIdentity(workcell: Workcell) {
+function geometryIdentity(workcell: Workcell, originalParts: boolean) {
   return JSON.stringify({
     robotRootId: workcell.robotRootId,
-    bodies: workcell.bodies.map(({ id, parentId, pose, joint, colliders }) => ({
-      id,
-      parentId,
-      pose,
-      joint,
-      colliders
-    }))
+    bodies: workcell.bodies.map(
+      ({ id, parentId, pose, joint, colliders, visuals }) => ({
+        id,
+        parentId,
+        pose,
+        joint,
+        ...(originalParts && visuals?.length
+          ? { originalParts: visuals }
+          : { colliders })
+      })
+    )
   })
 }
 
@@ -44,7 +48,8 @@ export function isPresentedRunStale(
 ): boolean {
   const { snapshot } = run
   return (
-    geometryIdentity(snapshot.workcell) !== geometryIdentity(workcell) ||
+    geometryIdentity(snapshot.workcell, snapshot.version === 2) !==
+      geometryIdentity(workcell, snapshot.version === 2) ||
     stableJson(
       definitionToDraft({
         version: 1,
@@ -123,6 +128,14 @@ export function AnalysisResultView({
         </p>
       )}
       <dl className="result-grid">
+        <div>
+          <dt>Geometry</dt>
+          <dd>
+            {snapshot.version === 2
+              ? `Original parts - ${snapshot.workcell.bodies.reduce((sum, body) => sum + body.colliders.reduce((count, part) => count + (part.geometry.kind === 'mesh' ? part.geometry.indices.length / 3 : 0), 0), 0).toLocaleString('en-US')} triangles`
+              : 'Native / historical primitives'}
+          </dd>
+        </div>
         <div>
           <dt>Execution</dt>
           <dd>{result.execution}</dd>

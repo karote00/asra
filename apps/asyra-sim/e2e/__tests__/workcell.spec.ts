@@ -125,19 +125,38 @@ test('normal CUSTOM workbench renders, edits, undoes, resizes, and picks canonic
   expect(errors).toEqual([])
 })
 
-test('invalid edits are rejected without losing the existing model', async ({
+test('invalid original part placement is rejected without losing the existing model', async ({
   page
 }) => {
   await page.goto('/')
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
   await page.getByRole('treeitem', { name: '◇ fixture post' }).click()
-  await page.getByLabel('Shape 1 size (m) X', { exact: true }).fill('-1')
+  await page.locator('.visual-bindings > summary').click()
+  await page.getByLabel('Visual scale X', { exact: true }).fill('-1')
   await page.getByLabel('Object name').click()
   await page.getByRole('button', { name: 'Apply changes' }).click()
   await expect(page.getByRole('alert')).toBeVisible()
   await page.getByRole('button', { name: 'Reset', exact: true }).click()
-  await expect(
-    page.getByLabel('Shape 1 size (m) X', { exact: true })
-  ).toHaveValue('0.14')
+  await page.locator('.visual-bindings > summary').click()
+  await expect(page.getByLabel('Visual scale X', { exact: true })).toHaveValue(
+    '1'
+  )
   await expect(page.getByRole('treeitem')).toHaveCount(11)
+})
+
+test('invalid native part dimensions are rejected without losing the authored geometry', async ({
+  page
+}) => {
+  await page.goto('/')
+  await expect(page.getByRole('status')).toHaveText('Local runtime ready')
+  await page.getByRole('button', { name: 'Add fixture', exact: true }).click()
+  const dimension = page.getByLabel('Shape 1 size (m) X', { exact: true })
+  const original = await dimension.inputValue()
+  await dimension.fill('-1')
+  await page.getByLabel('Object name').click()
+  await page.getByRole('button', { name: 'Apply changes' }).click()
+  await expect(page.getByRole('alert')).toBeVisible()
+  await page.getByRole('button', { name: 'Reset', exact: true }).click()
+  await expect(dimension).toHaveValue(original)
+  await expect(page.getByRole('treeitem')).toHaveCount(12)
 })

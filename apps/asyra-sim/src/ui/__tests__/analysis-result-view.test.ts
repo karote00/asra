@@ -7,10 +7,67 @@ import { createSyntheticExperimentDraft } from '../../../samples/synthetic-exper
 import { createExperimentSnapshot } from '../../analysis/snapshot'
 import { INSTALLED_METHOD_CATALOG } from '../../extensions/installed-methods'
 import { terminalAnalysisResult } from '../../analysis/result'
+import { IDENTITY_POSE } from '../../domain/math'
+import { resolvePartWorkcell } from '../../domain/part-geometry'
+import { ORIGINAL_PART_METHOD } from '../../analysis/methods/original-part-method'
 import {
   AnalysisResultView,
   isPresentedRunStale
 } from '../analysis-result-view'
+
+it('compares v2 results using actual source identity and placement, not retired primitive geometry', () => {
+  const example = createSyntheticExample(),
+    draft = createSyntheticExperimentDraft(example),
+    assetId = 'a'.repeat(64)
+  example.workcell.bodies[0].visuals = [
+    { version: 1, id: 'part', assetId, pose: IDENTITY_POSE, scale: [1, 1, 1] }
+  ]
+  const source = {
+    source: { sha256: assetId },
+    meshes: [
+      {
+        positions: [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
+        indices: [0, 2, 1, 0, 1, 3, 0, 3, 2, 1, 2, 3]
+      }
+    ]
+  }
+  draft.method = {
+    ...draft.method,
+    id: ORIGINAL_PART_METHOD.id,
+    version: ORIGINAL_PART_METHOD.version
+  }
+  const snapshot = createExperimentSnapshot({
+    snapshotId: 'parts',
+    candidateId: 'candidate',
+    experimentId: 'experiment',
+    workcell: resolvePartWorkcell(
+      example.workcell,
+      new Map([[assetId, source]])
+    ),
+    definition: { ...draft, revision: 1, rule: { ...draft.rule, revision: 1 } },
+    methods: [ORIGINAL_PART_METHOD],
+    acknowledgedWarningCodes: []
+  })
+  const run = {
+    snapshot,
+    result: terminalAnalysisResult(snapshot, [], {
+      runId: 'parts-result',
+      startedAt: 0,
+      endedAt: 1,
+      execution: 'cancelled',
+      error: 'Cancelled'
+    })
+  }
+  expect(isPresentedRunStale(run, example.workcell, draft)).toBe(false)
+  const changed = structuredClone(example.workcell)
+  const part = changed.bodies[0].visuals?.[0]
+  if (!part) throw new Error('Missing original source binding')
+  part.scale = [2, 1, 1]
+  expect(isPresentedRunStale(run, changed, draft)).toBe(true)
+  part.scale = [1, 1, 1]
+  part.assetId = 'b'.repeat(64)
+  expect(isPresentedRunStale(run, changed, draft)).toBe(true)
+})
 
 it('tracks geometric input changes while preserving frozen replay and partial lower bounds', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)

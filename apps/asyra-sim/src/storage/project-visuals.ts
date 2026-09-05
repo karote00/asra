@@ -1,6 +1,7 @@
 import { readCapturedVisualBindingGroups } from '../common-apis/visual-reference'
 import type { ProjectSnapshot } from './project-format'
 import { VisualAssetArchive, type VisualDecoder } from './visual-archive'
+import { validateOriginalPartSources } from './original-part-sources'
 
 /** Prepare detached source resources before retiring a document or starting its successor. */
 export async function prepareProjectVisuals(
@@ -24,6 +25,8 @@ export async function prepareProjectVisuals(
   )
   try {
     for (const bindings of groups) archive.resolveBindings(bindings)
+    for (const run of snapshot.runs ?? [])
+      validateOriginalPartSources(run.snapshot, archive)
     signal?.throwIfAborted()
     return archive
   } catch (error) {

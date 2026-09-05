@@ -130,7 +130,7 @@ export interface PreflightReport {
 }
 
 export interface ExperimentSnapshot {
-  version: 1
+  version: 1 | 2
   snapshotId: string
   source: {
     candidateId: string

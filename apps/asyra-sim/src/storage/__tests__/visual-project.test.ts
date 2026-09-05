@@ -5,7 +5,7 @@ import { decodeRestrictedGlb } from '../../engine/glb/decode'
 import { encodeGlb, triangleFixture } from '../../engine/glb/__tests__/fixtures'
 import { createSyntheticExample } from '../../../samples/synthetic-workcell'
 import { createSyntheticExperimentDraft } from '../../../samples/synthetic-experiment'
-import { createExperimentSnapshot } from '../../analysis/snapshot'
+import { historicalProxyFixture } from '../../analysis/__tests__/historical-proxy-fixture'
 import { terminalAnalysisResult } from '../../analysis/result'
 import { OFFICIAL_CLEARANCE_METHOD } from '../../analysis/methods/official-method'
 import {
@@ -16,6 +16,81 @@ import {
 import { VisualAssetArchive } from '../visual-archive'
 import type { VisualSourceRecord } from '../visual-source'
 import { prepareProjectVisuals } from '../project-visuals'
+import { createMechanicalVisuals } from '../../../samples/mechanical-visuals'
+import { resolvePartWorkcell } from '../../domain/part-geometry'
+import { createExperimentSnapshot } from '../../analysis/snapshot'
+import { ORIGINAL_PART_METHOD } from '../../analysis/methods/original-part-method'
+
+it('rejects frozen triangles changed under an unchanged original source identity before project replacement', async () => {
+  const archive = new VisualAssetArchive({
+    decode: decodeRestrictedGlb,
+    dispose: () => undefined
+  })
+  const table = createMechanicalVisuals().find(
+    (part) => part.body === 'fixture-table'
+  )
+  if (!table) throw new Error('Missing sample table source')
+  const prepared = await archive.prepare(table.bytes, 'table.glb')
+  const source = archive.accept(prepared),
+    example = createSyntheticExample(),
+    draft = createSyntheticExperimentDraft(example)
+  example.workcell.bodies[0].visuals = [binding(source.assetId)]
+  const snapshot = createExperimentSnapshot({
+    snapshotId: 'original-input',
+    candidateId: 'candidate',
+    experimentId: 'study',
+    workcell: resolvePartWorkcell(
+      example.workcell,
+      archive.resolveWorkcell(example.workcell)
+    ),
+    definition: {
+      ...draft,
+      revision: 1,
+      rule: { ...draft.rule, revision: 1 },
+      method: {
+        ...draft.method,
+        id: ORIGINAL_PART_METHOD.id,
+        version: ORIGINAL_PART_METHOD.version
+      }
+    },
+    methods: [ORIGINAL_PART_METHOD],
+    acknowledgedWarningCodes: []
+  })
+  const run = {
+    version: 1 as const,
+    name: 'Original source',
+    retainedAt: '2026-09-05T00:00:00Z',
+    environment: {
+      appVersion: 'test',
+      userAgent: 'unit',
+      hardwareConcurrency: 1
+    },
+    snapshot,
+    result: terminalAnalysisResult(snapshot, [], {
+      runId: 'original-run',
+      startedAt: 0,
+      endedAt: 1,
+      execution: 'cancelled',
+      error: 'Cancelled'
+    })
+  }
+  const input = { ...project(source), runs: [run] }
+  const accepted = await prepareProjectVisuals(input, {
+    decode: decodeRestrictedGlb,
+    dispose: () => undefined
+  })
+  accepted.dispose()
+  const changed = structuredClone(input),
+    geometry = changed.runs[0].snapshot.workcell.bodies[0].colliders[0].geometry
+  if (geometry.kind !== 'mesh') throw new Error('Missing original source')
+  geometry.positions = geometry.positions.map((n) => n * 0.5)
+  const decoder = { decode: decodeRestrictedGlb, dispose: vi.fn() }
+  await expect(prepareProjectVisuals(changed, decoder)).rejects.toThrow(
+    /original part source/i
+  )
+  expect(decoder.dispose).toHaveBeenCalledOnce()
+  archive.dispose()
+})
 
 async function retainedSource(): Promise<VisualSourceRecord> {
   const archive = new VisualAssetArchive({
@@ -102,7 +177,7 @@ it('requires visual sources used only by immutable historical runs', async () =>
     example = createSyntheticExample()
   example.workcell.bodies[0].visuals = [binding(source.assetId)]
   const draft = createSyntheticExperimentDraft(example)
-  const snapshot = createExperimentSnapshot({
+  const snapshot = historicalProxyFixture({
     snapshotId: 'snapshot',
     candidateId: 'candidate',
     experimentId: 'study',

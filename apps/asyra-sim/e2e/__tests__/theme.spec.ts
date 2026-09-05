@@ -11,12 +11,25 @@ test('theme icon retains an explicit choice without editing the experiment or lo
     .getByRole('button', { name: 'Switch to dark mode', exact: true })
     .click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect
+    .poll(() =>
+      page
+        .getByRole('button', { name: 'Save', exact: true })
+        .evaluate((node) => getComputedStyle(node).backgroundColor)
+    )
+    .toBe('rgb(29, 39, 47)')
   await expect(page.getByTestId('history-depth')).toHaveText(history ?? '')
-  await page.getByLabel('Proxies', { exact: true }).uncheck()
+  await page.getByLabel('Wireframe', { exact: true }).uncheck()
   await page.getByRole('button', { name: 'Experiments', exact: true }).click()
-  await page.screenshot({ path: info.outputPath('dark-workbench.png') })
+  await page.screenshot({
+    path: info.outputPath('dark-workbench.png'),
+    animations: 'disabled'
+  })
   await page.getByRole('button', { name: 'Projects', exact: true }).click()
-  await page.screenshot({ path: info.outputPath('dark-projects.png') })
+  await page.screenshot({
+    path: info.outputPath('dark-projects.png'),
+    animations: 'disabled'
+  })
   page.once('dialog', (dialog) => dialog.accept())
   await page.reload()
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
@@ -25,7 +38,17 @@ test('theme icon retains an explicit choice without editing the experiment or lo
     .getByRole('button', { name: 'Switch to light mode', exact: true })
     .click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
-  await page.screenshot({ path: info.outputPath('light-workbench.png') })
+  await expect
+    .poll(() =>
+      page
+        .getByRole('button', { name: 'Save', exact: true })
+        .evaluate((node) => getComputedStyle(node).backgroundColor)
+    )
+    .toBe('rgb(255, 255, 255)')
+  await page.screenshot({
+    path: info.outputPath('light-workbench.png'),
+    animations: 'disabled'
+  })
 })
 
 test('system dark preference and blocked preference storage still allow switching', async ({

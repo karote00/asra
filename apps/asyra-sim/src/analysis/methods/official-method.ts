@@ -69,9 +69,26 @@ export function runOfficialClearanceMethod(
   checkpoint: () => void = () => undefined,
   onPair: (evidence: OfficialPairEvidence) => void = () => undefined
 ): OfficialMethodEvidence {
+  return runClearanceQueries(
+    snapshot,
+    OFFICIAL_CLEARANCE_METHOD,
+    queryContinuousPair,
+    checkpoint,
+    onPair
+  )
+}
+
+/** Shared bounded evidence assembly; the chosen method owns its query semantics. */
+export function runClearanceQueries(
+  snapshot: ExperimentSnapshot,
+  descriptor: MethodDescriptor,
+  queryPair: typeof queryContinuousPair,
+  checkpoint: () => void,
+  onPair: (evidence: OfficialPairEvidence) => void
+): OfficialMethodEvidence {
   if (
-    snapshot.method.id !== OFFICIAL_CLEARANCE_METHOD.id ||
-    snapshot.method.version !== OFFICIAL_CLEARANCE_METHOD.version
+    snapshot.method.id !== descriptor.id ||
+    snapshot.method.version !== descriptor.version
   )
     throw new Error('Snapshot requests a different method or version')
   if (!snapshot.pairs.length) throw new Error('Snapshot has no analysis pairs')
@@ -100,7 +117,7 @@ export function runOfficialClearanceMethod(
         'The global interval budget was exhausted before this pair was evaluated.'
       )
     else {
-      evidence = queryContinuousPair(
+      evidence = queryPair(
         {
           workcell: snapshot.workcell,
           trajectory: snapshot.trajectory,
@@ -128,8 +145,8 @@ export function runOfficialClearanceMethod(
     version: 1,
     snapshotId: snapshot.snapshotId,
     method: {
-      id: OFFICIAL_CLEARANCE_METHOD.id,
-      version: OFFICIAL_CLEARANCE_METHOD.version
+      id: descriptor.id,
+      version: descriptor.version
     },
     coverage: pairs.some((pair) => pair.evidence.coverage === 'partial')
       ? 'partial'

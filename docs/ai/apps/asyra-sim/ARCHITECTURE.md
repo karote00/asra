@@ -5,6 +5,16 @@ every module, API, or 3D capability already exists. The [R0 contract](specs/robo
 semantics. This document describes ownership, data, and execution boundaries
 without preselecting solver internals.
 
+The original-part geometry refactor supersedes the previous visual/proxy split
+as the implemented geometry contract. The domain resolves complete source
+triangles and binding placement for rendering and detached version-2 analysis;
+neither consumer may independently simplify them. Original-triangle methods
+own bounded static and continuous evidence, not the renderer. Admission rejects
+missing full geometry, unsupported topology or incompatible methods before Worker
+allocation. Storage verifies frozen geometry against original source bytes and
+preserves version-1 historical evidence without upgrading its meaning. See
+[original-part-method-v1.md](specs/original-part-method-v1.md) for exact semantics.
+
 ## 1. Existing Framework and Actual Gaps
 
 According to the current
@@ -43,7 +53,7 @@ contracts speculatively or move generic defaults into Preset during this task.
 | --------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
 | Asyra Framework       | Generic intent, transactions, canonical graph/properties, load validation, render contracts | Robots, analysis methods, collision results, factory rules            |
 | Sim App composition   | Renderer, method catalog, UI, storage, and job-lifecycle composition                        | A second intent runtime bypassing the Framework                       |
-| Sim workcell domain   | Shared definitions of joints, units, analysis shapes, trajectories, and poses               | Renderer SDK objects or hidden solver state                           |
+| Sim workcell domain   | Joints, units, complete original parts, native shapes, trajectories, world and relative poses | Renderer SDK objects or hidden solver state                           |
 | Sim experiment domain | Scope, method selection, rules, candidates, and snapshots                                   | Recomputing solver distances to repair reports                        |
 | Sim analysis service  | Execution, capability preflight, budgets, isolation, output validation                      | Arbitrary mutation of the editable canonical scene                    |
 | Method/solver adapter | Formal analysis and evidence under declared conditions                                      | Silent changes to trajectory, scope, or thresholds; reading UI pixels |
@@ -102,8 +112,9 @@ subpaths, never repository-private deep imports.
 
 ### Analysis
 
-1. **Sim experiment owner** reads committed definitions and freezes the required
-   snapshot.
+1. **Sim composition and domain owners** resolve all original source bindings
+   from the owned archive; the experiment owner freezes complete detached parts
+   and committed definitions into the required snapshot.
 2. **Sim preflight owner** validates units, scope, pairs, methods, data, and
    resource conditions.
 3. **Feature task / Sim runner** executes a non-canonical-mutating async task,

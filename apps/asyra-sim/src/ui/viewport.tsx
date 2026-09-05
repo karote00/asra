@@ -17,8 +17,7 @@ export function useViewport(
   grid: boolean,
   isCurrent: (runtime: SimRuntime) => boolean,
   joints?: Readonly<Record<string, number>>,
-  visuals = true,
-  proxies = true,
+  wireframe = false,
   pending?: PreparedVisualImport
 ) {
   useEffect(() => {
@@ -27,7 +26,7 @@ export function useViewport(
         workcell
           ? createWorkcellFrame(
               workcell,
-              { selectedId, camera, grid, joints, visuals, proxies },
+              { selectedId, camera, grid, joints, wireframe },
               runtime.getVisualAssets(workcell, pending)
             )
           : { camera, meshes: [] }
@@ -40,8 +39,7 @@ export function useViewport(
     grid,
     joints,
     isCurrent,
-    visuals,
-    proxies,
+    wireframe,
     pending
   ])
 }

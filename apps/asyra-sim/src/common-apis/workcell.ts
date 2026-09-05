@@ -234,6 +234,14 @@ export function upsertBody(
 ): void {
   const current = readWorkcell(core, candidateId),
     existing = current.bodies.find((item) => item.id === body.id)
+  if (
+    existing?.visuals?.length &&
+    !body.visuals?.length &&
+    body.colliders.length
+  )
+    throw new Error(
+      'Removing the last original part must clear retired geometry; author native replacement parts explicitly afterward'
+    )
   if (!existing && core.getElementData(body.id))
     throw new Error('Body identity belongs to another candidate')
   const next: Workcell = {

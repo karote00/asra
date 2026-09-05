@@ -103,18 +103,15 @@ test('an oversized GLB is rejected visibly without changing the canonical workce
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
   const depth = await page.getByTestId('history-depth').textContent()
   await page.getByRole('button', { name: 'Experiments', exact: true }).click()
-  await page
-    .locator('summary')
-    .filter({ hasText: 'GLB visual reference' })
-    .click()
-  await page.getByLabel('Choose visual GLB').setInputFiles({
+  await page.locator('summary').filter({ hasText: 'GLB original part' }).click()
+  await page.getByLabel('Choose original part GLB').setInputFiles({
     name: 'oversized.glb',
     mimeType: 'model/gltf-binary',
     buffer: Buffer.alloc(16 * 1024 * 1024 + 1)
   })
   const preview = page.locator('.glb-preview')
   await expect(preview).toContainText('no larger than 16 MiB')
-  await expect(page.getByLabel('Choose visual GLB')).toBeEnabled()
+  await expect(page.getByLabel('Choose original part GLB')).toBeEnabled()
   await expect(page.getByRole('treeitem')).toHaveCount(11)
   await expect(page.getByTestId('history-depth')).toHaveText(depth ?? '')
   await preview.scrollIntoViewIfNeeded()

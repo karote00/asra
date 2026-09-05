@@ -44,7 +44,10 @@ export class MechanicalMesh {
       for (let i = 0; i < segments; i++) {
         const a = row * segments + i,
           b = row * segments + ((i + 1) % segments)
-        indices.push(a, a + segments, b, b, a + segments, b + segments)
+        // A pole is a triangle fan, not a ring of zero-area quads.
+        if (profile[row][0] !== 0) indices.push(a, a + segments, b)
+        if (profile[row + 1][0] !== 0)
+          indices.push(b, a + segments, b + segments)
       }
     this.append(color, positions, indices)
   }
@@ -105,9 +108,9 @@ export class MechanicalMesh {
         indices.push(a, a + count, b, b, a + count, b + count)
       }
     for (let i = 1; i < count - 1; i++) {
-      indices.push(0, i + 1, i)
+      indices.push(0, i, i + 1)
       const top = (stations.length - 1) * count
-      indices.push(top, top + i, top + i + 1)
+      indices.push(top, top + i + 1, top + i)
     }
     this.append(color, positions, indices)
   }

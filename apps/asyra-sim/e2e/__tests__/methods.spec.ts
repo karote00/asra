@@ -42,7 +42,7 @@ test('method capabilities block an unsupported ordinary experiment without runni
   await expect(page.getByRole('treeitem')).toHaveCount(11)
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect(page.getByLabel('Analysis method')).toHaveValue(
-    `${MethodIds.CONTINUOUS_CLEARANCE}@${MethodVersions.CONTINUOUS_CLEARANCE}`
+    `${MethodIds.ORIGINAL_PART_CLEARANCE}@${MethodVersions.ORIGINAL_PART_CLEARANCE}`
   )
 })
 

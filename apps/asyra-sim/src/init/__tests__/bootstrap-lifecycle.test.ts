@@ -11,6 +11,43 @@ import { decodeRestrictedGlb } from '../../engine/glb/decode'
 import { encodeGlb, triangleFixture } from '../../engine/glb/__tests__/fixtures'
 import { IDENTITY_POSE } from '../../domain/math'
 import { ObservationAttachmentArchive } from '../../storage/observation-archive'
+import { historicalProxyFixture } from '../../analysis/__tests__/historical-proxy-fixture'
+import { createSyntheticExample } from '../../../samples/synthetic-workcell'
+
+function historicalSnapshot(
+  runtime: SimRuntime,
+  candidateId: string,
+  experimentId: string
+) {
+  const experiment = runtime
+    .getExperiments(candidateId)
+    .find((item) => item.id === experimentId)
+  if (!experiment) throw new Error('Missing historical experiment fixture')
+  const legacy = createSyntheticExample().workcell
+  const workcell = runtime.getWorkcell(candidateId)
+  // Author the actual v1 fixture, not new execution from today's original parts.
+  for (const body of workcell.bodies) {
+    const previous = legacy.bodies.find((item) => item.id === body.id)
+    if (!previous) throw new Error('Missing legacy fixture body')
+    body.colliders = previous.colliders
+  }
+  return historicalProxyFixture({
+    snapshotId: 'historical-proxy-input',
+    candidateId,
+    experimentId,
+    workcell,
+    definition: {
+      ...experiment.definition,
+      method: {
+        ...experiment.definition.method,
+        id: runtime.getMethodDescriptors()[0].id,
+        version: runtime.getMethodDescriptors()[0].version
+      }
+    },
+    methods: runtime.getMethodDescriptors(),
+    acknowledgedWarningCodes: []
+  })
+}
 
 const runtimes: SimRuntime[] = []
 const callbacks: ResizeObserverCallback[] = []
@@ -80,6 +117,40 @@ const environment = () => {
 }
 
 describe('App composition lifetime', () => {
+  it('rejects changed original geometry before retaining a canonical run reference', async () => {
+    const runtime = await environment().start(),
+      candidate = runtime.getCandidates()[0],
+      experiment = runtime.getExperiments(candidate.id)[0]
+    const snapshot = structuredClone(
+      runtime.createExperimentSnapshot(experiment.id, [])
+    )
+    const geometry = snapshot.workcell.bodies[0].colliders[0].geometry
+    if (geometry.kind !== 'mesh') throw new Error('Missing full part')
+    geometry.positions = geometry.positions.map((n) => n * 0.5)
+    const before = runtime.getHistoryDepth()
+    await expect(
+      runtime.features.storage.retain({
+        version: 1,
+        name: 'Changed geometry',
+        retainedAt: '2026-09-05T00:00:00Z',
+        environment: {
+          appVersion: 'test',
+          userAgent: 'unit',
+          hardwareConcurrency: 1
+        },
+        snapshot,
+        result: terminalAnalysisResult(snapshot, [], {
+          runId: 'changed-source',
+          startedAt: 0,
+          endedAt: 1,
+          execution: 'cancelled',
+          error: 'Cancelled'
+        })
+      })
+    ).rejects.toThrow(/original part source/)
+    expect(runtime.getRuns()).toEqual([])
+    expect(runtime.getHistoryDepth()).toBe(before)
+  })
   it('owns run-linked notes and opaque sources across Undo, native capture and fresh lifetimes without changing evidence', async () => {
     const { start } = environment(),
       first = await start()
@@ -241,7 +312,7 @@ describe('App composition lifetime', () => {
     )
     await first.features.history.redo()
     const experiment = first.getExperiments(candidate.id)[0],
-      frozen = first.createExperimentSnapshot(experiment.id, [])
+      frozen = historicalSnapshot(first, candidate.id, experiment.id)
     await first.features.storage.retain({
       version: 1,
       name: 'Visual provenance',
@@ -350,8 +421,11 @@ describe('App composition lifetime', () => {
       experiment = first.getExperiments(candidate.id)[0]
     const snapshot = first.createExperimentSnapshot(experiment.id, [])
     const methods = first.getMethodDescriptors()
-    expect(methods).toHaveLength(2)
-    expect(snapshot.methodDescriptor).toEqual(methods[0])
+    expect(methods).toHaveLength(3)
+    expect(snapshot.version).toBe(2)
+    expect(snapshot.methodDescriptor).toEqual(
+      methods.find((method) => method.id === snapshot.method.id)
+    )
     if (!methods[0].manifest)
       throw new Error('Missing installed method manifest')
     methods[0].manifest.name = 'Caller mutation'
@@ -359,6 +433,7 @@ describe('App composition lifetime', () => {
       'Caller mutation'
     )
     expect(first.preflightExperiment(experiment.id).blockers).toEqual([])
+    expect(first.createExperimentSnapshot(experiment.id, []).version).toBe(2)
     const record = {
       version: 1 as const,
       name: 'Retained cancellation',

@@ -1,14 +1,19 @@
-# Restricted GLB Visual Import
+# Restricted GLB Original Part Import
 
 ## Purpose and ownership
 
-Import a self-contained static GLB as a visual reference. The App-owned asset
+Import a self-contained static GLB as an original part source. The App-owned asset
 decoder is isolated under `src/engine/glb/`; it creates detached triangle data
 without starting a renderer, fetching resources, or editing a workcell. SDK
 types do not escape. The `asset` Inspector step owns decoding, not robot poses.
 
-An accepted visual is **not an analysis collider**. Users must separately define
-proxies. Preview discloses the source digest, dimensions, mesh/triangle counts,
+An accepted binding supplies complete original geometry to the domain resolver
+for rendering and analysis. The decoder does not author bodies, joints or solver
+state. No separate proxy is required or allowed for that source. Formal analysis
+also requires the closed-solid profile in
+[original-part-method-v1.md](original-part-method-v1.md); open surfaces can be
+previewed and retained but cannot pass solid-analysis admission.
+Preview discloses the source digest, dimensions, mesh/triangle counts,
 units, baked asset transforms, and appearance limitations. Decoding failure,
 cancellation, or rejected preview creates no canonical body or asset reference.
 Storage and Feature acceptance remain separate owners; this decoder does not
@@ -22,16 +27,18 @@ an accepted preview.
 
 ### Canonical binding
 
-A body may carry optional `visuals`, an array of version-1 bindings with exact
+A body may carry optional `visuals` (the retained schema field name for original
+part sources), an array of version-1 bindings with exact
 fields `version`, `id`, `assetId`, `pose`, and `scale`. `id` is unique within the
 body; `assetId` is the lowercase SHA-256 of the immutable original GLB bytes.
 The binding contains no decoded vertices or renderer objects. An absent array
-or an empty array means no visual reference, preserving existing workcells.
+or an empty array means explicitly authored native parts, preserving existing workcells.
 
 `pose` follows the shared domain's body-local meters/quaternion contract.
 `scale` is an explicit positive three-axis multiplier in [0.000001, 1000].
 Scale is applied to baked asset vertices first, then the binding's local pose,
-then the shared body world pose. It never scales joints, children, or colliders.
+then the shared body world pose. Rendering and analysis share these vertices
+and poses. It never scales joints or children.
 Initial limits are 16 bindings per body and 256 per selected workcell, in
 addition to the source-byte limits and each GLB's expanded geometry limits. Identity,
 pose, scale, and aggregate validation belong to the domain; existence, digest
@@ -41,8 +48,11 @@ These are admission bounds, not a measured rendering-capacity claim.
 The editing Feature passes visual-resource admission to common APIs. Creating,
 replacing, duplicating, or updating a workcell with visual references requires
 that admission; an unconfigured service cannot silently accept unresolved
-sources. Editing only visual bindings preserves every collider and body/joint
-pose. An explicit prepared-source acceptance and the resulting binding update
+sources. Attaching an original source retires previous primitive colliders in
+the same transaction; placement never changes body/joint poses. Removing the
+last binding leaves empty geometry, not revived legacy proxies. Undo restores
+the exact previous bindings and geometry. An explicit prepared-source acceptance
+and the resulting binding update
 produce one canonical Undo action. Rejection produces no partial binding;
 immutable source retention may outlive a rejected write and remains unsaved.
 Undo removes/reverts the binding, while Redo can resolve the retained source.
@@ -57,7 +67,11 @@ The local archive retains version-1 records with exact fields `version`,
 `assetId`, `filename`, `byteLength`, and `base64`. Base64 must be canonical;
 length and digest must match the decoded original bytes. Filenames are bounded
 inert display metadata, never paths or URLs to load. Decoded triangle arrays
-are runtime resources, not the persisted authority or canonical editable data.
+are runtime resources, not a second editable model. Version-2 run snapshots
+freeze complete resolved geometry as evidence; source bytes remain its provenance
+authority. Retention and project hydration compare every frozen mesh, placement
+and source identity against those verified bytes. Version-1 historical inputs
+remain unchanged, never promoted to mesh evidence.
 
 Preparation detaches bytes before awaiting the owned decoder, validates the
 digest, and returns an immutable archive-scoped preview receipt. Preparation
@@ -96,8 +110,9 @@ and invalidates all receipts. A failed canonical binding remains retryable but
 does not claim persistence or create a partial reference.
 
 Decoded resources are additionally bounded to 1,000,000 vertices and 3,000,000
-indices per lifetime archive. Resolving a workcell applies the same aggregate
-limits to all binding instances, including hidden bodies and repeated sources.
+indices per lifetime archive. The domain additionally caps a resolved workcell
+at 500,000 vertices and 1,500,000 indices across all binding instances, including
+hidden bodies and repeated sources.
 Source-byte caps alone cannot bound geometry amplified by instancing. Resolution
 returns only available decoded artifacts; missing references or excess geometry
 fail explicitly before projection or formal snapshot admission. A valid pending
@@ -122,10 +137,10 @@ archive even when Feature installation did not finish. Retired facades cannot
 prepare, accept, or resolve references in a successor's lifetime.
 
 Projection uses the existing Core-registered spatial layer at z-index 0 and
-the same demand-driven update/teardown path as proxy display. Decoded arrays
+the same demand-driven update/teardown path as native part display. Decoded arrays
 become engine-neutral triangle descriptors; no SDK object leaves the engine.
-Visual and proxy visibility controls are transient. Proxies on a body with a
-displayed visual are drawn as wireframes, without changing their formal shape.
+One original geometry is displayed; transient Wireframe exposes its actual
+triangles. There is no visual/proxy selector or substitute collider draw.
 Every mesh preserves the owning body identity for picking. Missing references
 remain errors even when the body or visual display is hidden. Source arrays,
 canonical data, and immutable replay snapshots are never modified by projection.
@@ -157,9 +172,9 @@ Initial hard limits: 16 MiB GLB, 2 MiB JSON, 128 nodes, 64 meshes/materials,
 baked coordinates within ±1,000 m. JSON nesting is limited to 24 levels and
 50,000 visited values. Limits apply before large geometry allocations and
 account for instanced nodes. These are initial resource guards, not measured
-release capacity. The first decoder proof is synchronous and bounded; ordinary
-file-import orchestration must move it to owned worker execution before M2
-claims responsive import cancellation.
+release capacity. Ordinary file-import orchestration uses an owned decoder
+Worker with bounded cancellation and deadline; synchronous decoding remains a
+pure, bounded source operation used by that Worker and formal tests.
 
 ## Verification and done
 
@@ -171,8 +186,9 @@ that successful and failing decodes never fetch. Independent vertex coordinates
 and byte-level fixtures are the oracles; a second invocation of the decoder is
 not the expected-value source.
 
-M0 decoder feasibility requires these cases plus App typecheck/lint. M2 still
-requires preview, explicit acceptance, worker cancellation, canonical binding,
-and persistence. No decoder-only test satisfies the full import user journey.
+The full import journey requires preview, explicit acceptance, Worker cancellation,
+canonical binding, Undo/Redo, shared geometry, topology rejection, source parity
+and portable current/historical reopening. Permanent browser tests exercise those
+ordinary controls; decoder-only tests do not satisfy the full user journey.
 
 Format reference: <a href="https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html" target="_blank" rel="noopener noreferrer">Khronos glTF 2.0 specification</a>.

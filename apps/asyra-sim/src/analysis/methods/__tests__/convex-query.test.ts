@@ -23,6 +23,30 @@ const geometries: Geometry[] = [
   { kind: 'capsule', radius: 1, length: 2 }
 ]
 describe('convex distance certificates', () => {
+  it('bounds an original triangle without replacing it by its box or full-part hull', () => {
+    const triangle: ConvexShape = {
+      geometry: {
+        kind: 'triangle',
+        vertices: [
+          [0, 0, 0],
+          [1, 0, 0],
+          [0, 1, 0]
+        ]
+      },
+      pose: ops.fromPose(IDENTITY_POSE)
+    }
+    const result = convexDistance(
+      triangle,
+      shape(
+        { kind: 'sphere', radius: 0.1 },
+        { ...IDENTITY_POSE, position: [0.9, 0.9, 0] }
+      )
+    )
+    const exact = 0.8 / Math.sqrt(2) - 0.1
+    expect(result.lower).toBeLessThanOrEqual(exact)
+    expect(result.upper).toBeGreaterThanOrEqual(exact)
+    expect(result.lower).toBeGreaterThan(0.46)
+  })
   it('establishes shallow overlap on either side of a collinear closest simplex', () => {
     const sphere = { kind: 'sphere' as const, radius: 0.1 }
     for (const sign of [-1, 1]) {

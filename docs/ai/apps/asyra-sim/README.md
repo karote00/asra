@@ -8,6 +8,10 @@ single robot workcell**, not a complete factory simulator.
 
 ## Status and Location
 
+- Original-part geometry replaces the previous visual/proxy split. Complete
+  supplied triangles, closed-solid admission and continuous evidence share one
+  domain source. See [the method contract](specs/original-part-method-v1.md)
+  and PLANS.md for implementation evidence and remaining public-release gates.
 - Implementation is active. M0 feasibility and M1 foundations are complete. The R0
   release gates are not complete.
 - App workspace: `apps/asyra-sim/`, alongside `apps/asyra-design/`.
@@ -69,8 +73,8 @@ analysis scope, a robot-workcell starting point, and no guarantee of real-world
 outcomes.
 
 This plan makes the following first-version choices concrete: a local browser
-workbench, one fixed-base serial robot, explicit joint trajectories, simple
-analysis geometry, JSON/CSV import, sequential candidate comparison, and trusted
+workbench, one fixed-base serial robot, explicit joint trajectories, original
+part geometry, JSON/CSV import, sequential candidate comparison, and trusted
 local method extensions. These are implementation targets, not available
 features unless the implemented checkpoint below says otherwise.
 

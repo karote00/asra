@@ -1,6 +1,6 @@
 import currentCore from '@asyra/core'
 import type { RenderEngineProvider } from '@asyra/render-engine'
-import { ComponentTypes } from '../constants'
+import { ComponentTypes, MethodIds, MethodVersions } from '../constants'
 import { readWorkcell, readCandidateLineage } from '../common-apis/workcell'
 import { readExperiment, readExperiments } from '../common-apis/experiment'
 import {
@@ -46,6 +46,8 @@ import {
 import { prepareProjectVisuals } from '../storage/project-visuals'
 import { readCapturedVisualBindingGroups } from '../common-apis/visual-reference'
 import type { Workcell } from '../domain/workcell'
+import { resolvePartWorkcell } from '../domain/part-geometry'
+import { validateOriginalPartSources } from '../storage/original-part-sources'
 
 function guardCommands<
   T extends { [K in keyof T]: (...args: never[]) => unknown }
@@ -142,7 +144,9 @@ export async function bootstrap(
       for (const run of snapshot.runs ?? [])
         visuals.resolveWorkcell(run.snapshot.workcell)
     }
-    const archive = new RunArchive(snapshot?.runs)
+    const archive = new RunArchive(snapshot?.runs, (record) =>
+      validateOriginalPartSources(record.snapshot, visuals)
+    )
     const captureRuns = (document: unknown) =>
       readCapturedRunReferences(document).map((reference) => {
         const run = archive.get(reference.runId)
@@ -162,7 +166,7 @@ export async function bootstrap(
     installModelComponents(core)
     const editing = installEditingFeatures(core, {
       validateVisuals: (workcell) => {
-        visuals.resolveWorkcell(workcell)
+        resolvePartWorkcell(workcell, visuals.resolveWorkcell(workcell))
       },
       validateObservationAttachments: (references) =>
         observations.resolve(references),
@@ -304,15 +308,19 @@ export async function bootstrap(
             scale: [1, 1, 1]
           }
         ]
+        body.colliders = []
       }
       const candidateId = await features.edit.createCandidate(
         'A - Baseline workcell',
         example.workcell
       )
+      const draft = createSyntheticExperimentDraft(example)
+      draft.method.id = MethodIds.ORIGINAL_PART_CLEARANCE
+      draft.method.version = MethodVersions.ORIGINAL_PART_CLEARANCE
       await features.edit.createExperiment(
         candidateId,
         'Synthetic clearance study',
-        createSyntheticExperimentDraft(example)
+        draft
       )
     }
     observer = new ResizeObserver((entries) => {
@@ -424,9 +432,12 @@ export async function bootstrap(
         assertLive()
         const experiment = readExperiment(core, experimentId)
         const workcell = readWorkcell(core, experiment.candidateId)
-        visuals.resolveWorkcell(workcell)
-        const report = checkExperiment(
+        const resolved = resolvePartWorkcell(
           workcell,
+          visuals.resolveWorkcell(workcell)
+        )
+        const report = checkExperiment(
+          resolved,
           experiment.definition,
           INSTALLED_METHOD_CATALOG.descriptors
         )
@@ -454,12 +465,15 @@ export async function bootstrap(
           )
         const experiment = readExperiment(core, experimentId)
         const workcell = readWorkcell(core, experiment.candidateId)
-        visuals.resolveWorkcell(workcell)
+        const resolved = resolvePartWorkcell(
+          workcell,
+          visuals.resolveWorkcell(workcell)
+        )
         return freezeExperiment({
           snapshotId: crypto.randomUUID(),
           candidateId: experiment.candidateId,
           experimentId,
-          workcell,
+          workcell: resolved,
           definition: experiment.definition,
           methods: INSTALLED_METHOD_CATALOG.descriptors,
           acknowledgedWarningCodes

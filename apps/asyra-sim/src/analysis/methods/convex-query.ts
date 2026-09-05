@@ -25,7 +25,8 @@ import {
 import type { Geometry } from '../../domain/workcell'
 
 export interface ConvexShape {
-  geometry: Geometry
+  geometry:
+    Geometry | { kind: 'triangle'; vertices: readonly [Vec3, Vec3, Vec3] }
   pose: AlgebraPose<Interval>
 }
 export interface DistanceEvidence {
@@ -59,7 +60,15 @@ export function supportValue(shape: ConvexShape, direction: Vec3): Interval {
     local = inverseDirection(shape, world),
     g = shape.geometry
   let extent: Interval
-  if (g.kind === 'box')
+  if (g.kind === 'mesh')
+    throw new Error('A complete mesh cannot be queried as a convex surrogate')
+  if (g.kind === 'triangle') {
+    const values = g.vertices.map((point) => ops.dot(local, ops.vector(point)))
+    extent = interval(
+      Math.max(...values.map((value) => value[0])),
+      Math.max(...values.map((value) => value[1]))
+    )
+  } else if (g.kind === 'box')
     extent = local.reduce(
       (sum, value, index) =>
         iadd(sum, imul(iabs(value), interval(g.size[index] / 2))),
@@ -78,7 +87,14 @@ function supportPoint(shape: ConvexShape, direction: Vec3): Vector<Interval> {
   const local = inverseDirection(shape, ops.vector(direction)),
     g = shape.geometry
   let point: Vector<Interval>
-  if (g.kind === 'box')
+  if (g.kind === 'mesh')
+    throw new Error('A complete mesh cannot be queried as a convex surrogate')
+  if (g.kind === 'triangle') {
+    const scores = g.vertices.map((point) =>
+      imid(ops.dot(local, ops.vector(point)))
+    )
+    point = ops.vector(g.vertices[scores.indexOf(Math.max(...scores))])
+  } else if (g.kind === 'box')
     point = [0, 1, 2].map((index) =>
       interval(((imid(local[index]) < 0 ? -1 : 1) * g.size[index]) / 2)
     ) as unknown as Vector<Interval>

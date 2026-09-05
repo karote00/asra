@@ -5,11 +5,18 @@ import {
   numberAlgebra
 } from './kinematic-algebra'
 import { hasExactOwnKeys } from './records'
+import {
+  hasResolvedParts,
+  PART_GEOMETRY_LIMITS,
+  validMeshGeometry,
+  type MeshGeometry
+} from './part-geometry'
 
-export type Geometry =
+export type PrimitiveGeometry =
   | { kind: 'box'; size: Vec3 }
   | { kind: 'sphere'; radius: number }
   | { kind: 'capsule'; radius: number; length: number }
+export type Geometry = PrimitiveGeometry | MeshGeometry
 export interface Collider {
   id: string
   geometry: Geometry
@@ -94,6 +101,7 @@ export function validPose(pose: unknown): pose is Pose {
 export function validGeometry(geometry: unknown): geometry is Geometry {
   if (!geometry || typeof geometry !== 'object') return false
   const g = geometry as Geometry
+  if (g.kind === 'mesh') return validMeshGeometry(g)
   const size = (n: number) =>
     Number.isFinite(n) &&
     n >= GEOMETRY_PROFILE.minDimension &&
@@ -198,6 +206,11 @@ export function validBodyParameters(input: unknown): input is BodyParameters {
       return false
     ids.add(collider.id)
   }
+  if (
+    body.colliders.some((collider) => collider.geometry.kind === 'mesh') &&
+    (!body.visuals?.length || !hasResolvedParts(body))
+  )
+    return false
   return true
 }
 export function validateWorkcell(input: unknown): asserts input is Workcell {
@@ -210,6 +223,8 @@ export function validateWorkcell(input: unknown): asserts input is Workcell {
     workcell.bodies.length > GEOMETRY_PROFILE.maxBodies
   )
     throw new Error('Unsupported workcell version or body count')
+  let vertexCount = 0,
+    indexCount = 0
   let colliderCount = 0,
     visualCount = 0
   for (const body of workcell.bodies) {
@@ -224,6 +239,18 @@ export function validateWorkcell(input: unknown): asserts input is Workcell {
     )
       throw new Error('Invalid body or joint data')
     colliderCount += body.colliders.length
+    for (const collider of body.colliders)
+      if (collider.geometry.kind === 'mesh') {
+        vertexCount += collider.geometry.positions.length / 3
+        indexCount += collider.geometry.indices.length
+        if (
+          vertexCount > PART_GEOMETRY_LIMITS.workcellVertices ||
+          indexCount > PART_GEOMETRY_LIMITS.workcellIndices
+        )
+          throw new Error(
+            'Workcell exceeds the aggregate original part geometry limit'
+          )
+      }
     visualCount += body.visuals?.length ?? 0
     if (visualCount > VISUAL_BINDING_PROFILE.maxPerWorkcell)
       throw new Error(

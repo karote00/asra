@@ -75,7 +75,7 @@ registry. Owner tests belong in `__tests__/`; UI cases belong in App `e2e/`.
 | SIM-05 Units and hierarchy           | Convert units, move a parent, reopen the project                        | Equivalent pose/geometry conclusions without accumulating drift                       |
 | SIM-06 Empty scope                   | No pairs, no trajectory, or background only                             | No-valid-scope or static-mode feedback, not a fabricated motion pass                  |
 | SIM-07 Invalid import                | NaN, duplicate times, missing units/joints, wrong version               | Structured errors, no partial state, no silently skipped rows                         |
-| SIM-08 Missing analysis geometry     | A visual mesh has no collider, or differs from its proxy                | Block or disclose the proxy; never treat appearance as an exact collider              |
+| SIM-08 Original-part geometry        | A supplied mesh has omitted table legs, holes or small features in a surrogate; visibility changes or a rerun is attempted | Never execute the surrogate as the original part; block unsupported input, preserve old evidence for read-only review |
 | SIM-09 Unresolved/error band         | Clearance is too close to a threshold or an interval cannot be resolved | Preserve uncertainty/unresolved state; do not label it safe                           |
 | SIM-10 Execution failure             | Cancellation, timeout, worker crash, invalid result                     | Correct terminal state, partial scope, cleanup, and no false success                  |
 | SIM-11 Uncooperative method          | An adapter ignores abort                                                | Terminate the owned worker at the deadline; UI remains usable; no late mutation       |
@@ -185,3 +185,37 @@ traceability for old results, not silent changes to method meaning.
 `yarn workspace @asyra/asyra-sim test:local` runs the tests currently implemented
 in the App workspace. Its current foundation coverage is not completion of
 SIM-01 through SIM-22. Type checks run through the workspace's `typecheck` script.
+
+### Original-part local regression commands
+
+Use the App's `APP_URL` from `.env` for both the development server and tests.
+The 2026-09-05 local review used `http://127.0.0.1:3020/`, normal Core/CUSTOM
+rendering, the production Worker, original sample sources, and default camera
+unless a test explicitly records another view. Run the complete browser scope
+in these bounded groups so the existing global timeout and process guards stay
+effective:
+
+```sh
+yarn workspace @asyra/asyra-sim test:local
+yarn workspace @asyra/asyra-sim test:e2e e2e/__tests__/visual-references.spec.ts e2e/__tests__/candidate-comparison.spec.ts e2e/__tests__/retained-runs.spec.ts e2e/__tests__/field-observations.spec.ts e2e/__tests__/projects.spec.ts
+yarn workspace @asyra/asyra-sim test:e2e e2e/__tests__/methods.spec.ts e2e/__tests__/acceptance-rules.spec.ts e2e/__tests__/resources.spec.ts e2e/__tests__/workcell.spec.ts e2e/__tests__/original-part-admission.spec.ts e2e/__tests__/experiments.spec.ts
+yarn workspace @asyra/asyra-sim test:e2e src/domain/__tests__/runtime.browser.spec.ts src/engine/glb/__tests__/runtime.browser.spec.ts src/storage/__tests__/runtime.browser.spec.ts src/analysis/__tests__/runner.browser.spec.ts src/analysis/__tests__/budget-baseline.browser.spec.ts src/analysis/methods/__tests__/runtime.browser.spec.ts
+yarn workspace @asyra/asyra-sim test:e2e e2e/__tests__/theme.spec.ts e2e/__tests__/workbench-review.spec.ts e2e/__tests__/mechanical-review.spec.ts
+```
+
+Local result: 413 unit/integration tests and 52 browser cases passed. Browser
+screenshots are in `apps/asyra-sim/test-results/`; inspect each group's output
+before another group replaces it. Test attachments record state and timing.
+The visual group covers light/dark themes, 600/960/1440 px panel layouts and
+1600x1000 playback at DPR 1, including 0/4/8-second poses and a closer view.
+`mechanical-closeup.png`, `mechanical-pose-*.png`, `light-workbench.png` and
+`dark-workbench.png` are normal-App artifacts, not alternative renderers.
+Agent screenshot inspection and the normal in-app 46-pair complete run are
+separate evidence from the automatic gates. Geometry authority remains the
+source-space tests; GPU PNG byte equality is not an Undo oracle. Theme screenshots
+wait for computed colors and finish finite transitions before capture.
+
+Remaining differences: the sample is authored, not manufacturer-certified;
+the local SwiftShader timing is not reference-hardware evidence. Independent
+numerical review, larger workload qualification and a rebuilt packaged release
+are not implied by these local passes.

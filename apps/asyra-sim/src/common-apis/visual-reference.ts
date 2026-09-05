@@ -79,7 +79,13 @@ export function setBodyVisuals(
     (body) => body.id === bodyId
   )
   if (!body) throw new Error('Missing body for visual binding')
-  upsertBody(core, candidateId, { ...body, visuals }, undefined, admit)
+  upsertBody(
+    core,
+    candidateId,
+    { ...body, visuals, colliders: [] },
+    undefined,
+    admit
+  )
 }
 
 export function upsertVisualBinding(

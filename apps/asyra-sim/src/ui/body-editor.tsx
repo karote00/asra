@@ -56,19 +56,19 @@ export function BodyEditor({
       <div className="editor-content">
         <details className="visual-bindings">
           <summary>
-            Visual references <span>{draft.visuals?.length ?? 0}</span>
+            Original parts <span>{draft.visuals?.length ?? 0}</span>
           </summary>
           <p className="hint">
-            Import a GLB in Experiments to attach a reference. Placement affects
-            appearance only; Apply properties commits these edits with one Undo
+            Import a GLB in Experiments to attach a complete part. Placement
+            affects both display and analysis. Apply properties commits one Undo
             action.
           </p>
           {(draft.visuals ?? []).map((binding, index) => (
             <fieldset
               key={binding.id}
-              aria-label={`Visual reference ${index + 1}`}
+              aria-label={`Original part ${index + 1}`}
             >
-              <legend>Reference {index + 1}</legend>
+              <legend>Part {index + 1}</legend>
               <p className="asset-digest">SHA-256: {binding.assetId}</p>
               <VisualPlacementFields
                 value={binding}
@@ -88,13 +88,15 @@ export function BodyEditor({
                 onClick={() =>
                   setDraft({
                     ...draft,
+                    colliders:
+                      draft.visuals?.length === 1 ? [] : draft.colliders,
                     visuals: draft.visuals?.filter(
                       (entry) => entry.id !== binding.id
                     )
                   })
                 }
               >
-                Remove visual reference {index + 1}
+                Remove original part {index + 1}
               </button>
             </fieldset>
           ))}
@@ -272,114 +274,123 @@ export function BodyEditor({
             </>
           )}
         </details>
-        <section className="shape-list">
-          <div className="section-heading">
-            <h3>Analysis geometry</h3>
-            <span>{draft.colliders.length} shapes</span>
-          </div>
-          <p className="hint">
-            Explicit geometric proxies. They are not certified to enclose the
-            real equipment.
-          </p>
-          {draft.colliders.map((collider, index) => (
-            <details key={collider.id} open>
-              <summary>
-                Shape {index + 1}
-                <span>{collider.geometry.kind}</span>
-              </summary>
-              <label>
-                Shape type
-                <select
-                  aria-label={`Shape ${index + 1} type`}
-                  value={collider.geometry.kind}
-                  onChange={(event) =>
-                    geometry(collider.id, newGeometry(event.target.value))
-                  }
-                >
-                  <option>box</option>
-                  <option>sphere</option>
-                  <option>capsule</option>
-                </select>
-              </label>
-              {collider.geometry.kind === 'box' ? (
-                <VectorField
-                  label={`Shape ${index + 1} size (${lengthUnit})`}
-                  value={collider.geometry.size}
-                  scale={lengthScale}
-                  onChange={(size) =>
-                    geometry(collider.id, { kind: 'box', size })
-                  }
-                />
-              ) : (
-                <>
-                  <NumberField
-                    label={`Shape ${index + 1} radius (${lengthUnit})`}
-                    value={collider.geometry.radius * lengthScale}
-                    onChange={(radius) =>
-                      geometry(collider.id, {
-                        ...collider.geometry,
-                        radius: radius / lengthScale
-                      } as Geometry)
+        {!draft.visuals?.length && (
+          <section className="shape-list">
+            <div className="section-heading">
+              <h3>Native parts</h3>
+              <span>{draft.colliders.length} shapes</span>
+            </div>
+            <p className="hint">
+              Use these only for genuinely simple parts. Imported parts are
+              never replaced by these shapes. Empty bodies cannot enter
+              analysis.
+            </p>
+            {draft.colliders.map((collider, index) => (
+              <details key={collider.id} open>
+                <summary>
+                  Shape {index + 1}
+                  <span>{collider.geometry.kind}</span>
+                </summary>
+                <label>
+                  Shape type
+                  <select
+                    aria-label={`Shape ${index + 1} type`}
+                    value={collider.geometry.kind}
+                    onChange={(event) =>
+                      geometry(collider.id, newGeometry(event.target.value))
+                    }
+                  >
+                    <option>box</option>
+                    <option>sphere</option>
+                    <option>capsule</option>
+                  </select>
+                </label>
+                {collider.geometry.kind === 'box' ? (
+                  <VectorField
+                    label={`Shape ${index + 1} size (${lengthUnit})`}
+                    value={collider.geometry.size}
+                    scale={lengthScale}
+                    onChange={(size) =>
+                      geometry(collider.id, { kind: 'box', size })
                     }
                   />
-                  {collider.geometry.kind === 'capsule' && (
+                ) : null}
+                {collider.geometry.kind === 'sphere' ||
+                collider.geometry.kind === 'capsule' ? (
+                  <>
                     <NumberField
-                      label={`Shape ${index + 1} length (${lengthUnit})`}
-                      value={collider.geometry.length * lengthScale}
-                      onChange={(length) =>
+                      label={`Shape ${index + 1} radius (${lengthUnit})`}
+                      value={collider.geometry.radius * lengthScale}
+                      onChange={(radius) =>
                         geometry(collider.id, {
                           ...collider.geometry,
-                          length: length / lengthScale
+                          radius: radius / lengthScale
                         } as Geometry)
                       }
                     />
-                  )}
-                </>
-              )}
-              <VectorField
-                label={`Shape ${index + 1} offset (${lengthUnit})`}
-                value={collider.pose.position}
-                scale={lengthScale}
-                onChange={(position) =>
-                  shape(collider.id, { pose: { ...collider.pose, position } })
-                }
-              />
-              <button
-                type="button"
-                className="text-button danger"
-                onClick={() =>
-                  setDraft({
-                    ...draft,
-                    colliders: draft.colliders.filter(
-                      (item) => item.id !== collider.id
-                    )
-                  })
-                }
-              >
-                Remove shape
-              </button>
-            </details>
-          ))}
-          <button
-            type="button"
-            className="wide"
-            onClick={() =>
-              setDraft({
-                ...draft,
-                colliders: [
-                  ...draft.colliders,
-                  {
-                    id: crypto.randomUUID(),
-                    geometry: { kind: 'box', size: [0.2, 0.2, 0.2] },
-                    pose: IDENTITY_POSE
+                    {collider.geometry.kind === 'capsule' && (
+                      <NumberField
+                        label={`Shape ${index + 1} length (${lengthUnit})`}
+                        value={collider.geometry.length * lengthScale}
+                        onChange={(length) =>
+                          geometry(collider.id, {
+                            ...collider.geometry,
+                            length: length / lengthScale
+                          } as Geometry)
+                        }
+                      />
+                    )}
+                  </>
+                ) : (
+                  <p>
+                    Original mesh geometry is edited through its source binding.
+                  </p>
+                )}
+                <VectorField
+                  label={`Shape ${index + 1} offset (${lengthUnit})`}
+                  value={collider.pose.position}
+                  scale={lengthScale}
+                  onChange={(position) =>
+                    shape(collider.id, { pose: { ...collider.pose, position } })
                   }
-                ]
-              })
-            }
-          >
-            + Add analysis shape
-          </button>
-        </section>
+                />
+                <button
+                  type="button"
+                  className="text-button danger"
+                  onClick={() =>
+                    setDraft({
+                      ...draft,
+                      colliders: draft.colliders.filter(
+                        (item) => item.id !== collider.id
+                      )
+                    })
+                  }
+                >
+                  Remove shape
+                </button>
+              </details>
+            ))}
+            <button
+              type="button"
+              className="wide"
+              onClick={() =>
+                setDraft({
+                  ...draft,
+                  colliders: [
+                    ...draft.colliders,
+                    {
+                      id: crypto.randomUUID(),
+                      geometry: { kind: 'box', size: [0.2, 0.2, 0.2] },
+                      pose: IDENTITY_POSE
+                    }
+                  ]
+                })
+              }
+            >
+              + Add analysis shape
+            </button>
+          </section>
+        )}
         <label className="checkbox">
           <input
             type="checkbox"

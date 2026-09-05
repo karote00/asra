@@ -13,16 +13,18 @@ motors, cables and hoses are not exposed or simulated in this main-body study.
 `mechanical-mesh.ts` authors deterministic metre-space geometry and self-contained
 GLB bytes. `mechanical-visuals.ts` defines the original parts. Surfaces of the
 same finish share a mesh within each rigid body, keeping draw submissions and
-asset count bounded. Each body receives an ordinary digest-addressed visual
+asset count bounded. Each body receives an ordinary digest-addressed original part
 binding; export/reopen preserves the source bytes through the standard archive.
 There is no robot-specific rendering path.
 
-`synthetic-workcell.ts` owns the independent joint model and analysis proxies.
-Capsule cylinder length excludes its two hemispherical caps. The gripper uses
-a palm and two separate finger boxes with an open workpiece gap. These remain
-approximate analysis shapes: decorative shells, fasteners, fixture legs and
-other visual details are not certified enclosed by the proxies. The proxy
-overlay and preflight remain available; a visual fit is not collision evidence.
+`synthetic-workcell.ts` also supplies standalone native primitive fixtures for
+analytical and historical tests. Normal composition attaches all 11 original
+sources, clears those legacy primitives and selects the original-part method.
+The current sample contains 23,028 original triangles, including fasteners,
+fixture legs and open bores. No proxy overlay or alternative collision shape
+is used. Source authoring creates valid pole fans and consistently oriented
+closed caps; imported user meshes are never repaired or simplified implicitly.
+Wireframe displays these same triangles. A rendered fit is not collision evidence.
 Explicit adjacent mounting exclusions remain visible and are not safety claims.
 
 Existing saved documents and historical runs are never upgraded to this sample

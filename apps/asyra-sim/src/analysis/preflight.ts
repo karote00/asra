@@ -4,6 +4,8 @@ import {
   type Workcell
 } from '../domain/workcell'
 import { hasExactOwnKeys } from '../domain/records'
+import { hasResolvedParts } from '../domain/part-geometry'
+import { inspectMeshTopology } from '../domain/mesh-topology'
 import { validParameterValues } from '../extensions/descriptor'
 import type { TrajectoryJointUnit } from '../domain/trajectory-source'
 import {
@@ -98,6 +100,26 @@ function inspectExperiment(
       )
   for (const id of selected) {
     const body = bodies.get(id)
+    if (methods !== null && body && !hasResolvedParts(body))
+      blockers.push(
+        issue(
+          'original-part-geometry-unsupported',
+          `Selected body ${id} has original part geometry that is not included in the current analysis input. Its primitive colliders cannot substitute for the complete part; resolve every original source and placement first.`,
+          [id]
+        )
+      )
+    for (const collider of body?.colliders ?? []) {
+      if (collider.geometry.kind !== 'mesh') continue
+      const topology = inspectMeshTopology(collider.geometry)
+      if (topology.issue)
+        blockers.push(
+          issue(
+            'original-part-topology',
+            `${id}/${collider.id}: ${topology.issue}`,
+            [id]
+          )
+        )
+    }
     if (body && body.colliders.length === 0)
       blockers.push(
         issue(

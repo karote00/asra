@@ -5,6 +5,14 @@
 **The first user-facing public product release, R0 Public Alpha, requires
 completion of M0-M6 and every mandatory gate in this document.**
 
+Original-part geometry is now mandatory under the revised R0 contract. Earlier
+primitive/proxy tests and the detailed mechanical viewport do not satisfy this
+gate. A shared full-geometry source, supported mesh topology, static and complete
+continuous analysis, preserved holes/features, immutable geometry provenance,
+and measured resource behavior must pass before an R0 or pilot-ready claim.
+An admission block during refactoring is necessary protection, not completion
+of the mesh capability.
+
 The [roadmap](../plans/asyra-sim-roadmap.md) owns milestone order. This document
 owns release gates; it does not reuse the earlier conversational "phase 5.5" or
 old CAD phase numbers.
@@ -30,7 +38,8 @@ outreach.
    official demo.
 3. Specify joint values and trajectories, with JSON/CSV mapping and error
    correction.
-4. Import restricted visual assets and explicitly create/edit analysis geometry.
+4. Import complete restricted original parts, edit shared placement and validate
+   supported solid topology without substituting simplified collision geometry.
 5. Choose primary/influencing objects, pair exclusions, time range, methods,
    and thresholds.
 6. Reject invalid models in preflight and explain resource risk, not merely

@@ -68,6 +68,7 @@ it('composes the normal workcell runtime and cleans up surface subscriptions and
     model = runtime.getWorkcell(candidate.id)
   expect(candidate.name).toBe('A - Baseline workcell')
   expect(model.bodies.every((body) => body.visuals?.length === 1)).toBe(true)
+  expect(model.bodies.every((body) => body.colliders.length === 0)).toBe(true)
   expect(runtime.getVisualAssets(model).size).toBe(11)
   expect((await runtime.captureSnapshot()).visualSources).toHaveLength(11)
   expect(
@@ -81,13 +82,16 @@ it('composes the normal workcell runtime and cleans up surface subscriptions and
   const preflight = runtime.preflightExperiment(experiment.id)
   expect(preflight.blockers).toEqual([])
   expect(preflight.pairs.length).toBeGreaterThan(0)
-  const snapshot = runtime.createExperimentSnapshot(experiment.id, [])
-  expect(snapshot.source).toMatchObject({
-    candidateId: candidate.id,
-    experimentId: experiment.id,
-    experimentRevision: 1
-  })
-  expect(Object.isFrozen(snapshot)).toBe(true)
+  const frozen = runtime.createExperimentSnapshot(experiment.id, [])
+  expect(frozen.version).toBe(2)
+  expect(
+    frozen.workcell.bodies.every((body) =>
+      body.colliders.every((part) => part.geometry.kind === 'mesh')
+    )
+  ).toBe(true)
+  expect(frozen.methodDescriptor?.manifest.name).toBe(
+    'Original-part continuous clearance'
+  )
   runtime.setFrame(
     createWorkcellFrame(
       model,

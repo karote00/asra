@@ -22,6 +22,7 @@ export function MethodDetails({
           ? 'Retained method declaration'
           : 'Method capabilities and trust'}
       </summary>
+      <p className="hint">{manifest.name}</p>
       <p className="hint">
         Origin: {manifest.origin} · Declared validation:{' '}
         {manifest.validation.status}

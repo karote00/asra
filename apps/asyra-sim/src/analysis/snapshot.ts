@@ -12,6 +12,7 @@ import type {
 } from './contracts'
 import type { Workcell } from '../domain/workcell'
 import { EXPERIMENT_RESOURCE_PROFILE } from './contracts'
+import { hasResolvedParts } from '../domain/part-geometry'
 
 export interface CreateExperimentSnapshotInput {
   snapshotId: string
@@ -70,7 +71,11 @@ export function createExperimentSnapshot(
   }
 
   return deepFreeze({
-    version: 1,
+    version: workcell.bodies.some((body) =>
+      body.colliders.some((collider) => collider.geometry.kind === 'mesh')
+    )
+      ? 2
+      : 1,
     snapshotId: input.snapshotId,
     source: {
       candidateId: input.candidateId,
@@ -112,7 +117,7 @@ export function validateHistoricalSnapshot(input: unknown): ExperimentSnapshot {
         ? ['methodDescriptor']
         : [])
     ]) ||
-    input.version !== 1 ||
+    (input.version !== 1 && input.version !== 2) ||
     !validIdentifier(input.snapshotId) ||
     !hasExactOwnKeys(input.source, [
       'candidateId',
@@ -134,6 +139,13 @@ export function validateHistoricalSnapshot(input: unknown): ExperimentSnapshot {
   )
     throw new Error('Invalid historical snapshot envelope')
   const snapshot = structuredClone(input) as unknown as ExperimentSnapshot
+  if (
+    snapshot.version === 1 &&
+    snapshot.workcell?.bodies?.some((body) =>
+      body.colliders?.some((collider) => collider.geometry?.kind === 'mesh')
+    )
+  )
+    throw new Error('Snapshot version 1 cannot carry original mesh evidence')
   if (Object.hasOwn(snapshot, 'methodDescriptor')) {
     validateInstalledDescriptor(snapshot.methodDescriptor)
     if (
@@ -152,7 +164,7 @@ export function validateHistoricalSnapshot(input: unknown): ExperimentSnapshot {
       )
   }
   const report = inspectHistoricalExperiment(snapshot.workcell, {
-    version: snapshot.version,
+    version: 1,
     revision: snapshot.source.experimentRevision,
     trajectory: snapshot.trajectory,
     sourceUnits: snapshot.sourceUnits,
@@ -166,6 +178,20 @@ export function validateHistoricalSnapshot(input: unknown): ExperimentSnapshot {
     throw new Error(
       `Invalid historical snapshot: ${report.blockers[0]?.message}`
     )
+  if (snapshot.version === 2) {
+    const selected = new Set([
+      ...snapshot.scope.primaryBodyIds,
+      ...snapshot.scope.influencingBodyIds
+    ])
+    if (
+      snapshot.workcell.bodies.some(
+        (body) => selected.has(body.id) && !hasResolvedParts(body)
+      )
+    )
+      throw new Error(
+        'Historical original part geometry or placement is incomplete'
+      )
+  }
   if (
     report.assumptions.some(
       (issue) => !snapshot.acknowledgedWarnings.includes(issue.code)

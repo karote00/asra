@@ -74,7 +74,7 @@ afterEach(async () => {
 })
 function input() {
   const field = host.querySelector<HTMLInputElement>(
-    '[aria-label="Choose visual GLB"]'
+    '[aria-label="Choose original part GLB"]'
   )
   if (!field) throw new Error('Missing GLB input')
   return field
@@ -92,14 +92,14 @@ it('requires an explicit spatial preview before accepting a binding through the 
   await choose(smallFile())
   expect(host.textContent).toContain('Dimensions (m)')
   expect(retain).not.toHaveBeenCalled()
-  expect(button('Accept visual reference')).toBeUndefined()
+  expect(button('Accept original part')).toBeUndefined()
   await act(() => button('Preview placement in 3D')?.click())
   expect(onPreview).toHaveBeenLastCalledWith(
     expect.objectContaining({ prepared })
   )
   expect(workcell).toEqual(before)
-  expect(button('Accept visual reference')).toBeDefined()
-  await act(async () => button('Accept visual reference')?.click())
+  expect(button('Accept original part')).toBeDefined()
+  await act(async () => button('Accept original part')?.click())
   expect(retain).toHaveBeenCalledWith(
     prepared,
     'candidate',
@@ -118,7 +118,7 @@ it('revokes a completed preview when a new invalid selection replaces it', async
   await choose(file)
   expect(discard).toHaveBeenCalledWith(prepared)
   expect(onPreview).toHaveBeenLastCalledWith(null)
-  expect(button('Accept visual reference')).toBeUndefined()
+  expect(button('Accept original part')).toBeUndefined()
   expect(retain).not.toHaveBeenCalled()
 })
 
@@ -138,7 +138,7 @@ it('requires explicit memory-warning acknowledgement for a large visual and rese
   await act(() => acknowledge()?.click())
   expect(button('Preview placement in 3D')?.disabled).toBe(false)
   await act(() => button('Preview placement in 3D')?.click())
-  expect(button('Accept visual reference')).toBeDefined()
+  expect(button('Accept original part')).toBeDefined()
   await choose(smallFile())
   expect(acknowledge()?.checked).toBe(false)
   expect(button('Preview placement in 3D')?.disabled).toBe(true)
@@ -173,12 +173,12 @@ it('invalidates placement after target or workcell changes and revokes it when t
     target.value = workcell.bodies[1].id
     target.dispatchEvent(new Event('change', { bubbles: true }))
   })
-  expect(button('Accept visual reference')).toBeUndefined()
+  expect(button('Accept original part')).toBeUndefined()
   await act(() => button('Preview placement in 3D')?.click())
   const changed = structuredClone(workcell)
   changed.bodies[0].name = 'Changed source'
   await act(() => render(changed))
-  expect(button('Accept visual reference')).toBeUndefined()
+  expect(button('Accept original part')).toBeUndefined()
   expect(onPreview).toHaveBeenLastCalledWith(null)
   await act(() => button('Preview placement in 3D')?.click())
   await act(() => render(changed, false))

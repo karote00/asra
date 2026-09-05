@@ -112,9 +112,15 @@ export function validateRunRecords(input: unknown): readonly RunRecord[] {
 /** Immutable blob ownership; canonical references and durable saving are separate. */
 export class RunArchive {
   private readonly records = new Map<string, RunRecord>()
-  constructor(input: readonly RunRecord[] = []) {
-    for (const record of validateRunRecords(input))
+  constructor(
+    input: readonly RunRecord[] = [],
+    private readonly validateSources: (record: RunRecord) => void = () =>
+      undefined
+  ) {
+    for (const record of validateRunRecords(input)) {
+      validateSources(record)
       this.records.set(record.result.runId, record)
+    }
   }
   add(input: unknown): RunRecord {
     const run = validateRunRecord(input),
@@ -125,6 +131,7 @@ export class RunArchive {
       return previous
     }
     if (this.records.size >= 1000) throw new Error('Retained run limit reached')
+    this.validateSources(run)
     this.records.set(run.result.runId, run)
     return run
   }
