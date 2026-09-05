@@ -1078,6 +1078,7 @@
           'artifact:result',
           'validated import or explicit save/compare intent',
           'local visual source bytes and inert source metadata',
+          'bounded local observation file bytes, canonical attachment references and explicit annotation intent',
           'artifact:visual-asset'
         ],
         outputs: ['artifact:retained-data'],
@@ -1085,6 +1086,8 @@
           'Preview imports before Feature acceptance; failed import leaves no partial state.',
           'Visual preparation is a noncanonical Feature task with owned cancellation; completed preview discard revokes the receipt, and retention invokes the separate editing Feature without holding a transaction across decoding.',
           'Retain immutable original visual sources only through archive-scoped prepared receipts; source collections are byte/count bounded and fully decoded with verified digests before hydration succeeds.',
+          'Prepare opaque observation attachments with one owned active task and one revocable completed receipt per archive. Validate file/count/aggregate limits, immutable byte ownership, canonical Base64 and SHA-256 before acceptance or hydration; never parse or render their contents.',
+          'Observation source retention precedes the separate editing callback; failed metadata acceptance remains retryable without claiming a save. Capture only current annotation references, retain accepted bytes for Undo within runtime limits, and export feedback separately from immutable run reports.',
           'Resolve every visual reference before use and bound decoded archive geometry and repeated workcell instances independently of source bytes.',
           'Save acknowledgement is independent of runtime commit; historical evidence stays immutable.',
           'Retained runs freeze optional validated candidate lineage; comparison uses explicit body correspondence without suppressing geometry or setting changes or rewriting evidence.',
@@ -1108,7 +1111,8 @@
         cacheDimensions: [],
         implementationBoundary: [
           'apps/asyra-sim/src/storage/**',
-          'apps/asyra-sim/src/features/storage*'
+          'apps/asyra-sim/src/features/storage*',
+          'apps/asyra-sim/src/constants/feature-names.ts'
         ],
         specRefs: [
           '#9-comparable-and-traceable-experiments',

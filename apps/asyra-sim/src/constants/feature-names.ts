@@ -8,7 +8,9 @@ export const AnalysisFeatureNames = {
 export const StorageFeatureNames = {
   RETAIN_RUN: 'asyra-sim.retain-run',
   PREPARE_VISUAL: 'asyra-sim.prepare-visual',
-  RETAIN_VISUAL: 'asyra-sim.retain-visual'
+  RETAIN_VISUAL: 'asyra-sim.retain-visual',
+  PREPARE_OBSERVATION: 'asyra-sim.prepare-observation',
+  RETAIN_OBSERVATION: 'asyra-sim.retain-observation'
 } as const
 type ExistingFeatureNames = typeof EditingFeatureNames &
   typeof HistoryFeatureNames

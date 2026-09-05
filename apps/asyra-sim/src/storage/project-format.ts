@@ -3,6 +3,11 @@ import { validateRunRecords, type RunRecord } from './run-record'
 import { readCapturedRunReferences } from '../common-apis/run-reference'
 import { readCapturedVisualAssetIds } from '../common-apis/visual-reference'
 import { validateVisualSources, type VisualSourceRecord } from './visual-source'
+import {
+  validateObservationSources,
+  type ObservationSourceRecord
+} from './observation-source'
+import { validateProjectObservationReferences } from './project-observations'
 
 export const PROJECT_BYTE_LIMIT = 64 * 1024 * 1024
 export interface ProjectSnapshot {
@@ -10,6 +15,7 @@ export interface ProjectSnapshot {
   loadIssues: readonly ModelLoadIssue[]
   runs?: readonly RunRecord[]
   visualSources?: readonly VisualSourceRecord[]
+  observationSources?: readonly ObservationSourceRecord[]
 }
 
 /** Canonical membership plus immutable history determines the portable source union. */
@@ -99,6 +105,12 @@ function validateSnapshot(value: unknown): asserts value is ProjectSnapshot {
     ? validateVisualSources(value.visualSources)
     : []
   const sourceIds = new Set(visualSources.map((source) => source.assetId))
+  validateProjectObservationReferences({
+    document: value.document,
+    ...(Object.hasOwn(value, 'observationSources')
+      ? { observationSources: value.observationSources }
+      : {})
+  })
   for (const assetId of projectVisualAssetIds({
     document: value.document,
     runs
@@ -163,6 +175,13 @@ export function decodeProject(text: string): ProjectSnapshot {
     ...(value.runs ? { runs: validateRunRecords(value.runs) } : {}),
     ...(value.visualSources
       ? { visualSources: validateVisualSources(value.visualSources) }
+      : {}),
+    ...(value.observationSources
+      ? {
+          observationSources: validateObservationSources(
+            value.observationSources
+          )
+        }
       : {})
   }
 }

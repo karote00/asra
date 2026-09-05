@@ -52,7 +52,10 @@ never identify content.
 The storage owner prepares detached inputs under a Feature-owned cancellation
 signal and returns an archive-scoped receipt with inert attachment metadata.
 Preview/discard/cancel writes no canonical data. Late or retired receipts cannot
-be retained. Acceptance retains immutable source bytes before the separate
+be retained. An archive allows one active preparation and one completed receipt;
+overlapping preparations reject, and a new preparation revokes the old receipt.
+WebCrypto digest work is not interruptible, but cancellation prevents its result
+from being accepted. Acceptance retains immutable source bytes before the separate
 editing transaction; a failed metadata write must remain retryable and cannot
 claim a save. Accepted but unreferenced sources may remain until runtime disposal,
 within the same archive limits; they are not included in a portable capture.
