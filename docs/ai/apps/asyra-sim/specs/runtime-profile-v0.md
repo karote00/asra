@@ -65,6 +65,12 @@ compatibility patch. Custom/local patches remain forbidden. Direct
 dependencies, TypeScript inputs and main/Worker bundle inputs must resolve
 inside that consumer. Installation uses the existing project-local cache with
 network disabled; missing cached dependencies fail without fetching or upgrading.
+The macOS build gate also runs consumer typecheck, tests and build under the
+existing system sandbox, denying reads from every ancestor `node_modules`.
+This prevents Node/TypeScript optional and ambient resolution from discovering
+unrelated host packages. Local-path evidence checks remain mandatory; other
+build hosts are unverified and fail explicitly. No sandbox binary is shipped
+in the user distribution.
 
 Each owned command has a five-minute deadline and an 8 MiB log limit. Signals
 terminate the active owned process group. Passing evidence records the exact

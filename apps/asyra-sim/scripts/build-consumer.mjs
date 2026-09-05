@@ -15,6 +15,7 @@ import process from 'node:process'
 import { setTimeout, clearTimeout } from 'node:timers'
 import { fileURLToPath, URL } from 'node:url'
 import { createReleasePackageArtifactPlan } from '../../../scripts/release-package-artifacts.js'
+import { isolatedConsumerCommand } from './consumer-isolation.mjs'
 import {
   consumerManifest,
   consumerBuildConfig,
@@ -94,8 +95,10 @@ export async function buildConsumer() {
   process.once('SIGINT', stop)
   process.once('SIGTERM', stop)
   let number = 0
-  async function run(label, command, args, cwd) {
+  async function run(label, command, args, cwd, isolate = false) {
     if (aborted) throw new Error('Build cancelled.')
+    if (isolate)
+      ({ command, args } = isolatedConsumerCommand(cwd, command, args))
     const filename = path.join(
       logs,
       `${String(++number).padStart(2, '0')}-${label}.log`
@@ -215,7 +218,8 @@ export async function buildConsumer() {
       'vite.config.ts',
       'vitest.config.ts',
       'playwright.config.ts',
-      'app-environment.mjs'
+      'app-environment.mjs',
+      'app-environment.d.mts'
     ])
       cpSync(path.join(sourceApp, entry), path.join(consumer, entry), {
         recursive: true
@@ -271,14 +275,15 @@ export async function buildConsumer() {
       'type-boundary',
       'yarn',
       ['exec', 'tsc', '--noEmit', '--listFilesOnly'],
-      consumer
+      consumer,
+      true
     )
     assertOwnedPaths(
       consumer,
       readFileSync(typeFiles, 'utf8').trim().split('\n')
     )
-    await run('consumer-tests', 'yarn', ['test:local'], consumer)
-    await run('consumer-build', 'yarn', ['build'], consumer)
+    await run('consumer-tests', 'yarn', ['test:local'], consumer, true)
+    await run('consumer-build', 'yarn', ['build'], consumer, true)
     const moduleEvidence = readdirSync(
       path.join(consumer, '.build-evidence')
     ).sort()

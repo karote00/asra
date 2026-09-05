@@ -349,7 +349,7 @@ without a usable UI is not complete.
 
 ## 8. M5: Controlled-Pilot Candidate
 
-The current delivery iteration addresses the `ui` owner's consumer lock guard,
+The previous delivery iteration addressed the `ui` owner's consumer lock guard,
 not a solver or Framework change. The exact-source gate exposed a blanket patch
 rejection after all 19 packages built, packed and validated: Yarn's already-locked
 builtin compatibility patches must retain their complete locator and checksum.
@@ -368,6 +368,20 @@ inside failed build outputs. `scripts/build-consumer.mjs` now places its
 reconstructible source snapshot under the existing temporary directory; archives
 and failure logs remain retained. The unchanged repository placement gate is the
 regression oracle, not an expanded exception for product tests.
+
+The next bounded delivery iteration fixes actual consumer isolation. The clean
+gate at `81c473395` detected ancestor `buffer` and `lightningcss` declaration
+reads: npm ambient/optional resolution can climb out of a project-local consumer.
+Use the existing macOS sandbox for consumer type/test/build commands to deny
+reads from every ancestor `node_modules`; retain the real-path evidence fences.
+No library is added, aliased or stubbed. Add permanent process tests proving
+local reads succeed and ancestor/symlink reads fail. Copy the App's existing
+environment declaration alongside its runtime file; ordinary consumer typecheck
+is the missing-input regression gate. Files remain App `scripts/**` and these
+delivery docs. Run focused process/contract tests, formatting, Inspector and
+placement checks, then commit and rerun the exact-source gate. Self-review maps
+this to the unchanged `ui` isolation contract and macOS delivery profile; other
+hosts fail explicitly rather than claiming equivalent isolation.
 
 ### User Outcome
 
