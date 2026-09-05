@@ -396,6 +396,17 @@ Self-review confirms the Inspector `ui` testing boundary and runtime-profile
 isolation contract agree; no product lifecycle rewrite is authorized by this
 test-runner mismatch.
 
+The clean `b6fc3af0b` consumer now passes all 19 rebuilt/packed Framework inputs,
+348 locked registry records, 360 App tests, type isolation and all three bundle
+fences. The next `ui` segment assembles a local candidate in the same producer
+process, using only its verified App build and exact source snapshot. Scope is
+App `scripts/**`, App delivery docs and examples, the README and the dedicated
+Inspector. Gates cover safe file collection, complete original dependency
+notices, rewritten documentation links, checksums and failure without a passing
+artifact, followed by clean-source assembly and packaged browser workflows.
+The assembler does not accept a modified cached consumer as release evidence.
+Reference hardware, independent pilots and maintenance policy remain unverified.
+
 ### User Outcome
 
 Receive a product candidate that starts on their own computer, works offline,

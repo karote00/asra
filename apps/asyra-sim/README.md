@@ -248,6 +248,14 @@ first if the cache is incomplete. It does not install a new runtime or publish
 anything. Bounded command logs and the exact consumer, packed dependencies and
 source archive remain under `.artifacts/consumers/`. A passing consumer is an
 input to distribution assembly, not a replacement for packaged offline testing.
+The same successful producer invocation also assembles a versioned local folder
+and tarball, its static site and launcher, App documentation, source SDK, original
+dependency notices and file/archive checksums. It stages partial output under
+`tmp/` and finalizes only after verifying that the source stayed unchanged.
+The SDK keeps packed Framework inputs beside its consumer App; neither is served
+by the launcher. See the [local candidate quick start](../../docs/ai/apps/asyra-sim/release/LOCAL_CANDIDATE.md).
+Assembly does not mark packaged offline use, reference hardware, independent
+pilots or public support policy as passed.
 
 ## Architecture
 

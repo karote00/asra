@@ -7,7 +7,8 @@ import {
   mkdtempSync,
   cpSync,
   readdirSync,
-  rmSync
+  rmSync,
+  renameSync
 } from 'node:fs'
 import { createHash } from 'node:crypto'
 import path from 'node:path'
@@ -16,6 +17,7 @@ import { setTimeout, clearTimeout } from 'node:timers'
 import { fileURLToPath, URL } from 'node:url'
 import { createReleasePackageArtifactPlan } from '../../../scripts/release-package-artifacts.js'
 import { isolatedConsumerCommand } from './consumer-isolation.mjs'
+import { assembleDistribution } from './assemble-distribution.mjs'
 import {
   consumerManifest,
   consumerBuildConfig,
@@ -325,6 +327,36 @@ export async function buildConsumer() {
         'independent pilots',
         'maintenance policy'
       ]
+    }
+    const staged = assembleDistribution({ snapshot, consumer, output, report })
+    const candidateName = path.basename(staged)
+    const stagedArchive = `${staged}.tar.gz`
+    await run(
+      'distribution-archive',
+      'tar',
+      ['-czf', stagedArchive, '-C', path.dirname(staged), candidateName],
+      repository
+    )
+    if (
+      git(['rev-parse', 'HEAD']) !== sourceCommit ||
+      git(['status', '--porcelain'])
+    )
+      throw new Error(
+        'Source changed during distribution assembly; no candidate was finalized.'
+      )
+    const archive = `${candidateName}.tar.gz`
+    renameSync(staged, path.join(output, candidateName))
+    renameSync(stagedArchive, path.join(output, archive))
+    const archiveSha256 = digest(path.join(output, archive))
+    writeFileSync(
+      path.join(output, `${archive}.sha256`),
+      `${archiveSha256}  ${archive}\n`
+    )
+    report.distribution = {
+      directory: candidateName,
+      archive,
+      archiveSha256,
+      status: 'assembled-local-candidate'
     }
     writeFileSync(
       path.join(output, 'consumer-evidence.json'),

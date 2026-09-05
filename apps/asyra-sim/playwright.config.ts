@@ -1,11 +1,16 @@
 import { defineConfig } from '@playwright/test'
+import { fileURLToPath, URL } from 'node:url'
 import { resolveAppEnvironment } from './app-environment.mjs'
 
 const environment = resolveAppEnvironment()
 export default defineConfig({
   testDir: '.',
   testMatch: ['**/e2e/**/*.spec.ts', '**/src/**/__tests__/*.browser.spec.ts'],
-  testIgnore: ['**/node_modules/**', '**/dist/**'],
+  testIgnore: [
+    '**/node_modules/**',
+    '**/dist/**',
+    `${fileURLToPath(new URL('./.artifacts/', import.meta.url))}**`
+  ],
   outputDir: './test-results',
   fullyParallel: false,
   workers: 1,
@@ -28,7 +33,7 @@ export default defineConfig({
     screenshot: 'only-on-failure'
   },
   webServer: {
-    command: 'node ../../node_modules/vite/bin/vite.js',
+    command: 'yarn exec vite',
     url: environment.url,
     reuseExistingServer: true,
     timeout: 60_000

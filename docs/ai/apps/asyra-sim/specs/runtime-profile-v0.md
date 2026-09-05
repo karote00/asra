@@ -82,6 +82,21 @@ evidence. Failed runs preserve bounded logs and a failure record, never a passin
 marker. These developer artifacts are not a user distribution, a dependency
 security review, reference-hardware proof, or an R0 approval.
 
+After those gates pass, the same exact-source process assembles a versioned local
+candidate from the verified build, launcher, App documentation and SDK inputs.
+The launcher exposes only `site/`; source, notes, reports and dependencies remain
+outside its served tree. Include the packed Framework SDK inputs, rewritten
+working documentation links, a CSV example, actual bundled dependency identities
+and original notices, and SHA-256 checksums for every candidate file. Missing
+notices, symlinks, broken document targets or changed source identity fail assembly.
+Only after assembly and a final source check may the process record success.
+The archive is a local candidate, not a public release. Offline browser and
+representative-workload evidence remain separate gates.
+Browser discovery excludes only the current App's own generated `.artifacts`
+subtree, not every ancestor with that name. This prevents copied SDK/source tests
+from loading duplicate Playwright instances while allowing the SDK's own tests
+to run from a project-local candidate. Ordinary source tests remain selected.
+
 ## Initial Admission and Execution Limits
 
 The numerical envelope and GLB structural limits remain owned by their

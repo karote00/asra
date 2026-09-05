@@ -1160,6 +1160,7 @@
           'Serve versioned static distribution files through a read-only, loopback-only Node launcher with a stable explicit port, exact Host/origin checks, safe paths, no symlinks or uploads, and owned shutdown; never silently choose another origin.',
           'Build independent distribution inputs in a project-local exact-source archive and isolated consumer, using the existing Framework package artifact validator. Preserve locked registry identities and integrity, reject ancestor/private/symlink type or bundle resolution, bound child processes and logs, and record checksums without claiming publication or independent acceptance.',
           'Consumer tests preserve native ESM live exports from packed dependencies; test-runner CommonJS compatibility must not snapshot the current Core binding.',
+          'After this invocation passes independent build gates, assemble only its verified site and exact-source launcher, documentation and optional SDK. Derive original dependency notices from main/Worker inputs, reject missing notices/symlinks/broken document targets, checksum every file, and finalize only after the source identity recheck. Never serve SDK files or label assembly as offline/pilot/release acceptance.',
           'Use local assets; release readiness remains governed by FIRST_RELEASE gates.'
         ],
         bypasses: [
