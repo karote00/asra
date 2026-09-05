@@ -356,6 +356,12 @@ and includes examples and documentation.
 
 ### Work
 
+- Delivery has two reviewable checkpoints. First commit the generator and its
+  permanent guard tests after lint, path/integrity tests and Inspector validation;
+  this freezes executable tooling but does not claim a built candidate. Then
+  execute the gate from that clean exact commit and retain its actual consumer
+  evidence before distribution assembly and packaged-browser validation. A
+  failure blocks that later checkpoint and must not be relabeled as a pass.
 - Freeze measured platform, numerical, and resource profiles, with normal,
   boundary, and over-budget benchmarks.
 - Pass the applicable unit, method, integration, extension, E2E, visual,

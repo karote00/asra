@@ -240,6 +240,15 @@ The launcher is tested independently with
 repository root. A launcher alone is not a verified distribution; packaging,
 clean-consumer and packaged-browser evidence are still required.
 
+From a clean source commit, maintainers can run
+`node apps/asyra-sim/scripts/build-consumer.mjs` to rebuild and validate an
+independent App against packed Framework packages. This uses only the existing
+project-local dependency cache; run the ordinary declared dependency installation
+first if the cache is incomplete. It does not install a new runtime or publish
+anything. Bounded command logs and the exact consumer, packed dependencies and
+source archive remain under `.artifacts/consumers/`. A passing consumer is an
+input to distribution assembly, not a replacement for packaged offline testing.
+
 ## Architecture
 
 The App-owned CUSTOM engine is composed before Core startup and renders through

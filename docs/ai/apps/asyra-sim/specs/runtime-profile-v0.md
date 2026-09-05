@@ -53,6 +53,24 @@ files. Shutdown closes owned connections. Launcher tests are permanent under
 `apps/asyra-sim/scripts/__tests__`; the packaged browser journey remains a
 separate delivery gate.
 
+The independent-consumer gate starts only from a clean source commit. It
+archives that commit into an ignored App-local directory, installs the existing
+immutable lockfile, rebuilds Framework packages with two concurrent build tasks,
+and invokes the existing 19-package artifact validator. It does not clean or
+build the developer's active Framework outputs. The second, independent App
+consumer installs those tarballs with transparent workspaces disabled. Its
+registry identities and integrity must match the original lockfile; direct
+dependencies, TypeScript inputs and main/Worker bundle inputs must resolve
+inside that consumer. Installation uses the existing project-local cache with
+network disabled; missing cached dependencies fail without fetching or upgrading.
+
+Each owned command has a five-minute deadline and an 8 MiB log limit. Signals
+terminate the active owned process group. Passing evidence records the exact
+commit, App/tool versions, source/tarball/lock checksums and module-boundary
+evidence. Failed runs preserve bounded logs and a failure record, never a passing
+marker. These developer artifacts are not a user distribution, a dependency
+security review, reference-hardware proof, or an R0 approval.
+
 ## Initial Admission and Execution Limits
 
 The numerical envelope and GLB structural limits remain owned by their
