@@ -308,6 +308,14 @@ panels or labels; the model tree is a toggleable drawer on narrower screens,
 and the viewport and inspector stack below 700 CSS pixels. These presentation
 choices do not change saved models, analysis scopes or numerical evidence.
 
+At a fixed viewport size, switching inspectors, expanding their content, or
+playing a trajectory must not resize or reposition the model panel, viewport,
+inspector panel, or canvas. The shared workbench layout owns panel dimensions;
+content panels never override them. Desktop defaults are 265 CSS pixels for
+the model panel and 360 for the inspector, with the viewport using the remaining
+width. Narrow-screen breakpoints and explicit model-drawer toggling remain
+presentation controls, independent of the selected inspector or its data.
+
 A labelled sun/moon icon switches light and dark UI themes. The initial default
 follows system preference; an explicit local choice survives reload when storage
 is available. Blocked preference storage must not prevent switching. Theme is

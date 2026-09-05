@@ -67,7 +67,7 @@ test('normal CUSTOM workbench renders, edits, undoes, resizes, and picks canonic
         return [node.width, node.height]
       })
     )
-    .toEqual([1029, 908])
+    .toEqual([975, 908])
   const box = await canvas.boundingBox()
   if (!box) throw new Error('Missing canvas surface')
   // Independent perspective projection of the fixed fixture center, not renderer picking.

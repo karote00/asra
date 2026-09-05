@@ -373,9 +373,7 @@ export function Workbench() {
           )}
         </details>
       )}
-      <main
-        className={`work-area ${inspector === 'experiment' ? 'experiment-mode' : ''}`}
-      >
+      <main className="work-area">
         <aside className={`hierarchy-panel ${hierarchyOpen ? 'is-open' : ''}`}>
           <div className="panel-heading">
             <div>
