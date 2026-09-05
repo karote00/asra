@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SimRuntime } from '../init/bootstrap'
 import type { SpatialCamera, SpatialFrame } from '../render-app/spatial-layer'
-import { fitCameraToMeshes, panCamera } from './viewport-camera'
+import { fitCameraToMeshes, panCamera, wheelCamera } from './viewport-camera'
+import { readNavigationInput, saveNavigationInput } from './navigation-input'
 import { isEditableKeyboardEvent } from './keyboard-input'
 import type { Workcell } from '../domain/workcell'
 import type { PreparedVisualImport } from '../storage/visual-archive'
@@ -63,8 +64,17 @@ export function ViewportControls({
   isCurrent: (runtime: SimRuntime) => boolean
   getFitMeshes: () => SpatialFrame['meshes']
 }) {
+  const [inputMode, setInputMode] = useState(readNavigationInput)
   const current = useRef(camera)
   current.current = camera
+  const updateCamera = useCallback(
+    (next: SpatialCamera) => {
+      // Wheel bursts can arrive before React commits the next props projection.
+      current.current = next
+      onCamera(next)
+    },
+    [onCamera]
+  )
   const fitMeshes = useRef(getFitMeshes)
   fitMeshes.current = getFitMeshes
   const cancelDrag = useRef<(() => void) | null>(null)
@@ -72,10 +82,10 @@ export function ViewportControls({
     if (!host || !runtime || !isCurrent(runtime)) return
     cancelDrag.current?.()
     const { width, height } = host.getBoundingClientRect()
-    onCamera(
+    updateCamera(
       fitCameraToMeshes(current.current, fitMeshes.current(), width, height)
     )
-  }, [host, runtime, isCurrent, onCamera])
+  }, [host, runtime, isCurrent, updateCamera])
   useEffect(() => {
     if (!host || !runtime) return
     let active = true
@@ -128,7 +138,7 @@ export function ViewportControls({
       if (Math.hypot(dx, dy) < 4 && !drag.moved) return
       drag.moved = true
       if (drag.pan) {
-        onCamera(panCamera(drag.camera, dx, dy, drag.height))
+        updateCamera(panCamera(drag.camera, dx, dy, drag.height))
         return
       }
       const start = drag.camera,
@@ -139,7 +149,7 @@ export function ViewportControls({
           0.08,
           Math.min(Math.PI - 0.08, Math.acos(p[1] / radius) + dy * 0.006)
         )
-      onCamera({
+      updateCamera({
         ...start,
         position: [
           start.target[0] + radius * Math.sin(polar) * Math.sin(yaw),
@@ -184,30 +194,27 @@ export function ViewportControls({
       if (!event.repeat) fit()
     }
     const wheel = (event: WheelEvent) => {
-      if (!active || !isCurrent(runtime)) return
+      if (
+        !active ||
+        !isCurrent(runtime) ||
+        event.defaultPrevented ||
+        event.altKey ||
+        event.metaKey
+      )
+        return
       event.preventDefault()
       if (drag) return
-      const c = current.current,
-        p = c.position.map((v, i) => v - c.target[i]),
-        radius = Math.hypot(...p),
-        next = Math.max(
-          0.15,
-          radius * Math.exp(Math.max(-100, Math.min(100, event.deltaY)) * 0.002)
-        )
-      onCamera({
-        ...c,
-        far: c.far + Math.max(0, next - radius),
-        position: c.target.map(
-          (v, i) => v + (p[i] * next) / radius
-        ) as unknown as SpatialCamera['position']
-      })
+      const { width, height } = host.getBoundingClientRect()
+      const next = wheelCamera(current.current, event, inputMode, width, height)
+      if (next !== current.current) updateCamera(next)
     }
     host.addEventListener('pointerdown', down)
     host.addEventListener('pointermove', move)
     host.addEventListener('pointerup', up)
     host.addEventListener('pointercancel', cancelPointer)
     host.addEventListener('lostpointercapture', cancelPointer)
-    host.addEventListener('wheel', wheel, { passive: false })
+    // Own canvas navigation before Framework bubble listeners prevent scrolling.
+    host.addEventListener('wheel', wheel, { passive: false, capture: true })
     window.addEventListener('blur', cancel)
     document.addEventListener('visibilitychange', visibility)
     document.addEventListener('keydown', key)
@@ -220,12 +227,12 @@ export function ViewportControls({
       host.removeEventListener('pointerup', up)
       host.removeEventListener('pointercancel', cancelPointer)
       host.removeEventListener('lostpointercapture', cancelPointer)
-      host.removeEventListener('wheel', wheel)
+      host.removeEventListener('wheel', wheel, { capture: true })
       window.removeEventListener('blur', cancel)
       document.removeEventListener('visibilitychange', visibility)
       document.removeEventListener('keydown', key)
     }
-  }, [host, runtime, onCamera, onSelect, isCurrent, fit])
+  }, [host, runtime, updateCamera, onSelect, isCurrent, fit, inputMode])
   return (
     <div className="viewport-tools">
       <button
@@ -241,14 +248,36 @@ export function ViewportControls({
         onClick={() => {
           if (runtime && isCurrent(runtime)) {
             cancelDrag.current?.()
-            onCamera(structuredClone(DEFAULT_CAMERA))
+            updateCamera(structuredClone(DEFAULT_CAMERA))
           }
         }}
       >
         Reset view
       </button>
-      <span title="Orbit: left or middle drag. Pan: Shift + middle drag, or Shift + left drag on a trackpad. Zoom: scroll. Select: left click. Fit all: ⌘1 / Ctrl+1.">
-        Drag to orbit · Shift + drag to pan · Scroll to zoom
+      <button
+        aria-label={
+          inputMode === 'trackpad'
+            ? 'Switch to mouse controls'
+            : 'Switch to trackpad controls'
+        }
+        title={
+          inputMode === 'trackpad'
+            ? 'Trackpad: two-finger pan, pinch to zoom. Click for mouse controls.'
+            : 'Mouse: wheel to zoom, Shift + middle drag to pan. Click for trackpad controls.'
+        }
+        onClick={() => {
+          cancelDrag.current?.()
+          const next = inputMode === 'trackpad' ? 'mouse' : 'trackpad'
+          setInputMode(next)
+          saveNavigationInput(next)
+        }}
+      >
+        {inputMode === 'trackpad' ? 'Trackpad' : 'Mouse'}
+      </button>
+      <span title="Orbit: left or middle drag. Pan: Shift + middle or left drag. Select: left click. Fit all: ⌘1 / Ctrl+1. The input mode button selects two-finger pan or mouse wheel zoom.">
+        {inputMode === 'trackpad'
+          ? 'Two fingers to pan · Pinch to zoom'
+          : 'Shift + drag to pan · Scroll to zoom'}
       </span>
     </div>
   )

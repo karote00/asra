@@ -4,6 +4,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ViewportControls } from '../viewport'
 import { DEFAULT_CAMERA } from '../../render-app/workcell-frame'
+import { panCamera } from '../viewport-camera'
 import type { SpatialFrame } from '../../render-app/spatial-layer'
 import type { SimRuntime } from '../../init/bootstrap'
 
@@ -47,6 +48,7 @@ const render = (camera = DEFAULT_CAMERA) =>
     )
   )
 beforeEach(async () => {
+  localStorage.clear()
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   alive = true
   host = document.createElement('div')
@@ -79,6 +81,7 @@ afterEach(async () => {
   host.remove()
   controls.remove()
   vi.clearAllMocks()
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 function pointer(type: string, options: MouseEventInit = {}, id = 1) {
@@ -231,10 +234,129 @@ it.each([-10, 10])(
       target: [0, 0, 0],
       far: 3000
     })
-    host.dispatchEvent(new WheelEvent('wheel', { deltaY, cancelable: true }))
+    host.dispatchEvent(
+      new WheelEvent('wheel', { deltaY, ctrlKey: true, cancelable: true })
+    )
     const next = onCamera.mock.calls[0][0]
     expect(next.position[2]).toBeCloseTo(1000 * Math.exp(deltaY * 0.002), 10)
     expect(next.target).toEqual([0, 0, 0])
     expect(next.far - next.position[2]).toBeGreaterThanOrEqual(2000 - 1e-8)
   }
 )
+
+function wheel(options: WheelEventInit = {}) {
+  const event = new WheelEvent('wheel', {
+    bubbles: true,
+    cancelable: true,
+    ...options
+  })
+  host.dispatchEvent(event)
+  return event
+}
+function expectPan(dx: number, dy: number) {
+  const expected = panCamera(DEFAULT_CAMERA, dx, dy, 600)
+  const actual = onCamera.mock.calls.at(-1)?.[0]
+  expect(actual).toBeDefined()
+  for (const field of ['position', 'target'] as const)
+    expected[field].forEach((value, i) =>
+      expect(actual[field][i]).toBeCloseTo(value, 11)
+    )
+  expect(onSelect).not.toHaveBeenCalled()
+}
+async function switchInput(label: string) {
+  const button = controls.querySelector<HTMLButtonElement>(
+    `button[aria-label="${label}"]`
+  )
+  if (!button) throw new Error(`Missing input mode control: ${label}`)
+  await act(() => button.click())
+}
+it('defaults to two-finger pan in natural-scroll direction without changing zoom', () => {
+  expect(wheel({ deltaX: 60, deltaY: 30 }).defaultPrevented).toBe(true)
+  expectPan(-60, -30)
+  expect(getFitMeshes).not.toHaveBeenCalled()
+})
+it('handles canvas wheel intent before Framework bubble listeners suppress browser scrolling', () => {
+  const canvas = document.createElement('canvas')
+  host.append(canvas)
+  canvas.addEventListener('wheel', (event) => event.preventDefault())
+  canvas.dispatchEvent(
+    new WheelEvent('wheel', {
+      bubbles: true,
+      cancelable: true,
+      deltaX: 60,
+      deltaY: 30
+    })
+  )
+  expect(onCamera).toHaveBeenCalledTimes(1)
+  expectPan(-60, -30)
+})
+it('accumulates every wheel delta before the next React render', () => {
+  for (let i = 0; i < 20; i++) wheel({ deltaX: 3, deltaY: 1.5 })
+  expectPan(-60, -30)
+})
+it.each([
+  [1, 2, 3, -32, -48],
+  [2, 0.1, 0.2, -80, -120]
+])(
+  'normalizes wheel delta mode %i into viewport CSS pixels',
+  (deltaMode, deltaX, deltaY, dx, dy) => {
+    wheel({ deltaMode, deltaX, deltaY })
+    expectPan(dx, dy)
+  }
+)
+it('pinch events zoom without panning, including multiple events in one render', () => {
+  for (let i = 0; i < 3; i++) wheel({ ctrlKey: true, deltaX: 4, deltaY: -10 })
+  const camera = onCamera.mock.calls.at(-1)?.[0]
+  expect(camera.target).toEqual(DEFAULT_CAMERA.target)
+  const radius = Math.hypot(
+    ...DEFAULT_CAMERA.position.map((v, i) => v - DEFAULT_CAMERA.target[i])
+  )
+  expect(
+    Math.hypot(
+      ...camera.position.map((v: number, i: number) => v - camera.target[i])
+    )
+  ).toBeCloseTo(radius * Math.exp(-0.06), 11)
+})
+it('switches to mouse wheel zoom, remembers the choice, and can restore trackpad pan', async () => {
+  await switchInput('Switch to mouse controls')
+  wheel({ deltaY: 20 })
+  expect(onCamera.mock.calls.at(-1)?.[0].target).toEqual(DEFAULT_CAMERA.target)
+  expect(localStorage.getItem('asyra-sim.navigation-input')).toBe('mouse')
+  await act(() => root.render(null))
+  await render()
+  expect(
+    controls.querySelector('button[aria-label="Switch to trackpad controls"]')
+  ).not.toBeNull()
+  await switchInput('Switch to trackpad controls')
+  onCamera.mockClear()
+  wheel({ deltaX: 60, deltaY: 30 })
+  expectPan(-60, -30)
+})
+it('keeps input mode switching usable when preference storage is unavailable', async () => {
+  await act(() => root.render(null))
+  vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+    throw new Error('denied')
+  })
+  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+    throw new Error('denied')
+  })
+  await render()
+  await switchInput('Switch to mouse controls')
+  wheel({ deltaY: 20 })
+  expect(onCamera.mock.calls.at(-1)?.[0].target).toEqual(DEFAULT_CAMERA.target)
+})
+it('ignores zero, nonfinite, consumed and retired wheel events and does not interrupt dragging', () => {
+  wheel()
+  const invalid = new WheelEvent('wheel', { deltaY: 1, cancelable: true })
+  Object.defineProperty(invalid, 'deltaX', { value: NaN })
+  host.dispatchEvent(invalid)
+  const consumed = new WheelEvent('wheel', { deltaY: 2, cancelable: true })
+  consumed.preventDefault()
+  host.dispatchEvent(consumed)
+  pointer('pointerdown', { shiftKey: true })
+  wheel({ deltaY: 20 })
+  pointer('pointercancel')
+  alive = false
+  wheel({ deltaX: 30, deltaY: 20 })
+  expect(onCamera).not.toHaveBeenCalled()
+})

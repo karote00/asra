@@ -10,8 +10,50 @@ import {
   type Vec3
 } from '../domain/math'
 import type { SpatialCamera, SpatialFrame } from '../render-app/spatial-layer'
+import type { NavigationInput } from './navigation-input'
 
 export const VIEWPORT_PADDING = 32
+const WHEEL_LINE_PIXELS = 16
+
+/** Chromium pinch is Ctrl-wheel; plain trackpad scroll follows natural pan. */
+export function wheelCamera(
+  camera: SpatialCamera,
+  event: Pick<WheelEvent, 'deltaX' | 'deltaY' | 'deltaMode' | 'ctrlKey'>,
+  input: NavigationInput,
+  width: number,
+  height: number
+): SpatialCamera {
+  if (
+    ![width, height].every((value) => Number.isFinite(value) && value > 0) ||
+    ![event.deltaX, event.deltaY].every(Number.isFinite)
+  )
+    return camera
+  let dx = event.deltaX,
+    dy = event.deltaY
+  if (event.deltaMode === 1) {
+    dx *= WHEEL_LINE_PIXELS
+    dy *= WHEEL_LINE_PIXELS
+  } else if (event.deltaMode === 2) {
+    dx *= width
+    dy *= height
+  }
+  if (!event.ctrlKey && input === 'trackpad') {
+    if (!dx && !dy) return camera
+    return panCamera(camera, -dx, -dy, height)
+  }
+  if (!dy) return camera
+  const offset = subtract(camera.position, camera.target)
+  const radius = magnitude(offset)
+  const next = Math.max(
+    0.15,
+    radius * Math.exp(Math.max(-100, Math.min(100, dy)) * 0.002)
+  )
+  return {
+    ...camera,
+    far: camera.far + Math.max(0, next - radius),
+    position: add(camera.target, scale(offset, next / radius))
+  }
+}
 
 function basis(camera: SpatialCamera) {
   const back = normalize(subtract(camera.position, camera.target))

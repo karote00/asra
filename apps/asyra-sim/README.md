@@ -218,8 +218,11 @@ focus and expanded sections survive ordinary edits and Undo/Redo. These Object
 controls do not change explicit experiment saving or import acceptance.
 
 Navigate with left or middle drag to orbit, **Shift + middle drag** to pan
-(Blender convention), or **Shift + left drag** when using a trackpad. Scroll
-zooms; an unmodified left click selects. **⌘1** / **Ctrl+1** or **Fit all**
+(Blender convention), or **Shift + left drag**. The default **Trackpad** mode
+uses **two-finger scrolling to pan** and **pinch to zoom** in Chromium. Click
+the **Trackpad / Mouse** button beside Reset view to switch explicitly; Mouse
+mode restores wheel zoom. This device preference is remembered locally.
+An unmodified left click selects. **⌘1** / **Ctrl+1** or **Fit all**
 centers all visible parts in the current pose, keeps the viewing angle and
 leaves at least 32 px around them inside the viewport. Grid/floor decorations
 are excluded. **Reset view** restores the default camera. These view operations
