@@ -99,7 +99,7 @@ test('local project A/B/A replacement resets history and view without duplicatin
     body: JSON.stringify({
       baseURL: info.project.use.baseURL,
       viewport: page.viewportSize(),
-      candidate: 'A · Baseline workcell',
+      candidate: 'A - Baseline workcell',
       selected: 'fixture post',
       selectedId: await page
         .getByRole('treeitem', { name: '◇ fixture post', exact: true })

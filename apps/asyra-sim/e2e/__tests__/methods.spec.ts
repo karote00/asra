@@ -162,6 +162,9 @@ test('a user builds spheres, selects an independent method, edits uncertainty, a
   await page
     .getByRole('button', { name: 'Import and replace current project' })
     .click()
+  await expect(
+    page.getByRole('dialog', { name: 'Local projects' })
+  ).toHaveCount(0)
   await page
     .getByLabel('Candidate', { exact: true })
     .selectOption({ label: 'New workcell' })

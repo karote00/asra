@@ -57,7 +57,7 @@ test('normal CUSTOM workbench renders, edits, undoes, resizes, and picks canonic
   await expect(
     page.getByLabel('Mount position (mm) X', { exact: true })
   ).toHaveValue('-750')
-  await page.getByRole('treeitem', { name: '◉ J1 · Base yaw' }).click()
+  await page.getByRole('treeitem', { name: '◉ J1 - Base yaw' }).click()
   await page.setViewportSize({ width: 1600, height: 1050 })
   await expect
     .poll(() =>

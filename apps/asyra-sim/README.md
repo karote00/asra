@@ -103,6 +103,15 @@ the canonical pose. Playback stops at the interval end and on draft/model,
 candidate, document, panel or browser-visibility changes. It owns one cancellable
 browser frame callback, never an always-on renderer loop. Preview is not analysis.
 
+The sun/moon icon in the header switches between light and dark mode. The first
+visit follows the system preference; an explicit choice is remembered locally
+when browser storage permits. Theme changes never edit documents or history.
+
+New examples include original detailed mechanical main-body GLB assets. Turn off
+**Proxies** to inspect the housings, joint covers, flanges, fasteners and gripper;
+turn it back on to compare the separately defined analysis shapes. These are
+synthetic, uncalibrated parts, not vendor CAD. See [sample provenance](samples/README.md).
+
 The sampled pose slider changes only the view. Formal analysis freezes inputs,
 runs in an owned Worker, and separates execution, coverage, findings, bounds,
 and the rule verdict. Partial or cancelled results retain their unknowns.

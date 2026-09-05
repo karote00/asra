@@ -308,6 +308,11 @@ panels or labels; the model tree is a toggleable drawer on narrower screens,
 and the viewport and inspector stack below 700 CSS pixels. These presentation
 choices do not change saved models, analysis scopes or numerical evidence.
 
+A labelled sun/moon icon switches light and dark UI themes. The initial default
+follows system preference; an explicit local choice survives reload when storage
+is available. Blocked preference storage must not prevent switching. Theme is
+presentation-only and never changes geometry, experiments, results or Undo.
+
 [TEST_STRATEGY.md](../validation/TEST_STRATEGY.md) owns the formal cases, including
 valid, empty, invalid, boundary, cancellation, precision, cross-version, scope,
 and visual behavior.

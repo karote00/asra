@@ -62,5 +62,7 @@ it('renders supported large historical evidence without argument overflow or eag
   expect(text).toContain('150000 intervals')
   expect(text.length).toBeLessThan(20000)
   expect(text).toContain('1000.000 mm')
-  expect(text).toContain('45 pairs have no retained evidence')
+  expect(text).toContain(
+    `${snapshot.pairs.length - 1} pairs have no retained evidence`
+  )
 })

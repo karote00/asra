@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { ThemeToggle } from './theme-toggle'
 import type { SimRuntime } from '../init/bootstrap'
 import { IDENTITY_POSE } from '../domain/math'
 import { jointValuesAt, type Body, type Workcell } from '../domain/workcell'
@@ -243,6 +244,7 @@ export function Workbench() {
             unsavedRunCount={unsavedRunCount}
           />
         )}
+        <ThemeToggle />
         <span className="local-badge">
           <i />
           Private by default

@@ -9,15 +9,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #58717d;
+  color: var(--sim-secondary);
 }
 .project-dialog {
   width: min(560px, calc(100vw - 40px));
   max-height: calc(100dvh - 60px);
   padding: 24px;
-  border: 1px solid #d4dfe5;
+  border: 1px solid var(--sim-border);
   border-radius: 12px;
-  color: #213442;
+  color: var(--sim-text);
   box-shadow: 0 24px 80px #101f2a40;
 }
 .project-dialog::backdrop {
@@ -45,8 +45,8 @@
 }
 .project-error {
   padding: 12px;
-  background: #fff1ed;
-  color: #964437;
+  background: var(--sim-error);
+  color: var(--sim-error-text);
   border-radius: 6px;
   margin: 14px 0;
   line-height: 1.6;
@@ -62,7 +62,7 @@
   gap: 16px;
   justify-content: space-between;
   padding: 14px 0;
-  border-top: 1px solid #e0e8ec;
+  border-top: 1px solid var(--sim-divider);
 }
 .project-list li > div {
   min-width: 0;
@@ -74,13 +74,13 @@
   overflow-wrap: anywhere;
 }
 .project-list span {
-  color: #8093a0;
+  color: var(--sim-muted);
   font-size: 10px;
 }
 .lifecycle-notice {
   padding: 12px 22px;
-  background: #fff1ed;
-  color: #964437;
+  background: var(--sim-error);
+  color: var(--sim-error-text);
   display: flex;
   gap: 16px;
   align-items: center;
@@ -88,8 +88,8 @@
 }
 .load-diagnostics {
   padding: 12px 22px;
-  color: #805921;
-  background: #fff8e9;
+  color: var(--sim-warning-text);
+  background: var(--sim-warning);
   font-size: 11px;
   max-height: 200px;
   overflow: auto;

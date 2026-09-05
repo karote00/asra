@@ -16,7 +16,7 @@ vi.mock('../../contracts', async (load) => {
     ...actual,
     EXPERIMENT_RESOURCE_PROFILE: {
       ...actual.EXPERIMENT_RESOURCE_PROFILE,
-      maxEvidenceLeaves: 50
+      maxEvidenceLeaves: 64
     }
   }
 })
@@ -34,13 +34,14 @@ it('reserves an unresolved evidence slot for every remaining pair when earlier p
     acknowledgedWarningCodes: []
   })
   const evidence = runOfficialClearanceMethod(input)
+  expect(input.pairs.length).toBeLessThan(64)
   expect(evidence.pairs).toHaveLength(input.pairs.length)
   expect(
     evidence.pairs.reduce(
       (total, pair) => total + pair.evidence.leaves.length,
       0
     )
-  ).toBeLessThanOrEqual(50)
+  ).toBeLessThanOrEqual(64)
   expect(evidence.coverage).toBe('partial')
   for (const pair of evidence.pairs) {
     expect(pair.evidence.leaves[0].start).toBe(input.interval[0])

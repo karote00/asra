@@ -136,7 +136,7 @@ test('previews, accepts, edits, undoes and reopens a visual without changing pro
   await expect(page.locator('.glb-preview')).toContainText('one Undo action')
   await expect(page.getByTestId('history-depth')).toHaveText('Undo steps: 3')
   await expect(page.locator('.viewport-summary')).toContainText(
-    '11 analysis shapes'
+    '13 analysis shapes'
   )
   const canvas = page.getByTestId('workcell-canvas').locator('canvas'),
     accepted = await canvas.screenshot()
@@ -153,7 +153,7 @@ test('previews, accepts, edits, undoes and reopens a visual without changing pro
     .click()
   await page.locator('.visual-bindings > summary').click()
   const reference = page.getByRole('group', {
-    name: 'Visual reference 1',
+    name: 'Visual reference 2',
     exact: true
   })
   await reference.getByLabel('Visual scale X', { exact: true }).fill('0.5')
@@ -164,18 +164,23 @@ test('previews, accepts, edits, undoes and reopens a visual without changing pro
     reference.getByLabel('Visual scale X', { exact: true })
   ).toHaveValue('0.5')
   await expect(page.locator('.viewport-summary')).toContainText(
-    '11 analysis shapes'
+    '13 analysis shapes'
   )
   await reference.scrollIntoViewIfNeeded()
   await page.screenshot({ path: info.outputPath('visual-binding.png') })
   const payload = await exportProject(page)
-  expect(payload.visualSources).toHaveLength(1)
-  expect(payload.visualSources[0].assetId).toBe(digest)
-  expect(Buffer.from(payload.visualSources[0].base64, 'base64')).toEqual(bytes)
+  expect(payload.visualSources).toHaveLength(12)
+  const sourceIndex = payload.visualSources.findIndex(
+    (source: { assetId: string }) => source.assetId === digest
+  )
+  expect(sourceIndex).toBeGreaterThanOrEqual(0)
+  expect(
+    Buffer.from(payload.visualSources[sourceIndex].base64, 'base64')
+  ).toEqual(bytes)
   const damaged = structuredClone(payload),
     invalid = Buffer.from(bytes)
   invalid[0] = 0
-  damaged.visualSources[0].base64 = invalid.toString('base64')
+  damaged.visualSources[sourceIndex].base64 = invalid.toString('base64')
   await importProject(page, damaged)
   await expect(
     page.getByRole('dialog', { name: 'Local projects' })
@@ -247,15 +252,19 @@ test('keeps a historical-only visual source available for replay after portable 
     .click()
   await page.locator('.visual-bindings > summary').click()
   await page
-    .getByRole('button', { name: 'Remove visual reference 1', exact: true })
+    .getByRole('button', { name: 'Remove visual reference 2', exact: true })
     .click()
   await page.getByRole('button', { name: 'Apply changes', exact: true }).click()
   const payload = await exportProject(page)
-  expect(payload.visualSources[0].assetId).toBe(digest)
+  expect(
+    payload.visualSources.some(
+      (source: { assetId: string }) => source.assetId === digest
+    )
+  ).toBe(true)
   expect(
     payload.runs[0].snapshot.workcell.bodies.find(
       (body: { name: string }) => body.name === 'fixture post'
-    ).visuals[0].assetId
+    ).visuals[1].assetId
   ).toBe(digest)
   await importProject(page, payload)
   await expect(

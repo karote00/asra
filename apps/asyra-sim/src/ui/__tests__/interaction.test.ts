@@ -62,7 +62,12 @@ it('removing the active canonical model removes its old visible projection', asy
       createElement(View, { workcell: createSyntheticExample().workcell })
     )
   )
-  expect(setFrame.mock.lastCall?.[0].meshes).toHaveLength(11)
+  expect(setFrame.mock.lastCall?.[0].meshes).toHaveLength(
+    createSyntheticExample().workcell.bodies.reduce(
+      (count, body) => count + body.colliders.length,
+      0
+    )
+  )
   await act(() => root.render(createElement(View, { workcell: null })))
   expect(setFrame.mock.lastCall?.[0].meshes.length).toBe(0)
   expect(setFrame.mock.lastCall?.[0].camera).toEqual(DEFAULT_CAMERA)

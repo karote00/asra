@@ -2,6 +2,7 @@
 @import url('./project-controls.css');
 @import url('./experiment-panel.css');
 @import url('./acceptance-rules.css');
+@import url('./theme.css');
 
 :root {
   font-family:
@@ -10,8 +11,8 @@
     BlinkMacSystemFont,
     'Segoe UI',
     sans-serif;
-  color: #213442;
-  background: #eaf0f3;
+  color: var(--sim-text);
+  background: var(--sim-page);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   font-size: 13px;
@@ -30,15 +31,15 @@ textarea {
 }
 button {
   cursor: pointer;
-  border: 1px solid #d4dfe5;
-  background: #fff;
+  border: 1px solid var(--sim-border);
+  background: var(--sim-surface);
   border-radius: 6px;
-  color: #334c5c;
+  color: var(--sim-text);
   padding: 8px 12px;
   transition: background 0.12s;
 }
 button:hover {
-  background: #edf4f6;
+  background: var(--sim-hover);
 }
 button:disabled {
   cursor: default;
@@ -48,7 +49,7 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 summary:focus-visible {
-  outline: 2px solid #158b83;
+  outline: 2px solid var(--sim-focus);
   outline-offset: 2px;
 }
 input,
@@ -56,16 +57,16 @@ select,
 textarea {
   min-width: 0;
   width: 100%;
-  border: 1px solid #d6e0e5;
+  border: 1px solid var(--sim-border);
   border-radius: 5px;
   padding: 8px;
-  color: #2a4252;
-  background: #fff;
+  color: var(--sim-text);
+  background: var(--sim-surface);
 }
 input[type='checkbox'] {
   width: 14px;
   height: 14px;
-  accent-color: #168c83;
+  accent-color: var(--sim-focus);
 }
 input[type='color'] {
   height: 34px;
@@ -75,7 +76,7 @@ label {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: #566a78;
+  color: var(--sim-secondary);
   font-size: 11px;
   font-weight: 600;
 }
@@ -94,7 +95,7 @@ h3 {
 .eyebrow {
   font-size: 9px;
   letter-spacing: 1.3px;
-  color: #8093a0;
+  color: var(--sim-muted);
   font-weight: 700;
 }
 .panel-heading {
@@ -110,24 +111,24 @@ h3 {
 .count,
 .role-tag {
   font-size: 10px;
-  background: #edf3f5;
-  color: #58717d;
+  background: var(--sim-subtle);
+  color: var(--sim-secondary);
   padding: 4px 7px;
   border-radius: 4px;
 }
 .hint {
   font-size: 10px;
   line-height: 1.6;
-  color: #738591;
+  color: var(--sim-muted);
   font-weight: 400;
 }
 .primary {
-  background: #15847c;
+  background: var(--sim-accent);
   color: #fff;
-  border-color: #15847c;
+  border-color: var(--sim-accent);
 }
 .primary:hover {
-  background: #126c66;
+  background: var(--sim-accent-hover);
 }
 .wide {
   width: 100%;
@@ -140,7 +141,7 @@ h3 {
   text-align: left;
 }
 .danger {
-  color: #ae5354;
+  color: var(--sim-error-text);
 }
 .checkbox {
   flex-direction: row;
@@ -148,7 +149,7 @@ h3 {
   gap: 6px;
 }
 .checkbox span {
-  color: #7e909c;
+  color: var(--sim-muted);
   font-weight: 400;
 }
 .field-pair {
@@ -167,7 +168,7 @@ h3 {
 }
 .vector-field legend {
   font-size: 11px;
-  color: #566a78;
+  color: var(--sim-secondary);
   font-weight: 600;
   margin-bottom: 6px;
 }
@@ -192,10 +193,10 @@ h3 {
 }
 .section-heading > span {
   font-size: 10px;
-  color: #80919c;
+  color: var(--sim-muted);
 }
 details {
-  border-top: 1px solid #e4ebee;
+  border-top: 1px solid var(--sim-divider);
   padding-top: 13px;
 }
 summary {
@@ -206,7 +207,7 @@ summary {
 }
 summary > span {
   float: right;
-  color: #80929d;
+  color: var(--sim-muted);
   font-size: 10px;
   font-weight: 400;
 }
@@ -224,10 +225,10 @@ details > .number-field {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #fff2e6;
-  color: #834d28;
+  background: var(--sim-warning);
+  color: var(--sim-warning-text);
   padding: 10px 20px;
-  border-bottom: 1px solid #ecd0af;
+  border-bottom: 1px solid var(--sim-warning-text);
   gap: 16px;
 }
 .error-notice button {
@@ -235,6 +236,6 @@ details > .number-field {
   border: 0;
 }
 .muted {
-  color: #a1afb7;
+  color: var(--sim-muted);
   font-size: 9px;
 }
