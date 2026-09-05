@@ -22,6 +22,44 @@ const readJSON = (relativePath) =>
 const readText = (relativePath) =>
   fs.readFileSync(path.join(repositoryRoot, relativePath), 'utf8')
 
+test('the local naming command runs the same formal gate retained in CI', () => {
+  const scripts = readJSON('package.json').scripts
+  assert.equal(
+    scripts['lint:naming'],
+    'node --test scripts/__tests__/brand-neutral-code.test.mjs'
+  )
+  assert.ok(
+    scripts['test:scripts'].includes(
+      'scripts/__tests__/brand-neutral-code.test.mjs'
+    )
+  )
+})
+
+test('root lint ignores App consumer artifacts without excluding maintained source or tests', async () => {
+  const { ESLint } = await import('eslint')
+  const eslint = new ESLint({ cwd: repositoryRoot })
+  for (const relativePath of [
+    'apps/asyra-sim/.artifacts/consumers/example/app/src/main.tsx',
+    'apps/asyra-sim/distribution/example/sdk/app/src/main.tsx'
+  ]) {
+    assert.equal(
+      await eslint.isPathIgnored(path.join(repositoryRoot, relativePath)),
+      true,
+      relativePath
+    )
+  }
+  for (const relativePath of [
+    'apps/asyra-sim/src/main.tsx',
+    'apps/asyra-sim/src/storage/__tests__/project-format.test.ts'
+  ]) {
+    assert.equal(
+      await eslint.isPathIgnored(path.join(repositoryRoot, relativePath)),
+      false,
+      relativePath
+    )
+  }
+})
+
 test('tracked files do not expose developer-specific absolute home paths', () => {
   const result = spawnSync(
     'git',

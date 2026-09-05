@@ -1,5 +1,6 @@
 import { validateRunRecord, type RunRecord } from './run-record'
 import { collectReportText } from './report-text'
+import { StorageFormats } from './formats'
 
 const escapeHtml = (value: unknown) =>
   String(value).replace(
@@ -29,7 +30,11 @@ function bounded(text: string): string {
 export function exportRunJson(input: RunRecord): string {
   const run = validateRunRecord(input)
   return bounded(
-    JSON.stringify({ format: 'asyra-sim-run-report', version: 1, run }, null, 2)
+    JSON.stringify(
+      { format: StorageFormats.RUN_REPORT, version: 1, run },
+      null,
+      2
+    )
   )
 }
 

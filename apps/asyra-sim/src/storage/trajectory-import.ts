@@ -6,6 +6,8 @@ import {
   type TrajectoryTimeUnit
 } from '../domain/trajectory-source'
 import { GEOMETRY_PROFILE, type Workcell } from '../domain/workcell'
+import { StorageFormats } from './formats'
+import { LEGACY_TRAJECTORY_FORMAT } from './load-migration'
 
 export interface TrajectoryCsvMapping {
   time: { column: string; unit: TrajectoryTimeUnit }
@@ -373,7 +375,8 @@ export function previewTrajectoryJson(
   }
   if (
     !hasExactOwnKeys(data, envelopeFields) ||
-    data.format !== 'asyra-sim-trajectory' ||
+    (data.format !== StorageFormats.TRAJECTORY &&
+      data.format !== LEGACY_TRAJECTORY_FORMAT) ||
     data.version !== 1
   )
     return emptyPreview(

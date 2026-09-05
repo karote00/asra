@@ -9595,6 +9595,10 @@
         },
         "links": [
           {
+            "label": "Original-part geometry and method",
+            "href": "../../../docs/ai/apps/asyra-sim/specs/original-part-method-v1.md"
+          },
+          {
             "label": "R0 contract",
             "href": "../../../docs/ai/apps/asyra-sim/specs/robot-workcell-v0.md"
           },
@@ -9687,6 +9691,8 @@
             ],
             "conditions": [
               "Preflight, pause new editing, capture detached A recovery through the Feature queue, and recheck currentness before retirement.",
+              "Fully prepare target visual sources and each current/historical binding group before pausing A; recheck currentness and transfer those prepared resources to B only after A retires.",
+              "Await storage-owned observation reference and digest verification before visual preparation or pausing A. Cancellation or corrupt opaque sources never retire A or start B; startup independently hydrates its own verified attachment archive.",
               "Validate recovery serialization and native size limits before retiring A; an unexportable capture resumes A.",
               "Publish no active runtime before disposing A; await complete disposal before composing B with the same trusted modules.",
               "Pre-retirement rejection resumes A; post-retirement failure retains detached recovery and publishes no editable runtime.",
@@ -9699,6 +9705,8 @@
               "App bootstrap",
               "Core preflight/reset through the App runtime facade",
               "Native project format validation without database I/O",
+              "Storage-owned visual preparation and disposal of untransferred resources",
+              "Storage-owned opaque observation integrity verification under the owned preparation signal",
               "Storage currentness guard"
             ],
             "forbiddenContributors": [
@@ -10309,7 +10317,8 @@
             "inputs": [
               "trusted pre-start modules",
               "validated startup configuration",
-              "optional validated saved document with retained diagnostics"
+              "optional validated saved document with retained diagnostics",
+              "optional complete storage-prepared visual archive transferred by the lifecycle owner"
             ],
             "outputs": [
               "artifact:runtime"
@@ -10318,6 +10327,12 @@
               "Composition is open; explicitly select CUSTOM defaults and bind the provider through Core.",
               "One runtime owns one surface; startup must succeed before UI reports ready.",
               "Capture one Core per lifetime; saved startup loads its snapshot/diagnostics without an extra example or Undo entry.",
+              "Own prepared visual resources, or prepare saved sources before startup; install storage Features and resource admission without duplicating canonical binding ownership.",
+              "Hydrate and verify a per-runtime opaque observation archive before startup; wire its admission into existing editing and expose guarded preparation, retention, observation reading, download bytes and separate feedback export.",
+              "Capture only sources referenced by current canonical field observations, retaining accepted bytes for Undo until teardown. Failed startup releases the observation archive even before Feature cleanup registration; retired readers and callbacks cannot affect a successor.",
+              "Portable capture retains the source union of current candidates and immutable runs; current and historical readers resolve the same owned archive.",
+              "Resolve original part bindings through the domain owner and owned source archive before preflight or snapshot creation; the default full-part study selects the original-part method explicitly.",
+              "Failed startup and terminal disposal release owned visual resources even if Feature installation was incomplete.",
               "App admission can pause before retirement while queued snapshot capture remains available.",
               "Disposal attempts all App resources and awaits Core reset; old callbacks/resume handles cannot operate on a successor."
             ],
@@ -10326,7 +10341,8 @@
             ],
             "allowedContributors": [
               "Core public facade",
-              "trusted local method catalog"
+              "trusted local method catalog",
+              "App storage resource services and canonical reference readers"
             ],
             "forbiddenContributors": [
               "Preset 3D/HYBRID enablement",
@@ -10340,6 +10356,7 @@
               "apps/asyra-sim/src/init/__tests__/custom-renderer.test.ts",
               "apps/asyra-sim/src/init/__tests__/bootstrap.test.ts",
               "apps/asyra-sim/src/init/__tests__/bootstrap-lifecycle.test.ts",
+              "apps/asyra-sim/src/init/__tests__/runtime-controller.test.ts",
               "apps/asyra-sim/src/init/__tests__/app-environment.test.ts",
               "apps/asyra-sim/app-environment.mjs",
               "apps/asyra-sim/app-environment.d.mts",
@@ -10369,14 +10386,19 @@
             "inputs": [
               "canonical scene membership",
               "property definitions",
-              "explicit trajectory and units"
+              "explicit trajectory and units",
+              "artifact:visual-asset"
             ],
             "outputs": [
               "artifact:domain"
             ],
             "conditions": [
               "Finite, supported dimensions and units; parent membership comes from Scene Tree.",
-              "Interpolate unwrapped joints and compute poses once for renderer and methods."
+              "Interpolate unwrapped joints and compute poses once for renderer and methods.",
+              "Produce pair poses in the nearest shared ancestor body frame using the same local-pose algebra; common rigid motion cancels exactly. Separate roots use world coordinates. No retained pose cache or alternate hierarchy is introduced.",
+              "Resolve every bound original source into complete indexed part geometry with source identity and explicit positive scale; a binding replaces legacy surrogate colliders for analysis.",
+              "The same domain part placement supplies render and snapshot consumers. Preserve every triangle; topology inspection does not repair, simplify or mutate source coordinates.",
+              "Closed oriented manifold components define a union of solids; ambiguous topology blocks formal analysis. Native primitives represent actual primitive parts only."
             ],
             "bypasses": [
               "Static poses bypass trajectory interpolation; empty motion input is invalid."
@@ -10396,6 +10418,7 @@
             ],
             "specRefs": [
               "#1-supported-workcell",
+              "#2-visual-and-analysis-geometry",
               "#3-coordinates-units-and-support-envelope",
               "#4-trajectories-and-motion-semantics"
             ],
@@ -10411,6 +10434,8 @@
             "inputs": [
               "artifact:runtime",
               "artifact:domain",
+              "validated visual source admission callback",
+              "validated observation attachment admission callback and retained run identity",
               "validated edit intent or canonical capture/guarded-apply request"
             ],
             "outputs": [
@@ -10419,7 +10444,12 @@
             ],
             "conditions": [
               "Mutating edit intents use Feature -> common API -> Core canonical state under one transaction.",
+              "Material changes to baseline or typed acceptance conditions advance rule and experiment revisions together; non-rule edits preserve rule revision, and Undo or duplication uses the same canonical contract.",
+              "Run-linked observations belong to canonical run references, never immutable evidence. Validate bounded metadata, project-wide counts and identities, attachment admission, and expected revisions before one transaction; creation owns identity and timestamps, unchanged content is a no-op, and removals remain undoable.",
+              "Candidate duplication remaps independent body/experiment identities and all references atomically, preserves explicit body lineage, and never copies historical run references.",
               "Reject invalid edits; explicit rollback cancellation produces no partial scene.",
+              "Preserve body-local visual metadata through edits and duplication; admit all declared sources and expanded instances before writing. Visual binding uses previously retained source bytes in one canonical transaction; source retention and durable saving remain separate storage operations.",
+              "Attaching original part bindings explicitly retires prior primitive geometry in the same transaction. Removing the last source never revives legacy surrogates; native replacement is a separate explicit geometry edit. Undo restores the entire prior intent.",
               "Capture awaits Core serialization inside the interaction queue without opening a transaction; storage I/O occurs afterward.",
               "Guarded canonical apply checks freshness inside the queue immediately before Core load and does not clear history."
             ],
@@ -10428,7 +10458,8 @@
             ],
             "allowedContributors": [
               "Feature System",
-              "Core scene/property facades"
+              "Core scene/property facades",
+              "storage-owned attachment admission without I/O inside the transaction"
             ],
             "forbiddenContributors": [
               "direct SDK mutation",
@@ -10442,9 +10473,11 @@
               "apps/asyra-sim/src/common-apis/**",
               "apps/asyra-sim/src/constants/**",
               "apps/asyra-sim/src/init/properties*",
-              "apps/asyra-sim/src/init/components*"
+              "apps/asyra-sim/src/init/components*",
+              "apps/asyra-sim/src/init/__tests__/runtime-controller.test.ts"
             ],
             "specRefs": [
+              "#9-comparable-and-traceable-experiments",
               "#10-import-persistence-and-field-feedback",
               "#11-interaction-cancellation-and-resources"
             ],
@@ -10461,13 +10494,17 @@
               "artifact:committed-model",
               "artifact:domain",
               "artifact:result",
-              "transient camera and playback time"
+              "transient camera and playback time",
+              "storage-admitted decoded visual artifacts and transient visibility controls"
             ],
             "outputs": [
               "artifact:spatial-projection"
             ],
             "conditions": [
               "Use shared domain poses; replay and camera never overwrite canonical geometry.",
+              "Retain complete admitted local shapes only for one detached workcell/source projection. Pose, selection and display updates reuse those shapes; replacement inputs create a fresh projection. Camera-only submission updates its spatial container without validating or updating mesh descriptors; accepted pending model and camera submissions preserve call order and share the existing demanded frame.",
+              "Project visual vertices using explicit binding scale and body-local pose through the shared body world pose; missing source references fail even when display is hidden.",
+              "Project only original bound parts or explicitly authored native parts, never legacy surrogates beneath imported surfaces. Domain placement is shared with analysis; wireframe and visibility are display-only.",
               "Register through Core; findings are projections of accepted evidence."
             ],
             "bypasses": [
@@ -10482,7 +10519,9 @@
               "collision re-derivation",
               "renderer runtime extraction"
             ],
-            "cacheDimensions": [],
+            "cacheDimensions": [
+              "current detached workcell and visual-source inputs; mesh identity within that projection fixes native geometry or original source mesh and binding scale"
+            ],
             "implementationBoundary": [
               "apps/asyra-sim/src/render-app/**",
               "apps/asyra-sim/src/render-layers/**"
@@ -10510,6 +10549,7 @@
             ],
             "conditions": [
               "Validate versioned spatial descriptors and own all SDK objects.",
+              "Spatial admission isolates and deeply freezes descriptors and shapes. Only exact owner-issued immutable products reuse their admission; new envelopes and untrusted geometry remain validated, and weak receipts retain no dead resources.",
               "Flush only on demand; ray picking returns visual handles, never formal collision evidence.",
               "Keep the engine independent of workcell and canonical runtime modules."
             ],
@@ -10598,7 +10638,12 @@
             ],
             "conditions": [
               "Freeze detached complete inputs and source identities.",
+              "Resolved original parts enter version 2 snapshots with complete triangles and closed-component admission. Version 1 history cannot carry or acquire mesh evidence; source placement must match every bound part.",
+              "Admit only immutable pre-start catalogs with unique method IDs and names, compatible contracts, bounded settings schemas, provenance and explicit trust/resource declarations.",
+              "Validate installed method parameters before execution and freeze its declaration with new snapshots; historical declarations grant no executable capability and missing modules never trigger installation or substitution.",
+              "Validate optional bounded typed acceptance trees as inert geometry-protocol data; freeze them with the rule without evaluating evidence or changing legacy snapshots.",
               "Reject unsupported data before allocating a worker; separate resource warnings from validity.",
+              "New execution rejects selected legacy visual bindings whose complete source geometry is absent from the method input, regardless of colliders or visibility. Warning acknowledgement and historical admission cannot authorize a proxy rerun. Explicit background scope remains excluded; historical evidence retains its original geometry without executable permission.",
               "No valid pairs is not a pass."
             ],
             "bypasses": [
@@ -10622,8 +10667,10 @@
               "apps/asyra-sim/src/extensions/**"
             ],
             "specRefs": [
+              "#2-visual-and-analysis-geometry",
               "#5-analysis-scope-and-pair-policy",
               "#6-preflight",
+              "#8-results-are-not-a-single-green-check",
               "#9-comparable-and-traceable-experiments"
             ],
             "failureOwnerStepId": "snapshot"
@@ -10645,7 +10692,12 @@
             ],
             "conditions": [
               "Use only validated detached inputs and shared kinematics.",
+              "Original-part queries operate on all source triangles and closed-component solid membership. Conservative boxes are rejection bounds only, never replacement collision shapes.",
+              "The original-part method consumes domain-owned shared-ancestor pair poses. The historical primitive kernel retains its original world-frame route; neither method independently derives a hierarchy or cancels sampled transforms.",
+              "A distinct original-part method identity covers static and complete continuous intervals. Triangle, containment and traversal work checkpoint the owned execution budget; numerical ambiguity remains unresolved.",
+              "The independent static-sphere example uses analytical outward distance bounds, declares its narrower capability and optional added uncertainty, and emits the same geometry evidence contract without official-endorsement inference.",
               "Bound the full requested interval or mark unresolved; retain numerical uncertainty.",
+              "Preserve established static witnesses when later geometry work exhausts its budget. An unproved full-interval lower bound is zero, not clearance; unvisited intervals remain explicitly unresolved.",
               "Distance bounds and contact witnesses are distinct from user verdicts."
             ],
             "bypasses": [
@@ -10661,9 +10713,12 @@
               "runtime canonical state",
               "silent method fallback"
             ],
-            "cacheDimensions": [],
+            "cacheDimensions": [
+              "one execution lifetime and exact immutable resolved mesh geometry; poses and temporal bounds are not retained"
+            ],
             "implementationBoundary": [
-              "apps/asyra-sim/src/analysis/methods/**"
+              "apps/asyra-sim/src/analysis/methods/**",
+              "apps/asyra-sim/src/constants/methods.ts"
             ],
             "specRefs": [
               "#7-methods-and-completeness",
@@ -10681,14 +10736,20 @@
             "inputs": [
               "artifact:snapshot",
               "artifact:method-evidence",
+              "immutable trusted method catalog shared by App and Worker",
               "Feature-owned abort signal"
             ],
             "outputs": [
-              "artifact:result"
+              "artifact:result",
+              "artifact:run-progress"
             ],
             "conditions": [
               "One detached Feature task at a time; no transaction spans worker execution.",
+              "Reuse snapshot-owner execution admission before Worker allocation and inside the Worker; dispatch only the exact pre-start registration, never a hard-coded replacement or imported executable.",
+              "Private method exceptions expose only failure stage, not raw data, paths or credentials; late method emissions after settlement are rejected.",
               "Validate source identity, evidence, pair/time coverage, and terminal state.",
+              "Evaluate frozen typed acceptance conditions only from validated retained geometry evidence; preserve method findings and unknowns, forbid success after incomplete execution or coverage, and validate historical evaluation without the current catalog.",
+              "Expose only validated bounded progress counts through the analysis Feature; progress is not a final verdict or a completion-time estimate.",
               "Abort, terminate after grace, and discard late messages from an old run."
             ],
             "bypasses": [
@@ -10707,10 +10768,12 @@
             "cacheDimensions": [],
             "implementationBoundary": [
               "apps/asyra-sim/src/analysis/runner*",
+              "apps/asyra-sim/src/analysis/analysis.worker.ts",
               "apps/asyra-sim/src/analysis/worker*",
               "apps/asyra-sim/src/analysis/result*",
               "apps/asyra-sim/src/analysis/__tests__/**",
-              "apps/asyra-sim/src/features/analysis*"
+              "apps/asyra-sim/src/features/analysis*",
+              "apps/asyra-sim/src/features/__tests__/analysis.test.ts"
             ],
             "specRefs": [
               "#8-results-are-not-a-single-green-check",
@@ -10726,10 +10789,13 @@
             "ownerPackage": "@asyra/asyra-sim storage",
             "purpose": "Retain and export immutable experiments",
             "inputs": [
+              "artifact:domain",
               "artifact:committed-model",
               "artifact:canonical-capture",
               "artifact:result",
               "validated import or explicit save/compare intent",
+              "local visual source bytes and inert source metadata",
+              "bounded local observation file bytes, canonical attachment references and explicit annotation intent",
               "artifact:visual-asset"
             ],
             "outputs": [
@@ -10737,14 +10803,25 @@
             ],
             "conditions": [
               "Preview imports before Feature acceptance; failed import leaves no partial state.",
+              "Normalize explicitly supported legacy envelope and canonical type identities at the storage load boundary before reference validation. Preserve user data, immutable evidence and source bytes; unknown versions remain invalid. New captures use current types without runtime aliases.",
+              "Visual preparation is a noncanonical Feature task with owned cancellation; completed preview discard revokes the receipt, and retention invokes the separate editing Feature without holding a transaction across decoding.",
+              "Retain immutable original visual sources only through archive-scoped prepared receipts; source collections are byte/count bounded and fully decoded with verified digests before hydration succeeds.",
+              "Prepare opaque observation attachments with one owned active task and one revocable completed receipt per archive. Validate file/count/aggregate limits, immutable byte ownership, canonical Base64 and SHA-256 before acceptance or hydration; never parse or render their contents.",
+              "Observation source retention precedes the separate editing callback; failed metadata acceptance remains retryable without claiming a save. Capture only current annotation references, retain accepted bytes for Undo within runtime limits, and export feedback separately from immutable run reports.",
+              "Resolve every visual reference before use and bound decoded archive geometry and repeated workcell instances independently of source bytes.",
+              "Before accepting or reopening a version 2 run, compare its complete frozen part geometry with domain resolution of the verified retained sources. Changed triangles under an unchanged source identity are invalid; version 1 history is never reinterpreted.",
               "Save acknowledgement is independent of runtime commit; historical evidence stays immutable.",
-              "UI, export, comparison and replay consume the same result; incompatible comparisons are disclosed."
+              "Retained runs freeze optional validated candidate lineage; comparison uses explicit body correspondence without suppressing geometry or setting changes or rewriting evidence.",
+              "UI, export, comparison and replay consume the same result; incompatible comparisons are disclosed.",
+              "Compare actual acceptance conditions independently of revision labels; every report preserves the retained result-owner evaluation without recomputing a verdict."
             ],
             "bypasses": [
               "Missing methods allow historical reading, not automatic reruns."
             ],
             "allowedContributors": [
               "local IndexedDB and portable bundles",
+              "owned asset decoder service returning detached artifacts only",
+              "Core Feature task and runtime-cleanup facades",
               "safe CSV/JSON/HTML serializers"
             ],
             "forbiddenContributors": [
@@ -10755,7 +10832,8 @@
             "cacheDimensions": [],
             "implementationBoundary": [
               "apps/asyra-sim/src/storage/**",
-              "apps/asyra-sim/src/features/storage*"
+              "apps/asyra-sim/src/features/storage*",
+              "apps/asyra-sim/src/constants/feature-names.ts"
             ],
             "specRefs": [
               "#9-comparable-and-traceable-experiments",
@@ -10776,18 +10854,36 @@
               "artifact:committed-model",
               "artifact:visual-output",
               "artifact:result",
+              "artifact:run-progress",
               "artifact:retained-data",
-              "artifact:visual-asset"
+              "artifact:visual-asset",
+              "versioned static distribution files",
+              "clean exact source commit, existing lockfile and validated packed Framework build inputs"
             ],
             "outputs": [
               "artifact:user-workbench"
             ],
             "conditions": [
               "Dispatch intent through Features; UI is never canonical model or solver authority.",
+              "Keep camera state in the viewport subtree. Read-only workbench projection refreshes on canonical revision, selected candidate or runtime identity; local panels and playback never reread unchanged canonical model or retained runs. The retained projection has one current entry, preserves error output, and owns no editable state.",
+              "Viewport navigation owns transient camera intent only. Two-finger vertical scroll, mouse wheel and pinch zoom update only the latest transient camera, preserving its target and complete burst deltas without input-mode preferences, device-guessing heuristics or a second animation loop. Horizontal scrolling never pans; Shift-drag pan preserves eye-to-target direction and distance. Fit consumes the current displayed spatial projection and canvas dimensions with padding, excludes hidden/decorative meshes, and never feeds display bounds into analysis. Capture cancellation and runtime retirement remove stale input; ordinary selection and canonical History stay unchanged. Viewport Navigation in editing-v0.md owns the gesture and shortcut contract.",
+              "Workbench history shortcuts share the toolbar guarded History Feature APIs. The ready-lifetime document keydown bridge runs after local controls and before window browser-default suppression; preserve native editable controls, ignore consumed/composing/ambiguous input, consume repeats without duplicate replay, and retire bindings on replacement or unmount. No keyboard-owned transaction, queue or history.",
+              "Object field completion dispatches one edit directly through the existing editing Feature, without a form-wide Apply or a second editable body. Keep only unfinished input text and presentation settings transient; reject invalid input without history, project canonical replay, and preserve the selected editor across ordinary revisions. Reset it on body, candidate or lifetime replacement.",
               "Keep one storage session outside document lifetimes; acknowledge saves separately and confirm replacement through the App lifecycle controller.",
               "Reset transient view/selection/drafts for each successor; guard late old-runtime effects and input callbacks.",
               "Show local storage errors without blocking editing; post-retirement failure disables editing and offers detached recovery download.",
               "Expose assumptions, unknowns, saving failures, comparison differences, and method versions.",
+              "Author bounded typed acceptance trees in transient drafts and save through the existing editing Feature; present the retained result-owner evaluation and user verdict separately from unchanged method findings, never infer acceptance in the view.",
+              "Expose field observations only for retained run references; keep text and file drafts transient, validate file size/count before reading, show inert metadata, and dispatch explicit create/update/remove through the guarded runtime. Discard stale selections on run/library/lifetime changes, confirm removals, download opaque bytes as attachments and export feedback separately from immutable reports.",
+              "Prepare visual sources through owned Features; show dimensions, units, digest and limitations, preview explicit body-local placement, then accept one binding transaction.",
+              "Cancel or replace previews without canonical writes; invalidate transient placement when its source, target, or current workcell changes, and guard retired runtime callbacks.",
+              "Expose one original part display with transient wireframe inspection, never a visual/proxy selector. Label source placement as shared analysis geometry, disclose closed-solid admission, and hide retired primitive editors while original sources are bound.",
+              "For version 2 stale-result notices compare original source bindings and canonical kinematics, not resolved snapshot meshes against retired primitives. Source placement changes invalidate the current result; historical evidence is not rewritten.",
+              "A visual source above 8 MiB requires explicit source-scoped memory-warning acknowledgement before placement preview or acceptance; acknowledgement never overrides hard resource limits.",
+              "Serve versioned static distribution files through a read-only, loopback-only Node launcher with a stable explicit port, exact Host/origin checks, safe paths, no symlinks or uploads, and owned shutdown; never silently choose another origin.",
+              "Build independent distribution inputs in a project-local exact-source archive and isolated consumer, using the existing Framework package artifact validator. Preserve locked registry identities and integrity, reject ancestor/private/symlink type or bundle resolution, bound child processes and logs, and record checksums without claiming publication or independent acceptance.",
+              "Consumer tests preserve native ESM live exports from packed dependencies; test-runner CommonJS compatibility must not snapshot the current Core binding.",
+              "After this invocation passes independent build gates, assemble only its verified site and exact-source launcher, documentation and optional SDK. Derive original dependency notices from main/Worker inputs, reject missing notices/symlinks/broken document targets, checksum every file, and finalize only after the source identity recheck. Never serve SDK files or label assembly as offline/pilot/release acceptance.",
               "Use local assets; release readiness remains governed by FIRST_RELEASE gates."
             ],
             "bypasses": [
@@ -10802,12 +10898,16 @@
               "equipment commands",
               "automatic publishing"
             ],
-            "cacheDimensions": [],
+            "cacheDimensions": [
+              "runtime identity, canonical revision and selected candidate for the current read-only workbench projection; retained run identity and pending run identity for UI-only run indexes",
+              "runtime, displayed workcell and pending import identity for the current prepared projection; projection identity, joints, selection, grid and wireframe for its current frame, excluding camera"
+            ],
             "implementationBoundary": [
               "apps/asyra-sim/src/ui/**",
               "apps/asyra-sim/src/main*",
               "apps/asyra-sim/e2e/**",
               "apps/asyra-sim/playwright.config.ts",
+              "apps/asyra-sim/vitest.config.ts",
               "apps/asyra-sim/scripts/**",
               "apps/asyra-sim/README.md"
             ],
@@ -10859,6 +10959,26 @@
           }
         ],
         "routes": [
+          {
+            "id": "domain-to-original-run-storage",
+            "from": "domain",
+            "to": "storage",
+            "kind": "normal",
+            "predicate": "Domain resolution of verified original sources is used only to validate immutable run provenance, never to rewrite evidence.",
+            "producedArtifacts": [
+              "artifact:domain"
+            ]
+          },
+          {
+            "id": "original-asset-to-domain",
+            "from": "asset",
+            "to": "domain",
+            "kind": "normal",
+            "predicate": "Complete detached source geometry is resolved through explicit canonical part bindings.",
+            "producedArtifacts": [
+              "artifact:visual-asset"
+            ]
+          },
           {
             "id": "app-lifetime-to-ui",
             "from": "replace-app-runtime",
@@ -11187,6 +11307,16 @@
             ]
           },
           {
+            "id": "run-progress-to-ui",
+            "from": "run",
+            "to": "ui",
+            "kind": "normal",
+            "predicate": "The active run exposes validated retained pair and resource counts without a verdict, canonical mutation, or time estimate.",
+            "producedArtifacts": [
+              "artifact:run-progress"
+            ]
+          },
+          {
             "id": "result-to-ui",
             "from": "run",
             "to": "ui",
@@ -11401,7 +11531,8 @@
             "channel": "detached handoff",
             "consumerStepIds": [
               "ui",
-              "storage"
+              "storage",
+              "domain"
             ],
             "terminal": false
           },
@@ -11424,7 +11555,8 @@
               "edit",
               "project",
               "snapshot",
-              "method"
+              "method",
+              "storage"
             ],
             "terminal": false
           },
@@ -11474,6 +11606,15 @@
             "channel": "detached handoff",
             "consumerStepIds": [
               "run"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:run-progress",
+            "ownerStepId": "run",
+            "channel": "read-only analysis Feature API",
+            "consumerStepIds": [
+              "ui"
             ],
             "terminal": false
           },

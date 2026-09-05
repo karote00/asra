@@ -29,9 +29,10 @@ See the [original-part contract](../../docs/ai/apps/asyra-sim/specs/original-par
 ## Local development
 
 Use the repository's declared Node.js 24 and Yarn 4.3.1 environment. Set
-`APP_URL` in this App's `.env` from `.env.example`, or explicitly export it.
-The Vite server and browser tests use the same local origin; there is no
-parallel test URL.
+`APP_URL` in this App's `.env` from `.env.example`, or explicitly export it,
+before starting a dev or preview server or running browser tests. These use
+the same local origin; there is no parallel test URL. Static production builds
+do not require `.env` or `APP_URL` and retain relative asset URLs.
 
 From the repository root:
 

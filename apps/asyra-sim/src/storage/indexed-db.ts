@@ -6,7 +6,7 @@ import {
   type StoredProject
 } from './project-format'
 
-const DATABASE = 'asyra-sim-local-v1'
+const DATABASE = 'sim-local-v1'
 const PROJECTS = 'projects',
   DOCUMENTS = 'documents'
 const abortError = () =>

@@ -1111,6 +1111,7 @@
         outputs: ['artifact:retained-data'],
         conditions: [
           'Preview imports before Feature acceptance; failed import leaves no partial state.',
+          'Normalize explicitly supported legacy envelope and canonical type identities at the storage load boundary before reference validation. Preserve user data, immutable evidence and source bytes; unknown versions remain invalid. New captures use current types without runtime aliases.',
           'Visual preparation is a noncanonical Feature task with owned cancellation; completed preview discard revokes the receipt, and retention invokes the separate editing Feature without holding a transaction across decoding.',
           'Retain immutable original visual sources only through archive-scoped prepared receipts; source collections are byte/count bounded and fully decoded with verified digests before hydration succeeds.',
           'Prepare opaque observation attachments with one owned active task and one revocable completed receipt per archive. Validate file/count/aggregate limits, immutable byte ownership, canonical Base64 and SHA-256 before acceptance or hydration; never parse or render their contents.',

@@ -141,7 +141,7 @@ function fence() {
   const root = realpathSync(process.cwd())
   const files = new Set()
   return {
-    name: 'asyra-sim-consumer-boundary',
+    name: 'sim-consumer-boundary',
     moduleParsed({ id }) {
       if (id.startsWith('\\0') || !path.isAbsolute(id)) return
       const filename = realpathSync(id.split('?')[0])
@@ -155,5 +155,8 @@ function fence() {
     }
   }
 }
-export default defineConfig({ ...base, plugins: [...base.plugins, fence()], worker: { ...base.worker, plugins: () => [fence()] } })
+export default defineConfig(async (environment) => {
+  const config = await (typeof base === 'function' ? base(environment) : base)
+  return { ...config, plugins: [...(config.plugins ?? []), fence()], worker: { ...config.worker, plugins: () => [fence()] } }
+})
 `

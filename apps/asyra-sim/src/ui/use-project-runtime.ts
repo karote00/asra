@@ -5,6 +5,7 @@ import {
   type RuntimeState
 } from '../init/runtime-controller'
 import { IndexedProjectRepository } from '../storage/indexed-db'
+import { EXISTING_APP_DATABASE } from '../storage/load-migration'
 import { ProjectSession } from '../storage/project-session'
 
 const emptyState: RuntimeState = Object.freeze({
@@ -31,11 +32,14 @@ export function useProjectRuntime(
     const controller = new RuntimeController((snapshot, prepared) =>
       bootstrap(host, undefined, snapshot, prepared)
     )
-    const session = new ProjectSession(new IndexedProjectRepository(), {
-      capture: () => controller.capture(),
-      apply: (snapshot, assertCurrent) =>
-        controller.replace(snapshot, assertCurrent)
-    })
+    const session = new ProjectSession(
+      new IndexedProjectRepository(undefined, EXISTING_APP_DATABASE),
+      {
+        capture: () => controller.capture(),
+        apply: (snapshot, assertCurrent) =>
+          controller.replace(snapshot, assertCurrent)
+      }
+    )
     let observed: SimRuntime | null = null,
       unsubscribeModel: (() => void) | undefined
     const unsubscribe = controller.subscribe(() => {

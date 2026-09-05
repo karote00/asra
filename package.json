@@ -42,6 +42,7 @@
     "test:e2e": "yarn workspace @asyra/asyra-design test:e2e",
     "lint": "eslint .",
     "lint:ci": "eslint .",
+    "lint:naming": "node --test scripts/__tests__/brand-neutral-code.test.mjs",
     "clean": "turbo run clean",
     "reinstall": "yarn clean && rm -rf node_modules .turbo && yarn && yarn react:build",
     "gen:turbo": "node scripts/gen-turbo.js --write",

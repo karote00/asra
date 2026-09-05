@@ -48,7 +48,7 @@ it('roundtrips separate annotations and verified attachments without changing hi
       exportObservationBundle(input.runs[0], [note], archive)
     )
     expect(bundle).toEqual({
-      format: 'asyra-sim-observations',
+      format: 'sim-observations',
       version: 1,
       runId: 'run',
       snapshotId: 'snapshot',
@@ -91,7 +91,7 @@ it('rejects dangling, mismatched or corrupt source data before it can be used by
       expect(() =>
         decodeProject(
           JSON.stringify({
-            format: 'asyra-sim-project',
+            format: 'sim-project',
             version: 1,
             ...invalid
           })

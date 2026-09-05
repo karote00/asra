@@ -41,6 +41,9 @@ Actions:
 - define owner per concern (core, feature-system, props-manager, render, app)
 - state what must stay unchanged
 - identify compatibility expectations (breaking vs non-breaking)
+- before introducing identifiers, resolve their owner, neutral naming, and
+  persisted/wire compatibility and run `yarn lint:naming` as the baseline per
+  `rules/naming-and-persisted-identities.md`
 - identify whether old behavior is released compatibility or pre-release legacy; pre-release legacy must follow `rules/pre-release-legacy-removal.md`
 - for bug fixes, verify whether existing formal tests detect the reported failure; if not, add or strengthen the failing regression test first per `rules/bugfix-test-first.md`
 - identify whether the proposed fix is a patch output/fallback path; patch fixes are forbidden by `rules/no-patch-fixes.md`
@@ -102,6 +105,8 @@ Actions:
 - apply small, reviewable changes per package
 - keep public API stable unless explicitly refactoring it
 - update exports/imports and compile after each slice
+- run `yarn lint:naming` after the first identifier-bearing slice, before wiring
+  downstream consumers, and again at the completed owner/stage boundary
 - stop and report when unexpected unrelated changes appear
 - after the first edit, do not add new repository-wide discovery methods or
   candidate classes; inspect only the current diff, direct consumers, defined

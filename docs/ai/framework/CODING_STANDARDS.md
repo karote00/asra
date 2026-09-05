@@ -49,6 +49,10 @@
 
 ## Schema and Naming Standards
 
+- Resolve naming before implementation, including the semantic owner, public
+  identity distinction, and persisted/wire compatibility. Run `yarn lint:naming`
+  before identifiers spread to downstream consumers, not only at PR time.
+  `rules/naming-and-persisted-identities.md` owns the complete contract.
 - Before adding a new data type or property key, check existing shared contracts first (`@asyra/utils` and existing package/app types) and reuse when equivalent.
 - For persisted or frequently-updated model data, prefer compact property keys by default to reduce payload size.
 - Use longer, descriptive names only when contract readability/interoperability clearly requires it.

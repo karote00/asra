@@ -109,7 +109,7 @@ export function TrajectoryImportPanel({
       </summary>
       <p className="hint">
         CSV units are mapped explicitly. JSON must use the strict
-        <code> asyra-sim-trajectory v1</code> envelope. Preview never edits the
+        <code> sim-trajectory v1</code> envelope. Preview never edits the
         project.
       </p>
       <div className="file-row">

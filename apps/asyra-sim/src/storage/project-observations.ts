@@ -13,6 +13,7 @@ import {
 } from './observation-source'
 import { validateRunRecord, type RunRecord } from './run-record'
 import { collectReportText } from './report-text'
+import { StorageFormats } from './formats'
 
 export function projectObservationAttachments(
   snapshot: Pick<ProjectSnapshot, 'document'>
@@ -65,7 +66,7 @@ export function exportObservationBundle(
   archive.resolve(references)
   return collectReportText([
     JSON.stringify({
-      format: 'asyra-sim-observations',
+      format: StorageFormats.OBSERVATIONS,
       version: 1,
       runId: record.result.runId,
       snapshotId: record.snapshot.snapshotId,

@@ -8,6 +8,8 @@ import {
   type ObservationSourceRecord
 } from './observation-source'
 import { validateProjectObservationReferences } from './project-observations'
+import { StorageFormats } from './formats'
+import { LEGACY_PROJECT_FORMAT, migrateProjectDocument } from './load-migration'
 
 export const PROJECT_BYTE_LIMIT = 64 * 1024 * 1024
 export interface ProjectSnapshot {
@@ -136,7 +138,7 @@ function validateSnapshot(value: unknown): asserts value is ProjectSnapshot {
 export function encodeProject(snapshot: ProjectSnapshot): string {
   validateSnapshot(snapshot)
   const text = JSON.stringify(
-    { format: 'asyra-sim-project', version: 1, ...snapshot },
+    { format: StorageFormats.PROJECT, version: 1, ...snapshot },
     (_key, value) => {
       if (typeof value === 'number' && !Number.isFinite(value))
         throw new Error('Nonfinite project number cannot be saved')
@@ -164,10 +166,14 @@ export function decodeProject(text: string): ProjectSnapshot {
   const value: unknown = JSON.parse(text)
   if (
     !record(value) ||
-    value.format !== 'asyra-sim-project' ||
+    (value.format !== StorageFormats.PROJECT &&
+      value.format !== LEGACY_PROJECT_FORMAT) ||
     value.version !== 1
   )
     throw new Error('Unsupported Asyra Sim project format or version')
+  // JSON parsing already detached the envelope. Normalize known type slots
+  // before reference validation so legacy sources and runs cannot be skipped.
+  value.document = migrateProjectDocument(value.document)
   validateSnapshot(value)
   return {
     document: value.document,

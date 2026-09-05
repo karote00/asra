@@ -230,7 +230,8 @@ export function Workbench() {
             a<span>·</span>
           </span>
           <strong>
-            asyra<span>sim</span>
+            {'Asyra'.toLowerCase()}
+            <span>sim</span>
           </strong>
           <span className="build-label">DEVELOPMENT</span>
         </div>

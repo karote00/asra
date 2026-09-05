@@ -70,8 +70,8 @@
         "./contracts"
       ],
       "sourceDigests": {
-        "contract": "eb59d200716536560a4f42189c0250dfc3a7d84ff776f0dcea35d3f934a7c27b",
-        "guide": "4150d383c83c25e7af0d91299ade90f585fe66fbab1c159d8a873d64efa1a57a",
+        "contract": "a18a857a420385400dcc119ad6505975beb52896739413b8b44bb211c60a4963",
+        "guide": "ee567cf3f452b8c2b343ad1355e9b18cb20b31d15a7acbb38ac58b6696626896",
         "manifest": "8eeb8bf87e074cb694eff736314d30d76898f351ecd368fc1787a406a70b26fa"
       },
       "version": "0.5.6"
@@ -114,8 +114,8 @@
         "."
       ],
       "sourceDigests": {
-        "contract": "0a33117436c5547c188406d9a19b1a9b9d3dd4ce527e414402ecc032c8a1562f",
-        "guide": "7edf3e543bf4b3d7b2d2fb88dcc784a9deb28c6f20ce589c221eec241530d02b",
+        "contract": "60257da9ca9d6b965b2f4f58a07a752748ada342af5e1101509f842a88764c3b",
+        "guide": "f3135c07050bec8d0c4949166149dff46755e6c4daf7254480044ed3ac6d77a2",
         "manifest": "9dda198f63ac54e3120cc0222a349babc8801ab33a25e06f68c76f39cc5a3711"
       },
       "version": "0.5.3"
@@ -136,8 +136,8 @@
         "."
       ],
       "sourceDigests": {
-        "contract": "ccbae9eb0ba97e908aea445d6b9c47102d023a808f37447b72b5a01194aa7eec",
-        "guide": "b61024b261c5d2083e9ea2f38239b00fbc1361b2a6c29e816615497dae683002",
+        "contract": "01b9e4667f82549a2cfcfc61a34c2742149def2384a21f76f77e92395fbe82b7",
+        "guide": "e98668c82c70f2b02bff074d5ee05ab5c97c058fe439e7debb967b18ecc09e1a",
         "manifest": "884d4daf37f74a2e2bc5624e905aa43c8541b76169ff6aaaf7b40a1f9bacaa9a"
       },
       "version": "0.5.3"
@@ -158,8 +158,8 @@
         "."
       ],
       "sourceDigests": {
-        "contract": "823c675e3f8663fb976d78fa7f812514ecba6406ceb9264dfe52084203dbed9a",
-        "guide": "6a93322f1412e27132ae039576b5d3a51296fa5c9cc6dac322c1c1a97d4fe42b",
+        "contract": "25f8024bcc2bd80b6386512e480d53ed0159382f341c3ed1c65d3eb6857528d3",
+        "guide": "d4990de2edfd7ab0a66fa92c5c80581df004b98b4db2f15afe1e45d689b6ec08",
         "manifest": "308ad1bf811951cd316bce40dda2dd905ce1313a6b6f56ddf687a92ee2a06b33"
       },
       "version": "0.5.4"
@@ -205,8 +205,8 @@
         "."
       ],
       "sourceDigests": {
-        "contract": "6063335cf9a2a4e5e51c81bdef13b0390b5cc00b82892ef7cc664c5e46b94f9c",
-        "guide": "6decd16b73a5a41526c730fe457be980cd6769d08ee1e09224c69dc05fe4c510",
+        "contract": "28ab01c7e3a460032b103b2d8c0ce1a0f61713d01e0f5aafce92bed8a4ed6e8a",
+        "guide": "ef420f8ace24da15019404adf8c0c43f6ac9d8c4028dc6d7bacc623ee043dc9a",
         "manifest": "efbbbcbec3c96bbd1138c57081963cccf5e8247932bca39754fb99a4bdf2e25c"
       },
       "version": "0.5.7"
@@ -227,8 +227,8 @@
         "."
       ],
       "sourceDigests": {
-        "contract": "99e3c4a6b1015fabf036429ffcb63620f4a27600928b768d64584b26395637a9",
-        "guide": "ef316ce4a8e632db5c9ba271b69a13528c1aad92e1226fe3b722643f974fc829",
+        "contract": "783f9b8631b907999a5317000397b0bb45d40351062772e74f872cceaf082560",
+        "guide": "28f044123e1b6f60c18a4f39910a2560f4301026e8850f1c4e91557fa5d5ac8e",
         "manifest": "a10af394976daf3e359dbd5afbdc706f9cf5d6dbb2c83643fc1adf84aa61fffe"
       },
       "version": "0.5.3"
@@ -276,8 +276,8 @@
         "./canvas-pipeline-debugger"
       ],
       "sourceDigests": {
-        "contract": "1e4ac2db7b96309ad33fb608e577b76dea46aa58ccb566adf5c5419524594e79",
-        "guide": "bef4926e98157e95bac359858e2868d30939b419876f0d00e2fe9d9f1511c62a",
+        "contract": "d69746b88089b330cec6033c3d9c505a7e8fc6e1ec64d1e9aeeae0968b930bed",
+        "guide": "981df10323d75fbf2e242af7c4070f39e377f59466471e5b400b345d655004b0",
         "manifest": "ad686399fecef249ca666bf2e3b36adf722790734a4eb39dcc80b6181adb5c18"
       },
       "version": "0.5.6"
@@ -340,8 +340,8 @@
         "."
       ],
       "sourceDigests": {
-        "contract": "713cf4b1579a2c8ba1ca1b8b6c4db4c05b796dc8d33b70c3f64396555115fd5d",
-        "guide": "fda648ca19632219725d4512f8d603e8b3a62bd39e6c7d756ddb52351f176e93",
+        "contract": "68d19ac706fff2cfcb17d911d79668ad66e30ea7b8fbed6a5e62c3542804cd6c",
+        "guide": "4f8bc35fd5435934068a2ed81aa578f788edb6d866b2495cf83ba852deb74231",
         "manifest": "d80d4f0c5ad4be0023c9c3a8e82f9036d1fc4cd86302a8e9c75c4d5c1a5f4260"
       },
       "version": "0.5.3"
@@ -361,8 +361,8 @@
         "."
       ],
       "sourceDigests": {
-        "contract": "60f3ba749e4aecad2e1e82fee554bf1425d6ea263e653332a8fed12bba439dbc",
-        "guide": "a28fc0efcad3171edb523dcacc86c72c6e2a606b5bdf8862d536a3043af695be",
+        "contract": "400873ab29507532536b9f55e413b9d8205ecc85be6e48913307cd63988e4b17",
+        "guide": "16deb78d1dcc80cae96cc3bb423c893eac7249d3fc833d1b1b41371622b42916",
         "manifest": "632ea4faf92bf56cf606b5079fb7af09b87b95fabf91565a8deb0bcc5143e6e4"
       },
       "version": "0.5.2"
@@ -382,8 +382,8 @@
         "."
       ],
       "sourceDigests": {
-        "contract": "66f3107ca4921bad334d7954ff6335d3373c398b949fb58f4778b2bbe9480fa9",
-        "guide": "41482ef59f07097c9a798c498b15296c3f1f5f60274bed86528ffecfbd0a954a",
+        "contract": "5344cb5fc59a0dcadb32e6484ee259fd54e1d4387f81a14c7da0786f16a8e657",
+        "guide": "1a44b5d648932ba135940c17f0a9b9a78e2035363b74c055d5f2b9eb1d78f2d7",
         "manifest": "b6339f78a6065795654c64fa9a3714ac8209cf89bae5bbb9b2004659327c6570"
       },
       "version": "0.5.2"
@@ -405,8 +405,8 @@
         "."
       ],
       "sourceDigests": {
-        "contract": "b57c0333892ee97a36d37793b371763b0371f9c6efb8d0ee8a99b9f3985d511d",
-        "guide": "407820036abb56109f8b750dda623e1671a49d2207c2c08fee6b45a0778d9551",
+        "contract": "4a9b1fe9e3abd5483c191cb96b6221cab8da07c709a9acdd8eeee1f2a2270dd7",
+        "guide": "2e62ac7870b5879adf014cc48887da26e1530abfa611b9effd97b53e5489aaf4",
         "manifest": "2fb0bffe434da8d1d5fa6b0dad05084187b9579deb8165a681928a9f70539f4c"
       },
       "version": "0.5.3"
@@ -424,8 +424,8 @@
         "."
       ],
       "sourceDigests": {
-        "contract": "a5135f15b3dc8338c0ad8f822a8ef29d293cd996dc517a71516f8cce629bf7d1",
-        "guide": "eed3e7a356c8b12b78c9e5ec515e43c51f59b244cc77d3ce7f993f1556231e3c",
+        "contract": "d7009a315b7eb24d85845c33a42429c53daa5f0964799df398a37581fd54a191",
+        "guide": "c8f46c0786c0584519150eb8402069259a8a01b75ca01b44113220a5a492a4c7",
         "manifest": "52866a5c392919bed48ed4b40ba948e649e54ecd7658abbd6cb3e7b9299f4a88"
       },
       "version": "0.5.1"

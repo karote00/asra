@@ -2,13 +2,19 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolveAppEnvironment } from './app-environment.mjs'
 
-const environment = resolveAppEnvironment()
+export default defineConfig(({ command }) => {
+  // Static builds have no server origin; dev and preview still require one.
+  const environment = command === 'serve' ? resolveAppEnvironment() : undefined
+  const server = environment
+    ? { host: environment.host, port: environment.port, strictPort: true }
+    : undefined
 
-export default defineConfig({
-  plugins: [react()],
-  base: './',
-  server: { host: environment.host, port: environment.port, strictPort: true },
-  preview: { host: environment.host, port: environment.port, strictPort: true },
-  build: { target: 'es2022' },
-  worker: { format: 'es' }
+  return {
+    plugins: [react()],
+    base: './',
+    server,
+    preview: server,
+    build: { target: 'es2022' },
+    worker: { format: 'es' }
+  }
 })

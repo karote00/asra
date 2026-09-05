@@ -36,6 +36,78 @@ async function renameFixture(page: Page, current: string, name: string) {
   ).toBeVisible()
 }
 
+test('reopens the existing database and migrates a legacy full model before resaving', async ({
+  page
+}) => {
+  await ready(page)
+  await renameFixture(page, 'fixture post', 'Retained legacy fixture')
+  await save(page, 'Legacy project')
+  const original = await page.evaluate(async () => {
+    const repositoryPath = '/src/storage/indexed-db.ts'
+    const migrationPath = '/src/storage/load-migration.ts'
+    const formatPath = '/src/storage/project-format.ts'
+    const fixturePath = '/src/storage/__tests__/legacy-project-fixture.ts'
+    const { IndexedProjectRepository } = await import(repositoryPath)
+    const { EXISTING_APP_DATABASE } = await import(migrationPath)
+    const { decodeProject } = await import(formatPath)
+    const { legacyProjectText } = await import(fixturePath)
+    const repository = new IndexedProjectRepository(
+      indexedDB,
+      EXISTING_APP_DATABASE
+    )
+    try {
+      const { projects } = await repository.list()
+      const project = projects.find(
+        (item: { name: string }) => item.name === 'Legacy project'
+      )
+      if (!project)
+        throw new Error('The App did not retain its existing database identity')
+      const stored = await repository.read(project.id)
+      const snapshot = decodeProject(stored.payload)
+      await repository.write(
+        {
+          ...stored,
+          revision: 'legacy-fixture',
+          payload: legacyProjectText(snapshot)
+        },
+        stored.revision
+      )
+      return { id: stored.id, sources: snapshot.visualSources }
+    } finally {
+      repository.close()
+    }
+  })
+  await page.reload()
+  await expect(page.getByRole('status')).toHaveText('Local runtime ready')
+  await open(page, 'Legacy project')
+  await expect(
+    page.getByRole('treeitem', {
+      name: '◇ Retained legacy fixture',
+      exact: true
+    })
+  ).toBeVisible()
+  await expect(page.getByRole('treeitem')).toHaveCount(11)
+  await expect(page.getByTestId('history-depth')).toHaveText('Undo steps: 0')
+  await save(page, 'Legacy project')
+  const persisted = await page.evaluate(async (id) => {
+    const repositoryPath = '/src/storage/indexed-db.ts'
+    const migrationPath = '/src/storage/load-migration.ts'
+    const { IndexedProjectRepository } = await import(repositoryPath)
+    const { EXISTING_APP_DATABASE } = await import(migrationPath)
+    const repository = new IndexedProjectRepository(
+      indexedDB,
+      EXISTING_APP_DATABASE
+    )
+    try {
+      return JSON.parse((await repository.read(id)).payload)
+    } finally {
+      repository.close()
+    }
+  }, original.id)
+  expect(persisted.format).toBe('sim-project')
+  expect(persisted.visualSources).toEqual(original.sources)
+})
+
 test('local project A/B/A replacement resets history and view without duplicating the model or canvas', async ({
   page
 }, info) => {
@@ -129,7 +201,12 @@ test('cancel and invalid target preserve the editable current document', async (
   await page.evaluate(async () => {
     const path = '/src/storage/indexed-db.ts'
     const { IndexedProjectRepository } = await import(path)
-    const repository = new IndexedProjectRepository()
+    const migrationPath = '/src/storage/load-migration.ts'
+    const { EXISTING_APP_DATABASE } = await import(migrationPath)
+    const repository = new IndexedProjectRepository(
+      indexedDB,
+      EXISTING_APP_DATABASE
+    )
     const { projects } = await repository.list()
     const stored = await repository.read(projects[0].id),
       payload = JSON.parse(stored.payload)
@@ -219,7 +296,7 @@ test('failed successor startup exposes recovery and never presents A as editable
   let content = ''
   for await (const chunk of stream) content += String(chunk)
   const recovered = JSON.parse(content)
-  expect(recovered.format).toBe('asyra-sim-project')
+  expect(recovered.format).toBe('sim-project')
   expect(JSON.stringify(recovered.document)).toContain(
     'Unsaved recovery fixture'
   )
@@ -236,7 +313,12 @@ test('retained load diagnostics stay visible and survive saving a copy', async (
   await page.evaluate(async () => {
     const path = '/src/storage/indexed-db.ts'
     const { IndexedProjectRepository } = await import(path)
-    const repository = new IndexedProjectRepository()
+    const migrationPath = '/src/storage/load-migration.ts'
+    const { EXISTING_APP_DATABASE } = await import(migrationPath)
+    const repository = new IndexedProjectRepository(
+      indexedDB,
+      EXISTING_APP_DATABASE
+    )
     const { projects } = await repository.list(),
       stored = await repository.read(projects[0].id)
     const payload = JSON.parse(stored.payload)

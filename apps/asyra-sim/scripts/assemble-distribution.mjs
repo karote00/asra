@@ -32,9 +32,10 @@ export function assembleDistribution({ snapshot, consumer, output, report }) {
     throw new Error('Assembly requires passing exact-source consumer evidence.')
   const sourceApp = path.join(snapshot, 'apps/asyra-sim')
   const staging = mkdtempSync(path.join(output, 'tmp/distribution-'))
+  const productSlug = 'asyra-sim'
   const destination = path.join(
     staging,
-    `asyra-sim-${report.appVersion}-${report.sourceCommit.slice(0, 12)}`
+    `${productSlug}-${report.appVersion}-${report.sourceCommit.slice(0, 12)}`
   )
   mkdirSync(destination)
   copyTree(path.join(consumer, 'dist'), path.join(destination, 'site'))

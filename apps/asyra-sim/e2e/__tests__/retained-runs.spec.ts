@@ -70,7 +70,7 @@ test('retains runs with Undo, compares evidence, exports reports, and reopens po
   await comparison.scrollIntoViewIfNeeded()
   await page.screenshot({ path: info.outputPath('retained-comparison.png') })
   const report = JSON.parse(await download(page, 'Export JSON'))
-  expect(report.format).toBe('asyra-sim-run-report')
+  expect(report.format).toBe('sim-run-report')
   expect(report.run.snapshot.rule.minimumClearance).toBe(0.035)
   expect(report.run.environment.appVersion).toBe('0.1.0-alpha.0')
   expect(await download(page, 'Export CSV')).toContain(report.run.result.runId)

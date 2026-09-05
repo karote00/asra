@@ -9,7 +9,7 @@ import {
   type SpatialDescriptor
 } from '../engine/spatial-contract'
 
-export const SPATIAL_LAYER_NAME = 'asyra-sim.spatial-layer'
+export const SPATIAL_LAYER_NAME = 'sim.spatial-layer'
 export type SpatialCamera = Extract<SpatialDescriptor, { kind: 'camera' }>
 export type SpatialMesh = Extract<SpatialDescriptor, { kind: 'mesh' }>
 export interface SpatialFrame {

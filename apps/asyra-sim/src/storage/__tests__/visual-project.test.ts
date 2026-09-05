@@ -166,7 +166,7 @@ it('rejects missing or malformed visual sources at both native encode and decode
     expect(() => encodeProject(invalid)).toThrow()
     expect(() =>
       decodeProject(
-        JSON.stringify({ format: 'asyra-sim-project', version: 1, ...invalid })
+        JSON.stringify({ format: 'sim-project', version: 1, ...invalid })
       )
     ).toThrow()
   }

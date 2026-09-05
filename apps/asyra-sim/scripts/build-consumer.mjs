@@ -301,7 +301,7 @@ export async function buildConsumer() {
         'Source changed during consumer verification; no passing record was written.'
       )
     const report = {
-      format: 'asyra-sim-clean-consumer',
+      format: 'sim-clean-consumer',
       version: 1,
       status: 'independent-build-passed',
       sourceCommit,

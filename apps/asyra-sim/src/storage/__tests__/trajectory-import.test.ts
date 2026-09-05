@@ -187,7 +187,7 @@ describe('M2 trajectory import preview', () => {
 
   it('accepts only the strict versioned JSON trajectory envelope', () => {
     const valid = JSON.stringify({
-      format: 'asyra-sim-trajectory',
+      format: 'sim-trajectory',
       version: 1,
       source: {
         version: 1,

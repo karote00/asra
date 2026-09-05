@@ -166,57 +166,70 @@ test('the generator is importable without creating a consumer or starting child 
   assert.equal(typeof buildConsumer, 'function')
 })
 
-test('main and Worker build plugins reject escaping real paths and retain only owned module evidence', async (t) => {
-  const parent = fileURLToPath(
-    new URL('../../.artifacts/consumer-tests/', import.meta.url)
-  )
-  mkdirSync(parent, { recursive: true })
-  const directory = mkdtempSync(path.join(parent, 'plugins-'))
-  t.after(() => rmSync(directory, { recursive: true }))
-  const root = path.join(directory, 'consumer')
-  mkdirSync(path.join(root, '.build-evidence'), { recursive: true })
-  const outside = path.join(directory, 'outside.js'),
-    inside = path.join(root, 'inside.js')
-  writeFileSync(outside, 'export const value = 1')
-  writeFileSync(inside, 'export const value = 2')
-  symlinkSync(outside, path.join(root, 'linked.js'))
-  writeFileSync(
-    path.join(root, 'vite.config.ts'),
-    'export default { plugins: [], worker: {} }'
-  )
-  writeFileSync(
-    path.join(root, 'consumer.vite.config.mjs'),
-    consumerBuildConfig
-  )
-  const previous = process.cwd()
-  try {
-    process.chdir(root)
-    const { default: configuration } = await import(
-      pathToFileURL(path.join(root, 'consumer.vite.config.mjs')).href
+for (const [kind, base] of [
+  ['object', '{ plugins: [], worker: { format: "es" } }'],
+  [
+    'factory',
+    '(env) => ({ plugins: [], worker: { format: "es" }, base: env.command === "build" ? "./" : "/dev/" })'
+  ],
+  [
+    'async factory',
+    'async (env) => ({ plugins: [], worker: { format: "es" }, base: env.command === "build" ? "./" : "/dev/" })'
+  ]
+])
+  test(`main and Worker build plugins preserve ${kind} configuration and reject escaping module evidence`, async (t) => {
+    const parent = fileURLToPath(
+      new URL('../../.artifacts/consumer-tests/', import.meta.url)
     )
-    for (const plugin of [
-      configuration.plugins[0],
-      ...configuration.worker.plugins()
-    ]) {
-      plugin.moduleParsed({ id: inside })
-      plugin.moduleParsed({ id: '\0virtual' })
-      assert.throws(() => plugin.moduleParsed({ id: outside }), /escaped/)
-      assert.throws(
-        () => plugin.moduleParsed({ id: path.join(root, 'linked.js') }),
-        /escaped/
+    mkdirSync(parent, { recursive: true })
+    const directory = mkdtempSync(path.join(parent, 'plugins-'))
+    t.after(() => rmSync(directory, { recursive: true }))
+    const root = path.join(directory, 'consumer')
+    mkdirSync(path.join(root, '.build-evidence'), { recursive: true })
+    const outside = path.join(directory, 'outside.js'),
+      inside = path.join(root, 'inside.js')
+    writeFileSync(outside, 'export const value = 1')
+    writeFileSync(inside, 'export const value = 2')
+    symlinkSync(outside, path.join(root, 'linked.js'))
+    writeFileSync(path.join(root, 'vite.config.ts'), `export default ${base}`)
+    writeFileSync(
+      path.join(root, 'consumer.vite.config.mjs'),
+      consumerBuildConfig
+    )
+    const previous = process.cwd()
+    try {
+      process.chdir(root)
+      const { default: exported } = await import(
+        pathToFileURL(path.join(root, 'consumer.vite.config.mjs')).href
       )
-      plugin.generateBundle({}, { 'assets/entry.js': {} })
-      assert.deepEqual(
-        JSON.parse(
-          readFileSync(
-            path.join(root, '.build-evidence/assets_entry.js.json'),
-            'utf8'
-          )
-        ),
-        ['inside.js']
-      )
+      const configuration = await (typeof exported === 'function'
+        ? exported({ command: 'build', mode: 'production' })
+        : exported)
+      assert.equal(configuration.worker.format, 'es')
+      if (kind !== 'object') assert.equal(configuration.base, './')
+      for (const plugin of [
+        configuration.plugins[0],
+        ...configuration.worker.plugins()
+      ]) {
+        plugin.moduleParsed({ id: inside })
+        plugin.moduleParsed({ id: '\0virtual' })
+        assert.throws(() => plugin.moduleParsed({ id: outside }), /escaped/)
+        assert.throws(
+          () => plugin.moduleParsed({ id: path.join(root, 'linked.js') }),
+          /escaped/
+        )
+        plugin.generateBundle({}, { 'assets/entry.js': {} })
+        assert.deepEqual(
+          JSON.parse(
+            readFileSync(
+              path.join(root, '.build-evidence/assets_entry.js.json'),
+              'utf8'
+            )
+          ),
+          ['inside.js']
+        )
+      }
+    } finally {
+      process.chdir(previous)
     }
-  } finally {
-    process.chdir(previous)
-  }
-})
+  })

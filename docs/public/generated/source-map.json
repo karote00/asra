@@ -10,7 +10,7 @@
         },
         {
           "path": "docs/ai/framework/ARCHITECTURE.md",
-          "sha256": "3a431cfab9f275213d335ef36a61bd3afcf7c2db29e1198a3e17807bfb7467c6"
+          "sha256": "955b51ffeb83fce5b2a4dfd2e257d69ffb85287a9a12ea393007d806e41f95b1"
         }
       ]
     },
@@ -34,7 +34,7 @@
       "sources": [
         {
           "path": "docs/ai/framework/WORKFLOW.md",
-          "sha256": "e456cb7358dcf89b141d60e8ff84ccad32dff77479d9ca7a277672d483ef01e5"
+          "sha256": "085da8c3d39de97c27b062c35cc1d54a2ec3ab6c3d9c0e543bbffa390c465ae5"
         },
         {
           "path": "docs/ai/apps/asyra-design/golden-paths/README.md",
@@ -52,7 +52,7 @@
         },
         {
           "path": "docs/ai/framework/packages/preset.md",
-          "sha256": "6063335cf9a2a4e5e51c81bdef13b0390b5cc00b82892ef7cc664c5e46b94f9c"
+          "sha256": "28ab01c7e3a460032b103b2d8c0ce1a0f61713d01e0f5aafce92bed8a4ed6e8a"
         }
       ]
     },
@@ -62,11 +62,11 @@
       "sources": [
         {
           "path": "docs/ai/framework/ARCHITECTURE.md",
-          "sha256": "3a431cfab9f275213d335ef36a61bd3afcf7c2db29e1198a3e17807bfb7467c6"
+          "sha256": "955b51ffeb83fce5b2a4dfd2e257d69ffb85287a9a12ea393007d806e41f95b1"
         },
         {
           "path": "docs/ai/framework/packages/core.md",
-          "sha256": "eb59d200716536560a4f42189c0250dfc3a7d84ff776f0dcea35d3f934a7c27b"
+          "sha256": "a18a857a420385400dcc119ad6505975beb52896739413b8b44bb211c60a4963"
         }
       ]
     },
@@ -80,7 +80,7 @@
         },
         {
           "path": "docs/ai/framework/packages/core.md",
-          "sha256": "eb59d200716536560a4f42189c0250dfc3a7d84ff776f0dcea35d3f934a7c27b"
+          "sha256": "a18a857a420385400dcc119ad6505975beb52896739413b8b44bb211c60a4963"
         }
       ]
     },
@@ -90,11 +90,11 @@
       "sources": [
         {
           "path": "docs/ai/framework/WORKFLOW.md",
-          "sha256": "e456cb7358dcf89b141d60e8ff84ccad32dff77479d9ca7a277672d483ef01e5"
+          "sha256": "085da8c3d39de97c27b062c35cc1d54a2ec3ab6c3d9c0e543bbffa390c465ae5"
         },
         {
           "path": "docs/ai/framework/packages/feature-system.md",
-          "sha256": "ccbae9eb0ba97e908aea445d6b9c47102d023a808f37447b72b5a01194aa7eec"
+          "sha256": "01b9e4667f82549a2cfcfc61a34c2742149def2384a21f76f77e92395fbe82b7"
         }
       ]
     },
@@ -104,15 +104,15 @@
       "sources": [
         {
           "path": "docs/ai/framework/ARCHITECTURE.md",
-          "sha256": "3a431cfab9f275213d335ef36a61bd3afcf7c2db29e1198a3e17807bfb7467c6"
+          "sha256": "955b51ffeb83fce5b2a4dfd2e257d69ffb85287a9a12ea393007d806e41f95b1"
         },
         {
           "path": "docs/ai/framework/packages/system-context.md",
-          "sha256": "66f3107ca4921bad334d7954ff6335d3373c398b949fb58f4778b2bbe9480fa9"
+          "sha256": "5344cb5fc59a0dcadb32e6484ee259fd54e1d4387f81a14c7da0786f16a8e657"
         },
         {
           "path": "docs/ai/framework/packages/props-manager.md",
-          "sha256": "99e3c4a6b1015fabf036429ffcb63620f4a27600928b768d64584b26395637a9"
+          "sha256": "783f9b8631b907999a5317000397b0bb45d40351062772e74f872cceaf082560"
         }
       ]
     },
@@ -122,7 +122,7 @@
       "sources": [
         {
           "path": "docs/ai/framework/packages/factory.md",
-          "sha256": "0a33117436c5547c188406d9a19b1a9b9d3dd4ce527e414402ecc032c8a1562f"
+          "sha256": "60257da9ca9d6b965b2f4f58a07a752748ada342af5e1101509f842a88764c3b"
         },
         {
           "path": "docs/ai/framework/packages/reactive-events.md",
@@ -136,7 +136,7 @@
       "sources": [
         {
           "path": "docs/ai/framework/packages/props-manager.md",
-          "sha256": "99e3c4a6b1015fabf036429ffcb63620f4a27600928b768d64584b26395637a9"
+          "sha256": "783f9b8631b907999a5317000397b0bb45d40351062772e74f872cceaf082560"
         },
         {
           "path": "docs/ai/framework/packages/persistence.md",
@@ -150,7 +150,7 @@
       "sources": [
         {
           "path": "docs/ai/framework/packages/render.md",
-          "sha256": "1e4ac2db7b96309ad33fb608e577b76dea46aa58ccb566adf5c5419524594e79"
+          "sha256": "d69746b88089b330cec6033c3d9c505a7e8fc6e1ec64d1e9aeeae0968b930bed"
         },
         {
           "path": "docs/ai/framework/packages/render-engine.md",
@@ -168,11 +168,11 @@
       "sources": [
         {
           "path": "docs/ai/framework/packages/core.md",
-          "sha256": "eb59d200716536560a4f42189c0250dfc3a7d84ff776f0dcea35d3f934a7c27b"
+          "sha256": "a18a857a420385400dcc119ad6505975beb52896739413b8b44bb211c60a4963"
         },
         {
           "path": "docs/ai/framework/packages/input-system.md",
-          "sha256": "823c675e3f8663fb976d78fa7f812514ecba6406ceb9264dfe52084203dbed9a"
+          "sha256": "25f8024bcc2bd80b6386512e480d53ed0159382f341c3ed1c65d3eb6857528d3"
         },
         {
           "path": "docs/ai/framework/plans/headless-core-and-core-kernel-future-plan.md",
@@ -190,15 +190,15 @@
       "sources": [
         {
           "path": "docs/ai/framework/packages/core.md",
-          "sha256": "eb59d200716536560a4f42189c0250dfc3a7d84ff776f0dcea35d3f934a7c27b"
+          "sha256": "a18a857a420385400dcc119ad6505975beb52896739413b8b44bb211c60a4963"
         },
         {
           "path": "docs/ai/framework/packages/props-manager.md",
-          "sha256": "99e3c4a6b1015fabf036429ffcb63620f4a27600928b768d64584b26395637a9"
+          "sha256": "783f9b8631b907999a5317000397b0bb45d40351062772e74f872cceaf082560"
         },
         {
           "path": "docs/ai/framework/packages/scene-tree.md",
-          "sha256": "713cf4b1579a2c8ba1ca1b8b6c4db4c05b796dc8d33b70c3f64396555115fd5d"
+          "sha256": "68d19ac706fff2cfcb17d911d79668ad66e30ea7b8fbed6a5e62c3542804cd6c"
         }
       ]
     },
@@ -208,11 +208,11 @@
       "sources": [
         {
           "path": "docs/ai/framework/packages/feature-system.md",
-          "sha256": "ccbae9eb0ba97e908aea445d6b9c47102d023a808f37447b72b5a01194aa7eec"
+          "sha256": "01b9e4667f82549a2cfcfc61a34c2742149def2384a21f76f77e92395fbe82b7"
         },
         {
           "path": "docs/ai/framework/packages/factory.md",
-          "sha256": "0a33117436c5547c188406d9a19b1a9b9d3dd4ce527e414402ecc032c8a1562f"
+          "sha256": "60257da9ca9d6b965b2f4f58a07a752748ada342af5e1101509f842a88764c3b"
         }
       ]
     },
@@ -222,7 +222,7 @@
       "sources": [
         {
           "path": "docs/ai/framework/packages/render.md",
-          "sha256": "1e4ac2db7b96309ad33fb608e577b76dea46aa58ccb566adf5c5419524594e79"
+          "sha256": "d69746b88089b330cec6033c3d9c505a7e8fc6e1ec64d1e9aeeae0968b930bed"
         },
         {
           "path": "docs/ai/framework/packages/render-engine.md",
@@ -236,11 +236,11 @@
       "sources": [
         {
           "path": "docs/ai/framework/packages/scene-tree.md",
-          "sha256": "713cf4b1579a2c8ba1ca1b8b6c4db4c05b796dc8d33b70c3f64396555115fd5d"
+          "sha256": "68d19ac706fff2cfcb17d911d79668ad66e30ea7b8fbed6a5e62c3542804cd6c"
         },
         {
           "path": "docs/ai/framework/packages/core.md",
-          "sha256": "eb59d200716536560a4f42189c0250dfc3a7d84ff776f0dcea35d3f934a7c27b"
+          "sha256": "a18a857a420385400dcc119ad6505975beb52896739413b8b44bb211c60a4963"
         },
         {
           "path": "docs/ai/apps/asyra-design/features/group-interactions.md",
@@ -258,7 +258,7 @@
         },
         {
           "path": "docs/ai/framework/packages/props-manager.md",
-          "sha256": "99e3c4a6b1015fabf036429ffcb63620f4a27600928b768d64584b26395637a9"
+          "sha256": "783f9b8631b907999a5317000397b0bb45d40351062772e74f872cceaf082560"
         }
       ]
     },
@@ -300,7 +300,7 @@
         },
         {
           "path": "docs/ai/framework/packages/feature-system.md",
-          "sha256": "ccbae9eb0ba97e908aea445d6b9c47102d023a808f37447b72b5a01194aa7eec"
+          "sha256": "01b9e4667f82549a2cfcfc61a34c2742149def2384a21f76f77e92395fbe82b7"
         }
       ]
     },
@@ -334,11 +334,11 @@
     },
     {
       "id": "reference/packages/core",
-      "pageSha256": "4150d383c83c25e7af0d91299ade90f585fe66fbab1c159d8a873d64efa1a57a",
+      "pageSha256": "ee567cf3f452b8c2b343ad1355e9b18cb20b31d15a7acbb38ac58b6696626896",
       "sources": [
         {
           "path": "docs/ai/framework/packages/core.md",
-          "sha256": "eb59d200716536560a4f42189c0250dfc3a7d84ff776f0dcea35d3f934a7c27b"
+          "sha256": "a18a857a420385400dcc119ad6505975beb52896739413b8b44bb211c60a4963"
         },
         {
           "path": "packages/core/package.json",
@@ -362,11 +362,11 @@
     },
     {
       "id": "reference/packages/factory",
-      "pageSha256": "7edf3e543bf4b3d7b2d2fb88dcc784a9deb28c6f20ce589c221eec241530d02b",
+      "pageSha256": "f3135c07050bec8d0c4949166149dff46755e6c4daf7254480044ed3ac6d77a2",
       "sources": [
         {
           "path": "docs/ai/framework/packages/factory.md",
-          "sha256": "0a33117436c5547c188406d9a19b1a9b9d3dd4ce527e414402ecc032c8a1562f"
+          "sha256": "60257da9ca9d6b965b2f4f58a07a752748ada342af5e1101509f842a88764c3b"
         },
         {
           "path": "packages/factory/package.json",
@@ -376,11 +376,11 @@
     },
     {
       "id": "reference/packages/feature-system",
-      "pageSha256": "b61024b261c5d2083e9ea2f38239b00fbc1361b2a6c29e816615497dae683002",
+      "pageSha256": "e98668c82c70f2b02bff074d5ee05ab5c97c058fe439e7debb967b18ecc09e1a",
       "sources": [
         {
           "path": "docs/ai/framework/packages/feature-system.md",
-          "sha256": "ccbae9eb0ba97e908aea445d6b9c47102d023a808f37447b72b5a01194aa7eec"
+          "sha256": "01b9e4667f82549a2cfcfc61a34c2742149def2384a21f76f77e92395fbe82b7"
         },
         {
           "path": "packages/feature-system/package.json",
@@ -390,11 +390,11 @@
     },
     {
       "id": "reference/packages/input-system",
-      "pageSha256": "6a93322f1412e27132ae039576b5d3a51296fa5c9cc6dac322c1c1a97d4fe42b",
+      "pageSha256": "d4990de2edfd7ab0a66fa92c5c80581df004b98b4db2f15afe1e45d689b6ec08",
       "sources": [
         {
           "path": "docs/ai/framework/packages/input-system.md",
-          "sha256": "823c675e3f8663fb976d78fa7f812514ecba6406ceb9264dfe52084203dbed9a"
+          "sha256": "25f8024bcc2bd80b6386512e480d53ed0159382f341c3ed1c65d3eb6857528d3"
         },
         {
           "path": "packages/input-system/package.json",
@@ -418,11 +418,11 @@
     },
     {
       "id": "reference/packages/preset",
-      "pageSha256": "6decd16b73a5a41526c730fe457be980cd6769d08ee1e09224c69dc05fe4c510",
+      "pageSha256": "ef420f8ace24da15019404adf8c0c43f6ac9d8c4028dc6d7bacc623ee043dc9a",
       "sources": [
         {
           "path": "docs/ai/framework/packages/preset.md",
-          "sha256": "6063335cf9a2a4e5e51c81bdef13b0390b5cc00b82892ef7cc664c5e46b94f9c"
+          "sha256": "28ab01c7e3a460032b103b2d8c0ce1a0f61713d01e0f5aafce92bed8a4ed6e8a"
         },
         {
           "path": "packages/preset/package.json",
@@ -432,11 +432,11 @@
     },
     {
       "id": "reference/packages/props-manager",
-      "pageSha256": "ef316ce4a8e632db5c9ba271b69a13528c1aad92e1226fe3b722643f974fc829",
+      "pageSha256": "28f044123e1b6f60c18a4f39910a2560f4301026e8850f1c4e91557fa5d5ac8e",
       "sources": [
         {
           "path": "docs/ai/framework/packages/props-manager.md",
-          "sha256": "99e3c4a6b1015fabf036429ffcb63620f4a27600928b768d64584b26395637a9"
+          "sha256": "783f9b8631b907999a5317000397b0bb45d40351062772e74f872cceaf082560"
         },
         {
           "path": "packages/props-manager/package.json",
@@ -460,11 +460,11 @@
     },
     {
       "id": "reference/packages/render",
-      "pageSha256": "bef4926e98157e95bac359858e2868d30939b419876f0d00e2fe9d9f1511c62a",
+      "pageSha256": "981df10323d75fbf2e242af7c4070f39e377f59466471e5b400b345d655004b0",
       "sources": [
         {
           "path": "docs/ai/framework/packages/render.md",
-          "sha256": "1e4ac2db7b96309ad33fb608e577b76dea46aa58ccb566adf5c5419524594e79"
+          "sha256": "d69746b88089b330cec6033c3d9c505a7e8fc6e1ec64d1e9aeeae0968b930bed"
         },
         {
           "path": "packages/render/package.json",
@@ -502,11 +502,11 @@
     },
     {
       "id": "reference/packages/scene-tree",
-      "pageSha256": "fda648ca19632219725d4512f8d603e8b3a62bd39e6c7d756ddb52351f176e93",
+      "pageSha256": "4f8bc35fd5435934068a2ed81aa578f788edb6d866b2495cf83ba852deb74231",
       "sources": [
         {
           "path": "docs/ai/framework/packages/scene-tree.md",
-          "sha256": "713cf4b1579a2c8ba1ca1b8b6c4db4c05b796dc8d33b70c3f64396555115fd5d"
+          "sha256": "68d19ac706fff2cfcb17d911d79668ad66e30ea7b8fbed6a5e62c3542804cd6c"
         },
         {
           "path": "packages/scene-tree/package.json",
@@ -516,11 +516,11 @@
     },
     {
       "id": "reference/packages/selection",
-      "pageSha256": "a28fc0efcad3171edb523dcacc86c72c6e2a606b5bdf8862d536a3043af695be",
+      "pageSha256": "16deb78d1dcc80cae96cc3bb423c893eac7249d3fc833d1b1b41371622b42916",
       "sources": [
         {
           "path": "docs/ai/framework/packages/selection.md",
-          "sha256": "60f3ba749e4aecad2e1e82fee554bf1425d6ea263e653332a8fed12bba439dbc"
+          "sha256": "400873ab29507532536b9f55e413b9d8205ecc85be6e48913307cd63988e4b17"
         },
         {
           "path": "packages/selection/package.json",
@@ -530,11 +530,11 @@
     },
     {
       "id": "reference/packages/system-context",
-      "pageSha256": "41482ef59f07097c9a798c498b15296c3f1f5f60274bed86528ffecfbd0a954a",
+      "pageSha256": "1a44b5d648932ba135940c17f0a9b9a78e2035363b74c055d5f2b9eb1d78f2d7",
       "sources": [
         {
           "path": "docs/ai/framework/packages/system-context.md",
-          "sha256": "66f3107ca4921bad334d7954ff6335d3373c398b949fb58f4778b2bbe9480fa9"
+          "sha256": "5344cb5fc59a0dcadb32e6484ee259fd54e1d4387f81a14c7da0786f16a8e657"
         },
         {
           "path": "packages/system-context/package.json",
@@ -544,11 +544,11 @@
     },
     {
       "id": "reference/packages/ui-context",
-      "pageSha256": "407820036abb56109f8b750dda623e1671a49d2207c2c08fee6b45a0778d9551",
+      "pageSha256": "2e62ac7870b5879adf014cc48887da26e1530abfa611b9effd97b53e5489aaf4",
       "sources": [
         {
           "path": "docs/ai/framework/packages/ui-context.md",
-          "sha256": "b57c0333892ee97a36d37793b371763b0371f9c6efb8d0ee8a99b9f3985d511d"
+          "sha256": "4a9b1fe9e3abd5483c191cb96b6221cab8da07c709a9acdd8eeee1f2a2270dd7"
         },
         {
           "path": "packages/ui-context/package.json",
@@ -558,11 +558,11 @@
     },
     {
       "id": "reference/packages/utils",
-      "pageSha256": "eed3e7a356c8b12b78c9e5ec515e43c51f59b244cc77d3ce7f993f1556231e3c",
+      "pageSha256": "c8f46c0786c0584519150eb8402069259a8a01b75ca01b44113220a5a492a4c7",
       "sources": [
         {
           "path": "docs/ai/framework/packages/utils.md",
-          "sha256": "a5135f15b3dc8338c0ad8f822a8ef29d293cd996dc517a71516f8cce629bf7d1"
+          "sha256": "d7009a315b7eb24d85845c33a42429c53daa5f0964799df398a37581fd54a191"
         },
         {
           "path": "packages/utils/package.json",
@@ -588,7 +588,7 @@
         },
         {
           "path": "package.json",
-          "sha256": "6873c1c2e50f89d9f1ac727df07593ede05e08f7cc26f4b4e614b36a03ea3324"
+          "sha256": "a7777a3ed1bbebec9ebb92bb7afc8c5e9ef5940d107c0bc21e9c0010fdc5ab5b"
         }
       ]
     },

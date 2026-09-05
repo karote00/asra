@@ -2,7 +2,7 @@ import { encodeProject, type ProjectSnapshot } from '../storage/project-format'
 
 export function downloadRecovery(snapshot: ProjectSnapshot): void {
   downloadText(
-    'recovered-asyra-sim.json',
+    'recovered-sim.json',
     encodeProject(snapshot),
     'application/json'
   )

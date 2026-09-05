@@ -50,15 +50,15 @@ describe('local project envelope', () => {
       'null',
       '{}',
       '{',
-      '{"format":"asyra-sim-project","version":2}',
+      '{"format":"sim-project","version":2}',
       JSON.stringify({
-        format: 'asyra-sim-project',
+        format: 'sim-project',
         version: 1,
         ...snapshot(),
         document: {}
       }),
       JSON.stringify({
-        format: 'asyra-sim-project',
+        format: 'sim-project',
         version: 1,
         ...snapshot(),
         loadIssues: 'lost'

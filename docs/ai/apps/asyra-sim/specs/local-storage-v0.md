@@ -13,6 +13,21 @@ format versions, malformed envelopes, nonfinite serialized values, and data abov
 the 64 MiB project limit. Native Core load validation remains responsible for
 property recovery; retained recovery diagnostics must survive saving and reopening.
 
+Current portable formats use the neutral `sim-project`, `sim-trajectory`,
+`sim-run-report`, and `sim-observations` identifiers. Project and trajectory
+imports also accept their original branded version-1 envelope identities through
+the explicit storage load adapter. Before reference validation, the adapter maps
+only known scene-component and property-type slots to the current `sim-*` types.
+It never rewrites user text, IDs, run snapshots, verdicts, source bytes, or hashes;
+unknown versions and invalid references still fail the ordinary validation.
+New canonical documents and saves use only current types. Runtime registrations
+do not retain legacy aliases.
+
+The repository's default database is `sim-local-v1`. The existing App explicitly
+selects its original database identity from the storage compatibility owner so
+previously saved projects remain available. This does not copy, delete, merge, or
+silently relocate databases, and preserves the existing revision-conflict rules.
+
 Project metadata and its document are written in one IndexedDB transaction.
 Only its `complete` event acknowledges a save. Request success followed by an
 abort, quota failure, blocked database, or unexpected close is an error. Keep the

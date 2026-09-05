@@ -225,7 +225,7 @@ export function FieldObservations({
                   onClick={() =>
                     download(() =>
                       downloadText(
-                        `asyra-sim-${runId}-observations.json`,
+                        `sim-${runId}-observations.json`,
                         runtime.exportObservations(runId),
                         'application/json'
                       )

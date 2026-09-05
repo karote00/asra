@@ -1277,7 +1277,7 @@
       "wordCount": 399
     },
     {
-      "contentSha256": "4150d383c83c25e7af0d91299ade90f585fe66fbab1c159d8a873d64efa1a57a",
+      "contentSha256": "ee567cf3f452b8c2b343ad1355e9b18cb20b31d15a7acbb38ac58b6696626896",
       "description": "The strict composition facade for Framework capabilities and lifecycle.",
       "headings": [
         {
@@ -1333,7 +1333,7 @@
       "path": "reference/packages/core.md",
       "section": "Reference",
       "title": "@asyra/core",
-      "wordCount": 434
+      "wordCount": 621
     },
     {
       "contentSha256": "c2bc81415b3770b776ecd0b282c3889325c76a75a26bdb2d50be5a85b84b042d",
@@ -1395,7 +1395,7 @@
       "wordCount": 408
     },
     {
-      "contentSha256": "7edf3e543bf4b3d7b2d2fb88dcc784a9deb28c6f20ce589c221eec241530d02b",
+      "contentSha256": "f3135c07050bec8d0c4949166149dff46755e6c4daf7254480044ed3ac6d77a2",
       "description": "Canonical transactions, rollback, history replay, and shared change publication.",
       "headings": [
         {
@@ -1451,10 +1451,10 @@
       "path": "reference/packages/factory.md",
       "section": "Reference",
       "title": "@asyra/factory",
-      "wordCount": 389
+      "wordCount": 476
     },
     {
-      "contentSha256": "b61024b261c5d2083e9ea2f38239b00fbc1361b2a6c29e816615497dae683002",
+      "contentSha256": "e98668c82c70f2b02bff074d5ee05ab5c97c058fe439e7debb967b18ecc09e1a",
       "description": "Priority, exclusivity, conditions, and session lifecycle for intent handling.",
       "headings": [
         {
@@ -1510,10 +1510,10 @@
       "path": "reference/packages/feature-system.md",
       "section": "Reference",
       "title": "@asyra/feature-system",
-      "wordCount": 399
+      "wordCount": 517
     },
     {
-      "contentSha256": "6a93322f1412e27132ae039576b5d3a51296fa5c9cc6dac322c1c1a97d4fe42b",
+      "contentSha256": "d4990de2edfd7ab0a66fa92c5c80581df004b98b4db2f15afe1e45d689b6ec08",
       "description": "Environment-neutral semantic input registration and dispatch infrastructure.",
       "headings": [
         {
@@ -1569,7 +1569,7 @@
       "path": "reference/packages/input-system.md",
       "section": "Reference",
       "title": "@asyra/input-system",
-      "wordCount": 389
+      "wordCount": 427
     },
     {
       "contentSha256": "e81642b5d077d418f273319bdb3251976516e77591f69058c54f661abf2b8315",
@@ -1631,7 +1631,7 @@
       "wordCount": 372
     },
     {
-      "contentSha256": "6decd16b73a5a41526c730fe457be980cd6769d08ee1e09224c69dc05fe4c510",
+      "contentSha256": "ef420f8ace24da15019404adf8c0c43f6ac9d8c4028dc6d7bacc623ee043dc9a",
       "description": "Optional official design-tool baseline with selectable defaults and replaceable providers.",
       "headings": [
         {
@@ -1687,10 +1687,10 @@
       "path": "reference/packages/preset.md",
       "section": "Reference",
       "title": "@asyra/preset",
-      "wordCount": 372
+      "wordCount": 436
     },
     {
-      "contentSha256": "ef316ce4a8e632db5c9ba271b69a13528c1aad92e1226fe3b722643f974fc829",
+      "contentSha256": "28f044123e1b6f60c18a4f39910a2560f4301026e8850f1c4e91557fa5d5ac8e",
       "description": "Property definitions, runtime values, schema validation, and registration lifecycle.",
       "headings": [
         {
@@ -1746,7 +1746,7 @@
       "path": "reference/packages/props-manager.md",
       "section": "Reference",
       "title": "@asyra/props-manager",
-      "wordCount": 354
+      "wordCount": 413
     },
     {
       "contentSha256": "534d53e7eae5e7f38ddbf2977688a63af2857553e1246ef4f77d5b9eb40df275",
@@ -1808,7 +1808,7 @@
       "wordCount": 381
     },
     {
-      "contentSha256": "bef4926e98157e95bac359858e2868d30939b419876f0d00e2fe9d9f1511c62a",
+      "contentSha256": "981df10323d75fbf2e242af7c4070f39e377f59466471e5b400b345d655004b0",
       "description": "Projection, render-layer registration, interaction bridges, and renderer orchestration.",
       "headings": [
         {
@@ -1864,7 +1864,7 @@
       "path": "reference/packages/render.md",
       "section": "Reference",
       "title": "@asyra/render",
-      "wordCount": 397
+      "wordCount": 485
     },
     {
       "contentSha256": "212eb15123459dc4528adbc539861a4575ea7979da639ce6c339f7d18c854fcc",
@@ -1985,7 +1985,7 @@
       "wordCount": 352
     },
     {
-      "contentSha256": "fda648ca19632219725d4512f8d603e8b3a62bd39e6c7d756ddb52351f176e93",
+      "contentSha256": "4f8bc35fd5435934068a2ed81aa578f788edb6d866b2495cf83ba852deb74231",
       "description": "Canonical element hierarchy, ordering, component relations, and subtree operations.",
       "headings": [
         {
@@ -2041,10 +2041,10 @@
       "path": "reference/packages/scene-tree.md",
       "section": "Reference",
       "title": "@asyra/scene-tree",
-      "wordCount": 366
+      "wordCount": 427
     },
     {
-      "contentSha256": "a28fc0efcad3171edb523dcacc86c72c6e2a606b5bdf8862d536a3043af695be",
+      "contentSha256": "16deb78d1dcc80cae96cc3bb423c893eac7249d3fc833d1b1b41371622b42916",
       "description": "Selection channels and state infrastructure without app-specific selection policy.",
       "headings": [
         {
@@ -2100,10 +2100,10 @@
       "path": "reference/packages/selection.md",
       "section": "Reference",
       "title": "@asyra/selection",
-      "wordCount": 342
+      "wordCount": 381
     },
     {
-      "contentSha256": "41482ef59f07097c9a798c498b15296c3f1f5f60274bed86528ffecfbd0a954a",
+      "contentSha256": "1a44b5d648932ba135940c17f0a9b9a78e2035363b74c055d5f2b9eb1d78f2d7",
       "description": "Managed system-level properties and snapshots shared through canonical registration.",
       "headings": [
         {
@@ -2159,10 +2159,10 @@
       "path": "reference/packages/system-context.md",
       "section": "Reference",
       "title": "@asyra/system-context",
-      "wordCount": 335
+      "wordCount": 373
     },
     {
-      "contentSha256": "407820036abb56109f8b750dda623e1671a49d2207c2c08fee6b45a0778d9551",
+      "contentSha256": "2e62ac7870b5879adf014cc48887da26e1530abfa611b9effd97b53e5489aaf4",
       "description": "UI-facing derived property registration and computation without canonical model ownership.",
       "headings": [
         {
@@ -2218,10 +2218,10 @@
       "path": "reference/packages/ui-context.md",
       "section": "Reference",
       "title": "@asyra/ui-context",
-      "wordCount": 356
+      "wordCount": 389
     },
     {
-      "contentSha256": "eed3e7a356c8b12b78c9e5ec515e43c51f59b244cc77d3ce7f993f1556231e3c",
+      "contentSha256": "c8f46c0786c0584519150eb8402069259a8a01b75ca01b44113220a5a492a4c7",
       "description": "Small shared public utilities without Framework state or lifecycle ownership.",
       "headings": [
         {
@@ -2277,7 +2277,7 @@
       "path": "reference/packages/utils.md",
       "section": "Reference",
       "title": "@asyra/utils",
-      "wordCount": 400
+      "wordCount": 450
     },
     {
       "contentSha256": "30df57ada4dcf3bed7bb314d15b6d0982242beb53efe262a4e915f1ded5bb01a",

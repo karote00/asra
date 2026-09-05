@@ -63,7 +63,7 @@ export function RunLibrary({
         html: exportRunHtml
       }[format](selected)
       downloadText(
-        `asyra-sim-${selected.result.runId}.${format}`,
+        `sim-${selected.result.runId}.${format}`,
         text,
         {
           json: 'application/json',

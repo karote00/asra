@@ -1,5 +1,5 @@
-export const SPATIAL_PROPERTY = 'asyraSpatialV0'
-export const SPATIAL_CAPABILITY = 'asyra-sim.spatial.v0'
+export const SPATIAL_PROPERTY = 'spatialV0'
+export const SPATIAL_CAPABILITY = 'sim.spatial.v0'
 
 export type SpatialVector = readonly [number, number, number]
 export type SpatialQuaternion = readonly [number, number, number, number]
