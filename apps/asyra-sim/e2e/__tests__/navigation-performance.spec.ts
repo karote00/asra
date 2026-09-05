@@ -20,7 +20,7 @@ for (const route of ['navigation', 'playback'] as const)
     const start = Date.now()
     try {
       if (route === 'navigation') {
-        for (let i = 0; i < 60; i++) await page.mouse.wheel(i < 30 ? 3 : -3, 0)
+        for (let i = 0; i < 60; i++) await page.mouse.wheel(0, i < 30 ? 3 : -3)
       } else {
         await page.getByRole('button', { name: 'Play trajectory' }).click()
         await expect

@@ -71,7 +71,7 @@ test('mechanical main bodies remain articulated during playback with bounded fra
   await page.getByRole('button', { name: 'Reset view' }).click()
   const canvas = page.locator('canvas')
   await canvas.hover()
-  // Trackpad scrolling pans; use the browser's explicit pinch-zoom signal.
+  // Exercise the browser's explicit pinch-zoom signal for the close-up.
   await page.keyboard.down('Control')
   try {
     await page.mouse.wheel(0, -420)

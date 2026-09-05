@@ -218,10 +218,10 @@ focus and expanded sections survive ordinary edits and Undo/Redo. These Object
 controls do not change explicit experiment saving or import acceptance.
 
 Navigate with left or middle drag to orbit, **Shift + middle drag** to pan
-(Blender convention), or **Shift + left drag**. The default **Trackpad** mode
-uses **two-finger scrolling to pan** and **pinch to zoom** in Chromium. Click
-the **Trackpad / Mouse** button beside Reset view to switch explicitly; Mouse
-mode restores wheel zoom. This device preference is remembered locally.
+(Blender convention), or **Shift + left drag**. **Two-finger vertical scrolling**,
+**mouse wheel scrolling** and **pinch** all zoom about the current camera target.
+Horizontal scrolling does not pan. There is no Trackpad / Mouse mode switch;
+previously saved input preferences no longer affect navigation.
 Camera navigation updates only the camera, not model or result projections.
 Playback reuses complete local geometry and updates shared domain poses; it
 does not simplify parts or add Undo history. The ordinary navigation/playback

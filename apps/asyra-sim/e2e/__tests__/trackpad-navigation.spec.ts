@@ -1,13 +1,13 @@
 import { expect, test } from '@playwright/test'
 
-test('two-finger scrolling matches screen-plane drag pan, while pinch zoom stays inside the viewport', async ({
+test('two-finger scrolling matches pinch zoom without panning or changing page scale', async ({
   page
 }, info) => {
   await page.goto('/')
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
   await expect(
-    page.getByRole('button', { name: 'Switch to mouse controls' })
-  ).toHaveText('Trackpad')
+    page.getByRole('button', { name: /Switch to (mouse|trackpad) controls/ })
+  ).toHaveCount(0)
   await page
     .getByRole('treeitem', { name: '◇ fixture post', exact: true })
     .click()
@@ -19,49 +19,51 @@ test('two-finger scrolling matches screen-plane drag pan, while pinch zoom stays
     await page.mouse.move(10, 10)
   }
   await rest()
-  const initial = await canvas.screenshot()
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-  await page.mouse.wheel(75, 35)
-  await rest()
-  let panned = initial
-  await expect
-    .poll(async () => {
-      panned = await canvas.screenshot()
-      return panned.equals(initial)
-    })
-    .toBe(false)
-  await canvas.screenshot({ path: info.outputPath('two-finger-pan.png') })
-  await page.getByRole('button', { name: 'Reset view', exact: true }).click()
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-  await page.keyboard.down('Shift')
-  await page.mouse.down()
-  await page.mouse.move(
-    box.x + box.width / 2 - 75,
-    box.y + box.height / 2 - 35,
-    { steps: 6 }
-  )
-  await page.mouse.up()
-  await page.keyboard.up('Shift')
-  await rest()
-  await expect
-    .poll(async () => (await canvas.screenshot()).equals(panned))
-    .toBe(true)
   const pageScale = await page.evaluate(() => ({
     scale: visualViewport?.scale,
     dpr: devicePixelRatio,
     width: innerWidth
   }))
+  const initial = await canvas.screenshot()
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.wheel(75, 35)
+  await rest()
+  let zoomed = initial
+  await expect
+    .poll(async () => {
+      zoomed = await canvas.screenshot()
+      return zoomed.equals(initial)
+    })
+    .toBe(false)
+  await canvas.screenshot({ path: info.outputPath('two-finger-zoom.png') })
+  await page.getByRole('button', { name: 'Reset view', exact: true }).click()
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  // Pinch has no horizontal delta: exact parity proves scroll did not pan.
+  await page.keyboard.down('Control')
+  try {
+    await page.mouse.wheel(0, 35)
+  } finally {
+    await page.keyboard.up('Control')
+  }
+  await rest()
+  await expect
+    .poll(async () => (await canvas.screenshot()).equals(zoomed))
+    .toBe(true)
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.wheel(75, 0)
+  await rest()
+  expect((await canvas.screenshot()).equals(zoomed)).toBe(true)
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
   // Chromium represents trackpad pinch as a Ctrl-modified wheel event.
   await page.keyboard.down('Control')
   await page.mouse.wheel(0, -60)
   await page.keyboard.up('Control')
   await rest()
-  let pinched = panned
+  let pinched = zoomed
   await expect
     .poll(async () => {
       pinched = await canvas.screenshot()
-      return pinched.equals(panned)
+      return pinched.equals(zoomed)
     })
     .toBe(false)
   expect(
@@ -101,31 +103,33 @@ test('two-finger scrolling matches screen-plane drag pan, while pinch zoom stays
       canvas: box,
       dpr: 1,
       scope: 'files:e2e/__tests__/trackpad-navigation.spec.ts',
-      input: 'Trackpad',
+      input: 'Scroll and pinch zoom; Shift-drag pan',
       initialCamera: 'default',
       wheel: [75, 35],
-      equivalentDrag: [-75, -35],
+      equivalentPinch: 'Ctrl-wheel deltaY 35',
       pinch: 'Ctrl-wheel deltaY -60',
       selection: 'example:fixture-post',
       geometry: 'default synthetic six-axis workcell',
-      screenshots: ['two-finger-pan.png', 'pinch-zoom.png'],
+      screenshots: ['two-finger-zoom.png', 'pinch-zoom.png'],
       limitation:
         'Browser event-path verification; physical trackpad feel requires user testing.'
     })
   })
 })
 
-test('mouse controls retain wheel zoom and the device choice survives reload', async ({
+test('a previous trackpad preference cannot restore scroll pan after reload', async ({
   page
 }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('asyra-sim.navigation-input', 'trackpad')
+  })
   await page.goto('/')
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
-  await page.getByRole('button', { name: 'Switch to mouse controls' }).click()
   await page.reload()
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
   await expect(
-    page.getByRole('button', { name: 'Switch to trackpad controls' })
-  ).toHaveText('Mouse')
+    page.getByRole('button', { name: /Switch to (mouse|trackpad) controls/ })
+  ).toHaveCount(0)
   const canvas = page.getByTestId('workcell-canvas').locator('canvas')
   const box = await canvas.boundingBox()
   if (!box) throw new Error('Missing viewport')
@@ -152,16 +156,10 @@ test('mouse controls retain wheel zoom and the device choice survives reload', a
   await expect
     .poll(async () => (await canvas.screenshot()).equals(mouseZoom))
     .toBe(true)
-  await page
-    .getByRole('button', { name: 'Switch to trackpad controls' })
-    .click()
-  await expect(
-    page.getByRole('button', { name: 'Switch to mouse controls' })
-  ).toHaveText('Trackpad')
   await expect(page.getByTestId('history-depth')).toHaveText('Undo steps: 2')
 })
 
-test('input mode remains accessible without changing panel dimensions at narrow widths', async ({
+test('navigation controls fit narrow widths without changing panel dimensions', async ({
   page
 }, info) => {
   await page.goto('/')
@@ -171,7 +169,8 @@ test('input mode remains accessible without changing panel dimensions at narrow 
     const panel = page.getByRole('region', { name: '3D workcell' })
     const before = await panel.boundingBox()
     const button = page.getByRole('button', {
-      name: 'Switch to mouse controls'
+      name: 'Fit all',
+      exact: true
     })
     await expect(button).toBeVisible()
     const bounds = await button.boundingBox()
@@ -180,9 +179,10 @@ test('input mode remains accessible without changing panel dimensions at narrow 
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(before.x + before.width)
     await button.click()
     expect(await panel.boundingBox()).toEqual(before)
-    await page
-      .getByRole('button', { name: 'Switch to trackpad controls' })
-      .click()
-    await page.screenshot({ path: info.outputPath(`input-mode-${width}.png`) })
+    await page.getByRole('button', { name: 'Reset view', exact: true }).click()
+    expect(await panel.boundingBox()).toEqual(before)
+    await page.screenshot({
+      path: info.outputPath(`zoom-controls-${width}.png`)
+    })
   }
 })

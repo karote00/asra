@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SimRuntime } from '../init/bootstrap'
 import type { SpatialCamera, SpatialFrame } from '../render-app/spatial-layer'
 import { fitCameraToMeshes, panCamera, wheelCamera } from './viewport-camera'
-import { readNavigationInput, saveNavigationInput } from './navigation-input'
 import { isEditableKeyboardEvent } from './keyboard-input'
 import type { Workcell } from '../domain/workcell'
 import type { PreparedVisualImport } from '../storage/visual-archive'
@@ -125,7 +124,6 @@ export function ViewportControls({
   isCurrent: (runtime: SimRuntime) => boolean
   getFitMeshes: () => SpatialFrame['meshes']
 }) {
-  const [inputMode, setInputMode] = useState(readNavigationInput)
   const current = useRef(camera)
   current.current = camera
   const updateCamera = useCallback(
@@ -265,8 +263,8 @@ export function ViewportControls({
         return
       event.preventDefault()
       if (drag) return
-      const { width, height } = host.getBoundingClientRect()
-      const next = wheelCamera(current.current, event, inputMode, width, height)
+      const { height } = host.getBoundingClientRect()
+      const next = wheelCamera(current.current, event, height)
       if (next !== current.current) updateCamera(next)
     }
     host.addEventListener('pointerdown', down)
@@ -293,7 +291,7 @@ export function ViewportControls({
       document.removeEventListener('visibilitychange', visibility)
       document.removeEventListener('keydown', key)
     }
-  }, [host, runtime, updateCamera, onSelect, isCurrent, fit, inputMode])
+  }, [host, runtime, updateCamera, onSelect, isCurrent, fit])
   return (
     <div className="viewport-tools">
       <button
@@ -315,30 +313,8 @@ export function ViewportControls({
       >
         Reset view
       </button>
-      <button
-        aria-label={
-          inputMode === 'trackpad'
-            ? 'Switch to mouse controls'
-            : 'Switch to trackpad controls'
-        }
-        title={
-          inputMode === 'trackpad'
-            ? 'Trackpad: two-finger pan, pinch to zoom. Click for mouse controls.'
-            : 'Mouse: wheel to zoom, Shift + middle drag to pan. Click for trackpad controls.'
-        }
-        onClick={() => {
-          cancelDrag.current?.()
-          const next = inputMode === 'trackpad' ? 'mouse' : 'trackpad'
-          setInputMode(next)
-          saveNavigationInput(next)
-        }}
-      >
-        {inputMode === 'trackpad' ? 'Trackpad' : 'Mouse'}
-      </button>
-      <span title="Orbit: left or middle drag. Pan: Shift + middle or left drag. Select: left click. Fit all: ⌘1 / Ctrl+1. The input mode button selects two-finger pan or mouse wheel zoom.">
-        {inputMode === 'trackpad'
-          ? 'Two fingers to pan · Pinch to zoom'
-          : 'Shift + drag to pan · Scroll to zoom'}
+      <span title="Orbit: left or middle drag. Pan: Shift + middle or left drag. Zoom: two-finger scroll, mouse wheel or pinch. Select: left click. Fit all: ⌘1 / Ctrl+1.">
+        Shift + drag to pan · Scroll to zoom
       </span>
     </div>
   )

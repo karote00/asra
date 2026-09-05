@@ -4,7 +4,6 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { ViewportControls } from '../viewport'
 import { DEFAULT_CAMERA } from '../../render-app/workcell-frame'
-import { panCamera } from '../viewport-camera'
 import type { SpatialFrame } from '../../render-app/spatial-layer'
 import type { SimRuntime } from '../../init/bootstrap'
 
@@ -253,26 +252,22 @@ function wheel(options: WheelEventInit = {}) {
   host.dispatchEvent(event)
   return event
 }
-function expectPan(dx: number, dy: number) {
-  const expected = panCamera(DEFAULT_CAMERA, dx, dy, 600)
+function expectZoom(deltaY: number) {
   const actual = onCamera.mock.calls.at(-1)?.[0]
   expect(actual).toBeDefined()
-  for (const field of ['position', 'target'] as const)
-    expected[field].forEach((value, i) =>
-      expect(actual[field][i]).toBeCloseTo(value, 11)
+  expect(actual.target).toEqual(DEFAULT_CAMERA.target)
+  DEFAULT_CAMERA.position.forEach((value, i) =>
+    expect(actual.position[i]).toBeCloseTo(
+      DEFAULT_CAMERA.target[i] +
+        (value - DEFAULT_CAMERA.target[i]) * Math.exp(deltaY * 0.002),
+      11
     )
+  )
   expect(onSelect).not.toHaveBeenCalled()
 }
-async function switchInput(label: string) {
-  const button = controls.querySelector<HTMLButtonElement>(
-    `button[aria-label="${label}"]`
-  )
-  if (!button) throw new Error(`Missing input mode control: ${label}`)
-  await act(() => button.click())
-}
-it('defaults to two-finger pan in natural-scroll direction without changing zoom', () => {
+it('two-finger scrolling zooms without panning even with horizontal deltas', () => {
   expect(wheel({ deltaX: 60, deltaY: 30 }).defaultPrevented).toBe(true)
-  expectPan(-60, -30)
+  expectZoom(30)
   expect(getFitMeshes).not.toHaveBeenCalled()
 })
 it('handles canvas wheel intent before Framework bubble listeners suppress browser scrolling', () => {
@@ -288,20 +283,20 @@ it('handles canvas wheel intent before Framework bubble listeners suppress brows
     })
   )
   expect(onCamera).toHaveBeenCalledTimes(1)
-  expectPan(-60, -30)
+  expectZoom(30)
 })
 it('accumulates every wheel delta before the next React render', () => {
   for (let i = 0; i < 20; i++) wheel({ deltaX: 3, deltaY: 1.5 })
-  expectPan(-60, -30)
+  expectZoom(30)
 })
 it.each([
-  [1, 2, 3, -32, -48],
-  [2, 0.1, 0.2, -80, -120]
+  [1, 2, 3, 48],
+  [2, 0.1, 0.1, 60]
 ])(
   'normalizes wheel delta mode %i into viewport CSS pixels',
-  (deltaMode, deltaX, deltaY, dx, dy) => {
+  (deltaMode, deltaX, deltaY, pixels) => {
     wheel({ deltaMode, deltaX, deltaY })
-    expectPan(dx, dy)
+    expectZoom(pixels)
   }
 )
 it('pinch events zoom without panning, including multiple events in one render', () => {
@@ -317,22 +312,19 @@ it('pinch events zoom without panning, including multiple events in one render',
     )
   ).toBeCloseTo(radius * Math.exp(-0.06), 11)
 })
-it('switches to mouse wheel zoom, remembers the choice, and can restore trackpad pan', async () => {
-  await switchInput('Switch to mouse controls')
-  wheel({ deltaY: 20 })
-  expect(onCamera.mock.calls.at(-1)?.[0].target).toEqual(DEFAULT_CAMERA.target)
-  expect(localStorage.getItem('asyra-sim.navigation-input')).toBe('mouse')
-  await act(() => root.render(null))
-  await render()
-  expect(
-    controls.querySelector('button[aria-label="Switch to trackpad controls"]')
-  ).not.toBeNull()
-  await switchInput('Switch to trackpad controls')
-  onCamera.mockClear()
-  wheel({ deltaX: 60, deltaY: 30 })
-  expectPan(-60, -30)
-})
-it('keeps input mode switching usable when preference storage is unavailable', async () => {
+it.each(['trackpad', 'mouse'])(
+  'uses scroll zoom without a mode switch despite a previous %s preference',
+  async (preference) => {
+    localStorage.setItem('asyra-sim.navigation-input', preference)
+    await act(() => root.render(null))
+    await render()
+    wheel({ deltaX: 60, deltaY: 30 })
+    expectZoom(30)
+    expect(controls.textContent).toContain('Scroll to zoom')
+    expect(controls.querySelectorAll('button')).toHaveLength(2)
+  }
+)
+it('keeps scroll zoom usable when preference storage is unavailable', async () => {
   await act(() => root.render(null))
   vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
     throw new Error('denied')
@@ -341,12 +333,12 @@ it('keeps input mode switching usable when preference storage is unavailable', a
     throw new Error('denied')
   })
   await render()
-  await switchInput('Switch to mouse controls')
   wheel({ deltaY: 20 })
-  expect(onCamera.mock.calls.at(-1)?.[0].target).toEqual(DEFAULT_CAMERA.target)
+  expectZoom(20)
 })
 it('ignores zero, nonfinite, consumed and retired wheel events and does not interrupt dragging', () => {
   wheel()
+  wheel({ deltaX: 30 })
   const invalid = new WheelEvent('wheel', { deltaY: 1, cancelable: true })
   Object.defineProperty(invalid, 'deltaX', { value: NaN })
   host.dispatchEvent(invalid)

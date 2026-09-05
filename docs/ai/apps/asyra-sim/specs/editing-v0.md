@@ -120,23 +120,22 @@ canonical invalidation. A repeatable browser CPU profile covers the ordinary
 full-geometry workcell; its timings are local evidence, not a portable FPS
 guarantee.
 
-The viewport defaults to **Trackpad** input: two-finger scrolling pans in the
-natural-scroll direction, while Chromium's Ctrl-wheel pinch gesture zooms.
-The **Trackpad / Mouse** button explicitly selects the input device; no wheel
-delta heuristic guesses the hardware. Mouse mode keeps ordinary wheel zoom.
-Both modes retain Shift-drag pan, orbit, Fit and Reset. The preference is stored
-locally outside projects and History; blocked or invalid preference storage
-uses Trackpad initially and never prevents switching for the current session.
+Two-finger vertical scrolling, mouse wheel scrolling and Chromium's Ctrl-wheel
+pinch gesture all zoom about the current camera target. Horizontal scrolling
+does not pan. Shift-drag remains the pan gesture; orbit, Fit and Reset are
+unchanged. There is no device-mode switch or navigation preference dependency;
+previously stored input preferences cannot restore scroll-to-pan behavior.
 Browser zoom outside the canvas and scrolling within panels remain native.
 The canvas-host capture listener handles navigation before Framework bubble
 listeners suppress browser scrolling; already-consumed ancestor events remain
 ignored. Removal uses the same capture phase on replacement or unmount.
 
-Wheel deltas use CSS pixels, with 16 px per line and the viewport's corresponding
-dimension per page. Zero, nonfinite, consumed, Alt/Meta-modified and retired
+Wheel deltas use CSS pixels, with 16 px per line and viewport height per page.
+Zero, horizontal-only, nonfinite, consumed, Alt/Meta-modified and retired
 events do not move the camera. Burst deltas accumulate against the latest
 accepted view before React's next render; no input is discarded or replayed in
-a second animation loop. Pinch changes distance without panning or page zoom.
+a second animation loop. Scrolling and pinch change distance without panning
+or page zoom.
 
 Pan translates the eye and target together in the screen plane at the target's
 depth. CSS-pixel distance and the perspective field of view set its scale;
