@@ -62,6 +62,9 @@ respective specifications. The following aggregate limits apply in addition:
 | Project JSON / portable bundle | 64 MiB before parsing                                         |
 | Individual visual source       | 16 MiB, plus the restricted GLB structural caps               |
 | Referenced visual source bytes | 64 MiB per project                                            |
+| Field observation attachments | Four per note, 2 MiB per file                                  |
+| Observation source archive    | 64 distinct sources / 16 MiB, including Undo-retained bytes      |
+| Field observations            | 20 per retained run / 200 per project                           |
 | Decoded visual geometry        | 1,000,000 vertices / 3,000,000 indices per archive and expanded workcell |
 | Worker output payload          | 64 MiB encoded evidence, plus the leaf-count cap              |
 

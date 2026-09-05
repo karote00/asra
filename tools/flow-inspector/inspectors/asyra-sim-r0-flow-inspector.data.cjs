@@ -1150,6 +1150,7 @@
           'Show local storage errors without blocking editing; post-retirement failure disables editing and offers detached recovery download.',
           'Expose assumptions, unknowns, saving failures, comparison differences, and method versions.',
           'Author bounded typed acceptance trees in transient drafts and save through the existing editing Feature; present the retained result-owner evaluation and user verdict separately from unchanged method findings, never infer acceptance in the view.',
+          'Expose field observations only for retained run references; keep text and file drafts transient, validate file size/count before reading, show inert metadata, and dispatch explicit create/update/remove through the guarded runtime. Discard stale selections on run/library/lifetime changes, confirm removals, download opaque bytes as attachments and export feedback separately from immutable reports.',
           'Prepare visual sources through owned Features; show dimensions, units, digest and limitations, preview explicit body-local placement, then accept one binding transaction.',
           'Cancel or replace previews without canonical writes; invalidate transient placement when its source, target, or current workcell changes, and guard retired runtime callbacks.',
           'Keep visual/proxy display switches transient; binding edits and removal remain ordinary undoable model edits.',

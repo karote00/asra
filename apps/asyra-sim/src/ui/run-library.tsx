@@ -9,6 +9,7 @@ import {
 } from '../storage/run-reports'
 import { AnalysisResultView } from './analysis-result-view'
 import { downloadText } from './download-project'
+import { FieldObservations, type ObservationAccess } from './field-observations'
 import './run-library.css'
 
 export function RunLibrary({
@@ -19,6 +20,8 @@ export function RunLibrary({
   onReplay,
   onCandidate,
   isStale,
+  runtime,
+  isCurrent,
   onClose
 }: {
   runs: readonly RunRecord[]
@@ -32,6 +35,8 @@ export function RunLibrary({
   ) => void
   onCandidate: (id: string) => void
   isStale: (run: RunRecord) => boolean
+  runtime: ObservationAccess
+  isCurrent: () => boolean
   onClose: () => void
 }) {
   const dialog = useRef<HTMLDialogElement>(null)
@@ -247,6 +252,13 @@ export function RunLibrary({
                   onReplay(snapshot, time, bodyIds)
                   onClose()
                 }}
+              />
+              <FieldObservations
+                key={`${selected.result.runId}:${retainedIds.has(selected.result.runId)}`}
+                runtime={runtime}
+                runId={selected.result.runId}
+                retained={retainedIds.has(selected.result.runId)}
+                isCurrent={isCurrent}
               />
             </>
           )}

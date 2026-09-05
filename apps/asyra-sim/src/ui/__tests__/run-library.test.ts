@@ -10,6 +10,25 @@ import { terminalAnalysisResult } from '../../analysis/result'
 import { validateRunRecord } from '../../storage/run-record'
 import { RunLibrary } from '../run-library'
 
+const observationAccess = {
+  features: {
+    observations: {
+      prepare: vi.fn(),
+      retain: vi.fn(),
+      discard: vi.fn(),
+      cancel: vi.fn()
+    },
+    edit: {
+      addObservation: vi.fn(),
+      updateObservation: vi.fn(),
+      removeObservation: vi.fn()
+    }
+  },
+  getObservations: () => [],
+  getObservationAttachment: vi.fn(),
+  exportObservations: vi.fn()
+}
+
 let host: HTMLDivElement, root: Root
 const originalShow = HTMLDialogElement.prototype.showModal,
   originalClose = HTMLDialogElement.prototype.close
@@ -80,7 +99,9 @@ it('discloses incompatible comparisons and limits selection to three immutable r
         onReplay: vi.fn(),
         onCandidate: vi.fn(),
         isStale: () => false,
-        onClose: vi.fn()
+        onClose: vi.fn(),
+        runtime: observationAccess,
+        isCurrent: () => true
       })
     )
   )
@@ -118,7 +139,9 @@ it('retains the exact result and reports failure without claiming acknowledgemen
     onReplay: vi.fn(),
     onCandidate: vi.fn(),
     isStale: () => false,
-    onClose: vi.fn()
+    onClose: vi.fn(),
+    runtime: observationAccess,
+    isCurrent: () => true
   }
   await act(() => root.render(createElement(RunLibrary, props)))
   await act(async () => {

@@ -9,7 +9,18 @@ export function downloadRecovery(snapshot: ProjectSnapshot): void {
 }
 
 export function downloadText(name: string, text: string, type: string): void {
-  const blob = new Blob([text], { type })
+  downloadBlob(name, new Blob([text], { type }))
+}
+
+export function downloadBytes(
+  name: string,
+  bytes: Uint8Array,
+  type: string
+): void {
+  downloadBlob(name, new Blob([new Uint8Array(bytes)], { type }))
+}
+
+function downloadBlob(name: string, blob: Blob): void {
   const url = URL.createObjectURL(blob),
     link = document.createElement('a')
   link.href = url

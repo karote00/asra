@@ -11,7 +11,9 @@ trajectories, runs preflight and isolated continuous-time analysis, and replays
 frozen evidence. Runs can be explicitly retained, compared, exported, and reopened
 with portable projects. Independent A/B/C workcells can be duplicated and compared.
 Restricted GLB references can be previewed, attached, edited, and preserved with
-historical runs. Extension delivery and independent validation remain under development. Do not use this
+historical runs. Run-linked field observations and opaque attachments preserve
+real-world feedback separately from immutable evidence. Independent distribution
+and validation remain under development. Do not use this
 checkpoint to approve production operations.
 
 ## Local development
@@ -191,6 +193,37 @@ Comparison uses recorded body origins across A/B/C copies, not name matching;
 changes to geometry and parameters still appear. Original identities and lineage
 are retained in reports. Pair labels use the frozen model's names, with raw IDs
 available in the expanded evidence.
+
+## Field observations
+
+In **Runs & compare**, retain a result and scroll to **Field observations**.
+Choose **Add field observation**, describe what was actually measured, include
+units and context, and optionally select supporting files. Review the filenames,
+declared types, byte lengths and SHA-256 identities before **Save observation**.
+The note is a user report, not a validation certificate or automatic calibration.
+It never changes the experiment's original findings, uncertainty or verdict.
+
+Each run allows 20 notes (200 per project), with a 120-character title and
+8,000-character body. Each note allows four TXT/CSV/JSON/PNG/JPG/JPEG/PDF files,
+up to 2 MiB each; the runtime archive allows 64 distinct sources and 16 MiB of
+original bytes. Attachments are opaque: the App does not open, parse, render,
+execute, scan, align or certify them. Downloads do not automatically open them.
+Changing a run, closing the library or replacing a file selection discards the
+transient preparation. Unsupported and oversized selections are rejected before
+reading. Identical contents cannot appear twice in one note.
+
+**Edit observation** keeps its identity and advances its revision for material
+changes. Stale drafts cannot overwrite a changed note. **Remove observation**
+requires confirmation. These metadata changes use the ordinary Undo/Redo owner;
+accepted source bytes remain available for Undo within the runtime limit. Save
+the project separately: an accepted note is not a durable save or a backup.
+
+Native projects carry only currently referenced observation sources. Every
+source is integrity-checked before an imported project can replace the current
+runtime, and again during startup. **Export field observations** creates a
+separate JSON bundle with the run/snapshot identity, current notes and files.
+The run's existing JSON/CSV/HTML reports remain unchanged. See the
+[field observation contract](../../docs/ai/apps/asyra-sim/specs/field-observations-v0.md).
 
 ## Architecture
 

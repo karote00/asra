@@ -618,6 +618,9 @@ export function Workbench() {
       </main>
       {showRuns && ready && runtime && (
         <RunLibrary
+          key={lifecycle.generation}
+          runtime={runtime}
+          isCurrent={() => isCurrent(runtime)}
           runs={runs}
           retainedIds={retainedIds}
           candidateIds={new Set(candidates.map((candidate) => candidate.id))}

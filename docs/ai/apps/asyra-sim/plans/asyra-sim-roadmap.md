@@ -11,7 +11,7 @@ trajectory previews, preflight, isolated formal runs, frozen evidence replay,
 explicit run retention with Undo/Redo, two/three-run comparison, reports, and
 portable project import/export, and independent candidate duplication with frozen
 body lineage, bounded progress/cancellation, and restricted GLB attachment with
-independent body-local placement. Its local gate passes 330 App tests and 23 normal
+independent body-local placement. Its local gate passes 360 App tests and 24 normal
 browser journeys plus type/lint/build; comparison, import, visual placement and
 replay screenshots were inspected. Visual sources survive Undo/Redo and native
 replacement, including historical-only references. Invalid source content is
@@ -28,9 +28,13 @@ unchanged. Typed acceptance groups now have bounded schemas, evidence-based
 three-valued evaluation, canonical revision/Undo behavior and ordinary UI editing.
 Reports, comparisons and reopened history preserve the same evaluated tree;
 successful acceptance never hides incomplete execution, coverage or raw findings.
-This is not M2-M4 completion: field observations and larger numerical usability
-benchmarks still need implementation or validation. M5
-distribution/reference-hardware evidence and M6 independent acceptance remain.
+Run-linked field observations now support bounded text/opaque files, revisioned
+editing and Undo/Redo, separate feedback bundles, and verified source persistence.
+The ordinary browser journey proves byte-exact downloads, unchanged historical
+reports, corrupt-import rejection before retirement, and portable reopening;
+its editor, attachment review and retained-note screenshots were inspected.
+Larger numerical usability benchmarks still require implementation or validation.
+M5 distribution/reference-hardware evidence and M6 independent acceptance remain.
 
 The goal is a free, pluggable, trustworthy experiment workbench. Its first bounded
 product is [robot workcell geometry experiments](../specs/robot-workcell-v0.md).
