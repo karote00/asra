@@ -19,6 +19,14 @@
   and integrity-checked reopening are implemented. Full resource gates remain. Admission,
   retained-evidence caps, Worker deadlines/cancellation, and bounded visible
   progress now have focused regressions and ordinary browser coverage.
+- M5 delivery checkpoint: `125a09c0e` passes the clean exact-source producer:
+  19 rebuilt/validated Framework tarballs, 348 unchanged registry inputs, 360 App
+  tests, type and main/Worker input isolation, and versioned local candidate
+  assembly with original notices, source SDK, guides and checksums. The launcher
+  and packaging guards pass 18 permanent tests; normal startup/editing passes
+  three browser tests. This is assembly evidence, not packaged offline or R0
+  acceptance. Candidate artifacts are retained under the App's
+  `.artifacts/consumers/125a09c0e3a2-qGNQsL/`.
 - R0 first public release: not ready; no gate is claimed to have passed.
 
 This index is a concise checkpoint, not a replacement for the roadmap or product contract.
@@ -31,7 +39,13 @@ This index is a concise checkpoint, not a replacement for the roadmap or product
      extensions -> M5 quality and delivery -> M6 independent pilot and R0
      release review.
    - The first release requires M0-M6. It does not wait for M7 domain expansion.
-   - Current work: representative numerical/resource validation and M5 independent delivery.
+   - Next bounded work: production-package offline browser workflows and inspected
+     screenshots; the permanent six-axis / 30-fixed-shape / 200-keyframe /
+     three-candidate resource benchmark; then the remaining local candidate
+     closeout gates. Work is paused at the validated delivery checkpoint, not
+     marked complete. Reference M1/8 GB hardware, two independent pilots and
+     public reporting/maintenance policy still require external evidence or
+     user decisions; do not substitute this development host or self-review.
      The approved reset scope and owner sequence are recorded in the roadmap.
      The user approved Three.js, its types and necessary dependencies, and the
      necessary Framework lifecycle extensions.

@@ -34,7 +34,14 @@ The ordinary browser journey proves byte-exact downloads, unchanged historical
 reports, corrupt-import rejection before retirement, and portable reopening;
 its editor, attachment review and retained-note screenshots were inspected.
 Larger numerical usability benchmarks still require implementation or validation.
-M5 distribution/reference-hardware evidence and M6 independent acceptance remain.
+M5 exact-source consumer build and candidate assembly now pass at `125a09c0e`:
+19 Framework packages, 348 locked registry records, 360 App tests, isolated type
+and main/Worker build inputs, and a versioned folder/archive with guides, SDK,
+original notices and checksums. Eighteen launcher/delivery tests and three normal
+startup/editing browser tests pass. Packaged offline browser evidence, larger
+resource usability, reference hardware and M6 independent acceptance remain.
+The current pause is a validated delivery checkpoint, not App/R0 completion;
+resume from the next bounded work in [PLANS.md](../PLANS.md).
 
 The goal is a free, pluggable, trustworthy experiment workbench. Its first bounded
 product is [robot workcell geometry experiments](../specs/robot-workcell-v0.md).
