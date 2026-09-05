@@ -113,3 +113,15 @@
 - The preflight result is detached diagnostic data, not an artifact for another
   Core. Schema recovery and ordinary load semantics remain unchanged; trusted
   migration hooks must be pure and successor load validates again.
+
+## 2026-09-05 — Preserve Prerequisite History Across Release Cycles
+
+- Package-source validation reads both ongoing decisions and versioned Framework
+  archives. Starting a new development cycle or advancing the root version does
+  not erase earlier prerequisite evidence. Matching source paths are returned
+  directly; no manually maintained summary is introduced.
+- Required plans, Inspectors, test paths and decision entries remain mandatory.
+  Historical record presence is not current test execution or release approval.
+  An empty ongoing log is a release-cut condition, not a general packaging rule.
+- Permanent regressions cover first-release, mixed ongoing/archived, multiple
+  version and missing-evidence cases. Published history is unchanged.
