@@ -60,7 +60,7 @@ contracts speculatively or move generic defaults into Preset during this task.
 | Sim results/storage   | Immutable runs, comparison, persistence acknowledgement, export, feedback attachments       | Converting partial or unknown into clear                              |
 | Render/UI             | Scene and evidence presentation, intent input                                               | Authority over physical correctness or document state                 |
 
-## 3. Proposed Source Organization
+## 3. Source Organization
 
 Owner locations (some later-stage owners are not implemented yet):
 
@@ -92,6 +92,40 @@ Start with App-owned modules rather than many new `packages/*`. Extract a
 package only when independent distribution or actual cross-App reuse requires
 it. Cross-package imports must use public `@asyra/...` entries or approved
 subpaths, never repository-private deep imports.
+
+### Workbench organization
+
+The UI is organized by Sim responsibility, not by copying Design's directory
+tree or introducing its 2D providers, collaboration stack, or server APIs:
+
+- `ui/shell/`: workbench composition, bounded intent callbacks, toolbars,
+  hierarchy rows, notices, and panel shells.
+- `ui/runtime/`: App-lifetime subscriptions and revision-bound read projections.
+- `ui/objects/`: body metadata, independent mount/joint/part fields, and
+  non-canonical field-edit helpers.
+- `ui/experiments/`: experiment drafts, configuration, acceptance rules,
+  preflight presentation, and experiment orchestration.
+- `ui/imports/`: trajectory and original-part import controllers and views.
+- `ui/results/` and `ui/observations/`: evidence, comparison, retention/export
+  orchestration, and separately editable field observations.
+- `ui/projects/`: explicit local/portable project operations and their views.
+- `ui/viewport/`: transient camera input, projection handoff, and playback.
+- `ui/shared/`: small field controls, keyboard eligibility, and error formatting.
+- `ui/styles/`: Tailwind entry, native-control base, and light/dark theme tokens.
+
+Keep formal tests beside the owning slice. TSX composes views and small local
+input handlers; canonical runtime calls, persistence, asynchronous import
+lifecycles, and reusable calculations belong in the matching controller or
+helper module. Controllers still dispatch the existing Features; they are not
+a second transaction or state owner. Existing `features/`, `common-apis/`,
+domain, storage, solver, and renderer boundaries remain authoritative.
+
+Component layout uses Tailwind utilities. Only native control defaults and
+theme tokens belong in CSS; semantic classes retained for browser selectors
+do not define a parallel component stylesheet system. Keep blank lines between
+logical TSX sections and statement groups, wrap long utility lists, and split
+by responsibility rather than an arbitrary line-count target. Trivial local
+input handlers may remain next to their fields.
 
 ## 4. Editing and Analysis Have Different Lifecycles
 
@@ -166,6 +200,17 @@ Spatial admission isolates new data and issues immutable products that can
 cross later internal handoffs without repeated triangle scans or copies.
 Camera-only updates use the registered spatial layer and existing Framework
 frame scheduler, never a second engine loop or direct SDK access.
+
+Canonical experiment queries refresh on runtime, candidate, or canonical
+revision, not draft-only input. Hierarchy rows consume only their displayed
+identity, label, role, joint indicator, visibility, depth, and selection; a
+single label edit does not rerender unrelated rows. Experiment scope rows are
+isolated from numerical draft fields, and a role change updates only its row.
+Mount, joint, and original
+placement sections compare their complete small field values, never source
+triangles. Their callbacks merge a section patch against the latest committed
+body so retaining a field view cannot overwrite a newer name or other section.
+React view reuse adds no editable state, geometry cache, or transaction.
 
 The exact navigation and admission contracts remain in
 [editing-v0.md](specs/editing-v0.md) and

@@ -93,6 +93,16 @@ unfinished input text. A different body, candidate or App lifetime creates a new
 editor. Experiment drafts, import preview/acceptance and explicit project saving
 retain their separate existing contracts.
 
+Unchanged mount, joint, and original-placement controls retain their render
+boundaries when other fields change. Comparisons include every displayed field
+and relevant unit; callbacks use the latest committed body. Hierarchy rows
+similarly consume only their displayed fields. A label edit must refresh that
+label without rerendering every unrelated row. This is a work-count contract,
+not a hardware frame-rate guarantee or permission to retain stale inputs.
+The experiment scope list is similarly isolated from numerical draft edits:
+changing clearance does not redraw its rows, and a role change must preserve
+the latest draft values in other sections.
+
 Formal cases cover automatic field completion, sequential edits, focus and unit
 retention, rotation replay, no-op/Escape, invalid dimensions/scales/joint limits,
 and one Undo per completed field through the ordinary browser workbench.

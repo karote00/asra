@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
+    "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
@@ -36,6 +37,7 @@
     "@vitejs/plugin-react": "^4.7.0",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^27.4.0",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.7.2",
     "vite": "^6.4.3",
     "vitest": "^3.2.6"

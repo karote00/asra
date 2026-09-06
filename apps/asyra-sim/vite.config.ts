@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { resolveAppEnvironment } from './app-environment.mjs'
 
 export default defineConfig(({ command }) => {
@@ -10,7 +11,7 @@ export default defineConfig(({ command }) => {
     : undefined
 
   return {
-    plugins: [react()],
+    plugins: [tailwindcss(), react()],
     base: './',
     server,
     preview: server,

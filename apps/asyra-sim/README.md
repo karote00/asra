@@ -56,6 +56,20 @@ visual-state metadata. Browser proofs complement rather than replace complete
 product E2E. See the [initial runtime profile](../../docs/ai/apps/asyra-sim/specs/runtime-profile-v0.md)
 for the unverified ordinary-hardware target and delivery limits.
 
+## UI development boundaries
+
+UI folders follow Sim responsibilities: shell, runtime, objects, experiments,
+imports, results, observations, projects, viewport, and shared controls. Views
+use Tailwind; `ui/styles/` contains only its entry/base and theme tokens.
+Controllers own asynchronous UI orchestration and call existing Features.
+Pure helpers and formal tests live with the relevant slice. Do not copy
+Design's 2D or server architecture, create a parallel editable model, or split
+files without checking the actual update boundary. Keep logical TSX sections
+spaced and long utility lists wrapped for human review.
+
+See the [App architecture](../../docs/ai/apps/asyra-sim/ARCHITECTURE.md#3-source-organization)
+for the owner map and render-boundary contracts.
+
 ## Local projects
 
 Use **Projects** to name and save a project, save a separate copy, or explicitly

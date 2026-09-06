@@ -9,6 +9,9 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await expect(page.getByRole('status')).toHaveText('Local runtime ready')
     for (const width of [1440, 960, 600]) {
       await page.setViewportSize({ width, height: 960 })
+      const modelToggle = page.locator('button[aria-label="Model"]')
+      if (width > 1100) await expect(modelToggle).toBeHidden()
+      else await expect(modelToggle).toBeVisible()
       const buttons = page.locator('.topbar button, .commandbar button')
       await expect(buttons).toHaveCount(9)
       for (const button of await buttons.all()) {
