@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "negativeCaseIds": ["cancel.outcome", "cancel.delivery"],
+  "targetId": "transaction-atomicity",
+  "architecturePath": "tools/flow-inspector/inspectors/transaction-flow-inspector.data.cjs",
+  "specPath": "docs/ai/framework/packages/factory.md",
+  "testFile": "packages/factory/src/__tests__/flow-proof.test.ts",
+  "configFile": "packages/factory/src/__tests__/flow-proof.config.ts",
+  "externalInputs": [
+    "artifact:transaction-boundary",
+    "artifact:transaction-outcome-request",
+    "artifact:commit-validation"
+  ],
+  "flows": [
+    {
+      "id": "deferred-publication",
+      "title": "Publish a committed change",
+      "goal": "Consumers receive the captured change once, after a successful transaction.",
+      "stepIds": [
+        "record-reversible-journal",
+        "finalize-transaction-state",
+        "settle-local-shared-projection"
+      ],
+      "cases": [
+        {
+          "id": "deferred.snapshot",
+          "stepId": "record-reversible-journal",
+          "testName": "Factory flow proof deferred snapshot"
+        },
+        {
+          "id": "deferred.outcome",
+          "stepId": "finalize-transaction-state",
+          "testName": "Factory flow proof deferred outcome"
+        },
+        {
+          "id": "deferred.delivery",
+          "stepId": "settle-local-shared-projection",
+          "testName": "Factory flow proof deferred delivery"
+        }
+      ]
+    },
+    {
+      "id": "immediate-cancellation",
+      "title": "Cancel an already visible change",
+      "goal": "Cancellation restores the original value and compensates the published change without adding History.",
+      "stepIds": [
+        "record-reversible-journal",
+        "finalize-transaction-state",
+        "settle-local-shared-projection"
+      ],
+      "cases": [
+        {
+          "id": "cancel.snapshot",
+          "stepId": "record-reversible-journal",
+          "testName": "Factory flow proof cancel snapshot"
+        },
+        {
+          "id": "cancel.outcome",
+          "stepId": "finalize-transaction-state",
+          "testName": "Factory flow proof cancel outcome"
+        },
+        {
+          "id": "cancel.delivery",
+          "stepId": "settle-local-shared-projection",
+          "testName": "Factory flow proof cancel delivery"
+        }
+      ]
+    }
+  ]
+}

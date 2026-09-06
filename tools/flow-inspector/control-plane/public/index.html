@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Flow Inspector - Core Proof</title>
+    <link rel="stylesheet" href="/board.css" />
+    <script type="module" src="/board.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/"
+        ><span class="brand-mark" aria-hidden="true">F</span> Flow Inspector</a
+      >
+      <span class="environment"
+        >LOCAL WORKSPACE <span class="live-dot"></span
+      ></span>
+    </header>
+    <main>
+      <div class="heading">
+        <div>
+          <p class="eyebrow">CORE PROOF - TRANSACTION CONTRACTS</p>
+          <h1>Know what your change affects.</h1>
+          <p class="intro">
+            Two real flows. Shared responsibilities. Evidence from the code that
+            actually runs.
+          </p>
+        </div>
+        <span class="scope-tag">Bounded coverage - 2 flows</span>
+      </div>
+      <section class="toolbar" aria-label="Verification actions">
+        <label
+          >Source scenario<select id="scenario">
+            <option value="baseline">Current source</option>
+            <option value="inverse-regression">Inverse regression demo</option>
+          </select></label
+        >
+        <button id="run-all" class="primary" type="button">
+          Run all flows
+        </button>
+        <button id="cancel" class="secondary" type="button" disabled>
+          Cancel run
+        </button>
+        <button id="refresh" class="quiet" type="button">
+          Refresh results
+        </button>
+        <span id="run-state" class="run-state" role="status"
+          >Ready to verify</span
+        >
+      </section>
+      <p id="error" class="error" role="alert" hidden></p>
+      <section class="summary" aria-label="Selected verification">
+        <div>
+          <span class="summary-label">VERIFICATION</span
+          ><strong id="overall" data-status="unknown">Not run</strong>
+        </div>
+        <div>
+          <span class="summary-label">REQUIRED CHECKS</span
+          ><strong id="checks">0 / 6</strong>
+        </div>
+        <div>
+          <span class="summary-label">SHARED RESPONSIBILITIES</span
+          ><strong>3 <small>across both flows</small></strong>
+        </div>
+        <p id="result-context">
+          Run the supported flow set to establish a baseline. Unknown means
+          unverified.
+        </p>
+      </section>
+      <div class="workspace">
+        <section class="flow-area" aria-label="Supported flows">
+          <div id="flows" class="flows"></div>
+        </section>
+        <aside>
+          <section class="side-panel">
+            <p class="eyebrow">CAPTURED SOURCE</p>
+            <h2>Evidence you can trace</h2>
+            <p class="muted">
+              Results apply to this captured source, including local changes.
+              They do not indicate deployment status.
+            </p>
+            <dl class="provenance">
+              <dt>Source digest</dt>
+              <dd id="source-digest">No snapshot yet</dd>
+              <dt>Git HEAD</dt>
+              <dd id="source-head">-</dd>
+              <dt>Attempt</dt>
+              <dd id="attempt-id">-</dd>
+              <dt>Local artifacts</dt>
+              <dd id="artifacts">-</dd>
+            </dl>
+          </section>
+          <section class="side-panel">
+            <div class="panel-heading">
+              <h2>Recent attempts</h2>
+              <span class="muted">latest 20</span>
+            </div>
+            <div id="history" class="history">
+              <p class="muted">Your verification history will appear here.</p>
+            </div>
+          </section>
+          <section class="scope-note">
+            <h2>What this proves</h2>
+            <p>
+              Factory journal isolation, transaction outcomes, and shared
+              delivery for these two flows.
+            </p>
+            <p>
+              Try the inverse regression demo: a commit still works, while
+              cancellation breaks. Then run the current source to verify
+              recovery.
+            </p>
+          </section>
+        </aside>
+      </div>
+      <footer>
+        Snapshot-bound verification - local trusted code - no agent or external
+        delivery actions
+      </footer>
+    </main>
+  </body>
+</html>
