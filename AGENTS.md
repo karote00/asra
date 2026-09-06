@@ -27,6 +27,8 @@ These rules apply to every task without requiring additional document reads:
   `docs/ai/framework/rules/app-optimization-and-maintainability.md` before the
   first implementation slice. Design ownership and actual update boundaries
   up front; reuse optimization concepts, not another app's entire architecture.
+  Use fine-grained subscriptions and composition for UI updates, not
+  `React.memo` or props-comparison wrappers.
 - Before introducing or renaming identifiers, resolve their semantic owner,
   brand-neutral naming, and persistence compatibility. Run `yarn lint:naming`
   before implementation and after the first identifier-bearing slice, before

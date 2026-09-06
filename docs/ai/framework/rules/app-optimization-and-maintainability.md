@@ -53,6 +53,20 @@ Preserve applicable Inspector contracts rather than inventing another owner.
 Splitting a file does not isolate rendering or computation. Verify the data and
 subscription boundary, not just the component tree.
 
+- Establish UI update boundaries through state ownership, fine-grained
+  subscriptions, and component composition. Do not wrap app UI components in
+  `React.memo`, `memo`, `PureComponent`, or equivalent props-comparison wrappers
+  to manage these boundaries. Do not build `useMemo`/`useCallback` chains merely
+  to keep such component wrappers effective.
+- Subscribe where the value is consumed. Filter notifications by the relevant
+  property, entity, or semantic projection before scheduling consumer updates,
+  rather than broadcasting a whole-document change and comparing child props
+  afterward. Keep unchanged projections stable under the owner's contract;
+  do not clone or retain a second editable model for this purpose.
+- Keep composition above frequently changing local state when siblings do not
+  depend on that state. A component can still render when its own inputs change;
+  the goal is to prevent unrelated work at its source, not to suppress React
+  rendering indiscriminately.
 - Pass only the fields a child consumes. Do not pass an entire runtime snapshot,
   controller result, or changing context object to every child for convenience.
 - Keep high-frequency presentation state, such as camera movement or playback,
@@ -76,15 +90,18 @@ subscription boundary, not just the component tree.
 
 - Measure the affected normal product path before choosing an optimization.
   Use render/read/allocation counts for deterministic work boundaries and
-  profiling for time or memory costs. Do not add memoization everywhere by default.
+  profiling for time or memory costs. UI component memoization is not an
+  architectural optimization path under this rule.
 - Fix broad subscriptions, redundant reads, repeated scans, and unstable inputs
   at their first responsible owner before adding retained state around them.
-- For a cache or memoized projection, identify its owner, retained value, exact
+- Algorithmic caches and derived-data caches are distinct from component
+  memoization. For such a cache, identify its owner, retained value, exact
   key, invalidation, bounds, disposal, and uncached/miss behavior. Cover all
   semantic inputs, including units and error states where applicable.
-- Comparators must cost less than the work they avoid. Do not deep-compare or
-  serialize an entire document or mesh on every interaction merely to skip a render.
-- Stable view reuse must preserve fresh callbacks, validation, errors, geometry,
+- Projection equality must follow its semantic change contract. Do not relocate
+  a large props comparator into a subscription helper, or deep-compare/serialize
+  an entire document or mesh on every interaction merely to skip a render.
+- Localized updates must preserve fresh callbacks, validation, errors, geometry,
   numerical meaning, and transaction behavior. Reduced fidelity, hidden failures,
   stale results, or fixture-specific shortcuts are not performance fixes.
 - For Inspector-governed caches, follow
@@ -119,6 +136,9 @@ subscription boundary, not just the component tree.
   relevant update boundary. For example: changing one row refreshes that row,
   unrelated controls retain their view, relevant inputs still refresh, and a
   retained callback preserves the latest values in other fields.
+- Test the relevant subscription notifications, reads, and computations as well
+  as rendering. A passing render count must not merely show that a memo wrapper
+  hid an unchanged broad notification or document-recapture problem.
 - Verify the affected lifecycle cases: invalid input, sequential edits,
   Undo/Redo, cancellation, and document/runtime replacement as applicable.
 - Exercise representative workloads, not just an empty screen. Keep heavy tests

@@ -113,6 +113,10 @@ from the first implementation slice. It owns responsibility-based organization,
 controller/helper separation, localized updates, evidence-driven optimization,
 Tailwind component styling, and readable TSX. Existing apps demonstrate these
 concepts; their complete architecture is not a required template.
+UI update isolation belongs to state ownership, fine-grained subscriptions,
+and composition, not `React.memo` or equivalent props-comparison wrappers.
+Independent computation caches follow the separate evidence and lifecycle
+requirements in that rule.
 
 ## Test Placement Standards
 
