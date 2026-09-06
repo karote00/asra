@@ -108,7 +108,7 @@ __metadata:
     "@types/react": "npm:^19.2.18"
     "@types/react-dom": "npm:^19.2.5"
     "@types/ws": "npm:^8.18.1"
-    "@visioncortex/vtracer": "npm:1.0.0-alpha.1"
+    "@visioncortex/vtracer": "npm:1.0.0-alpha.4"
     "@vitejs/plugin-react": "npm:^4.7.0"
     bezier-js: "npm:^6.1.4"
     eslint: "npm:^10.0.1"
@@ -4233,10 +4233,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@visioncortex/vtracer@npm:1.0.0-alpha.1":
-  version: 1.0.0-alpha.1
-  resolution: "@visioncortex/vtracer@npm:1.0.0-alpha.1"
-  checksum: 10c0/f47a005c6498e8b6db156cfc6ac2240345dd05cd4870b0ea1192ff2fc0d78b1120a15e96713c7af37451d6319c631599c58aedd8a85381dee207fabf9b640c3e
+"@visioncortex/vtracer@npm:1.0.0-alpha.4":
+  version: 1.0.0-alpha.4
+  resolution: "@visioncortex/vtracer@npm:1.0.0-alpha.4"
+  checksum: 10c0/8025709d9175f7c1ebac43edf0af320696d1286a0db4bffcf47f1b3706fe55295d78cbb4372ef67b3f5ebe2be56c3fb989cae13ef0a3ccfdd933a1ba53cb838d
   languageName: node
   linkType: hard
 

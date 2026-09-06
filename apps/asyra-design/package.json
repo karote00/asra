@@ -16,7 +16,7 @@
     "@asyra/utils": "workspace:*",
     "@preact/signals-react": "^2.2.0",
     "@tanstack/react-virtual": "^3.14.10",
-    "@visioncortex/vtracer": "1.0.0-alpha.1",
+    "@visioncortex/vtracer": "1.0.0-alpha.4",
     "bezier-js": "^6.1.4",
     "lodash": "^4.18.1",
     "react": "^19.2.8",
