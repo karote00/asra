@@ -49,16 +49,16 @@ contracts speculatively or move generic defaults into Preset during this task.
 
 ## 2. Ownership
 
-| Owner                 | Owns                                                                                        | Does not own                                                          |
-| --------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Asyra Framework       | Generic intent, transactions, canonical graph/properties, load validation, render contracts | Robots, analysis methods, collision results, factory rules            |
-| Sim App composition   | Renderer, method catalog, UI, storage, and job-lifecycle composition                        | A second intent runtime bypassing the Framework                       |
+| Owner                 | Owns                                                                                          | Does not own                                                          |
+| --------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Asyra Framework       | Generic intent, transactions, canonical graph/properties, load validation, render contracts   | Robots, analysis methods, collision results, factory rules            |
+| Sim App composition   | Renderer, method catalog, UI, storage, and job-lifecycle composition                          | A second intent runtime bypassing the Framework                       |
 | Sim workcell domain   | Joints, units, complete original parts, native shapes, trajectories, world and relative poses | Renderer SDK objects or hidden solver state                           |
-| Sim experiment domain | Scope, method selection, rules, candidates, and snapshots                                   | Recomputing solver distances to repair reports                        |
-| Sim analysis service  | Execution, capability preflight, budgets, isolation, output validation                      | Arbitrary mutation of the editable canonical scene                    |
-| Method/solver adapter | Formal analysis and evidence under declared conditions                                      | Silent changes to trajectory, scope, or thresholds; reading UI pixels |
-| Sim results/storage   | Immutable runs, comparison, persistence acknowledgement, export, feedback attachments       | Converting partial or unknown into clear                              |
-| Render/UI             | Scene and evidence presentation, intent input                                               | Authority over physical correctness or document state                 |
+| Sim experiment domain | Scope, method selection, rules, candidates, and snapshots                                     | Recomputing solver distances to repair reports                        |
+| Sim analysis service  | Execution, capability preflight, budgets, isolation, output validation                        | Arbitrary mutation of the editable canonical scene                    |
+| Method/solver adapter | Formal analysis and evidence under declared conditions                                        | Silent changes to trajectory, scope, or thresholds; reading UI pixels |
+| Sim results/storage   | Immutable runs, comparison, persistence acknowledgement, export, feedback attachments         | Converting partial or unknown into clear                              |
+| Render/UI             | Scene and evidence presentation, intent input                                                 | Authority over physical correctness or document state                 |
 
 ## 3. Source Organization
 
@@ -181,6 +181,52 @@ transport batches pair evidence at most ten times per second; terminal evidence
 is delivered immediately and includes any pairs not sent in a progress batch.
 Counts describe received evidence, not elapsed-work percentages, future runtime,
 or a final safety conclusion.
+
+### Shared playback evidence
+
+The analysis-owned `analysis/live/` service retains one admitted input lifetime
+and bounded immutable observations indexed by exact sampled time. Its Feature
+is non-mutating and cancellable. A cache miss lazily allocates one Worker,
+transfers the snapshot once, then sends time-only requests. There is at most one
+in-flight sample and one latest pending time. The static invocation uses the
+selected installed method, complete geometry, scope and numerical settings.
+Neither the animation clock nor the renderer performs geometry queries.
+
+The current cache retains up to 256 samples under the shared evidence-byte cap;
+oldest records are evicted first. Normal playback requests a 0.2-second
+simulation-time grid so subsequent Play operations can reuse exact samples.
+Crossed canonical trajectory keyframes are checked in order before catching up
+with the playhead, including after a dropped display frame or the final frame;
+only optional intermediate samples may be coalesced. An exact seek starts a new
+sampling anchor and does not sweep skipped time. No list of pending frames is
+retained. Each missing
+sample has a 500 ms execution ceiling (or the smaller experiment time budget),
+and the parent watchdog terminates unresponsive work. Partial or failed checks
+remain explicitly unknown. These sampled observations are visible in the
+experiment panel but never become continuous coverage, an acceptance verdict,
+an immutable formal run, or an Undo entry.
+
+An owner-issued input identity allows reuse across Play lifetimes; caller-owned
+objects with matching IDs cannot claim that identity. Experiment, candidate,
+revision, and warning-acknowledgement changes fence reuse. Committed or rolled
+back transactions conservatively invalidate current observations. Retained
+historical reports are not deleted: semantic freshness checks exclude changed
+geometry, source bindings, trajectories, scope, method/settings, or rules from
+current Play reuse.
+
+Compatible formal evidence bypasses live Worker creation. The UI replays
+established witness times and preserves continuous-clear certificates; a
+finding interval is not interpreted as continuous contact. Live feedback and
+formal replay both produce engine-neutral whole-part appearance at the exact
+checked pose. Default collision pause restores that pose. Disabling pause
+leaves the clock running and labels earlier observations without coloring a
+different pose. Precise contact regions and region picking remain planned.
+
+The feedback banner and sampled-observation section own narrow subscriptions.
+Seeking fences late responses; leaving playback, hiding the page, formal
+analysis, input replacement and runtime disposal retire owned work. No new
+Framework render layer, component memo wrapper, solver geometry, or persistent
+storage is introduced by playback feedback.
 
 The dedicated `asyra-sim-r0-flow-inspector.data.cjs` under
 `tools/flow-inspector/inspectors/` owns exact step boundaries and handoffs.

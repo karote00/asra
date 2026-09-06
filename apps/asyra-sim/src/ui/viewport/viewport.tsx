@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import type { Workcell } from '../../domain/workcell'
 import type { SimRuntime } from '../../init/bootstrap'
-import { DEFAULT_CAMERA } from '../../render-app/workcell-frame'
+import {
+  DEFAULT_CAMERA,
+  type PartHighlight
+} from '../../render-app/workcell-frame'
 import type { PreparedVisualImport } from '../../storage/visual-archive'
 import { useViewport } from './use-viewport-projection'
 import { ViewportControls } from './viewport-controls'
@@ -16,6 +19,7 @@ export function Viewport({
   wireframe,
   joints,
   pending,
+  highlight,
   onSelect,
   isCurrent
 }: {
@@ -27,6 +31,7 @@ export function Viewport({
   wireframe: boolean
   joints?: Readonly<Record<string, number>>
   pending?: PreparedVisualImport
+  highlight?: PartHighlight
   onSelect: (id: string | null) => void
   isCurrent: (runtime: SimRuntime) => boolean
 }) {
@@ -41,7 +46,8 @@ export function Viewport({
     isCurrent,
     joints,
     wireframe,
-    pending
+    pending,
+    highlight
   )
 
   return (

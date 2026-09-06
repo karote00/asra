@@ -94,6 +94,27 @@ This index is a concise checkpoint, not a replacement for the roadmap or product
 
 ## Unscheduled Directions
 
+### Precise contact regions and inspection
+
+Requested follow-up to live whole-part highlighting: show only established
+contact/intersection regions where the method can provide them. When playback
+is paused, clicking a region should open its details in the existing right
+inspector. This is planned, not implemented by whole-part highlighting.
+
+Prerequisites: a method-owned, versioned region artifact tied to exact source
+part/triangle identities, placements and checked time; explicit semantics for
+surface contact versus solid overlap, numerical uncertainty and multiple
+disconnected regions; renderer-neutral projection/picking identities; and a
+read-only inspector showing both parts, checked time, method, bounds and
+limitations. A witness point, bounding box or estimated screen marker is not a
+contact region. Unsupported methods retain clearly labelled whole-part
+highlights rather than fabricating regions.
+
+Validation must cover concave and contained parts, multiple contacts, uncertain
+boundaries, source edits and stale picks, paused/resumed playback, unchanged
+Undo/reports and normal-App close-up screenshots. Freeze a bounded geometry
+contract and Inspector owner handoff before implementing this extension.
+
 Choose based on pilot needs: additional geometry and importers, more complex
 mechanisms, additional analysis methods, batch experiments, and field-data
 alignment. TCAD, whole-factory scheduling, AI, and cloud services are not a

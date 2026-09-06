@@ -9,6 +9,8 @@ import {
 } from '../common-apis/document'
 import { installEditingFeatures } from '../features/edit-workcell'
 import { installAnalysisFeature } from '../features/analysis'
+import { installLivePlaybackFeature } from '../features/live-playback'
+import { LivePlaybackRunner } from '../analysis/live/runner'
 import { installModelComponents } from './components'
 import { installCustomRenderer } from './custom-renderer'
 import type { SpatialFrame, SpatialCamera } from '../render-app/spatial-layer'
@@ -188,6 +190,14 @@ export async function bootstrap(
     })
     const analysisRunner = new AnalysisRunner()
     const analysis = installAnalysisFeature(core, analysisRunner)
+    const liveRunner = new LivePlaybackRunner()
+    const live = installLivePlaybackFeature(core, liveRunner)
+    subscriptions.add(
+      core.subscribeToTransactionStatus((event) => {
+        if (event.status === 'committed' || event.status === 'rolled-back')
+          liveRunner.invalidate()
+      })
+    )
     const visualStorage = installVisualStorageFeatures(
       core,
       visuals,
@@ -211,6 +221,25 @@ export async function bootstrap(
       }
     )
     const features = {
+      live: {
+        ...guardCommands(
+          {
+            open: live.open,
+            sample: live.sample,
+            prepare: live.prepare
+          },
+          assertAccepting
+        ),
+        ...guardCommands(
+          {
+            getRecords: live.getRecords,
+            getState: live.getState,
+            subscribe: live.subscribe,
+            cancel: live.cancel
+          },
+          assertLive
+        )
+      },
       edit: guardCommands(editing.edit, assertAccepting),
       history: guardCommands(editing.history, assertAccepting),
       storage: guardCommands(storage, assertAccepting),
@@ -248,6 +277,7 @@ export async function bootstrap(
       analysis: {
         run: (...args: Parameters<typeof analysis.run>) => {
           assertAccepting()
+          live.cancel()
           return analysis.run(...args)
         },
         cancel: () => {

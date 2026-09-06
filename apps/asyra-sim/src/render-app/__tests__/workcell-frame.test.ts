@@ -1,10 +1,42 @@
 import { expect, it } from 'vitest'
 import { RenderContainer } from '@asyra/render'
 import { createSyntheticExample } from '../../../samples/synthetic-workcell'
-import { createWorkcellFrame, DEFAULT_CAMERA } from '../workcell-frame'
+import {
+  createWorkcellFrame,
+  DEFAULT_CAMERA,
+  prepareWorkcellProjection
+} from '../workcell-frame'
 import { SpatialLayer } from '../spatial-layer'
 import { compose } from '../../domain/math'
 import { forwardKinematics } from '../../domain/workcell'
+
+it('highlights both complete parts without replacing their shapes and restores selection afterward', () => {
+  const { workcell } = createSyntheticExample()
+  const ids = workcell.bodies.slice(0, 2).map((body) => body.id)
+  const project = prepareWorkcellProjection(workcell, new Map())
+  const view = { camera: DEFAULT_CAMERA, selectedId: ids[0], grid: false }
+  const original = project(view)
+  const highlighted = project({
+    ...view,
+    highlight: { bodyIds: ids, color: 0xff625e }
+  })
+
+  for (const mesh of highlighted.meshes) {
+    const source = original.meshes.find((item) => item.id === mesh.id)
+
+    if (!source) throw new Error('Missing original mesh')
+
+    expect(mesh.descriptor.shape).toBe(source.descriptor.shape)
+    expect(mesh.descriptor.position).toEqual(source.descriptor.position)
+    expect(mesh.descriptor.color).toBe(
+      mesh.elementId && ids.includes(mesh.elementId)
+        ? 0xff625e
+        : source.descriptor.color
+    )
+  }
+
+  expect(project(view)).toEqual(original)
+})
 
 it('inherits parent visibility for display without changing analysis geometry', () => {
   const { workcell } = createSyntheticExample()

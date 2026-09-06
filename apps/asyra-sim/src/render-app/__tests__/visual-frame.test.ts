@@ -73,6 +73,21 @@ const model = (): Workcell => ({
 const view = { camera: DEFAULT_CAMERA, grid: false, selectedId: null }
 const resources = new Map([[assetId, asset]])
 
+it('tints the complete original source without replacing or simplifying its geometry', () => {
+  const project = prepareWorkcellProjection(model(), resources)
+  const original = project(view).meshes[0]
+  const changed = project({
+    ...view,
+    highlight: { bodyIds: ['tool'], color: 0xff625e }
+  }).meshes[0]
+
+  expect(changed.descriptor.color).toBe(0xff625e)
+  expect(changed.descriptor.shape).toBe(original.descriptor.shape)
+  expect(changed.descriptor.position).toEqual(original.descriptor.position)
+  expect(changed.descriptor.rotation).toEqual(original.descriptor.rotation)
+  expect(project(view).meshes[0]).toEqual(original)
+})
+
 it('retains complete placed triangles across pose/appearance frames and replaces them for new source inputs', () => {
   const workcell = model(),
     project = prepareWorkcellProjection(workcell, resources)

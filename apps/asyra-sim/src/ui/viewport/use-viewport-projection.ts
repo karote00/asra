@@ -4,7 +4,8 @@ import type { SimRuntime } from '../../init/bootstrap'
 import type { SpatialCamera } from '../../render-app/spatial-layer'
 import {
   DEFAULT_CAMERA,
-  prepareWorkcellProjection
+  prepareWorkcellProjection,
+  type PartHighlight
 } from '../../render-app/workcell-frame'
 import type { PreparedVisualImport } from '../../storage/visual-archive'
 
@@ -17,7 +18,8 @@ export function useViewport(
   isCurrent: (runtime: SimRuntime) => boolean,
   joints?: Readonly<Record<string, number>>,
   wireframe = false,
-  pending?: PreparedVisualImport
+  pending?: PreparedVisualImport,
+  highlight?: PartHighlight
 ) {
   const currentCamera = useRef(camera)
 
@@ -41,9 +43,10 @@ export function useViewport(
         selectedId,
         grid,
         joints,
-        wireframe
+        wireframe,
+        highlight
       }),
-    [project, selectedId, grid, joints, wireframe]
+    [project, selectedId, grid, joints, wireframe, highlight]
   )
 
   useEffect(() => {

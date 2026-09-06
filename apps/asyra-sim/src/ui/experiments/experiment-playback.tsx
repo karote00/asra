@@ -1,10 +1,9 @@
-import { useExperimentField, useExperimentView } from './experiment-context'
+import { useExperimentField } from './experiment-context'
 import { PlaybackControls } from '../viewport/playback-controls'
-import { useCommittedCallback } from '../shared/use-committed-callback'
+import { useLivePreview } from './use-live-preview'
+import { LiveObservations } from './live-observations'
 
 export function ExperimentPlayback() {
-  const view = useExperimentView()
-
   const canonical = useExperimentField('canonical')
 
   const dirty = useExperimentField('dirty')
@@ -19,24 +18,31 @@ export function ExperimentPlayback() {
 
   const running = useExperimentField('running')
 
-  const onSample = useCommittedCallback((time: number) =>
-    view.getSnapshot().replayCurrent(time)
-  )
+  const run = useExperimentField('selectedRun')
 
-  const onReset = useCommittedCallback(() =>
-    view.getSnapshot().onPlayback(null)
-  )
+  const warnings = useExperimentField('warnings')
+
+  const active = !!canonical && !dirty && (previewActive ?? true) && !running
+
+  const identity = `${experimentId}:${canonicalKey}:${revision}:${run?.result.runId ?? ''}:${warnings.join(',')}`
+
+  const playback = useLivePreview(active, identity)
 
   return (
     <>
       {canonical && !dirty && (
-        <PlaybackControls
-          key={`${experimentId}:${canonicalKey}:${revision}`}
-          interval={canonical.definition.interval}
-          active={(previewActive ?? true) && !running}
-          onSample={onSample}
-          onReset={onReset}
-        />
+        <>
+          <PlaybackControls
+            key={identity}
+            interval={canonical.definition.interval}
+            active={active}
+            onSample={playback.sample}
+            onReset={playback.reset}
+            onSuspend={playback.suspend}
+          />
+
+          <LiveObservations identity={identity} />
+        </>
       )}
     </>
   )

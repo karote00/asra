@@ -24,6 +24,19 @@ function runtime() {
   const resume = vi.fn()
   const value: SimRuntime = {
     features: {
+      live: {
+        getState: vi.fn(() => ({
+          status: 'idle' as const,
+          sample: null,
+          error: null
+        })),
+        getRecords: vi.fn(() => []),
+        prepare: vi.fn(),
+        subscribe: vi.fn(() => vi.fn()),
+        cancel: vi.fn(() => false),
+        open: vi.fn(),
+        sample: vi.fn()
+      },
       edit: {
         addObservation: vi.fn(),
         updateObservation: vi.fn(),

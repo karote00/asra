@@ -70,6 +70,16 @@ it('composes the normal workcell runtime and cleans up surface subscriptions and
   expect(model.bodies.every((body) => body.visuals?.length === 1)).toBe(true)
   expect(model.bodies.every((body) => body.colliders.length === 0)).toBe(true)
   expect(runtime.getVisualAssets(model).size).toBe(11)
+  expect(runtime.features.live.getState()).toEqual({
+    status: 'idle',
+    sample: null,
+    error: null
+  })
+  const resumeEditing = runtime.pauseEditing()
+
+  expect(() => runtime.features.live.getRecords()).not.toThrow()
+
+  resumeEditing()
   expect((await runtime.captureSnapshot()).visualSources).toHaveLength(11)
   expect(
     model.bodies.filter((body) => body.joint.kind === 'revolute')

@@ -13,6 +13,12 @@ export interface WorkcellView {
   visuals?: boolean
   proxies?: boolean
   wireframe?: boolean
+  highlight?: PartHighlight
+}
+
+export interface PartHighlight {
+  bodyIds: readonly string[]
+  color: number
 }
 export const DEFAULT_CAMERA: SpatialCamera = {
   kind: 'camera',
@@ -62,6 +68,12 @@ function projectWorkcellFrame(
   const poses = forwardKinematics(workcell, view.joints),
     meshes: SpatialFrame['meshes'][number][] = []
   const bodies = new Map(workcell.bodies.map((body) => [body.id, body]))
+  const highlighted = new Set(view.highlight?.bodyIds)
+  const colorFor = (body: Body, original: number) => {
+    if (highlighted.has(body.id) && view.highlight) return view.highlight.color
+
+    return body.id === view.selectedId ? 0x62e6c1 : original
+  }
   for (const body of workcell.bodies)
     for (const binding of body.visuals ?? [])
       if (!visualAssets.has(binding.assetId))
@@ -133,7 +145,7 @@ function projectWorkcellFrame(
               }
             : collider.geometry
         ),
-        color: body.id === view.selectedId ? 0x62e6c1 : body.color,
+        color: colorFor(body, body.color),
         opacity: 1,
         wireframe: view.wireframe ?? false,
         selectable: true
@@ -164,7 +176,7 @@ function projectWorkcellFrame(
               positions: placedPartPositions(mesh.positions, binding.scale),
               indices: mesh.indices
             })),
-            color: body.id === view.selectedId ? 0x62e6c1 : mesh.color,
+            color: colorFor(body, mesh.color),
             opacity: mesh.opacity,
             wireframe: view.wireframe ?? false,
             selectable: true

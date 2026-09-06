@@ -78,11 +78,16 @@ const experiment = {
 }
 
 const runtime = {
+  features: {
+    live: { subscribe: () => () => undefined, getRecords: () => emptyRecords }
+  },
   getExperiments: vi.fn(() => [structuredClone(experiment)]),
   getMethodDescriptors: () => [
     { id: draft.method.id, version: draft.method.version }
   ]
 } as unknown as SimRuntime
+
+const emptyRecords: readonly never[] = Object.freeze([])
 
 const button = (name: string) =>
   [...host.querySelectorAll('button')].find((node) => node.textContent === name)

@@ -153,7 +153,7 @@ only the number of selected objects:
 | Model/contract blocker | Missing units, unsupported joints, missing collider, invalid interval, unavailable method | Do not start formal analysis; explain the correction                                           |
 | Known capability limit | Two moving robots, unsupported scale or geometry                                          | Require splitting the analysis or a supported method; confirmation cannot make the model valid |
 | Resource risk          | Large pair count, segment count, shape complexity, or candidate count                     | Explain the estimate and uncertainty; offer reduced scope, a trial run, or confirmation        |
-| User assumption        | Excluded pairs, omitted background objects                                               | Display and preserve acknowledgement; cannot waive missing original-part geometry              |
+| User assumption        | Excluded pairs, omitted background objects                                                | Display and preserve acknowledgement; cannot waive missing original-part geometry              |
 
 R0 allows one formal local analysis job at a time. Candidate scenarios run
 sequentially; there is no unlimited "select everything and run" operation.
@@ -177,9 +177,72 @@ this document does not preselect an algorithm. Mark an interval unresolved when
 rotation, composite shapes, or numerical limits prevent the method from
 establishing its result.
 
-Preview mode may use finite sampling, but the UI, reports, and exports must
-identify it as sampled preview. It is not formal evidence that the entire
-trajectory is clear.
+Play performs live, finite-sample geometry checks without requiring an earlier
+formal run. When compatible formal evidence exists, Play reuses its established
+witness times and interval certificates without starting another solve. A
+finding interval does not enumerate every contact: only an established witness
+may identify a colliding pose; other unclassified poses remain explicit unknowns.
+Without a compatible formal result, Play uses the selected installed method's static capability, complete
+original/native geometry, experiment scope, threshold and numerical settings.
+Preflight validity and required warning acknowledgements still apply; blocked
+checks must be visible while motion preview remains available. It is not
+formal evidence that the entire trajectory is clear.
+
+### Live playback feedback
+
+The analysis owner retains the current admitted experiment input and bounded
+sample records for reuse by Play and the analysis panel. Replaying an already
+checked time does not invoke a method or allocate a Worker. Input, method,
+trajectory, scope, threshold or numerical-setting changes invalidate current
+records; committed document changes conservatively retire this input lifetime.
+No same-name or same-ID match grants reuse. Immutable saved reports are kept as
+historical evidence, never silently applied to changed inputs. Live observations
+are labelled as sampled records, not full-path reports, and do not replace the
+continuous-coverage gate for a formal report.
+
+The App owns one non-mutating, cancellable Feature task and at most one bounded Worker
+for the current playback inputs. Admit and send detached inputs once per
+playback lifetime; request only sampled times afterward. Keep one in-flight
+check and at most one latest pending time. Forward playback protects crossed
+canonical keyframes until checked before catching up to the latest playhead;
+optional intermediate samples may be coalesced. An explicit seek resets this
+progress and checks its exact target, not the skipped interval. Drawing never
+waits for a solve.
+The selected method must support static queries; missing or incompatible
+methods fail explicitly without substitution. Worker creation is lazy on a
+cache miss. Each sample has bounded work,
+wall time and evidence, and malformed output fails closed.
+
+The viewport shows checking, established collision, clearance issue, no issue
+at the checked sample, or unresolved/error. Always identify the checked time
+and sampled scope; unchecked times are not clear. A late sample cannot color a
+different displayed pose. By default, an established collision pauses playback
+at its checked pose; users may disable this pause and continue. Seeking,
+restarting, editing, changing experiment/candidate, formal analysis, leaving
+the inspector, hidden-page suspension and runtime replacement retire stale
+requests and release owned work. No preview sample creates a saved run, report,
+canonical edit or Undo entry.
+
+Established colliding bodies use a dedicated red highlight distinct from
+selection. Clearance findings use an amber highlight; unresolved output must
+not be presented as collision or safety. Whole-body highlights identify the
+involved geometry, not a computed contact region. Frozen formal pair replay
+also identifies both bodies; its evidence remains historical and unchanged.
+The renderer presents accepted identities/appearance only, never computes
+collision from pixels, bounding boxes or picking.
+
+At narrow widths the viewport notice is compact by default, with an explicit
+Details disclosure for pair names and limitations, so a short embedded viewport
+does not place a full text card over the contact area.
+
+Formal cases cover a collision during Play before any run, clear endpoints,
+clearance versus penetration versus unresolved, matching-pose presentation,
+latest-only backpressure, exact-time reuse with no Worker work, cache invalidation,
+formal evidence replay without recomputation, cancellation/replacement/late output, invalid input,
+unchanged history/report data, original/native shape identity, localized UI
+updates and fixed panel sizes in both themes. Completion requires these owner
+tests plus normal-App browser playback and inspected screenshots, not a formal
+report alone.
 
 Clearance output must distinguish an observed witness distance, lower/upper
 bounds over the interval, and error. Do not label the smallest sampled distance

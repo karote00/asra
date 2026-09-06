@@ -1,4 +1,6 @@
 import { Viewport } from '../viewport/viewport'
+import { PlaybackNotice } from '../viewport/playback-notice'
+import { playbackHighlight } from '../experiments/playback-highlight'
 import { useWorkbenchField, useWorkbenchValue } from './workbench-context'
 
 export function ViewportPanel() {
@@ -10,6 +12,8 @@ export function ViewportPanel() {
       <ViewportOptions />
 
       <ViewportSurface />
+
+      <PlaybackNotice />
 
       <ViewportSummary />
     </section>
@@ -109,6 +113,7 @@ function ViewportSurface() {
         wireframe={wireframe}
         joints={playback?.joints}
         pending={visualPreview?.prepared}
+        highlight={playbackHighlight(playback)}
         onSelect={select}
         isCurrent={isCurrent}
       />

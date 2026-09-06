@@ -1,31 +1,55 @@
 import { useEffect, useRef, useState } from 'react'
 import { PlaybackClock } from './playback-clock'
+import type { LiveSampleOptions } from '../experiments/live-preview'
 
 export function PlaybackControls({
   interval,
   active,
   onSample,
-  onReset
+  onReset,
+  onSuspend
 }: {
   interval: readonly [number, number]
   active: boolean
-  onSample: (time: number) => void
+  onSample: (time: number, options: LiveSampleOptions) => void
   onReset: () => void
+  onSuspend?: () => void
 }) {
   const [time, setTime] = useState(interval[0])
 
   const [playing, setPlaying] = useState(false)
+  const [pauseOnCollision, setPauseOnCollision] = useState(true)
 
   const clock = useRef<PlaybackClock | null>(null)
 
-  const current = useRef({ onSample, active })
+  const current = useRef({ onSample, active, onSuspend, pauseOnCollision })
 
-  current.current = { onSample, active }
+  current.current = { onSample, active, onSuspend, pauseOnCollision }
 
-  const sample = (value: number) => {
+  const sample = (value: number, discontinuity = false) => {
+    let stopped = false
+
     setTime(value)
 
-    current.current.onSample(value)
+    current.current.onSample(value, {
+      discontinuity,
+      onCollision: (checkedTime) => {
+        if (
+          !current.current.active ||
+          !current.current.pauseOnCollision ||
+          document.hidden
+        )
+          return false
+
+        pause()
+        setTime(checkedTime)
+        stopped = true
+
+        return true
+      }
+    })
+
+    return stopped
   }
 
   const pause = () => {
@@ -42,7 +66,10 @@ export function PlaybackControls({
     })
 
     const hidden = () => {
-      if (document.hidden) pause()
+      if (document.hidden) {
+        pause()
+        current.current.onSuspend?.()
+      }
     }
 
     document.addEventListener('visibilitychange', hidden)
@@ -63,7 +90,7 @@ export function PlaybackControls({
 
     const from = time >= interval[1] ? interval[0] : time
 
-    sample(from)
+    if (sample(from)) return
 
     setPlaying(true)
 
@@ -91,7 +118,7 @@ export function PlaybackControls({
       aria-label="Trajectory preview"
     >
       <div className="section-heading flex items-center justify-between [&_>_span]:text-[10px] [&_>_span]:text-sim-muted">
-        <h3>Motion preview</h3>
+        <h3>Live playback</h3>
 
         <span className="preview-time">{time.toFixed(4)} s</span>
       </div>
@@ -106,7 +133,7 @@ export function PlaybackControls({
         onChange={(event) => {
           pause()
 
-          sample(Number(event.target.value))
+          sample(Number(event.target.value), true)
         }}
       />
 
@@ -125,7 +152,7 @@ export function PlaybackControls({
           onClick={() => {
             pause()
 
-            sample(interval[0])
+            sample(interval[0], true)
           }}
         >
           Restart
@@ -145,8 +172,18 @@ export function PlaybackControls({
         </button>
       </div>
 
+      <label className="flex flex-row items-center gap-2 text-[11px]">
+        <input
+          type="checkbox"
+          checked={pauseOnCollision}
+          onChange={(event) => setPauseOnCollision(event.target.checked)}
+        />
+        Pause on collision
+      </label>
+
       <p className="hint text-[10px] leading-[1.6] text-sim-muted font-normal">
-        1× speed. Visual preview only, not a collision test.
+        1× speed. Reuses recorded evidence; otherwise checks sampled poses live.
+        A full-path report still requires formal analysis.
       </p>
     </section>
   )

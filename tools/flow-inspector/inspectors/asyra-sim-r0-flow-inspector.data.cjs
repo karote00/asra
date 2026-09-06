@@ -671,6 +671,7 @@
         conditions: [
           'Composition is open; explicitly select CUSTOM defaults and bind the provider through Core.',
           'One runtime owns one surface; startup must succeed before UI reports ready.',
+          'Install an inert live-sampling Feature with guarded APIs and Core-owned cleanup. No live Worker starts at bootstrap; formal analysis cancels current live work before execution.',
           'Capture one Core per lifetime; saved startup loads its snapshot/diagnostics without an extra example or Undo entry.',
           'Own prepared visual resources, or prepare saved sources before startup; install storage Features and resource admission without duplicating canonical binding ownership.',
           'Hydrate and verify a per-runtime opaque observation archive before startup; wire its admission into existing editing and expose guarded preparation, retention, observation reading, download bytes and separate feedback export.',
@@ -829,6 +830,7 @@
           'artifact:domain',
           'artifact:result',
           'transient camera and playback time',
+          'artifact:live-feedback',
           'storage-admitted decoded visual artifacts and transient visibility controls'
         ],
         outputs: ['artifact:spatial-projection'],
@@ -840,7 +842,7 @@
           'Register through Core; findings are projections of accepted evidence.'
         ],
         bypasses: [
-          'No result is required for ordinary editing; no analysis runs during preview.'
+          'No result is required for ordinary editing. Live sampled checks are independent of formal runs; projection only consumes their accepted feedback and never invokes a solver.'
         ],
         allowedContributors: [
           'engine-neutral spatial descriptors',
@@ -851,7 +853,9 @@
           'collision re-derivation',
           'renderer runtime extraction'
         ],
-        cacheDimensions: ['current detached workcell and visual-source inputs; mesh identity within that projection fixes native geometry or original source mesh and binding scale'],
+        cacheDimensions: [
+          'current detached workcell and visual-source inputs; mesh identity within that projection fixes native geometry or original source mesh and binding scale'
+        ],
         implementationBoundary: [
           'apps/asyra-sim/src/render-app/**',
           'apps/asyra-sim/src/render-layers/**'
@@ -1092,6 +1096,53 @@
         failureOwnerStepId: 'run'
       },
       {
+        id: 'live',
+        order: 21,
+        laneId: 'run',
+        title: 'Check live playback samples',
+        ownerPackage: '@asyra/asyra-sim live execution',
+        purpose:
+          'Produce bounded non-persistent sample feedback without a formal run',
+        inputs: [
+          'artifact:snapshot',
+          'artifact:method-evidence',
+          'Feature-owned abort signal',
+          'latest requested playback time'
+        ],
+        outputs: ['artifact:live-feedback'],
+        conditions: [
+          'Own one cancellable non-mutating Feature task and at most one Worker for detached playback inputs. Admit the snapshot once at each trust boundary and require the exact installed method static capability. Create the Worker lazily only for missing sample evidence.',
+          'Send full inputs once per lifetime, then sampled times only. Bound concurrency to one in-flight request and one latest pending time; deadline, byte, work and evidence limits remain enforced.',
+          'Validate each returned static sample against its snapshot, request identity, exact time and pair evidence. Unvisited pairs and failed or incomplete samples remain unknown; never create a formal run, verdict, report or history entry.',
+          'Seeking invalidates older requests. Cancellation, replacement, visibility suspension and runtime cleanup terminate owned work and reject late delivery. A slow sample never becomes evidence for a newer displayed pose.'
+        ],
+        bypasses: [
+          'Missing capability, invalid input or unacknowledged warnings produce explicit unavailable feedback, never a substitute method or a clear result.'
+        ],
+        allowedContributors: [
+          'owned Web Worker',
+          'installed static method execution',
+          'existing snapshot and evidence validators'
+        ],
+        forbiddenContributors: [
+          'renderer picking or geometry substitution',
+          'canonical writes',
+          'unbounded queues',
+          'formal report retention'
+        ],
+        cacheDimensions: [
+          'one current owner-admitted input lifetime, including source geometry, trajectory, scope, method, settings and thresholds; exact sampled time for at most 256 bounded live records'
+        ],
+        implementationBoundary: [
+          'apps/asyra-sim/src/analysis/live/**',
+          'apps/asyra-sim/src/features/live-playback.ts',
+          'apps/asyra-sim/src/features/__tests__/live-playback.test.ts',
+          'apps/asyra-sim/src/constants/feature-names.ts'
+        ],
+        specRefs: ['#live-playback-feedback'],
+        failureOwnerStepId: 'live'
+      },
+      {
         id: 'storage',
         order: 10,
         laneId: 'storage',
@@ -1163,6 +1214,7 @@
           'artifact:visual-output',
           'artifact:result',
           'artifact:run-progress',
+          'artifact:live-feedback',
           'artifact:retained-data',
           'artifact:visual-asset',
           'versioned static distribution files',
@@ -1171,6 +1223,8 @@
         outputs: ['artifact:user-workbench'],
         conditions: [
           'Dispatch intent through Features; UI is never canonical model or solver authority.',
+          'Forward live sampling protects crossed canonical trajectory keyframes until checked, then coalesces optional intermediate times toward the current playhead. Keep only the latest playhead and accepted sample progress, never a queue of display frames. A seek resets the sampling anchor. Narrow viewport feedback is compact until the user expands Details.',
+          'Play reuses compatible formal witnesses without a Worker, or requests missing exact-time samples from the live analysis owner. Never reinterpret a finding interval as continuous contact. Present checked time, scope and unknown/error states in the viewport and matching sampled observations in the experiment panel. Only highlight the exact checked pose; default collision pause restores that pose, with an explicit continue-without-pause option. Cancel stale work on seek, edits, replacement, hidden page, formal analysis or leaving playback. Preserve fixed panels, property-level subscriptions and unchanged history/report data.',
           'Keep camera state in the viewport subtree. Read-only workbench projection refreshes on canonical revision, selected candidate or runtime identity; local panels and playback never reread unchanged canonical model or retained runs. The retained projection has one current entry, preserves error output, and owns no editable state.',
           'Experiment metadata queries share the runtime, canonical revision and candidate invalidation boundary; draft-only edits do not recapture canonical experiments. Stable controller/provider composition and property-level subscriptions own UI update boundaries, never component memo wrappers or props comparators. Hierarchy and scope rows subscribe to their displayed scalar fields; numerical draft edits do not notify scope rows, and scope callbacks preserve the latest other draft fields. Mount, joint and original-placement controls subscribe to every consumed property value and unit, while section callbacks merge into the latest committed body. Current read-only projection subscriptions never scan or retain source triangles, bypass canonical reads on revision, or own editable model state.',
           'Viewport navigation owns transient camera intent only. Two-finger vertical scroll, mouse wheel and pinch zoom update only the latest transient camera, preserving its target and complete burst deltas without input-mode preferences, device-guessing heuristics or a second animation loop. Horizontal scrolling never pans; Shift-drag pan preserves eye-to-target direction and distance. Fit consumes the current displayed spatial projection and canvas dimensions with padding, excludes hidden/decorative meshes, and never feeds display bounds into analysis. Capture cancellation and runtime retirement remove stale input; ordinary selection and canonical History stay unchanged. Viewport Navigation in editing-v0.md owns the gesture and shortcut contract.',
@@ -1205,7 +1259,10 @@
           'equipment commands',
           'automatic publishing'
         ],
-        cacheDimensions: ['runtime identity, canonical revision and selected candidate for the current read-only workbench projection; retained run identity and pending run identity for UI-only run indexes', 'runtime, displayed workcell and pending import identity for the current prepared projection; projection identity, joints, selection, grid and wireframe for its current frame, excluding camera'],
+        cacheDimensions: [
+          'runtime identity, canonical revision and selected candidate for the current read-only workbench projection; retained run identity and pending run identity for UI-only run indexes',
+          'runtime, displayed workcell and pending import identity for the current prepared projection; projection identity, joints, selection, accepted whole-part highlight, grid and wireframe for its current frame, excluding camera'
+        ],
         implementationBoundary: [
           'apps/asyra-sim/src/ui/**',
           'apps/asyra-sim/src/main*',
@@ -1550,6 +1607,42 @@
         producedArtifacts: ['artifact:method-evidence']
       },
       {
+        id: 'snapshot-to-live',
+        from: 'snapshot',
+        to: 'live',
+        kind: 'normal',
+        predicate:
+          'Playback has admitted detached inputs and required acknowledgements; a prior formal run is not required.',
+        producedArtifacts: ['artifact:snapshot']
+      },
+      {
+        id: 'method-to-live',
+        from: 'method',
+        to: 'live',
+        kind: 'normal',
+        predicate:
+          'The selected installed method returns evidence for the requested static sample.',
+        producedArtifacts: ['artifact:method-evidence']
+      },
+      {
+        id: 'live-to-ui',
+        from: 'live',
+        to: 'ui',
+        kind: 'normal',
+        predicate:
+          'Sample feedback is current for this playback lifetime and includes its checked time.',
+        producedArtifacts: ['artifact:live-feedback']
+      },
+      {
+        id: 'live-to-project',
+        from: 'live',
+        to: 'project',
+        kind: 'normal',
+        predicate:
+          'Accepted sample identities match the exact displayed pose; no contact-region geometry is inferred.',
+        producedArtifacts: ['artifact:live-feedback']
+      },
+      {
         id: 'result-to-project',
         from: 'run',
         to: 'project',
@@ -1797,14 +1890,21 @@
         id: 'artifact:snapshot',
         ownerStepId: 'snapshot',
         channel: 'detached handoff',
-        consumerStepIds: ['method', 'run'],
+        consumerStepIds: ['method', 'run', 'live'],
         terminal: false
       },
       {
         id: 'artifact:method-evidence',
         ownerStepId: 'method',
         channel: 'detached handoff',
-        consumerStepIds: ['run'],
+        consumerStepIds: ['run', 'live'],
+        terminal: false
+      },
+      {
+        id: 'artifact:live-feedback',
+        ownerStepId: 'live',
+        channel: 'read-only live Feature sample feedback',
+        consumerStepIds: ['ui', 'project'],
         terminal: false
       },
       {

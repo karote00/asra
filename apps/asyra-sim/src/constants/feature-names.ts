@@ -3,6 +3,7 @@ export const EditingFeatureNames = {
 } as const
 export const HistoryFeatureNames = { HISTORY: 'asyra-sim.history' } as const
 export const AnalysisFeatureNames = {
+  LIVE_PLAYBACK: 'live-playback',
   ANALYZE_EXPERIMENT: 'asyra-sim.analyze-experiment'
 } as const
 export const StorageFeatureNames = {
