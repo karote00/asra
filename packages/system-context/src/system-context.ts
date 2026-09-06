@@ -21,10 +21,14 @@ export class SystemContext implements SystemContextAPIs {
   loadManagedProperties!: ManagedPropertyStateAPIs['loadManagedProperties']
   saveManagedProperties!: ManagedPropertyStateAPIs['saveManagedProperties']
 
-  constructor(deps: HandlerDeps) {
+  constructor(private readonly deps: HandlerDeps) {
     const apis = createAllAPIs(deps)
 
     Object.assign(this, apis)
+  }
+
+  resetRuntime(): void {
+    this.deps.managedPropertyState.resetRuntime()
   }
 }
 

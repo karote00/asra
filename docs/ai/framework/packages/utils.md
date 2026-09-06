@@ -94,6 +94,18 @@ Provide shared types, ids, registry primitives, and low-level helpers.
   - `hasPendingCleanup(ref)` lets the coordinating owner block conflicting
     registration while a previous cleanup is retryable
 
+## Terminal Registration Lifecycle
+
+`RegistrationGraph.disposeRuntime(): void` is a separate terminal lifecycle for
+Core after canonical state is retired. It permanently closes graph mutation,
+releases remaining resources in reverse registration order without relation
+rewrites, and clears metadata. Completed resources are not repeated; all other
+cleanup is attempted. Structured `UNREGISTER_FAILED` uses operation
+`dispose-runtime` and retains failed keys/causes. Repeated calls preserve the
+terminal result; reentrant disposal rejects with `COMPOSITION_CLOSED`. Ordinary
+unregister remains composition-locked and retryable. A new runtime creates a new
+graph, never unlocks the retired one. Cleanup callbacks must be synchronous.
+
 ## Extension Points
 
 - shared type modules for new domain contracts

@@ -108,21 +108,19 @@ const readGitBaseline = (repositoryRoot) => {
 }
 
 const readFrameworkDecisionHistory = (repositoryRoot) => {
-  const releasesRoot = path.join(
-    repositoryRoot,
-    'docs/ai/framework/decisions/releases'
-  )
-  const unreleasedHistory = fs.readFileSync(
-    path.join(releasesRoot, 'unreleased.md'),
-    'utf8'
-  )
-  if (unreleasedHistory.trim()) return unreleasedHistory
-
-  const { version } = readJson(path.join(repositoryRoot, 'package.json'))
-  const releasedHistoryPath = path.join(releasesRoot, `v${version}.md`)
-  if (!fs.existsSync(releasedHistoryPath)) return ''
-
-  return fs.readFileSync(releasedHistoryPath, 'utf8')
+  const relativeRoot = 'docs/ai/framework/decisions/releases'
+  const releasesRoot = path.join(repositoryRoot, relativeRoot)
+  const archives = fs
+    .readdirSync(releasesRoot, { withFileTypes: true })
+    .filter(
+      (entry) => entry.isFile() && /^v\d+\.\d+\.\d+\.md$/.test(entry.name)
+    )
+    .map((entry) => entry.name)
+    .sort()
+  return ['unreleased.md', ...archives].map((name) => ({
+    path: `${relativeRoot}/${name}`,
+    text: fs.readFileSync(path.join(releasesRoot, name), 'utf8')
+  }))
 }
 
 const verifyPrerequisites = (repositoryRoot) => {
@@ -155,7 +153,10 @@ const verifyPrerequisites = (repositoryRoot) => {
         `Framework Release Gate ${prerequisite.gate} lacks retained Inspector authority`
       )
     }
-    if (!prerequisite.decisionPattern.test(decisionHistory)) {
+    const decisionPaths = decisionHistory
+      .filter((record) => prerequisite.decisionPattern.test(record.text))
+      .map((record) => record.path)
+    if (decisionPaths.length === 0) {
       throw new Error(
         `Framework Release Gate ${prerequisite.gate} lacks decision history`
       )
@@ -165,7 +166,8 @@ const verifyPrerequisites = (repositoryRoot) => {
       gate: prerequisite.gate,
       planPath: prerequisite.planPath,
       inspectorPath: prerequisite.inspectorPath,
-      contractTestPath: prerequisite.contractTestPath
+      contractTestPath: prerequisite.contractTestPath,
+      decisionPaths
     }
   })
 }

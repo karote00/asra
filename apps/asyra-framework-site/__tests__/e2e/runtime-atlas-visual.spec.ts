@@ -10,7 +10,7 @@ const waitForTerminal = async (
   count: number
 ) => {
   await expect(page.locator('.atlas-controls')).toContainText(
-    `Status: ${status} · ${count}/${count}`,
+    `Status: ${status} - ${count}/${count}`,
     { timeout: 15_000 }
   )
 }
@@ -78,7 +78,7 @@ test('Runtime Atlas executes, resets, pauses, rejects, and compares real runs', 
   await waitForReady(page)
   await page.getByRole('button', { name: 'Step', exact: true }).click()
   await expect(page.locator('.atlas-controls')).toContainText(
-    'Status: running · 1/8'
+    'Status: running - 1/8'
   )
 
   await page.getByRole('button', { name: 'Replay' }).click()

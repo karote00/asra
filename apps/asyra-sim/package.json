@@ -1,0 +1,45 @@
+{
+  "name": "@asyra/asyra-sim",
+  "version": "0.1.0-alpha.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": "24.x"
+  },
+  "packageManager": "yarn@4.3.1",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "react:build": "yarn build",
+    "typecheck": "tsc --noEmit",
+    "test:local": "vitest run",
+    "test:ci": "vitest run",
+    "test:e2e": "node scripts/run-e2e.mjs",
+    "lint": "node ../../node_modules/eslint/bin/eslint.js src samples scripts e2e app-environment.mjs playwright.config.ts vite.config.ts vitest.config.ts"
+  },
+  "dependencies": {
+    "@asyra/core": "workspace:*",
+    "@asyra/preset": "workspace:*",
+    "@asyra/render": "workspace:*",
+    "@asyra/render-engine": "workspace:*",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "three": "0.185.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@types/three": "0.185.4",
+    "@vitejs/plugin-react": "^4.7.0",
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^27.4.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.7.2",
+    "vite": "^6.4.3",
+    "vitest": "^3.2.6"
+  }
+}

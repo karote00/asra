@@ -17,6 +17,7 @@
       "tools/flow-inspector/inspectors/asyra-public-package-documentation-flow-inspector.data.cjs",
       "tools/flow-inspector/inspectors/asyra-public-readme-and-entrypoint-alignment-flow-inspector.data.cjs",
       "tools/flow-inspector/inspectors/asyra-runtime-atlas-flow-inspector.data.cjs",
+      "tools/flow-inspector/inspectors/asyra-sim-r0-flow-inspector.data.cjs",
       "tools/flow-inspector/inspectors/asyra-website-landing-flow-inspector.data.cjs",
       "tools/flow-inspector/inspectors/asyra-website-launch-and-operations-flow-inspector.data.cjs",
       "tools/flow-inspector/inspectors/asyra-website-platform-flow-inspector.data.cjs",
@@ -9555,6 +9556,2293 @@
             ],
             "assertions": [
               "Collaboration remains transport-only, core.load remains unrestricted, Group Context Menu does not start, and implementation closeout does not occur in this plan."
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "asyra-sim-r0",
+      "title": "Asyra Sim R0",
+      "kind": "flow-v2",
+      "group": "Apps",
+      "subgroup": "Asyra Sim",
+      "lifecycle": "current",
+      "sourcePath": "tools/flow-inspector/inspectors/asyra-sim-r0-flow-inspector.data.cjs",
+      "standalonePath": "tools/flow-inspector/inspectors/asyra-sim-r0-flow-inspector.html",
+      "labels": [
+        "asyra-sim-r0",
+        "Apps",
+        "Asyra Sim",
+        "flow-v2"
+      ],
+      "data": {
+        "schema": {
+          "id": "flow-inspector",
+          "version": 2
+        },
+        "target": {
+          "id": "asyra-sim-r0",
+          "kind": "app",
+          "title": "Asyra Sim R0",
+          "subtitle": "CUSTOM spatial engine and trustworthy local experiments"
+        },
+        "authority": {
+          "specPath": "docs/ai/apps/asyra-sim/specs/robot-workcell-v0.md",
+          "inspectorPath": "tools/flow-inspector/inspectors/asyra-sim-r0-flow-inspector.data.cjs",
+          "semanticOwner": "Asyra Sim",
+          "inspectorOwner": "Asyra Sim"
+        },
+        "links": [
+          {
+            "label": "Original-part geometry and method",
+            "href": "../../../docs/ai/apps/asyra-sim/specs/original-part-method-v1.md"
+          },
+          {
+            "label": "R0 contract",
+            "href": "../../../docs/ai/apps/asyra-sim/specs/robot-workcell-v0.md"
+          },
+          {
+            "label": "CUSTOM engine",
+            "href": "../../../docs/ai/apps/asyra-sim/specs/custom-engine-v0.md"
+          },
+          {
+            "label": "Release gates",
+            "href": "../../../docs/ai/apps/asyra-sim/release/FIRST_RELEASE.md"
+          }
+        ],
+        "lanes": [
+          {
+            "id": "compose",
+            "title": "Composition",
+            "order": 1
+          },
+          {
+            "id": "domain",
+            "title": "Canonical domain",
+            "order": 2
+          },
+          {
+            "id": "edit",
+            "title": "Editing",
+            "order": 3
+          },
+          {
+            "id": "project",
+            "title": "Spatial projection",
+            "order": 4
+          },
+          {
+            "id": "engine",
+            "title": "CUSTOM engine",
+            "order": 5
+          },
+          {
+            "id": "surface",
+            "title": "Core surface facade",
+            "order": 6
+          },
+          {
+            "id": "snapshot",
+            "title": "Experiment and preflight",
+            "order": 7
+          },
+          {
+            "id": "method",
+            "title": "Numerical method",
+            "order": 8
+          },
+          {
+            "id": "run",
+            "title": "Execution",
+            "order": 9
+          },
+          {
+            "id": "storage",
+            "title": "Persistence and comparison",
+            "order": 10
+          },
+          {
+            "id": "ui",
+            "title": "Workbench and delivery",
+            "order": 11
+          },
+          {
+            "id": "asset",
+            "title": "Restricted visual assets",
+            "order": 12
+          }
+        ],
+        "steps": [
+          {
+            "id": "replace-app-runtime",
+            "order": -0.2,
+            "laneId": "compose",
+            "title": "Coordinate an accepted App document replacement",
+            "ownerPackage": "@asyra/asyra-sim lifecycle",
+            "purpose": "Retire one App lifetime before publishing another",
+            "inputs": [
+              "Decoded target snapshot",
+              "Explicit replacement acceptance and storage currentness guard",
+              "Current App runtime"
+            ],
+            "outputs": [
+              "artifact:app-lifetime"
+            ],
+            "conditions": [
+              "Preflight, pause new editing, capture detached A recovery through the Feature queue, and recheck currentness before retirement.",
+              "Fully prepare target visual sources and each current/historical binding group before pausing A; recheck currentness and transfer those prepared resources to B only after A retires.",
+              "Await storage-owned observation reference and digest verification before visual preparation or pausing A. Cancellation or corrupt opaque sources never retire A or start B; startup independently hydrates its own verified attachment archive.",
+              "Validate recovery serialization and native size limits before retiring A; an unexportable capture resumes A.",
+              "Publish no active runtime before disposing A; await complete disposal before composing B with the same trusted modules.",
+              "Pre-retirement rejection resumes A; post-retirement failure retains detached recovery and publishes no editable runtime.",
+              "Exclusive operation and close guards fence late startup/replacement; repeated close shares one terminal result."
+            ],
+            "bypasses": [
+              "Initial startup has no document to retire; ordinary save only captures the current runtime."
+            ],
+            "allowedContributors": [
+              "App bootstrap",
+              "Core preflight/reset through the App runtime facade",
+              "Native project format validation without database I/O",
+              "Storage-owned visual preparation and disposal of untransferred resources",
+              "Storage-owned opaque observation integrity verification under the owned preparation signal",
+              "Storage currentness guard"
+            ],
+            "forbiddenContributors": [
+              "Direct package cleanup or history clearing",
+              "A second editable model or command queue",
+              "Automatic recovery/reload",
+              "Database metadata ownership"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "apps/asyra-sim/src/init/runtime-controller.ts",
+              "apps/asyra-sim/src/init/__tests__/runtime-controller.test.ts"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "replace-app-runtime"
+          },
+          {
+            "id": "preflight-document",
+            "order": -0.1,
+            "laneId": "compose",
+            "title": "Check canonical load compatibility before retiring the current runtime",
+            "ownerPackage": "@asyra/core",
+            "purpose": "Reject an invalid target without changing the active document",
+            "inputs": [
+              "Detached target document",
+              "Current trusted composition and synchronous migration hooks"
+            ],
+            "outputs": [
+              "artifact:document-preflight"
+            ],
+            "conditions": [
+              "Use the same migration, normalization, schema, hierarchy and relation checks as ordinary load.",
+              "Apply no owner artifact, change no canonical state/history/version, and emit no load or diagnostic-hook notification.",
+              "Return detached readonly diagnostics, not a transferable load artifact; successor load validates again."
+            ],
+            "bypasses": [
+              "Null follows ordinary no-op load semantics; property recovery remains schema-owned."
+            ],
+            "allowedContributors": [
+              "Existing canonical load validators",
+              "Trusted pure synchronous migration hooks"
+            ],
+            "forbiddenContributors": [
+              "App duplicate canonical validation",
+              "package apply operations",
+              "runtime reset",
+              "new schemas or fallback behavior"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/core/src/core.ts",
+              "packages/core/src/index.ts",
+              "packages/core/src/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "preflight-document"
+          },
+          {
+            "id": "quiesce",
+            "order": 0,
+            "laneId": "compose",
+            "title": "Stop and drain Feature runtime work",
+            "ownerPackage": "@asyra/feature-system",
+            "purpose": "Prevent old project work from crossing a runtime reset",
+            "inputs": [
+              "explicit Core lifecycle termination",
+              "current context snapshot"
+            ],
+            "outputs": [
+              "artifact:feature-quiescence"
+            ],
+            "conditions": [
+              "Close admission and detach Feature transport bindings before awaiting active work.",
+              "Reject queued work, abort tasks/sessions, and await real handler settlement, including timed-out handlers.",
+              "Force provisional session rollback; remain closed on cleanup failure or until explicit successor initialization."
+            ],
+            "bypasses": [
+              "Ordinary load, cancel, unregister and destroy do not invoke full reset."
+            ],
+            "allowedContributors": [
+              "Feature interaction queue, session and task owners",
+              "ordinary transaction rollback boundary"
+            ],
+            "forbiddenContributors": [
+              "App-owned history",
+              "canonical state clearing",
+              "renderer resource cleanup",
+              "automatic restart after timeout"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/feature-system/src/core/**",
+              "packages/feature-system/src/index.ts",
+              "packages/feature-system/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "quiesce"
+          },
+          {
+            "id": "reset-input",
+            "order": 0.1,
+            "laneId": "compose",
+            "title": "Release browser input runtime",
+            "ownerPackage": "@asyra/input-system",
+            "purpose": "Detach old input surface and invalidate its callbacks",
+            "inputs": [
+              "artifact:feature-quiescence",
+              "Core lifecycle reset request"
+            ],
+            "outputs": [
+              "artifact:input-reset"
+            ],
+            "conditions": [
+              "After quiescence, invalidate old browser callbacks and attempt every owned listener removal.",
+              "Clear mappings, timers and transient state; report failure and leave other Input instances untouched."
+            ],
+            "bypasses": [
+              "Normal reset preserves attachment; normal dispose preserves its existing semantics."
+            ],
+            "allowedContributors": [
+              "Input browser attachment and runtime state owners"
+            ],
+            "forbiddenContributors": [
+              "Feature decisions",
+              "canonical state mutation",
+              "App history manipulation"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/input-system/src/input-system.ts",
+              "packages/input-system/src/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "reset-input"
+          },
+          {
+            "id": "reset-render",
+            "order": 0.2,
+            "laneId": "compose",
+            "title": "Release the Render instance runtime",
+            "ownerPackage": "@asyra/render",
+            "purpose": "Retire owned engine resources and stale callbacks",
+            "inputs": [
+              "artifact:input-reset",
+              "Core lifecycle reset request"
+            ],
+            "outputs": [
+              "artifact:render-reset"
+            ],
+            "conditions": [
+              "Reject reset during initialization or active frame evaluation before mutation.",
+              "Invalidate old callbacks, attempt all teardown/resource/engine cleanup and retire viewport, layers, subscribers and provider selection.",
+              "Report failure; shared projection/interaction/strategy registrations remain separate owners."
+            ],
+            "bypasses": [
+              "Ordinary dispose/reset retains its cleanup retry semantics."
+            ],
+            "allowedContributors": [
+              "Render instance, interaction bridge and abstract resource lifecycle owners"
+            ],
+            "forbiddenContributors": [
+              "Concrete engine internals",
+              "canonical data mutation",
+              "App history manipulation",
+              "shared registration clearing"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/render/src/render.ts",
+              "packages/render/src/interaction/interaction-bridge.ts",
+              "packages/render/src/types/render-object.ts",
+              "packages/render/src/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "reset-render"
+          },
+          {
+            "id": "reset-render-shared",
+            "order": 0.3,
+            "laneId": "compose",
+            "title": "Retire shared Render projections and interactions",
+            "ownerPackage": "@asyra/render",
+            "purpose": "Clear derived shared state and fence old pending work",
+            "inputs": [
+              "artifact:render-reset",
+              "Core lifecycle reset request"
+            ],
+            "outputs": [
+              "artifact:render-shared-reset"
+            ],
+            "conditions": [
+              "Reject active projection flush or unreleased visual ownership.",
+              "Retire shared projection/selection mirrors and interaction registries; invalidate pending callbacks.",
+              "Only Core may begin successor projection wiring after all owners finish; preserve strategy definitions and canonical data."
+            ],
+            "bypasses": [
+              "Ordinary projection clear/reload and independent Render instance disposal keep their scope."
+            ],
+            "allowedContributors": [
+              "Shared Render projection/selection stores and interaction registries"
+            ],
+            "forbiddenContributors": [
+              "Canonical data mutation",
+              "strategy definition removal",
+              "App history manipulation"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/render/src/runtime-lifecycle.ts",
+              "packages/render/src/index.ts",
+              "packages/render/src/stores/scene-tree.ts",
+              "packages/render/src/stores/selection.ts",
+              "packages/render/src/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "reset-render-shared"
+          },
+          {
+            "id": "reset-factory",
+            "order": 0.5,
+            "laneId": "compose",
+            "title": "Release Factory runtime state",
+            "ownerPackage": "@asyra/factory",
+            "purpose": "Release transaction, history and owned delivery resources after quiescence",
+            "inputs": [
+              "artifact:render-shared-reset",
+              "Core lifecycle reset request"
+            ],
+            "outputs": [
+              "artifact:factory-reset"
+            ],
+            "conditions": [
+              "Reject before mutation while any transaction, replay or delivery settlement is active.",
+              "Clear Factory-owned runtime history, registrations, observers and pending delivery without replacing canonical state.",
+              "Keep the default transaction-owner bridge; isolate other Factory instances; report cleanup failure."
+            ],
+            "bypasses": [
+              "Ordinary load, replay, transaction completion and destroy do not request full reset."
+            ],
+            "allowedContributors": [
+              "Factory transaction and shared-channel owners"
+            ],
+            "forbiddenContributors": [
+              "App history management",
+              "canonical model replacement",
+              "Feature cancellation policy"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/factory/src/factory.ts",
+              "packages/factory/src/data-transact.ts",
+              "packages/factory/src/shared-data-channel.ts",
+              "packages/factory/src/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "reset-factory"
+          },
+          {
+            "id": "reset-scene",
+            "order": 0.6,
+            "laneId": "compose",
+            "title": "Release Scene Tree runtime state",
+            "ownerPackage": "@asyra/scene-tree",
+            "purpose": "Retire canonical scene instances and their computed lifecycle",
+            "inputs": [
+              "artifact:factory-reset",
+              "Core lifecycle reset request"
+            ],
+            "outputs": [
+              "artifact:scene-reset"
+            ],
+            "conditions": [
+              "Clear live/deleted elements, hierarchy, changes and relations without canonical replay.",
+              "Invalidate old prepared artifacts and attempt every computed cleanup hook.",
+              "Keep component definitions, Props and other Scene Tree instances separate; report cleanup failure."
+            ],
+            "bypasses": [
+              "Ordinary canonical load and legacy dispose/reset do not use this full lifecycle boundary."
+            ],
+            "allowedContributors": [
+              "Scene-owned element, relation and computed lifecycle"
+            ],
+            "forbiddenContributors": [
+              "Props disposal",
+              "App state clearing",
+              "history manipulation",
+              "renderer internals"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/scene-tree/src/sceneTree.ts",
+              "packages/scene-tree/src/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "reset-scene"
+          },
+          {
+            "id": "reset-props",
+            "order": 0.7,
+            "laneId": "compose",
+            "title": "Release Props Manager runtime state",
+            "ownerPackage": "@asyra/props-manager",
+            "purpose": "Retire canonical property instances and old prepared artifacts",
+            "inputs": [
+              "artifact:scene-reset",
+              "Core lifecycle reset request"
+            ],
+            "outputs": [
+              "artifact:props-reset"
+            ],
+            "conditions": [
+              "Reject active canonical batch reset before mutation.",
+              "Attempt every component cleanup and clear instances, changes, batches, relationships and prepared artifacts.",
+              "Keep schema/constructor definitions, Scene and other Props Managers separate; report cleanup failure."
+            ],
+            "bypasses": [
+              "Ordinary load and legacy dispose/reset retain their existing scope."
+            ],
+            "allowedContributors": [
+              "Props Manager component, relation and validation-artifact owners"
+            ],
+            "forbiddenContributors": [
+              "Scene cleanup",
+              "type unregistration",
+              "App history or renderer state"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/props-manager/src/manager/props-manager.ts",
+              "packages/props-manager/src/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "reset-props"
+          },
+          {
+            "id": "reset-selection",
+            "order": 0.8,
+            "laneId": "compose",
+            "title": "Release selection runtime channels",
+            "ownerPackage": "@asyra/selection",
+            "purpose": "Retire selected IDs and channel instances before new composition",
+            "inputs": [
+              "artifact:props-reset",
+              "Core lifecycle reset request"
+            ],
+            "outputs": [
+              "artifact:selection-reset"
+            ],
+            "conditions": [
+              "Remove channel registrations and attempt every owned cleanup without canonical events.",
+              "Report cleanup failure; keep other manager instances unchanged."
+            ],
+            "bypasses": [
+              "Ordinary clear/unregister keeps its current semantics."
+            ],
+            "allowedContributors": [
+              "Selection Manager and registered channel lifecycle hooks"
+            ],
+            "forbiddenContributors": [
+              "Scene mutation",
+              "App history manipulation",
+              "renderer internals"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/selection/src/selection-manager.ts",
+              "packages/selection/src/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "reset-selection"
+          },
+          {
+            "id": "reset-system-context",
+            "order": 0.85,
+            "laneId": "compose",
+            "title": "Release managed runtime state",
+            "ownerPackage": "@asyra/system-context",
+            "purpose": "Retire managed properties, subscriptions and load artifacts",
+            "inputs": [
+              "artifact:selection-reset",
+              "Core lifecycle reset request"
+            ],
+            "outputs": [
+              "artifact:system-context-reset"
+            ],
+            "conditions": [
+              "After quiescence, remove registrations, invalidate prepared artifacts and attempt every observable completion.",
+              "Report cleanup failure; keep independently owned instances untouched."
+            ],
+            "bypasses": [
+              "Ordinary load/set/unregister keeps its validation semantics."
+            ],
+            "allowedContributors": [
+              "System Context and its managed-property state owner"
+            ],
+            "forbiddenContributors": [
+              "Scene/Props mutation",
+              "history manipulation",
+              "App UI state"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/system-context/src/system-context.ts",
+              "packages/system-context/src/states/managed-property-state.ts",
+              "packages/system-context/src/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "reset-system-context"
+          },
+          {
+            "id": "reset-ui-context",
+            "order": 0.9,
+            "laneId": "compose",
+            "title": "Release derived UI runtime state",
+            "ownerPackage": "@asyra/ui-context",
+            "purpose": "Retire derived subscriptions and registrations",
+            "inputs": [
+              "artifact:system-context-reset",
+              "Core lifecycle reset request"
+            ],
+            "outputs": [
+              "artifact:ui-context-reset"
+            ],
+            "conditions": [
+              "Remove derived registrations and filters, unsubscribe sources and complete owned observables after quiescence.",
+              "Attempt every cleanup and report failure; caller-owned sources stay alive."
+            ],
+            "bypasses": [
+              "Legacy clear/unregister semantics are unchanged."
+            ],
+            "allowedContributors": [
+              "UI property registry and its owned subscriptions"
+            ],
+            "forbiddenContributors": [
+              "Canonical data mutation",
+              "caller-owned source destruction",
+              "App history manipulation"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/ui-context/src/property-registry.ts",
+              "packages/ui-context/src/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "reset-ui-context"
+          },
+          {
+            "id": "retire-registrations",
+            "order": 0.95,
+            "laneId": "compose",
+            "title": "Retire the Core-owned registration graph",
+            "ownerPackage": "@asyra/utils RegistrationGraph",
+            "purpose": "Release remaining definition resources without reopening composition",
+            "inputs": [
+              "artifact:ui-context-reset",
+              "Core terminal registration cleanup request after canonical retirement"
+            ],
+            "outputs": [
+              "artifact:registrations-retired"
+            ],
+            "conditions": [
+              "Permanently close graph mutation and release remaining resources in reverse registration order.",
+              "Skip completed cleanup, attempt all remaining resources, clear metadata and report structured failure without relation rewrites.",
+              "Repeated terminal disposal preserves its result; ordinary unregister remains locked/retryable."
+            ],
+            "bypasses": [
+              "Ordinary unregister still uses canonical active-use checks and relation semantics."
+            ],
+            "allowedContributors": [
+              "Registration graph resource/metadata owner and registered cleanup callbacks"
+            ],
+            "forbiddenContributors": [
+              "Canonical state mutation",
+              "reopening old composition",
+              "App private registry access"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/utils/src/registry/registration-graph.ts",
+              "packages/utils/src/registry/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "retire-registrations"
+          },
+          {
+            "id": "reset-core",
+            "order": 0.98,
+            "laneId": "compose",
+            "title": "Coordinate terminal cleanup and return a fresh Core",
+            "ownerPackage": "@asyra/core",
+            "purpose": "Expose one fail-closed App runtime handoff without private owner access",
+            "inputs": [
+              "Accepted App reset request outside the old interaction queue",
+              "Ordered lifecycle completion from Feature, input, Render, Factory and canonical owners",
+              "artifact:registrations-retired"
+            ],
+            "outputs": [
+              "artifact:core-successor"
+            ],
+            "conditions": [
+              "Reject in-progress startup before retirement; join repeated reset calls.",
+              "Close admission, terminate collaboration, await actual work and invoke canonical lifecycle owners in order.",
+              "Retire Core observer/event ownership and await composition cleanup; never reopen the old facade or its graph.",
+              "Only successful owner cleanup may begin shared wiring and return a fresh unstarted Core; failures retain their owner phase."
+            ],
+            "bypasses": [
+              "Ordinary load/destroy retain their compatibility semantics."
+            ],
+            "allowedContributors": [
+              "Framework public lifecycle APIs",
+              "Core-owned subscriptions and composition cleanup callbacks"
+            ],
+            "forbiddenContributors": [
+              "App private history access",
+              "concurrent default runtimes",
+              "implicit reload",
+              "canonical writes from termination cleanup"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/core/src/core.ts",
+              "packages/core/src/runtime-lifetime.ts",
+              "packages/core/src/data-channel-observer.ts",
+              "packages/core/src/index.ts",
+              "packages/core/src/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "reset-core"
+          },
+          {
+            "id": "retain-preset-lifecycle",
+            "order": 0.99,
+            "laneId": "compose",
+            "title": "Retain successful Preset cleanup with Core",
+            "ownerPackage": "@asyra/preset",
+            "purpose": "Make selected official defaults participate in terminal runtime cleanup",
+            "inputs": [
+              "Successful trusted Preset installation cleanup entries",
+              "Core registerRuntimeCleanup capability",
+              "Core completion of canonical and graph retirement before cleanup invocation"
+            ],
+            "outputs": [
+              "artifact:preset-lifecycle"
+            ],
+            "conditions": [
+              "Register successful installation cleanup through Core without changing the frozen apply result.",
+              "Attempt retained cleanup in reverse order, skip completed entries, and report failed keys/causes.",
+              "Only a fresh Core can apply again; ordinary failed-apply rollback/retry and startup locks remain unchanged."
+            ],
+            "bypasses": [
+              "Legacy adapters without the lifecycle capability keep existing apply behavior, not complete reset support."
+            ],
+            "allowedContributors": [
+              "Existing Preset cleanup entries",
+              "Core neutral lifecycle registration"
+            ],
+            "forbiddenContributors": [
+              "Core lifecycle orchestration",
+              "private canonical state clearing",
+              "reopening composition",
+              "new profiles or App installers"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/preset/src/preset.ts",
+              "packages/preset/src/__tests__/**"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "retain-preset-lifecycle"
+          },
+          {
+            "id": "compose",
+            "order": 1,
+            "laneId": "compose",
+            "title": "Create the CUSTOM runtime",
+            "ownerPackage": "@asyra/asyra-sim composition",
+            "purpose": "Create the CUSTOM runtime",
+            "inputs": [
+              "trusted pre-start modules",
+              "validated startup configuration",
+              "optional validated saved document with retained diagnostics",
+              "optional complete storage-prepared visual archive transferred by the lifecycle owner"
+            ],
+            "outputs": [
+              "artifact:runtime"
+            ],
+            "conditions": [
+              "Composition is open; explicitly select CUSTOM defaults and bind the provider through Core.",
+              "One runtime owns one surface; startup must succeed before UI reports ready.",
+              "Install an inert live-sampling Feature with guarded APIs and Core-owned cleanup. No live Worker starts at bootstrap; formal analysis cancels current live work before execution.",
+              "Capture one Core per lifetime; saved startup loads its snapshot/diagnostics without an extra example or Undo entry.",
+              "Own prepared visual resources, or prepare saved sources before startup; install storage Features and resource admission without duplicating canonical binding ownership.",
+              "Hydrate and verify a per-runtime opaque observation archive before startup; wire its admission into existing editing and expose guarded preparation, retention, observation reading, download bytes and separate feedback export.",
+              "Capture only sources referenced by current canonical field observations, retaining accepted bytes for Undo until teardown. Failed startup releases the observation archive even before Feature cleanup registration; retired readers and callbacks cannot affect a successor.",
+              "Portable capture retains the source union of current candidates and immutable runs; current and historical readers resolve the same owned archive.",
+              "Resolve original part bindings through the domain owner and owned source archive before preflight or snapshot creation; the default full-part study selects the original-part method explicitly.",
+              "Failed startup and terminal disposal release owned visual resources even if Feature installation was incomplete.",
+              "App admission can pause before retirement while queued snapshot capture remains available.",
+              "Disposal attempts all App resources and awaits Core reset; old callbacks/resume handles cannot operate on a successor."
+            ],
+            "bypasses": [
+              "No runtime construction during catalog inspection."
+            ],
+            "allowedContributors": [
+              "Core public facade",
+              "trusted local method catalog",
+              "App storage resource services and canonical reference readers"
+            ],
+            "forbiddenContributors": [
+              "Preset 3D/HYBRID enablement",
+              "Core dependency internals",
+              "network defaults"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "apps/asyra-sim/src/init/custom-renderer.ts",
+              "apps/asyra-sim/src/init/bootstrap.ts",
+              "apps/asyra-sim/src/init/__tests__/custom-renderer.test.ts",
+              "apps/asyra-sim/src/init/__tests__/bootstrap.test.ts",
+              "apps/asyra-sim/src/init/__tests__/bootstrap-lifecycle.test.ts",
+              "apps/asyra-sim/src/init/__tests__/runtime-controller.test.ts",
+              "apps/asyra-sim/src/init/__tests__/app-environment.test.ts",
+              "apps/asyra-sim/app-environment.mjs",
+              "apps/asyra-sim/app-environment.d.mts",
+              "apps/asyra-sim/.env",
+              "apps/asyra-sim/.env.example",
+              "apps/asyra-sim/.gitignore",
+              "apps/asyra-sim/package.json",
+              "apps/asyra-sim/tsconfig.json",
+              "apps/asyra-sim/vitest.config.ts",
+              "apps/asyra-sim/vite.config.ts",
+              "apps/asyra-sim/index.html",
+              "yarn.lock",
+              "turbo.json"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "compose"
+          },
+          {
+            "id": "domain",
+            "order": 2,
+            "laneId": "domain",
+            "title": "Validate workcells and compute poses",
+            "ownerPackage": "@asyra/asyra-sim domain",
+            "purpose": "Validate workcells and compute poses",
+            "inputs": [
+              "canonical scene membership",
+              "property definitions",
+              "explicit trajectory and units",
+              "artifact:visual-asset"
+            ],
+            "outputs": [
+              "artifact:domain"
+            ],
+            "conditions": [
+              "Finite, supported dimensions and units; parent membership comes from Scene Tree.",
+              "Interpolate unwrapped joints and compute poses once for renderer and methods.",
+              "Produce pair poses in the nearest shared ancestor body frame using the same local-pose algebra; common rigid motion cancels exactly. Separate roots use world coordinates. No retained pose cache or alternate hierarchy is introduced.",
+              "Resolve every bound original source into complete indexed part geometry with source identity and explicit positive scale; a binding replaces legacy surrogate colliders for analysis.",
+              "The same domain part placement supplies render and snapshot consumers. Preserve every triangle; topology inspection does not repair, simplify or mutate source coordinates.",
+              "Closed oriented manifold components define a union of solids; ambiguous topology blocks formal analysis. Native primitives represent actual primitive parts only."
+            ],
+            "bypasses": [
+              "Static poses bypass trajectory interpolation; empty motion input is invalid."
+            ],
+            "allowedContributors": [
+              "pure domain geometry and schemas"
+            ],
+            "forbiddenContributors": [
+              "Three.js",
+              "worker state",
+              "second editable hierarchy"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "apps/asyra-sim/src/domain/**",
+              "apps/asyra-sim/samples/**"
+            ],
+            "specRefs": [
+              "#1-supported-workcell",
+              "#2-visual-and-analysis-geometry",
+              "#3-coordinates-units-and-support-envelope",
+              "#4-trajectories-and-motion-semantics"
+            ],
+            "failureOwnerStepId": "domain"
+          },
+          {
+            "id": "edit",
+            "order": 3,
+            "laneId": "edit",
+            "title": "Accept user intent atomically",
+            "ownerPackage": "@asyra/asyra-sim editing",
+            "purpose": "Accept user intent atomically",
+            "inputs": [
+              "artifact:runtime",
+              "artifact:domain",
+              "validated visual source admission callback",
+              "validated observation attachment admission callback and retained run identity",
+              "validated edit intent or canonical capture/guarded-apply request"
+            ],
+            "outputs": [
+              "artifact:committed-model",
+              "artifact:canonical-capture"
+            ],
+            "conditions": [
+              "Mutating edit intents use Feature -> common API -> Core canonical state under one transaction.",
+              "Material changes to baseline or typed acceptance conditions advance rule and experiment revisions together; non-rule edits preserve rule revision, and Undo or duplication uses the same canonical contract.",
+              "Run-linked observations belong to canonical run references, never immutable evidence. Validate bounded metadata, project-wide counts and identities, attachment admission, and expected revisions before one transaction; creation owns identity and timestamps, unchanged content is a no-op, and removals remain undoable.",
+              "Candidate duplication remaps independent body/experiment identities and all references atomically, preserves explicit body lineage, and never copies historical run references.",
+              "Reject invalid edits; explicit rollback cancellation produces no partial scene.",
+              "Preserve body-local visual metadata through edits and duplication; admit all declared sources and expanded instances before writing. Visual binding uses previously retained source bytes in one canonical transaction; source retention and durable saving remain separate storage operations.",
+              "Attaching original part bindings explicitly retires prior primitive geometry in the same transaction. Removing the last source never revives legacy surrogates; native replacement is a separate explicit geometry edit. Undo restores the entire prior intent.",
+              "Capture awaits Core serialization inside the interaction queue without opening a transaction; storage I/O occurs afterward.",
+              "Guarded canonical apply checks freshness inside the queue immediately before Core load and does not clear history."
+            ],
+            "bypasses": [
+              "Load and Undo/Redo use canonical apply instead of new product intent."
+            ],
+            "allowedContributors": [
+              "Feature System",
+              "Core scene/property facades",
+              "storage-owned attachment admission without I/O inside the transaction"
+            ],
+            "forbiddenContributors": [
+              "direct SDK mutation",
+              "standalone undo stack",
+              "input-layer business rules"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "apps/asyra-sim/src/features/edit*",
+              "apps/asyra-sim/src/features/__tests__/**",
+              "apps/asyra-sim/src/common-apis/**",
+              "apps/asyra-sim/src/constants/**",
+              "apps/asyra-sim/src/init/properties*",
+              "apps/asyra-sim/src/init/components*",
+              "apps/asyra-sim/src/init/__tests__/runtime-controller.test.ts"
+            ],
+            "specRefs": [
+              "#9-comparable-and-traceable-experiments",
+              "#10-import-persistence-and-field-feedback",
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "edit"
+          },
+          {
+            "id": "project",
+            "order": 4,
+            "laneId": "project",
+            "title": "Project committed and playback poses",
+            "ownerPackage": "@asyra/asyra-sim projection",
+            "purpose": "Project committed and playback poses",
+            "inputs": [
+              "artifact:committed-model",
+              "artifact:domain",
+              "artifact:result",
+              "transient camera and playback time",
+              "artifact:live-feedback",
+              "storage-admitted decoded visual artifacts and transient visibility controls"
+            ],
+            "outputs": [
+              "artifact:spatial-projection"
+            ],
+            "conditions": [
+              "Use shared domain poses; replay and camera never overwrite canonical geometry.",
+              "Retain complete admitted local shapes only for one detached workcell/source projection. Pose, selection and display updates reuse those shapes; replacement inputs create a fresh projection. Camera-only submission updates its spatial container without validating or updating mesh descriptors; accepted pending model and camera submissions preserve call order and share the existing demanded frame.",
+              "Project visual vertices using explicit binding scale and body-local pose through the shared body world pose; missing source references fail even when display is hidden.",
+              "Project only original bound parts or explicitly authored native parts, never legacy surrogates beneath imported surfaces. Domain placement is shared with analysis; wireframe and visibility are display-only.",
+              "Register through Core; findings are projections of accepted evidence."
+            ],
+            "bypasses": [
+              "No result is required for ordinary editing. Live sampled checks are independent of formal runs; projection only consumes their accepted feedback and never invokes a solver."
+            ],
+            "allowedContributors": [
+              "engine-neutral spatial descriptors",
+              "public RenderContainer and RenderMesh"
+            ],
+            "forbiddenContributors": [
+              "Three.js SDK",
+              "collision re-derivation",
+              "renderer runtime extraction"
+            ],
+            "cacheDimensions": [
+              "current detached workcell and visual-source inputs; mesh identity within that projection fixes native geometry or original source mesh and binding scale"
+            ],
+            "implementationBoundary": [
+              "apps/asyra-sim/src/render-app/**",
+              "apps/asyra-sim/src/render-layers/**"
+            ],
+            "specRefs": [
+              "#2-visual-and-analysis-geometry",
+              "#8-results-are-not-a-single-green-check"
+            ],
+            "failureOwnerStepId": "project"
+          },
+          {
+            "id": "engine",
+            "order": 5,
+            "laneId": "engine",
+            "title": "Render and pick the spatial projection",
+            "ownerPackage": "Asyra Sim CUSTOM engine",
+            "purpose": "Render and pick the spatial projection",
+            "inputs": [
+              "artifact:spatial-projection",
+              "RenderEngine commands and surface options",
+              "artifact:surface-size-request"
+            ],
+            "outputs": [
+              "artifact:visual-output"
+            ],
+            "conditions": [
+              "Validate versioned spatial descriptors and own all SDK objects.",
+              "Spatial admission isolates and deeply freezes descriptors and shapes. Only exact owner-issued immutable products reuse their admission; new envelopes and untrusted geometry remain validated, and weak receipts retain no dead resources.",
+              "Flush only on demand; ray picking returns visual handles, never formal collision evidence.",
+              "Keep the engine independent of workcell and canonical runtime modules."
+            ],
+            "bypasses": [
+              "Ordinary screen-space containers and graphics use the 2D bridge; no spatial interpretation is inferred."
+            ],
+            "allowedContributors": [
+              "Three.js",
+              "public @asyra/render-engine contract"
+            ],
+            "forbiddenContributors": [
+              "Core and Render imports",
+              "workcell domain imports",
+              "solver inputs",
+              "Preset modifications"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "apps/asyra-sim/src/engine/three-engine.ts",
+              "apps/asyra-sim/src/engine/spatial-contract.ts",
+              "apps/asyra-sim/src/engine/graphics.ts",
+              "apps/asyra-sim/src/engine/__tests__/**"
+            ],
+            "specRefs": [
+              "#2-visual-and-analysis-geometry",
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "engine"
+          },
+          {
+            "id": "surface",
+            "order": 6,
+            "laneId": "surface",
+            "title": "Forward a validated surface size",
+            "ownerPackage": "@asyra/core",
+            "purpose": "Forward a validated surface size",
+            "inputs": [
+              "artifact:runtime",
+              "measured positive CSS width and height"
+            ],
+            "outputs": [
+              "artifact:surface-size-request"
+            ],
+            "conditions": [
+              "Validate finite positive dimensions before invoking the active IRenderer resize method.",
+              "Forward without changing canonical state, camera semantics, provider selection, or composition locks."
+            ],
+            "bypasses": [
+              "An App may defer a zero-size hidden surface; zero is not a valid facade request."
+            ],
+            "allowedContributors": [
+              "Core-owned or advanced IRenderer interface"
+            ],
+            "forbiddenContributors": [
+              "Three.js",
+              "App domain state",
+              "alternate render runtime",
+              "Preset 3D/HYBRID enablement"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "packages/core/src/core.ts",
+              "packages/core/src/index.ts",
+              "packages/core/src/__tests__/core-start-render.test.ts"
+            ],
+            "specRefs": [
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "surface"
+          },
+          {
+            "id": "snapshot",
+            "order": 7,
+            "laneId": "snapshot",
+            "title": "Freeze and validate one run",
+            "ownerPackage": "@asyra/asyra-sim experiments",
+            "purpose": "Freeze and validate one run",
+            "inputs": [
+              "artifact:committed-model",
+              "artifact:domain",
+              "installed method descriptors",
+              "scope, rules, budget and acknowledgements"
+            ],
+            "outputs": [
+              "artifact:snapshot"
+            ],
+            "conditions": [
+              "Freeze detached complete inputs and source identities.",
+              "Resolved original parts enter version 2 snapshots with complete triangles and closed-component admission. Version 1 history cannot carry or acquire mesh evidence; source placement must match every bound part.",
+              "Admit only immutable pre-start catalogs with unique method IDs and names, compatible contracts, bounded settings schemas, provenance and explicit trust/resource declarations.",
+              "Retain optional trusted inert executor factories without invoking them during catalog admission. Only the live Worker may create its input-lifetime executor; stateless registrations and formal one-shot execution remain supported.",
+              "Validate installed method parameters before execution and freeze its declaration with new snapshots; historical declarations grant no executable capability and missing modules never trigger installation or substitution.",
+              "Validate optional bounded typed acceptance trees as inert geometry-protocol data; freeze them with the rule without evaluating evidence or changing legacy snapshots.",
+              "Reject unsupported data before allocating a worker; separate resource warnings from validity.",
+              "New execution rejects selected legacy visual bindings whose complete source geometry is absent from the method input, regardless of colliders or visibility. Warning acknowledgement and historical admission cannot authorize a proxy rerun. Explicit background scope remains excluded; historical evidence retains its original geometry without executable permission.",
+              "No valid pairs is not a pass."
+            ],
+            "bypasses": [
+              "Historical result viewing does not require an installed method."
+            ],
+            "allowedContributors": [
+              "method input schemas",
+              "pure scope and pair policies"
+            ],
+            "forbiddenContributors": [
+              "camera and pixels",
+              "silent exclusions",
+              "mutable canonical references"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "apps/asyra-sim/src/analysis/preflight*",
+              "apps/asyra-sim/src/analysis/snapshot*",
+              "apps/asyra-sim/src/analysis/contracts*",
+              "apps/asyra-sim/src/analysis/__tests__/**",
+              "apps/asyra-sim/src/extensions/**"
+            ],
+            "specRefs": [
+              "#2-visual-and-analysis-geometry",
+              "#5-analysis-scope-and-pair-policy",
+              "#6-preflight",
+              "#8-results-are-not-a-single-green-check",
+              "#9-comparable-and-traceable-experiments"
+            ],
+            "failureOwnerStepId": "snapshot"
+          },
+          {
+            "id": "method",
+            "order": 8,
+            "laneId": "method",
+            "title": "Compute bounded continuous evidence",
+            "ownerPackage": "@asyra/asyra-sim geometry method",
+            "purpose": "Compute bounded continuous evidence",
+            "inputs": [
+              "artifact:snapshot",
+              "artifact:domain",
+              "abort signal and execution budget"
+            ],
+            "outputs": [
+              "artifact:method-evidence"
+            ],
+            "conditions": [
+              "Use only validated detached inputs and shared kinematics.",
+              "Original-part queries operate on all source triangles and closed-component solid membership. Conservative boxes are rejection bounds only, never replacement collision shapes.",
+              "The original-part method consumes domain-owned shared-ancestor pair poses. The historical primitive kernel retains its original world-frame route; neither method independently derives a hierarchy or cancels sampled transforms.",
+              "A distinct original-part method identity covers static and complete continuous intervals. Triangle, containment and traversal work checkpoint the owned execution budget; numerical ambiguity remains unresolved.",
+              "The independent static-sphere example uses analytical outward distance bounds, declares its narrower capability and optional added uncertainty, and emits the same geometry evidence contract without official-endorsement inference.",
+              "Bound the full requested interval or mark unresolved; retain numerical uncertainty.",
+              "Preserve established static witnesses when later geometry work exhausts its budget. An unproved full-interval lower bound is zero, not clearance; unvisited intervals remain explicitly unresolved.",
+              "Distance bounds and contact witnesses are distinct from user verdicts."
+            ],
+            "bypasses": [
+              "Static input uses static queries; sampled preview cannot produce formal clearance."
+            ],
+            "allowedContributors": [
+              "pure analytical geometry",
+              "bounded interval subdivision"
+            ],
+            "forbiddenContributors": [
+              "Three.js",
+              "display FPS",
+              "runtime canonical state",
+              "silent method fallback"
+            ],
+            "cacheDimensions": [
+              "one formal execution or live Worker input lifetime and exact immutable resolved mesh geometry/hierarchy mode; each invocation charges equivalent preparation work with fresh checkpoints, and poses and temporal bounds are not retained"
+            ],
+            "implementationBoundary": [
+              "apps/asyra-sim/src/analysis/methods/**",
+              "apps/asyra-sim/src/constants/methods.ts"
+            ],
+            "specRefs": [
+              "#7-methods-and-completeness",
+              "#8-results-are-not-a-single-green-check"
+            ],
+            "failureOwnerStepId": "method"
+          },
+          {
+            "id": "run",
+            "order": 9,
+            "laneId": "run",
+            "title": "Own worker lifecycle and validate results",
+            "ownerPackage": "@asyra/asyra-sim runner",
+            "purpose": "Own worker lifecycle and validate results",
+            "inputs": [
+              "artifact:snapshot",
+              "artifact:method-evidence",
+              "immutable trusted method catalog shared by App and Worker",
+              "Feature-owned abort signal"
+            ],
+            "outputs": [
+              "artifact:result",
+              "artifact:run-progress"
+            ],
+            "conditions": [
+              "One detached Feature task at a time; no transaction spans worker execution.",
+              "Reuse snapshot-owner execution admission before Worker allocation and inside the Worker; dispatch only the exact pre-start registration, never a hard-coded replacement or imported executable.",
+              "Private method exceptions expose only failure stage, not raw data, paths or credentials; late method emissions after settlement are rejected.",
+              "Validate source identity, evidence, pair/time coverage, and terminal state.",
+              "Evaluate frozen typed acceptance conditions only from validated retained geometry evidence; preserve method findings and unknowns, forbid success after incomplete execution or coverage, and validate historical evaluation without the current catalog.",
+              "Expose only validated bounded progress counts through the analysis Feature; progress is not a final verdict or a completion-time estimate.",
+              "Abort, terminate after grace, and discard late messages from an old run."
+            ],
+            "bypasses": [
+              "Malformed evidence fails; no UI repair into success."
+            ],
+            "allowedContributors": [
+              "owned Web Worker",
+              "versioned method protocol",
+              "result validation"
+            ],
+            "forbiddenContributors": [
+              "canonical scene writes during solve",
+              "unbounded concurrency",
+              "Promise-only forced cancellation"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "apps/asyra-sim/src/analysis/runner*",
+              "apps/asyra-sim/src/analysis/analysis.worker.ts",
+              "apps/asyra-sim/src/analysis/worker*",
+              "apps/asyra-sim/src/analysis/result*",
+              "apps/asyra-sim/src/analysis/__tests__/**",
+              "apps/asyra-sim/src/features/analysis*",
+              "apps/asyra-sim/src/features/__tests__/analysis.test.ts"
+            ],
+            "specRefs": [
+              "#8-results-are-not-a-single-green-check",
+              "#11-interaction-cancellation-and-resources"
+            ],
+            "failureOwnerStepId": "run"
+          },
+          {
+            "id": "live",
+            "order": 21,
+            "laneId": "run",
+            "title": "Check live playback samples",
+            "ownerPackage": "@asyra/asyra-sim live execution",
+            "purpose": "Produce bounded non-persistent sample feedback without a formal run",
+            "inputs": [
+              "artifact:snapshot",
+              "artifact:method-evidence",
+              "Feature-owned abort signal",
+              "latest requested playback time"
+            ],
+            "outputs": [
+              "artifact:live-feedback"
+            ],
+            "conditions": [
+              "Own one cancellable non-mutating Feature task and at most one Worker for detached playback inputs. Admit the snapshot once at each trust boundary and require the exact installed method static capability. Create the Worker lazily only for missing sample evidence.",
+              "Send full inputs once per lifetime, then sampled times only. Bound concurrency to one in-flight request and one latest pending time; deadline, byte, work and evidence limits remain enforced.",
+              "Create an optional installed executor once for the admitted Worker input, otherwise invoke the exact stateless entry. Admit requests at most every 50 ms; slow work coalesces pending times without growing a queue or changing the animation clock.",
+              "Validate each returned static sample against its snapshot, request identity, exact time and pair evidence. Unvisited pairs and failed or incomplete samples remain unknown; never create a formal run, verdict, report or history entry.",
+              "Publish the first validated finding and first penetration immediately, batching later findings at the bounded progress cadence. Validate progress at both trust boundaries with incremental global limits and require terminal consistency. Provisional evidence neither releases in-flight ownership nor resets its watchdog nor enters reusable records. Evidence admission does not assemble a formal report.",
+              "Seeking invalidates older requests. Cancellation, replacement, visibility suspension and runtime cleanup terminate owned work and reject late delivery. A slow sample never becomes evidence for a newer displayed pose."
+            ],
+            "bypasses": [
+              "Missing capability, invalid input or unacknowledged warnings produce explicit unavailable feedback, never a substitute method or a clear result."
+            ],
+            "allowedContributors": [
+              "owned Web Worker",
+              "installed static method execution",
+              "existing snapshot and evidence validators"
+            ],
+            "forbiddenContributors": [
+              "renderer picking or geometry substitution",
+              "canonical writes",
+              "unbounded queues",
+              "formal report retention"
+            ],
+            "cacheDimensions": [
+              "one current owner-admitted input lifetime, including source geometry, trajectory, scope, method, settings and thresholds; exact sampled time for at most 256 bounded live records"
+            ],
+            "implementationBoundary": [
+              "apps/asyra-sim/src/analysis/live/**",
+              "apps/asyra-sim/src/features/live-playback.ts",
+              "apps/asyra-sim/src/features/__tests__/live-playback.test.ts",
+              "apps/asyra-sim/src/constants/feature-names.ts"
+            ],
+            "specRefs": [
+              "#live-playback-feedback"
+            ],
+            "failureOwnerStepId": "live"
+          },
+          {
+            "id": "storage",
+            "order": 10,
+            "laneId": "storage",
+            "title": "Retain and export immutable experiments",
+            "ownerPackage": "@asyra/asyra-sim storage",
+            "purpose": "Retain and export immutable experiments",
+            "inputs": [
+              "artifact:domain",
+              "artifact:committed-model",
+              "artifact:canonical-capture",
+              "artifact:result",
+              "validated import or explicit save/compare intent",
+              "local visual source bytes and inert source metadata",
+              "bounded local observation file bytes, canonical attachment references and explicit annotation intent",
+              "artifact:visual-asset"
+            ],
+            "outputs": [
+              "artifact:retained-data"
+            ],
+            "conditions": [
+              "Preview imports before Feature acceptance; failed import leaves no partial state.",
+              "Normalize explicitly supported legacy envelope and canonical type identities at the storage load boundary before reference validation. Preserve user data, immutable evidence and source bytes; unknown versions remain invalid. New captures use current types without runtime aliases.",
+              "Visual preparation is a noncanonical Feature task with owned cancellation; completed preview discard revokes the receipt, and retention invokes the separate editing Feature without holding a transaction across decoding.",
+              "Retain immutable original visual sources only through archive-scoped prepared receipts; source collections are byte/count bounded and fully decoded with verified digests before hydration succeeds.",
+              "Prepare opaque observation attachments with one owned active task and one revocable completed receipt per archive. Validate file/count/aggregate limits, immutable byte ownership, canonical Base64 and SHA-256 before acceptance or hydration; never parse or render their contents.",
+              "Observation source retention precedes the separate editing callback; failed metadata acceptance remains retryable without claiming a save. Capture only current annotation references, retain accepted bytes for Undo within runtime limits, and export feedback separately from immutable run reports.",
+              "Resolve every visual reference before use and bound decoded archive geometry and repeated workcell instances independently of source bytes.",
+              "Before accepting or reopening a version 2 run, compare its complete frozen part geometry with domain resolution of the verified retained sources. Changed triangles under an unchanged source identity are invalid; version 1 history is never reinterpreted.",
+              "Save acknowledgement is independent of runtime commit; historical evidence stays immutable.",
+              "Retained runs freeze optional validated candidate lineage; comparison uses explicit body correspondence without suppressing geometry or setting changes or rewriting evidence.",
+              "UI, export, comparison and replay consume the same result; incompatible comparisons are disclosed.",
+              "Compare actual acceptance conditions independently of revision labels; every report preserves the retained result-owner evaluation without recomputing a verdict."
+            ],
+            "bypasses": [
+              "Missing methods allow historical reading, not automatic reruns."
+            ],
+            "allowedContributors": [
+              "local IndexedDB and portable bundles",
+              "owned asset decoder service returning detached artifacts only",
+              "Core Feature task and runtime-cleanup facades",
+              "safe CSV/JSON/HTML serializers"
+            ],
+            "forbiddenContributors": [
+              "remote upload",
+              "rewriting old evidence",
+              "silent units or version guesses"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "apps/asyra-sim/src/storage/**",
+              "apps/asyra-sim/src/features/storage*",
+              "apps/asyra-sim/src/constants/feature-names.ts"
+            ],
+            "specRefs": [
+              "#9-comparable-and-traceable-experiments",
+              "#10-import-persistence-and-field-feedback"
+            ],
+            "failureOwnerStepId": "storage"
+          },
+          {
+            "id": "ui",
+            "order": 11,
+            "laneId": "ui",
+            "title": "Expose the full ordinary user journey",
+            "ownerPackage": "@asyra/asyra-sim workbench",
+            "purpose": "Expose the full ordinary user journey",
+            "inputs": [
+              "artifact:app-lifetime",
+              "artifact:runtime",
+              "artifact:committed-model",
+              "artifact:visual-output",
+              "artifact:result",
+              "artifact:run-progress",
+              "artifact:live-feedback",
+              "artifact:retained-data",
+              "artifact:visual-asset",
+              "versioned static distribution files",
+              "clean exact source commit, existing lockfile and validated packed Framework build inputs"
+            ],
+            "outputs": [
+              "artifact:user-workbench"
+            ],
+            "conditions": [
+              "Dispatch intent through Features; UI is never canonical model or solver authority.",
+              "Forward live sampling protects crossed canonical trajectory keyframes until checked, then coalesces optional intermediate times toward the current playhead. Keep only the latest playhead and accepted sample progress, never a queue of display frames. A seek resets the sampling anchor. Narrow viewport feedback is compact until the user expands Details.",
+              "During continuous Play, project validated provisional collision feedback immediately while the live owner is still checking other pairs. Do not advance completed-sample progress, infer full scope, or wait for sample recording; terminal evidence alone advances the protected sampling anchor. Manual seeking computes the next state and replaces the current presentation only on completed sample or recorded-evidence lookup, not intermediate pair progress.",
+              "One playback controller reuses compatible exact formal witnesses and all-pair clear certificates without a Worker, requesting missing poses from the live owner even before later witnesses. Finding intervals are not continuous contact and witnesses are not first-contact times. Collision feedback never pauses or seeks the clock. Explicit Pause freezes the current frame and requests its exact pose. Keep latest checked parts highlighted during forward motion until newer feedback supersedes them, identifying checked time and earlier-pose evidence without claiming exact current contact. Never apply future evidence to an earlier displayed pose. Manual seeks keep the existing displayed pose and its feedback paired while naming the latest pending target separately; only completed latest-target evidence switches pose and feedback together, without an intermediate reset. Before any accepted feedback, preview the target as checking; failure displays the target as error. Cached targets use the same atomic handoff. Present scope and unknown/error states and matching sampled observations. Cancel stale work on seek, edits, replacement, hidden page, formal analysis or leaving playback. Preserve fixed panels, property-level subscriptions and unchanged history/report data.",
+              "Keep camera state in the viewport subtree. Read-only workbench projection refreshes on canonical revision, selected candidate or runtime identity; local panels and playback never reread unchanged canonical model or retained runs. The retained projection has one current entry, preserves error output, and owns no editable state.",
+              "Experiment metadata queries share the runtime, canonical revision and candidate invalidation boundary; draft-only edits do not recapture canonical experiments. Stable controller/provider composition and property-level subscriptions own UI update boundaries, never component memo wrappers or props comparators. Hierarchy and scope rows subscribe to their displayed scalar fields; numerical draft edits do not notify scope rows, and scope callbacks preserve the latest other draft fields. Mount, joint and original-placement controls subscribe to every consumed property value and unit, while section callbacks merge into the latest committed body. Current read-only projection subscriptions never scan or retain source triangles, bypass canonical reads on revision, or own editable model state.",
+              "Viewport navigation owns transient camera intent only. Two-finger vertical scroll, mouse wheel and pinch zoom update only the latest transient camera, preserving its target and complete burst deltas without input-mode preferences, device-guessing heuristics or a second animation loop. Horizontal scrolling never pans; Shift-drag pan preserves eye-to-target direction and distance. Fit consumes the current displayed spatial projection and canvas dimensions with padding, excludes hidden/decorative meshes, and never feeds display bounds into analysis. Capture cancellation and runtime retirement remove stale input; ordinary selection and canonical History stay unchanged. Viewport Navigation in editing-v0.md owns the gesture and shortcut contract.",
+              "Workbench history shortcuts share the toolbar guarded History Feature APIs. The ready-lifetime document keydown bridge runs after local controls and before window browser-default suppression; preserve native editable controls, ignore consumed/composing/ambiguous input, consume repeats without duplicate replay, and retire bindings on replacement or unmount. No keyboard-owned transaction, queue or history.",
+              "Object field completion dispatches one edit directly through the existing editing Feature, without a form-wide Apply or a second editable body. Keep only unfinished input text and presentation settings transient; reject invalid input without history, project canonical replay, and preserve the selected editor across ordinary revisions. Reset it on body, candidate or lifetime replacement.",
+              "Keep one storage session outside document lifetimes; acknowledge saves separately and confirm replacement through the App lifecycle controller.",
+              "Reset transient view/selection/drafts for each successor; guard late old-runtime effects and input callbacks.",
+              "Show local storage errors without blocking editing; post-retirement failure disables editing and offers detached recovery download.",
+              "Expose assumptions, unknowns, saving failures, comparison differences, and method versions.",
+              "Author bounded typed acceptance trees in transient drafts and save through the existing editing Feature; present the retained result-owner evaluation and user verdict separately from unchanged method findings, never infer acceptance in the view.",
+              "Expose field observations only for retained run references; keep text and file drafts transient, validate file size/count before reading, show inert metadata, and dispatch explicit create/update/remove through the guarded runtime. Discard stale selections on run/library/lifetime changes, confirm removals, download opaque bytes as attachments and export feedback separately from immutable reports.",
+              "Prepare visual sources through owned Features; show dimensions, units, digest and limitations, preview explicit body-local placement, then accept one binding transaction.",
+              "Cancel or replace previews without canonical writes; invalidate transient placement when its source, target, or current workcell changes, and guard retired runtime callbacks.",
+              "Expose one original part display with transient wireframe inspection, never a visual/proxy selector. Label source placement as shared analysis geometry, disclose closed-solid admission, and hide retired primitive editors while original sources are bound.",
+              "For version 2 stale-result notices compare original source bindings and canonical kinematics, not resolved snapshot meshes against retired primitives. Source placement changes invalidate the current result; historical evidence is not rewritten.",
+              "A visual source above 8 MiB requires explicit source-scoped memory-warning acknowledgement before placement preview or acceptance; acknowledgement never overrides hard resource limits.",
+              "Serve versioned static distribution files through a read-only, loopback-only Node launcher with a stable explicit port, exact Host/origin checks, safe paths, no symlinks or uploads, and owned shutdown; never silently choose another origin.",
+              "Build independent distribution inputs in a project-local exact-source archive and isolated consumer, using the existing Framework package artifact validator. Preserve locked registry identities and integrity, reject ancestor/private/symlink type or bundle resolution, bound child processes and logs, and record checksums without claiming publication or independent acceptance.",
+              "Consumer tests preserve native ESM live exports from packed dependencies; test-runner CommonJS compatibility must not snapshot the current Core binding.",
+              "After this invocation passes independent build gates, assemble only its verified site and exact-source launcher, documentation and optional SDK. Derive original dependency notices from main/Worker inputs, reject missing notices/symlinks/broken document targets, checksum every file, and finalize only after the source identity recheck. Never serve SDK files or label assembly as offline/pilot/release acceptance.",
+              "Use local assets; release readiness remains governed by FIRST_RELEASE gates."
+            ],
+            "bypasses": [
+              "Startup failure displays an actionable error, not a fake workcell."
+            ],
+            "allowedContributors": [
+              "ordinary UI controls",
+              "versioned local distribution"
+            ],
+            "forbiddenContributors": [
+              "fixture-specific success paths",
+              "equipment commands",
+              "automatic publishing"
+            ],
+            "cacheDimensions": [
+              "runtime identity, canonical revision and selected candidate for the current read-only workbench projection; retained run identity and pending run identity for UI-only run indexes",
+              "runtime, displayed workcell and pending import identity for the current prepared projection; projection identity, joints, selection, accepted whole-part highlight, grid and wireframe for its current frame, excluding camera"
+            ],
+            "implementationBoundary": [
+              "apps/asyra-sim/src/ui/**",
+              "apps/asyra-sim/src/main*",
+              "apps/asyra-sim/e2e/**",
+              "apps/asyra-sim/playwright.config.ts",
+              "apps/asyra-sim/vitest.config.ts",
+              "apps/asyra-sim/scripts/**",
+              "apps/asyra-sim/README.md"
+            ],
+            "specRefs": [
+              "#12-representative-product-cases-and-definition-of-done"
+            ],
+            "failureOwnerStepId": "ui"
+          },
+          {
+            "id": "asset",
+            "order": 12,
+            "laneId": "asset",
+            "title": "Decode a restricted visual reference",
+            "ownerPackage": "@asyra/asyra-sim asset adapter",
+            "purpose": "Decode a restricted visual reference",
+            "inputs": [
+              "locally selected GLB bytes within the published resource profile"
+            ],
+            "outputs": [
+              "artifact:visual-asset"
+            ],
+            "conditions": [
+              "Validate the complete supported GLB profile before returning detached geometry and source identity.",
+              "Never fetch, execute file content, create colliders, or mutate a document."
+            ],
+            "bypasses": [
+              "Decoding needs no Core or renderer instance; unsupported files remain explicit errors."
+            ],
+            "allowedContributors": [
+              "Three.js math types inside the decoder",
+              "bounded byte and schema validation",
+              "Web Crypto source digest"
+            ],
+            "forbiddenContributors": [
+              "Core and canonical state",
+              "network loaders",
+              "solver inputs",
+              "implicit analysis geometry"
+            ],
+            "cacheDimensions": [],
+            "implementationBoundary": [
+              "apps/asyra-sim/src/engine/glb/**"
+            ],
+            "specRefs": [
+              "#2-visual-and-analysis-geometry",
+              "#10-import-persistence-and-field-feedback"
+            ],
+            "failureOwnerStepId": "asset"
+          }
+        ],
+        "routes": [
+          {
+            "id": "domain-to-original-run-storage",
+            "from": "domain",
+            "to": "storage",
+            "kind": "normal",
+            "predicate": "Domain resolution of verified original sources is used only to validate immutable run provenance, never to rewrite evidence.",
+            "producedArtifacts": [
+              "artifact:domain"
+            ]
+          },
+          {
+            "id": "original-asset-to-domain",
+            "from": "asset",
+            "to": "domain",
+            "kind": "normal",
+            "predicate": "Complete detached source geometry is resolved through explicit canonical part bindings.",
+            "producedArtifacts": [
+              "artifact:visual-asset"
+            ]
+          },
+          {
+            "id": "app-lifetime-to-ui",
+            "from": "replace-app-runtime",
+            "to": "ui",
+            "kind": "normal",
+            "predicate": "The UI consumes the current lifetime or an explicit failure with detached recovery.",
+            "producedArtifacts": [
+              "artifact:app-lifetime"
+            ]
+          },
+          {
+            "id": "canonical-capture-to-storage",
+            "from": "edit",
+            "to": "storage",
+            "kind": "normal",
+            "predicate": "A detached consistent canonical document is ready for storage outside transactions.",
+            "producedArtifacts": [
+              "artifact:canonical-capture"
+            ]
+          },
+          {
+            "id": "document-preflight-terminal",
+            "from": "preflight-document",
+            "kind": "terminal",
+            "predicate": "Target compatibility is checked without mutation; App acceptance and reset remain separate.",
+            "producedArtifacts": [
+              "artifact:document-preflight"
+            ]
+          },
+          {
+            "id": "preset-lifecycle-terminal",
+            "from": "retain-preset-lifecycle",
+            "kind": "terminal",
+            "predicate": "Successful Preset resources are retained for Core cleanup; App replacement remains separate.",
+            "producedArtifacts": [
+              "artifact:preset-lifecycle"
+            ]
+          },
+          {
+            "id": "feature-quiescence-to-input",
+            "from": "quiesce",
+            "to": "reset-input",
+            "kind": "normal",
+            "predicate": "Feature work is quiescent; retire the old input surface.",
+            "producedArtifacts": [
+              "artifact:feature-quiescence"
+            ]
+          },
+          {
+            "id": "input-reset-to-render",
+            "from": "reset-input",
+            "to": "reset-render",
+            "kind": "normal",
+            "predicate": "The old input surface is retired; Render owns engine resource termination.",
+            "producedArtifacts": [
+              "artifact:input-reset"
+            ]
+          },
+          {
+            "id": "render-reset-to-shared",
+            "from": "reset-render",
+            "to": "reset-render-shared",
+            "kind": "normal",
+            "predicate": "Instance resources are retired; retire shared derived state.",
+            "producedArtifacts": [
+              "artifact:render-reset"
+            ]
+          },
+          {
+            "id": "render-shared-reset-to-factory",
+            "from": "reset-render-shared",
+            "to": "reset-factory",
+            "kind": "normal",
+            "predicate": "Feature work has actually settled; this alone does not complete App reset.",
+            "producedArtifacts": [
+              "artifact:render-shared-reset"
+            ]
+          },
+          {
+            "id": "factory-reset-to-scene",
+            "from": "reset-factory",
+            "to": "reset-scene",
+            "kind": "normal",
+            "predicate": "Factory reset has completed; other runtime owners must still finish before reconstruction.",
+            "producedArtifacts": [
+              "artifact:factory-reset"
+            ]
+          },
+          {
+            "id": "scene-reset-to-props",
+            "from": "reset-scene",
+            "to": "reset-props",
+            "kind": "normal",
+            "predicate": "Scene reset has completed; other owners and fresh Core composition are still required.",
+            "producedArtifacts": [
+              "artifact:scene-reset"
+            ]
+          },
+          {
+            "id": "props-reset-to-selection",
+            "from": "reset-props",
+            "to": "reset-selection",
+            "kind": "normal",
+            "predicate": "Props state is retired; selection channels are next.",
+            "producedArtifacts": [
+              "artifact:props-reset"
+            ]
+          },
+          {
+            "id": "selection-reset-to-system-context",
+            "from": "reset-selection",
+            "to": "reset-system-context",
+            "kind": "normal",
+            "predicate": "Selection channels are retired; managed runtime properties are next.",
+            "producedArtifacts": [
+              "artifact:selection-reset"
+            ]
+          },
+          {
+            "id": "system-context-reset-to-ui-context",
+            "from": "reset-system-context",
+            "to": "reset-ui-context",
+            "kind": "normal",
+            "predicate": "Managed state is retired; derived UI registrations are next.",
+            "producedArtifacts": [
+              "artifact:system-context-reset"
+            ]
+          },
+          {
+            "id": "ui-context-reset-to-registrations",
+            "from": "reset-ui-context",
+            "to": "retire-registrations",
+            "kind": "normal",
+            "predicate": "Canonical and derived owners are retired; release definition resources.",
+            "producedArtifacts": [
+              "artifact:ui-context-reset"
+            ]
+          },
+          {
+            "id": "registrations-retired-to-core",
+            "from": "retire-registrations",
+            "to": "reset-core",
+            "kind": "normal",
+            "predicate": "Registration resources are retired; finish Core-owned cleanup before successor composition.",
+            "producedArtifacts": [
+              "artifact:registrations-retired"
+            ]
+          },
+          {
+            "id": "core-successor-terminal",
+            "from": "reset-core",
+            "kind": "terminal",
+            "predicate": "A fresh unstarted Core is available; App replacement and composition integration remain separate gates.",
+            "producedArtifacts": [
+              "artifact:core-successor"
+            ]
+          },
+          {
+            "id": "runtime-to-edit",
+            "from": "compose",
+            "to": "edit",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated runtime artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:runtime"
+            ]
+          },
+          {
+            "id": "runtime-to-ui",
+            "from": "compose",
+            "to": "ui",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated runtime artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:runtime"
+            ]
+          },
+          {
+            "id": "domain-to-edit",
+            "from": "domain",
+            "to": "edit",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated domain artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:domain"
+            ]
+          },
+          {
+            "id": "domain-to-project",
+            "from": "domain",
+            "to": "project",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated domain artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:domain"
+            ]
+          },
+          {
+            "id": "domain-to-snapshot",
+            "from": "domain",
+            "to": "snapshot",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated domain artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:domain"
+            ]
+          },
+          {
+            "id": "domain-to-method",
+            "from": "domain",
+            "to": "method",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated domain artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:domain"
+            ]
+          },
+          {
+            "id": "committed-model-to-project",
+            "from": "edit",
+            "to": "project",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated committed-model artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:committed-model"
+            ]
+          },
+          {
+            "id": "committed-model-to-snapshot",
+            "from": "edit",
+            "to": "snapshot",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated committed-model artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:committed-model"
+            ]
+          },
+          {
+            "id": "committed-model-to-storage",
+            "from": "edit",
+            "to": "storage",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated committed-model artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:committed-model"
+            ]
+          },
+          {
+            "id": "committed-model-to-ui",
+            "from": "edit",
+            "to": "ui",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated committed-model artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:committed-model"
+            ]
+          },
+          {
+            "id": "spatial-projection-to-engine",
+            "from": "project",
+            "to": "engine",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated spatial-projection artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:spatial-projection"
+            ]
+          },
+          {
+            "id": "visual-output-to-ui",
+            "from": "engine",
+            "to": "ui",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated visual-output artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:visual-output"
+            ]
+          },
+          {
+            "id": "snapshot-to-method",
+            "from": "snapshot",
+            "to": "method",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated snapshot artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:snapshot"
+            ]
+          },
+          {
+            "id": "snapshot-to-run",
+            "from": "snapshot",
+            "to": "run",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated snapshot artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:snapshot"
+            ]
+          },
+          {
+            "id": "method-evidence-to-run",
+            "from": "method",
+            "to": "run",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated method-evidence artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:method-evidence"
+            ]
+          },
+          {
+            "id": "snapshot-to-live",
+            "from": "snapshot",
+            "to": "live",
+            "kind": "normal",
+            "predicate": "Playback has admitted detached inputs and required acknowledgements; a prior formal run is not required.",
+            "producedArtifacts": [
+              "artifact:snapshot"
+            ]
+          },
+          {
+            "id": "method-to-live",
+            "from": "method",
+            "to": "live",
+            "kind": "normal",
+            "predicate": "The selected installed method returns evidence for the requested static sample.",
+            "producedArtifacts": [
+              "artifact:method-evidence"
+            ]
+          },
+          {
+            "id": "live-to-ui",
+            "from": "live",
+            "to": "ui",
+            "kind": "normal",
+            "predicate": "Sample feedback is current for this playback lifetime and includes its checked time.",
+            "producedArtifacts": [
+              "artifact:live-feedback"
+            ]
+          },
+          {
+            "id": "live-to-project",
+            "from": "live",
+            "to": "project",
+            "kind": "normal",
+            "predicate": "Accepted sample identities describe the latest checked parts in this current playback lifetime. Forward motion may retain their highlight with an explicit earlier-pose label until superseded. Manual seeking retains the existing displayed pose and its feedback together while the target is pending, then switches both on completed latest-target evidence; held evidence never colors newly requested geometry. No current-contact or contact-region geometry is inferred.",
+            "producedArtifacts": [
+              "artifact:live-feedback"
+            ]
+          },
+          {
+            "id": "result-to-project",
+            "from": "run",
+            "to": "project",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated result artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:result"
+            ]
+          },
+          {
+            "id": "result-to-storage",
+            "from": "run",
+            "to": "storage",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated result artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:result"
+            ]
+          },
+          {
+            "id": "run-progress-to-ui",
+            "from": "run",
+            "to": "ui",
+            "kind": "normal",
+            "predicate": "The active run exposes validated retained pair and resource counts without a verdict, canonical mutation, or time estimate.",
+            "producedArtifacts": [
+              "artifact:run-progress"
+            ]
+          },
+          {
+            "id": "result-to-ui",
+            "from": "run",
+            "to": "ui",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated result artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:result"
+            ]
+          },
+          {
+            "id": "retained-data-to-ui",
+            "from": "storage",
+            "to": "ui",
+            "kind": "normal",
+            "predicate": "The owner has produced the validated retained-data artifact required by the selected consumer route.",
+            "producedArtifacts": [
+              "artifact:retained-data"
+            ]
+          },
+          {
+            "id": "user-workbench-terminal",
+            "from": "ui",
+            "kind": "terminal",
+            "predicate": "The requested bounded output is available; this does not imply release acceptance.",
+            "producedArtifacts": [
+              "artifact:user-workbench"
+            ]
+          },
+          {
+            "id": "runtime-to-surface",
+            "from": "compose",
+            "to": "surface",
+            "kind": "normal",
+            "predicate": "A composed runtime receives an App surface resize request.",
+            "producedArtifacts": [
+              "artifact:runtime"
+            ]
+          },
+          {
+            "id": "surface-to-engine",
+            "from": "surface",
+            "to": "engine",
+            "kind": "normal",
+            "predicate": "The validated size is forwarded through the active renderer to its engine.",
+            "producedArtifacts": [
+              "artifact:surface-size-request"
+            ]
+          },
+          {
+            "id": "visual-asset-to-preview",
+            "from": "asset",
+            "to": "ui",
+            "kind": "normal",
+            "predicate": "Validated visual data is available for preview before acceptance.",
+            "producedArtifacts": [
+              "artifact:visual-asset"
+            ]
+          },
+          {
+            "id": "visual-asset-to-storage",
+            "from": "asset",
+            "to": "storage",
+            "kind": "normal",
+            "predicate": "The user explicitly accepts the decoded asset for local retention.",
+            "producedArtifacts": [
+              "artifact:visual-asset"
+            ]
+          }
+        ],
+        "artifacts": [
+          {
+            "id": "artifact:app-lifetime",
+            "ownerStepId": "replace-app-runtime",
+            "channel": "App lifetime state and detached failure recovery",
+            "consumerStepIds": [
+              "ui"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:canonical-capture",
+            "ownerStepId": "edit",
+            "channel": "detached canonical snapshot",
+            "consumerStepIds": [
+              "storage"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:document-preflight",
+            "ownerStepId": "preflight-document",
+            "channel": "detached readonly diagnostics",
+            "consumerStepIds": [],
+            "terminal": true
+          },
+          {
+            "id": "artifact:preset-lifecycle",
+            "ownerStepId": "retain-preset-lifecycle",
+            "channel": "Core-owned cleanup registration",
+            "consumerStepIds": [],
+            "terminal": true
+          },
+          {
+            "id": "artifact:feature-quiescence",
+            "ownerStepId": "quiesce",
+            "channel": "awaited lifecycle completion",
+            "consumerStepIds": [
+              "reset-input"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:input-reset",
+            "ownerStepId": "reset-input",
+            "channel": "synchronous lifecycle completion",
+            "consumerStepIds": [
+              "reset-render"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:render-reset",
+            "ownerStepId": "reset-render",
+            "channel": "synchronous lifecycle completion",
+            "consumerStepIds": [
+              "reset-render-shared"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:render-shared-reset",
+            "ownerStepId": "reset-render-shared",
+            "channel": "synchronous lifecycle completion",
+            "consumerStepIds": [
+              "reset-factory"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:factory-reset",
+            "ownerStepId": "reset-factory",
+            "channel": "synchronous lifecycle completion",
+            "consumerStepIds": [
+              "reset-scene"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:scene-reset",
+            "ownerStepId": "reset-scene",
+            "channel": "synchronous lifecycle completion",
+            "consumerStepIds": [
+              "reset-props"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:props-reset",
+            "ownerStepId": "reset-props",
+            "channel": "synchronous lifecycle completion",
+            "consumerStepIds": [
+              "reset-selection"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:selection-reset",
+            "ownerStepId": "reset-selection",
+            "channel": "synchronous lifecycle completion",
+            "consumerStepIds": [
+              "reset-system-context"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:system-context-reset",
+            "ownerStepId": "reset-system-context",
+            "channel": "synchronous lifecycle completion",
+            "consumerStepIds": [
+              "reset-ui-context"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:ui-context-reset",
+            "ownerStepId": "reset-ui-context",
+            "channel": "synchronous lifecycle completion",
+            "consumerStepIds": [
+              "retire-registrations"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:registrations-retired",
+            "ownerStepId": "retire-registrations",
+            "channel": "synchronous lifecycle completion",
+            "consumerStepIds": [
+              "reset-core"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:core-successor",
+            "ownerStepId": "reset-core",
+            "channel": "awaited Core lifecycle handoff",
+            "consumerStepIds": [],
+            "terminal": true
+          },
+          {
+            "id": "artifact:visual-asset",
+            "ownerStepId": "asset",
+            "channel": "detached handoff",
+            "consumerStepIds": [
+              "ui",
+              "storage",
+              "domain"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:runtime",
+            "ownerStepId": "compose",
+            "channel": "detached handoff",
+            "consumerStepIds": [
+              "edit",
+              "ui",
+              "surface"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:domain",
+            "ownerStepId": "domain",
+            "channel": "detached handoff",
+            "consumerStepIds": [
+              "edit",
+              "project",
+              "snapshot",
+              "method",
+              "storage"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:committed-model",
+            "ownerStepId": "edit",
+            "channel": "detached handoff",
+            "consumerStepIds": [
+              "project",
+              "snapshot",
+              "storage",
+              "ui"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:spatial-projection",
+            "ownerStepId": "project",
+            "channel": "detached handoff",
+            "consumerStepIds": [
+              "engine"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:visual-output",
+            "ownerStepId": "engine",
+            "channel": "detached handoff",
+            "consumerStepIds": [
+              "ui"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:snapshot",
+            "ownerStepId": "snapshot",
+            "channel": "detached handoff",
+            "consumerStepIds": [
+              "method",
+              "run",
+              "live"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:method-evidence",
+            "ownerStepId": "method",
+            "channel": "detached handoff",
+            "consumerStepIds": [
+              "run",
+              "live"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:live-feedback",
+            "ownerStepId": "live",
+            "channel": "read-only live Feature sample feedback",
+            "consumerStepIds": [
+              "ui",
+              "project"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:run-progress",
+            "ownerStepId": "run",
+            "channel": "read-only analysis Feature API",
+            "consumerStepIds": [
+              "ui"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:result",
+            "ownerStepId": "run",
+            "channel": "detached handoff",
+            "consumerStepIds": [
+              "project",
+              "storage",
+              "ui"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:retained-data",
+            "ownerStepId": "storage",
+            "channel": "detached handoff",
+            "consumerStepIds": [
+              "ui"
+            ],
+            "terminal": false
+          },
+          {
+            "id": "artifact:user-workbench",
+            "ownerStepId": "ui",
+            "channel": "detached handoff",
+            "consumerStepIds": [],
+            "terminal": true
+          },
+          {
+            "id": "artifact:surface-size-request",
+            "ownerStepId": "surface",
+            "channel": "IRenderer size command",
+            "consumerStepIds": [
+              "engine"
+            ],
+            "terminal": false
+          }
+        ],
+        "invariants": [
+          {
+            "id": "one-canonical-model",
+            "statement": "Scene Tree and Props remain authoritative; derived spatial poses and results do not become a second editable model.",
+            "stepIds": [
+              "domain",
+              "edit",
+              "project",
+              "engine"
+            ],
+            "artifactIds": [
+              "artifact:domain",
+              "artifact:committed-model",
+              "artifact:spatial-projection"
+            ],
+            "specRefs": [
+              "#3-coordinates-units-and-support-envelope"
+            ]
+          },
+          {
+            "id": "unknown-not-clear",
+            "statement": "Unresolved, cancelled, unsupported or invalid evidence never becomes clear.",
+            "stepIds": [
+              "snapshot",
+              "method",
+              "run",
+              "storage",
+              "ui"
+            ],
+            "artifactIds": [
+              "artifact:snapshot",
+              "artifact:method-evidence",
+              "artifact:result"
+            ],
+            "specRefs": [
+              "#8-results-are-not-a-single-green-check"
+            ]
+          }
+        ],
+        "acceptanceContracts": [
+          {
+            "id": "full-user-journey",
+            "title": "Complete ordinary user journey",
+            "stepIds": [
+              "preflight-document",
+              "quiesce",
+              "reset-input",
+              "reset-render",
+              "reset-render-shared",
+              "reset-factory",
+              "reset-scene",
+              "reset-props",
+              "reset-selection",
+              "reset-system-context",
+              "reset-ui-context",
+              "retire-registrations",
+              "reset-core",
+              "retain-preset-lifecycle",
+              "compose",
+              "domain",
+              "edit",
+              "project",
+              "engine",
+              "snapshot",
+              "method",
+              "run",
+              "storage",
+              "ui",
+              "surface",
+              "asset"
+            ],
+            "specRefs": [
+              "#12-representative-product-cases-and-definition-of-done"
+            ],
+            "assertions": [
+              "Ordinary UI/import workflows and all FIRST_RELEASE gates are required; a CUSTOM engine proof is not R0 completion."
             ]
           }
         ]

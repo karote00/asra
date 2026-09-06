@@ -61,15 +61,40 @@ export class RenderInteractionBridge {
   }
 
   detach() {
+    this.detachBindings((cleanup) => cleanup())
+  }
+
+  resetRuntime(): void {
+    const failures: unknown[] = []
+    this.detachBindings((cleanup) => {
+      try {
+        cleanup()
+      } catch (error) {
+        failures.push(error)
+      }
+    })
+    if (failures.length > 0) throw failures[0]
+  }
+
+  private detachBindings(attempt: (cleanup: () => void) => void): void {
     if (!this.canvas) {
       return
     }
 
-    this.canvas.removeEventListener('pointerdown', this.handlePointerDown)
-    this.canvas.removeEventListener('pointermove', this.handlePointerMove)
-    this.canvas.removeEventListener('pointerup', this.handlePointerUp)
-    this.canvas.removeEventListener('pointerleave', this.handlePointerLeave)
-    this.canvas.removeEventListener('pointercancel', this.handlePointerCancel)
+    const canvas = this.canvas
+    attempt(() =>
+      canvas.removeEventListener('pointerdown', this.handlePointerDown)
+    )
+    attempt(() =>
+      canvas.removeEventListener('pointermove', this.handlePointerMove)
+    )
+    attempt(() => canvas.removeEventListener('pointerup', this.handlePointerUp))
+    attempt(() =>
+      canvas.removeEventListener('pointerleave', this.handlePointerLeave)
+    )
+    attempt(() =>
+      canvas.removeEventListener('pointercancel', this.handlePointerCancel)
+    )
 
     this.canvas = null
     this.hoveredTarget = null

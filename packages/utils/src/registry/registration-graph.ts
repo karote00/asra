@@ -75,6 +75,7 @@ export type RegistrationGraphOperation =
   | 'define-relation'
   | 'remove-relation'
   | 'unregister-registration'
+  | 'dispose-runtime'
   | 'validate-relations'
 
 export interface RelationOperationSuccess {
@@ -222,6 +223,9 @@ export class RegistrationGraph {
   >()
   private readonly pendingRootByNode = new Map<string, string>()
   private readonly isCompositionOpen: () => boolean
+  private runtimeRetired = false
+  private runtimeDisposing = false
+  private runtimeCleanupFailure: RegistrationRelationError | null = null
 
   constructor(options: RegistrationGraphOptions = {}) {
     this.isCompositionOpen = options.isCompositionOpen ?? (() => true)
@@ -544,12 +548,60 @@ export class RegistrationGraph {
   }
 
   private assertCompositionOpen(operation: RegistrationGraphOperation): void {
-    if (!this.isCompositionOpen()) {
+    if (this.runtimeRetired || !this.isCompositionOpen()) {
       return relationFailure(
         'COMPOSITION_CLOSED',
         operation,
         'Registration composition is permanently closed'
       )
+    }
+  }
+
+  /** Terminal resource release after the coordinating owner retires live data. */
+  disposeRuntime(): void {
+    if (this.runtimeDisposing) {
+      return relationFailure(
+        'COMPOSITION_CLOSED',
+        'dispose-runtime',
+        'Registration runtime cleanup is already active'
+      )
+    }
+    if (this.runtimeRetired) {
+      if (this.runtimeCleanupFailure) throw this.runtimeCleanupFailure
+      return
+    }
+    this.runtimeRetired = true
+    this.runtimeDisposing = true
+    const nodes = [...this.nodesByRef.values()].reverse()
+    this.nodesByRef.clear()
+    this.outgoingRelationsBySource.clear()
+    this.incomingRelationsByTarget.clear()
+    this.pendingUnregisterByRoot.clear()
+    this.pendingRootByNode.clear()
+    const failures: RegistrationCleanupFailure[] = []
+    nodes.forEach((node) => {
+      for (const resource of [...node.resources].reverse()) {
+        if (resource.disposed) continue
+        try {
+          resource.dispose()
+          resource.disposed = true
+        } catch (cause) {
+          failures.push({ key: resource.key, cause })
+        }
+      }
+    })
+    this.runtimeDisposing = false
+    if (failures.length > 0) {
+      this.runtimeCleanupFailure = new RegistrationRelationError({
+        ok: false,
+        operation: 'dispose-runtime',
+        code: 'UNREGISTER_FAILED',
+        message: 'Registration runtime cleanup is incomplete',
+        cleanupFailures: failures,
+        pendingCleanup: failures.map(({ key }) => key),
+        cause: failures[0].cause
+      })
+      throw this.runtimeCleanupFailure
     }
   }
 

@@ -67,6 +67,8 @@ class InputSystem {
   private pointerInputBlocked: boolean
   private pointerCaptureId: string | null
   public registry: InputSystemRegistry
+  private runtimeGeneration = 0
+  private browserListeners = new Map<EventListener, EventListener>()
 
   constructor() {
     this.browserHost = null
@@ -122,46 +124,78 @@ class InputSystem {
   }
 
   private addKeyboardListeners(host: Window): void {
-    host.addEventListener('keydown', this.handleKeyDown)
-    host.addEventListener('keyup', this.handleKeyUp)
+    this.keyboardBindings().forEach(([name, listener]) =>
+      host.addEventListener(name, listener)
+    )
   }
 
-  private removeKeyboardListeners(host: Window): void {
-    host.removeEventListener('keydown', this.handleKeyDown)
-    host.removeEventListener('keyup', this.handleKeyUp)
+  private removeKeyboardListeners(
+    host: Window,
+    attempt = (cleanup: () => void) => cleanup()
+  ): void {
+    this.keyboardBindings().forEach(([name, listener]) =>
+      attempt(() => host.removeEventListener(name, listener))
+    )
   }
 
   private addPointerListeners(target: Window | HTMLElement): void {
-    target.addEventListener('mousedown', this.handleMouseDown as EventListener)
-    target.addEventListener('mouseup', this.handleMouseUp as EventListener)
-    target.addEventListener('mousemove', this.handleMouseMove as EventListener)
-    target.addEventListener('dblclick', this.handleDoubleClick as EventListener)
-    target.addEventListener(
-      'wheel',
-      this.handleWheel as EventListener,
-      WHEEL_EVENT_OPTIONS
+    this.pointerBindings().forEach((binding) =>
+      target.addEventListener(...binding)
     )
   }
 
-  private removePointerListeners(target: Window | HTMLElement): void {
-    target.removeEventListener(
-      'mousedown',
-      this.handleMouseDown as EventListener
+  private removePointerListeners(
+    target: Window | HTMLElement,
+    attempt = (cleanup: () => void) => cleanup()
+  ): void {
+    this.pointerBindings().forEach((binding) =>
+      attempt(() => target.removeEventListener(...binding))
     )
-    target.removeEventListener('mouseup', this.handleMouseUp as EventListener)
-    target.removeEventListener(
-      'mousemove',
-      this.handleMouseMove as EventListener
-    )
-    target.removeEventListener(
-      'dblclick',
-      this.handleDoubleClick as EventListener
-    )
-    target.removeEventListener(
-      'wheel',
-      this.handleWheel as EventListener,
-      WHEEL_EVENT_OPTIONS
-    )
+  }
+
+  private keyboardBindings(): [string, EventListener][] {
+    return [
+      ['keydown', this.browserListener(this.handleKeyDown as EventListener)],
+      ['keyup', this.browserListener(this.handleKeyUp as EventListener)]
+    ]
+  }
+
+  private pointerBindings(): [
+    string,
+    EventListener,
+    AddEventListenerOptions?
+  ][] {
+    return [
+      [
+        'mousedown',
+        this.browserListener(this.handleMouseDown as EventListener)
+      ],
+      ['mouseup', this.browserListener(this.handleMouseUp as EventListener)],
+      [
+        'mousemove',
+        this.browserListener(this.handleMouseMove as EventListener)
+      ],
+      [
+        'dblclick',
+        this.browserListener(this.handleDoubleClick as EventListener)
+      ],
+      [
+        'wheel',
+        this.browserListener(this.handleWheel as EventListener),
+        WHEEL_EVENT_OPTIONS
+      ]
+    ]
+  }
+
+  private browserListener(listener: EventListener): EventListener {
+    const existing = this.browserListeners.get(listener)
+    if (existing) return existing
+    const generation = this.runtimeGeneration
+    const guarded: EventListener = (event) => {
+      if (generation === this.runtimeGeneration) listener(event)
+    }
+    this.browserListeners.set(listener, guarded)
+    return guarded
   }
 
   setCombinations(combinations: Combinations) {
@@ -212,7 +246,9 @@ class InputSystem {
       }
     }
 
+    const generation = this.runtimeGeneration
     const timer = setTimeout(() => {
+      if (generation !== this.runtimeGeneration) return
       this.activeKeys.delete(key)
       this.timers.delete(key)
     }, CLEAR_KEY_TIME)
@@ -579,6 +615,28 @@ class InputSystem {
 
   reset() {
     this.clearTransientState()
+  }
+
+  resetRuntime(): void {
+    this.runtimeGeneration += 1
+    const failures: unknown[] = []
+    const attempt = (cleanup: () => void): void => {
+      try {
+        cleanup()
+      } catch (error) {
+        failures.push(error)
+      }
+    }
+    if (this.pointerTarget)
+      this.removePointerListeners(this.pointerTarget, attempt)
+    if (this.browserHost)
+      this.removeKeyboardListeners(this.browserHost, attempt)
+    this.pointerTarget = null
+    this.browserHost = null
+    this.browserListeners.clear()
+    this.clearTransientState()
+    this.registry.clear()
+    if (failures.length > 0) throw failures[0]
   }
 }
 

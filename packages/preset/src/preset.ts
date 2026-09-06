@@ -10,6 +10,7 @@ import { createPresetApplyResult } from './composition/result.js'
 import { PresetApplyError } from './composition/error.js'
 import { installPresetDefaults } from './defaults/install.js'
 import type { RegisterPresetCleanup } from './defaults/types.js'
+import { PRESET_REGISTRATION_OWNER } from './registration.js'
 
 interface PresetCleanupEntry {
   readonly key: string
@@ -31,7 +32,7 @@ const cleanupKeys = (
 ): readonly string[] =>
   entries.filter((entry) => entry.completed === completed).map(({ key }) => key)
 
-const rollback = (entries: PresetCleanupEntry[], applyError: unknown): void => {
+const releaseEntries = (entries: PresetCleanupEntry[]): unknown[] => {
   const failures: unknown[] = []
   for (let index = entries.length - 1; index >= 0; index--) {
     const entry = entries[index]
@@ -44,12 +45,32 @@ const rollback = (entries: PresetCleanupEntry[], applyError: unknown): void => {
     }
   }
 
+  return failures
+}
+
+const rollback = (entries: PresetCleanupEntry[], applyError: unknown): void => {
+  const failures = releaseEntries(entries)
   if (failures.length > 0) {
     throw new PresetApplyError(
       PRESET_APPLY_ERROR_CODES.CLEANUP_FAILED,
       'Preset rollback cleanup is incomplete',
       {
         cause: applyError,
+        completedCleanup: cleanupKeys(entries, true),
+        pendingCleanup: cleanupKeys(entries, false)
+      }
+    )
+  }
+}
+
+const disposeRuntime = (entries: PresetCleanupEntry[]): void => {
+  const failures = releaseEntries(entries)
+  if (failures.length > 0) {
+    throw new PresetApplyError(
+      PRESET_APPLY_ERROR_CODES.CLEANUP_FAILED,
+      'Preset runtime cleanup is incomplete',
+      {
+        cause: failures[0],
         completedCleanup: cleanupKeys(entries, true),
         pendingCleanup: cleanupKeys(entries, false)
       }
@@ -96,6 +117,9 @@ export const applyPreset = (
       selectedDefaults: resolved.selectedDefaults,
       appliedDefaults: installedDefaults
     })
+    core.registerRuntimeCleanup?.(PRESET_REGISTRATION_OWNER.packageName, () =>
+      disposeRuntime(cleanupEntries)
+    )
     appliedCores.add(core)
     return result
   } catch (error) {

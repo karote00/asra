@@ -28,6 +28,11 @@ Core API tier types (explicit ownership contract):
 Lifecycle and integration:
 
 - `setRenderer(renderer: IRenderer): void`
+- `resizeRenderer(width: number, height: number): void`
+  - validates finite positive CSS dimensions and forwards to the active
+    `IRenderer`; does not change canonical data, camera policy, or composition
+  - invalid dimensions throw `RangeError` before forwarding; renderer lifecycle
+    and execution errors remain errors from the active renderer
 - `setLoadSource(source: DocumentLoadSource): void`
   - `DocumentLoadSource.load(): Promise<unknown | null>` returns raw input; a
     resolved `null` or `undefined` means no persisted document
@@ -456,6 +461,7 @@ See `packages/collaboration.md` and
   - `setRenderEngineProvider(provider)`
   - `hasRenderEngineProvider()`
   - `setRenderer(renderer)` for advanced full-renderer replacement
+  - `resizeRenderer(width, height)` for a validated engine-neutral surface size
   - `destroyRenderer()`
 - managed-property lifecycle queries used by fixed preset installers:
   - `hasSystemProperty(key)`
@@ -846,6 +852,130 @@ Programmatic task mode:
 - programmatic tasks are for detached, non-mutating async preparation;
   canonical mutation still requires the ordinary app transaction/common-API
   path
+
+## Feature Runtime Lifecycle
+
+Feature runtime lifecycle (`@asyra/feature-system`, not yet Core facade):
+
+- `disposeFeatureSystem(getSnapshot: () => SystemContextSnapshot): Promise<void>`
+  closes admission, detaches Feature bindings, forces active-session rollback,
+  and awaits all actual handler/task work, including timed-out handlers. Repeated
+  calls share one completion; cleanup failure remains closed.
+- `beginFeatureSystemRuntime(): void` explicitly begins a fresh Feature
+  generation only after successful disposal. Core lifecycle orchestration must
+  finish other owner cleanup first; this call alone is not App reset.
+- `FeatureRuntimeClosedError` exposes stable `FEATURE_RUNTIME_CLOSED` for
+  closed admission and stale SessionManager/queue-runner generations.
+
+## Factory Runtime Lifecycle
+
+- `Factory.resetRuntime(): void` (`@asyra/factory`) clears Factory-owned runtime
+  history, registrations, subscriptions and delivery evidence after quiescence.
+  Active transaction/replay/settlement rejects before mutation. Canonical state,
+  external channel resources and other Factory instances remain untouched.
+- The default transaction-owner bridge remains installed. Channel cleanup
+  attempts every owned disposer and reports failure; Core must not activate a
+  successor on that failure. This is not a standalone document reset API.
+
+## Scene Tree Runtime Lifecycle
+
+- `SceneTree.resetRuntime(): void` (`@asyra/scene-tree`) clears live/deleted scene
+  state and relations, invalidates old prepared artifacts, and attempts every
+  retained computed cleanup hook without canonical replay. It leaves Props,
+  component definitions and other Scene Tree instances to their own owners.
+  Cleanup failure prevents successful Core/App reconstruction.
+
+## Props Manager Runtime Lifecycle
+
+- `PropsManager.resetRuntime(): void` (`@asyra/props-manager`) retires property
+  instances, relation indexes and all prepared artifacts after quiescence.
+  Active canonical batches reject before mutation. Cleanup attempts every
+  component and retires state before reporting failure; type definitions and
+  other owner instances remain unchanged. Apps enter the Core lifecycle instead
+  of invoking this owner handoff directly.
+
+## Selection Runtime Lifecycle
+
+- `SelectionManager.resetRuntime(): void` (`@asyra/selection`) retires all
+  channel registrations and attempts each instance's cleanup without publishing
+  selection mutations. Failure is reported after cleanup attempts; other
+  manager instances are unaffected. Core orchestrates runtime reconstruction.
+
+## System Context Runtime Lifecycle
+
+- `SystemContext.resetRuntime(): void` (`@asyra/system-context`) retires managed
+  registrations and validated artifacts and completes all owned observables.
+  Cleanup attempts continue after failure and report it to Core. Independently
+  owned state and ordinary load/set/unregister semantics remain unchanged.
+
+## UI Context Runtime Lifecycle
+
+- `propertyRegistry.resetRuntime(): void` (`@asyra/ui-context`) retires derived
+  registrations, filters, source subscriptions and managed UI observables.
+  Caller-owned sources and canonical state remain separate owners. Cleanup
+  attempts continue on failure and report it to the Core lifecycle.
+
+## Input Runtime Lifecycle
+
+- `InputSystem.resetRuntime(): void` (`@asyra/input-system`) detaches all owned
+  browser listeners, invalidates old callbacks, and clears transient state,
+  timers and mappings. It attempts every listener removal and reports failure
+  to Core; other instances and legacy reset/dispose semantics are unchanged.
+
+## Render Runtime Lifecycle
+
+- `Render.resetRuntime(): void` (`@asyra/render`) retires instance-owned engine,
+  viewport, layer, callback and provider lifetimes after initialization/frame
+  work is idle. It attempts all cleanup and reports failure to Core. Shared
+  render registrations/stores remain separate owners; ordinary disposal is
+  unchanged. Old callbacks and cleanup handles cannot affect new generations.
+
+- `resetSharedRenderRuntime(): void` and `beginSharedRenderRuntime(): void`
+  (`@asyra/render`) retire default projection/selection/interaction state and
+  explicitly reinstall successor projection wiring. Reset requires released
+  visual ownership and an idle projection flush. Core must finish every other
+  owner before begin. Canonical data and strategy definitions are unchanged.
+
+## Terminal Registration Lifecycle
+
+- `RegistrationGraph.disposeRuntime(): void` (`@asyra/utils`) permanently
+  retires one graph after its coordinating owner clears live data. It attempts
+  remaining resource cleanup without relation rewrites, skips completed
+  resources and reports terminal `UNREGISTER_FAILED` (`dispose-runtime`).
+  Reentrant disposal rejects with `COMPOSITION_CLOSED`; ordinary unregister
+  remains locked/retryable and another graph is unaffected.
+
+## Core Runtime Handoff
+
+- `core.preflightLoad(data: unknown): readonly Readonly<LoadValidationDiagnostic>[]`
+  reuses ordinary synchronous load checks without applying package artifacts,
+  changing version/history or emitting load/diagnostic-hook notifications. It
+  checks the current trusted composition and returns detached readonly
+  diagnostics, not a transferable prepared token. The successor validates again;
+  trusted migration hooks must be pure and deterministic. Null remains a no-op.
+- `core.resetRuntime(): Promise<Core>` coordinates terminal owner cleanup and
+  returns a fresh unstarted Core, never unlocking the retired Core. The App
+  stops admission and calls outside old Feature work; pending startup rejects
+  before retirement. Repeated accepted calls share one result. Ordinary
+  load/destroy are unchanged; resetting the default Core updates its live
+  export only after success.
+- `core.getRuntimeState(): CoreRuntimeState` exposes active, quiescing, retiring,
+  retired or failed. `CoreRuntimeResetError` identifies the failed `phase` and
+  `cause`; `CoreRuntimeClosedError` rejects retired facade/Feature execution.
+- `core.registerRuntimeCleanup(key, cleanup): () => void` retains composition
+  cleanup, awaited after canonical/graph retirement. It may release resources
+  and inspect registrations, not write canonical state. All registered callbacks
+  are attempted. The capability is optional in `CorePresetInstallAPIs` for
+  existing adapters; complete replacement requires lifecycle-aware integration.
+- This boundary coordinates one exclusive shared runtime, not concurrent Core
+  isolation or cancellation of arbitrary JavaScript. Old cleanup handles and
+  observer/event callbacks cannot operate in its successor.
+
+Preset successful apply registers its retained cleanup with this neutral Core
+lifecycle when available. It exposes no new result fields/disposer, does not
+reopen composition, and leaves failed-apply rollback/retry unchanged. Runtime
+cleanup reports `CLEANUP_FAILED` with completed/pending keys and the first cause.
+Only a fresh Core may reapply after complete reset.
 
 ## API Usage Rules
 

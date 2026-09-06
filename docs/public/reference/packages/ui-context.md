@@ -35,6 +35,11 @@ Only the final derived value is pushed. Unregister disposes the source
 subscription and metadata. Compute failure is a derived/UI failure and cannot
 replace or roll back canonical owner state.
 
+`propertyRegistry.resetRuntime()` is the explicit lifecycle-owner handoff. It
+removes derived registrations, releases source subscriptions and completes
+owned UI observables without completing caller-owned sources. Cleanup failures
+are reported after all attempts; canonical state is untouched.
+
 ## Relationships
 
 Scene Tree supplies computed element data; Selection supplies selected ids;

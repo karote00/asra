@@ -316,6 +316,28 @@ infrastructure.
   undo depth owned by that Factory instance. It does not expose, clone, or allow
   mutation of history entries and does not include remote transactions.
 
+## Explicit Runtime Reset
+
+`Factory.resetRuntime(): void` is a lifecycle-owner boundary after external work
+has quiesced. It is not canonical document load and does not apply or replay any
+model changes. Active transactions, Undo/Redo, progressive remote apply and
+delivery/status settlement reject before any reset mutation. Incomplete
+observation acquisition also rejects before clearing its unacquired disposer.
+
+The owner clears the journal, Undo/Redo, staged delivery, pending publication and
+status evidence, custom validators/inverters/replay handlers, shared-channel
+registrations, and Factory-acquired observers/subscribers. Retained old staged
+controllers remain invalid even when new transaction counters restart. The
+default Reactive Events transaction-owner bridge remains attached; other
+Factory instances are unaffected. Ordinary `DataTransact.dispose()` / `reset()`
+keep their prior scope; the full boundary additionally releases registrations.
+
+Shared-channel clearing retires callback dispatch and removes all registry-owned
+observation handles, attempts every disposer, and reports the first error. It
+does not destroy creator-owned channel objects or direct subscriptions acquired
+outside Factory. A cleanup error must prevent Core from activating a successor.
+Repeated idle reset is allowed, but reentrant reset during cleanup rejects.
+
 ## Hierarchy Transaction Contract
 
 - `MOVE_ELEMENTS` records exact before/after parent and index evidence; its

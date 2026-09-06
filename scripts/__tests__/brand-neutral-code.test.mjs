@@ -112,6 +112,28 @@ const publicIdentityDataValues = new Set([
   'asyra-landing-original-design-4x',
   'asyra-landing-v04-approved'
 ])
+// Old persisted identifiers are data owned by the explicit load adapter, never
+// permission to introduce branded identifiers in current runtime code.
+const retainedWireIdentityOwnerPaths = new Set([
+  'apps/asyra-sim/src/storage/load-migration.ts',
+  'apps/asyra-sim/src/storage/__tests__/load-migration.test.ts',
+  'apps/asyra-sim/src/storage/__tests__/legacy-project-fixture.ts'
+])
+const retainedWireIdentities = new Set(
+  [
+    'project',
+    'trajectory',
+    'local-v1',
+    'body',
+    'candidate',
+    'experiment',
+    'run-reference',
+    'body-properties',
+    'candidate-properties',
+    'experiment-properties',
+    'run-reference-properties'
+  ].map((suffix) => `${repositoryBrand}-sim-${suffix}`)
+)
 const lowercaseIdentityOwnerPaths = new Set([
   'package.json',
   'scripts/__tests__/changeset-all-patch.test.mjs',
@@ -134,6 +156,13 @@ const capitalizedBrandIdentifierPattern = new RegExp(
 const isAllowedPublicIdentity = (token, line, filePath) => {
   const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const relativePath = path.relative(repositoryRoot, filePath)
+  if (
+    retainedWireIdentityOwnerPaths.has(relativePath) &&
+    retainedWireIdentities.has(token) &&
+    new RegExp(`(['"])${escapedToken}\\1`, 'u').test(line)
+  ) {
+    return true
+  }
   if (
     brandOwnedCodePrefixes.some((prefix) => relativePath.startsWith(prefix))
   ) {
@@ -226,6 +255,41 @@ test('Official display names remain distinct from branded code identifiers', () 
     ),
     false
   )
+})
+
+test('retained Sim wire identities are allowed only as exact load-migration data', () => {
+  for (const relativePath of retainedWireIdentityOwnerPaths) {
+    const filePath = path.join(repositoryRoot, relativePath)
+    const token = `${repositoryBrand}-sim-project`
+    assert.equal(
+      isAllowedPublicIdentity(
+        token,
+        `const legacyFormat = '${token}'`,
+        filePath
+      ),
+      true
+    )
+    assert.equal(
+      isAllowedPublicIdentity(token, `const ${token} = true`, filePath),
+      false
+    )
+    assert.equal(
+      isAllowedPublicIdentity(
+        `${token}-new`,
+        `const key = '${token}-new'`,
+        filePath
+      ),
+      false
+    )
+    assert.equal(
+      isAllowedPublicIdentity(
+        token,
+        `const key = '${token}'`,
+        path.join(repositoryRoot, 'apps/asyra-sim/src/ui/workbench.tsx')
+      ),
+      false
+    )
+  }
 })
 
 test('Public-facing surfaces preserve the official project identities', () => {

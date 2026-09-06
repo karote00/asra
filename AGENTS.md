@@ -23,6 +23,28 @@ These rules apply to every task without requiring additional document reads:
   requests the remote operation. Follow
   `docs/ai/workflows/git-commit-push-policy.md`.
 - Do not overwrite unrelated user changes in a dirty worktree.
+- For new apps and app feature/refactor work, read
+  `docs/ai/framework/rules/app-optimization-and-maintainability.md` before the
+  first implementation slice. Design ownership and actual update boundaries
+  up front; reuse optimization concepts, not another app's entire architecture.
+  Use fine-grained subscriptions and composition for UI updates, not
+  `React.memo` or props-comparison wrappers.
+- For framework, app, or tool work involving recurring execution or shared
+  derived data, read
+  `docs/ai/framework/rules/computation-ownership-and-reuse.md` before the first
+  relevant implementation slice. Trace actual work through callers and helpers,
+  establish its owner and valid lifetime, and prove work counts plus correctness
+  and invalidation in permanent tests. Reusing a function does not prove reuse
+  of its computed output; output-only tests cannot close a repeated-work bug.
+- Before introducing or renaming identifiers, resolve their semantic owner,
+  brand-neutral naming, and persistence compatibility. Run `yarn lint:naming`
+  before implementation and after the first identifier-bearing slice, before
+  names spread to other owners. Never defer this to PR creation or CI. Follow
+  `docs/ai/framework/rules/naming-and-persisted-identities.md`.
+- Join project-authored display names and appended metadata only with ` - `
+  (ASCII hyphen), never a middle dot or a slash. This includes objects,
+  experiments, methods/versions, runs, reports, and Inspector labels. Preserve
+  user-authored names and immutable saved evidence; do not normalize them on load.
 - Follow main branch protection before making code or documentation changes.
 - Obtain explicit user approval before adding any third-party package,
   dependency, binary, or development tool. Installing dependencies already
@@ -259,6 +281,7 @@ yarn workspace @package/name build  # Package-specific build
 
 ## Critical Rules
 
+- **🚨 NAMING BEFORE IMPLEMENTATION**: Choose identifier ownership, neutral names, and persisted/wire compatibility before implementation. Run the formal naming gate before propagating new names and at completed stage boundaries; do not defer naming review until PR creation. Follow `docs/ai/framework/rules/naming-and-persisted-identities.md`.
 - **🚨 BOUNDED TASK SCOPE AND CLOSURE RULE**: Before editing, freeze the objective, authorized mutation scope, fixed discovery methods for audits/reviews, required gates, exclusions, and stop conditions. Project rules may block, require evidence, or stop in-scope work, but they cannot independently authorize out-of-scope implementation. After editing begins, final review is limited to the diff, direct consumers, regressions caused by the diff, and the frozen gates; do not open new repository-wide discovery. Follow `docs/ai/framework/rules/bounded-task-scope-and-closure.md`.
 - **🚨 BUGFIX TEST-FIRST RULE**: Before any bug-fix implementation, verify whether existing formal tests detect the reported failure. If they do not, add or strengthen formal tests/oracles first and prove they fail on the current behavior before changing production code (see `docs/ai/framework/rules/bugfix-test-first.md`). Manual screenshots, one-time diagnostics, and visual inspection are not enough.
 - **🚨 MONOREPO IMPORT RULE**: **ALWAYS** use `@asyra/package-name` for cross-package imports, NEVER use relative paths like `../../../other-package` (see `docs/ai/framework/CODING_STANDARDS.md`)

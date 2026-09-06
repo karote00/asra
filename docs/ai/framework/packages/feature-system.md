@@ -116,6 +116,34 @@ Primary interaction runtime. Handles execute/session sequencing and cancellation
 - registration metadata does not change feature priority, exclusivity, session,
   cancel, or execution semantics.
 
+## Explicit Runtime Disposal
+
+- `disposeFeatureSystem(getSnapshot): Promise<void>` is a lifecycle-owner
+  boundary, not a Feature command or ordinary cancel. It synchronously closes
+  queue/task admission, aborts owned signals, detaches input/render bindings,
+  rejects waiting queue operations, and awaits already-started commands, tasks,
+  session handlers, and cleanup. Reentrant or repeated calls share completion.
+- Active sessions use forced rollback through the ordinary transaction owner,
+  even when their user-interruption policy is commit-current. Task rejection
+  alone is settlement, not a cleanup failure. Canonical state and history are
+  not cleared by Feature System.
+- Real handler promises remain tracked after a timeout race rejects. Disposal
+  cannot complete until those promises settle. There is no forced Promise
+  termination or timeout-success fallback; cleanup failure keeps admission
+  closed and rejects disposal. A never-settling handler blocks reconstruction.
+- Successful disposal removes definitions, pending registrations and transport
+  bindings. `beginFeatureSystemRuntime(): void` starts a clean Feature generation
+  only after successful disposal; the Core lifecycle must finish other owner
+  cleanup before calling it. The initial generation is already open for
+  compatibility. This is not a complete App reset API by itself.
+- Queue runners and SessionManagers capture their generation. Retained old
+  managers/callbacks reject with `FeatureRuntimeClosedError` and code
+  `FEATURE_RUNTIME_CLOSED`; old definition disposal handles cannot unregister
+  a same-named successor Feature. Old arbitrary Feature API functions still
+  require their App/Core lifetime guard; this boundary is not a code sandbox.
+- Ordinary load, destroy, cancellation and unregister do not implicitly invoke
+  disposal. Direct App/Core reconstruction integration remains a separate step.
+
 ## App-Level Rules
 
 - Keep feature handlers focused on interaction logic.

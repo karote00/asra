@@ -97,6 +97,60 @@ const prepareCoreStart = (core: Core): void => {
 const asCoreRawData = (data: unknown): CoreRawData => data as CoreRawData
 
 describe('Core load validation pipeline', () => {
+  it('preflights through the existing owners without applying or publishing a load', () => {
+    const { core, props, sceneTree, systemContext } = createCoreForTest()
+    const loaded = vi.fn(),
+      diagnosticHook = vi.fn(),
+      migration = vi.fn((data) => data)
+    const subscription = subscribeToFileLoadComplete(loaded)
+    core.registerLoadHook(migration)
+    core.registerLoadDiagnosticsHook(diagnosticHook)
+    const propsDiagnostic = {
+      path: 'props.bad',
+      message: 'Invalid value recovered'
+    }
+    props.validateLoadData.mockReturnValueOnce({
+      data: {},
+      diagnostics: [propsDiagnostic]
+    })
+    const document = { version: 'test-version', props: {}, sceneTree: {} }
+    const issues = core.preflightLoad(document)
+    expect(migration).toHaveBeenCalledExactlyOnceWith(document)
+    expect(issues).toEqual([{ scope: 'props-manager', ...propsDiagnostic }])
+    expect(Object.isFrozen(issues)).toBe(true)
+    propsDiagnostic.message = 'Changed after preflight'
+    expect(issues[0].message).toBe('Invalid value recovered')
+    expect(sceneTree.preflightLoadPropertyRelations).toHaveBeenCalledOnce()
+    expect(props.applyValidatedLoad).not.toHaveBeenCalled()
+    expect(sceneTree.applyValidatedLoad).not.toHaveBeenCalled()
+    expect(systemContext.applyValidatedManagedProperties).not.toHaveBeenCalled()
+    expect(core.version).toBe('1.0.0')
+    expect(loaded).not.toHaveBeenCalled()
+    expect(diagnosticHook).not.toHaveBeenCalled()
+    subscription.unsubscribe()
+  })
+
+  it('rejects invalid hierarchy during preflight before any package apply', () => {
+    const { core, props, sceneTree, systemContext } = createCoreForTest()
+    sceneTree.validateLoadData.mockReturnValueOnce({
+      data: { workspace: '', workspaceList: [], elements: {} },
+      diagnostics: [],
+      valid: false
+    })
+    expect(() =>
+      core.preflightLoad({ version: '1.0.0', props: {}, sceneTree: {} })
+    ).toThrow('invalid hierarchy')
+    expect(props.applyValidatedLoad).not.toHaveBeenCalled()
+    expect(sceneTree.applyValidatedLoad).not.toHaveBeenCalled()
+    expect(systemContext.applyValidatedManagedProperties).not.toHaveBeenCalled()
+  })
+
+  it('preserves null no-op semantics during preflight', () => {
+    const { core, props } = createCoreForTest()
+    expect(core.preflightLoad(null)).toEqual([])
+    expect(props.validateLoadData).not.toHaveBeenCalled()
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
   })

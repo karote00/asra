@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/roadmap' },
   description:
     'Separate current Asyra Framework capabilities from researched future runtime directions and unsupported claims.',
-  title: 'Runtime roadmap | Asyra Framework'
+  title: 'Runtime roadmap - Asyra Framework'
 }
 
 const loadContent = async (): Promise<VerifiedPublicContent> =>
@@ -26,7 +26,7 @@ export default async function RoadmapPage() {
   return (
     <SiteFrame>
       <FoundationPageHero>
-        <p className="support-label">Current support / Future research</p>
+        <p className="support-label">Current support - Future research</p>
         <h1>Build from today’s contracts. See tomorrow clearly.</h1>
         <p>
           Non-visible and machine-facing information products are an important

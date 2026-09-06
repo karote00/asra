@@ -119,6 +119,15 @@ const createViewerDom = (entryPath, dataScript, data) => {
 
 const targets = [
   {
+    id: 'asyra-sim-r0',
+    entryPath: path.join(
+      projectRoot,
+      'tools/flow-inspector/inspectors/asyra-sim-r0-flow-inspector.html'
+    ),
+    dataScript: './asyra-sim-r0-flow-inspector.data.cjs',
+    filterLaneTitle: 'CUSTOM engine'
+  },
+  {
     id: 'design-app-ai-conversational-drawing-performance',
     entryPath: path.join(
       projectRoot,

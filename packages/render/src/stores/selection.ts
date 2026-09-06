@@ -18,6 +18,12 @@ class RenderSelection {
     return selection ? [...selection.getSelectedIds()] : []
   }
 
+  resetRuntime(): void {
+    this.elementSelection.clear()
+    this.vectorPointSelection.clear()
+    this.vectorSegmentSelection.clear()
+  }
+
   updateSelection(type: string) {
     const selection = this.selectionManager.get(type)
     if (!selection) {

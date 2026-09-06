@@ -263,6 +263,27 @@ by `worldTransform`, `toGlobal`, `toLocal`, and the concrete engine adapter.
   trace/snapshot projection and a graphics-only expected-geometry layer; it does
   not add engine text, DOM UI, or a concrete-engine dependency
 
+## Complete Runtime Retirement
+
+`Render.resetRuntime(): void` rejects active initialization/frame evaluation,
+then invalidates old frame/engine/pointer callbacks, stops scheduling and
+attempts all instance-owned teardown, interaction, resource-binding and engine
+cleanup. It retires the viewport, layer registrations, frame subscribers and
+provider selection even when cleanup reports failure. Core must not activate a
+successor on failure. Old provider/cleanup handles cannot erase new-generation
+registrations. Shared projection stores and interaction/strategy registries
+remain separate owners; independently constructed Render instances are unchanged.
+Ordinary `dispose`/`reset` retains its existing retry semantics.
+
+`resetSharedRenderRuntime()` is the separate shared-runtime handoff after
+successful instance retirement. It clears the default projection and selection
+mirrors plus interaction target/handler registries, preserving canonical data
+and strategy definitions. Projection reset rejects active flushes or unreleased
+visual ownership. It invalidates old queued work and pending-layer callbacks.
+Core calls `beginSharedRenderRuntime()` only after every owner has finished,
+reinstalling projection frame/teardown wiring for the successor. This shared
+boundary does not claim multiple concurrently active default runtimes.
+
 ## Renderer Facade Compatibility
 
 - `RenderAdapter` is the engine-neutral Core-facing renderer and is owned by

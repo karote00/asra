@@ -192,7 +192,7 @@
           heading.textContent = step.title
           const owner = document.createElement('p')
           owner.className = 'muted'
-          owner.textContent = `${step.id} · ${step.ownerPackage}`
+          owner.textContent = `${step.id} - ${step.ownerPackage}`
           const purpose = document.createElement('p')
           purpose.textContent = step.purpose
           detail.append(heading, owner, purpose)

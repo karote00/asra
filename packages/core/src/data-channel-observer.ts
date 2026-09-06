@@ -55,12 +55,16 @@ export class DataChannelObserverRegistry {
     DataChannelObserverCleanup
   >()
   private initialized = false
+  private runtimeGeneration = 0
+  private acquiring = 0
+  private resetting = false
 
   constructor(private readonly factory: DataChannelObserverFactory) {}
 
   register<TChange = unknown>(
     registration: DataChannelObserverRegistration<TChange>
   ): void {
+    if (this.resetting) throw new Error('[core] Observer runtime is resetting')
     if (this.observerRegistrations.has(registration.name)) {
       throw new Error(
         `[core] Data channel observer "${registration.name}" is already registered`
@@ -88,6 +92,7 @@ export class DataChannelObserverRegistry {
   }
 
   init(): void {
+    if (this.resetting) throw new Error('[core] Observer runtime is resetting')
     if (this.initialized) return
 
     this.observerRegistrations.forEach((registration) => {
@@ -104,19 +109,52 @@ export class DataChannelObserverRegistry {
     this.initialized = false
   }
 
+  resetRuntime(): void {
+    if (this.acquiring > 0 || this.resetting) {
+      throw new Error('[core] Observer runtime reset requires idle acquisition')
+    }
+    this.resetting = true
+    this.runtimeGeneration++
+    const cleanups = [...this.activeObserverCleanups.values()]
+    this.activeObserverCleanups.clear()
+    this.observerRegistrations.clear()
+    this.initialized = false
+    const failures: unknown[] = []
+    for (const cleanup of cleanups) {
+      try {
+        cleanup()
+      } catch (error) {
+        failures.push(error)
+      }
+    }
+    this.resetting = false
+    if (failures.length > 0) throw failures[0]
+  }
+
   private activate(
     registration: DataChannelObserverRegistration<unknown>
   ): void {
-    const cleanup = registration.onBatch
-      ? this.factory.observeSharedDataChannelBatch(
-          registration.channel,
-          registration.onBatch
-        )
-      : this.factory.observeSharedDataChannel(
-          registration.channel,
-          registration.onChange
-        )
-    this.activeObserverCleanups.set(registration.name, cleanup)
+    const generation = this.runtimeGeneration
+    const { onBatch, onChange } = registration
+    this.acquiring++
+    try {
+      const cleanup = onBatch
+        ? this.factory.observeSharedDataChannelBatch(
+            registration.channel,
+            (changes) => {
+              if (generation === this.runtimeGeneration) onBatch(changes)
+            }
+          )
+        : this.factory.observeSharedDataChannel(
+            registration.channel,
+            (change) => {
+              if (generation === this.runtimeGeneration) onChange?.(change)
+            }
+          )
+      this.activeObserverCleanups.set(registration.name, cleanup)
+    } finally {
+      this.acquiring--
+    }
   }
 
   private deactivate(name: string): void {

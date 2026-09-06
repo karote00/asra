@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/asyra-design' },
   description:
     'Explore Asyra Design, the official design tool app and maintained reference implementation built with Asyra Framework.',
-  title: 'Asyra Design | Official Asyra product'
+  title: 'Asyra Design - Official Asyra product'
 }
 
 const loadContent = async (): Promise<VerifiedPublicContent> =>

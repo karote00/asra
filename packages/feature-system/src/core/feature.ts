@@ -14,7 +14,10 @@ import type { InputSystemLike } from '../types/core-packages.js'
 import { FeatureRegistry } from './feature-registry.js'
 import { SessionManager } from './session-manager.js'
 import executionRegistry from './execution-registry.js'
-import { interactionQueue } from './interaction-queue.js'
+import {
+  FeatureRuntimeClosedError,
+  interactionQueue
+} from './interaction-queue.js'
 import { featureTaskRegistry } from './feature-task-registry.js'
 import type {
   FeatureTaskHandler,
@@ -22,7 +25,14 @@ import type {
 } from '../types/task.js'
 
 const featureRegistry = new FeatureRegistry()
-const sessionManager = new SessionManager()
+let sessionManager = new SessionManager()
+let runtimeState: 'open' | 'closing' | 'closed' | 'failed' = 'open'
+let runtimeIdentity = Symbol('feature-runtime')
+let disposal: Promise<void> | null = null
+
+const assertRuntimeOpen = (): void => {
+  if (runtimeState !== 'open') throw new FeatureRuntimeClosedError()
+}
 
 let corePackages: CorePackages = {}
 let isPackagesSet = false
@@ -108,6 +118,7 @@ const registerSessionEventBinding = (
     return
   }
 
+  const manager = sessionManager
   const inputCallback: InputCallback = async (raw) => {
     let phase: 'start' | 'update' | 'end' = 'end'
     if (eventName.endsWith('.update')) {
@@ -117,7 +128,7 @@ const registerSessionEventBinding = (
       phase = 'start'
     }
     await measureBrowserDragAsyncPhase(`feature:event:${eventName}`, () =>
-      sessionManager.handleSessionInput(
+      manager.handleSessionInput(
         sessionName,
         phase,
         () => createInputSnapshot(systemContext, raw),
@@ -159,7 +170,7 @@ const registerExecutionEventBinding = (
           .getEventBus()
           .subscribe(
             (raw: { type: string; detail?: unknown; payload?: unknown }) => {
-              if (raw.type !== eventName) {
+              if (binding.cleanupRequested || raw.type !== eventName) {
                 return
               }
               const snapshot = systemContext.getSystemContextSnapshot?.() ?? raw
@@ -184,8 +195,9 @@ const registerExecutionEventBinding = (
     return
   }
 
+  const manager = sessionManager
   const inputCallback: InputCallback = async (raw) => {
-    await sessionManager.runAfterCancellingActiveSessions(
+    await manager.runAfterCancellingActiveSessions(
       () => createInputSnapshot(systemContext, raw),
       (mergedSnapshot) => executionRegistry.execute(eventName, mergedSnapshot),
       eventName
@@ -285,6 +297,8 @@ export function defineFeature<
   keyConfig: FeatureKeyMap | undefined,
   definition: FeatureDefinition<API, State, TaskInput, TaskResult>
 ): { api: FeatureAPI<API>; dispose: () => boolean } {
+  assertRuntimeOpen()
+  const identity = runtimeIdentity
   if (
     definition.session &&
     definition.cancelPolicy === 'feature-defined' &&
@@ -332,11 +346,12 @@ export function defineFeature<
 
   return {
     api,
-    dispose: () => unregisterFeature(name)
+    dispose: () => identity === runtimeIdentity && unregisterFeature(name)
   } as { api: FeatureAPI<API>; dispose: () => boolean }
 }
 
 export function setCorePackages(packages: CorePackages) {
+  assertRuntimeOpen()
   corePackages = packages
   isPackagesSet = true
 
@@ -402,6 +417,8 @@ export function invokeFeatureTask<Input, Result>(
   input: Input,
   options?: InvokeFeatureTaskOptions
 ): Promise<Result> {
+  if (runtimeState !== 'open')
+    return Promise.reject(new FeatureRuntimeClosedError())
   return featureTaskRegistry.invoke<Input, Result>(featureName, input, options)
 }
 
@@ -410,6 +427,70 @@ export function cancelFeatureTask(
   reason?: unknown
 ): boolean {
   return featureTaskRegistry.cancel(featureName, reason)
+}
+
+/** Core lifecycle boundary, not a user-command or ordinary cancel path. */
+export function disposeFeatureSystem(
+  getSnapshot: () => SystemContextSnapshot
+): Promise<void> {
+  if (disposal) return disposal
+  let complete!: () => void
+  let fail!: (error: unknown) => void
+  disposal = new Promise<void>((resolve, reject) => {
+    complete = resolve
+    fail = reject
+  })
+  runtimeState = 'closing'
+  const draining = interactionQueue.close()
+  SessionManager.abortRuntime()
+  const tasks = featureTaskRegistry.dispose()
+  // The shared completion is installed before abort/off can reenter disposal.
+  void (async () => {
+    const errors: unknown[] = []
+    for (const eventName of [...eventBindings.keys()]) {
+      try {
+        removeEventBinding(eventName)
+      } catch (error) {
+        errors.push(error)
+      }
+    }
+    await draining
+    try {
+      await SessionManager.disposeRuntime(getSnapshot)
+    } catch (error) {
+      errors.push(error)
+    }
+    await tasks
+    for (const name of featureRegistry.getFeatureNames()) {
+      try {
+        unregisterFeature(name)
+      } catch (error) {
+        errors.push(error)
+      }
+    }
+    pendingRegistrations.length = 0
+    corePackages = {}
+    isPackagesSet = false
+    if (errors.length > 0) {
+      throw errors[0]
+    }
+    runtimeState = 'closed'
+  })().then(complete, (error) => {
+    runtimeState = 'failed'
+    fail(error)
+  })
+  return disposal
+}
+
+/** Core calls this only after every old runtime owner has completed cleanup. */
+export function beginFeatureSystemRuntime(): void {
+  if (runtimeState !== 'closed') throw new FeatureRuntimeClosedError()
+  interactionQueue.beginRuntime()
+  featureTaskRegistry.beginRuntime()
+  sessionManager = new SessionManager()
+  runtimeIdentity = Symbol('feature-runtime')
+  disposal = null
+  runtimeState = 'open'
 }
 
 export { FeatureRegistry } from './feature-registry.js'

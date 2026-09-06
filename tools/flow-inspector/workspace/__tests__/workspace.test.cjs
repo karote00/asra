@@ -268,7 +268,7 @@ test('v2 viewer supports trackpad pinch zoom and an exact scale reset', () => {
   assert.equal(document.activeElement, viewport)
   assert.ok(Number(viewport.dataset.zoomScale) > 1)
   assert.match(flow.style.transform, /^scale\([\d.]+\)$/)
-  assert.notEqual(reset.textContent, 'Reset zoom · 100%')
+  assert.notEqual(reset.textContent, 'Reset zoom - 100%')
 
   const ordinaryScroll = new WheelEvent('wheel', {
     bubbles: true,
@@ -302,7 +302,7 @@ test('v2 viewer supports trackpad pinch zoom and an exact scale reset', () => {
   reset.click()
   assert.equal(viewport.dataset.zoomScale, '1')
   assert.equal(flow.style.transform, 'scale(1)')
-  assert.equal(reset.textContent, 'Reset zoom · 100%')
+  assert.equal(reset.textContent, 'Reset zoom - 100%')
 
   viewport.dispatchEvent(
     new WheelEvent('wheel', {

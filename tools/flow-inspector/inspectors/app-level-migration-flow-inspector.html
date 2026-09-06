@@ -165,7 +165,7 @@
       artifacts.innerHTML = data.artifacts
         .map(
           (artifact) =>
-            `<article class="inventory-card"><strong>${escapeHtml(artifact.id)}</strong><p>${escapeHtml(artifact.title)}</p><span>Owner: ${escapeHtml(artifact.ownerStepId)} · ${artifact.terminal ? 'terminal' : 'handoff'}</span></article>`
+            `<article class="inventory-card"><strong>${escapeHtml(artifact.id)}</strong><p>${escapeHtml(artifact.title)}</p><span>Owner: ${escapeHtml(artifact.ownerStepId)} - ${artifact.terminal ? 'terminal' : 'handoff'}</span></article>`
         )
         .join('')
       flow.addEventListener('click', (event) => {

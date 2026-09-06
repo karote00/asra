@@ -128,6 +128,16 @@ dependencies. `release:records` freezes the candidate versions, public support
 documents, package READMEs, Changesets configuration, and the distinction
 between readiness and publication.
 
+Historical prerequisite decisions are resolved from Framework
+`decisions/releases/unreleased.md` and all direct `vX.Y.Z.md` archive files,
+independently of the current root version. New unreleased entries never hide
+older completion records. Each prerequisite returns its matching `decisionPaths`
+for provenance; missing required decisions still fail. This checks the existence
+of historical authority, not current test execution or fresh release approval.
+General package validation does not require an empty `unreleased.md`; clearing
+that file belongs only to the release-cut lifecycle. No manually maintained
+summary duplicates the historical source.
+
 The formal commands require Node.js 24.x to report `READY`. The explicit
 `--allow-unsupported-node` option is local diagnostic evidence only and cannot
 authorize the release decision.

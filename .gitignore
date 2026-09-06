@@ -46,6 +46,8 @@ chrome-dev-perf-trace.json
 tmp/
 apps/*/test-results/
 apps/*/playwright-report/
+apps/*/.artifacts/
+apps/*/distribution/
 apps/*/visual-review-records/
 apps/asyra-framework-site/artwork/
 apps/asyra-framework-site/public/illustrations/*

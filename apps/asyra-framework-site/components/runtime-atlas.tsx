@@ -278,7 +278,7 @@ export function RuntimeAtlas() {
             <p aria-live="polite">
               {runtimeError
                 ? `Runtime unavailable: ${runtimeError}`
-                : `Status: ${snapshot?.status ?? 'starting'} · ${snapshot?.actionIndex ?? 0}/${snapshot?.actionCount ?? selectedCase?.actions.length ?? 0}`}
+                : `Status: ${snapshot?.status ?? 'starting'} - ${snapshot?.actionIndex ?? 0}/${snapshot?.actionCount ?? selectedCase?.actions.length ?? 0}`}
             </p>
           </div>
 

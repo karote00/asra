@@ -39,6 +39,13 @@ start Core or publish ready. Validation fails before mutation. Installer or
 provider failure rolls back resources in reverse order; retryable cleanup
 failure remains explicit.
 
+With a lifecycle-aware Core, successful apply retains its resource cleanup
+through `registerRuntimeCleanup`. Core awaits it during complete runtime reset;
+Preset releases resources in reverse order and reports incomplete cleanup.
+The result still exposes no disposer, and the old Core cannot apply again.
+A fresh successor may install the same defaults. Legacy adapters lacking this
+capability keep ordinary apply behavior, not complete replacement support.
+
 ## Relationships
 
 Core exposes a strict Preset install surface. Preset `2D` binds

@@ -13,7 +13,7 @@ const routes = [
     inputs: ['Load', 'Replay', 'Remote update'],
     label: 'Existing state',
     steps: [
-      { label: 'Safety', value: 'Validate / Resolve' },
+      { label: 'Safety', value: 'Validate - Resolve' },
       { label: 'Apply', value: 'Apply API' }
     ]
   }

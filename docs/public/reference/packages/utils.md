@@ -38,6 +38,12 @@ targets, unsupported strategies, dangling relations, active usage, and cleanup
 failure produce structured errors. Cleanup is reverse-order and retryable;
 completed cleanup does not rerun.
 
+`RegistrationGraph.disposeRuntime()` is an explicit exception to ordinary
+retryable unregister: after the coordinating owner retires canonical data, it
+permanently closes the graph and attempts all remaining resource cleanup in
+reverse registration order. Failure is structured and terminal. New composition
+requires a new graph; this method does not reopen a locked runtime.
+
 ## Relationships
 
 Framework packages import canonical shared shapes from Utils instead of

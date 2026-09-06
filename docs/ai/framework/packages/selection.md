@@ -39,6 +39,14 @@ Own selection state for entities and selection-oriented queries.
 - Default selection shared-channel apply wiring is preset-owned.
 - Selection transaction publishing for core selection APIs is core-owned.
 
+## Explicit Runtime Reset
+
+`SelectionManager.resetRuntime(): void` removes runtime channel registrations
+and attempts every registered instance's disposal without publishing selection
+mutations. Cleanup failures are reported after all attempts. Another manager
+remains unchanged; fresh composition may register new instances under the same
+names. Core owns orchestration; ordinary clear/unregister is unchanged.
+
 ## Validation Checklist
 
 - Select and deselect flows produce correct id sets.

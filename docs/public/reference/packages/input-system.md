@@ -40,6 +40,11 @@ same pair is idempotent; switching removes exact previous listeners first.
 and clears. `off(...)` removes only the requested callback and returns `false`
 when absent.
 
+`InputSystem.resetRuntime()` retires browser callback generations, detaches
+listeners and clears transient state, timers and input mappings. Every listener
+removal is attempted before cleanup failure is reported. Core uses this explicit
+boundary for complete runtime replacement; ordinary reset/dispose are unchanged.
+
 ## Relationships
 
 Reactive Events carries typed routes. Core visual startup attaches Input to the

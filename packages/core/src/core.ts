@@ -33,6 +33,8 @@ import {
   getFeature as getFeatureRuntime,
   unregisterFeature as unregisterFeatureRuntime,
   getFeatureRegistry,
+  disposeFeatureSystem,
+  beginFeatureSystemRuntime,
   type FeatureAPI,
   type FeatureDefinition,
   type FeatureKeyMap
@@ -48,6 +50,8 @@ import render, {
   RenderOptions,
   RenderResult,
   renderStrategyRegistry,
+  resetSharedRenderRuntime,
+  beginSharedRenderRuntime,
   type RenderEngineProviderCleanup,
   type RenderStrategy
 } from '@asyra/render'
@@ -61,11 +65,18 @@ import {
 } from '@asyra/persistence'
 import {
   type EventDefinition,
+  type EventRegistration,
   eventRegistry,
   fileLoadComplete,
   runInTransactionReplayMode,
   settleCooperativeRenderSlice
 } from '@asyra/reactive-events'
+import type { Subscription } from 'rxjs'
+import {
+  CoreRuntimeLifetime,
+  CoreRuntimeResetError,
+  type CoreRuntimeState
+} from './runtime-lifetime.js'
 
 import {
   CoreAPIs,
@@ -181,6 +192,16 @@ class Core implements CoreAPIs {
   })
   private collaborationSession: CoreCollaborationSession | null = null
   private collaborationDestroyPromise: Promise<void> | null = null
+  private readonly lifetime = new CoreRuntimeLifetime()
+  private readonly runtimeFacade: Core
+  private runtimeResetPromise: Promise<Core> | null = null
+  private readonly runtimeCleanups = new Map<
+    string,
+    () => void | Promise<void>
+  >()
+  private readonly ownedEvents = new Map<string, EventRegistration>()
+  private readonly ownedEventSubscriptions = new Set<Subscription>()
+  private attachedCanvas: HTMLCanvasElement | null = null
 
   setupInputSystem!: InputSystemAPIs['setupInputSystem']
 
@@ -320,6 +341,165 @@ class Core implements CoreAPIs {
       this.ensureUIPropertyNode(key, config.registration)
       this.defineRegistrationRelations(source, config.registration)
     }) as UIContextAPIs['registerUIProperty']
+    this.runtimeFacade = this.lifetime.facade(this)
+    return this.runtimeFacade
+  }
+
+  getRuntimeState(): CoreRuntimeState {
+    return this.lifetime.state
+  }
+
+  registerRuntimeCleanup(
+    key: string,
+    cleanup: () => void | Promise<void>
+  ): () => void {
+    this.lifetime.assertActive()
+    if (!key.trim() || this.runtimeCleanups.has(key)) {
+      throw new Error(
+        `Core runtime cleanup key is empty or already registered: "${key}"`
+      )
+    }
+    this.runtimeCleanups.set(key, cleanup)
+    let registered = true
+    return () => {
+      if (!registered) return
+      registered = false
+      if (this.runtimeCleanups.get(key) === cleanup)
+        this.runtimeCleanups.delete(key)
+    }
+  }
+
+  /** Terminal handoff; the App must stop admission and call outside Feature work. */
+  resetRuntime(): Promise<Core> {
+    if (this.runtimeResetPromise) return this.runtimeResetPromise
+    try {
+      this.lifetime.assertResetReady()
+    } catch (error) {
+      return Promise.reject(error)
+    }
+    this.lifetime.state = 'quiescing'
+    let complete: (next: Core) => void = () => undefined
+    let fail: (cause: unknown) => void = () => undefined
+    this.runtimeResetPromise = new Promise<Core>((resolve, reject) => {
+      complete = resolve
+      fail = reject
+    })
+    // Install the shared result before abort/disposal callbacks can reenter.
+    void this.performRuntimeReset().then(complete, fail)
+    return this.runtimeResetPromise
+  }
+
+  private async performRuntimeReset(): Promise<Core> {
+    let phase = 'quiescence'
+    try {
+      const settle = (operation: () => void | Promise<void>) => {
+        try {
+          return Promise.resolve(operation())
+        } catch (error) {
+          return Promise.reject(error)
+        }
+      }
+      const session = this.collaborationSession
+      this.collaborationSession = null
+      const quiescence = await Promise.allSettled([
+        settle(() =>
+          disposeFeatureSystem(() => this.getSystemContextSnapshot())
+        ),
+        settle(() => this.collaborationDestroyPromise ?? session?.dispose())
+      ])
+      await this.lifetime.drain()
+      for (const result of quiescence) {
+        if (result.status === 'rejected') throw result.reason
+      }
+      this.lifetime.state = 'retiring'
+      this.renderEngineProviderToken = null
+      const retire = (owner: string, operation: () => void) => {
+        phase = owner
+        operation()
+      }
+      retire('observers', () => this.dataChannelObservers.resetRuntime())
+      retire('events', () => this.retireOwnedEvents())
+      retire('input', () => this.deps.inputSystem.resetRuntime())
+      retire('render', () => {
+        if (this.renderer !== this.defaultRenderer) this.renderer.destroy()
+        this.deps.render.resetRuntime()
+        this.attachedCanvas?.remove()
+        this.attachedCanvas = null
+      })
+      retire('shared-render', resetSharedRenderRuntime)
+      retire('factory', () => this.deps.factory.resetRuntime())
+      retire('scene', () => this.deps.sceneTree.resetRuntime())
+      retire('props', () => this.deps.props.resetRuntime())
+      retire('selection', () => this.deps.selection.resetRuntime())
+      retire('system-context', () => this.deps.systemContext.resetRuntime())
+      retire('ui-context', () => propertyRegistry.resetRuntime())
+      retire('registrations', () => this.registrationGraph.disposeRuntime())
+      phase = 'composition'
+      const cleanups = [...this.runtimeCleanups.values()].reverse()
+      this.runtimeCleanups.clear()
+      const failures: unknown[] = []
+      this.lifetime.cleanupActive = true
+      try {
+        for (const cleanup of cleanups) {
+          try {
+            await cleanup()
+          } catch (error) {
+            failures.push(error)
+          }
+        }
+      } finally {
+        this.lifetime.cleanupActive = false
+      }
+      if (failures.length > 0) throw failures[0]
+      this.loadSource = null
+      this.saveHooks = []
+      this.loadHooks = []
+      this.loadDiagnosticsHooks = []
+      this.redefinedPropertyTypes.clear()
+      phase = 'successor'
+      const successor = new Core({
+        ...this.deps,
+        dataChannelObservers: this.dataChannelObservers
+      })
+      beginFeatureSystemRuntime()
+      beginSharedRenderRuntime()
+      this.lifetime.state = 'retired'
+      if (core === this.runtimeFacade) core = successor
+      return successor
+    } catch (cause) {
+      this.lifetime.state = 'failed'
+      if (phase === 'successor') {
+        // A failed begin must not leave a newly opened Feature queue accepting work.
+        await Promise.resolve(
+          disposeFeatureSystem(() => this.getSystemContextSnapshot())
+        ).catch(() => undefined)
+      }
+      throw new CoreRuntimeResetError(phase, cause)
+    }
+  }
+
+  private retireOwnedEvents(): void {
+    const subscriptions = [...this.ownedEventSubscriptions]
+    this.ownedEventSubscriptions.clear()
+    const events = [...this.ownedEvents]
+    this.ownedEvents.clear()
+    const failures: unknown[] = []
+    for (const subscription of subscriptions) {
+      try {
+        subscription.unsubscribe()
+      } catch (error) {
+        failures.push(error)
+      }
+    }
+    for (const [name, registration] of events) {
+      try {
+        if (eventRegistry.get(name) === registration)
+          eventRegistry.unregister(name)
+      } catch (error) {
+        failures.push(error)
+      }
+    }
+    if (failures.length > 0) throw failures[0]
   }
 
   /** Set an advanced full renderer replacement before startup. */
@@ -374,13 +554,13 @@ class Core implements CoreAPIs {
     this.deps.inputSystem.registry.registerKeyCombinations(combinations)
     const eventNames = Object.keys(combinations)
     let disposed = false
-    return () => {
+    return this.lifetime.cleanup(() => {
       if (disposed) return
       disposed = true
       eventNames.forEach((eventName) => {
         this.deps.inputSystem.registry.unregister(eventName)
       })
-    }
+    })
   }
 
   getElementData(elementId: string) {
@@ -473,6 +653,18 @@ class Core implements CoreAPIs {
     )
   }
 
+  resizeRenderer(width: number, height: number): void {
+    if (
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      width <= 0 ||
+      height <= 0
+    ) {
+      throw new RangeError('Renderer size must be finite and positive')
+    }
+    this.renderer.resize(width, height)
+  }
+
   getCanvas(): HTMLCanvasElement | null {
     return this.renderer.getCanvas()
   }
@@ -557,7 +749,11 @@ class Core implements CoreAPIs {
   }
 
   subscribeToFrameComplete(subscriber: () => void): () => void {
-    return this.deps.render.subscribeToFrameComplete(subscriber)
+    return this.lifetime.cleanup(
+      this.deps.render.subscribeToFrameComplete(() => {
+        if (this.lifetime.isUsable()) subscriber()
+      })
+    )
   }
 
   getUndoHistoryDepth(): number {
@@ -567,20 +763,32 @@ class Core implements CoreAPIs {
   subscribeToSharedPublication(
     subscriber: (publication: SharedPublication) => void
   ): () => void {
-    return this.deps.factory.subscribeToSharedPublication(subscriber)
+    return this.lifetime.cleanup(
+      this.deps.factory.subscribeToSharedPublication((publication) => {
+        if (this.lifetime.isUsable()) subscriber(publication)
+      })
+    )
   }
 
   subscribeToTransactionStatus(
     subscriber: Parameters<Factory['subscribeToTransactionStatus']>[0]
   ): () => void {
-    return this.deps.factory.subscribeToTransactionStatus(subscriber)
+    return this.lifetime.cleanup(
+      this.deps.factory.subscribeToTransactionStatus((status) => {
+        if (this.lifetime.isUsable()) subscriber(status)
+      })
+    )
   }
 
   observeSharedDataChannel(
     channel: Parameters<Factory['observeSharedDataChannel']>[0],
     subscriber: Parameters<Factory['observeSharedDataChannel']>[1]
   ): () => void {
-    return this.deps.factory.observeSharedDataChannel(channel, subscriber)
+    return this.lifetime.cleanup(
+      this.deps.factory.observeSharedDataChannel(channel, (change) => {
+        if (this.lifetime.isUsable()) subscriber(change)
+      })
+    )
   }
 
   configureSharedDeliverySequence(
@@ -626,10 +834,10 @@ class Core implements CoreAPIs {
   private createCollaborationBridge(): CoreCollaborationBridge {
     const bridge: CoreCollaborationBridge = {
       applyRemoteCanonicalChangeSlices: (input) =>
-        this.applyRemoteCanonicalChangeSlices(input),
-      load: (data) => this.load(data),
+        this.runtimeFacade.applyRemoteCanonicalChangeSlices(input),
+      load: (data) => this.runtimeFacade.load(data),
       subscribeToSharedPublication: (subscriber) =>
-        this.subscribeToSharedPublication(subscriber)
+        this.runtimeFacade.subscribeToSharedPublication(subscriber)
     }
     return Object.freeze(bridge)
   }
@@ -801,6 +1009,7 @@ class Core implements CoreAPIs {
 
       if (result.canvas && container) {
         container.appendChild(result.canvas)
+        this.attachedCanvas = result.canvas
         // Setup input system to watch the canvas
         this.setupInputSystem(result.canvas)
       }
@@ -847,11 +1056,41 @@ class Core implements CoreAPIs {
   registerEvent<TPayload = unknown, TOptions = unknown>(
     event: string | EventDefinition<TPayload, TOptions>
   ) {
-    return eventRegistry.register(event)
+    const registration = eventRegistry.register(event)
+    this.ownedEvents.set(
+      registration.eventName,
+      registration as EventRegistration
+    )
+    return {
+      eventName: registration.eventName,
+      publish: (payload?: TPayload, options?: TOptions) => {
+        this.lifetime.assertActive()
+        registration.publish(payload, options)
+      },
+      subscribe: (
+        handler: (payload?: TPayload, options?: TOptions) => void
+      ) => {
+        this.lifetime.assertActive()
+        return this.subscribeOwnedEvent(registration, handler)
+      }
+    }
   }
 
   unregisterEvent(event: string | EventDefinition): boolean {
+    this.ownedEvents.delete(typeof event === 'string' ? event : event.eventName)
     return eventRegistry.unregister(event)
+  }
+
+  private subscribeOwnedEvent<TPayload, TOptions>(
+    registration: EventRegistration<TPayload, TOptions>,
+    handler: (payload?: TPayload, options?: TOptions) => void
+  ): Subscription {
+    const subscription = registration.subscribe((payload, options) => {
+      if (this.lifetime.isUsable()) handler(payload, options)
+    })
+    this.ownedEventSubscriptions.add(subscription)
+    subscription.add(() => this.ownedEventSubscriptions.delete(subscription))
+    return subscription
   }
 
   subscribeEvent<TPayload = unknown, TOptions = unknown>(
@@ -866,7 +1105,7 @@ class Core implements CoreAPIs {
       )
     }
 
-    const subscription = registration.subscribe(handler)
+    const subscription = this.subscribeOwnedEvent(registration, handler)
     return () => subscription.unsubscribe()
   }
 
@@ -1291,13 +1530,14 @@ class Core implements CoreAPIs {
     this.ensureFeatureNode(name, definition.registration)
     this.defineRegistrationRelations(source, definition.registration)
     return {
-      api: registration.api,
-      dispose: () => this.unregisterFeature(name)
+      api: this.lifetime.featureAPI(registration.api),
+      dispose: () =>
+        this.lifetime.isUsable() ? this.unregisterFeature(name) : false
     }
   }
 
   getFeature(featureName: string): FeatureAPI {
-    return getFeatureRuntime(featureName)
+    return this.lifetime.featureAPI(getFeatureRuntime(featureName))
   }
 
   unregisterFeature(featureName: string): boolean {
@@ -1887,6 +2127,13 @@ class Core implements CoreAPIs {
     this.applyLoadedData(data)
   }
 
+  /** Validate against the current composition without applying a document. */
+  preflightLoad(data: unknown): readonly Readonly<LoadValidationDiagnostic>[] {
+    if (data == null) return Object.freeze([])
+    const { diagnostics } = this.prepareLoadedData(data)
+    return Object.freeze(diagnostics.map((item) => Object.freeze({ ...item })))
+  }
+
   async save(): Promise<CoreRawData> {
     const sceneTreeData = await this.sceneTreeSaveData()
     const systemContextData = this.deps.systemContext.saveManagedProperties()
@@ -2002,7 +2249,7 @@ class Core implements CoreAPIs {
     return nextData
   }
 
-  private applyLoadedData(rawData: unknown): void {
+  private prepareLoadedData(rawData: unknown) {
     const diagnostics: LoadValidationDiagnostic[] = []
 
     const migrated = this.runLoadHooks(rawData)
@@ -2054,6 +2301,24 @@ class Core implements CoreAPIs {
       sceneValidation,
       propsValidation.data
     )
+
+    return {
+      normalizedAfterHooks,
+      diagnostics,
+      propsValidation,
+      sceneValidation,
+      systemValidation
+    }
+  }
+
+  private applyLoadedData(rawData: unknown): void {
+    const {
+      normalizedAfterHooks,
+      diagnostics,
+      propsValidation,
+      sceneValidation,
+      systemValidation
+    } = this.prepareLoadedData(rawData)
 
     this.deps.props.applyValidatedLoad(propsValidation)
     this.deps.sceneTree.applyValidatedLoad(sceneValidation)
@@ -2118,7 +2383,7 @@ class Core implements CoreAPIs {
 
 export { Core }
 
-const core = new Core({
+let core = new Core({
   inputSystem,
   factory,
   dataChannelObservers:
@@ -2129,4 +2394,4 @@ const core = new Core({
   selection,
   systemContext
 })
-export default core
+export { core as default }

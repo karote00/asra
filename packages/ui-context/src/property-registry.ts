@@ -231,6 +231,28 @@ export class PropertyRegistry {
     this.registrations.clear()
     this.yjsFilters.clear()
   }
+
+  resetRuntime(): void {
+    const subscriptions = [...this.subscriptions.values()]
+    const subjects = [...this.properties.values()]
+    this.subscriptions.clear()
+    this.properties.clear()
+    this.registrations.clear()
+    this.yjsFilters.clear()
+    const failures: unknown[] = []
+    const attempt = (cleanup: () => void): void => {
+      try {
+        cleanup()
+      } catch (error) {
+        failures.push(error)
+      }
+    }
+    subscriptions.forEach((subscription) =>
+      attempt(() => subscription.unsubscribe())
+    )
+    subjects.forEach((subject) => attempt(() => subject.complete()))
+    if (failures.length > 0) throw failures[0]
+  }
 }
 
 export const propertyRegistry = new PropertyRegistry()

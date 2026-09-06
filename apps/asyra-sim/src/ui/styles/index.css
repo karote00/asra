@@ -1,0 +1,105 @@
+@import 'tailwindcss';
+@import './theme.css';
+
+/* Native controls share a small base; component layout lives in TSX utilities. */
+@layer base {
+  :root {
+    font-family:
+      Inter,
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      sans-serif;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    line-height: normal;
+  }
+
+  body {
+    @apply m-0 bg-sim-page text-[13px] text-sim-text;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  button {
+    @apply cursor-pointer rounded-[6px] border border-sim-border bg-sim-surface
+      px-3 py-2 text-sim-text transition-colors duration-120;
+  }
+
+  button:hover {
+    @apply bg-sim-hover;
+  }
+
+  button:disabled {
+    @apply cursor-default opacity-45;
+  }
+
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  summary:focus-visible {
+    @apply outline-2 outline-offset-2 outline-sim-focus;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply min-w-0 w-full rounded-[5px] border border-sim-border bg-sim-surface
+      p-2 text-sim-text;
+  }
+
+  input[type='checkbox'] {
+    @apply size-[14px] accent-sim-focus;
+  }
+
+  input[type='color'] {
+    @apply h-[34px] p-[3px];
+  }
+
+  label {
+    @apply flex flex-col gap-[6px] text-[11px] font-semibold text-sim-secondary;
+  }
+
+  h2 {
+    @apply text-[14px] font-[650];
+  }
+  h3 {
+    @apply text-[12px] font-bold;
+  }
+  h4 {
+    @apply font-bold;
+  }
+  ul {
+    @apply my-[1em] list-disc pl-10;
+  }
+  dialog {
+    @apply m-auto bg-sim-surface;
+  }
+
+  fieldset {
+    border: 2px groove;
+    padding: 0.35em 0.75em 0.625em;
+  }
+
+  details {
+    @apply border-t border-sim-divider pt-[13px];
+  }
+  summary {
+    @apply mb-3 cursor-pointer text-[11px] font-[650];
+  }
+
+  summary > span {
+    @apply float-right text-[10px] font-normal text-sim-muted;
+  }
+
+  details > label,
+  details > fieldset {
+    @apply mb-[10px];
+  }
+}

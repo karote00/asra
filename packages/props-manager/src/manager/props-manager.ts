@@ -483,6 +483,7 @@ class PropsManager {
     PropertyComponentInstanceTypes
   > | null = null
   private propertyMutationApplyActive = false
+  private resettingRuntime = false
   private readonly relationshipChildIdsByOwnerId = new Map<
     string,
     readonly string[]
@@ -6050,6 +6051,50 @@ class PropsManager {
     components.forEach((component) => {
       ;(component as unknown as { dispose?: () => void }).dispose?.()
     })
+    this.clearRuntimeState(hadState)
+  }
+
+  /** Retire canonical state after external work has quiesced. */
+  resetRuntime(): void {
+    if (
+      this.resettingRuntime ||
+      this.propertyCreationBatch ||
+      this.activePropertyBatch ||
+      this.propertyMutationStagedById ||
+      this.propertyMutationApplyActive
+    ) {
+      throw new Error(
+        '[PropsManager] Runtime reset requires idle canonical property batches'
+      )
+    }
+    this.resettingRuntime = true
+    const failures: unknown[] = []
+    try {
+      const components = new Set([
+        ...this._components.values(),
+        ...this._deletedMap.values()
+      ])
+      components.forEach((component) => {
+        try {
+          ;(component as unknown as { dispose?: () => void }).dispose?.()
+        } catch (error) {
+          failures.push(error)
+        }
+      })
+      this.clearRuntimeState(true)
+      this.validatedLoadArtifacts = new WeakMap()
+      this.validatedRestoreArtifacts = new WeakMap()
+      this.validatedPropertyCreationArtifacts = new WeakMap()
+      this.validatedOrdinaryPropertyCreationArtifacts = new WeakMap()
+      this.validatedActivePropertyArtifacts = new WeakMap()
+      this.validatedPropertyMutationArtifacts = new WeakMap()
+    } finally {
+      this.resettingRuntime = false
+    }
+    if (failures.length > 0) throw failures[0]
+  }
+
+  private clearRuntimeState(advanceRevision: boolean): void {
     this._components.clear()
     this._deletedMap.clear()
     this.relationshipChildIdsByOwnerId.clear()
@@ -6058,7 +6103,7 @@ class PropsManager {
     this.propertyCreationBatch = null
     this.activePropertyBatch = null
     this.propertyMutationStagedById = null
-    if (hadState) {
+    if (advanceRevision) {
       this.advancePropertyStateRevision()
     }
   }

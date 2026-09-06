@@ -36,6 +36,11 @@ according to the owner contract and issues one instance-bound artifact; apply
 accepts that artifact once without rerunning validators. Foreign, stale, reused,
 or invalid artifacts fail before mutation.
 
+`SystemContext.resetRuntime()` removes managed registrations and old validation
+artifacts and completes their observables after work is quiescent. It attempts
+every completion and reports cleanup failure; independent context state is
+unchanged. Apps use Core lifecycle orchestration, not private state access.
+
 ## Relationships
 
 Core coordinates public registration, read/write, frame request, and load/save

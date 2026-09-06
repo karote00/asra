@@ -38,6 +38,20 @@ defaults to `commit-current`; explicit policies are `rollback` and
 programmatic task receives one Feature-owned abort signal, rejects overlap, and
 releases ownership on settlement.
 
+For a complete runtime shutdown, the lifecycle owner may call
+`disposeFeatureSystem(getSnapshot)`. It closes admission, rejects queued work,
+aborts tasks/sessions, forces provisional session rollback, and waits for real
+handler settlement, including handlers whose timeout already fired. Repeated
+calls share completion. Cleanup failure stays closed; an uncooperative Promise
+cannot be forcibly stopped. This does not clear canonical data or history.
+
+Only after all runtime owners finish cleanup may the lifecycle owner call
+`beginFeatureSystemRuntime()` and compose new Features. Retained old session
+managers and queue runners reject with `FeatureRuntimeClosedError`
+(`FEATURE_RUNTIME_CLOSED`). Arbitrary Feature API closures need their own
+App/Core lifetime guard; disposal is not a code sandbox. Ordinary load and
+cancel do not invoke this separate lifecycle automatically.
+
 ## Relationships
 
 Input System and UI adapters provide intent. Factory owns the transaction

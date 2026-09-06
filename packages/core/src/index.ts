@@ -1,4 +1,10 @@
-import core, { Core } from './core.js'
+import { Core } from './core.js'
+export { default } from './core.js'
+export {
+  CoreRuntimeClosedError,
+  CoreRuntimeResetError
+} from './runtime-lifetime.js'
+export type { CoreRuntimeState } from './runtime-lifetime.js'
 import uiContext, { UIContext, propertyRegistry } from '@asyra/ui-context'
 export {
   initFeatureSystem,
@@ -284,9 +290,13 @@ export type {
 export type { PropertyComponentValuesUpdate } from './types/props.js'
 type CoreBasicApiKeys =
   | 'setRenderer'
+  | 'resizeRenderer'
   | 'destroyRenderer'
   | 'destroy'
   | 'setRenderEngineProvider'
+  | 'resetRuntime'
+  | 'getRuntimeState'
+  | 'registerRuntimeCleanup'
   | 'hasRenderEngineProvider'
   | 'isCompositionOpen'
   | 'setLoadSource'
@@ -296,6 +306,7 @@ type CoreBasicApiKeys =
   | 'registerLoadDiagnosticsHook'
   | 'start'
   | 'load'
+  | 'preflightLoad'
   | 'save'
   | 'registerCollaborationSession'
   | 'registerInputKeyCombinations'
@@ -481,10 +492,10 @@ export type CoreConcreteAPIs = CoreBasicAPIs & CoreExtensionAPIs
 export type CorePresetInstallAPIs = Pick<
   CoreConcreteAPIs,
   CorePresetInstallApiKeys
->
+> &
+  Partial<Pick<CoreConcreteAPIs, 'registerRuntimeCleanup'>>
 export type CorePresetDependencies = ReturnType<
   CorePresetInstallAPIs['getPresetDependencies']
 >
 
 export { Core }
-export default core

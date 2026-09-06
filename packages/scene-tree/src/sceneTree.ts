@@ -5157,6 +5157,31 @@ class SceneTree {
     this.cleanChanges()
   }
 
+  /** Full runtime retirement; definitions and Props remain separate owners. */
+  resetRuntime(): void {
+    const elements = new Set([
+      ...this._elements.values(),
+      ...this._deletedMap.values()
+    ])
+    this.dispose()
+    this.validatedLoadArtifacts = new WeakMap()
+    this.validatedRestoreArtifacts = new WeakMap()
+    this.preparedElementMutationArtifacts = new WeakMap()
+    let failed = false
+    let firstError: unknown
+    elements.forEach((element) => {
+      try {
+        disposeElementComputed(element)
+      } catch (error) {
+        if (!failed) {
+          failed = true
+          firstError = error
+        }
+      }
+    })
+    if (failed) throw firstError
+  }
+
   dispose() {
     this._elements.clear()
     this.elementPropertyRelationsByComponentId.clear()

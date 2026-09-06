@@ -49,6 +49,14 @@
 
 ## Schema and Naming Standards
 
+- Join authored display-name parts and appended metadata with ` - ` only.
+  Apply this to every app, tool, report and generated surface, not just element
+  names. Preserve user text and saved evidence without character normalization;
+  `rules/naming-and-persisted-identities.md` defines scope and exceptions.
+- Resolve naming before implementation, including the semantic owner, public
+  identity distinction, and persisted/wire compatibility. Run `yarn lint:naming`
+  before identifiers spread to downstream consumers, not only at PR time.
+  `rules/naming-and-persisted-identities.md` owns the complete contract.
 - Before adding a new data type or property key, check existing shared contracts first (`@asyra/utils` and existing package/app types) and reuse when equivalent.
 - For persisted or frequently-updated model data, prefer compact property keys by default to reduce payload size.
 - Use longer, descriptive names only when contract readability/interoperability clearly requires it.
@@ -96,6 +104,27 @@
 - Independently composed packages may remain direct App dependencies for their
   own Provider/wire/policy contracts. If their runtime participates in Core
   startup, register a neutral lifecycle with Core rather than bypassing it.
+
+## Computation Ownership and Data Reuse
+
+[Computation Ownership and Data Reuse](rules/computation-ownership-and-reuse.md)
+applies across framework, apps, and tools. It owns recurring-work analysis,
+producer/consumer lifetimes, valid artifact reuse, evidence-driven caches, and
+permanent work-count/equivalence tests. Function reuse and correct output alone
+do not prove that underlying work is reused.
+
+## App Structure, Styling, and Optimization
+
+All apps follow
+[App Optimization and Maintainability](rules/app-optimization-and-maintainability.md)
+from the first implementation slice. It owns responsibility-based organization,
+controller/helper separation, localized updates, evidence-driven optimization,
+Tailwind component styling, and readable TSX. Existing apps demonstrate these
+concepts; their complete architecture is not a required template.
+UI update isolation belongs to state ownership, fine-grained subscriptions,
+and composition, not `React.memo` or equivalent props-comparison wrappers.
+Independent computation caches follow the separate evidence and lifecycle
+requirements in the shared computation rule above.
 
 ## Test Placement Standards
 

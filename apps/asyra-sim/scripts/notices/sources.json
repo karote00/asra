@@ -1,0 +1,11 @@
+{
+  "@pixi/colord@2.9.6": {
+    "license": "MIT",
+    "file": "pixi-colord-2.9.6.LICENSE.txt",
+    "sha256": "7613d4594ee8b6163926af3435dae61c9e3d5a27cd137bd76a543ba40002d8fc",
+    "source": "https://raw.githubusercontent.com/omgovich/colord/5344fbf77b736f81cd33c21050021bc09bc9dd1d/LICENSE.md",
+    "reason": "The published 2.9.6 package declares MIT but omits its original license file. This notice is retained from its registry-declared repository at its registry-declared gitHead. No implementation is replaced.",
+    "registryMetadata": "https://registry.npmjs.org/@pixi%2fcolord/2.9.6",
+    "publishedTarballIntegrity": "sha512-nezytU2pw587fQstUu1AsJZDVEynjskwOL+kibwcdxsMBFqPsFFNA7xl0ii/gXuDi6M0xj3mfRJj8pBSc2jCfA=="
+  }
+}

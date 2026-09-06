@@ -1,0 +1,457 @@
+# R0: Robot Workcell Experiment Contract
+
+This document defines first-version product targets, not implemented
+capabilities. M0 must freeze the numerical support envelope; M3 and M5 must
+verify it. Planning is not evidence of accuracy.
+
+[PRODUCT.md](../PRODUCT.md) owns the mission;
+[ARCHITECTURE.md](../ARCHITECTURE.md) owns execution boundaries.
+
+## 1. Supported Workcell
+
+- One fixed-base serial rigid-body robot with fixed, revolute, or prismatic
+  joints.
+- Each actuated joint has an explicit axis, local frame, units, limits, and
+  initial value.
+- One tool and a workpiece rigidly attached to it; attachment relationships
+  remain fixed throughout a run.
+- Fixed influencing objects such as tables, fixtures, and equipment enclosures.
+- Other scene groups may remain as background without automatically entering
+  the analysis.
+- The official example is a synthetic six-axis robot, not an accurate model of
+  a particular vendor or product.
+
+Users can create and edit equipment through forms and the hierarchy without
+changing code. R0 edits dimensions, mounting, joints, and analysis geometry; it
+does not provide general CAD authoring.
+
+## 2. Visual and Analysis Geometry
+
+R0 must analyze the supplied part geometry itself, not a simpler surrogate.
+This requirement supersedes the previous proxy-based R0 scope. Rendered part
+surfaces and formal analysis consume the same domain-owned geometry, units,
+body-local placement, scale and shared kinematics. Materials and lighting are
+presentation-only. A visually detailed model is not evidence of this parity.
+
+- The first mesh input remains restricted, self-contained GLB. Preserve every
+  accepted triangle and its source identity; do not decimate, fill holes, take a
+  convex hull, omit small features, or substitute boxes/capsules for the part.
+  Native CAD kernels, automatic STEP tessellation and metrology remain outside
+  this refactor. Precision is relative to the supplied geometry and recorded
+  conversion, not an assertion that the source equals manufactured equipment.
+- Native analytical primitives may describe actual primitive parts. They are
+  not an alternative collision representation for a separately supplied mesh.
+- The supported mesh topology and solid/surface interpretation must be explicit.
+  Unsupported, incomplete, degenerate, ambiguous or over-budget geometry blocks
+  analysis or remains unresolved; it never becomes a simpler successful solve.
+- Spatial bounds may exclude impossible interactions only when conservative
+  for the complete source geometry and requested time interval. They are
+  acceleration evidence, never replacement part geometry or output surfaces.
+- Missing sources, transforms or unsupported methods cannot be waived by a
+  warning acknowledgement. Hiding a surface does not remove it from analysis.
+- Formal collision answers must not come from renderer picking, transparency,
+  display LOD or unvalidated renderer bounds.
+
+Admission requires complete resolved source geometry and a compatible method
+for every selected original binding, including hidden bodies. Legacy primitives,
+visibility and warning acknowledgement cannot substitute for that requirement.
+Explicit background scope remains background. The original-part method and
+snapshot version 2 implement this route under
+[original-part-method-v1.md](original-part-method-v1.md). Old snapshots/results
+remain readable with their original inputs and method identity; historical
+admission never grants permission to rerun old proxy evidence as mesh analysis.
+
+## 3. Coordinates, Units, and Support Envelope
+
+A workcell uses explicit right-handed local coordinates. Geometry and joint
+poses have one App domain owner. The renderer, solver, and exporter must not
+independently interpret axes or parent-child transforms.
+
+- Length inputs explicitly support mm/m; angles support deg/rad; time uses
+  seconds or explicitly declared milliseconds.
+- Import previews show conversions and preserve source units. Do not guess
+  units for unspecified columns.
+- Joint axes must be finite and nonzero and normalized according to the
+  contract. Reject nonfinite positions, dimensions, and times.
+- Analysis dimensions must be valid. Negative scale or hidden nonuniform
+  transforms must not silently alter the mechanism. Convert dimension edits
+  into explicit geometry, separately from pose rotation.
+- Larger background scenes are permitted, but formal solving uses a workcell
+  local origin and an approved numerical envelope.
+- R0 is machine-scale geometric analysis, not a nanometer or TCAD accuracy
+  claim. Unit conversion does not improve accuracy.
+
+M0 must specify testable minimum shape dimensions, maximum coordinate offsets,
+scale ratios, geometric error limits, time-bound precision, and supported
+execution environments for official methods. Until those are frozen, M3 cannot
+claim that the complete method contract is ready. UI thresholds cannot replace
+algorithmic error bounds.
+
+## 4. Trajectories and Motion Semantics
+
+Users edit joint keyframes or import CSV containing time and every actuated
+joint value. R0 analyzes an **explicit user-specified joint-space trajectory**,
+not a path that a particular vendor controller is guaranteed to execute.
+
+- Times must be finite and strictly increasing. Reject duplicate times, missing
+  joints, limit violations, NaN, and Infinity.
+- Each segment uses piecewise-linear interpolation of joint values. The
+  end-effector path in world coordinates is therefore not necessarily straight.
+- Revolute joints use explicitly unwrapped angles. Do not choose the shortest
+  rotation automatically or guess direction across 360 degrees.
+- Do not silently extrapolate beyond the data. The trajectory must fully cover
+  the selected analysis interval.
+- A single pose uses static analysis. Empty data is not a successful motion
+  analysis.
+- Playback speed, display FPS, and camera zoom do not change formal analysis
+  time or results.
+- Saved trajectories provide real-time Play/Pause, Restart to the interval
+  start, manual seeking and return to the editing pose. Playback is transient,
+  schedules at most one browser frame callback and stops at the end, on hidden
+  documents, panel/candidate/document changes or changed model/experiment inputs.
+  Delayed frames use elapsed time, never a growing queue of missed poses. Preview
+  neither starts a solver nor writes canonical joint values or Undo history.
+- The App's shared domain contract defines interpolation and forward
+  kinematics. Analysis modules must not silently smooth the path or substitute
+  different interpolation.
+- R0 official guarantees do not cover compliance with velocity/acceleration
+  limits or vendor-controller behavior.
+
+## 5. Analysis Scope and Pair Policy
+
+Each Experiment must explicitly specify:
+
+1. Primary objects: robot parts, tool, workpiece, or other objects being checked.
+2. Influencing objects: fixed obstacles that may contact the primary objects.
+3. Pair policy: self-collision, external collision, and explicit pair exclusions.
+4. Analysis interval, method, thresholds, and resource budget.
+5. External assumptions: unmodeled environmental conditions and background
+   scope.
+
+Background objects do not enter the solve automatically. Preflight lists
+relevant visible objects that are excluded and asks users to confirm the scope.
+The platform cannot guarantee that it has identified every real-world influence.
+R0 does not derive thermal, fluid, or other physical boundary conditions.
+
+Shapes within the same rigid body are not self-collision pairs. Excluding
+adjacent links or tool-mounting interfaces requires a visible, justified,
+versioned pair policy. Do not silently skip all adjacent links.
+Exclusion is not proof of safety; reports and comparisons retain the exclusion
+list.
+
+A setup with no checkable pairs returns "no valid analysis scope," not a passing
+conclusion. Hiding an object does not automatically exclude it, and showing one
+does not automatically include it.
+
+## 6. Preflight
+
+Preflight must distinguish model validity from resource cost instead of judging
+only the number of selected objects:
+
+| Category               | Example                                                                                   | Behavior                                                                                       |
+| ---------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Model/contract blocker | Missing units, unsupported joints, missing collider, invalid interval, unavailable method | Do not start formal analysis; explain the correction                                           |
+| Known capability limit | Two moving robots, unsupported scale or geometry                                          | Require splitting the analysis or a supported method; confirmation cannot make the model valid |
+| Resource risk          | Large pair count, segment count, shape complexity, or candidate count                     | Explain the estimate and uncertainty; offer reduced scope, a trial run, or confirmation        |
+| User assumption        | Excluded pairs, omitted background objects                                                | Display and preserve acknowledgement; cannot waive missing original-part geometry              |
+
+R0 allows one formal local analysis job at a time. Candidate scenarios run
+sequentially; there is no unlimited "select everything and run" operation.
+The UI may configure lower budgets but must not bypass hard limits.
+Without sufficient profiling, show workload indicators and "no reliable time
+estimate yet" rather than inventing an execution time.
+
+## 7. Methods and Completeness
+
+R0 official methods cover:
+
+- Static interference and clearance queries.
+- Self-collision and external-collision checks along specified joint
+  trajectories.
+- Minimum-clearance analysis over the selected interval against user thresholds.
+
+Formal motion analysis must cover the complete selected continuous-time
+interval, not only keyframes or display frames. An implementation may use
+validated continuous queries or conservatively bounded interval subdivision;
+this document does not preselect an algorithm. Mark an interval unresolved when
+rotation, composite shapes, or numerical limits prevent the method from
+establishing its result.
+
+Play performs live, finite-sample geometry checks without requiring an earlier
+formal run. When compatible formal evidence establishes the queried pose, Play
+reuses its exact witness or all-pair clear certificates without another solve.
+A finding interval does not enumerate every contact, and its witness is not
+necessarily the first collision. Play checks unclassified poses through the
+live owner even when a later recorded witness exists. Missing pose evidence
+uses the selected installed method's static capability, complete
+original/native geometry, experiment scope, threshold and numerical settings.
+Preflight validity and required warning acknowledgements still apply; blocked
+checks must be visible while motion preview remains available. It is not
+formal evidence that the entire trajectory is clear.
+
+### Live playback feedback
+
+The analysis owner retains the current admitted experiment input and bounded
+sample records for reuse by Play and the analysis panel. Replaying an already
+checked time does not invoke a method or allocate a Worker. Input, method,
+trajectory, scope, threshold or numerical-setting changes invalidate current
+records; committed document changes conservatively retire this input lifetime.
+No same-name or same-ID match grants reuse. Immutable saved reports are kept as
+historical evidence, never silently applied to changed inputs. Live observations
+are labelled as sampled records, not full-path reports, and do not replace the
+continuous-coverage gate for a formal report.
+
+The App owns one non-mutating, cancellable Feature task and at most one bounded Worker
+for the current playback inputs. Admit and send detached inputs once per
+playback lifetime; request only sampled times afterward. Keep one in-flight
+check and at most one latest pending time. Forward playback protects crossed
+canonical keyframes until checked before catching up to the latest playhead;
+optional intermediate samples may be coalesced. An explicit seek resets this
+progress and checks its exact target, not the skipped interval. Continuous Play
+never waits for a solve. Manual seeking keeps the slider responsive while an
+existing displayed pose and its feedback remain paired until the latest target's
+calculation or recorded-evidence lookup completes. The notice names the pending
+target separately. Manual seeking does not clear existing feedback or present
+intermediate pair-progress states; compute the next state, then replace it.
+New target geometry and its accepted feedback are presented atomically, also
+when the target is earlier than the displayed pose. No prior evidence is applied
+to the target pose. Before any accepted feedback, preview the target with an
+explicit checking state; failure displays that target with an explicit error.
+The selected method must support static queries; missing or incompatible
+methods fail explicitly without substitution. Worker creation is lazy on a
+cache miss. Each sample has bounded work,
+wall time and evidence, and malformed output fails closed.
+
+Publish validated collision or clearance evidence while other pair checks are
+still running; do not wait for terminal sample storage or report construction.
+Provisional findings retain their exact sampled time and incomplete-scope label,
+are not reusable completed samples, and must agree with terminal evidence.
+The same cancellation, deadline, input-lifetime and stale-response rules apply
+to partial delivery. Complete immutable geometry preparation may be reused
+within the owning Worker; poses and numerical evidence are recomputed with
+fresh invocation budgets. No reduced geometry or real-time guarantee is implied.
+
+The viewport shows checking, established collision, clearance issue, no issue
+at the checked sample, or unresolved/error. Always identify the checked time
+and sampled scope; unchecked times are not clear. Collision feedback never
+pauses, seeks, rounds or rewinds the playhead. Playback continues until its
+endpoint or an explicit user/lifecycle stop. The Pause control freezes the
+current frame and requests an exact-pose check without changing its time. Seeking,
+restarting, editing, changing experiment/candidate, formal analysis, leaving
+the inspector, hidden-page suspension and runtime replacement retire stale
+requests and release owned work. No preview sample creates a saved run, report,
+canonical edit or Undo entry.
+
+Established colliding bodies use a dedicated red highlight distinct from
+selection. Clearance findings use an amber highlight; unresolved output must
+not be presented as collision or safety. Whole-body highlights identify the
+parts from the latest accepted sample, not a computed contact region or proof
+of contact at every intervening frame. During forward motion the highlight
+remains visible until newer feedback supersedes it; the notice identifies the
+checked time and explicitly labels earlier-pose evidence. Manual seeking retains
+only the existing displayed pose/feedback pair, not a warning attached
+to new unchecked geometry. Pending work must not flash that pair back to normal
+appearance. Accept only the latest seek target; late responses cannot replace
+it. Exact cached evidence switches the pair without a checking/reset frame.
+Future evidence never colors an earlier displayed pose. Explicit Pause still
+freezes the current frame rather than snapping to an earlier checked frame.
+Frozen formal pair replay
+also identifies both bodies; its evidence remains historical and unchanged.
+The renderer presents accepted identities/appearance only, never computes
+collision from pixels, bounding boxes or picking.
+
+At narrow widths the viewport notice is compact by default, with an explicit
+Details disclosure for pair names and limitations, so a short embedded viewport
+does not place a full text card over the contact area.
+
+Formal cases cover a collision during Play before any run, clear endpoints,
+clearance versus penetration versus unresolved, uninterrupted collision playback,
+explicit Pause without snapping, latest-sample highlighting and exact-pose checks,
+cold forward/backward manual seeks through continuous clearance and collision,
+atomic pose/feedback handoff without normal-color gaps, latest-target/error
+handling and cached-seek parity,
+latest-only backpressure, exact-time reuse with no Worker work, cache invalidation,
+known formal evidence reuse without recomputation and missing-pose checks before
+later witnesses, cancellation/replacement/late output, invalid input,
+unchanged history/report data, original/native shape identity, localized UI
+updates and fixed panel sizes in both themes. Completion requires these owner
+tests plus normal-App browser playback and inspected screenshots, not a formal
+report alone.
+
+Clearance output must distinguish an observed witness distance, lower/upper
+bounds over the interval, and error. Do not label the smallest sampled distance
+as the true global minimum. Official method specifications must define contact,
+intersection, equality at the threshold, and values inside the error band.
+Displaying more decimal places must not disguise differences below the declared
+resolution.
+
+## 8. Results Are Not a Single Green Check
+
+Each run records these dimensions separately:
+
+| Dimension       | State or meaning                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------------------ |
+| Execution       | completed, cancelled, timed-out, failed; completed does not imply a geometric pass               |
+| Coverage        | complete, partial, unsupported; includes checked and unresolved intervals and pairs              |
+| Method evidence | Established contact/interference, clearance bounds and witnesses, numerical uncertainty          |
+| User verdict    | Meets/does not meet/cannot determine under the selected rules; cannot erase evidence or unknowns |
+
+User-facing summaries:
+
+- **Issue found**: at least one established finding. Preserve it even if other
+  areas remain incomplete, without claiming that the entire analysis completed.
+- **No issue found within the selected scope and conditions**: all required
+  scope is covered, no finding exists, and method bounds support the conclusion.
+- **Cannot determine / analysis incomplete**: unresolved areas, unsupported
+  inputs, timeout, failure, or cancellation remain.
+
+Optional [typed acceptance rules](decision-rules-v0.md) evaluate only retained
+geometry evidence and change the user verdict, never the method summary or
+findings. Incomplete execution or coverage cannot become a successful verdict.
+
+Rules cannot turn unknown into clear. Changing a decision threshold creates a
+new rule version and records its difference from the previous result. Preserve
+raw method evidence and do not rewrite old runs.
+Whether a rule change requires rerunning a method depends on the rule's
+declared inputs and required completeness. Do not silently reuse incompatible
+results.
+
+## 9. Comparable and Traceable Experiments
+
+A newly initialized example provides six independent starter experiments:
+base-yaw clearance, shoulder reach, elbow folding, wrist orientation, and a
+local tool/table sweep plus a deliberate tool/table collision. They use complete
+original parts and the ordinary preflight, playback and analysis paths.
+Their names describe intent, not a
+hardcoded verdict. The collision example demonstrates an established penetration
+finding between clear endpoint poses and replay through frozen evidence. Both
+local studies explicitly acknowledge omitted visible bodies. Loading a saved
+project preserves its own experiments without adding
+or replacing starter data. See the
+[sample catalog](../../../../../apps/asyra-sim/samples/README.md).
+
+Experiment definitions are separate from individual run results. Each run
+freezes:
+
+- Required model/asset revisions, analysis geometry, and source units.
+- Joint definitions, trajectory, interpolation, interval, and pair policy.
+- Method, adapter, and solver versions; actual settings and capabilities.
+- User-rule versions, thresholds, and acknowledged assumptions.
+- Execution environment and budget; a seed when the method is stochastic.
+- Completeness, errors, findings, distance/time error bounds, and start/end
+  information.
+
+An experiment can be duplicated into A/B/C candidates. Comparison must show
+what changed; analysis scope and assumptions; whether methods and rules match;
+finding and unresolved counts; clearance evidence; and execution state.
+Analysis runtime is not robot cycle time. Results with different scales,
+methods, or scopes must not be ranked without disclosure.
+
+Duplicating a candidate creates independent body and experiment identities and
+remaps every parent, robot root, trajectory joint, source-unit key, and scope
+reference in one Undo action. Historical run references are not copied or relabeled
+as new runs. Explicit lineage records each copied body's original candidate/body
+identity, including copies of copies. Newly added bodies have their own origins.
+Lineage is correspondence metadata, not proof that geometry is still unchanged.
+Run retention freezes this metadata alongside evidence. Comparison may normalize
+identities using validated lineage, but must still compare actual geometry,
+trajectories, units, methods, scope and rules; it must not infer correspondence
+from object names or suppress material differences.
+
+The comparator may display incompatible results side by side, explicitly
+marked "not directly comparable." It does not automatically choose the best
+candidate. Users select a candidate; the App sends no control command.
+
+Editing a project during analysis does not change the in-flight snapshot.
+The result remains bound to the original revision. New geometry, trajectory,
+method, or rules make dependent results stale relative to the current project
+while preserving historical evidence. Camera, selection, and panel-layout
+changes do not invalidate geometric results.
+
+## 10. Import, Persistence, and Field Feedback
+
+- JSON: versioned workcell and experiment data. Reject unknown/unsupported
+  versions explicitly or identify them as requiring migration.
+- CSV: time/joint mapping, units, previews, and row-level diagnostics. Do not
+  silently discard invalid rows.
+- GLB: complete restricted original-part geometry with explicit placement and
+  solid-topology admission, not automatic vendor kinematics or certified CAD.
+- Project export: a portable bundle containing necessary models, assets,
+  experiment definitions, method identities, and selected runs. External
+  method binaries are not automatically redistributed with a project.
+  Missing method binaries permit historical-result viewing but block reruns.
+  A native bundle missing referenced visual sources is incomplete and must not
+  replace the active document; independently exported reports remain readable.
+- Reports: machine-readable JSON/CSV and human-readable self-contained HTML,
+  with limitations and unknowns. Handle spreadsheet formula injection and HTML
+  injection; do not load unknown remote resources.
+- Local saving: distinguish unsaved, saved, and failed-to-save states. A runtime
+  commit does not mean data has reached persistent storage.
+- Field feedback: initially text and attached observations referencing a run.
+  Do not claim automated calibration, data alignment, or a yield model.
+  [Field Observations v0](field-observations-v0.md) defines separate canonical
+  annotations, bounded opaque attachments, integrity and lifecycle behavior.
+
+Import follows validation, preview, user acceptance, then the formal mutation
+boundary. Failed, cancelled, or rejected imports leave no partial canonical
+model. If Core load fallback repairs analysis-critical fields, the App must
+show the repair and block reruns until the user confirms or corrects it.
+Replacement defaults must not masquerade as original experiment inputs.
+
+## 11. Interaction, Cancellation, and Resources
+
+- One edit maps to one understandable Undo action. Playback and solving do not
+  write every frame into Undo history.
+- Object fields update through the editing Feature when completed, without a
+  form-wide Apply action. Enter/blur commits text, numeric and color input;
+  selects and checkboxes update directly. Invalid edits leave the model and
+  history unchanged. Ordinary updates and replay preserve the selected editor's
+  focus, expanded sections and unit choices. See
+  [Object field interaction](editing-v0.md#object-field-interaction).
+- Solving uses an isolated compute execution environment. The UI supports
+  cancellation, progress inspection, and nonconflicting interactions.
+- Cancellation first propagates a signal. An uncooperative worker exceeding the
+  defined grace period must be terminated and its owned resources released.
+  Do not claim that an ordinary Promise can always be forcibly stopped.
+- Timeout and cancellation preserve explicitly partial evidence, or state that
+  no evidence could be retained. They do not produce a success summary.
+- Saving partial runs uses an explicit acceptance/save action. Failed analysis
+  must not damage the original project.
+- Closing, restarting, and switching methods must prevent late results from
+  mutating a new session.
+- Project replacement uses the complete App runtime termination/reconstruction
+  boundary in [Local Storage](local-storage-v0.md#complete-runtime-reset), not
+  canonical load plus a history-clear patch. Feature admission closes before
+  draining work; owner cleanup must complete before the successor starts.
+
+## 12. Representative Product Cases and Definition of Done
+
+The two top toolbars use icon-only actions with 24 x 24 px graphics, hover
+titles and accessible names, grouped by editing, experiments and results.
+Dialog and side-panel actions retain text labels. Trajectory import is
+collapsed until requested. At desktop and
+narrow review widths, controls remain reachable without horizontally clipped
+panels or labels; the model tree is a toggleable drawer on narrower screens,
+and the viewport and inspector stack below 700 CSS pixels. These presentation
+choices do not change saved models, analysis scopes or numerical evidence.
+
+At a fixed viewport size, switching inspectors, expanding their content, or
+playing a trajectory must not resize or reposition the model panel, viewport,
+inspector panel, or canvas. The shared workbench layout owns panel dimensions;
+content panels never override them. Desktop defaults are 265 CSS pixels for
+the model panel and 360 for the inspector, with the viewport using the remaining
+width. Narrow-screen breakpoints and explicit model-drawer toggling remain
+presentation controls, independent of the selected inspector or its data.
+
+A labelled sun/moon icon switches light and dark UI themes. The initial default
+follows system preference; an explicit local choice survives reload when storage
+is available. Blocked preference storage must not prevent switching. Theme is
+presentation-only and never changes geometry, experiments, results or Undo.
+
+[TEST_STRATEGY.md](../validation/TEST_STRATEGY.md) owns the formal cases, including
+valid, empty, invalid, boundary, cancellation, precision, cross-version, scope,
+and visual behavior.
+
+This scope is complete only when the full PRODUCT journey works through normal
+UI/import/API paths and all first-release gates pass. One animation or one
+correct collision does not satisfy this contract.

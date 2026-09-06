@@ -171,7 +171,7 @@ export function WorkspaceApp({ bundle, initialHash }: WorkspaceAppProps) {
                       >
                         <span>{entry.title}</span>
                         <small>
-                          {entry.subgroup} · {entry.kind}
+                          {entry.subgroup} - {entry.kind}
                         </small>
                       </button>
                     ))}

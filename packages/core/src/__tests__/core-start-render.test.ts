@@ -65,6 +65,59 @@ describe('Core render startup', () => {
     vi.restoreAllMocks()
   })
 
+  it('forwards surface size through the Core-owned RenderAdapter', () => {
+    const resize = vi.fn()
+    const core = createCoreForTest({}, { resize })
+    core.resizeRenderer(640.5, 480.25)
+    expect(resize).toHaveBeenCalledExactlyOnceWith(640.5, 480.25)
+    expect(core.isCompositionOpen()).toBe(true)
+  })
+
+  it('uses the active advanced renderer for resize after startup', async () => {
+    const defaultResize = vi.fn()
+    const core = createCoreForTest({}, { resize: defaultResize })
+    const renderer = createRenderer(
+      vi.fn(async () => ({ canvas: null, instance: null }))
+    )
+    core.setRenderer(renderer)
+    await core.start(document.createElement('div'), { width: 100, height: 100 })
+    core.resizeRenderer(800, 600)
+    expect(renderer.resize).toHaveBeenCalledExactlyOnceWith(800, 600)
+    expect(defaultResize).not.toHaveBeenCalled()
+    expect(core.isCompositionOpen()).toBe(false)
+  })
+
+  it('rejects invalid surface sizes before touching the renderer', () => {
+    const resize = vi.fn(),
+      core = createCoreForTest({}, { resize })
+    for (const [width, height] of [
+      [0, 10],
+      [-1, 10],
+      [10, 0],
+      [10, -1],
+      [NaN, 10],
+      [10, Infinity]
+    ]) {
+      expect(() => core.resizeRenderer(width, height)).toThrow(
+        'finite and positive'
+      )
+    }
+    expect(resize).not.toHaveBeenCalled()
+  })
+
+  it('preserves active renderer resize failures', () => {
+    const failure = new Error('Surface unavailable')
+    const core = createCoreForTest(
+      {},
+      {
+        resize: () => {
+          throw failure
+        }
+      }
+    )
+    expect(() => core.resizeRenderer(10, 10)).toThrow(failure)
+  })
+
   it('initializes the configured engine-neutral renderer once before ready', async () => {
     const initObservers = vi.fn(() => vi.fn())
     const core = createCoreForTest({
@@ -319,8 +372,12 @@ describe('Core render startup', () => {
   })
 
   it('isolates observer identity and activation through each injected Factory', async () => {
-    const observeFirst = vi.fn(() => vi.fn())
-    const observeSecond = vi.fn(() => vi.fn())
+    const observeFirst = vi.fn(
+      (_channel: string, _handler: (value: unknown) => void) => vi.fn()
+    )
+    const observeSecond = vi.fn(
+      (_channel: string, _handler: (value: unknown) => void) => vi.fn()
+    )
     const first = createCoreForTest({
       observeSharedDataChannel: observeFirst
     })
@@ -357,12 +414,22 @@ describe('Core render startup', () => {
 
     expect(observeFirst).toHaveBeenCalledWith(
       'shared-channel-name',
-      registration.onChange
+      expect.any(Function)
     )
     expect(observeSecond).toHaveBeenCalledWith(
       'shared-channel-name',
-      registration.onChange
+      expect.any(Function)
     )
+    const firstValue = Object.freeze({ owner: 'first' }),
+      secondValue = Object.freeze({ owner: 'second' })
+    observeFirst.mock.calls[0][1](firstValue)
+    observeSecond.mock.calls[0][1](secondValue)
+    expect(registration.onChange.mock.calls).toEqual([
+      [firstValue],
+      [secondValue]
+    ])
+    expect(registration.onChange.mock.calls[0][0]).toBe(firstValue)
+    expect(registration.onChange.mock.calls[1][0]).toBe(secondValue)
   })
 
   it('requires exactly one single or batch data-channel handler at runtime', () => {
@@ -419,10 +486,14 @@ describe('Core render startup', () => {
     const changes = Object.freeze([{ id: 'a' }, { id: 'b' }, { id: 'c' }])
     notifyBatch?.(changes)
 
-    expect(observeBatch).toHaveBeenCalledWith('scene-tree', onBatch)
+    expect(observeBatch).toHaveBeenCalledWith(
+      'scene-tree',
+      expect.any(Function)
+    )
     expect(observeSingle).not.toHaveBeenCalled()
     expect(onBatch).toHaveBeenCalledOnce()
     expect(onBatch).toHaveBeenCalledWith(changes)
+    expect(onBatch.mock.calls[0][0]).toBe(changes)
   })
 
   it('keeps standalone observer helpers compatible with the default Core', async () => {

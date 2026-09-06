@@ -40,6 +40,21 @@ class SelectionManager {
     this.selections.values().forEach((selection) => selection.clear())
   }
 
+  /** Release channel instances without publishing selection mutations. */
+  resetRuntime(): void {
+    const selections = new Set(this.selections.values())
+    this.selections.clear()
+    const failures: unknown[] = []
+    selections.forEach((selection) => {
+      try {
+        selection.dispose()
+      } catch (error) {
+        failures.push(error)
+      }
+    })
+    if (failures.length > 0) throw failures[0]
+  }
+
   getElementSelectionIds(): string[] {
     return Array.from(this.selections.get('element')?.getSelectedIds() || [])
   }
