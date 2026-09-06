@@ -207,8 +207,16 @@ playback lifetime; request only sampled times afterward. Keep one in-flight
 check and at most one latest pending time. Forward playback protects crossed
 canonical keyframes until checked before catching up to the latest playhead;
 optional intermediate samples may be coalesced. An explicit seek resets this
-progress and checks its exact target, not the skipped interval. Drawing never
-waits for a solve.
+progress and checks its exact target, not the skipped interval. Continuous Play
+never waits for a solve. Manual seeking keeps the slider responsive while an
+existing displayed pose and its feedback remain paired until the latest target's
+calculation or recorded-evidence lookup completes. The notice names the pending
+target separately. Manual seeking does not clear existing feedback or present
+intermediate pair-progress states; compute the next state, then replace it.
+New target geometry and its accepted feedback are presented atomically, also
+when the target is earlier than the displayed pose. No prior evidence is applied
+to the target pose. Before any accepted feedback, preview the target with an
+explicit checking state; failure displays that target with an explicit error.
 The selected method must support static queries; missing or incompatible
 methods fail explicitly without substitution. Worker creation is lazy on a
 cache miss. Each sample has bounded work,
@@ -240,8 +248,13 @@ not be presented as collision or safety. Whole-body highlights identify the
 parts from the latest accepted sample, not a computed contact region or proof
 of contact at every intervening frame. During forward motion the highlight
 remains visible until newer feedback supersedes it; the notice identifies the
-checked time and explicitly labels earlier-pose evidence. Seeking clears old
-feedback immediately, and future evidence never colors an earlier playhead.
+checked time and explicitly labels earlier-pose evidence. Manual seeking retains
+only the existing displayed pose/feedback pair, not a warning attached
+to new unchecked geometry. Pending work must not flash that pair back to normal
+appearance. Accept only the latest seek target; late responses cannot replace
+it. Exact cached evidence switches the pair without a checking/reset frame.
+Future evidence never colors an earlier displayed pose. Explicit Pause still
+freezes the current frame rather than snapping to an earlier checked frame.
 Frozen formal pair replay
 also identifies both bodies; its evidence remains historical and unchanged.
 The renderer presents accepted identities/appearance only, never computes
@@ -254,6 +267,9 @@ does not place a full text card over the contact area.
 Formal cases cover a collision during Play before any run, clear endpoints,
 clearance versus penetration versus unresolved, uninterrupted collision playback,
 explicit Pause without snapping, latest-sample highlighting and exact-pose checks,
+cold forward/backward manual seeks through continuous clearance and collision,
+atomic pose/feedback handoff without normal-color gaps, latest-target/error
+handling and cached-seek parity,
 latest-only backpressure, exact-time reuse with no Worker work, cache invalidation,
 known formal evidence reuse without recomputation and missing-pose checks before
 later witnesses, cancellation/replacement/late output, invalid input,

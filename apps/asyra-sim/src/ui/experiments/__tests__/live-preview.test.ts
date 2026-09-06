@@ -84,9 +84,11 @@ it.each(['checking', 'ready'] as const)(
       expect(api.sample).toHaveBeenLastCalledWith(3.2, false)
 
     preview.sample(1, { ...options, discontinuity: true })
-    expect(
-      playbackHighlight(publish.mock.lastCall?.[0] ?? null)
-    ).toBeUndefined()
+    expect(publish.mock.lastCall?.[0]).toMatchObject({
+      time: 3.51,
+      pendingTime: 1,
+      feedback: { checkedTime: 3.2, kind: 'collision' }
+    })
 
     preview.dispose()
     await preview.completion

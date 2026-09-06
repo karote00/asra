@@ -239,8 +239,18 @@ the clock. Collision never pauses or seeks playback. Explicit Pause freezes
 the current playhead and requests that exact pose. During forward motion the
 latest checked parts remain highlighted with their checked-time label until
 superseded; earlier evidence is not claimed to describe exact current contact.
-Seeking clears that feedback. Precise contact regions and region picking remain
-planned.
+Manual seeking separates requested time from presented time. While the latest
+target is pending, the existing displayed pose and its feedback remain together,
+with a separate pending-target label. Accepting current-target evidence changes
+the presented pose and feedback in one publication after the sample completes;
+manual seeks ignore intermediate pair progress, while continuous Play still
+publishes it immediately. Synchronous cached evidence has no intermediate reset
+publication. The controller never applies held evidence to newly requested
+geometry or accepts a superseded target. Before any accepted feedback, it
+previews the target as checking; failure displays the
+target as an error. Forward Play and explicit Pause retain their existing clock
+semantics. This is one transient presentation, not another sample cache or
+analysis authority. Precise contact regions and region picking remain planned.
 
 The feedback banner and sampled-observation section own narrow subscriptions.
 Seeking fences late responses; leaving playback, hiding the page, formal

@@ -23,6 +23,9 @@ export interface LiveSampleOptions {
 export class LivePreview {
   private alive = true
   private time = 0
+  private presentedTime = 0
+  private seeking = false
+  private awaitingSeek = false
   private queryTime = 0
   private anchorTime: number | null = null
   private snapshot: ExperimentSnapshot | null = null
@@ -52,14 +55,19 @@ export class LivePreview {
     if (!this.alive) return
 
     this.time = time
+    this.seeking = options.discontinuity
+    this.awaitingSeek = options.discontinuity
 
     if (options.discontinuity) {
-      this.feedback = checkingFeedback()
+      // Compute the next state without resetting the existing presentation.
+      if (this.feedback.kind === 'checking') {
+        this.presentedTime = time
+      }
       this.lastSample = null
       this.checkedTime = null
       this.anchorTime = time
       this.generation++
-    }
+    } else this.presentedTime = time
 
     this.anchorTime ??= time
     this.request(this.nextTime(), options.discontinuity)
@@ -100,6 +108,8 @@ export class LivePreview {
 
   private accept(feedback: PlaybackFeedback) {
     this.feedback = feedback
+    if (this.seeking) this.presentedTime = this.time
+    this.awaitingSeek = false
     this.checkedTime = feedback.checkedTime
     this.project()
 
@@ -120,8 +130,9 @@ export class LivePreview {
 
     this.publish({
       workcell: this.workcell,
-      joints: jointValuesAt(this.trajectory, this.time),
-      time: this.time,
+      joints: jointValuesAt(this.trajectory, this.presentedTime),
+      time: this.presentedTime,
+      pendingTime: this.awaitingSeek ? this.time : undefined,
       historical: false,
       bodyIds: [],
       feedback: this.feedback
@@ -144,6 +155,8 @@ export class LivePreview {
           const state = this.api.getState()
 
           if (state.status === 'error') {
+            this.presentedTime = this.time
+            this.awaitingSeek = false
             this.feedback = {
               ...checkingFeedback(),
               kind: 'error',
@@ -154,6 +167,12 @@ export class LivePreview {
             state.sample &&
             state.sample !== this.lastSample
           ) {
+            if (
+              this.seeking &&
+              (state.sample.time !== this.time || state.status !== 'ready')
+            )
+              return
+
             this.lastSample = state.sample
             const feedback = playbackFeedback(this.snapshot, state.sample)
 
@@ -178,6 +197,8 @@ export class LivePreview {
       .catch((error: unknown) => {
         if (!this.alive || abort.signal.aborted) return
 
+        this.presentedTime = this.time
+        this.awaitingSeek = false
         this.feedback = {
           ...checkingFeedback(),
           kind: 'error',

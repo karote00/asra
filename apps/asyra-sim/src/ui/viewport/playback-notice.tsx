@@ -17,6 +17,8 @@ export function PlaybackNotice() {
     (state) => state.playback?.feedback?.checkedTime === state.playback?.time
   )
 
+  const pendingTime = useWorkbenchValue((state) => state.playback?.pendingTime)
+
   if (!feedback) return null
 
   const warning =
@@ -29,6 +31,7 @@ export function PlaybackNotice() {
       data-testid="playback-feedback"
       data-kind={feedback.kind}
       data-pose-matches={matches}
+      data-pending-time={pendingTime}
       aria-live="polite"
       className={`absolute z-2 top-12 right-4 w-[310px] max-w-[calc(100%-32px)]
         rounded-lg border bg-sim-raised p-3 text-sim-text shadow-lg pointer-events-none max-[700px]:p-2
@@ -50,6 +53,14 @@ export function PlaybackNotice() {
         <p className="mt-1 text-[11px] tabular-nums">
           Checked {feedback.checkedTime.toFixed(4)} s
           {!matches && ' - earlier pose'}
+        </p>
+      )}
+
+      {pendingTime !== undefined && (
+        <p className="mt-1 text-[11px] tabular-nums">
+          Checking target {pendingTime.toFixed(4)} s
+          {feedback.checkedTime !== null &&
+            (matches ? ' - showing checked pose' : ' - showing previous frame')}
         </p>
       )}
 
