@@ -178,11 +178,12 @@ rotation, composite shapes, or numerical limits prevent the method from
 establishing its result.
 
 Play performs live, finite-sample geometry checks without requiring an earlier
-formal run. When compatible formal evidence exists, Play reuses its established
-witness times and interval certificates without starting another solve. A
-finding interval does not enumerate every contact: only an established witness
-may identify a colliding pose; other unclassified poses remain explicit unknowns.
-Without a compatible formal result, Play uses the selected installed method's static capability, complete
+formal run. When compatible formal evidence establishes the queried pose, Play
+reuses its exact witness or all-pair clear certificates without another solve.
+A finding interval does not enumerate every contact, and its witness is not
+necessarily the first collision. Play checks unclassified poses through the
+live owner even when a later recorded witness exists. Missing pose evidence
+uses the selected installed method's static capability, complete
 original/native geometry, experiment scope, threshold and numerical settings.
 Preflight validity and required warning acknowledgements still apply; blocked
 checks must be visible while motion preview remains available. It is not
@@ -215,9 +216,10 @@ wall time and evidence, and malformed output fails closed.
 
 The viewport shows checking, established collision, clearance issue, no issue
 at the checked sample, or unresolved/error. Always identify the checked time
-and sampled scope; unchecked times are not clear. A late sample cannot color a
-different displayed pose. By default, an established collision pauses playback
-at its checked pose; users may disable this pause and continue. Seeking,
+and sampled scope; unchecked times are not clear. Collision feedback never
+pauses, seeks, rounds or rewinds the playhead. Playback continues until its
+endpoint or an explicit user/lifecycle stop. The Pause control freezes the
+current frame and requests an exact-pose check without changing its time. Seeking,
 restarting, editing, changing experiment/candidate, formal analysis, leaving
 the inspector, hidden-page suspension and runtime replacement retire stale
 requests and release owned work. No preview sample creates a saved run, report,
@@ -226,7 +228,12 @@ canonical edit or Undo entry.
 Established colliding bodies use a dedicated red highlight distinct from
 selection. Clearance findings use an amber highlight; unresolved output must
 not be presented as collision or safety. Whole-body highlights identify the
-involved geometry, not a computed contact region. Frozen formal pair replay
+parts from the latest accepted sample, not a computed contact region or proof
+of contact at every intervening frame. During forward motion the highlight
+remains visible until newer feedback supersedes it; the notice identifies the
+checked time and explicitly labels earlier-pose evidence. Seeking clears old
+feedback immediately, and future evidence never colors an earlier playhead.
+Frozen formal pair replay
 also identifies both bodies; its evidence remains historical and unchanged.
 The renderer presents accepted identities/appearance only, never computes
 collision from pixels, bounding boxes or picking.
@@ -236,9 +243,11 @@ Details disclosure for pair names and limitations, so a short embedded viewport
 does not place a full text card over the contact area.
 
 Formal cases cover a collision during Play before any run, clear endpoints,
-clearance versus penetration versus unresolved, matching-pose presentation,
+clearance versus penetration versus unresolved, uninterrupted collision playback,
+explicit Pause without snapping, latest-sample highlighting and exact-pose checks,
 latest-only backpressure, exact-time reuse with no Worker work, cache invalidation,
-formal evidence replay without recomputation, cancellation/replacement/late output, invalid input,
+known formal evidence reuse without recomputation and missing-pose checks before
+later witnesses, cancellation/replacement/late output, invalid input,
 unchanged history/report data, original/native shape identity, localized UI
 updates and fixed panel sizes in both themes. Completion requires these owner
 tests plus normal-App browser playback and inspected screenshots, not a formal

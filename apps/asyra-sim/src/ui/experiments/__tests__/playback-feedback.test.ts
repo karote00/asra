@@ -45,7 +45,7 @@ it('does not mark clearance-only pairs red when another pair collides', () => {
   expect(feedback.pairNames).toHaveLength(1)
 })
 
-it('highlights both confirmed parts only at the checked pose and never colors unknown geometry as clear', () => {
+it('keeps the last checked parts highlighted during forward playback without applying future evidence', () => {
   const input = liveFixture()
   const view: PlaybackView = {
     workcell: input.workcell,
@@ -68,7 +68,11 @@ it('highlights both confirmed parts only at the checked pose and never colors un
     bodyIds: ['a', 'b'],
     color: 0xff625e
   })
-  expect(playbackHighlight({ ...view, time: 4.01 })).toBeUndefined()
+  expect(playbackHighlight({ ...view, time: 4.01 })).toEqual({
+    bodyIds: ['a', 'b'],
+    color: 0xff625e
+  })
+  expect(playbackHighlight({ ...view, time: 3.99 })).toBeUndefined()
 
   if (!view.feedback) throw new Error('Missing fixture feedback')
   expect(

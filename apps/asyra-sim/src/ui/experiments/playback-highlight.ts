@@ -6,7 +6,12 @@ export function playbackHighlight(
 ): PartHighlight | undefined {
   const feedback = view?.feedback
 
-  if (feedback && feedback.checkedTime === view?.time) {
+  if (
+    view &&
+    feedback &&
+    feedback.checkedTime !== null &&
+    feedback.checkedTime <= view.time
+  ) {
     if (feedback.kind === 'collision')
       return { bodyIds: feedback.bodyIds, color: 0xff625e }
 

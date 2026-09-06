@@ -214,13 +214,18 @@ historical reports are not deleted: semantic freshness checks exclude changed
 geometry, source bindings, trajectories, scope, method/settings, or rules from
 current Play reuse.
 
-Compatible formal evidence bypasses live Worker creation. The UI replays
-established witness times and preserves continuous-clear certificates; a
-finding interval is not interpreted as continuous contact. Live feedback and
-formal replay both produce engine-neutral whole-part appearance at the exact
-checked pose. Default collision pause restores that pose. Disabling pause
-leaves the clock running and labels earlier observations without coloring a
-different pose. Precise contact regions and region picking remain planned.
+The playback controller queries compatible formal evidence before requesting
+live work. Exact witnesses and poses covered by all-pair clear certificates
+bypass Worker creation; unclassified times still use live sampling, even before
+a later recorded collision witness. A finding interval is not continuous
+contact and a witness is not a first-contact time. Both paths share one playback
+controller and produce engine-neutral whole-part feedback without controlling
+the clock. Collision never pauses or seeks playback. Explicit Pause freezes
+the current playhead and requests that exact pose. During forward motion the
+latest checked parts remain highlighted with their checked-time label until
+superseded; earlier evidence is not claimed to describe exact current contact.
+Seeking clears that feedback. Precise contact regions and region picking remain
+planned.
 
 The feedback banner and sampled-observation section own narrow subscriptions.
 Seeking fences late responses; leaving playback, hiding the page, formal

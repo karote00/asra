@@ -13,10 +13,10 @@ import {
   type PlaybackFeedback
 } from './playback-feedback'
 import { nextPlaybackSample } from './next-playback-sample'
+import type { RecordedPlaybackEvidence } from './recorded-playback-evidence'
 
 export interface LiveSampleOptions {
   discontinuity: boolean
-  onCollision: (time: number) => boolean
 }
 
 /** Owns one transient UI playback lifetime; method results never become model state. */
@@ -30,8 +30,9 @@ export class LivePreview {
   private unsubscribe: (() => void) | null = null
   private opened = false
   private feedback: PlaybackFeedback = checkingFeedback()
-  private onCollision: (time: number) => boolean = () => false
   private lastSample: LiveState['sample'] = null
+  private checkedTime: number | null = null
+  private generation = 0
   completion: Promise<void>
 
   constructor(
@@ -41,7 +42,8 @@ export class LivePreview {
     private readonly createSnapshot: () => ExperimentSnapshot,
     private readonly api: SimRuntime['features']['live'],
     private readonly publish: (view: PlaybackView) => void,
-    previous: Promise<void> = Promise.resolve()
+    previous: Promise<void> = Promise.resolve(),
+    private readonly recorded?: RecordedPlaybackEvidence
   ) {
     this.completion = previous
   }
@@ -50,31 +52,67 @@ export class LivePreview {
     if (!this.alive) return
 
     this.time = time
-    this.onCollision = options.onCollision
 
     if (options.discontinuity) {
       this.feedback = checkingFeedback()
       this.lastSample = null
+      this.checkedTime = null
       this.anchorTime = time
+      this.generation++
     }
 
     this.anchorTime ??= time
-    this.queryTime = this.nextTime()
-
-    if (!this.abort) this.start()
-    else if (this.opened) this.api.sample(this.queryTime, options.discontinuity)
+    this.request(this.nextTime(), options.discontinuity)
 
     this.project()
   }
 
   private nextTime() {
-    return nextPlaybackSample(
+    const next = nextPlaybackSample(
       this.trajectory,
       this.interval,
       this.time,
-      this.lastSample?.time ?? null,
+      this.checkedTime,
       this.anchorTime ?? this.time
     )
+    const witness = this.recorded?.nextWitness(this.checkedTime, this.time)
+
+    return witness === undefined ? next : Math.min(next, witness)
+  }
+
+  private request(time: number, discontinuity = false) {
+    if (time === this.checkedTime && !discontinuity) return
+
+    this.queryTime = time
+
+    const recorded = this.recorded?.at(time)
+
+    if (recorded) {
+      this.stopWork()
+      this.lastSample = null
+      this.accept(recorded)
+      return
+    }
+
+    if (!this.abort) this.start()
+    else if (this.opened) this.api.sample(time, discontinuity)
+  }
+
+  private accept(feedback: PlaybackFeedback) {
+    this.feedback = feedback
+    this.checkedTime = feedback.checkedTime
+    this.project()
+
+    if (this.checkedTime !== null && this.nextTime() > this.checkedTime) {
+      const generation = this.generation
+
+      // Catch up after dropped frames without a queue or recursive cache delivery.
+      queueMicrotask(() => {
+        if (!this.alive || generation !== this.generation) return
+
+        this.request(this.nextTime())
+      })
+    }
   }
 
   private project() {
@@ -117,25 +155,8 @@ export class LivePreview {
             state.sample !== this.lastSample
           ) {
             this.lastSample = state.sample
-            this.feedback = playbackFeedback(this.snapshot, state.sample)
-
-            if (
-              this.feedback.kind === 'collision' &&
-              this.onCollision(state.sample.time)
-            ) {
-              this.time = state.sample.time
-              this.stopWork()
-            }
-
-            if (this.opened && this.nextTime() > state.sample.time) {
-              // Continue after dropped display frames, without recursive cache delivery.
-              queueMicrotask(() => {
-                if (!this.alive || abort.signal.aborted || !this.opened) return
-
-                this.queryTime = this.nextTime()
-                this.api.sample(this.queryTime)
-              })
-            }
+            this.accept(playbackFeedback(this.snapshot, state.sample))
+            return
           }
 
           this.project()

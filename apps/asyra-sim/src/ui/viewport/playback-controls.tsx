@@ -18,38 +18,16 @@ export function PlaybackControls({
   const [time, setTime] = useState(interval[0])
 
   const [playing, setPlaying] = useState(false)
-  const [pauseOnCollision, setPauseOnCollision] = useState(true)
 
   const clock = useRef<PlaybackClock | null>(null)
 
-  const current = useRef({ onSample, active, onSuspend, pauseOnCollision })
+  const current = useRef({ onSample, active, onSuspend })
 
-  current.current = { onSample, active, onSuspend, pauseOnCollision }
+  current.current = { onSample, active, onSuspend }
 
   const sample = (value: number, discontinuity = false) => {
-    let stopped = false
-
     setTime(value)
-
-    current.current.onSample(value, {
-      discontinuity,
-      onCollision: (checkedTime) => {
-        if (
-          !current.current.active ||
-          !current.current.pauseOnCollision ||
-          document.hidden
-        )
-          return false
-
-        pause()
-        setTime(checkedTime)
-        stopped = true
-
-        return true
-      }
-    })
-
-    return stopped
+    current.current.onSample(value, { discontinuity })
   }
 
   const pause = () => {
@@ -90,7 +68,7 @@ export function PlaybackControls({
 
     const from = time >= interval[1] ? interval[0] : time
 
-    if (sample(from)) return
+    sample(from, time >= interval[1])
 
     setPlaying(true)
 
@@ -142,7 +120,12 @@ export function PlaybackControls({
           className="primary bg-sim-accent text-[#fff] border-sim-accent [&:hover]:bg-sim-accent-hover"
           aria-label={playing ? 'Pause trajectory' : 'Play trajectory'}
           disabled={!active || interval[0] >= interval[1]}
-          onClick={playing ? pause : play}
+          onClick={() => {
+            if (!playing) return play()
+
+            pause()
+            sample(time, true)
+          }}
         >
           {playing ? 'Pause' : 'Play'}
         </button>
@@ -172,18 +155,10 @@ export function PlaybackControls({
         </button>
       </div>
 
-      <label className="flex flex-row items-center gap-2 text-[11px]">
-        <input
-          type="checkbox"
-          checked={pauseOnCollision}
-          onChange={(event) => setPauseOnCollision(event.target.checked)}
-        />
-        Pause on collision
-      </label>
-
       <p className="hint text-[10px] leading-[1.6] text-sim-muted font-normal">
-        1× speed. Reuses recorded evidence; otherwise checks sampled poses live.
-        A full-path report still requires formal analysis.
+        1× speed. Collision feedback does not stop playback. Known evidence is
+        reused; missing poses are checked live. A full-path report still
+        requires formal analysis.
       </p>
     </section>
   )

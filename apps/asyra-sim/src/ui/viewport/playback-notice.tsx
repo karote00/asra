@@ -54,13 +54,13 @@ export function PlaybackNotice() {
       )}
 
       <div className="max-[700px]:hidden">
-        <FeedbackDetails feedback={feedback} highlighted={matches && warning} />
+        <FeedbackDetails feedback={feedback} matches={matches} />
       </div>
 
       <details className="hidden max-[700px]:block pointer-events-auto mt-1 text-[10px]">
         <summary className="cursor-pointer text-sim-muted">Details</summary>
 
-        <FeedbackDetails feedback={feedback} highlighted={matches && warning} />
+        <FeedbackDetails feedback={feedback} matches={matches} />
       </details>
     </aside>
   )
@@ -68,11 +68,15 @@ export function PlaybackNotice() {
 
 function FeedbackDetails({
   feedback,
-  highlighted
+  matches
 }: {
   feedback: PlaybackFeedback
-  highlighted: boolean
+  matches: boolean
 }) {
+  const highlighted =
+    feedback.bodyIds.length > 0 &&
+    (feedback.kind === 'collision' || feedback.kind === 'clearance')
+
   return (
     <>
       {feedback.pairNames.slice(0, 2).map((name) => (
@@ -88,9 +92,10 @@ function FeedbackDetails({
       )}
 
       <p className="mt-2 text-[10px] leading-relaxed text-sim-muted">
-        {highlighted && feedback.bodyIds.length > 0
-          ? 'Whole parts highlighted - not a precise contact region. '
+        {highlighted
+          ? 'Last checked parts highlighted - not a precise contact region. '
           : ''}
+        {highlighted && !matches && 'Current pose is not yet checked. '}
         {feedback.message}
       </p>
 

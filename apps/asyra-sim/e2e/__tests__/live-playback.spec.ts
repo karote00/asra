@@ -28,10 +28,16 @@ test('Play detects the original-part collision without a formal run', async ({
   })
 
   await expect(
-    page.getByRole('button', { name: 'Play trajectory', exact: true })
+    page.getByRole('button', { name: 'Pause trajectory', exact: true })
   ).toBeVisible()
 
   await expect(feedback).toContainText('fixture table')
+
+  await page
+    .getByRole('button', { name: 'Pause trajectory', exact: true })
+    .click()
+  await page.getByLabel('Sampled trajectory preview time').fill('4')
+  await expect(feedback).toContainText('Collision detected')
 
   await expect(feedback).toHaveAttribute('data-pose-matches', 'true')
 
@@ -90,7 +96,7 @@ test('Play detects the original-part collision without a formal run', async ({
   })
 })
 
-test('formal evidence replays with zero new Workers and changed inputs retire reusable evidence', async ({
+test('known formal witnesses need no Worker, missing poses are checked, and edits retire reusable evidence', async ({
   page
 }, info) => {
   test.setTimeout(60_000)
@@ -113,9 +119,7 @@ test('formal evidence replays with zero new Workers and changed inputs retire re
 
   page.on('worker', (worker) => created.push(worker.url()))
 
-  await page
-    .getByRole('button', { name: 'Play trajectory', exact: true })
-    .click()
+  await page.getByLabel('Sampled trajectory preview time').fill('4')
 
   const feedback = page.getByTestId('playback-feedback')
 
@@ -127,6 +131,13 @@ test('formal evidence replays with zero new Workers and changed inputs retire re
   expect(created).toHaveLength(0)
 
   await page.screenshot({ path: info.outputPath('recorded-collision.png') })
+
+  await page.getByLabel('Sampled trajectory preview time').fill('3.888')
+  await expect(feedback).toContainText('Checked 3.8880 s')
+  await expect(feedback).toContainText('Collision detected')
+  await expect(feedback).toContainText('Live')
+  expect(created).toHaveLength(1)
+
   await page.getByRole('button', { name: 'Return to editing pose' }).click()
   await page.getByLabel('Minimum clearance (mm)').fill('25')
   await page
