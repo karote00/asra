@@ -23,6 +23,10 @@ These rules apply to every task without requiring additional document reads:
   requests the remote operation. Follow
   `docs/ai/workflows/git-commit-push-policy.md`.
 - Do not overwrite unrelated user changes in a dirty worktree.
+- For new apps and app feature/refactor work, read
+  `docs/ai/framework/rules/app-optimization-and-maintainability.md` before the
+  first implementation slice. Design ownership and actual update boundaries
+  up front; reuse optimization concepts, not another app's entire architecture.
 - Before introducing or renaming identifiers, resolve their semantic owner,
   brand-neutral naming, and persistence compatibility. Run `yarn lint:naming`
   before implementation and after the first identifier-bearing slice, before

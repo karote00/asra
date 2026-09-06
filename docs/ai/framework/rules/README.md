@@ -1,6 +1,7 @@
 # Framework Rules
 
 - `bounded-task-scope-and-closure.md`
+- [App Optimization and Maintainability](app-optimization-and-maintainability.md)
 - `bugfix-test-first.md`
 - `inspector-contract-readiness.md`
 - `inspector-step-execution.md`

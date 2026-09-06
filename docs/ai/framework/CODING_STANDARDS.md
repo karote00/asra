@@ -105,6 +105,15 @@
   own Provider/wire/policy contracts. If their runtime participates in Core
   startup, register a neutral lifecycle with Core rather than bypassing it.
 
+## App Structure, Styling, and Optimization
+
+All apps follow
+[App Optimization and Maintainability](rules/app-optimization-and-maintainability.md)
+from the first implementation slice. It owns responsibility-based organization,
+controller/helper separation, localized updates, evidence-driven optimization,
+Tailwind component styling, and readable TSX. Existing apps demonstrate these
+concepts; their complete architecture is not a required template.
+
 ## Test Placement Standards
 
 - Unit, integration, and contract test files must live in a `__tests__`
