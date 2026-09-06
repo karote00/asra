@@ -10,10 +10,9 @@ delegation are the success criteria.
 
 ## Active Target
 
-No active implementation target. This revision updates planning only. Dynamic
-Control Plane implementation remains deferred until a bounded activation
-selects the proof flows, product specification, exact architecture Inspector,
-behavioral cases, owner boundaries, runner/CI policy, and required gates.
+The [Core Proof](CORE_PROOF.md) is the bounded Phase 3 checkpoint: two real Factory
+flows, isolated behavioral verification, a controlled local step board, and CI
+negative proof. It does not activate the rest of Phase 3/4 or agent execution.
 
 ## Next Implementation Candidate
 

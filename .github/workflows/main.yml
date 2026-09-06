@@ -57,6 +57,11 @@ jobs:
         if: success()
         run: yarn test:ci
 
+      - name: Verify Flow Inspector core proof
+        run: |
+          node --test tools/flow-inspector/control-plane/__tests__/{contracts,snapshot,runner,evidence,store,service,server}.test.cjs
+          node tools/flow-inspector/control-plane/cli.cjs prove
+
   framework-release-readiness:
     needs: validate
     runs-on: ubuntu-latest

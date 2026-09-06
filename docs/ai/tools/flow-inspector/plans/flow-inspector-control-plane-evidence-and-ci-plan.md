@@ -2,10 +2,11 @@
 
 ## Status and Objective
 
-Deferred implementation candidate, revised on 2026-09-07. Static Workspace
-`v0.2.0` is complete; activation now depends on the decisions and readiness
-below, not on unfinished static work. This revision authorizes no runtime or
-CI changes by itself. The existing filename is retained for incoming links.
+The first bounded Phase 3 checkpoint is activated by the
+[Core Proof contract](../CORE_PROOF.md) on 2026-09-07. The remaining work in this
+plan is deferred. Static Workspace `v0.2.0` is complete. The checkpoint selects
+two Factory flows, Vitest, GitHub Actions, and the local-only action/evidence
+boundary; it does not claim this complete phase plan has been implemented.
 
 Prove that a concrete implementation Plan can be checked before work, verified
 against real behavior, and retained as a mandatory regression contract. Deliver

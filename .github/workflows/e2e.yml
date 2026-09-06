@@ -54,6 +54,11 @@ jobs:
           E2E_MANUAL_BALANCED_AI_CORRECTNESS: ${{ inputs.run_balanced_ai_correctness }}
         run: node scripts/balanced-ai-correctness-scope.mjs >> "$GITHUB_OUTPUT"
 
+      - name: Verify Flow Inspector board
+        env:
+          FLOW_PROOF_URL: http://127.0.0.1:4318
+        run: node --test tools/flow-inspector/control-plane/__tests__/board.test.cjs
+
       - name: Run E2E Tests
         env:
           RUN_BALANCED_AI_CORRECTNESS: ${{ steps.balanced_ai_scope.outputs.run_balanced_ai_correctness }}
