@@ -1,14 +1,20 @@
 // @vitest-environment jsdom
-import { act, createElement, useEffect } from 'react'
+import { act, createElement, useEffect, useSyncExternalStore } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createSyntheticExample } from '../../../../samples/synthetic-workcell'
 import type { SimRuntime } from '../../../init/bootstrap'
 import { ExperimentPanel } from '../../experiments/experiment-panel'
 import { type PlaybackView } from '../../experiments/playback-view'
+import type { ExperimentInputs } from '../../experiments/experiment-inputs'
+import type { ReadonlyView } from '../../shared/view-source'
 import { Workbench } from '../workbench'
 
 const rowRenders = vi.hoisted(() => new Map<string, number>())
+
+const shellRenders = vi.hoisted(() => ({ count: 0 }))
+
+const viewportOptionsRenders = vi.hoisted(() => ({ count: 0 }))
 
 vi.mock('react/jsx-dev-runtime', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react/jsx-dev-runtime')>()
@@ -17,6 +23,14 @@ vi.mock('react/jsx-dev-runtime', async (importOriginal) => {
     const id = (props as { 'data-object-id'?: string })?.['data-object-id']
 
     if (id) rowRenders.set(id, (rowRenders.get(id) ?? 0) + 1)
+
+    if ((props as { className?: string })?.className?.startsWith('workbench '))
+      shellRenders.count++
+
+    if (
+      (props as { className?: string })?.className?.startsWith('viewport-top ')
+    )
+      viewportOptionsRenders.count++
   }
 
   return {
@@ -35,8 +49,8 @@ vi.mock('../../projects/project-controls', () => ({
 
 vi.mock('../../experiments/experiment-panel', () => ({
   ExperimentPanel: vi.fn(
-    (props: { onPlayback: (view: PlaybackView | null) => void }) => {
-      playback = props.onPlayback
+    (props: { inputs: ReadonlyView<ExperimentInputs> }) => {
+      playback = props.inputs.getSnapshot().onPlayback
 
       return null
     }
@@ -50,7 +64,16 @@ vi.mock('../../runtime/use-project-runtime', () => ({
   ) => {
     useEffect(() => onRuntime(runtime), [onRuntime])
 
-    return { resources, lifecycle, revision }
+    const currentRevision = useSyncExternalStore(
+      (listener) => {
+        revisionListeners.add(listener)
+
+        return () => revisionListeners.delete(listener)
+      },
+      () => revision
+    )
+
+    return { resources, lifecycle, revision: currentRevision }
   }
 }))
 
@@ -59,6 +82,12 @@ let root: Root
 let host: HTMLDivElement
 
 let revision = 0
+
+const revisionListeners = new Set<() => void>()
+
+const publishRevision = () => {
+  for (const listener of revisionListeners) listener()
+}
 
 let playback: (view: PlaybackView | null) => void
 
@@ -119,6 +148,8 @@ beforeEach(async () => {
   vi.clearAllMocks()
 
   rowRenders.clear()
+
+  shellRenders.count = 0
 })
 
 it('a committed name change renders only the changed hierarchy row', async () => {
@@ -131,7 +162,9 @@ it('a committed name change renders only the changed hierarchy row', async () =>
 
   revision++
 
-  await act(() => root.render(createElement(Workbench)))
+  await act(publishRevision)
+
+  expect(shellRenders.count).toBe(0)
 
   expect(
     host.querySelector('[data-object-id="example:base"]')?.textContent
@@ -183,6 +216,8 @@ it('camera gestures do not reread canonical workbench data', async () => {
 it('playback and panel state reuse a revision-bound projection, but committed changes invalidate it', async () => {
   const start = performance.now()
 
+  viewportOptionsRenders.count = 0
+
   for (let i = 0; i < 30; i++)
     await act(() =>
       playback({
@@ -215,6 +250,10 @@ it('playback and panel state reuse a revision-bound projection, but committed ch
 
   expect(vi.mocked(ExperimentPanel).mock.calls.length).toBeLessThanOrEqual(1)
 
+  expect(shellRenders.count).toBe(0)
+
+  expect(viewportOptionsRenders.count).toBe(0)
+
   workcell = {
     ...workcell,
     bodies: workcell.bodies.map((body, index) =>
@@ -224,7 +263,7 @@ it('playback and panel state reuse a revision-bound projection, but committed ch
 
   revision++
 
-  await act(() => root.render(createElement(Workbench)))
+  await act(publishRevision)
 
   expect(readers.getWorkcell).toHaveBeenCalledTimes(1)
 

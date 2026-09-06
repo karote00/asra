@@ -1,11 +1,10 @@
-import { memo } from 'react'
-import { useWorkbenchController } from './use-workbench-controller'
+import type { RuntimeState } from '../../init/runtime-controller'
 
-type Props = Pick<ReturnType<typeof useWorkbenchController>, 'lifecycle'>
+interface Props {
+  lifecycle: RuntimeState
+}
 
-export const EmptyInspector = memo(function EmptyInspector({
-  lifecycle
-}: Props) {
+export function EmptyInspector({ lifecycle }: Props) {
   return (
     <div
       className="empty-inspector pt-[25px] px-[25px] pb-5 [&_h2]:text-[19px]
@@ -45,4 +44,4 @@ export const EmptyInspector = memo(function EmptyInspector({
       </div>
     </div>
   )
-})
+}

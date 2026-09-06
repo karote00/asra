@@ -1,61 +1,88 @@
-import { memo } from 'react'
 import type { Body } from '../../domain/workcell'
-import { equalBindings } from './equal-fields'
+import { useViewValue } from '../shared/use-view-value'
+import { useOriginalBinding, type BodySource } from './body-subscriptions'
 import { VisualPlacementFields } from './visual-placement-fields'
 
-export const OriginalParts = memo(
-  function OriginalParts({
-    bindings,
-    update
-  }: {
-    bindings: Body['visuals']
-    update: (patch: Partial<Body>) => void
-  }) {
-    return (
-      <details className="visual-bindings">
-        <summary>
-          Original parts <span>{bindings?.length ?? 0}</span>
-        </summary>
+interface Props {
+  source: BodySource
+  update: (patch: Partial<Body>) => void
+}
 
-        <p className="hint text-[10px] leading-[1.6] text-sim-muted font-normal">
-          Import a GLB in Experiments to attach a complete part. Placement
-          affects both display and analysis. Each field edit is one Undo action.
-        </p>
+function OriginalPart({
+  source,
+  update,
+  id,
+  index
+}: Props & { id: string; index: number }) {
+  const binding = useOriginalBinding(source, id)
 
-        {(bindings ?? []).map((binding, index) => (
-          <fieldset key={binding.id} aria-label={`Original part ${index + 1}`}>
-            <legend>Part {index + 1}</legend>
+  if (!binding) return null
 
-            <p className="asset-digest col-span-full wrap-anywhere">
-              SHA-256: {binding.assetId}
-            </p>
+  return (
+    <fieldset aria-label={`Original part ${index + 1}`}>
+      <legend>Part {index + 1}</legend>
 
-            <VisualPlacementFields
-              value={binding}
-              onChange={(placement) =>
-                update({
-                  visuals: bindings?.map((entry) =>
-                    entry.id === binding.id ? { ...entry, ...placement } : entry
-                  )
-                })
-              }
-            />
+      <p className="asset-digest col-span-full wrap-anywhere">
+        SHA-256: {binding.assetId}
+      </p>
 
-            <button
-              type="button"
-              onClick={() =>
-                update({
-                  ...(bindings?.length === 1 ? { colliders: [] } : {}),
-                  visuals: bindings?.filter((entry) => entry.id !== binding.id)
-                })
-              }
-            >
-              Remove original part {index + 1}
-            </button>
-          </fieldset>
-        ))}
-      </details>
-    )
-  },
-  (a, b) => equalBindings(a.bindings, b.bindings) && a.update === b.update
-)
+      <VisualPlacementFields
+        value={binding}
+        onChange={(placement) =>
+          update({
+            visuals: source
+              .getSnapshot()
+              .visuals?.map((entry) =>
+                entry.id === id ? { ...entry, ...placement } : entry
+              )
+          })
+        }
+      />
+
+      <button
+        type="button"
+        onClick={() => {
+          const bindings = source.getSnapshot().visuals
+
+          update({
+            ...(bindings?.length === 1 ? { colliders: [] } : {}),
+            visuals: bindings?.filter((entry) => entry.id !== id)
+          })
+        }}
+      >
+        Remove original part {index + 1}
+      </button>
+    </fieldset>
+  )
+}
+
+export function OriginalParts({ source, update }: Props) {
+  const membership = useViewValue(source, (body) =>
+    JSON.stringify(body.visuals?.map((binding) => binding.id) ?? [])
+  )
+
+  const ids = JSON.parse(membership) as string[]
+
+  return (
+    <details className="visual-bindings">
+      <summary>
+        Original parts <span>{ids.length}</span>
+      </summary>
+
+      <p className="hint text-[10px] leading-[1.6] text-sim-muted font-normal">
+        Import a GLB in Experiments to attach a complete part. Placement affects
+        both display and analysis. Each field edit is one Undo action.
+      </p>
+
+      {ids.map((id, index) => (
+        <OriginalPart
+          key={id}
+          id={id}
+          index={index}
+          source={source}
+          update={update}
+        />
+      ))}
+    </details>
+  )
+}

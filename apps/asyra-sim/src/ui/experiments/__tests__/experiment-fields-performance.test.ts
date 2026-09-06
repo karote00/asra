@@ -5,6 +5,7 @@ import { expect, it, vi } from 'vitest'
 import { createSyntheticExperimentDraft } from '../../../../samples/synthetic-experiment'
 import { createSyntheticExample } from '../../../../samples/synthetic-workcell'
 import { ExperimentFields } from '../experiment-fields'
+import { ExperimentFieldsView } from '../experiment-fields-view'
 
 const roles = vi.hoisted(() => new Map<string, number>())
 
@@ -41,30 +42,46 @@ it('threshold edits do not rerender scope rows, and a role edit retains the late
 
   const onExclusions = vi.fn()
 
+  const inputs = () => ({
+    draft,
+    onChange,
+    onExclusions,
+    exclusions: '',
+    workcell: example.workcell,
+    methods: []
+  })
+
+  const source = new ExperimentFieldsView(inputs())
+
+  const scopeRead = vi.fn((value) => value.scope.primaryBodyIds.length)
+
+  const unsubscribe = source.scope.subscribe(scopeRead, vi.fn())
+
+  let mounted = false
+
   const render = () =>
-    act(() =>
-      root.render(
-        createElement(ExperimentFields, {
-          draft,
-          onChange,
-          onExclusions,
-          exclusions: '',
-          workcell: example.workcell,
-          methods: []
-        })
-      )
-    )
+    act(() => {
+      source.publish(inputs())
+
+      if (!mounted) root.render(createElement(ExperimentFields, { source }))
+
+      mounted = true
+    })
 
   try {
     await render()
 
     roles.clear()
 
+    scopeRead.mockClear()
+
     draft = { ...draft, rule: { ...draft.rule, minimumClearance: 0.075 } }
 
     await render()
 
     expect([...roles.keys()]).toEqual([])
+
+    expect(scopeRead).not.toHaveBeenCalled()
 
     const select = host.querySelector<HTMLSelectElement>(
       '[aria-label="fixture post analysis role"]'
@@ -86,6 +103,8 @@ it('threshold edits do not rerender scope rows, and a role edit retains the late
 
     expect([...roles.keys()]).toEqual(['fixture post analysis role'])
   } finally {
+    unsubscribe()
+
     await act(() => root.unmount())
 
     vi.unstubAllGlobals()

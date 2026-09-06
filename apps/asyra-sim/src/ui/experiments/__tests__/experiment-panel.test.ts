@@ -7,6 +7,40 @@ import { createSyntheticExample } from '../../../../samples/synthetic-workcell'
 import type { SimRuntime } from '../../../init/bootstrap'
 import { TrajectoryImportPanel } from '../../imports/trajectory-import-panel'
 import { ExperimentPanel } from '../experiment-panel'
+import { ViewSource } from '../../shared/view-source'
+import type { ExperimentInputs } from '../experiment-inputs'
+
+const renders = vi.hoisted(() => ({ layout: 0, picker: 0, scopeRows: 0 }))
+
+vi.mock('react/jsx-dev-runtime', async (original) => {
+  const actual = await original<typeof import('react/jsx-dev-runtime')>()
+
+  return {
+    ...actual,
+    jsxDEV: (...args: Parameters<typeof actual.jsxDEV>) => {
+      const props = args[1] as { className?: string; 'aria-label'?: string }
+
+      if (props?.className?.startsWith('experiment-panel ')) renders.layout++
+
+      if (props?.className?.startsWith('experiment-picker ')) renders.picker++
+
+      if (props?.['aria-label']?.endsWith(' analysis role')) renders.scopeRows++
+
+      return actual.jsxDEV(...args)
+    }
+  }
+})
+
+let inputSource: ViewSource<ExperimentInputs> | undefined
+
+function renderExperiment(input: ExperimentInputs) {
+  if (inputSource) inputSource.publish(input)
+  else {
+    inputSource = new ViewSource(input)
+
+    root.render(createElement(ExperimentPanel, { inputs: inputSource }))
+  }
+}
 
 let host: HTMLDivElement
 
@@ -14,6 +48,8 @@ let root: Root
 
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+
+  inputSource = undefined
 
   host = document.createElement('div')
 
@@ -57,25 +93,25 @@ it('preserves an unapplied experiment draft when the workcell changes', async ()
   const perform = vi.fn()
 
   const render = (revision: number) =>
-    root.render(
-      createElement(ExperimentPanel, {
-        runtime,
-        candidateId: 'candidate',
-        workcell: example.workcell,
-        revision,
-        perform,
-        onPlayback,
-        runs: [],
-        retainedIds: new Set<string>(),
-        onRun: vi.fn(),
-        onOpenRuns: vi.fn(),
-        onVisualPreview: vi.fn(),
-        isCurrent: () => true,
-        visualImportActive: true
-      })
-    )
+    renderExperiment({
+      runtime,
+      candidateId: 'candidate',
+      workcell: example.workcell,
+      revision,
+      perform,
+      onPlayback,
+      runs: [],
+      retainedIds: new Set<string>(),
+      onRun: vi.fn(),
+      onOpenRuns: vi.fn(),
+      onVisualPreview: vi.fn(),
+      isCurrent: () => true,
+      visualImportActive: true
+    })
 
   await act(() => render(1))
+
+  renders.layout = renders.picker = renders.scopeRows = 0
 
   const field = host.querySelector<HTMLInputElement>(
     '[aria-label="Minimum clearance (mm)"]'
@@ -98,6 +134,8 @@ it('preserves an unapplied experiment draft when the workcell changes', async ()
 
   expect(field.value).toBe('75')
 
+  expect(renders).toEqual({ layout: 0, picker: 0, scopeRows: 0 })
+
   await act(() => render(2))
 
   expect(field.value).toBe('75')
@@ -105,23 +143,21 @@ it('preserves an unapplied experiment draft when the workcell changes', async ()
 
 it('exposes a new experiment draft even when a saved experiment exists', async () => {
   await act(() =>
-    root.render(
-      createElement(ExperimentPanel, {
-        runtime,
-        candidateId: 'candidate',
-        workcell: example.workcell,
-        revision: 1,
-        perform: vi.fn(),
-        onPlayback: vi.fn(),
-        runs: [],
-        retainedIds: new Set<string>(),
-        onRun: vi.fn(),
-        onOpenRuns: vi.fn(),
-        onVisualPreview: vi.fn(),
-        isCurrent: () => true,
-        visualImportActive: true
-      })
-    )
+    renderExperiment({
+      runtime,
+      candidateId: 'candidate',
+      workcell: example.workcell,
+      revision: 1,
+      perform: vi.fn(),
+      onPlayback: vi.fn(),
+      runs: [],
+      retainedIds: new Set<string>(),
+      onRun: vi.fn(),
+      onOpenRuns: vi.fn(),
+      onVisualPreview: vi.fn(),
+      isCurrent: () => true,
+      visualImportActive: true
+    })
   )
 
   expect(button('New experiment')).toBeDefined()
@@ -151,23 +187,21 @@ it('draft-only changes do not recapture canonical experiments', async () => {
   const onPlayback = vi.fn()
 
   await act(() =>
-    root.render(
-      createElement(ExperimentPanel, {
-        runtime,
-        candidateId: 'candidate',
-        workcell: example.workcell,
-        revision: 1,
-        perform: vi.fn(),
-        onPlayback,
-        runs: [],
-        retainedIds: new Set<string>(),
-        onRun: vi.fn(),
-        onOpenRuns: vi.fn(),
-        onVisualPreview: vi.fn(),
-        isCurrent: () => true,
-        visualImportActive: true
-      })
-    )
+    renderExperiment({
+      runtime,
+      candidateId: 'candidate',
+      workcell: example.workcell,
+      revision: 1,
+      perform: vi.fn(),
+      onPlayback,
+      runs: [],
+      retainedIds: new Set<string>(),
+      onRun: vi.fn(),
+      onOpenRuns: vi.fn(),
+      onVisualPreview: vi.fn(),
+      isCurrent: () => true,
+      visualImportActive: true
+    })
   )
 
   vi.mocked(runtime.getExperiments).mockClear()

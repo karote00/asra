@@ -1,16 +1,12 @@
-import { memo } from 'react'
-import { useWorkbenchController } from './use-workbench-controller'
+import { useWorkbenchField } from './workbench-context'
 
-type Props = Pick<
-  ReturnType<typeof useWorkbenchController>,
-  'runtime' | 'historyDepth' | 'runtimeStatus'
->
+export function WorkbenchStatus() {
+  const runtime = useWorkbenchField('runtime')
 
-export const WorkbenchStatus = memo(function WorkbenchStatus({
-  runtime,
-  historyDepth,
-  runtimeStatus
-}: Props) {
+  const historyDepth = useWorkbenchField('historyDepth')
+
+  const runtimeStatus = useWorkbenchField('runtimeStatus')
+
   return (
     <footer
       className="statusbar h-[29px] flex-none bg-sim-surface border-t
@@ -42,4 +38,4 @@ export const WorkbenchStatus = memo(function WorkbenchStatus({
       </span>
     </footer>
   )
-})
+}

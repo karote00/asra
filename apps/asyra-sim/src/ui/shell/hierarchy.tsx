@@ -1,25 +1,25 @@
-import { memo } from 'react'
-import type { Body, Workcell } from '../../domain/workcell'
+import { useViewValue } from '../shared/use-view-value'
+import {
+  useWorkbenchField,
+  useWorkbenchValue,
+  useWorkbenchView
+} from './workbench-context'
 
-const HierarchyRow = memo(function HierarchyRow({
-  id,
-  name,
-  role,
-  fixed,
-  visible,
-  depth,
-  selected,
-  onSelect
-}: {
-  id: string
-  name: string
-  role: Body['role']
-  fixed: boolean
-  visible: boolean
-  depth: number
-  selected: boolean
-  onSelect: (id: string) => void
-}) {
+function HierarchyRow({ id, depth }: { id: string; depth: number }) {
+  const source = useWorkbenchView().body(id)
+
+  const name = useViewValue(source, (body) => body.name)
+
+  const role = useViewValue(source, (body) => body.role)
+
+  const fixed = useViewValue(source, (body) => body.joint.kind === 'fixed')
+
+  const visible = useViewValue(source, (body) => body.visible)
+
+  const selected = useWorkbenchValue((state) => state.selectedId === id)
+
+  const onSelect = useWorkbenchField('select')
+
   return (
     <button
       role="treeitem"
@@ -48,42 +48,37 @@ const HierarchyRow = memo(function HierarchyRow({
       )}
     </button>
   )
-})
+}
 
-export const Hierarchy = memo(function Hierarchy({
-  workcell,
-  selected,
-  onSelect
-}: {
-  workcell: Workcell
-  selected: string | null
-  onSelect: (id: string) => void
-}) {
-  const children = new Map<string | null, Body[]>()
+export function Hierarchy() {
+  useWorkbenchField('runtime')
 
-  for (const body of workcell.bodies) {
-    const siblings = children.get(body.parentId) ?? []
+  useWorkbenchField('candidateId')
 
-    siblings.push(body)
+  const membership = useWorkbenchValue((state) =>
+    JSON.stringify(
+      state.workcell?.bodies.map((body) => [body.id, body.parentId]) ?? []
+    )
+  )
 
-    children.set(body.parentId, siblings)
+  const entries = JSON.parse(membership) as [string, string | null][]
+
+  const children = new Map<string | null, string[]>()
+
+  for (const [id, parentId] of entries) {
+    const siblings = children.get(parentId) ?? []
+
+    siblings.push(id)
+
+    children.set(parentId, siblings)
   }
 
   const rows = (parentId: string | null, depth: number): React.ReactNode =>
-    (children.get(parentId) ?? []).map((body) => (
-      <div key={body.id}>
-        <HierarchyRow
-          id={body.id}
-          name={body.name}
-          role={body.role}
-          fixed={body.joint.kind === 'fixed'}
-          visible={body.visible}
-          depth={depth}
-          selected={body.id === selected}
-          onSelect={onSelect}
-        />
+    (children.get(parentId) ?? []).map((id) => (
+      <div key={id}>
+        <HierarchyRow id={id} depth={depth} />
 
-        {rows(body.id, depth + 1)}
+        {rows(id, depth + 1)}
       </div>
     ))
 
@@ -92,4 +87,4 @@ export const Hierarchy = memo(function Hierarchy({
       {rows(null, 0)}
     </div>
   )
-})
+}

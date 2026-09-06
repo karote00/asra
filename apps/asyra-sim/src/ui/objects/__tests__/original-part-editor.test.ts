@@ -5,6 +5,7 @@ import { expect, it, vi } from 'vitest'
 import { createSyntheticExample } from '../../../../samples/synthetic-workcell'
 import { IDENTITY_POSE } from '../../../domain/math'
 import { BodyEditor } from '../body-editor'
+import { ViewSource } from '../../shared/view-source'
 
 it('commits mount rotation when its angle field is completed, without a second action', async () => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
@@ -25,8 +26,8 @@ it('commits mount rotation when its angle field is completed, without a second a
     await act(() =>
       root.render(
         createElement(BodyEditor, {
-          body,
-          workcell,
+          body: new ViewSource(body),
+          workcell: new ViewSource(workcell),
           onChange: apply,
           onRemove: vi.fn()
         })
@@ -95,8 +96,8 @@ it('edits actual source placement and never offers its retired surrogate as anal
     await act(() =>
       root.render(
         createElement(BodyEditor, {
-          body,
-          workcell,
+          body: new ViewSource(body),
+          workcell: new ViewSource(workcell),
           onChange: apply,
           onRemove: vi.fn()
         })

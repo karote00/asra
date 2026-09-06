@@ -60,3 +60,42 @@ it('keeps Tailwind as the component styling system with only base and theme CSS'
     '@theme inline'
   )
 })
+
+it('owns UI updates through subscriptions rather than component memo wrappers', () => {
+  const violations: string[] = []
+
+  for (const filename of files(ui).filter(
+    (file) => /\.tsx?$/.test(file) && !file.includes('/__tests__/')
+  )) {
+    const source = ts.createSourceFile(
+      filename,
+      readFileSync(filename, 'utf8'),
+      ts.ScriptTarget.Latest,
+      true
+    )
+
+    const visit = (node: ts.Node) => {
+      if (
+        ts.isImportSpecifier(node) &&
+        ['memo', 'PureComponent'].includes(
+          (node.propertyName ?? node.name).text
+        )
+      ) {
+        violations.push(path.relative(ui, filename))
+      }
+
+      if (
+        ts.isPropertyAccessExpression(node) &&
+        ['memo', 'PureComponent'].includes(node.name.text)
+      ) {
+        violations.push(path.relative(ui, filename))
+      }
+
+      ts.forEachChild(node, visit)
+    }
+
+    visit(source)
+  }
+
+  expect(violations).toEqual([])
+})

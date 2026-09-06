@@ -110,7 +110,8 @@ tree or introducing its 2D providers, collaboration stack, or server APIs:
   orchestration, and separately editable field observations.
 - `ui/projects/`: explicit local/portable project operations and their views.
 - `ui/viewport/`: transient camera input, projection handoff, and playback.
-- `ui/shared/`: small field controls, keyboard eligibility, and error formatting.
+- `ui/shared/`: small field controls, read-only value subscriptions, keyboard
+  eligibility, and error formatting.
 - `ui/styles/`: Tailwind entry, native-control base, and light/dark theme tokens.
 
 Keep formal tests beside the owning slice. TSX composes views and small local
@@ -206,11 +207,24 @@ revision, not draft-only input. Hierarchy rows consume only their displayed
 identity, label, role, joint indicator, visibility, depth, and selection; a
 single label edit does not rerender unrelated rows. Experiment scope rows are
 isolated from numerical draft fields, and a role change updates only its row.
-Mount, joint, and original
-placement sections compare their complete small field values, never source
-triangles. Their callbacks merge a section patch against the latest committed
-body so retaining a field view cannot overwrite a newer name or other section.
-React view reuse adds no editable state, geometry cache, or transaction.
+Mount, joint, and original-placement sections subscribe to their individual
+property values and units, never source triangles. The workbench composes
+controller/provider lifetimes above independent consumers; changing controller
+state does not recreate the whole workbench tree. The current read-only
+projection publishes only changed semantic values to their subscribers, without
+component memo wrappers or props comparators. Their callbacks merge a section
+patch against the latest committed body so an unchanged field view cannot
+overwrite a newer name or other section. Projection subscriptions add no
+editable model, geometry cache, or transaction.
+
+`WorkbenchView` publishes the current workbench, workcell, body, and experiment
+input channels before notifying consumers. React providers own controller
+lifetimes; their composed children consume values through `useViewValue`, not
+changing context snapshots. `ExperimentFieldsView` keeps scope subscriptions
+separate from numerical draft fields, so a threshold edit does not visit scope
+subscribers. Playback updates the viewport surface and time caption without
+recreating the viewport options or workbench layout. Removed entities release
+their subscriptions on unmount; replacement creates fresh editor lifetimes.
 
 The exact navigation and admission contracts remain in
 [editing-v0.md](specs/editing-v0.md) and

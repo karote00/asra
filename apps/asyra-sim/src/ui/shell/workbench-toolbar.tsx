@@ -1,33 +1,27 @@
-import { memo } from 'react'
 import { ToolbarButton } from './toolbar-button'
-import { useWorkbenchController } from './use-workbench-controller'
+import { useWorkbenchField, useWorkbenchValue } from './workbench-context'
 
-type Props = Pick<
-  ReturnType<typeof useWorkbenchController>,
-  | 'hierarchyOpen'
-  | 'setHierarchyOpen'
-  | 'inspector'
-  | 'setInspector'
-  | 'setPlayback'
-  | 'setShowRuns'
-  | 'ready'
-  | 'workcell'
-  | 'runError'
-  | 'performHistory'
->
+export function WorkbenchToolbar() {
+  const hierarchyOpen = useWorkbenchField('hierarchyOpen')
 
-export const WorkbenchToolbar = memo(function WorkbenchToolbar({
-  hierarchyOpen,
-  setHierarchyOpen,
-  inspector,
-  setInspector,
-  setPlayback,
-  setShowRuns,
-  ready,
-  workcell,
-  runError,
-  performHistory
-}: Props) {
+  const setHierarchyOpen = useWorkbenchField('setHierarchyOpen')
+
+  const inspector = useWorkbenchField('inspector')
+
+  const setInspector = useWorkbenchField('setInspector')
+
+  const setPlayback = useWorkbenchField('setPlayback')
+
+  const setShowRuns = useWorkbenchField('setShowRuns')
+
+  const ready = useWorkbenchField('ready')
+
+  const workcell = useWorkbenchValue((state) => !!state.workcell)
+
+  const runError = useWorkbenchField('runError')
+
+  const performHistory = useWorkbenchField('performHistory')
+
   return (
     <div
       className="commandbar min-h-[49px] flex flex-none items-center justify-start py-2
@@ -116,4 +110,4 @@ export const WorkbenchToolbar = memo(function WorkbenchToolbar({
       </div>
     </div>
   )
-})
+}

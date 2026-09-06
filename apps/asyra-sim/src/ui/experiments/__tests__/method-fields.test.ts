@@ -7,6 +7,7 @@ import { createSyntheticExample } from '../../../../samples/synthetic-workcell'
 import type { ExperimentDraft } from '../../../common-apis/experiment'
 import { INSTALLED_METHOD_CATALOG } from '../../../extensions/installed-methods'
 import { ExperimentFields } from '../experiment-fields'
+import { ExperimentFieldsView } from '../experiment-fields-view'
 
 let host: HTMLDivElement
 
@@ -37,23 +38,22 @@ async function setup(methods = INSTALLED_METHOD_CATALOG.descriptors) {
 
   const original = structuredClone(draft)
 
-  const render = () =>
-    root.render(
-      createElement(ExperimentFields, {
-        draft,
-        onChange: (next) => {
-          draft = next
+  const inputs = () => ({
+    draft,
+    onChange: (next: ExperimentDraft) => {
+      draft = next
 
-          render()
-        },
-        exclusions: '',
-        onExclusions: vi.fn(),
-        workcell: example.workcell,
-        methods
-      })
-    )
+      source.publish(inputs())
+    },
+    exclusions: '',
+    onExclusions: vi.fn(),
+    workcell: example.workcell,
+    methods
+  })
 
-  await act(render)
+  const source = new ExperimentFieldsView(inputs())
+
+  await act(() => root.render(createElement(ExperimentFields, { source })))
 
   return { original, draft: () => draft }
 }

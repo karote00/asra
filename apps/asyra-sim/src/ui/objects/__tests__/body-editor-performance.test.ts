@@ -5,6 +5,7 @@ import { expect, it, vi } from 'vitest'
 import { createSyntheticExample } from '../../../../samples/synthetic-workcell'
 import { BodyEditor } from '../body-editor'
 import { RotationFields } from '../rotation-fields'
+import { ViewSource } from '../../shared/view-source'
 
 vi.mock('../rotation-fields', async (original) => {
   const actual = await original<typeof import('../rotation-fields')>()
@@ -40,17 +41,29 @@ it('name edits retain unchanged mount controls, but pose changes refresh them', 
 
   const onRemove = vi.fn()
 
+  const source = new ViewSource(body)
+
+  const workcellSource = new ViewSource(workcell)
+
+  let mounted = false
+
   const render = () =>
-    act(() =>
+    act(() => {
+      source.publish(body)
+
+      if (mounted) return
+
+      mounted = true
+
       root.render(
         createElement(BodyEditor, {
-          body,
-          workcell,
+          body: source,
+          workcell: workcellSource,
           onChange,
           onRemove
         })
       )
-    )
+    })
 
   try {
     await render()

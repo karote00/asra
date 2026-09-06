@@ -1,18 +1,14 @@
-import { memo } from 'react'
 import { ProjectControls } from '../projects/project-controls'
 import { ThemeToggle } from './theme-toggle'
-import { useWorkbenchController } from './use-workbench-controller'
+import { useWorkbenchField } from './workbench-context'
 
-type Props = Pick<
-  ReturnType<typeof useWorkbenchController>,
-  'resources' | 'ready' | 'unsavedRunCount'
->
+export function WorkbenchHeader() {
+  const resources = useWorkbenchField('resources')
 
-export const WorkbenchHeader = memo(function WorkbenchHeader({
-  resources,
-  ready,
-  unsavedRunCount
-}: Props) {
+  const ready = useWorkbenchField('ready')
+
+  const unsavedRunCount = useWorkbenchField('unsavedRunCount')
+
   return (
     <header
       className="topbar h-16 flex-none flex items-center justify-between py-0 px-[26px]
@@ -36,6 +32,7 @@ export const WorkbenchHeader = memo(function WorkbenchHeader({
 
         <strong>
           {'Asyra'.toLowerCase()}
+
           <span>sim</span>
         </strong>
       </div>
@@ -68,4 +65,4 @@ export const WorkbenchHeader = memo(function WorkbenchHeader({
       </span>
     </header>
   )
-})
+}

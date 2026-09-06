@@ -1,27 +1,32 @@
-import { memo } from 'react'
+import { useViewValue } from '../shared/use-view-value'
+import type { ExperimentFieldsView } from './experiment-fields-view'
 
-export const ScopeBodyRow = memo(function ScopeBodyRow({
+export function ScopeBodyRow({
   id,
-  name,
-  role,
-  onChange
+  source
 }: {
   id: string
-  name: string
-  role: string
-  onChange: (id: string, role: string) => void
+  source: ExperimentFieldsView
 }) {
+  const name = useViewValue(source.scope, (value) => value.names.get(id))
+
+  const role = useViewValue(
+    source.scope,
+    (value) => value.roles.get(id) ?? 'outside'
+  )
+
   return (
     <label>
       <span>
         {name}
+
         <small>{id}</small>
       </span>
 
       <select
         aria-label={`${name} analysis role`}
         value={role}
-        onChange={(event) => onChange(id, event.target.value)}
+        onChange={(event) => source.changeRole(id, event.target.value)}
       >
         <option value="primary">Primary</option>
 
@@ -31,4 +36,4 @@ export const ScopeBodyRow = memo(function ScopeBodyRow({
       </select>
     </label>
   )
-})
+}
