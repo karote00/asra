@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { ProjectSession } from '../storage/project-session'
 import type { ProjectSummary } from '../storage/project-format'
 import { PortableProjectControls } from './portable-project-controls'
+import { ToolbarButton } from './toolbar-button'
 
 export function ProjectControls({
   session,
@@ -85,7 +86,8 @@ export function ProjectControls({
     <>
       <div className="project-controls">
         <span data-testid="persistence-status">{caption}</span>
-        <button
+        <ToolbarButton
+          label="Save"
           disabled={!ready || !!state.busy}
           onClick={() => {
             setName(state.project?.name ?? name)
@@ -99,17 +101,21 @@ export function ProjectControls({
               })
           }}
         >
-          Save
-        </button>
-        <button
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12l4 4v12a2 2 0 0 1-2 2ZM7 3v6h9V3M7 21v-8h10v8M13 5v2" />
+        </ToolbarButton>
+        <ToolbarButton
+          label="Projects"
+          title="Projects - Manage local saves and project files"
+          aria-haspopup="dialog"
+          aria-expanded={open}
           onClick={() => {
             setOpen(true)
             setName(state.project?.name ?? name)
             void refresh()
           }}
         >
-          Projects
-        </button>
+          <path d="M3 8V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v1M3 8h16a2 2 0 0 1 2 2l-2 9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8Z" />
+        </ToolbarButton>
       </div>
       {open && (
         <dialog

@@ -205,6 +205,14 @@ See the [typed acceptance contract](../../docs/ai/apps/asyra-sim/specs/decision-
 
 ## Retained evidence and comparison
 
+The two top toolbars use icon-only buttons with 24 x 24 px SVGs and 36 x 36 px
+click targets. Hover titles and accessible names identify each action, including
+Undo/Redo shortcuts. There is no development badge beside the logo. The folder
+icon (**Projects**) opens local project management for saving, saving copies,
+opening stored projects, and importing/exporting project files. These saves are
+private to the current browser origin, not cloud backups; clearing site data
+removes them. Dialog and side-panel actions retain their text labels.
+
 Use **Duplicate candidate** beneath the candidate selector to copy committed model
 and experiment inputs into an independently editable workcell. Enter a name for B
 or C. Copies get new canonical identities, remap all references, and preserve

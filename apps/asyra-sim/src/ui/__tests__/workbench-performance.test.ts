@@ -107,7 +107,7 @@ it('playback and panel state reuse a revision-bound projection, but committed ch
       })
     )
   const button = [...host.querySelectorAll('button')].find(
-    (value) => value.textContent === 'Experiments'
+    (value) => value.getAttribute('aria-label') === 'Experiments'
   )
   if (!button) throw new Error('Missing experiment control')
   await act(() => button.click())

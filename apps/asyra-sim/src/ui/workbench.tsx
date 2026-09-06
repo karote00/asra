@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { ThemeToggle } from './theme-toggle'
+import { ToolbarButton } from './toolbar-button'
 import type { SimRuntime } from '../init/bootstrap'
 import { IDENTITY_POSE } from '../domain/math'
 import { jointValuesAt, type Body, type Workcell } from '../domain/workcell'
@@ -233,7 +234,6 @@ export function Workbench() {
             {'Asyra'.toLowerCase()}
             <span>sim</span>
           </strong>
-          <span className="build-label">DEVELOPMENT</span>
         </div>
         <div className="project-title">
           Robot workcell experiments<span>Local workspace</span>
@@ -253,45 +253,60 @@ export function Workbench() {
       </header>
       <div className="commandbar">
         <div className="commands">
-          <button
+          <ToolbarButton
+            label="Model"
             className="model-toggle"
             aria-expanded={hierarchyOpen}
             onClick={() => setHierarchyOpen((value) => !value)}
           >
-            Model
-          </button>
-          <button
+            <rect x="3" y="3" width="6" height="5" rx="1" />
+            <rect x="14" y="10" width="7" height="5" rx="1" />
+            <rect x="14" y="18" width="7" height="3" rx="1" />
+            <path d="M6 8v11.5h8M6 12.5h8" />
+          </ToolbarButton>
+          <ToolbarButton
+            label="Undo"
             disabled={!ready}
             onClick={() => performHistory('undo')}
             aria-keyshortcuts="Meta+Z Control+Z"
             title="Undo (⌘Z / Ctrl+Z)"
           >
-            Undo
-          </button>
-          <button
+            <path
+              d="m9 5-5 5 5 5M4 10h10a6 6 0 0 1 0 12"
+              transform="translate(0 -2)"
+            />
+          </ToolbarButton>
+          <ToolbarButton
+            label="Redo"
             disabled={!ready}
             onClick={() => performHistory('redo')}
             aria-keyshortcuts="Meta+Shift+Z Control+Shift+Z"
             title="Redo (⌘⇧Z / Ctrl+Shift+Z)"
           >
-            Redo
-          </button>
+            <path
+              d="m15 5 5 5-5 5M20 10H10a6 6 0 0 0 0 12"
+              transform="translate(0 -2)"
+            />
+          </ToolbarButton>
           <span className="divider" />
-          <button
+          <ToolbarButton
+            label="Experiments"
             disabled={!ready || !workcell}
             aria-pressed={inspector === 'experiment'}
             onClick={() => setInspector('experiment')}
           >
-            Experiments
-          </button>
-          <button
+            <path d="M9 3h6M10 3v6l-6 9a2 2 0 0 0 1.7 3h12.6a2 2 0 0 0 1.7-3l-6-9V3M7.3 13h9.4M9 17h.01M14 18h.01" />
+          </ToolbarButton>
+          <ToolbarButton
+            label="Runs & compare"
+            title="Results - Runs & compare"
             disabled={!ready || !!runError}
-            aria-label="Runs & compare"
             onClick={() => setShowRuns(true)}
           >
-            Results
-          </button>
-          <button
+            <path d="M4 3v18h17M8 17v-5M13 17V6M18 17V9" />
+          </ToolbarButton>
+          <ToolbarButton
+            label="Object"
             disabled={!ready}
             aria-pressed={inspector === 'object'}
             onClick={() => {
@@ -299,8 +314,8 @@ export function Workbench() {
               setPlayback(null)
             }}
           >
-            Object
-          </button>
+            <path d="m12 3 9 5v8l-9 5-9-5V8l9-5ZM3 8l9 5 9-5M12 13v8M7.5 5.5l9 5" />
+          </ToolbarButton>
         </div>
       </div>
       {error && <ErrorNotice message={error} onDismiss={() => setError('')} />}

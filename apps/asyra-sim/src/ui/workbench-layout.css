@@ -45,14 +45,6 @@
   color: var(--sim-muted);
   margin-left: 3px;
 }
-.build-label {
-  font-size: 8px;
-  letter-spacing: 1px;
-  border: 1px solid var(--sim-border);
-  color: var(--sim-muted);
-  padding: 4px 6px;
-  border-radius: 3px;
-}
 .project-title {
   font-size: 12px;
   font-weight: 650;
@@ -108,10 +100,18 @@
   align-items: center;
   gap: 8px;
 }
-.commands button {
-  padding: 6px 12px;
-  font-size: 11px;
-  white-space: nowrap;
+.toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  padding: 5px;
+}
+.toolbar-button > svg {
+  display: block;
+  flex: none;
 }
 .model-toggle { display: none; }
 .model-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
@@ -374,7 +374,7 @@
   .work-area {
     grid-template-columns: minmax(0, 1fr) 360px;
   }
-  .model-toggle { display: block; }
+  .model-toggle { display: inline-flex; }
   .hierarchy-panel { display: none; }
   .hierarchy-panel.is-open { display: flex; position: absolute; inset: 0 auto 0 0; width: 280px; z-index: 4; box-shadow: 8px 0 24px #10233026; }
   .viewport-tools > span {
@@ -408,10 +408,9 @@
   }
   .topbar { gap: 10px; padding: 0 12px; }
   .brand { gap: 8px; }
-  .build-label, .project-controls > span { display: none; }
+  .project-controls > span { display: none; }
   .commandbar { padding: 8px 12px; }
   .commands { gap: 6px; }
-  .commands button { padding: 7px 9px; }
   .divider { margin: 0; }
   .properties-panel { border-left: 0; border-top: 1px solid var(--sim-border); }
   .viewport-top { left: 12px; right: 12px; }
