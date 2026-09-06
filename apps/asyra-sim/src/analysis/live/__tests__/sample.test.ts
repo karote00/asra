@@ -1,7 +1,19 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { runOfficialClearanceMethod } from '../../methods/official-method'
 import { sampleSnapshot, validateLiveEvidence } from '../sample'
 import { liveFixture } from './fixtures'
+
+it('validates only evidence, without cloning report source, method, rule or pair data twice', () => {
+  const input = liveFixture()
+  const evidence = runOfficialClearanceMethod(sampleSnapshot(input, 4))
+  const clone = vi.spyOn(globalThis, 'structuredClone')
+  try {
+    validateLiveEvidence(input, 4, evidence)
+    expect(clone).toHaveBeenCalledTimes(evidence.pairs.length)
+  } finally {
+    clone.mockRestore()
+  }
+})
 
 it('checks one exact time with unchanged full geometry, scope and numerical settings', () => {
   const input = liveFixture()

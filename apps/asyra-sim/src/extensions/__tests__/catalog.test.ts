@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createSyntheticExample } from '../../../samples/synthetic-workcell'
 import { createSyntheticExperimentDraft } from '../../../samples/synthetic-experiment'
 import { preflightExperiment } from '../../analysis/preflight'
@@ -72,6 +72,23 @@ function registration(): MethodRegistration {
 }
 
 describe('trusted pre-start method catalog', () => {
+  it('retains an optional inert Worker-lifetime executor factory and rejects invalid factories', () => {
+    const input = registration()
+    const createExecutor = vi.fn(() => input.execute)
+    const catalog = createMethodCatalog([{ ...input, createExecutor }])
+    const installed = catalog.resolve(
+      input.descriptor.id,
+      input.descriptor.version
+    )
+
+    expect(createExecutor).not.toHaveBeenCalled()
+    expect(installed.createExecutor).toBe(createExecutor)
+    expect(Object.isFrozen(installed)).toBe(true)
+    expect(() =>
+      createMethodCatalog([{ ...input, createExecutor: 1 as never }])
+    ).toThrow()
+  })
+
   it('detaches and freezes declarations without executing code or permitting replacement', () => {
     const input = registration(),
       catalog = createMethodCatalog([input])

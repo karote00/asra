@@ -183,27 +183,19 @@ export function validatePairProgress(
 
 function summarize(
   snapshot: ExperimentSnapshot,
-  evidence: readonly MethodPairEvidence[],
+  pairs: readonly MethodPairEvidence[],
   execution: AnalysisExecution,
   coverage: AnalysisCoverage,
   timing: RunTiming,
   errors: readonly string[]
 ): AnalysisResult {
   validateTiming(timing)
-  const pairs = evidence.map((pair) => validatePairProgress(snapshot, pair)),
-    findingPairCount = pairs.filter((pair) =>
+  const findingPairCount = pairs.filter((pair) =>
       pair.evidence.leaves.some((leaf) => leaf.state === 'finding')
     ).length,
     unresolvedPairCount = pairs.filter(
       (pair) => pair.evidence.coverage === 'partial'
     ).length
-  if (
-    pairs.reduce((sum, pair) => sum + pair.evidence.evaluations, 0) >
-      snapshot.budget.maxIntervals ||
-    pairs.reduce((sum, pair) => sum + pair.evidence.leaves.length, 0) >
-      EXPERIMENT_RESOURCE_PROFILE.maxEvidenceLeaves
-  )
-    throw new Error('Analysis evidence exceeds its global budget')
   let summary: AnalysisSummary = 'cannot-determine'
   if (findingPairCount) summary = 'issue-found'
   else if (execution === 'completed' && coverage === 'complete')
@@ -247,11 +239,11 @@ function summarize(
   })
 }
 
-export function completeAnalysisResult(
+/** Evidence admission shared by formal reports and transient live observations. */
+export function validateMethodEvidence(
   snapshot: ExperimentSnapshot,
-  evidence: MethodEvidence,
-  timing: RunTiming
-): AnalysisResult {
+  evidence: MethodEvidence
+): readonly MethodPairEvidence[] {
   if (
     !hasExactOwnKeys(evidence, [
       'version',
@@ -284,9 +276,7 @@ export function completeAnalysisResult(
     )
   )
     throw new Error('Method evidence does not provide complete pair coverage')
-  const pairs = evidence.pairs.map((pair) =>
-      validatePairProgress(snapshot, pair)
-    ),
+  const pairs = validatePartialMethodEvidence(snapshot, evidence.pairs),
     evaluations = pairs.reduce(
       (sum, pair) => sum + pair.evidence.evaluations,
       0
@@ -296,7 +286,62 @@ export function completeAnalysisResult(
       : 'complete'
   if (evidence.evaluations !== evaluations || evidence.coverage !== coverage)
     throw new Error('Invalid aggregate method evidence')
-  return summarize(snapshot, pairs, 'completed', coverage, timing, [])
+  return pairs
+}
+
+export function validatePartialMethodEvidence(
+  snapshot: ExperimentSnapshot,
+  evidence: readonly MethodPairEvidence[]
+): readonly MethodPairEvidence[] {
+  if (!Array.isArray(evidence) || evidence.length > snapshot.pairs.length)
+    throw new Error('Invalid retained pair evidence')
+
+  const ids = evidence.map((pair) => pair?.pairId)
+  if (new Set(ids).size !== ids.length)
+    throw new Error('Duplicate retained pair evidence')
+
+  const pairs = evidence.map((pair) => validatePairProgress(snapshot, pair))
+  if (
+    pairs.reduce((sum, pair) => sum + pair.evidence.evaluations, 0) >
+      snapshot.budget.maxIntervals ||
+    pairs.reduce((sum, pair) => sum + pair.evidence.leaves.length, 0) >
+      EXPERIMENT_RESOURCE_PROFILE.maxEvidenceLeaves
+  )
+    throw new Error('Analysis evidence exceeds its global budget')
+
+  return Object.freeze(pairs)
+}
+
+/** Both pairs passed the exact evidence schema; object property order is inert. */
+export function samePairEvidence(
+  a: MethodPairEvidence,
+  b: MethodPairEvidence
+): boolean {
+  const left = a.evidence
+  const right = b.evidence
+
+  return (
+    left.coverage === right.coverage &&
+    left.lower === right.lower &&
+    left.upper === right.upper &&
+    left.evaluations === right.evaluations &&
+    left.leaves.length === right.leaves.length &&
+    left.leaves.every((leaf, index) =>
+      Object.entries(leaf).every(
+        ([key, value]) => value === Reflect.get(right.leaves[index], key)
+      )
+    )
+  )
+}
+
+export function completeAnalysisResult(
+  snapshot: ExperimentSnapshot,
+  evidence: MethodEvidence,
+  timing: RunTiming
+): AnalysisResult {
+  const pairs = validateMethodEvidence(snapshot, evidence)
+
+  return summarize(snapshot, pairs, 'completed', evidence.coverage, timing, [])
 }
 
 export function terminalAnalysisResult(
@@ -306,12 +351,9 @@ export function terminalAnalysisResult(
 ): AnalysisResult {
   if (!terminal.error || terminal.error.length > 2000)
     throw new Error('Terminal analysis requires a bounded error description')
-  const ids = evidence.map((pair) => pair.pairId)
-  if (new Set(ids).size !== ids.length)
-    throw new Error('Duplicate retained pair evidence')
   return summarize(
     snapshot,
-    evidence,
+    validatePartialMethodEvidence(snapshot, evidence),
     terminal.execution,
     'partial',
     terminal,

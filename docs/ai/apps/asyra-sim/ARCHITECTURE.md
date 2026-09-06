@@ -192,8 +192,23 @@ in-flight sample and one latest pending time. The static invocation uses the
 selected installed method, complete geometry, scope and numerical settings.
 Neither the animation clock nor the renderer performs geometry queries.
 
+An optional installed executor retains complete immutable mesh preparation for
+this Worker input lifetime. Each invocation owns fresh checkpoints and logical
+work budgets; hits charge equivalent preparation work. No transform, contact
+or pose result is cached by the geometry method. Parent request admission is
+limited to 20 checks per second and still coalesces slow pending work.
+
+The first validated finding and first penetration are posted immediately, with
+later findings batched at the existing 100 ms progress cadence. Both trust
+boundaries enforce per-pair and incremental aggregate byte/work/leaf limits.
+The main owner publishes provisional feedback before terminal recording,
+without releasing its in-flight request or watchdog. Only terminal samples enter
+the reusable records, and their evidence must agree with earlier progress.
+Live admission validates geometry evidence directly; it never builds a temporary
+formal report or evaluates acceptance rules.
+
 The current cache retains up to 256 samples under the shared evidence-byte cap;
-oldest records are evicted first. Normal playback requests a 0.2-second
+oldest records are evicted first. Normal playback requests a 0.05-second
 simulation-time grid so subsequent Play operations can reuse exact samples.
 Crossed canonical trajectory keyframes are checked in order before catching up
 with the playhead, including after a dropped display frame or the final frame;

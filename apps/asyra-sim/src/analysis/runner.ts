@@ -4,6 +4,7 @@ import {
 } from './contracts'
 import type { MethodPairEvidence } from '../extensions/contracts'
 import type { MethodCatalog } from '../extensions/catalog'
+import { samePairEvidence } from './result'
 import { INSTALLED_METHOD_CATALOG } from '../extensions/installed-methods'
 import { admitSnapshotExecution } from '../extensions/execution-admission'
 import {
@@ -52,27 +53,6 @@ const errorMessage = (input: unknown, fallback: string): string =>
     0,
     2000
   )
-
-/** Both inputs have passed the exact evidence schema; property order is inert. */
-function samePairEvidence(
-  a: MethodPairEvidence,
-  b: MethodPairEvidence
-): boolean {
-  const left = a.evidence,
-    right = b.evidence
-  return (
-    left.coverage === right.coverage &&
-    left.lower === right.lower &&
-    left.upper === right.upper &&
-    left.evaluations === right.evaluations &&
-    left.leaves.length === right.leaves.length &&
-    left.leaves.every((leaf, index) =>
-      Object.entries(leaf).every(
-        ([key, value]) => value === Reflect.get(right.leaves[index], key)
-      )
-    )
-  )
-}
 
 export class AnalysisRunner {
   private active: ActiveRun | null = null

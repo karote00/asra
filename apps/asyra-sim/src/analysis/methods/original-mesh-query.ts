@@ -18,6 +18,7 @@ import {
   worldBounds,
   worldPoint,
   type MeshIndex,
+  type PreparedMeshIndex,
   type MeshNode
 } from './mesh-index'
 import { shapeMembership } from './mesh-membership'
@@ -32,12 +33,14 @@ export class OriginalMeshQuery {
   constructor(
     private readonly checkpoint: () => void = () => undefined,
     private readonly maxWork: number = EXPERIMENT_RESOURCE_PROFILE.maxWorkUnits,
-    private readonly hierarchy = true
+    private readonly hierarchy = true,
+    private readonly prepared = new WeakMap<MeshGeometry, PreparedMeshIndex>()
   ) {}
 
-  private tick = () => {
+  private tick = (units = 1) => {
     this.checkpoint()
-    if (++this.work > this.maxWork)
+    this.work += units
+    if (this.work > this.maxWork)
       throw new MeshWorkLimit('The original-triangle work budget was exhausted')
   }
   private index(shape: ConvexShape): MeshIndex | undefined {
@@ -51,7 +54,21 @@ export class OriginalMeshQuery {
       const retained = this.indices.get(geometry)
       if (retained) return retained
     }
+    const prepared = immutable ? this.prepared.get(geometry) : undefined
+    if (prepared && prepared.hierarchy === this.hierarchy) {
+      // Charge the same logical preparation budget, using this invocation's deadline.
+      this.tick(prepared.work)
+      this.indices.set(geometry, prepared.index)
+      return prepared.index
+    }
+    const before = this.work
     const index = buildMeshIndex(geometry, this.tick, this.hierarchy)
+    if (immutable)
+      this.prepared.set(geometry, {
+        index,
+        work: this.work - before,
+        hierarchy: this.hierarchy
+      })
     if (immutable) this.indices.set(geometry, index)
     return index
   }

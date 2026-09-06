@@ -11,75 +11,87 @@ import { LivePreview } from '../live-preview'
 import type { PlaybackView } from '../playback-view'
 import { playbackHighlight } from '../playback-highlight'
 
-it('publishes a delayed collision without stopping or rewinding the current playhead', async () => {
-  const input = liveFixture()
-  const sample = structuredClone(
-    validateLiveEvidence(
-      input,
-      3.2,
-      runOfficialClearanceMethod(sampleSnapshot(input, 3.2))
+it.each(['checking', 'ready'] as const)(
+  'publishes a %s collision without waiting, stopping or rewinding the playhead',
+  async (status) => {
+    const input = liveFixture()
+    const sample = structuredClone(
+      validateLiveEvidence(
+        input,
+        3.2,
+        runOfficialClearanceMethod(sampleSnapshot(input, 3.2))
+      )
     )
-  )
 
-  Object.assign(sample.pairs[0].evidence.leaves[0], {
-    state: 'finding',
-    penetration: true,
-    witnessTime: 3.2
-  })
+    Object.assign(sample.pairs[0].evidence.leaves[0], {
+      state: 'finding',
+      penetration: true,
+      witnessTime: 3.2
+    })
+    if (status === 'checking') sample.complete = false
 
-  let state: LiveState = { status: 'idle', sample: null, error: null }
-  let notify: () => void = () => undefined
-  let signal: AbortSignal | undefined
-  const api = {
-    subscribe: (listener: () => void) => {
-      notify = listener
-      return () => {
-        notify = () => undefined
-      }
-    },
-    getState: () => state,
-    open: (_input: unknown, _time: number, options: { signal: AbortSignal }) =>
-      new Promise<void>((resolve) => {
-        signal = options.signal
-        signal.addEventListener('abort', () => resolve(), { once: true })
-      }),
-    sample: vi.fn()
-  } as unknown as SimRuntime['features']['live']
-  const publish = vi.fn<(value: PlaybackView) => void>()
-  const preview = new LivePreview(
-    input.workcell,
-    input.trajectory,
-    input.interval,
-    () => input,
-    api,
-    publish
-  )
-  const options = { discontinuity: false, onCollision: vi.fn(() => true) }
+    let state: LiveState = { status: 'idle', sample: null, error: null }
+    let notify: () => void = () => undefined
+    let signal: AbortSignal | undefined
+    const api = {
+      subscribe: (listener: () => void) => {
+        notify = listener
+        return () => {
+          notify = () => undefined
+        }
+      },
+      getState: () => state,
+      open: (
+        _input: unknown,
+        _time: number,
+        options: { signal: AbortSignal }
+      ) =>
+        new Promise<void>((resolve) => {
+          signal = options.signal
+          signal.addEventListener('abort', () => resolve(), { once: true })
+        }),
+      sample: vi.fn()
+    } as unknown as SimRuntime['features']['live']
+    const publish = vi.fn<(value: PlaybackView) => void>()
+    const preview = new LivePreview(
+      input.workcell,
+      input.trajectory,
+      input.interval,
+      () => input,
+      api,
+      publish
+    )
+    const options = { discontinuity: false, onCollision: vi.fn(() => true) }
 
-  preview.sample(3.2, options)
-  await Promise.resolve()
-  preview.sample(3.37, options)
+    preview.sample(3.2, options)
+    await Promise.resolve()
+    preview.sample(3.37, options)
 
-  state = { status: 'ready', sample, error: null }
-  notify()
+    state = { status, sample, error: null }
+    notify()
 
-  expect(publish.mock.lastCall?.[0].time).toBe(3.37)
-  expect(publish.mock.lastCall?.[0].feedback?.checkedTime).toBe(3.2)
-  expect(
-    playbackHighlight(publish.mock.lastCall?.[0] ?? null)?.bodyIds
-  ).toHaveLength(2)
-  expect(signal?.aborted).toBe(false)
-  expect(options.onCollision).not.toHaveBeenCalled()
+    expect(publish.mock.lastCall?.[0].time).toBe(3.37)
+    expect(publish.mock.lastCall?.[0].feedback?.checkedTime).toBe(3.2)
+    expect(
+      playbackHighlight(publish.mock.lastCall?.[0] ?? null)?.bodyIds
+    ).toHaveLength(2)
+    expect(signal?.aborted).toBe(false)
+    expect(options.onCollision).not.toHaveBeenCalled()
 
-  preview.sample(3.51, options)
-  expect(publish.mock.lastCall?.[0].time).toBe(3.51)
+    preview.sample(3.51, options)
+    expect(publish.mock.lastCall?.[0].time).toBe(3.51)
+    if (status === 'checking')
+      expect(api.sample).toHaveBeenLastCalledWith(3.2, false)
 
-  preview.sample(1, { ...options, discontinuity: true })
-  expect(playbackHighlight(publish.mock.lastCall?.[0] ?? null)).toBeUndefined()
+    preview.sample(1, { ...options, discontinuity: true })
+    expect(
+      playbackHighlight(publish.mock.lastCall?.[0] ?? null)
+    ).toBeUndefined()
 
-  preview.dispose()
-  await preview.completion
-})
+    preview.dispose()
+    await preview.completion
+  }
+)
 
 it('presents the same cached sample again after seeking without stale checking feedback', async () => {
   const input = liveFixture()

@@ -19,6 +19,143 @@ class WorkerStub {
 
 afterEach(() => vi.useRealTimers())
 
+it('admits the latest pending pose within 50 ms when the previous check has completed', async () => {
+  vi.useFakeTimers()
+  const input = liveFixture()
+  const worker = new WorkerStub()
+  const runner = new LivePlaybackRunner(
+    () => worker as unknown as Worker,
+    undefined,
+    Date.now
+  )
+  const abort = new AbortController()
+  const task = runner.open(input, 0, abort.signal)
+  worker.emit({ type: LiveMessages.READY })
+  runner.sample(0.05)
+  worker.emit({
+    type: LiveMessages.RESULT,
+    id: 1,
+    time: 0,
+    evidence: runOfficialClearanceMethod(sampleSnapshot(input, 0))
+  })
+
+  try {
+    await vi.advanceTimersByTimeAsync(49)
+    expect(worker.postMessage).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(worker.postMessage).toHaveBeenLastCalledWith({
+      type: LiveMessages.SAMPLE,
+      id: 2,
+      time: 0.05
+    })
+  } finally {
+    abort.abort()
+    await task
+  }
+})
+
+it.each(['duplicate', 'wrong time', 'contradiction', 'deadline'])(
+  'rejects %s after provisional feedback without retaining it as a completed sample',
+  async (failure) => {
+    vi.useFakeTimers()
+    const input = liveFixture(true)
+    const worker = new WorkerStub()
+    const runner = new LivePlaybackRunner(
+      () => worker as unknown as Worker,
+      undefined,
+      Date.now
+    )
+    const task = runner.open(input, 4, new AbortController().signal)
+    const rejected = expect(task).rejects.toThrow('Live check failed')
+    worker.emit({ type: LiveMessages.READY })
+    const evidence = runOfficialClearanceMethod(sampleSnapshot(input, 4))
+    const progress = {
+      type: LiveMessages.PROGRESS,
+      id: 1,
+      time: 4,
+      pairs: [evidence.pairs[0]]
+    }
+    worker.emit(progress)
+
+    if (failure === 'duplicate') worker.emit(progress)
+    if (failure === 'wrong time') worker.emit({ ...progress, time: 3 })
+    if (failure === 'contradiction') {
+      const changed = structuredClone(evidence)
+      changed.pairs[0].evidence.leaves[0].reason =
+        'Different retained observation'
+      worker.emit({
+        type: LiveMessages.RESULT,
+        id: 1,
+        time: 4,
+        evidence: changed
+      })
+    }
+    if (failure === 'deadline') await vi.advanceTimersByTimeAsync(1000)
+
+    await rejected
+    expect(runner.getRecords()).toHaveLength(0)
+    expect(runner.getState().sample).toBeNull()
+    expect(worker.terminate).toHaveBeenCalledOnce()
+    expect(vi.getTimerCount()).toBe(0)
+  }
+)
+
+it('fences provisional output after a seek while retaining the original in-flight deadline', async () => {
+  const input = liveFixture(true)
+  const worker = new WorkerStub()
+  const runner = new LivePlaybackRunner(() => worker as unknown as Worker)
+  const abort = new AbortController()
+  const task = runner.open(input, 4, abort.signal)
+  worker.emit({ type: LiveMessages.READY })
+  runner.sample(1, true)
+  const evidence = runOfficialClearanceMethod(sampleSnapshot(input, 4))
+  worker.emit({
+    type: LiveMessages.PROGRESS,
+    id: 1,
+    time: 4,
+    pairs: [evidence.pairs[0]]
+  })
+
+  expect(runner.getState().sample).toBeNull()
+  expect(runner.getRecords()).toHaveLength(0)
+  worker.emit({ type: LiveMessages.RESULT, id: 1, time: 4, evidence })
+  expect(runner.getRecords()).toHaveLength(0)
+  abort.abort()
+  await task
+})
+
+it('publishes progress before completion without recording or freeing the in-flight check', async () => {
+  const input = liveFixture(true)
+  const worker = new WorkerStub()
+  const runner = new LivePlaybackRunner(() => worker as unknown as Worker)
+  const abort = new AbortController()
+  const task = runner.open(input, 4, abort.signal)
+  // Observe rejection even when the old protocol rejects progress in this red test.
+  const settled = task.catch(() => undefined)
+  worker.emit({ type: LiveMessages.READY })
+  const evidence = runOfficialClearanceMethod(sampleSnapshot(input, 4))
+  const pair = evidence.pairs.find((pair) =>
+    pair.evidence.leaves.some((leaf) => leaf.state === 'finding')
+  )
+  if (!pair) throw new Error('Missing collision fixture')
+
+  try {
+    worker.emit({ type: 'progress', id: 1, time: 4, pairs: [pair] })
+    expect(runner.getState()).toMatchObject({
+      status: 'checking',
+      sample: { time: 4, complete: false, pairs: [pair] }
+    })
+    expect(runner.getRecords()).toHaveLength(0)
+    runner.sample(5)
+    expect(worker.postMessage).toHaveBeenCalledTimes(2)
+    worker.emit({ type: LiveMessages.RESULT, id: 1, time: 4, evidence })
+    expect(runner.getRecords()).toHaveLength(1)
+  } finally {
+    abort.abort()
+    await settled
+  }
+})
+
 it('does not repeat a geometry query for a checked sample in the same input lifetime', async () => {
   vi.useFakeTimers()
 

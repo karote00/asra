@@ -29,6 +29,13 @@ export interface MeshIndex {
   componentCount: number
 }
 
+/** Immutable preparation only; query budgets and poses never enter this cache. */
+export interface PreparedMeshIndex {
+  index: MeshIndex
+  work: number
+  hierarchy: boolean
+}
+
 export function meshPoint(mesh: MeshGeometry, index: number): Vec3 {
   return [
     mesh.positions[index * 3],

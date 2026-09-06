@@ -1,18 +1,25 @@
-import type { ExperimentSnapshot } from '../contracts'
+import {
+  EXPERIMENT_RESOURCE_PROFILE,
+  type ExperimentSnapshot
+} from '../contracts'
 import type { MethodCatalog } from '../../extensions/catalog'
-import type { MethodPairEvidence } from '../../extensions/contracts'
+import type {
+  MethodPairEvidence,
+  MethodRegistration
+} from '../../extensions/contracts'
 import { admitSnapshotExecution } from '../../extensions/execution-admission'
 import { hasExactOwnKeys } from '../../domain/records'
-import { validatePairProgress } from '../result'
 import { measureWorkerPayload } from '../worker-protocol'
 import { LIVE_LIMITS, LiveMessages, type LiveResponse } from './protocol'
 import { sampleSnapshot, validateLiveEvidence } from './sample'
+import { LivePairProgress } from './pair-progress'
 
 /** One admitted input lifetime; each sample invokes the installed static method. */
 export class LiveWorkerHost {
   private snapshot: ExperimentSnapshot | null = null
   private busy = false
   private lastId = 0
+  private execute: MethodRegistration['execute'] | null = null
 
   constructor(
     private readonly methods: MethodCatalog,
@@ -36,6 +43,12 @@ export class LiveWorkerHost {
       if (!method.descriptor.supportsStatic)
         throw new Error('Selected method does not support live static checks')
 
+      this.execute = method.createExecutor
+        ? method.createExecutor()
+        : method.execute
+      if (typeof this.execute !== 'function')
+        throw new Error('Invalid installed live executor')
+
       this.post({ type: LiveMessages.READY })
 
       return
@@ -43,6 +56,7 @@ export class LiveWorkerHost {
 
     if (
       !this.snapshot ||
+      !this.execute ||
       this.busy ||
       !hasExactOwnKeys(input, ['type', 'id', 'time']) ||
       input.type !== LiveMessages.SAMPLE ||
@@ -56,14 +70,13 @@ export class LiveWorkerHost {
     const snapshot = sampleSnapshot(this.snapshot, input.time)
     const id = input.id
     const time = input.time
-    const method = this.methods.resolve(
-      snapshot.method.id,
-      snapshot.method.version
-    )
     const deadline =
       this.now() +
       Math.min(snapshot.budget.maxDurationMs, LIVE_LIMITS.sampleDurationMs)
-    const pairs: MethodPairEvidence[] = []
+    const progress = new LivePairProgress(snapshot)
+    let pending: MethodPairEvidence[] = []
+    let lastSent = -Infinity
+    let sentCollision = false
     const abort = new AbortController()
     let settled = false
 
@@ -79,30 +92,57 @@ export class LiveWorkerHost {
     this.lastId = id
 
     try {
-      const evidence = await method.execute(snapshot, {
+      const evidence = await this.execute(snapshot, {
         signal: abort.signal,
         checkpoint,
         emitPair: (pair) => {
           checkpoint()
 
-          if (
-            pairs.length >= snapshot.pairs.length ||
-            pairs.some((item) => item.pairId === pair.pairId)
+          const admitted = progress.append(pair)
+          const finding = admitted.evidence.leaves.some(
+            (leaf) => leaf.state === 'finding'
           )
-            throw new Error('Invalid live pair delivery')
+          const collision = admitted.evidence.leaves.some(
+            (leaf) => leaf.penetration
+          )
 
-          pairs.push(validatePairProgress(snapshot, pair))
+          if (finding) pending.push(admitted)
 
-          measureWorkerPayload(pairs)
+          const now = this.now()
+          if (
+            pending.length &&
+            ((collision && !sentCollision) ||
+              now - lastSent >= EXPERIMENT_RESOURCE_PROFILE.progressIntervalMs)
+          ) {
+            const message: LiveResponse = {
+              type: LiveMessages.PROGRESS,
+              id,
+              time,
+              pairs: pending
+            }
+            measureWorkerPayload(message)
+            checkpoint()
+            this.post(message)
+            pending = []
+            lastSent = now
+            sentCollision ||= collision
+          }
         }
       })
 
       checkpoint()
-      validateLiveEvidence(snapshot, time, evidence)
+      const sample = validateLiveEvidence(snapshot, time, evidence)
+      progress.assertConsistent(sample.pairs)
       measureWorkerPayload(evidence)
+      checkpoint()
       this.post({ type: LiveMessages.RESULT, id, time, evidence })
     } catch {
-      this.post({ type: LiveMessages.ERROR, id, time, pairs })
+      this.post({
+        type: LiveMessages.ERROR,
+        id,
+        time,
+        pairs: progress.values()
+      })
     } finally {
       settled = true
       this.busy = false

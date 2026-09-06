@@ -79,6 +79,8 @@ export interface MethodContext {
 
 export interface MethodRegistration {
   descriptor: InstalledMethodDescriptor
+  /** Inert factory for bounded immutable preparation within one live Worker input lifetime. */
+  createExecutor?: () => MethodRegistration['execute']
   execute: (
     snapshot: ExperimentSnapshot,
     context: MethodContext

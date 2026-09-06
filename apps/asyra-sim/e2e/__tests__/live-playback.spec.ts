@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { observePlaybackFeedback } from '../playback-observer'
 
 test('Play detects the original-part collision without a formal run', async ({
   page
@@ -17,21 +18,22 @@ test('Play detects the original-part collision without a formal run', async ({
     label: 'Tool and table collision - r1'
   })
 
+  const collision = await observePlaybackFeedback(page, { kind: 'collision' })
+
   await page
     .getByRole('button', { name: 'Play trajectory', exact: true })
     .click()
 
   const feedback = page.getByTestId('playback-feedback')
 
-  await expect(feedback).toContainText('Collision detected', {
-    timeout: 15_000
-  })
+  const observed = await collision()
+  expect(observed.text).toContain('Collision detected')
 
   await expect(
     page.getByRole('button', { name: 'Pause trajectory', exact: true })
   ).toBeVisible()
 
-  await expect(feedback).toContainText('fixture table')
+  expect(observed.text).toContain('fixture table')
 
   await page
     .getByRole('button', { name: 'Pause trajectory', exact: true })
@@ -146,13 +148,13 @@ test('known formal witnesses need no Worker, missing poses are checked, and edit
 
   await expect(feedback).toHaveCount(0)
   await expect(page.getByTestId('live-observations')).toHaveCount(0)
+  const collision = await observePlaybackFeedback(page, { kind: 'collision' })
   await page
     .getByRole('button', { name: 'Play trajectory', exact: true })
     .click()
-  await expect(feedback).toContainText('Collision detected', {
-    timeout: 15_000
-  })
-  await expect(feedback).toContainText('Live')
+  const observed = await collision()
+  expect(observed.text).toContain('Collision detected')
+  expect(observed.text).toContain('Live')
   expect(created.length).toBeGreaterThan(0)
 
   await page.getByRole('treeitem', { name: '◇ fixture table' }).click()

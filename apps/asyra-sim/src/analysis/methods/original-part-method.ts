@@ -3,7 +3,12 @@ import {
   EXPERIMENT_RESOURCE_PROFILE,
   type ExperimentSnapshot
 } from '../contracts'
-import type { InstalledMethodDescriptor } from '../../extensions/contracts'
+import type {
+  InstalledMethodDescriptor,
+  MethodContext
+} from '../../extensions/contracts'
+import type { MeshGeometry } from '../../domain/part-geometry'
+import type { PreparedMeshIndex } from './mesh-index'
 import {
   queryContinuousPair,
   type PairQuery,
@@ -46,7 +51,7 @@ export const ORIGINAL_PART_METHOD: InstalledMethodDescriptor = {
     reproducibility:
       'Deterministic source-order geometry and median hierarchy; fixed ray directions with enclosed predicates. No random seed. Chromium arithmetic conformance required.',
     resources:
-      'At most 500000 mesh work units per run plus the global temporal/evidence/byte budgets. One owned Worker; topology and triangle traversal checkpoint cancellation and wall-time. Immutable indices expire with the run.',
+      'At most 500000 logical mesh work units per invocation plus the global temporal/evidence/byte budgets. One owned Worker; topology and triangle traversal checkpoint cancellation and wall-time. Immutable indices may be reused within its admitted live input lifetime; preparation work is charged equivalently on hits.',
     services: {
       network: false,
       additionalFiles: false,
@@ -107,9 +112,10 @@ export function queryOriginalPartPair(
 export function runOriginalPartMethod(
   snapshot: ExperimentSnapshot,
   checkpoint: () => void = () => undefined,
-  onPair: (pair: OfficialPairEvidence) => void = () => undefined
+  onPair: (pair: OfficialPairEvidence) => void = () => undefined,
+  prepared?: WeakMap<MeshGeometry, PreparedMeshIndex>
 ): OfficialMethodEvidence {
-  const context = new OriginalMeshQuery(checkpoint)
+  const context = new OriginalMeshQuery(checkpoint, undefined, true, prepared)
   return runClearanceQueries(
     snapshot,
     ORIGINAL_PART_METHOD,
@@ -118,4 +124,17 @@ export function runOriginalPartMethod(
     checkpoint,
     onPair
   )
+}
+
+/** One Worker-owned input lifetime; every invocation still owns fresh query work. */
+export function createOriginalPartExecutor() {
+  const prepared = new WeakMap<MeshGeometry, PreparedMeshIndex>()
+
+  return (snapshot: ExperimentSnapshot, context: MethodContext) =>
+    runOriginalPartMethod(
+      snapshot,
+      context.checkpoint,
+      context.emitPair,
+      prepared
+    )
 }

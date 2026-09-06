@@ -103,5 +103,16 @@ Only an immutable mesh object and its immutable positions/indices permit an
 execution-owned topology/index cache. The key is that exact frozen geometry
 object (including resolved scale and source), not an asset name or mutable body.
 Poses and interval bounds are recomputed for every query. A new source object
-misses; mutable input misses; the context and all indices expire with the run.
-No cache survives a Worker execution, edit, project replacement or run replay.
+misses; mutable input misses. One explicit method executor may retain these
+indices across static invocations for the same admitted live input lifetime;
+ordinary formal runs retain their own isolated preparation. Each invocation
+has a fresh query counter/checkpoint and charges the same logical preparation
+work even on a cache hit. Failed preparation is not retained. All indices expire
+with the owning Worker; edits, input replacement and cancellation retire that
+Worker. No cache reinterprets historical evidence.
+
+The permanent repeated-workcell profile measured 55 index builds across five
+poses: 472 ms of 517 ms total was immutable preparation on the development host.
+Cross-invocation reuse is justified by that measured cost, not a frame-rate
+promise. Exact cold/warm evidence and logical-work equivalence, immutable-key
+misses, independent budgets and cancellation are permanent regression gates.

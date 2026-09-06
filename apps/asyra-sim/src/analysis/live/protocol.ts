@@ -8,12 +8,13 @@ export const LiveMessages = {
   OPEN: 'open',
   READY: 'ready',
   SAMPLE: 'sample',
+  PROGRESS: 'progress',
   RESULT: 'result',
   ERROR: 'error'
 } as const
 
 export const LIVE_LIMITS = Object.freeze({
-  samplePeriodMs: 200,
+  samplePeriodMs: 50,
   sampleDurationMs: 500,
   startupDurationMs: 10_000,
   responseGraceMs: 250,
@@ -26,6 +27,12 @@ export type LiveRequest =
 
 export type LiveResponse =
   | { type: typeof LiveMessages.READY }
+  | {
+      type: typeof LiveMessages.PROGRESS
+      id: number
+      time: number
+      pairs: readonly MethodPairEvidence[]
+    }
   | {
       type: typeof LiveMessages.RESULT
       id: number

@@ -10,6 +10,7 @@ import { createMethodCatalog } from './catalog'
 import type { InstalledMethodDescriptor } from './contracts'
 import {
   ORIGINAL_PART_METHOD,
+  createOriginalPartExecutor,
   runOriginalPartMethod
 } from '../analysis/methods/original-part-method'
 
@@ -64,6 +65,7 @@ export const INSTALLED_METHOD_CATALOG = createMethodCatalog([
   },
   {
     descriptor: ORIGINAL_PART_METHOD,
+    createExecutor: createOriginalPartExecutor,
     execute: (snapshot, context) =>
       runOriginalPartMethod(snapshot, context.checkpoint, context.emitPair)
   }

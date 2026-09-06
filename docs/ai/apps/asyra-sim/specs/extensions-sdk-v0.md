@@ -17,6 +17,10 @@ The source contracts live in `src/extensions/contracts.ts`:
 
 - `InstalledMethodDescriptor`: identity, capabilities, manifest and parameter schema.
 - `MethodRegistration`: descriptor plus trusted `execute(snapshot, context)` implementation.
+- Optional `createExecutor()`: inert factory returning the same execute signature
+  for one live Worker input lifetime. Omit it for stateless methods. Retain only
+  bounded immutable preparation; every call uses fresh budgets/checkpoints and
+  must agree with cold execution. The Worker owns disposal, never imported data.
 - `MethodContext`: owned `signal`, cooperative `checkpoint()` and `emitPair(pair)`.
 - `MethodEvidence` / `MethodPairEvidence`: geometry evidence protocol v1.
 

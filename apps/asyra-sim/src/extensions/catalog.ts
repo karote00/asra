@@ -30,6 +30,11 @@ export function createMethodCatalog(
     validateInstalledDescriptor(input?.descriptor)
     if (typeof input.execute !== 'function')
       throw new Error('Missing trusted method implementation')
+    if (
+      input.createExecutor !== undefined &&
+      typeof input.createExecutor !== 'function'
+    )
+      throw new Error('Invalid trusted method executor factory')
     const descriptor = freeze(structuredClone(input.descriptor)),
       name = descriptor.manifest.name.trim().toLowerCase()
     if (byId.has(descriptor.id) || names.has(name))
@@ -37,7 +42,13 @@ export function createMethodCatalog(
     names.add(name)
     byId.set(
       descriptor.id,
-      Object.freeze({ descriptor, execute: input.execute })
+      Object.freeze({
+        descriptor,
+        execute: input.execute,
+        ...(input.createExecutor
+          ? { createExecutor: input.createExecutor }
+          : {})
+      })
     )
   }
   return Object.freeze({

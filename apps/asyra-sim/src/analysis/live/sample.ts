@@ -3,7 +3,10 @@ import type {
   MethodEvidence,
   MethodPairEvidence
 } from '../../extensions/contracts'
-import { completeAnalysisResult, terminalAnalysisResult } from '../result'
+import {
+  validateMethodEvidence,
+  validatePartialMethodEvidence
+} from '../result'
 import type { LiveSample } from './protocol'
 
 /** Static sampling preserves the admitted geometry and complete pair policy. */
@@ -24,23 +27,19 @@ export function sampleSnapshot(
   })
 }
 
-/** Reuse numerical evidence validation; discard report/acceptance projections. */
+/** Admit numerical evidence without constructing any report or acceptance projection. */
 export function validateLiveEvidence(
   input: ExperimentSnapshot,
   time: number,
   evidence: MethodEvidence
 ): LiveSample {
-  const result = completeAnalysisResult(sampleSnapshot(input, time), evidence, {
-    runId: 'live-sample-validation',
-    startedAt: 0,
-    endedAt: 0
-  })
+  const pairs = validateMethodEvidence(sampleSnapshot(input, time), evidence)
 
   return Object.freeze({
     time,
-    pairs: result.pairEvidence,
-    totalPairCount: result.totalPairCount,
-    complete: result.coverage === 'complete',
+    pairs,
+    totalPairCount: input.pairs.length,
+    complete: evidence.coverage === 'complete',
     error: null
   })
 }
@@ -51,18 +50,15 @@ export function incompleteLiveSample(
   pairs: readonly MethodPairEvidence[]
 ): LiveSample {
   const error = 'Live check did not complete. Unchecked pairs remain unknown.'
-  const result = terminalAnalysisResult(sampleSnapshot(input, time), pairs, {
-    runId: 'live-sample-validation',
-    startedAt: 0,
-    endedAt: 0,
-    execution: 'failed',
-    error
-  })
+  const admitted = validatePartialMethodEvidence(
+    sampleSnapshot(input, time),
+    pairs
+  )
 
   return Object.freeze({
     time,
-    pairs: result.pairEvidence,
-    totalPairCount: result.totalPairCount,
+    pairs: admitted,
+    totalPairCount: input.pairs.length,
     complete: false,
     error
   })

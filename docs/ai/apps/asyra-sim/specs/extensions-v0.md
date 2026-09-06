@@ -106,6 +106,13 @@ boundary. An installed declaration must match retained provenance under the
 same ID/version; object-key order is inert. Methods receive a frozen snapshot,
 an owned abort signal, checkpoints and a bounded pair-evidence emitter. Worker
 invocations settle once. Late emissions cannot reopen a completed invocation.
+An optional inert `createExecutor()` factory may supply a Worker-local executor
+for one admitted live input lifetime. Stateless registrations retain `execute`;
+ordinary formal runs continue to invoke that one-shot entry. A factory is trusted
+deployment code, never a project capability. It may retain bounded immutable
+method preparation only, must preserve cold/warm numerical and logical-budget
+semantics, and must use each invocation's fresh signal/checkpoints. Worker
+termination releases the lifetime; no result or pose becomes implicitly reusable.
 Method failures retain a stage label, not raw exception text; uncaught Worker
 errors are also redacted. Cooperative cancellation is not the termination
 guarantee: formal browser tests exercise a deliberately uncooperative method

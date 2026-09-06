@@ -16,6 +16,7 @@ import {
   validateLiveEvidence
 } from './sample'
 import { LiveEvidenceRecords } from './records'
+import { LivePairProgress } from './pair-progress'
 
 const createWorker = () =>
   new Worker(new URL('./playback.worker.ts', import.meta.url), {
@@ -128,6 +129,7 @@ export class LivePlaybackRunner {
     let minimumId = 0
     let pending: number | null = initialTime
     let inFlight: { id: number; time: number } | null = null
+    let progress: LivePairProgress | null = null
     let lastSent = -Infinity
     let pace: ReturnType<typeof setTimeout> | undefined
     let watchdog: ReturnType<typeof setTimeout> | undefined
@@ -204,6 +206,7 @@ export class LivePlaybackRunner {
       }
 
       inFlight = { id: ++nextId, time: pending }
+      progress = new LivePairProgress(sampleSnapshot(snapshot, pending))
       pending = null
       lastSent = this.now()
       this.publish({ ...this.state, status: 'checking', error: null })
@@ -267,7 +270,7 @@ export class LivePlaybackRunner {
           return
         }
 
-        if (!inFlight || !message || typeof message !== 'object')
+        if (!inFlight || !progress || !message || typeof message !== 'object')
           throw new Error('Unexpected live response')
 
         const response = message as LiveResponse
@@ -286,6 +289,26 @@ export class LivePlaybackRunner {
 
         let sample
 
+        if (response.type === LiveMessages.PROGRESS) {
+          if (
+            !Array.isArray(response.pairs) ||
+            !response.pairs.length ||
+            response.pairs.length > snapshot.pairs.length
+          )
+            throw new Error('Invalid live progress batch')
+
+          for (const pair of response.pairs) progress.append(pair)
+
+          if (response.id >= minimumId)
+            this.publish({
+              status: 'checking',
+              sample: progress.sample(),
+              error: null
+            })
+
+          return
+        }
+
         if (response.type === LiveMessages.RESULT)
           sample = validateLiveEvidence(
             snapshot,
@@ -296,8 +319,10 @@ export class LivePlaybackRunner {
           sample = incompleteLiveSample(snapshot, response.time, response.pairs)
         else throw new Error('Unknown live response')
 
+        progress.assertConsistent(sample.pairs)
         clearTimeout(watchdog)
         inFlight = null
+        progress = null
 
         if (response.id >= minimumId) {
           this.records.record(snapshot, sample)

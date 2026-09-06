@@ -1,59 +1,83 @@
-import { expect, it } from 'vitest'
-import { createMechanicalVisuals } from '../../../../samples/mechanical-visuals'
-import { createSyntheticExample } from '../../../../samples/synthetic-workcell'
-import { createSyntheticExperimentDraft } from '../../../../samples/synthetic-experiment'
+import { expect, it, vi } from 'vitest'
+import * as meshIndex from '../mesh-index'
 import {
-  decodeRestrictedGlb,
-  type VisualAsset
-} from '../../../engine/glb/decode'
-import { IDENTITY_POSE } from '../../../domain/math'
-import { resolvePartWorkcell } from '../../../domain/part-geometry'
-import { createExperimentSnapshot } from '../../snapshot'
-import {
-  ORIGINAL_PART_METHOD,
+  createOriginalPartExecutor,
   runOriginalPartMethod
 } from '../original-part-method'
+import { originalWorkcellSnapshot } from './workcell-fixture'
+
+it('profiles repeated original-workcell poses with preparation separate from queries', async () => {
+  const snapshot = await originalWorkcellSnapshot()
+  const build = meshIndex.buildMeshIndex
+  let preparationMs = 0
+  const index = vi
+    .spyOn(meshIndex, 'buildMeshIndex')
+    .mockImplementation((...args) => {
+      const start = performance.now()
+      try {
+        return build(...args)
+      } finally {
+        preparationMs += performance.now() - start
+      }
+    })
+  const start = performance.now()
+  try {
+    const cold = []
+    for (const time of [3.8, 3.9, 4, 4.1, 4.2]) {
+      const evidence = runOriginalPartMethod({
+        ...snapshot,
+        interval: [time, time]
+      })
+      expect(evidence.pairs).toHaveLength(snapshot.pairs.length)
+      cold.push(evidence)
+    }
+    // eslint-disable-next-line no-console -- permanent bounded performance profile
+    console.info(
+      JSON.stringify({
+        profile: 'original-workcell-cold-poses',
+        samples: 5,
+        indexBuilds: index.mock.calls.length,
+        preparationMs: Math.round(preparationMs),
+        totalMs: Math.round(performance.now() - start)
+      })
+    )
+    const coldBuilds = index.mock.calls.length
+    index.mockClear()
+    preparationMs = 0
+    const execute = createOriginalPartExecutor()
+    const durations: number[] = []
+    const warm = [3.8, 3.9, 4, 4.1, 4.2].map((time) => {
+      const poseStart = performance.now()
+      const evidence = execute(
+        { ...snapshot, interval: [time, time] },
+        {
+          signal: new AbortController().signal,
+          checkpoint: () => undefined,
+          emitPair: () => undefined
+        }
+      )
+      durations.push(performance.now() - poseStart)
+      return evidence
+    })
+    expect(warm).toEqual(cold)
+    expect(index.mock.calls.length).toBe(coldBuilds / 5)
+    // eslint-disable-next-line no-console -- permanent bounded performance profile
+    console.info(
+      JSON.stringify({
+        profile: 'original-workcell-reused-poses',
+        samples: 5,
+        indexBuilds: index.mock.calls.length,
+        preparationMs: Math.round(preparationMs),
+        poseMs: durations.map(Math.round)
+      })
+    )
+  } finally {
+    index.mockRestore()
+  }
+}, 20000)
 
 it('runs the complete ordinary six-axis original-part study without exhausting triangle work', async () => {
-  const example = createSyntheticExample(),
-    sources = new Map<string, VisualAsset>()
-  for (const part of createMechanicalVisuals()) {
-    const asset = await decodeRestrictedGlb(part.bytes)
-    sources.set(asset.source.sha256, asset)
-    const body = example.workcell.bodies.find(
-      (body) => body.id === `example:${part.body}`
-    )
-    if (!body) throw new Error('Missing mechanical body')
-    body.visuals = [
-      {
-        version: 1,
-        id: 'main-body',
-        assetId: asset.source.sha256,
-        pose: IDENTITY_POSE,
-        scale: [1, 1, 1]
-      }
-    ]
-    body.colliders = []
-  }
-  const draft = createSyntheticExperimentDraft(example)
-  const snapshot = createExperimentSnapshot({
-    snapshotId: 'full-original-study',
-    candidateId: 'candidate',
-    experimentId: 'study',
-    workcell: resolvePartWorkcell(example.workcell, sources),
-    definition: {
-      ...draft,
-      revision: 1,
-      rule: { ...draft.rule, revision: 1 },
-      method: {
-        ...draft.method,
-        id: ORIGINAL_PART_METHOD.id,
-        version: ORIGINAL_PART_METHOD.version
-      }
-    },
-    methods: [ORIGINAL_PART_METHOD],
-    acknowledgedWarningCodes: []
-  })
+  const snapshot = await originalWorkcellSnapshot()
   const start = performance.now(),
     evidence = runOriginalPartMethod(snapshot)
   const exhausted = evidence.pairs.filter((pair) =>

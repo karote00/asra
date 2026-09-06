@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { observePlaybackFeedback } from '../playback-observer'
 
 for (const formalFirst of [false, true]) {
   test(`collision feedback preserves uninterrupted playback (formal evidence: ${formalFirst})`, async ({
@@ -76,6 +77,7 @@ for (const formalFirst of [false, true]) {
 
     await time.fill('8')
     await expect(feedback).toHaveAttribute('data-pose-matches', 'true')
+    const restarted = await observePlaybackFeedback(page, { time: 0 })
     await page
       .getByRole('button', { name: 'Play trajectory', exact: true })
       .click()
@@ -83,7 +85,7 @@ for (const formalFirst of [false, true]) {
       .poll(async () => Number(await time.inputValue()))
       .toBeGreaterThan(0)
     expect(Number(await time.inputValue())).toBeLessThan(3)
-    await expect(feedback).toContainText('Checked 0.0000 s')
+    expect((await restarted()).checked).toBe(0)
     await page
       .getByRole('button', { name: 'Pause trajectory', exact: true })
       .click()

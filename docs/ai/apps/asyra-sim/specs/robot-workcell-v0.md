@@ -214,6 +214,15 @@ methods fail explicitly without substitution. Worker creation is lazy on a
 cache miss. Each sample has bounded work,
 wall time and evidence, and malformed output fails closed.
 
+Publish validated collision or clearance evidence while other pair checks are
+still running; do not wait for terminal sample storage or report construction.
+Provisional findings retain their exact sampled time and incomplete-scope label,
+are not reusable completed samples, and must agree with terminal evidence.
+The same cancellation, deadline, input-lifetime and stale-response rules apply
+to partial delivery. Complete immutable geometry preparation may be reused
+within the owning Worker; poses and numerical evidence are recomputed with
+fresh invocation budgets. No reduced geometry or real-time guarantee is implied.
+
 The viewport shows checking, established collision, clearance issue, no issue
 at the checked sample, or unresolved/error. Always identify the checked time
 and sampled scope; unchecked times are not clear. Collision feedback never

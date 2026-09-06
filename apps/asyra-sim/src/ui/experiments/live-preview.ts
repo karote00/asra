@@ -150,13 +150,20 @@ export class LivePreview {
               message: state.error ?? 'Live check unavailable'
             }
           } else if (
-            state.status === 'ready' &&
+            (state.status === 'ready' || state.status === 'checking') &&
             state.sample &&
             state.sample !== this.lastSample
           ) {
             this.lastSample = state.sample
-            this.accept(playbackFeedback(this.snapshot, state.sample))
-            return
+            const feedback = playbackFeedback(this.snapshot, state.sample)
+
+            if (state.status === 'ready') {
+              this.accept(feedback)
+              return
+            }
+
+            // Show admitted findings now; only terminal evidence advances sampling.
+            this.feedback = feedback
           }
 
           this.project()

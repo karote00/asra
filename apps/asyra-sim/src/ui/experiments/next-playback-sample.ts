@@ -27,9 +27,10 @@ export function nextPlaybackSample(
 
   if (displayedTime === interval[1]) return displayedTime
 
-  const step = LIVE_LIMITS.samplePeriodMs / 1000
+  const step = LIVE_LIMITS.samplePeriodMs
   const gridTime =
-    interval[0] + Math.floor((displayedTime - interval[0]) / step) * step
+    interval[0] +
+    (Math.floor(((displayedTime - interval[0]) * 1000) / step) * step) / 1000
 
-  return Math.max(checkedTime, gridTime)
+  return Math.max(checkedTime, Math.min(displayedTime, gridTime))
 }

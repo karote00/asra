@@ -10642,6 +10642,7 @@
               "Freeze detached complete inputs and source identities.",
               "Resolved original parts enter version 2 snapshots with complete triangles and closed-component admission. Version 1 history cannot carry or acquire mesh evidence; source placement must match every bound part.",
               "Admit only immutable pre-start catalogs with unique method IDs and names, compatible contracts, bounded settings schemas, provenance and explicit trust/resource declarations.",
+              "Retain optional trusted inert executor factories without invoking them during catalog admission. Only the live Worker may create its input-lifetime executor; stateless registrations and formal one-shot execution remain supported.",
               "Validate installed method parameters before execution and freeze its declaration with new snapshots; historical declarations grant no executable capability and missing modules never trigger installation or substitution.",
               "Validate optional bounded typed acceptance trees as inert geometry-protocol data; freeze them with the rule without evaluating evidence or changing legacy snapshots.",
               "Reject unsupported data before allocating a worker; separate resource warnings from validity.",
@@ -10716,7 +10717,7 @@
               "silent method fallback"
             ],
             "cacheDimensions": [
-              "one execution lifetime and exact immutable resolved mesh geometry; poses and temporal bounds are not retained"
+              "one formal execution or live Worker input lifetime and exact immutable resolved mesh geometry/hierarchy mode; each invocation charges equivalent preparation work with fresh checkpoints, and poses and temporal bounds are not retained"
             ],
             "implementationBoundary": [
               "apps/asyra-sim/src/analysis/methods/**",
@@ -10802,7 +10803,9 @@
             "conditions": [
               "Own one cancellable non-mutating Feature task and at most one Worker for detached playback inputs. Admit the snapshot once at each trust boundary and require the exact installed method static capability. Create the Worker lazily only for missing sample evidence.",
               "Send full inputs once per lifetime, then sampled times only. Bound concurrency to one in-flight request and one latest pending time; deadline, byte, work and evidence limits remain enforced.",
+              "Create an optional installed executor once for the admitted Worker input, otherwise invoke the exact stateless entry. Admit requests at most every 50 ms; slow work coalesces pending times without growing a queue or changing the animation clock.",
               "Validate each returned static sample against its snapshot, request identity, exact time and pair evidence. Unvisited pairs and failed or incomplete samples remain unknown; never create a formal run, verdict, report or history entry.",
+              "Publish the first validated finding and first penetration immediately, batching later findings at the bounded progress cadence. Validate progress at both trust boundaries with incremental global limits and require terminal consistency. Provisional evidence neither releases in-flight ownership nor resets its watchdog nor enters reusable records. Evidence admission does not assemble a formal report.",
               "Seeking invalidates older requests. Cancellation, replacement, visibility suspension and runtime cleanup terminate owned work and reject late delivery. A slow sample never becomes evidence for a newer displayed pose."
             ],
             "bypasses": [
@@ -10919,6 +10922,7 @@
             "conditions": [
               "Dispatch intent through Features; UI is never canonical model or solver authority.",
               "Forward live sampling protects crossed canonical trajectory keyframes until checked, then coalesces optional intermediate times toward the current playhead. Keep only the latest playhead and accepted sample progress, never a queue of display frames. A seek resets the sampling anchor. Narrow viewport feedback is compact until the user expands Details.",
+              "Project validated provisional collision feedback immediately while the live owner is still checking other pairs. Do not advance completed-sample progress, infer full scope, or wait for sample recording; terminal evidence alone advances the protected sampling anchor.",
               "One playback controller reuses compatible exact formal witnesses and all-pair clear certificates without a Worker, requesting missing poses from the live owner even before later witnesses. Finding intervals are not continuous contact and witnesses are not first-contact times. Collision feedback never pauses or seeks the clock. Explicit Pause freezes the current frame and requests its exact pose. Keep latest checked parts highlighted during forward motion until newer feedback supersedes them, identifying checked time and earlier-pose evidence without claiming exact current contact. Never apply future evidence to an earlier playhead; seeking clears prior feedback. Present scope and unknown/error states and matching sampled observations. Cancel stale work on seek, edits, replacement, hidden page, formal analysis or leaving playback. Preserve fixed panels, property-level subscriptions and unchanged history/report data.",
               "Keep camera state in the viewport subtree. Read-only workbench projection refreshes on canonical revision, selected candidate or runtime identity; local panels and playback never reread unchanged canonical model or retained runs. The retained projection has one current entry, preserves error output, and owns no editable state.",
               "Experiment metadata queries share the runtime, canonical revision and candidate invalidation boundary; draft-only edits do not recapture canonical experiments. Stable controller/provider composition and property-level subscriptions own UI update boundaries, never component memo wrappers or props comparators. Hierarchy and scope rows subscribe to their displayed scalar fields; numerical draft edits do not notify scope rows, and scope callbacks preserve the latest other draft fields. Mount, joint and original-placement controls subscribe to every consumed property value and unit, while section callbacks merge into the latest committed body. Current read-only projection subscriptions never scan or retain source triangles, bypass canonical reads on revision, or own editable model state.",
