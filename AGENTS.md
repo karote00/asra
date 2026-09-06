@@ -29,6 +29,13 @@ These rules apply to every task without requiring additional document reads:
   up front; reuse optimization concepts, not another app's entire architecture.
   Use fine-grained subscriptions and composition for UI updates, not
   `React.memo` or props-comparison wrappers.
+- For framework, app, or tool work involving recurring execution or shared
+  derived data, read
+  `docs/ai/framework/rules/computation-ownership-and-reuse.md` before the first
+  relevant implementation slice. Trace actual work through callers and helpers,
+  establish its owner and valid lifetime, and prove work counts plus correctness
+  and invalidation in permanent tests. Reusing a function does not prove reuse
+  of its computed output; output-only tests cannot close a repeated-work bug.
 - Before introducing or renaming identifiers, resolve their semantic owner,
   brand-neutral naming, and persistence compatibility. Run `yarn lint:naming`
   before implementation and after the first identifier-bearing slice, before

@@ -88,16 +88,20 @@ subscription boundary, not just the component tree.
 
 ## 4. Optimize Measured Work Without Weakening Correctness
 
+[Computation Ownership and Data Reuse](computation-ownership-and-reuse.md)
+owns the project-wide work-lifetime contract: trace actual caller work before
+implementation, consume valid completed artifacts, justify retained data, and
+test work counts together with correctness and invalidation. Apply it to the
+affected app path, not only to its React components.
+
 - Measure the affected normal product path before choosing an optimization.
   Use render/read/allocation counts for deterministic work boundaries and
   profiling for time or memory costs. UI component memoization is not an
   architectural optimization path under this rule.
 - Fix broad subscriptions, redundant reads, repeated scans, and unstable inputs
   at their first responsible owner before adding retained state around them.
-- Algorithmic caches and derived-data caches are distinct from component
-  memoization. For such a cache, identify its owner, retained value, exact
-  key, invalidation, bounds, disposal, and uncached/miss behavior. Cover all
-  semantic inputs, including units and error states where applicable.
+- Algorithmic and derived-data caches are distinct from component memoization;
+  they follow the shared rule's profiling, validity, and lifetime requirements.
 - Projection equality must follow its semantic change contract. Do not relocate
   a large props comparator into a subscription helper, or deep-compare/serialize
   an entire document or mesh on every interaction merely to skip a render.
@@ -139,6 +143,10 @@ subscription boundary, not just the component tree.
 - Test the relevant subscription notifications, reads, and computations as well
   as rendering. A passing render count must not merely show that a memo wrapper
   hid an unchanged broad notification or document-recapture problem.
+- For recurring computation and shared results, satisfy the
+  [work-and-correctness gate](computation-ownership-and-reuse.md#4-prove-work-and-correctness-together),
+  including the normal caller's construction lifetime when helper tests alone
+  could conceal repeated preparation.
 - Verify the affected lifecycle cases: invalid input, sequential edits,
   Undo/Redo, cancellation, and document/runtime replacement as applicable.
 - Exercise representative workloads, not just an empty screen. Keep heavy tests

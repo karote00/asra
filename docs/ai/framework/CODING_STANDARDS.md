@@ -105,6 +105,14 @@
   own Provider/wire/policy contracts. If their runtime participates in Core
   startup, register a neutral lifecycle with Core rather than bypassing it.
 
+## Computation Ownership and Data Reuse
+
+[Computation Ownership and Data Reuse](rules/computation-ownership-and-reuse.md)
+applies across framework, apps, and tools. It owns recurring-work analysis,
+producer/consumer lifetimes, valid artifact reuse, evidence-driven caches, and
+permanent work-count/equivalence tests. Function reuse and correct output alone
+do not prove that underlying work is reused.
+
 ## App Structure, Styling, and Optimization
 
 All apps follow
@@ -116,7 +124,7 @@ concepts; their complete architecture is not a required template.
 UI update isolation belongs to state ownership, fine-grained subscriptions,
 and composition, not `React.memo` or equivalent props-comparison wrappers.
 Independent computation caches follow the separate evidence and lifecycle
-requirements in that rule.
+requirements in the shared computation rule above.
 
 ## Test Placement Standards
 

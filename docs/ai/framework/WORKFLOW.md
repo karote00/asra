@@ -82,11 +82,17 @@ Actions:
 - define extension surface changes (register APIs, schemas, hooks, adapters)
 - define deprecation impact if replacing old behavior
 - for new feature contracts, run `golden-paths/feature-acceptance-checklist.md`
+- for recurring execution or shared derived data, follow
+  `rules/computation-ownership-and-reuse.md`: trace actual caller work and define
+  its producer, semantic dependencies, valid lifetime, consumers, and expected
+  work counts before wiring the first relevant implementation slice
 
 Checklist:
 
 - [ ] single runtime owner for decision/session flow is preserved
 - [ ] state change path is deterministic
+- [ ] affected recurring work has explicit recomputation/reuse boundaries and
+      permanent tests planned for those boundaries, not only output correctness
 - [ ] no Pixi dependency leaks outside `@asyra/render-engine-pixi`
 - [ ] render orchestration and concrete engines depend only on
       `@asyra/render-engine`, never on one another
@@ -141,6 +147,10 @@ Quality gates:
 - [ ] bug fixes include a formal regression test/oracle that would fail on the old behavior
 - [ ] builds pass for affected packages
 - [ ] tests pass for affected packages
+- [ ] affected recurring-work and data-reuse paths pass the work-count,
+      equivalence, and invalidation gates in
+      `rules/computation-ownership-and-reuse.md`, including caller-lifetime
+      coverage where a helper-only test could miss repetition
 - [ ] lint passes (if cross-cutting)
 - [ ] no known regression left undocumented
 - [ ] visual/product fixes are validated through the normal pipeline, not through patch output
