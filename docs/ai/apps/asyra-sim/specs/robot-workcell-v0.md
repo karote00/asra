@@ -221,12 +221,15 @@ results.
 
 ## 9. Comparable and Traceable Experiments
 
-A newly initialized example provides five independent starter experiments:
+A newly initialized example provides six independent starter experiments:
 base-yaw clearance, shoulder reach, elbow folding, wrist orientation, and a
-local tool/table sweep. They use complete original parts and the ordinary
-preflight, playback and analysis paths. Their names describe intent, not an
-expected verdict. The local study explicitly acknowledges omitted visible
-bodies. Loading a saved project preserves its own experiments without adding
+local tool/table sweep plus a deliberate tool/table collision. They use complete
+original parts and the ordinary preflight, playback and analysis paths.
+Their names describe intent, not a
+hardcoded verdict. The collision example demonstrates an established penetration
+finding between clear endpoint poses and replay through frozen evidence. Both
+local studies explicitly acknowledge omitted visible bodies. Loading a saved
+project preserves its own experiments without adding
 or replacing starter data. See the
 [sample catalog](../../../../../apps/asyra-sim/samples/README.md).
 

@@ -363,7 +363,7 @@
         byId('title').textContent = data.target.title
         byId('subtitle').textContent = data.target.subtitle
         byId('target-kind').textContent =
-          `${data.target.kind} · schema ${data.schema.version} · ${data.steps.length} owner steps`
+          `${data.target.kind} - schema ${data.schema.version} - ${data.steps.length} owner steps`
         byId('links').innerHTML = data.links
           .map(
             (link) =>
@@ -385,7 +385,7 @@
         const cacheEvidence = (item) => {
           if (!item.cacheEvidence) return ''
           return section(
-            `Cache evidence · ${item.cacheDimensions.join(', ')}`,
+            `Cache evidence - ${item.cacheDimensions.join(', ')}`,
             [
               `Measured: ${item.cacheEvidence.measuredPhase}`,
               item.cacheEvidence.baseline,
@@ -403,7 +403,7 @@
           <details class="step" data-search="${escapeHtml(JSON.stringify(item).toLowerCase())}">
             <summary>
               <span class="step-title">${escapeHtml(item.title)}</span>
-              <span class="owner">${escapeHtml(item.ownerPackage)} · ${escapeHtml(item.id)}</span>
+              <span class="owner">${escapeHtml(item.ownerPackage)} - ${escapeHtml(item.id)}</span>
             </summary>
             <div class="step-body">
               <p>${escapeHtml(item.purpose)}</p>

@@ -182,14 +182,14 @@ export function exportRunHtml(input: RunRecord): string {
       )
     })
     .join('')
-  return bounded(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(run.name)} · Asyra Sim</title>
+  return bounded(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(run.name)} - Asyra Sim</title>
 <style>body{font:14px/1.6 system-ui,sans-serif;color:#213442;max-width:1200px;margin:40px auto;padding:0 24px}h1{font-size:28px}table{border-collapse:collapse;width:100%;margin:20px 0}th,td{border:1px solid #cbd8df;padding:9px;text-align:left;overflow-wrap:anywhere}th{background:#edf4f4}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f8f9;padding:16px}.notice{background:#fff5df;padding:16px}summary{cursor:pointer;font-weight:bold}</style></head><body>
-<h1>${escapeHtml(run.name)}</h1><p>Asyra Sim ${escapeHtml(run.environment.appVersion)} · retained ${escapeHtml(run.retainedAt)}</p>
+<h1>${escapeHtml(run.name)}</h1><p>Asyra Sim ${escapeHtml(run.environment.appVersion)} - retained ${escapeHtml(run.retainedAt)}</p>
 <p class="notice">This report describes a modeled experiment. Unresolved means unknown. A completed run does not establish real-world safety. Analysis runtime is not robot cycle time.</p>
 <table><thead><tr><th>Execution</th><th>Coverage</th><th>Verdict</th><th>Summary</th></tr></thead><tbody>${row([result.execution, result.coverage, result.verdict, result.summary])}</tbody></table>
-<p>Run ${escapeHtml(result.runId)} · snapshot ${escapeHtml(snapshot.snapshotId)} · experiment revision ${snapshot.source.experimentRevision}</p>
-<p>Method ${escapeHtml(result.method.id)}@${escapeHtml(result.method.version)} · rule revision ${result.rule.revision} · minimum clearance ${result.rule.minimumClearance} m</p>
-<p>Pairs with evidence ${result.coveredPairCount}/${result.totalPairCount} · findings ${result.findingPairCount} · unresolved or absent ${result.unresolvedPairCount + result.totalPairCount - result.coveredPairCount}</p>
+<p>Run ${escapeHtml(result.runId)} - snapshot ${escapeHtml(snapshot.snapshotId)} - experiment revision ${snapshot.source.experimentRevision}</p>
+<p>Method ${escapeHtml(result.method.id)}@${escapeHtml(result.method.version)} - rule revision ${result.rule.revision} - minimum clearance ${result.rule.minimumClearance} m</p>
+<p>Pairs with evidence ${result.coveredPairCount}/${result.totalPairCount} - findings ${result.findingPairCount} - unresolved or absent ${result.unresolvedPairCount + result.totalPairCount - result.coveredPairCount}</p>
 ${result.decision ? `<details open><summary>User acceptance evaluation</summary><p>The verdict does not erase method findings or establish real-world safety. Incomplete execution or coverage prevents acceptance.</p><pre>${escapeHtml(JSON.stringify({ acceptance: snapshot.rule.acceptance, evaluation: result.decision }, null, 2))}</pre></details>` : ''}
 <p>${escapeHtml(snapshot.scope.backgroundNote)}</p><p>${escapeHtml(result.errors.join('; '))}</p>
 <table><thead><tr><th>Pair</th><th>Interval (s)</th><th>Lower (m)</th><th>Upper (m)</th><th>Evidence</th><th>Reason</th></tr></thead><tbody>${pairRows}</tbody></table>

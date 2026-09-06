@@ -170,8 +170,8 @@ export function AnalysisResultView({
         regions remain unresolved. Analysis runtime is not robot cycle time.
       </p>
       <p className="method-line">
-        {result.method.id}@{result.method.version} · experiment r
-        {result.source.experimentRevision} · rule r{result.rule.revision}
+        {result.method.id}@{result.method.version} - experiment r
+        {result.source.experimentRevision} - rule r{result.rule.revision}
       </p>
       <MethodDetails descriptor={snapshot.methodDescriptor} historical />
       {result.decision && <RuleEvaluationView value={result.decision} />}
@@ -181,7 +181,7 @@ export function AnalysisResultView({
         </summary>
         <p className="hint">{snapshot.scope.backgroundNote}</p>
         <p className="hint">
-          {snapshot.scope.excludedPairs.length} excluded body pairs ·{' '}
+          {snapshot.scope.excludedPairs.length} excluded body pairs -{' '}
           {snapshot.scope.acknowledgedExcludedVisibleBodyIds.length}{' '}
           acknowledged background bodies
         </p>
@@ -227,7 +227,7 @@ export function AnalysisResultView({
               Previous pairs
             </button>
             <span>
-              Pair page {currentPage + 1}/{pageCount} · all records retained
+              Pair page {currentPage + 1}/{pageCount} - all records retained
             </span>
             <button
               disabled={currentPage + 1 === pageCount}
@@ -287,15 +287,15 @@ function PairEvidenceView({
       onToggle={(event) => setExpanded(event.currentTarget.open)}
     >
       <summary>
-        {bodyA.name} / {bodyB.name}
+        {bodyA.name} - {bodyB.name}
         <span>{pair.evidence.coverage}</span>
       </summary>
       <p className="method-line">
         {source.a.bodyId} / {source.b.bodyId}
       </p>
       <p className="hint">
-        Lower {distance(pair.evidence.lower)} · upper{' '}
-        {distance(pair.evidence.upper)} · {leaves.length} intervals
+        Lower {distance(pair.evidence.lower)} - upper{' '}
+        {distance(pair.evidence.upper)} - {leaves.length} intervals
       </p>
       <button
         onClick={() =>
@@ -309,7 +309,7 @@ function PairEvidenceView({
           {leaves.slice(page * 20, (page + 1) * 20).map((interval, index) => (
             <div className="interval-evidence" key={page * 20 + index}>
               <strong>
-                {interval.state} · {interval.start.toFixed(6)}–
+                {interval.state} - {interval.start.toFixed(6)}–
                 {interval.end.toFixed(6)} s
               </strong>
               <span>

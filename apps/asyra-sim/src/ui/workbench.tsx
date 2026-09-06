@@ -217,7 +217,7 @@ export function Workbench() {
       await runtime.features.edit.upsert(candidateId, body)
       assertCurrent()
       setSelectedId(body.id)
-    }, 'Fixture added · one Undo action')
+    }, 'Fixture added - one Undo action')
   }
   let runtimeStatus = status
   if (lifecycle.status === 'failed') runtimeStatus = 'Runtime unavailable'
@@ -361,7 +361,7 @@ export function Workbench() {
         >
           <summary>
             {loadIssues.length} load review requirement
-            {loadIssues.length === 1 ? '' : 's'} · source diagnostics retained
+            {loadIssues.length === 1 ? '' : 's'} - source diagnostics retained
           </summary>
           <p>
             Recovered fields are not proof of the original input. Formal
@@ -464,7 +464,7 @@ export function Workbench() {
                   setCandidateId(id)
                   setSelectedId(null)
                   setPlayback(null)
-                }, 'Candidate duplicated · one Undo action')
+                }, 'Candidate duplicated - one Undo action')
               }}
             >
               Duplicate candidate
@@ -533,10 +533,10 @@ export function Workbench() {
             isCurrent={isCurrent}
           />
           <div className="viewport-summary">
-            {visualPreview && <strong>Visual preview · not accepted</strong>}
+            {visualPreview && <strong>Visual preview - not accepted</strong>}
             <span>
               {playback
-                ? `${playback.historical ? 'Historical run replay' : 'Sampled preview'} · ${playback.time.toFixed(4)} s`
+                ? `${playback.historical ? 'Historical run replay' : 'Sampled preview'} - ${playback.time.toFixed(4)} s`
                 : (selected?.name ?? 'Select an object to inspect')}
             </span>
             <span>
@@ -545,7 +545,7 @@ export function Workbench() {
                   sum + (body.visuals?.length || body.colliders.length),
                 0
               ) ?? 0}{' '}
-              analysis parts · meters
+              analysis parts - meters
             </span>
           </div>
         </section>
@@ -664,7 +664,7 @@ export function Workbench() {
             await runtime.features.storage.retain(run)
             if (isCurrent(runtime))
               setStatus(
-                'Result retained · save the project for durable storage'
+                'Result retained - save the project for durable storage'
               )
           }}
           onReplay={(snapshot, time, bodyIds) => {

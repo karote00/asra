@@ -25,7 +25,7 @@ function EvaluationNode({
   return (
     <div className="evaluation-node">
       <p>
-        Condition {path} · {value.value}
+        Condition {path} - {value.value}
       </p>
       <p className="hint">{value.reason}</p>
       {value.children?.map((child, index) => (

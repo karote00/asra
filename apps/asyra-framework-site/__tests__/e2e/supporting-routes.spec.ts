@@ -346,7 +346,7 @@ test('the Documentation Overview alone presents a compact docs-native technical 
       .toEqual(['Render', 'UI', 'Search', 'AI context', 'Save', 'Integrations'])
     await expect(
       section.locator('.framework-technical__steps li').filter({
-        hasText: 'SafetyValidate / Resolve'
+        hasText: 'SafetyValidate - Resolve'
       })
     ).toHaveCount(1)
 
@@ -965,7 +965,7 @@ test('releases presents user-facing package and support facts at every width', a
     await page.goto('/releases')
 
     await expect(
-      page.getByText('Releases / Framework milestones', { exact: true })
+      page.getByText('Releases - Framework milestones', { exact: true })
     ).toBeVisible()
     const evidence = page.locator('.evidence-strip > div')
     await expect(evidence).toHaveCount(4)

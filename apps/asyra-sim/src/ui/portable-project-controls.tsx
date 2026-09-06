@@ -124,8 +124,8 @@ export function PortableProjectControls({
         <div className="accepted-preview" data-testid="project-import-preview">
           <strong>{preview.name}</strong>
           <span>
-            {preview.bytes.toLocaleString()} bytes · {preview.runs} retained
-            runs · {preview.issues} load review requirements
+            {preview.bytes.toLocaleString()} bytes - {preview.runs} retained
+            runs - {preview.issues} load review requirements
           </span>
           <span>
             Historical evidence can be read without its method installed. Reruns

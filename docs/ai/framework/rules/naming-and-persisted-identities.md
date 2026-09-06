@@ -31,6 +31,18 @@ that decision before propagating the name into other owners.
 
 ## Naming Contract
 
+- Composite project-authored display names and appended metadata use ` - `
+  (spaces around an ASCII hyphen) as their only separator. This applies across
+  apps, packages, tools, sample names, titles, option labels, method versions,
+  candidate/run names, pair labels, exports, and generated viewers. Do not use
+  a middle dot, slash, pipe, en dash or em dash to join name parts. Rendered
+  status/metadata separators follow the same convention for consistency.
+- This is an authoring/presentation rule, not a data migration: preserve exact
+  user-entered names, persisted identities and immutable historical evidence.
+  Do not replace characters in incoming or saved names. Actual paths, package
+  coordinates, arithmetic, alternative shortcuts and standalone logo artwork
+  are not name concatenation. Change generator sources before regenerating
+  their owned output.
 - Internal variables, types, classes, events, capabilities, component/property
   types, DOM hooks, storage defaults, and tool identifiers use semantic,
   brand-neutral names. Product branding is not a default code namespace.
@@ -54,8 +66,12 @@ slice, before adding downstream producers or consumers. Run it again at the
 completed owner/stage boundary and before committing. PR creation, push, CI, and
 release are later backstops, never the first naming review.
 
-The command invokes the existing formal brand-neutral identifier gate. Passing
-it does not replace the semantic ownership and persistence review above. Run
+The command invokes the formal brand-neutral identifier and display-separator
+gates. The display gate scans maintained runtime/render sources, including
+generated viewers and templates, for literal or encoded middle-dot separators
+and alternate separators inside named display literals. Focused UI/report tests
+cover name composition and retained-data preservation. Passing these gates
+does not replace the semantic ownership and persistence review above. Run
 the affected registration, serialization, import, replay, and ordinary app tests
 as required by the changed contract.
 

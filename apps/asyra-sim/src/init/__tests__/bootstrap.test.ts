@@ -75,8 +75,8 @@ it('composes the normal workcell runtime and cleans up surface subscriptions and
     model.bodies.filter((body) => body.joint.kind === 'revolute')
   ).toHaveLength(6)
   const experiments = runtime.getExperiments(candidate.id)
-  expect(experiments).toHaveLength(5)
-  expect(new Set(experiments.map((item) => item.id)).size).toBe(5)
+  expect(experiments).toHaveLength(6)
+  expect(new Set(experiments.map((item) => item.id)).size).toBe(6)
   for (const item of experiments) {
     expect(runtime.preflightExperiment(item.id).blockers).toEqual([])
     const snapshot = runtime.createExperimentSnapshot(item.id, [])

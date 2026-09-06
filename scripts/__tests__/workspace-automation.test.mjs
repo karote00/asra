@@ -26,11 +26,16 @@ test('the local naming command runs the same formal gate retained in CI', () => 
   const scripts = readJSON('package.json').scripts
   assert.equal(
     scripts['lint:naming'],
-    'node --test scripts/__tests__/brand-neutral-code.test.mjs'
+    'node --test scripts/__tests__/brand-neutral-code.test.mjs scripts/__tests__/display-name-separators.test.mjs'
   )
   assert.ok(
     scripts['test:scripts'].includes(
       'scripts/__tests__/brand-neutral-code.test.mjs'
+    )
+  )
+  assert.ok(
+    scripts['test:scripts'].includes(
+      'scripts/__tests__/display-name-separators.test.mjs'
     )
   )
 })

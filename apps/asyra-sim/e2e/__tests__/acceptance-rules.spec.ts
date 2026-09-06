@@ -97,7 +97,7 @@ test('ordinary nested acceptance editing preserves findings, versions, compariso
   await expect(result).toContainText('Issue found')
   await expect(result.getByLabel('User verdict')).toHaveText('User: meets')
   await expect(result.locator('.rule-evaluation')).toContainText(
-    'Condition 1.2.2 · false'
+    'Condition 1.2.2 - false'
   )
   await page.getByRole('button', { name: 'Retain result', exact: true }).click()
 
@@ -192,7 +192,7 @@ test('ordinary nested acceptance editing preserves findings, versions, compariso
     report.run
   )
   await expect(library.locator('.rule-evaluation')).toContainText(
-    'Condition 1 · false'
+    'Condition 1 - false'
   )
   await info.attach('visual-review-metadata', {
     contentType: 'application/json',

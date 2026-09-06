@@ -15,7 +15,7 @@ async function save(page: Page, name: string, copy = false) {
     })
     .click()
   await expect(page.getByTestId('persistence-status')).toHaveText(
-    `Saved locally · ${name}`
+    `Saved locally - ${name}`
   )
   await page
     .getByRole('button', { name: 'Close projects', exact: true })
@@ -129,7 +129,7 @@ test('local project A/B/A replacement resets history and view without duplicatin
   await page.getByLabel('Grid', { exact: true }).uncheck()
   await open(page, 'Project A')
   await expect(page.getByTestId('persistence-status')).toHaveText(
-    'Saved locally · Project A'
+    'Saved locally - Project A'
   )
   await expect(page.getByLabel('Grid', { exact: true })).toBeChecked()
   expect((await canvas.screenshot()).equals(initialView)).toBe(true)
@@ -143,13 +143,13 @@ test('local project A/B/A replacement resets history and view without duplicatin
   await expect(page.getByRole('treeitem')).toHaveCount(11)
   await open(page, 'Project B')
   await expect(page.getByTestId('persistence-status')).toHaveText(
-    'Saved locally · Project B'
+    'Saved locally - Project B'
   )
   await page.getByRole('treeitem', { name: '◇ B fixture', exact: true }).click()
   await expect(page.getByLabel('Object name')).toHaveValue('B fixture')
   await open(page, 'Project A')
   await expect(page.getByTestId('persistence-status')).toHaveText(
-    'Saved locally · Project A'
+    'Saved locally - Project A'
   )
   await page
     .getByRole('treeitem', { name: '◇ fixture post', exact: true })
@@ -380,7 +380,7 @@ test('a blank workcell survives an App reload and explicit reopen without an ext
   await expect(page.getByRole('treeitem')).toHaveCount(11)
   await open(page, 'Blank workcell')
   await expect(page.getByTestId('persistence-status')).toHaveText(
-    'Saved locally · Blank workcell'
+    'Saved locally - Blank workcell'
   )
   await expect(page.getByRole('treeitem')).toHaveCount(2)
   await expect(page.getByLabel('Candidate').locator('option')).toHaveCount(1)

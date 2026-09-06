@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/releases' },
   description:
     'Review important Asyra Framework milestones, current package versions, supported environments, migration, and release boundaries.',
-  title: 'Releases and support | Asyra Framework'
+  title: 'Releases and support - Asyra Framework'
 }
 
 const loadContent = async (): Promise<VerifiedPublicContent> =>
@@ -30,7 +30,7 @@ export default async function ReleasesPage() {
   return (
     <SiteFrame>
       <FoundationPageHero>
-        <p className="support-label">Releases / Framework milestones</p>
+        <p className="support-label">Releases - Framework milestones</p>
         <h1>Know exactly what your product composes.</h1>
         <p>
           Follow important Framework milestones, then inspect the current

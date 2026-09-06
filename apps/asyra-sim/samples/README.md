@@ -32,7 +32,7 @@ or renamed automatically. Only a newly initialized example receives version 2.
 
 ## Starter experiments
 
-A fresh workcell contains five independently editable eight-second studies:
+A fresh workcell contains six independently editable eight-second studies:
 
 | Study | Motion and analysis scope |
 | --- | --- |
@@ -41,13 +41,30 @@ A fresh workcell contains five independently editable eight-second studies:
 | Elbow folding study | J3 folding/extension with all other joints fixed. |
 | Wrist orientation study | J4/J5/J6 orientation changes with the first three axes fixed. |
 | Tool and table sweep | Combined J1/J2/J3 motion; gripper and workpiece against the table only. |
+| Tool and table collision | Deliberate descent into the table at 4 s and return; the same local tool/table scope. |
 
 The first four retain the full workcell scope and the existing explicit mounting
-exclusions. The local table study acknowledges every omitted visible body and
-retains only its selected mounting exclusion. It cannot establish clearance for
+exclusions. Both local table studies acknowledge every omitted visible body and
+retain only their selected mounting exclusion. They cannot establish clearance for
 the omitted robot links or post. All trajectories contain every actuated joint
 in radians and use ordinary piecewise-linear interpolation. The normal App
 selects the original-part method for every study, with the existing 20 mm
 clearance threshold and bounded resource defaults. Names describe test intent,
-not predicted collision, safety, or controller feasibility. Studies share the
+not hardcoded verdicts, safety, or controller feasibility. Studies share the
 same complete source geometry, not mutable experiment inputs or historical runs.
+
+### Viewing a collision
+
+Select **Tool and table collision**, run **Run preflight**, then **Run formal
+analysis**. With the unchanged example inputs, original-part analysis establishes
+penetration for both the gripper/table and workpiece/table pairs at 4 s; both
+trajectory endpoints are clear. The result shows **Issue found**, **does not
+meet**, execution **completed**, and two finding pairs with no unresolved pairs.
+This is a successful analysis of a failing geometric experiment, not an execution
+failure or a real-world safety certification.
+
+Expand **gripper - fixture table** in **Pair evidence and replay**, then choose
+**Replay pair** to display the retained collision witness at 4 s and highlight
+those bodies. The method does not enumerate every contact or certify the first
+contact time. Edited geometry, trajectories, rules or scope must be analyzed
+again; the sample name never forces a result.

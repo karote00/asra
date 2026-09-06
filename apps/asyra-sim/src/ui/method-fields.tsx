@@ -63,7 +63,7 @@ export function MethodFields({
               key={`${item.id}@${item.version}`}
               value={`${item.id}@${item.version}`}
             >
-              {item.manifest?.name ?? item.id} · {item.version}
+              {item.manifest?.name ?? item.id} - {item.version}
             </option>
           ))}
         </select>

@@ -24,12 +24,12 @@ export function MethodDetails({
       </summary>
       <p className="hint">{manifest.name}</p>
       <p className="hint">
-        Origin: {manifest.origin} · Declared validation:{' '}
+        Origin: {manifest.origin} - Declared validation:{' '}
         {manifest.validation.status}
       </p>
       <p className="hint">
-        Static: {descriptor.supportsStatic ? 'supported' : 'unsupported'} ·
-        Motion: {descriptor.supportsMotion ? 'supported' : 'unsupported'} ·
+        Static: {descriptor.supportsStatic ? 'supported' : 'unsupported'} -
+        Motion: {descriptor.supportsMotion ? 'supported' : 'unsupported'} -
         Shapes: {descriptor.geometryKinds.join(', ')}
       </p>
       <p className="hint">{manifest.purpose}</p>
@@ -40,11 +40,11 @@ export function MethodDetails({
       <p className="hint">{manifest.resources}</p>
       <p className="hint">{manifest.validation.evidence}</p>
       <p className="hint">
-        Author: {manifest.author} · License: {manifest.license}
+        Author: {manifest.author} - License: {manifest.license}
       </p>
       <p className="asset-digest">Source: {manifest.source}</p>
       <p className="hint">
-        Units: {manifest.units} · Coordinates: {manifest.coordinates}
+        Units: {manifest.units} - Coordinates: {manifest.coordinates}
       </p>
       <p className="hint">
         Declared services — network: {String(manifest.services.network)};

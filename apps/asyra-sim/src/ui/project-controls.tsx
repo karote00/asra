@@ -79,9 +79,9 @@ export function ProjectControls({
   else if (state.busy === 'export') caption = 'Preparing export…'
   else if (state.status === 'saving') caption = 'Saving…'
   else if (state.status === 'saved')
-    caption = `Saved locally · ${state.project?.name}`
+    caption = `Saved locally - ${state.project?.name}`
   else if (state.status === 'error')
-    caption = 'Save/open error · changes not acknowledged'
+    caption = 'Save/open error - changes not acknowledged'
   return (
     <>
       <div className="project-controls">

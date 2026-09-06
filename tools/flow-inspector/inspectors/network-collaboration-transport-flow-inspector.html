@@ -105,7 +105,7 @@
         .map((route) => `<article class="inventory-card"><strong>${escapeHtml(route.id)}</strong><p>${escapeHtml(route.from)} → ${escapeHtml(route.to ?? 'terminal')}</p><span>${escapeHtml(route.predicate)}</span></article>`)
         .join('')
       document.querySelector('#artifacts').innerHTML = data.artifacts
-        .map((artifact) => `<article class="inventory-card"><strong>${escapeHtml(artifact.id)}</strong><p>${escapeHtml(artifact.title)}</p><span>Owner: ${escapeHtml(artifact.ownerStepId)} · ${artifact.terminal ? 'terminal' : 'handoff'}</span></article>`)
+        .map((artifact) => `<article class="inventory-card"><strong>${escapeHtml(artifact.id)}</strong><p>${escapeHtml(artifact.title)}</p><span>Owner: ${escapeHtml(artifact.ownerStepId)} - ${artifact.terminal ? 'terminal' : 'handoff'}</span></article>`)
         .join('')
       flow.addEventListener('click', (event) => {
         const button = event.target.closest('[data-step]')

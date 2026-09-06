@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/atlas' },
   description:
     'Operate six real Asyra Framework runtime cases and inspect intent, transactions, canonical owners, projections, rollback, Collaboration, and AI boundaries.',
-  title: 'Runtime Atlas | Asyra Framework'
+  title: 'Runtime Atlas - Asyra Framework'
 }
 
 export default function RuntimeAtlasPage() {
@@ -31,7 +31,7 @@ export default function RuntimeAtlasPage() {
         className="atlas-hero"
         layout="split"
       >
-        <p className="support-label">Runtime Atlas / Executable evidence</p>
+        <p className="support-label">Runtime Atlas - Executable evidence</p>
         <h1>Don’t take the architecture on faith. Run it.</h1>
       </FoundationPageHero>
       <RuntimeAtlas />

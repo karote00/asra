@@ -153,7 +153,7 @@ export function ExperimentPanel({
           if (live.current) setExperimentId(id)
         }
         assertCurrent()
-      }, 'Experiment saved · one Undo action')
+      }, 'Experiment saved - one Undo action')
       if (live.current) setError('')
     } catch (reason) {
       fail(reason)
@@ -213,7 +213,7 @@ export function ExperimentPanel({
           .getCandidates()
           .find((candidate) => candidate.id === candidateId)?.name ??
         candidateId
-      const runName = `${candidateName.slice(0, 60)} / ${canonical.name.slice(0, 90)} · r${canonical.definition.revision}`
+      const runName = `${candidateName.slice(0, 60)} - ${canonical.name.slice(0, 90)} - r${canonical.definition.revision}`
       const controller = new AbortController()
       const environment = {
         appVersion,
@@ -275,7 +275,7 @@ export function ExperimentPanel({
               <option value="">New draft</option>
               {experiments.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.name} · r{item.definition.revision}
+                  {item.name} - r{item.definition.revision}
                 </option>
               ))}
             </select>
@@ -377,14 +377,14 @@ export function ExperimentPanel({
             <div className="section-heading">
               <h3>Preflight</h3>
               <span>
-                {preflight.estimate.pairCount} pairs ·{' '}
+                {preflight.estimate.pairCount} pairs -{' '}
                 {preflight.estimate.workUnits} work units
               </span>
             </div>
             <p className="hint">No reliable time estimate yet.</p>
             {preflight.blockers.map((issue, index) => (
               <p className="issue blocker" key={index}>
-                <strong>Blocked · {issue.code}</strong>
+                <strong>Blocked - {issue.code}</strong>
                 {issue.message}
               </p>
             ))}
@@ -464,7 +464,7 @@ export function ExperimentPanel({
                 onClick={() =>
                   void perform(
                     () => runtime.features.storage.retain(selectedRun),
-                    'Result retained · save the project for durable storage'
+                    'Result retained - save the project for durable storage'
                   )
                 }
               >

@@ -151,7 +151,7 @@ it('tracks geometric input changes while preserving frozen replay and partial lo
     expect(host.textContent).toContain('Retained local validation evidence')
     expect(host.textContent).not.toContain('Changed after the run')
     expect(host.textContent).toContain('User acceptance evaluation')
-    expect(host.textContent).toContain('Condition 1.1 · unknown')
+    expect(host.textContent).toContain('Condition 1.1 - unknown')
     expect(host.textContent).toContain('not a safety approval')
     expect(host.querySelector('[aria-label="User verdict"]')?.textContent).toBe(
       'User: cannot determine'
@@ -165,7 +165,7 @@ it('tracks geometric input changes while preserving frozen replay and partial lo
       )
     expect(
       host.querySelector('.evidence-pair > summary')?.textContent
-    ).toContain(`${a?.name} / ${b?.name}`)
+    ).toContain(`${a?.name} - ${b?.name}`)
     const button = [...host.querySelectorAll('button')].find(
       (item) => item.textContent === 'Replay pair'
     )

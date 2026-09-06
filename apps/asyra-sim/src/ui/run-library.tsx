@@ -111,14 +111,14 @@ export function RunLibrary({
                 >
                   <strong>{run.name}</strong>
                   <span>
-                    {run.result.execution} · {run.result.coverage}
+                    {run.result.execution} - {run.result.coverage}
                   </span>
                   <small>{run.result.runId}</small>
                 </button>
                 <span className="run-retention-label">
                   {retainedIds.has(run.result.runId)
                     ? 'Retained in project'
-                    : 'Temporary · not saved'}
+                    : 'Temporary - not saved'}
                 </span>
                 <label className="checkbox">
                   <input
@@ -238,7 +238,7 @@ export function RunLibrary({
                 </p>
               )}
               <p className="method-line">
-                Asyra Sim {selected.environment.appVersion} ·{' '}
+                Asyra Sim {selected.environment.appVersion} -{' '}
                 {selected.environment.hardwareConcurrency} logical processors
                 reported by browser
                 <br />
@@ -307,14 +307,14 @@ export function RunComparisonView({
         {comparison.runs.map((run, index) => (
           <article key={run.result.runId}>
             <h4>
-              {String.fromCharCode(65 + index)} · {run.name}
+              {String.fromCharCode(65 + index)} - {run.name}
             </h4>
             <p>
-              {run.result.execution} · {run.result.coverage} ·{' '}
+              {run.result.execution} - {run.result.coverage} -{' '}
               {run.result.verdict}
             </p>
             <p>
-              {run.result.findingPairCount} finding pairs ·{' '}
+              {run.result.findingPairCount} finding pairs -{' '}
               {run.result.unresolvedPairCount +
                 run.result.totalPairCount -
                 run.result.coveredPairCount}{' '}
@@ -324,8 +324,8 @@ export function RunComparisonView({
               {run.snapshot.method.id}@{run.snapshot.method.version}
             </p>
             <p>
-              Threshold {run.snapshot.rule.minimumClearance * 1000} mm ·{' '}
-              {run.snapshot.pairs.length} pairs · interval{' '}
+              Threshold {run.snapshot.rule.minimumClearance * 1000} mm -{' '}
+              {run.snapshot.pairs.length} pairs - interval{' '}
               {run.snapshot.interval.join('–')} s
             </p>
           </article>

@@ -32,7 +32,7 @@ function AttachmentDetails({
     <div className="observation-attachment-details">
       <strong>{reference.filename}</strong>
       <span>
-        {reference.byteLength.toLocaleString()} bytes · declared{' '}
+        {reference.byteLength.toLocaleString()} bytes - declared{' '}
         {reference.mediaType}
       </span>
       <code>{reference.sourceId}</code>
@@ -141,7 +141,7 @@ export function FieldObservations({
       if (active()) {
         reset()
         setStatus(
-          'Observation retained · save the project for durable storage. One Undo action for a material change.'
+          'Observation retained - save the project for durable storage. One Undo action for a material change.'
         )
       }
     } catch (reason) {
@@ -168,7 +168,7 @@ export function FieldObservations({
       if (mounted.current && ticket === generation.current && isCurrent()) {
         reset()
         setStatus(
-          'Observation removed · Undo can restore it. Save the project to persist this change.'
+          'Observation removed - Undo can restore it. Save the project to persist this change.'
         )
       }
     } catch (reason) {
@@ -249,7 +249,7 @@ export function FieldObservations({
                   </div>
                   <p className="observation-text">{note.text}</p>
                   <p className="hint">
-                    Created {note.createdAt} · Updated {note.updatedAt}
+                    Created {note.createdAt} - Updated {note.updatedAt}
                   </p>
                   {note.attachments.map((reference) => (
                     <div
@@ -311,7 +311,7 @@ export function FieldObservations({
                   </label>
                   <span className="hint">
                     {text.length.toLocaleString()}/
-                    {OBSERVATION_LIMITS.text.toLocaleString()} characters ·
+                    {OBSERVATION_LIMITS.text.toLocaleString()} characters -
                     Include units and measurement context.
                   </span>
                   {existing.map((reference) => (
@@ -363,7 +363,7 @@ export function FieldObservations({
                   {files.prepared && (
                     <div aria-label="Prepared observation attachments">
                       <p className="hint">
-                        {files.prepared.attachments.length} new files prepared ·
+                        {files.prepared.attachments.length} new files prepared -
                         not yet retained. Review these before saving the
                         observation.
                       </p>

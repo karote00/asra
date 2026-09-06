@@ -164,7 +164,7 @@ test('ordinary field observations preserve immutable evidence, opaque files and 
     .fill('Field validation pilot')
   await page.getByRole('button', { name: 'Save project', exact: true }).click()
   await expect(page.getByTestId('persistence-status')).toHaveText(
-    'Saved locally · Field validation pilot'
+    'Saved locally - Field validation pilot'
   )
   const payload = await download(page, 'Export project'),
     project = JSON.parse(payload.toString('utf8'))

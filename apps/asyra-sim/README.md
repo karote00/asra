@@ -205,12 +205,15 @@ See the [typed acceptance contract](../../docs/ai/apps/asyra-sim/specs/decision-
 
 ## Retained evidence and comparison
 
-Fresh startup includes five experiments: the original base-yaw clearance study,
-shoulder reach, elbow folding, wrist orientation, and a local tool/table sweep.
+Fresh startup includes six experiments: the original base-yaw clearance study,
+shoulder reach, elbow folding, wrist orientation, a local tool/table sweep, and
+a deliberate tool/table collision.
 Choose one from **Experiment** after opening **Experiments**, then use **Play**,
 **Run preflight**, or **Run formal analysis**. Each has an independent eight-second
-trajectory and explicit scope. The local study omits robot links and the post;
-its results cannot establish whole-workcell clearance. Existing saved projects
+trajectory and explicit scope. Both local studies omit robot links and the post;
+their results cannot establish whole-workcell clearance. The collision study
+demonstrates **Issue found** and **does not meet** with a replayable penetration
+witness at 4 s, calculated from unchanged original parts. Existing saved projects
 retain their own experiments unchanged. See the [sample catalog](samples/README.md).
 
 The two top toolbars use icon-only buttons with 24 x 24 px SVGs and 36 x 36 px

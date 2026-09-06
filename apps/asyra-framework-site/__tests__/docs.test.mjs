@@ -37,7 +37,7 @@ test('all accepted pages map to explicit static documentation route entries', as
   assert.match(technicalFlow, /'Render',[\s\S]*'UI'/)
   assert.match(technicalFlow, /'Search',[\s\S]*'AI context'/)
   assert.match(technicalFlow, /'Save',[\s\S]*'Integrations'/)
-  assert.match(technicalFlow, /value: 'Validate \/ Resolve'/)
+  assert.match(technicalFlow, /value: 'Validate - Resolve'/)
   assert.doesNotMatch(technicalFlow, /framework-flow__/)
   assert.doesNotMatch(
     documentationPage,

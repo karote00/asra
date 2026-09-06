@@ -47,7 +47,7 @@ export function RunProgress({
       data-run-id={progress?.runId}
     >
       <div className="section-heading">
-        <h3>Frozen experiment · {progress?.state ?? 'starting'}</h3>
+        <h3>Frozen experiment - {progress?.state ?? 'starting'}</h3>
         <button onClick={onCancel}>Cancel analysis</button>
       </div>
       {error ? (

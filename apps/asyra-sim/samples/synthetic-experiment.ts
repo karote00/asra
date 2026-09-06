@@ -129,6 +129,15 @@ export function createSyntheticExperimentPresets(example: SyntheticExample) {
   table.draft.scope.acknowledgedExcludedVisibleBodyIds = example.workcell.bodies
     .filter((body) => body.visible && !selected.has(body.id))
     .map((body) => body.id)
+  const collision = study(
+    'Tool and table collision',
+    [{}, { 2: -0.3, 3: -2.1, 5: 0 }, {}],
+    'Deliberately lower the gripper and workpiece into the table at 4 s, then return. This local collision demonstration uses original parts; robot links and the fixture post are not checked. Run formal analysis for evidence, not a predefined verdict.'
+  )
+  collision.draft.scope = {
+    ...structuredClone(table.draft.scope),
+    backgroundNote: collision.draft.scope.backgroundNote
+  }
   return [
     {
       name: 'Synthetic clearance study',
@@ -137,6 +146,7 @@ export function createSyntheticExperimentPresets(example: SyntheticExample) {
     shoulder,
     elbow,
     wrist,
-    table
+    table,
+    collision
   ]
 }

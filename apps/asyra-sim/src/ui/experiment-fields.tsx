@@ -193,7 +193,7 @@ export function ExperimentFields({
         <summary>
           Analysis scope{' '}
           <span>
-            {draft.scope.primaryBodyIds.length} primary ·{' '}
+            {draft.scope.primaryBodyIds.length} primary -{' '}
             {draft.scope.influencingBodyIds.length} influencing
           </span>
         </summary>

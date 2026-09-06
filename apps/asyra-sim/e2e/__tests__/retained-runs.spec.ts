@@ -82,7 +82,7 @@ test('retains runs with Undo, compares evidence, exports reports, and reopens po
     .fill('Traceable experiment')
   await page.getByRole('button', { name: 'Save project', exact: true }).click()
   await expect(page.getByTestId('persistence-status')).toHaveText(
-    'Saved locally · Traceable experiment'
+    'Saved locally - Traceable experiment'
   )
   const payload = await download(page, 'Export project')
   expect(JSON.parse(payload).runs).toHaveLength(2)
@@ -117,7 +117,7 @@ test('retains runs with Undo, compares evidence, exports reports, and reopens po
     .getByRole('button', { name: 'Import and replace current project' })
     .click()
   await expect(page.getByTestId('persistence-status')).toHaveText(
-    'Saved locally · Traceable experiment'
+    'Saved locally - Traceable experiment'
   )
   page.once('dialog', (dialog) => dialog.accept())
   await page

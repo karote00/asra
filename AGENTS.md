@@ -28,6 +28,10 @@ These rules apply to every task without requiring additional document reads:
   before implementation and after the first identifier-bearing slice, before
   names spread to other owners. Never defer this to PR creation or CI. Follow
   `docs/ai/framework/rules/naming-and-persisted-identities.md`.
+- Join project-authored display names and appended metadata only with ` - `
+  (ASCII hyphen), never a middle dot or a slash. This includes objects,
+  experiments, methods/versions, runs, reports, and Inspector labels. Preserve
+  user-authored names and immutable saved evidence; do not normalize them on load.
 - Follow main branch protection before making code or documentation changes.
 - Obtain explicit user approval before adding any third-party package,
   dependency, binary, or development tool. Installing dependencies already

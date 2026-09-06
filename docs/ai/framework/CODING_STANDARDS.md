@@ -49,6 +49,10 @@
 
 ## Schema and Naming Standards
 
+- Join authored display-name parts and appended metadata with ` - ` only.
+  Apply this to every app, tool, report and generated surface, not just element
+  names. Preserve user text and saved evidence without character normalization;
+  `rules/naming-and-persisted-identities.md` defines scope and exceptions.
 - Resolve naming before implementation, including the semantic owner, public
   identity distinction, and persisted/wire compatibility. Run `yarn lint:naming`
   before identifiers spread to downstream consumers, not only at PR time.

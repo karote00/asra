@@ -314,7 +314,7 @@ export function ViewportControls({
         Reset view
       </button>
       <span title="Orbit: left or middle drag. Pan: Shift + middle or left drag. Zoom: two-finger scroll, mouse wheel or pinch. Select: left click. Fit all: ⌘1 / Ctrl+1.">
-        Shift + drag to pan · Scroll to zoom
+        Shift + drag to pan - Scroll to zoom
       </span>
     </div>
   )

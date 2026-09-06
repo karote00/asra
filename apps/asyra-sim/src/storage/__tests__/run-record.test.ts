@@ -43,6 +43,18 @@ function record(id = 'run-a') {
 }
 
 describe('retained runs and portable reporting', () => {
+  it('uses a hyphen for the report title suffix without normalizing retained user names', () => {
+    const run = record()
+    run.name = 'User · study / original'
+    const original = structuredClone(run)
+    expect(exportRunHtml(run)).toContain(
+      '<title>User · study / original - Asyra Sim</title>'
+    )
+    expect(JSON.parse(exportRunJson(run)).run.name).toBe(run.name)
+    expect(validateRunRecord(run).name).toBe(run.name)
+    expect(run).toEqual(original)
+  })
+
   it('preserves immutable evidence and refuses identity reuse with different content', () => {
     const archive = new RunArchive(),
       input = record()

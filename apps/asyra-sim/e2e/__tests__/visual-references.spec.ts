@@ -82,7 +82,7 @@ async function chooseVisual(page: Page) {
     .getByRole('button', { name: 'Preview placement in 3D', exact: true })
     .click()
   await expect(page.locator('.viewport-summary')).toContainText(
-    'Visual preview · not accepted'
+    'Visual preview - not accepted'
   )
 }
 

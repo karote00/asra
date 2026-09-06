@@ -302,7 +302,7 @@
     viewport.parentElement.appendChild(controls)
 
     const updateResetLabel = () => {
-      reset.textContent = `Reset zoom · ${Math.round(scale * 100)}%`
+      reset.textContent = `Reset zoom - ${Math.round(scale * 100)}%`
     }
 
     const syncSurfaceSize = () => {

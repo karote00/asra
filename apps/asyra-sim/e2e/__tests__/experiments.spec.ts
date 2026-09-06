@@ -18,7 +18,7 @@ test('ordinary experiment controls run, replay frozen evidence, preserve edits, 
   const depth = await page.getByTestId('history-depth').textContent()
   await page.getByLabel('Sampled trajectory preview time').press('End')
   await expect(page.locator('.viewport-summary')).toContainText(
-    'Sampled preview · 8.0000 s'
+    'Sampled preview - 8.0000 s'
   )
   await expect(page.getByTestId('history-depth')).toHaveText(depth ?? '')
   await page.getByRole('button', { name: 'Run preflight', exact: true }).click()

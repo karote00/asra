@@ -34,7 +34,7 @@
   root.insertAdjacentHTML(
     'beforeend',
     `<main class="compatibility-view" data-compatibility-view>
-      <p class="compatibility-label">Read-only compatibility · ${escapeHtml(entry.kind)}</p>
+      <p class="compatibility-label">Read-only compatibility - ${escapeHtml(entry.kind)}</p>
       <h1>${escapeHtml(entry.title)}</h1>
       <p>This source predates or differs from the Flow Inspector v2 contract. Its original fields are shown without schema conversion or execution-state claims.</p>
       <section class="compatibility-grid">${sections}</section>

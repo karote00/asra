@@ -20,7 +20,7 @@ async function duplicate(page: Page, name: string) {
     .getByRole('button', { name: 'Duplicate candidate', exact: true })
     .click()
   await expect(page.getByRole('status')).toHaveText(
-    'Candidate duplicated · one Undo action'
+    'Candidate duplicated - one Undo action'
   )
   await expect(
     page.getByLabel('Candidate', { exact: true }).locator('option:checked')
@@ -67,12 +67,12 @@ test('independent A/B/C candidates retain and compare real runs with traceable b
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
   await solveAndRetain(page)
   const a = await page.getByLabel('Candidate', { exact: true }).inputValue()
-  await duplicate(page, 'B · fixture revision')
+  await duplicate(page, 'B - fixture revision')
   await expect(page.getByTestId('analysis-result')).toHaveCount(0)
   await movePost(page, '-0.6')
   await solveAndRetain(page)
   const b = await page.getByLabel('Candidate', { exact: true }).inputValue()
-  await duplicate(page, 'C · further revision')
+  await duplicate(page, 'C - further revision')
   await expect(page.getByTestId('analysis-result')).toHaveCount(0)
   await movePost(page, '-0.45')
   await solveAndRetain(page)
@@ -98,8 +98,8 @@ test('independent A/B/C candidates retain and compare real runs with traceable b
     'Matching method, scope, rule and interval'
   )
   await expect(comparison).toContainText('workcell.bodies')
-  await expect(comparison).toContainText('B · fixture revision')
-  await expect(comparison).toContainText('C · further revision')
+  await expect(comparison).toContainText('B - fixture revision')
+  await expect(comparison).toContainText('C - further revision')
   await comparison.scrollIntoViewIfNeeded()
   await page.screenshot({
     path: info.outputPath('three-candidate-comparison.png')

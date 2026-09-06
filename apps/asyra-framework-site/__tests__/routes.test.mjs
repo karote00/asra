@@ -80,7 +80,7 @@ test('release inventory is generated from package facts without duplicated versi
   assert.match(page, /frameworkReleaseHistory/)
   assert.match(page, /currentFrameworkRelease/)
   assert.match(page, /19 public packages/)
-  assert.match(page, /Releases \/ Framework milestones/)
+  assert.match(page, /Releases - Framework milestones/)
   assert.match(page, /Release history/)
   assert.match(page, /Important Framework milestones/)
   assert.match(page, /Supported composition/)

@@ -23,11 +23,11 @@ export async function getDocumentationMetadata(
 ): Promise<Metadata> {
   const { pages } = await loadContent()
   const page = pages.find(({ id }) => id === pageId)
-  if (!page) return { title: 'Documentation not found | Asyra' }
+  if (!page) return { title: 'Documentation not found - Asyra' }
   return {
     alternates: { canonical: page.href },
     description: page.description,
-    title: `${page.title} | Asyra Docs`
+    title: `${page.title} - Asyra Docs`
   }
 }
 
@@ -77,7 +77,7 @@ export async function DocumentationPage({ pageId }: { pageId: string }) {
         aside={<SearchDialog records={searchRecords} />}
         className="docs-hero"
       >
-        <p className="support-label">Documentation / {page.section}</p>
+        <p className="support-label">Documentation - {page.section}</p>
         <h1>{page.title}</h1>
         <p>{page.description}</p>
       </FoundationPageHero>

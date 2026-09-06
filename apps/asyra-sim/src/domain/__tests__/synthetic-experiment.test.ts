@@ -4,7 +4,7 @@ import { createSyntheticExperimentPresets } from '../../../samples/synthetic-exp
 import { inspectHistoricalExperiment } from '../../analysis/preflight'
 import { validateTrajectory } from '../workcell'
 
-it('provides five distinct, valid studies with complete joint values and explicit local-scope omissions', () => {
+it('provides six distinct, valid studies with complete joint values and explicit local-scope omissions', () => {
   const example = createSyntheticExample('sample-test')
   const presets = createSyntheticExperimentPresets(example)
   expect(presets.map((preset) => preset.name)).toEqual([
@@ -12,11 +12,12 @@ it('provides five distinct, valid studies with complete joint values and explici
     'Shoulder reach study',
     'Elbow folding study',
     'Wrist orientation study',
-    'Tool and table sweep'
+    'Tool and table sweep',
+    'Tool and table collision'
   ])
   expect(
     new Set(presets.map(({ draft }) => JSON.stringify(draft.trajectory))).size
-  ).toBe(5)
+  ).toBe(6)
   for (const { draft } of presets) {
     expect(() =>
       validateTrajectory(example.workcell, draft.trajectory)
@@ -52,6 +53,10 @@ it('provides five distinct, valid studies with complete joint values and explici
     ])
   ).toEqual(new Set(example.workcell.bodies.map((body) => body.id)))
   expect(local.backgroundNote).toContain('not checked')
+  expect(presets[5].draft.scope).toEqual({
+    ...local,
+    backgroundNote: expect.stringContaining('not checked')
+  })
 })
 
 it('keeps all preset drafts independent without mutating the source example', () => {
