@@ -221,6 +221,15 @@ results.
 
 ## 9. Comparable and Traceable Experiments
 
+A newly initialized example provides five independent starter experiments:
+base-yaw clearance, shoulder reach, elbow folding, wrist orientation, and a
+local tool/table sweep. They use complete original parts and the ordinary
+preflight, playback and analysis paths. Their names describe intent, not an
+expected verdict. The local study explicitly acknowledges omitted visible
+bodies. Loading a saved project preserves its own experiments without adding
+or replacing starter data. See the
+[sample catalog](../../../../../apps/asyra-sim/samples/README.md).
+
 Experiment definitions are separate from individual run results. Each run
 freezes:
 
@@ -317,8 +326,10 @@ Replacement defaults must not masquerade as original experiment inputs.
 
 ## 12. Representative Product Cases and Definition of Done
 
-Workbench controls use concise text actions, grouped by editing, experiments
-and results. Trajectory import is collapsed until requested. At desktop and
+The two top toolbars use icon-only actions with 24 x 24 px graphics, hover
+titles and accessible names, grouped by editing, experiments and results.
+Dialog and side-panel actions retain text labels. Trajectory import is
+collapsed until requested. At desktop and
 narrow review widths, controls remain reachable without horizontally clipped
 panels or labels; the model tree is a toggleable drawer on narrower screens,
 and the viewport and inspector stack below 700 CSS pixels. These presentation

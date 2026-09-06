@@ -473,6 +473,7 @@ describe('App composition lifetime', () => {
     const first = await start(),
       candidate = first.getCandidates()[0]
     const original = first.getWorkcell(candidate.id).bodies[0]
+    const experiments = first.getExperiments(candidate.id)
     const a = await first.captureSnapshot()
     await first.features.edit.upsert(candidate.id, {
       ...original,
@@ -490,6 +491,7 @@ describe('App composition lifetime', () => {
     expect(second.getCandidates()).toHaveLength(1)
     expect(second.getWorkcell(candidate.id).bodies[0].name).toBe('Saved B')
     expect(second.getHistoryDepth()).toBe(0)
+    expect(second.getExperiments(candidate.id)).toEqual(experiments)
     expect(second.getLoadIssues()).toEqual([
       { path: 'source', message: 'Retained review requirement' }
     ])
@@ -503,6 +505,7 @@ describe('App composition lifetime', () => {
     const third = await start(a)
     expect(third.getWorkcell(candidate.id).bodies[0]).toEqual(original)
     expect(third.getHistoryDepth()).toBe(0)
+    expect(third.getExperiments(candidate.id)).toEqual(experiments)
     expect(host.querySelectorAll('canvas')).toHaveLength(1)
     await third.dispose()
     expect(host.childElementCount).toBe(0)
@@ -510,6 +513,21 @@ describe('App composition lifetime', () => {
     disconnects.forEach((disconnect) =>
       expect(disconnect).toHaveBeenCalledOnce()
     )
+  })
+
+  it('reopens a saved single-study project without injecting new starter experiments', async () => {
+    const { start } = environment()
+    const first = await start()
+    const candidate = first.getCandidates()[0]
+    for (const experiment of first.getExperiments(candidate.id).slice(1))
+      await first.features.edit.removeExperiment(experiment.id)
+    const experiments = first.getExperiments(candidate.id)
+    expect(experiments).toHaveLength(1)
+    const saved = await first.captureSnapshot()
+    await first.dispose()
+    const second = await start(saved)
+    expect(second.getExperiments(candidate.id)).toEqual(experiments)
+    expect(second.getHistoryDepth()).toBe(0)
   })
 
   it('pauses new editing commands but permits a queued recovery capture', async () => {

@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test'
 import * as THREE from 'three'
+import { readHistoryDepth } from '../history-depth'
 
 test('starting a left-button view gesture preserves normal Object field completion', async ({
   page
 }) => {
   await page.goto('/')
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
+  const initialDepth = await readHistoryDepth(page)
   await page
     .getByRole('treeitem', { name: '◇ fixture post', exact: true })
     .click()
@@ -16,7 +18,7 @@ test('starting a left-button view gesture preserves normal Object field completi
   await page.mouse.down()
   await page.mouse.move(box.x + 90, box.y + 100, { steps: 4 })
   await page.mouse.up()
-  await expect(page.getByTestId('history-depth')).toHaveText('Undo steps: 3')
+  await expect.poll(() => readHistoryDepth(page)).toBe(initialDepth + 1)
   await expect(
     page.getByLabel('Mount position (m) X', { exact: true })
   ).not.toBeFocused()

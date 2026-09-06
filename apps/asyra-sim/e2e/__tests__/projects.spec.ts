@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { readHistoryDepth } from '../history-depth'
 
 async function ready(page: Page) {
   await page.goto('/')
@@ -363,8 +364,12 @@ test('a blank workcell survives an App reload and explicit reopen without an ext
   page
 }) => {
   await ready(page)
-  await page.getByRole('button', { name: 'Undo', exact: true }).click()
-  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  const initialDepth = await readHistoryDepth(page)
+  for (let remaining = initialDepth - 1; remaining >= 0; remaining--) {
+    await page.getByRole('button', { name: 'Undo', exact: true }).click()
+    await expect.poll(() => readHistoryDepth(page)).toBe(remaining)
+  }
+  await expect(page.getByRole('treeitem')).toHaveCount(0)
   await page.getByRole('button', { name: 'New workcell', exact: true }).click()
   await page.getByRole('button', { name: 'Add fixture', exact: true }).click()
   await page.getByRole('button', { name: 'Add fixture', exact: true }).click()

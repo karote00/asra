@@ -1,10 +1,12 @@
 import { expect, test } from '@playwright/test'
+import { readHistoryDepth } from '../history-depth'
 
 test('two-finger scrolling matches pinch zoom without panning or changing page scale', async ({
   page
 }, info) => {
   await page.goto('/')
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
+  const initialDepth = await readHistoryDepth(page)
   await expect(
     page.getByRole('button', { name: /Switch to (mouse|trackpad) controls/ })
   ).toHaveCount(0)
@@ -73,7 +75,7 @@ test('two-finger scrolling matches pinch zoom without panning or changing page s
       width: innerWidth
     }))
   ).toEqual(pageScale)
-  await expect(page.getByTestId('history-depth')).toHaveText('Undo steps: 2')
+  await expect.poll(() => readHistoryDepth(page)).toBe(initialDepth)
   await expect(page.getByLabel('Object name')).toHaveValue('fixture post')
   await expect(
     page.getByLabel('Mount position (m) X', { exact: true })
@@ -127,6 +129,7 @@ test('a previous trackpad preference cannot restore scroll pan after reload', as
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
   await page.reload()
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
+  const initialDepth = await readHistoryDepth(page)
   await expect(
     page.getByRole('button', { name: /Switch to (mouse|trackpad) controls/ })
   ).toHaveCount(0)
@@ -156,7 +159,7 @@ test('a previous trackpad preference cannot restore scroll pan after reload', as
   await expect
     .poll(async () => (await canvas.screenshot()).equals(mouseZoom))
     .toBe(true)
-  await expect(page.getByTestId('history-depth')).toHaveText('Undo steps: 2')
+  await expect.poll(() => readHistoryDepth(page)).toBe(initialDepth)
 })
 
 test('navigation controls fit narrow widths without changing panel dimensions', async ({

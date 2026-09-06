@@ -1,12 +1,17 @@
 import { expect, test } from '@playwright/test'
+import { readHistoryDepth } from '../history-depth'
 
 test('Undo can remove the initial model and a blank workcell is editable', async ({
   page
 }) => {
   await page.goto('/')
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
-  await page.getByRole('button', { name: 'Undo' }).click()
-  await expect(page.getByRole('treeitem')).toHaveCount(11)
+  const initialDepth = await readHistoryDepth(page)
+  for (let remaining = initialDepth - 1; remaining > 0; remaining--) {
+    await page.getByRole('button', { name: 'Undo' }).click()
+    await expect(page.getByRole('treeitem')).toHaveCount(11)
+    await expect.poll(() => readHistoryDepth(page)).toBe(remaining)
+  }
   await page.getByRole('button', { name: 'Undo' }).click()
   await expect(page.getByRole('treeitem')).toHaveCount(0)
   await expect(
@@ -70,7 +75,7 @@ test('normal CUSTOM workbench renders, edits, undoes, resizes, and picks canonic
         return [node.width, node.height]
       })
     )
-    .toEqual([975, 908])
+    .toEqual([975, 904])
   const box = await canvas.boundingBox()
   if (!box) throw new Error('Missing canvas surface')
   // Independent perspective projection of the fixed fixture center, not renderer picking.

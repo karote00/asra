@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { expect, test, type Page } from '@playwright/test'
+import { readHistoryDepth } from '../history-depth'
 import { MechanicalMesh } from '../../samples/mechanical-mesh'
 import {
   encodeGlb,
@@ -164,6 +165,7 @@ test('previews, accepts, edits, undoes and reopens complete original part geomet
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
   const depth = await page.getByTestId('history-depth').textContent()
   await chooseVisual(page)
+  const initialDepth = await readHistoryDepth(page)
   await expect(page.getByTestId('history-depth')).toHaveText(depth ?? '')
   await page.locator('.glb-preview').scrollIntoViewIfNeeded()
   await page.screenshot({ path: info.outputPath('visual-preview.png') })
@@ -171,7 +173,7 @@ test('previews, accepts, edits, undoes and reopens complete original part geomet
     .getByRole('button', { name: 'Accept original part', exact: true })
     .click()
   await expect(page.locator('.glb-preview')).toContainText('one Undo action')
-  await expect(page.getByTestId('history-depth')).toHaveText('Undo steps: 3')
+  await expect.poll(() => readHistoryDepth(page)).toBe(initialDepth + 1)
   await expect(page.locator('.viewport-summary')).toContainText(
     '12 analysis parts'
   )
@@ -191,7 +193,7 @@ test('previews, accepts, edits, undoes and reopens complete original part geomet
   await page.getByLabel('Wireframe', { exact: true }).check()
   expect((await canvas.screenshot()).equals(accepted)).toBe(false)
   await page.getByLabel('Wireframe', { exact: true }).uncheck()
-  await expect(page.getByTestId('history-depth')).toHaveText('Undo steps: 3')
+  await expect.poll(() => readHistoryDepth(page)).toBe(initialDepth + 1)
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await expect(page.getByTestId('history-depth')).toHaveText(depth ?? '')
   await expect(page.locator('.viewport-summary')).toContainText(
@@ -243,7 +245,7 @@ test('previews, accepts, edits, undoes and reopens complete original part geomet
   await expect(
     page.getByRole('dialog', { name: 'Local projects' })
   ).toBeVisible()
-  await expect(page.getByTestId('history-depth')).toHaveText('Undo steps: 4')
+  await expect.poll(() => readHistoryDepth(page)).toBe(initialDepth + 2)
   await expect(page.getByRole('treeitem')).toHaveCount(11)
   await importProject(page, payload)
   await expect(

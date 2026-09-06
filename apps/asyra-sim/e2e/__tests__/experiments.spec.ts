@@ -8,6 +8,10 @@ test('ordinary experiment controls run, replay frozen evidence, preserve edits, 
   await page.goto('/')
   await expect(page.getByRole('status')).toHaveText('Local runtime ready')
   await page.getByRole('button', { name: 'Experiments', exact: true }).click()
+  const originalOptionCount = await page
+    .getByLabel('Experiment', { exact: true })
+    .locator('option')
+    .count()
   await expect(
     page.getByRole('button', { name: 'Save experiment', exact: true })
   ).toBeDisabled()
@@ -65,7 +69,7 @@ test('ordinary experiment controls run, replay frozen evidence, preserve edits, 
     .click()
   await expect(
     page.getByLabel('Experiment', { exact: true }).locator('option')
-  ).toHaveCount(3)
+  ).toHaveCount(originalOptionCount + 1)
   await info.attach('review-state.json', {
     contentType: 'application/json',
     body: JSON.stringify({

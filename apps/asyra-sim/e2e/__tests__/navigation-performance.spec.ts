@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { readHistoryDepth } from '../history-depth'
 
 for (const route of ['navigation', 'playback'] as const)
   test(`profiles sustained ${route} through the ordinary workbench without model or history changes`, async ({
@@ -6,6 +7,7 @@ for (const route of ['navigation', 'playback'] as const)
   }, info) => {
     await page.goto('/')
     await expect(page.getByRole('status')).toHaveText('Local runtime ready')
+    const initialDepth = await readHistoryDepth(page)
     const canvas = page.getByTestId('workcell-canvas').locator('canvas')
     const box = await canvas.boundingBox()
     if (!box) throw new Error('Missing viewport')
@@ -30,9 +32,7 @@ for (const route of ['navigation', 'playback'] as const)
           .toBeGreaterThan(1.5)
         await page.getByRole('button', { name: 'Pause trajectory' }).click()
       }
-      await expect(page.getByTestId('history-depth')).toHaveText(
-        'Undo steps: 2'
-      )
+      await expect.poll(() => readHistoryDepth(page)).toBe(initialDepth)
       await expect(page.getByRole('treeitem')).toHaveCount(11)
       const { profile } = await session.send('Profiler.stop')
       const nodes = new Map(
@@ -58,7 +58,7 @@ for (const route of ['navigation', 'playback'] as const)
             route,
             wheelSamples: route === 'navigation' ? 60 : 0,
             elapsedMs: Date.now() - start,
-            history: 2,
+            history: initialDepth,
             renderer:
               'project Chrome/SwiftShader profile; not a reference-hardware FPS guarantee',
             hotFunctions: [...times].sort((a, b) => b[1] - a[1]).slice(0, 15)

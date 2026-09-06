@@ -205,6 +205,14 @@ See the [typed acceptance contract](../../docs/ai/apps/asyra-sim/specs/decision-
 
 ## Retained evidence and comparison
 
+Fresh startup includes five experiments: the original base-yaw clearance study,
+shoulder reach, elbow folding, wrist orientation, and a local tool/table sweep.
+Choose one from **Experiment** after opening **Experiments**, then use **Play**,
+**Run preflight**, or **Run formal analysis**. Each has an independent eight-second
+trajectory and explicit scope. The local study omits robot links and the post;
+its results cannot establish whole-workcell clearance. Existing saved projects
+retain their own experiments unchanged. See the [sample catalog](samples/README.md).
+
 The two top toolbars use icon-only buttons with 24 x 24 px SVGs and 36 x 36 px
 click targets. Hover titles and accessible names identify each action, including
 Undo/Redo shortcuts. There is no development badge beside the logo. The folder

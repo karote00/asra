@@ -75,7 +75,23 @@ it('composes the normal workcell runtime and cleans up surface subscriptions and
     model.bodies.filter((body) => body.joint.kind === 'revolute')
   ).toHaveLength(6)
   const experiments = runtime.getExperiments(candidate.id)
-  expect(experiments).toHaveLength(1)
+  expect(experiments).toHaveLength(5)
+  expect(new Set(experiments.map((item) => item.id)).size).toBe(5)
+  for (const item of experiments) {
+    expect(runtime.preflightExperiment(item.id).blockers).toEqual([])
+    const snapshot = runtime.createExperimentSnapshot(item.id, [])
+    expect(snapshot.version).toBe(2)
+    expect(snapshot.methodDescriptor?.manifest.name).toBe(
+      'Original-part continuous clearance'
+    )
+    expect(
+      snapshot.workcell.bodies.every(
+        (body) =>
+          body.colliders.length > 0 &&
+          body.colliders.every((part) => part.geometry.kind === 'mesh')
+      )
+    ).toBe(true)
+  }
   const experiment = experiments[0]
   if (!experiment) throw new Error('Expected synthetic experiment')
   expect(experiment.definition.trajectory.keyframes).toHaveLength(3)

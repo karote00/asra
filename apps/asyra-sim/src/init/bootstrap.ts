@@ -14,7 +14,7 @@ import { installCustomRenderer } from './custom-renderer'
 import type { SpatialFrame, SpatialCamera } from '../render-app/spatial-layer'
 import { createSyntheticExample } from '../../samples/synthetic-workcell'
 import { createMechanicalVisuals } from '../../samples/mechanical-visuals'
-import { createSyntheticExperimentDraft } from '../../samples/synthetic-experiment'
+import { createSyntheticExperimentPresets } from '../../samples/synthetic-experiment'
 import {
   projectVisualAssetIds,
   type ProjectSnapshot
@@ -314,14 +314,11 @@ export async function bootstrap(
         'A - Baseline workcell',
         example.workcell
       )
-      const draft = createSyntheticExperimentDraft(example)
-      draft.method.id = MethodIds.ORIGINAL_PART_CLEARANCE
-      draft.method.version = MethodVersions.ORIGINAL_PART_CLEARANCE
-      await features.edit.createExperiment(
-        candidateId,
-        'Synthetic clearance study',
-        draft
-      )
+      for (const { name, draft } of createSyntheticExperimentPresets(example)) {
+        draft.method.id = MethodIds.ORIGINAL_PART_CLEARANCE
+        draft.method.version = MethodVersions.ORIGINAL_PART_CLEARANCE
+        await features.edit.createExperiment(candidateId, name, draft)
+      }
     }
     observer = new ResizeObserver((entries) => {
       if (disposed) return
